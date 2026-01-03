@@ -280,12 +280,8 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
     scheduledClipsRef.current.clear();
   }, []);
 
-  // Ref to track if next loop iteration has been pre-scheduled
-  const loopPreScheduledRef = useRef<number | null>(null);
-
   // Update playback - schedule clips, update time
-  // Uses Cubase-style PRE-SCHEDULING: schedules next loop iteration BEFORE current one ends
-  // This eliminates gaps by having audio already queued in the Web Audio scheduler
+  // Simple approach: when we hit loop end, STOP everything and restart immediately
   const updatePlayback = useCallback(() => {
     if (!ctxRef.current || !masterGainRef.current) return;
 
@@ -296,57 +292,22 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
     const elapsed = ctx.currentTime - playbackStartTimeRef.current;
     let currentTime = playbackOffsetRef.current + elapsed;
 
-    // Cubase-style seamless loop: PRE-SCHEDULE next iteration while current plays
-    // Look-ahead window should be large enough to schedule before we reach loop end
-    const LOOP_LOOKAHEAD = 0.1; // 100ms look-ahead for pre-scheduling
-
-    if (state.loopEnabled) {
+    // Loop handling: when we reach loop end, hard stop and restart from loop start
+    if (state.loopEnabled && currentTime >= state.loopEnd) {
       const loopDuration = state.loopEnd - state.loopStart;
-      const timeToLoopEnd = state.loopEnd - currentTime;
+      const overshoot = currentTime - state.loopEnd;
 
-      // PRE-SCHEDULE: When approaching loop end, schedule next iteration at precise future time
-      // This happens WHILE current clips are still playing - no stop required
-      if (timeToLoopEnd > 0 && timeToLoopEnd <= LOOP_LOOKAHEAD && loopPreScheduledRef.current !== state.loopEnd) {
-        // Calculate exact AudioContext time when loop should restart
-        const loopRestartCtxTime = ctx.currentTime + timeToLoopEnd;
+      // Wrap time to loop start
+      currentTime = state.loopStart + (overshoot % loopDuration);
 
-        console.log('[TimelinePlayback] Pre-scheduling loop restart', {
-          timeToLoopEnd: timeToLoopEnd.toFixed(4),
-          loopRestartCtxTime: loopRestartCtxTime.toFixed(4),
-          loopStart: state.loopStart.toFixed(4),
-        });
+      // HARD STOP all current clips immediately (no overlap)
+      stopAllClips();
 
-        // Pre-schedule clips to start at exact loop boundary
-        for (const clip of clips) {
-          const clipStart = clip.startTime;
-          const clipEnd = clip.startTime + clip.duration;
+      // Reset timing references
+      playbackStartTimeRef.current = ctx.currentTime;
+      playbackOffsetRef.current = currentTime;
 
-          // Check if clip should play at loop start position
-          if (state.loopStart >= clipStart && state.loopStart < clipEnd) {
-            scheduleClip(clip, state.loopStart, ctx, masterGain, loopRestartCtxTime);
-          }
-        }
-
-        // Mark as pre-scheduled to avoid duplicate scheduling
-        loopPreScheduledRef.current = state.loopEnd;
-      }
-
-      // When we've passed loop end, update timing references
-      // The audio is already playing from pre-scheduling - just sync the UI
-      if (currentTime >= state.loopEnd) {
-        const overshoot = currentTime - state.loopEnd;
-        currentTime = state.loopStart + (overshoot % loopDuration);
-
-        // Reset timing references for the new loop iteration
-        playbackStartTimeRef.current = ctx.currentTime - overshoot;
-        playbackOffsetRef.current = state.loopStart;
-
-        // Clear pre-schedule flag for next iteration
-        loopPreScheduledRef.current = null;
-
-        // Clean up old clips that have finished
-        // Don't stop them - they'll end naturally via onended callback
-      }
+      // Schedule clips for the new loop iteration (they'll be scheduled below)
     }
 
     // Calculate actual end time based on clips (not arbitrary duration)
@@ -457,9 +418,6 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
       playbackStartTimeRef.current = ctx.currentTime;
       playbackOffsetRef.current = state.currentTime;
 
-      // Reset loop pre-schedule flag
-      loopPreScheduledRef.current = null;
-
       // Start update interval
       if (updateIntervalRef.current) {
         clearInterval(updateIntervalRef.current);
@@ -527,17 +485,45 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
     console.log('[TimelinePlayback] Stopped');
   }, [stopAllClips]);
 
-  // Seek
-  const seek = useCallback((time: number) => {
-    const clampedTime = Math.max(0, Math.min(time, state.duration));
+  // Scrub state for smooth seeking
+  const lastSeekTimeRef = useRef<number>(0);
+  const seekThrottleRef = useRef<number | null>(null);
 
-    // If playing, restart from new position
-    if (state.isPlaying) {
+  // Seek - with Cubase-style smooth scrubbing
+  // When seeking while playing, we throttle restarts to avoid choppy audio
+  const seek = useCallback((time: number, isScrubbing = false) => {
+    const clampedTime = Math.max(0, Math.min(time, state.duration));
+    const now = performance.now();
+
+    // If playing and scrubbing (dragging playhead), use throttled approach
+    if (state.isPlaying && isScrubbing) {
+      // Only restart audio every 100ms during scrub to reduce choppiness
+      const timeSinceLastSeek = now - lastSeekTimeRef.current;
+
+      if (timeSinceLastSeek > 100) {
+        // Enough time passed - do the seek
+        stopAllClips();
+        playbackStartTimeRef.current = ctxRef.current?.currentTime ?? 0;
+        playbackOffsetRef.current = clampedTime;
+        lastSeekTimeRef.current = now;
+      } else {
+        // Throttle: just update the visual position, defer audio restart
+        if (seekThrottleRef.current) {
+          clearTimeout(seekThrottleRef.current);
+        }
+        seekThrottleRef.current = window.setTimeout(() => {
+          stopAllClips();
+          playbackStartTimeRef.current = ctxRef.current?.currentTime ?? 0;
+          playbackOffsetRef.current = clampedTime;
+          lastSeekTimeRef.current = performance.now();
+          seekThrottleRef.current = null;
+        }, 100 - timeSinceLastSeek);
+      }
+    } else if (state.isPlaying) {
+      // Normal seek (not scrubbing) - immediate restart
       stopAllClips();
       playbackStartTimeRef.current = ctxRef.current?.currentTime ?? 0;
       playbackOffsetRef.current = clampedTime;
-      // Reset loop pre-schedule flag on seek
-      loopPreScheduledRef.current = null;
     }
 
     setState((prev) => ({
@@ -548,15 +534,11 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
 
   // Toggle loop
   const toggleLoop = useCallback(() => {
-    // Reset pre-schedule flag when toggling loop
-    loopPreScheduledRef.current = null;
     setState((prev) => ({ ...prev, loopEnabled: !prev.loopEnabled }));
   }, []);
 
   // Set loop region
   const setLoopRegion = useCallback((start: number, end: number) => {
-    // Reset pre-schedule flag when loop region changes
-    loopPreScheduledRef.current = null;
     setState((prev) => ({
       ...prev,
       loopStart: Math.max(0, start),

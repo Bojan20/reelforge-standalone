@@ -89,11 +89,12 @@ class AudioContextManagerClass {
 
   /**
    * Resume context if suspended (requires user gesture).
+   * Creates context if it doesn't exist yet.
    * Returns immediately if already running.
    */
   async resume(): Promise<void> {
-    const ctx = this.state.context;
-    if (!ctx) return;
+    // Ensure context exists before trying to resume
+    const ctx = this.getContext();
 
     if (ctx.state === 'running') return;
     if (ctx.state === 'closed') {

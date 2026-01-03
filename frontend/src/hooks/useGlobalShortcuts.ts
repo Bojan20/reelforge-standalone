@@ -69,8 +69,8 @@ export interface ShortcutAction {
   onZoomToFit?: () => void;
   /** Zoom to selection */
   onZoomToSelection?: () => void;
-  /** Toggle loop */
-  onToggleLoop?: () => void;
+  /** Expand loop to full audio content (L) */
+  onExpandLoopToContent?: () => void;
   /** Set loop region from selection (Shift+L) */
   onSetLoopFromSelection?: () => void;
   /** Go to start */
@@ -298,9 +298,9 @@ export function useGlobalShortcuts(
       actionsRef.current.onZoomToFit?.();
       handled = true;
     }
-    // L - Toggle loop
+    // L - Expand loop to full audio content
     else if (key === 'l' && !mod.cmd && !mod.ctrl && !mod.alt && !mod.shift) {
-      actionsRef.current.onToggleLoop?.();
+      actionsRef.current.onExpandLoopToContent?.();
       handled = true;
     }
     // Shift+L - Set loop from selection

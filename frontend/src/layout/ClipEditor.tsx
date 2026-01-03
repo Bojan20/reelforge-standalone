@@ -22,7 +22,10 @@ export interface ClipEditorClip {
   sampleRate: number;
   channels: number;
   bitDepth: number;
+  /** Pre-computed waveform peaks (fallback) */
   waveform?: number[] | Float32Array;
+  /** AudioBuffer for high-resolution LOD rendering (Cubase-style) */
+  audioBuffer?: AudioBuffer;
   fadeIn: number;
   fadeOut: number;
   gain: number;
@@ -67,10 +70,13 @@ export interface ClipEditorProps {
 
 type EditorTool = 'select' | 'zoom' | 'fade' | 'cut';
 
-// ============ Waveform Canvas ============
+// ============ Cubase-Style LOD Waveform Canvas ============
 
 interface WaveformCanvasProps {
+  /** Pre-computed waveform peaks (fallback) */
   waveform: number[] | Float32Array | undefined;
+  /** AudioBuffer for high-resolution LOD rendering (Cubase-style) */
+  audioBuffer?: AudioBuffer;
   width: number;
   height: number;
   color: string;
@@ -80,10 +86,24 @@ interface WaveformCanvasProps {
   selection: ClipEditorSelection | null;
   fadeIn: number;
   fadeOut: number;
+  /** Number of audio channels to display */
+  channels: number;
 }
 
+/**
+ * Cubase-Style LOD Waveform Renderer
+ *
+ * Features:
+ * - Direct AudioBuffer access for zoom-dependent detail
+ * - Stereo channel display (split view)
+ * - Min/Max peak envelope with RMS layer
+ * - Clip detection (red highlights)
+ * - Anti-aliased rendering at high zoom
+ * - Automatic LOD based on zoom level
+ */
 const WaveformCanvas = memo(function WaveformCanvas({
   waveform,
+  audioBuffer,
   width,
   height,
   color,
@@ -93,17 +113,18 @@ const WaveformCanvas = memo(function WaveformCanvas({
   selection,
   fadeIn,
   fadeOut,
+  channels,
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !waveform || waveform.length === 0) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size with DPI scaling
+    // Set canvas size with DPI scaling for crisp rendering
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
@@ -113,78 +134,145 @@ const WaveformCanvas = memo(function WaveformCanvas({
     ctx.clearRect(0, 0, width, height);
 
     // Draw background
-    ctx.fillStyle = 'var(--rf-bg-0)';
+    const computedStyle = getComputedStyle(document.documentElement);
+    const bgColor = computedStyle.getPropertyValue('--rf-bg-0').trim() || '#0a0a0c';
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, width, height);
 
     // Draw grid lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
 
-    // Horizontal center line
-    ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-    ctx.lineTo(width, height / 2);
-    ctx.stroke();
-
-    // Vertical grid (every second)
+    // Vertical grid (time markers)
     const pixelsPerSecond = zoom;
-    const startSecond = Math.floor(scrollOffset);
     const endSecond = Math.ceil(scrollOffset + width / pixelsPerSecond);
 
-    for (let s = startSecond; s <= endSecond; s++) {
+    // Determine grid resolution based on zoom
+    let gridStep = 1; // 1 second
+    if (zoom > 200) gridStep = 0.1;
+    else if (zoom > 50) gridStep = 0.5;
+
+    for (let s = Math.floor(scrollOffset / gridStep) * gridStep; s <= endSecond; s += gridStep) {
       const x = (s - scrollOffset) * pixelsPerSecond;
       if (x >= 0 && x <= width) {
+        ctx.globalAlpha = s % 1 === 0 ? 0.15 : 0.05;
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
         ctx.stroke();
       }
     }
+    ctx.globalAlpha = 1;
 
-    // Calculate visible portion of waveform
-    const samplesPerPixel = Math.max(1, Math.floor(waveform.length / (duration * zoom)));
-    const startSample = Math.floor((scrollOffset / duration) * waveform.length);
-    const visibleSamples = Math.ceil((width / zoom) * (waveform.length / duration));
+    // Determine number of channels to render
+    const numChannels = audioBuffer ? Math.min(audioBuffer.numberOfChannels, 2) : (channels > 1 ? 2 : 1);
+    const channelHeight = height / numChannels;
+    const channelPadding = numChannels > 1 ? 2 : 0;
 
-    // Draw waveform
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.8;
+    // Colors
+    const waveformFill = computedStyle.getPropertyValue('--rf-waveform-fill').trim() || color;
+    const waveformRms = computedStyle.getPropertyValue('--rf-waveform-rms').trim() || color;
+    const waveformClip = computedStyle.getPropertyValue('--rf-waveform-clip').trim() || '#ff3366';
 
-    const centerY = height / 2;
-    const maxAmplitude = height / 2 - 4;
+    // Draw center line for each channel
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    for (let ch = 0; ch < numChannels; ch++) {
+      const centerY = ch * channelHeight + channelHeight / 2;
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(width, centerY);
+      ctx.stroke();
+    }
 
-    for (let px = 0; px < width; px++) {
-      const sampleIndex = startSample + Math.floor((px / width) * visibleSamples);
-      if (sampleIndex < 0 || sampleIndex >= waveform.length) continue;
+    // Render each channel
+    for (let ch = 0; ch < numChannels; ch++) {
+      const channelTop = ch * channelHeight + channelPadding;
+      const channelBottom = (ch + 1) * channelHeight - channelPadding;
+      const centerY = (channelTop + channelBottom) / 2;
+      const amplitude = (channelBottom - channelTop) / 2 - 2;
 
-      // Get min/max for this pixel column
-      let min = 0;
-      let max = 0;
-      const endSample = Math.min(sampleIndex + samplesPerPixel, waveform.length);
+      // Get samples for this channel
+      let samples: { peaks: number[]; rms: number[] };
 
-      for (let i = sampleIndex; i < endSample; i++) {
-        const sample = waveform[i];
-        if (sample < min) min = sample;
-        if (sample > max) max = sample;
+      if (audioBuffer) {
+        // LOD mode: Read directly from AudioBuffer
+        samples = extractPeaksFromBuffer(
+          audioBuffer,
+          ch,
+          scrollOffset,
+          duration,
+          width,
+          fadeIn,
+          fadeOut
+        );
+      } else if (waveform && waveform.length > 0) {
+        // Fallback: Use pre-computed peaks (mono only)
+        samples = extractPeaksFromWaveform(
+          waveform,
+          scrollOffset,
+          duration,
+          width,
+          fadeIn,
+          fadeOut
+        );
+      } else {
+        continue; // No data
       }
 
-      // Apply fade envelope
-      const time = (sampleIndex / waveform.length) * duration;
-      let envelope = 1;
-      if (time < fadeIn) {
-        envelope = time / fadeIn;
-      } else if (time > duration - fadeOut) {
-        envelope = (duration - time) / fadeOut;
+      // Draw RMS layer (inner, brighter)
+      ctx.fillStyle = waveformRms;
+      ctx.globalAlpha = 0.9;
+
+      for (let x = 0; x < width; x++) {
+        const rms = samples.rms[x] || 0;
+        const rmsHeight = rms * amplitude;
+        if (rmsHeight > 0) {
+          ctx.fillRect(x, centerY - rmsHeight, 1, Math.max(1, rmsHeight * 2));
+        }
       }
 
-      min *= envelope;
-      max *= envelope;
+      // Draw peak layer (outer, semi-transparent)
+      ctx.fillStyle = waveformFill;
+      ctx.globalAlpha = 0.5;
 
-      const y1 = centerY - max * maxAmplitude;
-      const y2 = centerY - min * maxAmplitude;
-      const barHeight = Math.max(1, y2 - y1);
+      for (let x = 0; x < width; x++) {
+        const peak = samples.peaks[x * 2] || 0; // max
+        const min = samples.peaks[x * 2 + 1] || 0; // min
+        const rms = samples.rms[x] || 0;
 
-      ctx.fillRect(px, y1, 1, barHeight);
+        const peakTop = centerY - peak * amplitude;
+        const peakBottom = centerY - min * amplitude;
+        const rmsHeight = rms * amplitude;
+
+        // Clip detection
+        const isClipped = Math.abs(peak) >= 0.99 || Math.abs(min) >= 0.99;
+        if (isClipped) {
+          ctx.fillStyle = waveformClip;
+          ctx.globalAlpha = 0.8;
+        }
+
+        // Draw peak above RMS
+        if (peak * amplitude > rmsHeight) {
+          ctx.fillRect(x, peakTop, 1, centerY - rmsHeight - peakTop);
+        }
+        if (Math.abs(min) * amplitude > rmsHeight) {
+          ctx.fillRect(x, centerY + rmsHeight, 1, peakBottom - (centerY + rmsHeight));
+        }
+
+        if (isClipped) {
+          ctx.fillStyle = waveformFill;
+          ctx.globalAlpha = 0.5;
+        }
+      }
+
+      // Channel separator line
+      if (numChannels > 1 && ch < numChannels - 1) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(0, channelBottom + channelPadding);
+        ctx.lineTo(width, channelBottom + channelPadding);
+        ctx.stroke();
+      }
     }
 
     // Draw selection
@@ -193,6 +281,7 @@ const WaveformCanvas = memo(function WaveformCanvas({
       const selEndX = (selection.end - scrollOffset) * zoom;
 
       if (selEndX > 0 && selStartX < width) {
+        // Selection fill
         ctx.globalAlpha = 0.2;
         ctx.fillStyle = '#0ea5e9';
         ctx.fillRect(
@@ -224,31 +313,61 @@ const WaveformCanvas = memo(function WaveformCanvas({
     }
 
     // Draw fade overlays
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = 0.5;
 
     // Fade in
     if (fadeIn > 0) {
-      const fadeInX = fadeIn * zoom;
-      const gradient = ctx.createLinearGradient(0, 0, fadeInX, 0);
-      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-      gradient.addColorStop(1, 'transparent');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, fadeInX, height);
+      const fadeInWidth = (fadeIn - scrollOffset) * zoom;
+      if (fadeInWidth > 0) {
+        const gradient = ctx.createLinearGradient(0, 0, Math.min(width, fadeInWidth), 0);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, Math.min(width, fadeInWidth), height);
+
+        // Fade curve line
+        ctx.strokeStyle = '#40c8ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let x = 0; x <= Math.min(width, fadeInWidth); x++) {
+          const t = x / fadeInWidth;
+          const y = height - (t * t * height); // Exponential fade
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
     }
 
     // Fade out
     if (fadeOut > 0) {
-      const fadeOutStartX = (duration - fadeOut - scrollOffset) * zoom;
-      const fadeOutEndX = (duration - scrollOffset) * zoom;
-      const gradient = ctx.createLinearGradient(fadeOutStartX, 0, fadeOutEndX, 0);
-      gradient.addColorStop(0, 'transparent');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(fadeOutStartX, 0, fadeOutEndX - fadeOutStartX, height);
+      const fadeOutStart = (duration - fadeOut - scrollOffset) * zoom;
+      const fadeOutEnd = (duration - scrollOffset) * zoom;
+      if (fadeOutEnd > 0 && fadeOutStart < width) {
+        const startX = Math.max(0, fadeOutStart);
+        const endX = Math.min(width, fadeOutEnd);
+        const gradient = ctx.createLinearGradient(startX, 0, endX, 0);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(startX, 0, endX - startX, height);
+
+        // Fade curve line
+        ctx.strokeStyle = '#40c8ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let x = startX; x <= endX; x++) {
+          const t = (x - fadeOutStart) / (fadeOutEnd - fadeOutStart);
+          const y = t * t * height; // Exponential fade
+          if (x === startX) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
     }
 
     ctx.globalAlpha = 1;
-  }, [waveform, width, height, color, zoom, scrollOffset, duration, selection, fadeIn, fadeOut]);
+  }, [waveform, audioBuffer, width, height, color, zoom, scrollOffset, duration, selection, fadeIn, fadeOut, channels]);
 
   return (
     <canvas
@@ -258,6 +377,118 @@ const WaveformCanvas = memo(function WaveformCanvas({
     />
   );
 });
+
+/**
+ * Extract peak data directly from AudioBuffer (LOD rendering)
+ */
+function extractPeaksFromBuffer(
+  buffer: AudioBuffer,
+  channel: number,
+  scrollOffset: number,
+  duration: number,
+  width: number,
+  fadeIn: number,
+  fadeOut: number
+): { peaks: number[]; rms: number[] } {
+  const channelData = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+  const sampleRate = buffer.sampleRate;
+
+  const visibleDuration = duration;
+  const startTime = Math.max(0, scrollOffset);
+  const endTime = Math.min(buffer.duration, scrollOffset + visibleDuration);
+
+  const startSample = Math.floor(startTime * sampleRate);
+  const endSample = Math.min(channelData.length, Math.floor(endTime * sampleRate));
+  const totalSamples = endSample - startSample;
+
+  const peaks: number[] = [];
+  const rms: number[] = [];
+
+  for (let x = 0; x < width; x++) {
+    const sampleStart = startSample + Math.floor((x / width) * totalSamples);
+    const sampleEnd = startSample + Math.floor(((x + 1) / width) * totalSamples);
+    const samplesPerPixel = sampleEnd - sampleStart;
+
+    let min = 0;
+    let max = 0;
+    let sumSquares = 0;
+
+    for (let i = sampleStart; i < sampleEnd && i < channelData.length; i++) {
+      const val = channelData[i];
+      if (val < min) min = val;
+      if (val > max) max = val;
+      sumSquares += val * val;
+    }
+
+    // Apply fade envelope
+    const time = (sampleStart / sampleRate);
+    let envelope = 1;
+    if (fadeIn > 0 && time < fadeIn) {
+      envelope = time / fadeIn;
+    } else if (fadeOut > 0 && time > buffer.duration - fadeOut) {
+      envelope = (buffer.duration - time) / fadeOut;
+    }
+
+    max *= envelope;
+    min *= envelope;
+
+    peaks.push(max, min);
+    rms.push(samplesPerPixel > 0 ? Math.sqrt(sumSquares / samplesPerPixel) * envelope : 0);
+  }
+
+  return { peaks, rms };
+}
+
+/**
+ * Extract peak data from pre-computed waveform (fallback)
+ */
+function extractPeaksFromWaveform(
+  waveform: number[] | Float32Array,
+  scrollOffset: number,
+  duration: number,
+  width: number,
+  fadeIn: number,
+  fadeOut: number
+): { peaks: number[]; rms: number[] } {
+  const peaks: number[] = [];
+  const rms: number[] = [];
+
+  const samplesPerSecond = waveform.length / duration;
+  const startSample = Math.floor(scrollOffset * samplesPerSecond);
+  const visibleSamples = Math.ceil(duration * samplesPerSecond);
+  const samplesPerPixel = Math.max(1, Math.ceil(visibleSamples / width));
+
+  for (let x = 0; x < width; x++) {
+    const sampleStart = startSample + Math.floor((x / width) * visibleSamples);
+    const sampleEnd = Math.min(sampleStart + samplesPerPixel, waveform.length);
+
+    let max = 0;
+    let sumSquares = 0;
+    let count = 0;
+
+    for (let i = sampleStart; i < sampleEnd; i++) {
+      const val = Math.abs(waveform[i] || 0);
+      if (val > max) max = val;
+      sumSquares += val * val;
+      count++;
+    }
+
+    // Apply fade envelope
+    const time = (sampleStart / waveform.length) * duration;
+    let envelope = 1;
+    if (fadeIn > 0 && time < fadeIn) {
+      envelope = time / fadeIn;
+    } else if (fadeOut > 0 && time > duration - fadeOut) {
+      envelope = (duration - time) / fadeOut;
+    }
+
+    // Pre-computed waveform is usually unsigned (0-1), mirror for display
+    peaks.push(max * envelope, -max * envelope);
+    rms.push(count > 0 ? Math.sqrt(sumSquares / count) * envelope : 0);
+  }
+
+  return { peaks, rms };
+}
 
 // ============ Toolbar ============
 
@@ -581,6 +812,7 @@ export const ClipEditor = memo(function ClipEditor({
         >
           <WaveformCanvas
             waveform={clip.waveform}
+            audioBuffer={clip.audioBuffer}
             width={containerSize.width}
             height={containerSize.height}
             color={clip.color || '#4a9eff'}
@@ -590,6 +822,7 @@ export const ClipEditor = memo(function ClipEditor({
             selection={selection}
             fadeIn={clip.fadeIn}
             fadeOut={clip.fadeOut}
+            channels={clip.channels}
           />
         </div>
 

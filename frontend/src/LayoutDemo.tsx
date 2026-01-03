@@ -1047,6 +1047,7 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
       channels: audioFile?.buffer?.numberOfChannels ?? 2,
       bitDepth: 24, // Assume 24-bit
       waveform: audioFile?.waveform,
+      audioBuffer: audioFile?.buffer, // Cubase-style LOD waveform rendering
       fadeIn: clip.fadeIn ?? 0,
       fadeOut: clip.fadeOut ?? 0,
       gain: clip.gain ?? 0,
@@ -1203,6 +1204,13 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
     playbackSeek(time);
   }, [playbackSeek]);
 
+  // Handle playhead scrub (dragging) - smooth audio scrubbing with throttle
+  const handlePlayheadScrub = useCallback((time: number) => {
+    setCurrentTime(time);
+    // Use scrubbing mode for smooth audio (throttled restarts)
+    playbackSeek(time, true);
+  }, [playbackSeek]);
+
   // Set loop region from selected clip(s) - Shift+L
   const handleSetLoopFromSelection = useCallback(() => {
     if (selectedClipIds.size === 0) return;
@@ -1226,6 +1234,26 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
     }
   }, [selectedClipIds, storeClips]);
 
+  // Expand loop to full audio content - L key (Cubase-style)
+  const handleExpandLoopToContent = useCallback(() => {
+    if (storeClips.length === 0) return;
+
+    // Find the bounds of ALL clips on timeline
+    let minStart = Infinity;
+    let maxEnd = -Infinity;
+
+    for (const clip of storeClips) {
+      minStart = Math.min(minStart, clip.startTime);
+      maxEnd = Math.max(maxEnd, clip.startTime + clip.duration);
+    }
+
+    if (minStart !== Infinity && maxEnd !== -Infinity) {
+      setLoopRegion({ start: minStart, end: maxEnd });
+      setLoopEnabled(true);
+      rfDebug('Timeline', `Loop expanded to full content: ${minStart.toFixed(2)}s - ${maxEnd.toFixed(2)}s`);
+    }
+  }, [storeClips]);
+
   // Global keyboard shortcuts for DAW operations
   useGlobalShortcuts({
     onPlayPause: () => {
@@ -1236,7 +1264,7 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
       }
     },
     onStop: playbackStop,
-    onToggleLoop: () => setLoopEnabled(prev => !prev),
+    onExpandLoopToContent: handleExpandLoopToContent,
     onSetLoopFromSelection: handleSetLoopFromSelection,
     onGoToStart: () => playbackSeek(0),
     onGoToEnd: () => playbackSeek(playbackDuration),
@@ -2114,22 +2142,7 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
         }
       }
 
-      // L = Set loop region to selected clip(s) (Cubase-style)
-      if (e.key === 'l' || e.key === 'L') {
-        const target = e.target as HTMLElement;
-        const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-        if (!isInput && selectedClipIds.size > 0) {
-          e.preventDefault();
-          const selectedClips = storeClips.filter(c => selectedClipIds.has(c.id));
-          if (selectedClips.length > 0) {
-            const minStart = Math.min(...selectedClips.map(c => c.startTime));
-            const maxEnd = Math.max(...selectedClips.map(c => c.startTime + c.duration));
-            setLoopRegion({ start: minStart, end: maxEnd });
-            logSlotEvent('TIMELINE', `Loop set to selection: ${minStart.toFixed(2)}s - ${maxEnd.toFixed(2)}s`);
-          }
-          return;
-        }
-      }
+      // L/Shift+L shortcuts are handled by useGlobalShortcuts
 
       // Escape = Stop all audio
       if (e.key === 'Escape') {
@@ -3269,6 +3282,11 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
           continue;
         }
 
+        // Ensure AudioContext is running before decode (browser autoplay policy)
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+
         const arrayBuffer = await file.arrayBuffer();
         let audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
@@ -3782,6 +3800,7 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
             loopRegion={loopRegion}
             loopEnabled={loopEnabled}
             onPlayheadChange={handlePlayheadChange}
+            onPlayheadScrub={handlePlayheadScrub}
             onClipSelect={handleClipSelect}
             onZoomChange={setZoom}
             onScrollChange={setScrollOffset}
@@ -5023,6 +5042,7 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
                 loopRegion={loopRegion}
                 loopEnabled={loopEnabled}
                 onPlayheadChange={handlePlayheadChange}
+                onPlayheadScrub={handlePlayheadScrub}
                 onClipSelect={handleClipSelect}
                 onZoomChange={setZoom}
                 onScrollChange={setScrollOffset}

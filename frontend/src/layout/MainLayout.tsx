@@ -182,8 +182,7 @@ export const MainLayout = memo(function MainLayout({
         controlBar.onStop?.();
       } else if (key === 'r' && !ctrl) {
         controlBar.onRecord?.();
-      } else if (key === 'l' && !ctrl) {
-        controlBar.onLoopToggle?.();
+      // L shortcut is handled by useGlobalShortcuts (expand loop to content)
       } else if (key === 'k') {
         controlBar.onMetronomeToggle?.();
       } else if (key === ',') {
@@ -248,17 +247,8 @@ export const MainLayout = memo(function MainLayout({
           />
         </div>
 
-        {/* Right Zone - Mode-aware: ChannelStrip in DAW, Inspector in Middleware */}
-        {editorMode === 'daw' ? (
-          // ChannelStrip available but not active - using RightZone for now
-          <RightZone
-            collapsed={!rightVisible}
-            objectType="none"
-            objectName=""
-            sections={[]}
-            onToggleCollapse={toggleRight}
-          />
-        ) : (
+        {/* Right Zone - Only show Inspector in Middleware mode, hidden in DAW mode */}
+        {editorMode === 'middleware' && (
           <RightZone
             collapsed={!rightVisible}
             objectType={inspectorType}

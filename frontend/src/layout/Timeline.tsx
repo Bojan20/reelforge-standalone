@@ -123,8 +123,10 @@ export interface TimelineProps {
   timeDisplayMode?: 'bars' | 'timecode' | 'samples';
   /** Sample rate for samples display */
   sampleRate?: number;
-  /** On playhead change */
+  /** On playhead change (click to seek) */
   onPlayheadChange?: (time: number) => void;
+  /** On playhead scrub (dragging - for smooth audio scrubbing) */
+  onPlayheadScrub?: (time: number) => void;
   /** On clip select */
   onClipSelect?: (clipId: string, multiSelect?: boolean) => void;
   /** On clip move */
@@ -2119,6 +2121,7 @@ export const Timeline = memo(function Timeline({
   timeDisplayMode = 'bars',
   sampleRate = 48000,
   onPlayheadChange,
+  onPlayheadScrub,
   onClipSelect,
   onZoomChange,
   onScrollChange,
@@ -2218,7 +2221,7 @@ export const Timeline = memo(function Timeline({
     setIsDraggingPlayhead(true);
   }, []);
 
-  // Global mouse move/up for playhead drag
+  // Global mouse move/up for playhead drag (scrubbing)
   useEffect(() => {
     if (!isDraggingPlayhead) return;
 
@@ -2227,8 +2230,13 @@ export const Timeline = memo(function Timeline({
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left - 180; // minus track headers
-      const time = scrollOffset + Math.max(0, x) / zoom;
-      onPlayheadChange?.(Math.max(0, Math.min(totalDuration, time)));
+      const time = Math.max(0, Math.min(totalDuration, scrollOffset + Math.max(0, x) / zoom));
+      // Use scrub callback for smooth audio (throttled), fallback to regular change
+      if (onPlayheadScrub) {
+        onPlayheadScrub(time);
+      } else {
+        onPlayheadChange?.(time);
+      }
     };
 
     const handleMouseUp = () => {
@@ -2242,7 +2250,7 @@ export const Timeline = memo(function Timeline({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingPlayhead, scrollOffset, zoom, totalDuration, onPlayheadChange]);
+  }, [isDraggingPlayhead, scrollOffset, zoom, totalDuration, onPlayheadChange, onPlayheadScrub]);
 
   // Global mouse move/up for loop region resize
   useEffect(() => {
