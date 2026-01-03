@@ -1,0 +1,66 @@
+/**
+ * ReelForge InfiniteScroll Styles
+ *
+ * @module infinite-scroll/InfiniteScroll.css
+ */
+
+/* ============ InfiniteScroll ============ */
+
+.infinite-scroll {
+  position: relative;
+}
+
+.infinite-scroll--up {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.infinite-scroll__sentinel {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* ============ Loader ============ */
+
+.infinite-scroll__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 14px;
+}
+
+.infinite-scroll__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-top-color: var(--rf-primary, #6366f1);
+  border-radius: 50%;
+  animation: infinite-scroll-spin 0.8s linear infinite;
+}
+
+@keyframes infinite-scroll-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============ End Message ============ */
+
+.infinite-scroll__end {
+  text-align: center;
+  padding: 16px;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 13px;
+}
+
+/* ============ Trigger ============ */
+
+.infinite-scroll-trigger {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}

@@ -1,0 +1,725 @@
+/**
+ * ReelForge M8.3.1 Bus Insert Panel Styles
+ * Includes per-bus PDC toggle button
+ */
+
+.rf-bus-inserts {
+  position: relative;
+  width: 100%;
+  background: #141414;
+  border: 1px solid #252525;
+  border-radius: 4px;
+  font-size: 11px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.rf-bus-inserts-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #1a1a1a;
+  border-bottom: 1px solid transparent;
+  border-left: 3px solid #666;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-bus-inserts-header:hover {
+  background: #1e1e1e;
+}
+
+.rf-bus-inserts-icon {
+  font-size: 12px;
+}
+
+.rf-bus-inserts-title {
+  font-weight: 500;
+  color: #aaa;
+  font-size: 10px;
+}
+
+.rf-bus-inserts-count {
+  padding: 1px 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: monospace;
+}
+
+.rf-bus-inserts-latency {
+  margin-left: auto;
+  padding: 1px 4px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: monospace;
+}
+
+.rf-bus-inserts-collapse-btn {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.rf-bus-inserts-collapse-btn.collapsed {
+  transform: rotate(-90deg);
+}
+
+.rf-bus-inserts-content {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.rf-bus-inserts-empty {
+  color: #444;
+  font-size: 10px;
+  text-align: center;
+  padding: 8px;
+  font-style: italic;
+}
+
+/* Add Insert Buttons */
+.rf-bus-inserts-add {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+  border-top: 1px solid #202020;
+  margin-top: 2px;
+}
+
+.rf-bus-inserts-add-btn {
+  flex: 1;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  color: #666;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-bus-inserts-add-btn:hover {
+  background: #222;
+  border-color: #3b82f6;
+  color: #ccc;
+}
+
+/* Insert Slot */
+.rf-bus-insert-slot {
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: all 0.15s;
+}
+
+.rf-bus-insert-slot.bypassed {
+  opacity: 0.5;
+}
+
+.rf-bus-insert-slot.bypassed .rf-bus-insert-slot-header {
+  background: #141414;
+}
+
+.rf-bus-insert-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+
+.rf-bus-insert-slot.expanded .rf-bus-insert-slot-header {
+  border-bottom-color: #222;
+}
+
+.rf-bus-insert-slot-icon {
+  font-size: 10px;
+}
+
+.rf-bus-insert-slot-name {
+  font-weight: 500;
+  color: #aaa;
+  flex: 1;
+  font-size: 10px;
+}
+
+.rf-bus-insert-slot-bypass {
+  padding: 2px 5px;
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  color: #666;
+  font-size: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-bus-insert-slot-bypass:hover {
+  border-color: #444;
+  color: #aaa;
+}
+
+.rf-bus-insert-slot-bypass.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.rf-bus-insert-slot-expand {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.rf-bus-insert-slot-expand.expanded {
+  transform: rotate(180deg);
+}
+
+.rf-bus-insert-slot-remove {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+
+.rf-bus-insert-slot-remove:hover {
+  color: #ef4444;
+}
+
+/* Insert Params */
+.rf-bus-insert-params {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #131313;
+}
+
+.rf-bus-insert-param-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rf-bus-insert-param-label {
+  min-width: 40px;
+  color: #666;
+  font-size: 9px;
+}
+
+.rf-bus-insert-param-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rf-bus-insert-param-slider {
+  flex: 1;
+  height: 3px;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.rf-bus-insert-param-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-bus-insert-param-slider::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+}
+
+.rf-bus-insert-param-number {
+  min-width: 35px;
+  text-align: right;
+  color: #888;
+  font-family: monospace;
+  font-size: 9px;
+}
+
+.rf-bus-insert-param-select {
+  padding: 2px 4px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  color: #aaa;
+  font-size: 9px;
+  cursor: pointer;
+  outline: none;
+}
+
+.rf-bus-insert-param-select:hover {
+  border-color: #444;
+}
+
+.rf-bus-insert-param-select:focus {
+  border-color: #3b82f6;
+}
+
+/* EQ Band Tabs */
+.rf-bus-eq-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rf-bus-eq-band-tabs {
+  display: flex;
+  gap: 3px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.rf-bus-eq-band-tab {
+  flex: 1;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  color: #666;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-bus-eq-band-tab:hover {
+  border-color: #444;
+  color: #aaa;
+}
+
+.rf-bus-eq-band-tab.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* ========================================
+   M8.3 Toolbar & Copy/Paste/Presets
+   ======================================== */
+
+.rf-bus-inserts-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #181818;
+  border-bottom: 1px solid #222;
+}
+
+.rf-bus-inserts-tool-btn {
+  padding: 3px 6px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  color: #888;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.rf-bus-inserts-tool-btn:hover:not(:disabled) {
+  background: #222;
+  border-color: #3b82f6;
+  color: #ccc;
+}
+
+.rf-bus-inserts-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rf-bus-inserts-tool-sep {
+  width: 1px;
+  height: 14px;
+  background: #333;
+  margin: 0 2px;
+}
+
+/* Preset Dropdown */
+.rf-bus-inserts-preset-wrapper {
+  position: relative;
+}
+
+.rf-bus-inserts-preset-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.rf-bus-inserts-preset-section {
+  padding: 4px 0;
+  border-bottom: 1px solid #252525;
+}
+
+.rf-bus-inserts-preset-section:last-child {
+  border-bottom: none;
+}
+
+.rf-bus-inserts-preset-section-label {
+  padding: 4px 10px 2px;
+  color: #555;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-bus-inserts-preset-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rf-bus-inserts-preset-item:hover {
+  background: #252525;
+  color: #fff;
+}
+
+.rf-bus-inserts-preset-item.save-action {
+  color: #3b82f6;
+  border-top: 1px solid #252525;
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.rf-bus-inserts-preset-item.save-action:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+/* ========================================
+   M8.3 Error Message
+   ======================================== */
+
+.rf-bus-inserts-error {
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  font-size: 9px;
+  font-family: monospace;
+}
+
+/* ========================================
+   M8.3 Dialogs (Confirm Replace, Save Preset)
+   ======================================== */
+
+.rf-bus-inserts-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.rf-bus-inserts-dialog {
+  min-width: 280px;
+  max-width: 360px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.rf-bus-inserts-dialog-title {
+  padding: 12px 16px;
+  background: #202020;
+  border-bottom: 1px solid #333;
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rf-bus-inserts-dialog-body {
+  padding: 16px;
+}
+
+.rf-bus-inserts-dialog-text {
+  color: #888;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.rf-bus-inserts-dialog-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.rf-bus-inserts-dialog-input:focus {
+  border-color: #3b82f6;
+}
+
+.rf-bus-inserts-dialog-input::placeholder {
+  color: #555;
+}
+
+.rf-bus-inserts-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #161616;
+  border-top: 1px solid #252525;
+}
+
+.rf-bus-inserts-dialog-btn {
+  padding: 6px 14px;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-bus-inserts-dialog-btn:hover {
+  background: #2a2a2a;
+  color: #ccc;
+}
+
+.rf-bus-inserts-dialog-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.rf-bus-inserts-dialog-btn.primary:hover {
+  background: #2563eb;
+}
+
+.rf-bus-inserts-dialog-btn.danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.rf-bus-inserts-dialog-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ========================================
+   M8.3 Insert Slot Index & Menu
+   ======================================== */
+
+.rf-bus-insert-slot-index {
+  min-width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #252525;
+  border-radius: 2px;
+  color: #555;
+  font-size: 8px;
+  font-family: monospace;
+}
+
+.rf-bus-insert-slot-menu-wrapper {
+  position: relative;
+}
+
+.rf-bus-insert-slot-menu-btn {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+
+.rf-bus-insert-slot-menu-btn:hover {
+  color: #aaa;
+}
+
+.rf-bus-insert-slot-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 120px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.rf-bus-insert-slot-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rf-bus-insert-slot-menu-item:hover {
+  background: #252525;
+  color: #fff;
+}
+
+/* ========================================
+   M8.3 EQ Band Reset Button
+   ======================================== */
+
+.rf-bus-eq-band-reset {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #555;
+  font-size: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-bus-eq-band-reset:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+/* ========================================
+   M8.3 Param Unit Display
+   ======================================== */
+
+.rf-bus-insert-param-unit {
+  min-width: 30px;
+  color: #555;
+  font-size: 8px;
+  text-align: right;
+}
+
+/* ========================================
+   M8.3.1 PDC Toggle Button
+   ======================================== */
+
+.rf-bus-inserts-pdc-btn {
+  padding: 2px 5px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #555;
+  font-size: 8px;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.rf-bus-inserts-pdc-btn:hover {
+  border-color: #555;
+  color: #888;
+}
+
+/* PDC active state */
+.rf-bus-inserts-pdc-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.rf-bus-inserts-pdc-btn.active:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* PDC clamped state (exceeds max delay) */
+.rf-bus-inserts-pdc-btn.clamped {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.rf-bus-inserts-pdc-btn.clamped:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* PDC clamp pulse animation */
+@keyframes rf-pdc-clamp-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.rf-bus-inserts-pdc-btn.pulse {
+  animation: rf-pdc-clamp-pulse 0.5s ease-out;
+}
+
+/* Adjust latency display when PDC is present */
+.rf-bus-inserts-header .rf-bus-inserts-latency {
+  margin-left: 0;
+}

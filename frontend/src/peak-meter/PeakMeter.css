@@ -1,0 +1,133 @@
+/**
+ * ReelForge PeakMeter Styles
+ *
+ * @module peak-meter/PeakMeter.css
+ */
+
+/* ============ PeakMeter ============ */
+
+.peak-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.peak-meter--horizontal {
+  flex-direction: row;
+}
+
+/* Clip indicator */
+.peak-meter__clip-row {
+  display: flex;
+  gap: 2px;
+}
+
+.peak-meter--horizontal .peak-meter__clip-row {
+  flex-direction: column;
+}
+
+.peak-meter__clip {
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: rgba(239, 68, 68, 0.2);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.peak-meter__clip--active {
+  background: #ef4444;
+  animation: peak-meter-clip-flash 0.5s ease infinite;
+}
+
+@keyframes peak-meter-clip-flash {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Body */
+.peak-meter__body {
+  position: relative;
+  display: flex;
+}
+
+.peak-meter--vertical .peak-meter__body {
+  flex-direction: row;
+}
+
+.peak-meter--horizontal .peak-meter__body {
+  flex-direction: column;
+}
+
+.peak-meter__canvas {
+  display: block;
+  border-radius: 2px;
+}
+
+/* Scale */
+.peak-meter__scale {
+  position: relative;
+}
+
+.peak-meter--vertical .peak-meter__scale {
+  width: 20px;
+  margin-left: 4px;
+}
+
+.peak-meter--horizontal .peak-meter__scale {
+  height: 16px;
+  margin-top: 4px;
+}
+
+.peak-meter__scale-mark {
+  position: absolute;
+}
+
+.peak-meter--vertical .peak-meter__scale-mark {
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.peak-meter--horizontal .peak-meter__scale-mark {
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.peak-meter__scale-label {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ Variants ============ */
+
+.peak-meter--compact .peak-meter__scale {
+  display: none;
+}
+
+.peak-meter--large .peak-meter__scale-label {
+  font-size: 10px;
+}
+
+/* ============ LED Style ============ */
+
+.peak-meter--led .peak-meter__canvas {
+  /* LED segments are drawn in canvas */
+}
+
+/* ============ Gradient Style ============ */
+
+.peak-meter--gradient {
+  /* Smooth gradient already default */
+}
+
+/* ============ Segmented Style ============ */
+
+.peak-meter--segmented {
+  /* Segmented bars drawn in canvas */
+}

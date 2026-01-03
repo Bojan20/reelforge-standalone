@@ -1,7 +1,13 @@
 # Rust
 /target/
+**/target/
 **/*.rs.bk
 Cargo.lock
+
+# Node
+node_modules/
+dist/
+.vite/
 
 # IDE
 .idea/

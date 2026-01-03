@@ -1,0 +1,215 @@
+/**
+ * ReelForge Cascader Styles
+ *
+ * @module cascader/Cascader.css
+ */
+
+/* ============ Cascader ============ */
+
+.cascader {
+  position: relative;
+  display: inline-block;
+  min-width: 200px;
+}
+
+.cascader--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Trigger */
+.cascader__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 6px;
+  background: var(--rf-surface, #2a2a2a);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.cascader__trigger:hover {
+  border-color: var(--rf-border-hover, rgba(255, 255, 255, 0.3));
+}
+
+.cascader--open .cascader__trigger {
+  border-color: var(--rf-primary, #6366f1);
+}
+
+.cascader__value {
+  flex: 1;
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cascader__placeholder {
+  flex: 1;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 14px;
+}
+
+.cascader__clear {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cascader__clear:hover {
+  background: var(--rf-error, #ef4444);
+  color: #fff;
+}
+
+.cascader__arrow {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.cascader__arrow--up {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.cascader__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  z-index: 1000;
+  background: var(--rf-surface, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* Search */
+.cascader__search {
+  padding: 8px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.cascader__search-input {
+  width: 200px;
+  padding: 8px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+}
+
+.cascader__search-input:focus {
+  outline: none;
+  border-color: var(--rf-primary, #6366f1);
+}
+
+/* Search Results */
+.cascader__search-results {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cascader__search-result {
+  padding: 10px 12px;
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cascader__search-result:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+/* Menus */
+.cascader__menus {
+  display: flex;
+}
+
+.cascader__menu {
+  min-width: 140px;
+  max-height: 300px;
+  overflow-y: auto;
+  border-right: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.cascader__menu:last-child {
+  border-right: none;
+}
+
+.cascader__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cascader__option:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.cascader__option--active {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.cascader__option--selected {
+  color: var(--rf-primary, #6366f1);
+  font-weight: 500;
+}
+
+.cascader__option--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cascader__option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cascader__option-arrow {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 14px;
+}
+
+.cascader__option-loading {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-top-color: var(--rf-primary, #6366f1);
+  border-radius: 50%;
+  animation: cascader-spin 0.6s linear infinite;
+}
+
+@keyframes cascader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty */
+.cascader__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 13px;
+}

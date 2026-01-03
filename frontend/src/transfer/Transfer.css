@@ -1,0 +1,172 @@
+/**
+ * ReelForge Transfer Styles
+ *
+ * @module transfer/Transfer.css
+ */
+
+/* ============ Transfer ============ */
+
+.transfer {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.transfer--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ============ TransferList ============ */
+
+.transfer-list {
+  width: 250px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 6px;
+  background: var(--rf-surface, #1a1a1a);
+  overflow: hidden;
+}
+
+.transfer-list--disabled {
+  opacity: 0.6;
+}
+
+/* Header */
+.transfer-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.05));
+}
+
+.transfer-list__select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.transfer-list__select-all input {
+  cursor: pointer;
+}
+
+.transfer-list__title {
+  font-weight: 500;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+}
+
+.transfer-list__count {
+  font-size: 12px;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+/* Search */
+.transfer-list__search {
+  padding: 8px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.transfer-list__search input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+}
+
+.transfer-list__search input:focus {
+  outline: none;
+  border-color: var(--rf-primary, #6366f1);
+}
+
+/* Items */
+.transfer-list__items {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.transfer-list__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 13px;
+}
+
+.transfer-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.transfer-list__item:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.05));
+}
+
+.transfer-list__item--selected {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.transfer-list__item--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.transfer-list__item input {
+  cursor: pointer;
+}
+
+.transfer-list__item--disabled input {
+  cursor: not-allowed;
+}
+
+.transfer-list__item-label {
+  flex: 1;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============ Actions ============ */
+
+.transfer__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 60px;
+}
+
+.transfer__btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer__btn:hover:not(:disabled) {
+  background: var(--rf-primary, #6366f1);
+  border-color: var(--rf-primary, #6366f1);
+}
+
+.transfer__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,0 +1,1811 @@
+/**
+ * VanEQ Pro - WOW Premium Theme
+ * 8 bands - FabFilter Pro-Q4 inspired
+ * VERSION: 2026-01-01-v1 - WOW edition with 8 bands
+ */
+
+/* =========================
+   Theme Support - Dark (default)
+   ========================= */
+
+/* =========================
+   Fixed Window Sizes (FabFilter-style S/M/L)
+   ========================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #050508;
+}
+
+/* Canvas is the root - fixed sizes, no extra space */
+.vaneqCanvas {
+  overflow: hidden;
+}
+
+/* FabFilter-style fixed window sizes */
+.vaneqCanvas.size-S {
+  width: 980px;
+  height: 580px;
+}
+
+.vaneqCanvas.size-M {
+  width: 1180px;
+  height: 700px;
+}
+
+.vaneqCanvas.size-L {
+  width: 1440px;
+  height: 860px;
+}
+
+/* ============ CSS Tokens - WOW Edition ============ */
+:root {
+  /* Backgrounds - ultra dark */
+  --bg-void: #050508;
+  --bg-deep: #0a0a10;
+  --bg-dark: #0e0e16;
+  --bg-surface: #14141e;
+  --bg-elevated: #1a1a28;
+  --bg-hover: #222234;
+
+  /* Legacy mapping */
+  --bg0: var(--bg-void);
+  --bg1: var(--bg-deep);
+  --bg2: var(--bg-dark);
+  --panel0: var(--bg-surface);
+  --panel1: var(--bg-elevated);
+  --panel2: var(--bg-hover);
+
+  /* Borders */
+  --border-void: rgba(255,255,255,0.02);
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-light: rgba(255,255,255,0.08);
+  --border-accent: rgba(0,200,255,0.3);
+  --border0: var(--border-light);
+  --border1: var(--border-subtle);
+  --border2: rgba(0,0,0,0.35);
+
+  /* Text */
+  --text-bright: #ffffff;
+  --text-primary: #e8e8f0;
+  --text-secondary: #9898b0;
+  --text-muted: #606078;
+  --text-dim: #404058;
+  --text0: var(--text-primary);
+  --text1: var(--text-secondary);
+  --muted: var(--text-muted);
+
+  /* Grid */
+  --gridMinor: rgba(255,255,255,0.03);
+  --gridMajor: rgba(255,255,255,0.06);
+
+  /* Accents - WOW colors */
+  --accent-cyan: #00d4ff;
+  --accent-cyan-dim: #0099cc;
+  --accent-glow: rgba(0,212,255,0.5);
+  --accent-subtle: rgba(0,180,255,0.08);
+
+  --line0: var(--accent-cyan);
+  --accentCyan: var(--accent-cyan);
+  --accentYellow: #ffb347;
+  --accentOrange: #fb923c;
+  --accentPurple: #a78bfa;
+  --accentTeal: #22d3d3;
+  --danger: #ef4444;
+  --ok: #4ade80;
+
+  /* Band colors (8 bands - vibrant palette) */
+  --band1: #ff6b8a;
+  --band2: #ffb347;
+  --band3: #47d4ff;
+  --band4: #4ade80;
+  --band5: #a78bfa;
+  --band6: #f472b6;
+  --band7: #fb923c;
+  --band8: #22d3d3;
+
+  /* Shadows - deeper */
+  --shadowA: 0 24px 80px rgba(0,0,0,0.6);
+  --shadowB: 0 12px 40px rgba(0,0,0,0.5);
+  --shadowC: 0 4px 16px rgba(0,0,0,0.4);
+  --insetA: inset 0 1px 0 rgba(255,255,255,0.03), inset 0 -1px 0 rgba(0,0,0,0.4);
+  --insetB: inset 0 0 0 1px var(--border-subtle);
+
+  /* Sizing */
+  --radiusOuter: 16px;
+  --radiusInner: 14px;
+  --radiusMd: 10px;
+  --radiusSm: 6px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
+}
+
+/* ============ Light Theme Overrides ============ */
+:root[data-vaneq-theme="light"] {
+  /* Backgrounds - light grays */
+  --bg0: #f5f7fa;
+  --bg1: #eef1f5;
+  --bg2: #e8ebf0;
+  --panel0: #ffffff;
+  --panel1: #f8f9fb;
+  --panel2: #f0f2f5;
+
+  /* Borders - dark for contrast */
+  --border0: rgba(0,0,0,.12);
+  --border1: rgba(0,0,0,.08);
+  --border2: rgba(0,0,0,.18);
+
+  /* Text - dark */
+  --text0: rgba(0,0,0,.88);
+  --text1: rgba(0,0,0,.72);
+  --muted: rgba(0,0,0,.48);
+
+  /* Grid - dark lines */
+  --gridMinor: rgba(0,0,0,.06);
+  --gridMajor: rgba(0,0,0,.12);
+
+  /* Accents - slightly deeper for visibility on light bg */
+  --line0: rgba(60,120,200,.7);
+  --accentCyan: #2eb8e0;
+  --accentYellow: #e5a800;
+  --accentOrange: #e08520;
+  --accentPurple: #9c5dd8;
+  --accentTeal: #30b89a;
+
+  /* Shadows - softer */
+  --shadowA: 0 12px 40px rgba(0,0,0,.18);
+  --shadowB: 0 6px 18px rgba(0,0,0,.12);
+  --shadowC: 0 2px 8px rgba(0,0,0,.08);
+  --insetA: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(0,0,0,.08);
+  --insetB: inset 0 0 0 1px rgba(0,0,0,.05);
+}
+
+/* Light theme: remove dark vignette, use subtle light one */
+:root[data-vaneq-theme="light"] .vaneqCanvas::before {
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 0%, rgba(0,0,0,.08) 100%);
+}
+
+/* Light theme: html/body background */
+:root[data-vaneq-theme="light"] body {
+  background: #eef1f5;
+}
+
+/* ============ Reset ============ */
+.vaneqCanvas,
+.vaneqCanvas *,
+.vaneqCanvas *::before,
+.vaneqCanvas *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============ Canvas Container (holds actual UI) ============ */
+.vaneqCanvas {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif;
+  font-size: 12px;
+  color: var(--text0);
+  background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Vignette overlay */
+.vaneqCanvas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 0%, rgba(0,0,0,.45) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.vaneqCanvas > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============ Bypassed State (dimmed + read-only) ============ */
+.vaneqCanvas.bypassed .graphFrame,
+.vaneqCanvas.bypassed .bottomPanel {
+  opacity: 0.35;
+  pointer-events: none;
+  filter: saturate(0.3);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.vaneqCanvas.bypassed .graphFrame::after,
+.vaneqCanvas.bypassed .bottomPanel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.15);
+  border-radius: var(--radiusOuter);
+  pointer-events: none;
+}
+
+/* Make graphFrame and bottomPanel position relative for overlay */
+.graphFrame,
+.bottomPanel {
+  position: relative;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* ============ Panel Glass Frame ============ */
+.proFrame {
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+  border: 1px solid var(--border0);
+  border-radius: var(--radiusOuter);
+  box-shadow: var(--shadowC);
+  padding: 1px;
+  flex-shrink: 0;
+}
+
+.proInner {
+  background: linear-gradient(180deg, rgba(18,24,38,.88), rgba(12,17,27,.92));
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radiusInner);
+  box-shadow: var(--insetA);
+}
+
+/* ============ Top Bar ============ */
+.topBar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border-void);
+}
+
+.topLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topMid {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.topRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* A/B Actions (copy/swap) */
+.abActions {
+  display: flex;
+  gap: 4px;
+}
+
+.iconBtn.small {
+  width: 24px;
+  height: 24px;
+}
+
+/* Mode Tab Group - WOW Edition */
+.modeTabGroup {
+  display: flex;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radiusMd);
+  padding: 2px;
+  gap: 2px;
+}
+
+.modeTab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radiusSm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.modeTab:hover {
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+}
+
+.modeTab.active {
+  color: var(--text-bright);
+  background: rgba(0,200,255,0.15);
+  box-shadow: inset 0 0 0 1px rgba(0,200,255,0.3);
+}
+
+/* Preset button enhancements */
+.presetName {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Title */
+.topTitle {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text0);
+  opacity: .85;
+  text-transform: uppercase;
+}
+
+/* A/B Buttons */
+.abGroup {
+  display: flex;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusMd);
+  overflow: hidden;
+}
+
+.abBtn {
+  width: 30px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.abBtn:hover {
+  color: var(--text1);
+  background: rgba(255,255,255,.05);
+}
+
+.abBtn.active {
+  color: var(--text0);
+  background: rgba(120,180,255,.22);
+}
+
+/* Preset button */
+.presetBtn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusMd);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));
+  color: var(--text1);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.presetBtn:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18));
+  border-color: var(--border0);
+}
+
+/* Icon button */
+.iconBtn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusSm);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+  color: var(--text1);
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18));
+}
+
+.iconBtn:active {
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.3);
+}
+
+/* ON Power button */
+.onBtn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radiusMd);
+  border: 1px solid rgba(73,213,140,.35);
+  background: rgba(73,213,140,.22);
+  color: var(--ok);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.onBtn:hover {
+  background: rgba(73,213,140,.30);
+  box-shadow: 0 0 12px rgba(73,213,140,.25);
+}
+
+.onBtn.off {
+  border-color: var(--border1);
+  background: rgba(0,0,0,.25);
+  color: var(--muted);
+}
+
+/* ============ Meter ============ */
+.meter {
+  width: 120px;
+  height: 12px;
+  background: rgba(0,0,0,.35);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  gap: 1px;
+}
+
+.meterSeg {
+  flex: 1;
+  height: 100%;
+  border-radius: 1px;
+  background: rgba(255,255,255,.10);
+  transition: background 0.1s ease;
+}
+
+.meterSeg.green { background: var(--ok); }
+.meterSeg.yellow { background: var(--accentYellow); }
+.meterSeg.red { background: var(--danger); }
+
+/* ============ Graph Panel ============ */
+.graphFrame {
+  flex: 1;
+  min-height: 200px;
+}
+
+.graphInner {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.graphSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Grid lines */
+.gridMinor {
+  stroke: var(--gridMinor);
+  stroke-width: 1;
+}
+
+.gridMajor {
+  stroke: var(--gridMajor);
+  stroke-width: 1;
+}
+
+.zeroLine {
+  stroke: var(--line0);
+  stroke-width: 2;
+  opacity: .9;
+}
+
+/* Response curve - WOW glow effect */
+.curveGlow {
+  fill: none;
+  stroke-width: 10;
+  opacity: 0.35;
+  filter: blur(4px);
+}
+
+.curveLine {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+/* EQ curve fill - boost above, cut below */
+.curveFillAbove {
+  fill: url(#fillGradientAbove);
+  opacity: 0.25;
+}
+
+.curveFillBelow {
+  fill: url(#fillGradientBelow);
+  opacity: 0.2;
+}
+
+/* Spectrum Analyzer - WOW FabFilter-style */
+.vaneqSpectrumLayer {
+  pointer-events: none;
+}
+
+.vaneqSpectrumGlow {
+  fill: none;
+  stroke: rgba(0, 200, 255, 0.12);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: blur(2px);
+}
+
+.vaneqSpectrumPath {
+  fill: none;
+  stroke: rgba(0, 210, 255, 0.45);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vaneqSpectrumFill {
+  fill: url(#spectrumGradient);
+  opacity: 0.15;
+}
+
+/* Legacy (can be removed if not used elsewhere) */
+.analyzerPath {
+  fill: none;
+  stroke: rgba(90,220,255,.35);
+  stroke-width: 1.4;
+  opacity: .55;
+}
+
+/* ============ Band Nodes - WOW Edition ============ */
+.bandNode {
+  cursor: grab;
+  transition: transform 0.08s ease-out;
+}
+
+.bandNode:active {
+  cursor: grabbing;
+}
+
+.nodeBase {
+  fill: rgba(10,10,16,0.9);
+  stroke-width: 2.5;
+  transition: r 0.1s ease, stroke-width 0.1s ease;
+}
+
+.bandNode:hover .nodeBase {
+  stroke-width: 3;
+}
+
+.bandNode.active .nodeBase {
+  stroke-width: 3.5;
+}
+
+.nodeInner {
+  opacity: 1;
+  transition: r 0.1s ease;
+}
+
+.nodeHoverRing {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0;
+  transition: all 0.12s ease;
+}
+
+.bandNode:hover .nodeHoverRing {
+  opacity: 0.5;
+  stroke-width: 2.5;
+}
+
+.bandNode.active .nodeHoverRing {
+  opacity: 0.7;
+  stroke-width: 3;
+}
+
+.nodeShadow {
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+}
+
+/* Band node glow on hover/active */
+.bandNode:hover {
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6)) drop-shadow(0 0 12px currentColor);
+}
+
+.bandNode.active {
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6)) drop-shadow(0 0 20px currentColor) drop-shadow(0 0 40px currentColor);
+}
+
+/* Band node colors */
+.bandNode[data-band="1"] { color: var(--band1); }
+.bandNode[data-band="2"] { color: var(--band2); }
+.bandNode[data-band="3"] { color: var(--band3); }
+.bandNode[data-band="4"] { color: var(--band4); }
+.bandNode[data-band="5"] { color: var(--band5); }
+.bandNode[data-band="6"] { color: var(--band6); }
+.bandNode[data-band="7"] { color: var(--band7); }
+.bandNode[data-band="8"] { color: var(--band8); }
+
+/* ============ Tooltip ============ */
+.nodeTooltip {
+  position: absolute;
+  width: 140px;
+  padding: 10px 12px;
+  background: rgba(12,17,27,.95);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: var(--radiusMd);
+  box-shadow: 0 10px 24px rgba(0,0,0,.55);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.14s ease-out, transform 0.14s ease-out;
+  z-index: 100;
+}
+
+.nodeTooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nodeTooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: rgba(12,17,27,.95);
+  border-right: 1px solid rgba(255,255,255,.10);
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.tooltipFreq {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tooltipGain {
+  font-size: 14px;
+  color: var(--text0);
+  margin-top: 3px;
+}
+
+.tooltipQ {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ============ Bottom Panel ============ */
+.bottomPanel {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ============ Band List (Left) ============ */
+.bandList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* No scroll - 6 bands fit comfortably */
+}
+
+/* Band Row */
+.bandRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,.20);
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusMd);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.bandRow:hover {
+  background: rgba(0,0,0,.30);
+  border-color: var(--border0);
+}
+
+.bandRow.active {
+  background: rgba(88,214,255,.08);
+  border-color: var(--accentCyan);
+}
+
+.bandRow.disabled {
+  opacity: .5;
+}
+
+/* Band number + dot */
+.bandNum {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text0);
+  background: rgba(255,255,255,.08);
+  flex-shrink: 0;
+}
+
+.bandRow.active .bandNum {
+  background: var(--bandColor, var(--accentCyan));
+  color: #000;
+}
+
+/* Band info */
+.bandInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.bandType {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text0);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bandParams {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Band toggle */
+.bandToggle {
+  width: 32px;
+  height: 18px;
+  border: none;
+  border-radius: 9px;
+  background: rgba(255,255,255,.12);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.bandToggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: all 0.15s ease;
+}
+
+.bandToggle.on {
+  background: var(--ok);
+}
+
+.bandToggle.on::after {
+  left: 16px;
+  background: #fff;
+}
+
+/* ============ Inspector (Right) ============ */
+.inspector {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.inspectorInner {
+  height: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Filter Type Selector */
+.filterTypeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.filterTypeBtn {
+  height: 32px;
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusSm);
+  background: rgba(0,0,0,.20);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.filterTypeBtn:hover {
+  background: rgba(255,255,255,.06);
+  border-color: var(--border0);
+  color: var(--text1);
+}
+
+.filterTypeBtn.active {
+  background: rgba(88,214,255,.15);
+  border-color: var(--accentCyan);
+  color: var(--accentCyan);
+}
+
+/* Param rows */
+.paramRow {
+  height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radiusMd);
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: ns-resize;
+  transition: all 0.15s ease;
+}
+
+.paramRow:hover {
+  border-color: rgba(255,255,255,.10);
+  background: rgba(0,0,0,.30);
+}
+
+.paramRow:active {
+  border-color: var(--accentCyan);
+}
+
+.paramRow.disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.paramLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.paramValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text0);
+}
+
+/* Inspector buttons */
+.inspectorButtons {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.inspectorBtn {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--radiusMd);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.inspectorBtn.on {
+  background: rgba(80,227,194,.18);
+  border: 1px solid rgba(80,227,194,.30);
+  color: var(--accentTeal);
+}
+
+.inspectorBtn.on:hover {
+  background: rgba(80,227,194,.25);
+}
+
+.inspectorBtn.remove {
+  background: rgba(201,68,76,.18);
+  border: 1px solid rgba(201,68,76,.30);
+  color: var(--danger);
+}
+
+.inspectorBtn.remove:hover {
+  background: rgba(201,68,76,.25);
+}
+
+/* ============ Axis Labels ============ */
+.axisLabel {
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--muted);
+  user-select: none;
+}
+
+/* ============ Scrollbar ============ */
+.vaneqCanvas ::-webkit-scrollbar {
+  width: 5px;
+}
+
+.vaneqCanvas ::-webkit-scrollbar-track {
+  background: rgba(0,0,0,.2);
+  border-radius: 3px;
+}
+
+.vaneqCanvas ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.15);
+  border-radius: 3px;
+}
+
+.vaneqCanvas ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.25);
+}
+
+/* ============ Add Band Button ============ */
+.addBandBtn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px dashed var(--border0);
+  border-radius: var(--radiusMd);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.addBandBtn:hover {
+  border-color: var(--accentCyan);
+  color: var(--accentCyan);
+  background: rgba(88,214,255,.08);
+}
+
+/* ============ Size Mode Selector ============ */
+.sizeGroup {
+  display: flex;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border1);
+  border-radius: var(--radiusMd);
+  overflow: hidden;
+}
+
+.sizeBtn {
+  width: 26px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sizeBtn:hover {
+  color: var(--text1);
+  background: rgba(255,255,255,.05);
+}
+
+.sizeBtn.active {
+  color: var(--text0);
+  background: rgba(88,214,255,.22);
+}
+
+/* ============ Size Mode: Small (S) ============ */
+.vaneqCanvas.size-S {
+  padding: 8px;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.size-S .topBar {
+  height: 36px;
+  padding: 0 8px;
+}
+
+.size-S .topTitle {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.size-S .abBtn {
+  width: 24px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.size-S .presetBtn {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+.size-S .sizeBtn {
+  width: 22px;
+  height: 20px;
+  font-size: 9px;
+}
+
+.size-S .meter {
+  width: 80px;
+  height: 10px;
+}
+
+.size-S .iconBtn {
+  width: 24px;
+  height: 24px;
+}
+
+.size-S .onBtn {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+.size-S .graphFrame {
+  min-height: 140px;
+}
+
+.size-S .graphInner {
+  padding: 6px;
+}
+
+/* Small: 3x2 grid for 6 bands */
+.size-S .bottomPanel {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.size-S .bandList {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.size-S .bandRow {
+  padding: 5px 8px;
+}
+
+.size-S .bandNum {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.size-S .bandType {
+  font-size: 10px;
+  gap: 4px;
+}
+
+.size-S .bandParams {
+  font-size: 9px;
+}
+
+.size-S .bandToggle {
+  width: 28px;
+  height: 16px;
+}
+
+.size-S .bandToggle::after {
+  width: 12px;
+  height: 12px;
+}
+
+.size-S .bandToggle.on::after {
+  left: 14px;
+}
+
+/* Small: compact inspector */
+.size-S .inspector {
+  width: 100%;
+}
+
+.size-S .inspectorInner {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+}
+
+.size-S .filterTypeGrid {
+  width: 100%;
+}
+
+.size-S .filterTypeBtn {
+  height: 28px;
+}
+
+.size-S .paramRow {
+  flex: 1;
+  min-width: 90px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.size-S .paramLabel {
+  font-size: 9px;
+}
+
+.size-S .paramValue {
+  font-size: 11px;
+}
+
+.size-S .inspectorButtons {
+  width: 100%;
+  margin-top: 0;
+}
+
+.size-S .inspectorBtn {
+  height: 28px;
+  font-size: 9px;
+}
+
+.size-S .axisLabel {
+  font-size: 8px;
+}
+
+/* ============ Size Mode: Medium (M) - Default ============ */
+/* Already defined as base styles */
+
+/* ============ Size Mode: Large (L) ============ */
+.vaneqCanvas.size-L {
+  padding: 16px;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.size-L .topBar {
+  height: 52px;
+  padding: 0 16px;
+}
+
+.size-L .topTitle {
+  font-size: 15px;
+  letter-spacing: 0.22em;
+}
+
+.size-L .abBtn {
+  width: 36px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.size-L .presetBtn {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.size-L .sizeBtn {
+  width: 30px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.size-L .meter {
+  width: 160px;
+  height: 14px;
+}
+
+.size-L .iconBtn {
+  width: 32px;
+  height: 32px;
+}
+
+.size-L .onBtn {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.size-L .graphFrame {
+  min-height: 280px;
+}
+
+.size-L .graphInner {
+  padding: 14px;
+}
+
+.size-L .bottomPanel {
+  gap: 14px;
+}
+
+.size-L .bandList {
+  gap: 6px;
+  /* No scroll - 6 bands fit */
+}
+
+.size-L .bandRow {
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.size-L .bandNum {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.size-L .bandType {
+  font-size: 12px;
+  gap: 8px;
+}
+
+.size-L .bandParams {
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.size-L .bandToggle {
+  width: 38px;
+  height: 20px;
+  border-radius: 10px;
+}
+
+.size-L .bandToggle::after {
+  width: 16px;
+  height: 16px;
+}
+
+.size-L .bandToggle.on::after {
+  left: 20px;
+}
+
+.size-L .inspector {
+  width: 280px;
+}
+
+.size-L .inspectorInner {
+  padding: 14px;
+  gap: 10px;
+}
+
+.size-L .filterTypeGrid {
+  gap: 6px;
+}
+
+.size-L .filterTypeBtn {
+  height: 38px;
+}
+
+.size-L .paramRow {
+  height: 44px;
+  padding: 0 14px;
+}
+
+.size-L .paramLabel {
+  font-size: 11px;
+}
+
+.size-L .paramValue {
+  font-size: 15px;
+}
+
+.size-L .inspectorButtons {
+  gap: 8px;
+}
+
+.size-L .inspectorBtn {
+  height: 38px;
+  font-size: 11px;
+}
+
+.size-L .axisLabel {
+  font-size: 10px;
+}
+
+/* Large: bigger nodes */
+.size-L .nodeBase {
+  stroke-width: 2.5;
+}
+
+.size-L .nodeHoverRing {
+  stroke-width: 2.5;
+}
+
+/* Large: thicker curve */
+.size-L .curveLine {
+  stroke-width: 3;
+}
+
+.size-L .curveGlow {
+  stroke-width: 8;
+}
+
+/* Graph tooltip scaling */
+.size-S .graphTooltip {
+  font-size: 10px;
+  padding: 6px 8px;
+}
+
+.size-L .graphTooltip {
+  font-size: 13px;
+  padding: 10px 14px;
+}
+
+.graphTooltip {
+  background: rgba(12,17,27,.95);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--radiusMd);
+  box-shadow: 0 8px 20px rgba(0,0,0,.5);
+  padding: 8px 10px;
+  font-size: 11px;
+  z-index: 100;
+}
+
+.graphTooltip .tipTitle {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text0);
+  margin-bottom: 4px;
+}
+
+.graphTooltip .tipRow {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+/* ============ Orphaned Overlay (Disconnected state) ============ */
+.orphanedOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.75);
+  z-index: 1000;
+}
+
+.orphanedBox {
+  padding: 24px 32px;
+  border-radius: 16px;
+  background: rgba(12,17,27,0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  text-align: center;
+  max-width: 400px;
+}
+
+.orphanedTitle {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--danger);
+  margin-bottom: 12px;
+}
+
+.orphanedMessage {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ============ Size Animation ============ */
+.vaneqSizeAnim .vaneqCanvas {
+  transition: width 180ms ease-out, height 180ms ease-out;
+}
+
+body.vaneqSizeAnim {
+  transition: width 180ms ease-out, height 180ms ease-out;
+}
+
+/* ============ Icon Button Active State ============ */
+.iconBtn.active {
+  background: rgba(88,214,255,.18);
+  border-color: rgba(88,214,255,.35);
+  color: var(--accentCyan);
+}
+
+/* ============ Knob Component - WOW Edition ============ */
+.vaneqKnob {
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  position: relative;
+}
+
+.vaneqKnob.isDisabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.vaneqKnobHit {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  position: relative;
+  overflow: visible;
+  border-radius: 9999px;
+  isolation: isolate;
+}
+
+.vaneqKnobSvg {
+  overflow: visible;
+  width: 48px;
+  height: 48px;
+}
+
+.vaneqKnobTrack {
+  fill: none;
+  stroke: var(--bg-elevated);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.vaneqKnobArc {
+  fill: none;
+  stroke: var(--accent-cyan);
+  stroke-width: 5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px var(--accent-glow)) drop-shadow(0 0 16px var(--accent-glow));
+  transition: stroke-dashoffset 0.08s ease;
+}
+
+.vaneqKnobNeedle {
+  stroke: var(--accent-cyan);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.vaneqKnobCap {
+  fill: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
+  stroke: var(--border-light);
+  stroke-width: 1;
+  filter: drop-shadow(inset 0 2px 4px rgba(0,0,0,0.3));
+}
+
+.vaneqKnobInner {
+  fill: var(--bg-surface);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.theme-light .vaneqKnobTrack { stroke: rgba(0,0,0,0.08); }
+.theme-light .vaneqKnobNeedle { stroke: var(--accent-cyan); }
+.theme-light .vaneqKnobCap { fill: rgba(255,255,255,0.9); stroke: rgba(0,0,0,0.10); }
+
+.vaneqKnobLabel {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.vaneqKnobValue {
+  font-size: 13px;
+  color: var(--text-bright);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: -0.5px;
+}
+
+.vaneqKnobValue .unit {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+/* Knob row in inspector */
+.inspectorKnobs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+/* ============ DragValue Component (FabFilter-style draggable text) ============ */
+.dragValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radiusMd);
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: ns-resize;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dragValue:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.35);
+}
+
+.dragValue.dragging {
+  border-color: var(--accentCyan);
+  background: rgba(88,214,255,0.08);
+}
+
+.dragValue.disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.dragValueLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dragValueText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text0);
+  min-width: 60px;
+  text-align: right;
+}
+
+.dragValueText.active {
+  color: var(--accentCyan);
+}
+
+/* Light theme */
+.theme-light .dragValue {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.10);
+}
+
+.theme-light .dragValue:hover {
+  background: rgba(0,0,0,0.10);
+  border-color: rgba(0,0,0,0.15);
+}
+
+.theme-light .dragValue.dragging {
+  background: rgba(88,214,255,0.12);
+  border-color: var(--accentCyan);
+}
+
+/* ============ Bottom Toolbar - WOW Edition ============ */
+.bottomToolbar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.2) 100%);
+  border-top: 1px solid var(--border-void);
+  flex-shrink: 0;
+}
+
+.bottomLeft,
+.bottomCenter,
+.bottomRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bottomCenter {
+  flex: 1;
+  justify-content: center;
+}
+
+/* Quality Selector */
+.qualityGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qualityLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.qualityButtons {
+  display: flex;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radiusSm);
+  overflow: hidden;
+}
+
+.qualityBtn {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.qualityBtn:hover {
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+}
+
+.qualityBtn.active {
+  color: var(--accent-cyan);
+  background: rgba(0,200,255,0.12);
+}
+
+/* Position Toggle */
+.positionGroup {
+  display: flex;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radiusSm);
+  overflow: hidden;
+}
+
+.positionBtn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.positionBtn:hover {
+  color: var(--text-secondary);
+}
+
+.positionBtn.active {
+  color: var(--text-bright);
+  background: rgba(255,255,255,0.08);
+}
+
+/* Freeze Button */
+.freezeBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radiusSm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.freezeBtn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+}
+
+.freezeBtn.active {
+  color: var(--accent-cyan);
+  border-color: rgba(0,200,255,0.3);
+  background: rgba(0,200,255,0.08);
+}
+
+/* Output Meter */
+.outputMeter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meterLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.meterBarContainer {
+  width: 160px;
+}
+
+.meterBarTrack {
+  height: 6px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.meterBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok) 0%, var(--ok) 70%, var(--accentYellow) 85%, var(--danger) 100%);
+  border-radius: 3px;
+  transition: width 0.05s ease-out;
+}
+
+.meterBarPeak {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--text-bright);
+  transform: translateX(-50%);
+}
+
+/* Auto Gain Button */
+.autoGainBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radiusSm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.autoGainBtn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+}
+
+.autoGainBtn.active {
+  color: var(--ok);
+  border-color: rgba(74,222,128,0.3);
+  background: rgba(74,222,128,0.08);
+}
+
+.autoGainValue {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}

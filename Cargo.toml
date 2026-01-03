@@ -1,0 +1,103 @@
+[package]
+name = "reelforge"
+version = "0.1.0"
+edition = "2024"
+authors = ["VanVinkl Studio"]
+license = "Proprietary"
+rust-version = "1.85"
+
+[[bin]]
+name = "reelforge"
+path = "src/main.rs"
+
+[dependencies]
+rf-core = { path = "crates/rf-core" }
+rf-dsp = { path = "crates/rf-dsp" }
+rf-audio = { path = "crates/rf-audio" }
+rf-engine = { path = "crates/rf-engine" }
+rf-state = { path = "crates/rf-state" }
+rf-gui = { path = "crates/rf-gui" }
+rf-viz = { path = "crates/rf-viz" }
+iced = { version = "0.13", features = ["wgpu", "tokio", "advanced"] }
+log = "0.4"
+env_logger = "0.11"
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/rf-core",
+    "crates/rf-dsp",
+    "crates/rf-audio",
+    "crates/rf-engine",
+    "crates/rf-state",
+    "crates/rf-gui",
+    "crates/rf-viz",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["VanVinkl Studio"]
+license = "Proprietary"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Internal crates
+rf-core = { path = "crates/rf-core" }
+rf-dsp = { path = "crates/rf-dsp" }
+rf-audio = { path = "crates/rf-audio" }
+rf-engine = { path = "crates/rf-engine" }
+rf-state = { path = "crates/rf-state" }
+rf-gui = { path = "crates/rf-gui" }
+rf-viz = { path = "crates/rf-viz" }
+
+# App shell
+tauri = "2.2"
+
+# GUI
+iced = { version = "0.13", features = ["wgpu", "tokio", "advanced"] }
+
+# Graphics
+wgpu = "24.0"
+bytemuck = { version = "1.21", features = ["derive"] }
+
+# Audio
+cpal = "0.15"
+dasp = "0.11"
+
+# DSP
+rustfft = "6.2"
+realfft = "3.4"
+
+# Concurrency
+rtrb = "0.3"
+parking_lot = "0.12"
+rayon = "1.10"
+crossbeam-channel = "0.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+log = "0.4"
+env_logger = "0.11"
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Testing
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

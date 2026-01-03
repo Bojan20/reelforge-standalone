@@ -1,0 +1,189 @@
+/**
+ * ReelForge Overlay Styles
+ *
+ * @module overlay/Overlay.css
+ */
+
+/* ============ Overlay ============ */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+.overlay--blur {
+  backdrop-filter: blur(4px);
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.overlay__content {
+  animation: overlay-content-in 0.2s ease;
+}
+
+@keyframes overlay-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============ Loading Overlay ============ */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 1000;
+}
+
+.loading-overlay--parent {
+  position: absolute;
+}
+
+.loading-overlay--blur {
+  backdrop-filter: blur(4px);
+}
+
+.loading-overlay__spinner {
+  color: #4a9eff;
+  animation: spinner-rotate 1s linear infinite;
+}
+
+.loading-overlay__spinner svg {
+  width: 100%;
+  height: 100%;
+}
+
+.loading-overlay__spinner circle {
+  stroke-dasharray: 80, 200;
+  stroke-dashoffset: 0;
+  animation: spinner-dash 1.5s ease-in-out infinite;
+}
+
+@keyframes spinner-rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinner-dash {
+  0% {
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 89, 200;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 89, 200;
+    stroke-dashoffset: -124;
+  }
+}
+
+.loading-overlay__text {
+  color: #ccc;
+  font-size: 14px;
+}
+
+/* ============ Confirm Overlay ============ */
+
+.confirm-overlay {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.confirm-overlay__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.confirm-overlay__message {
+  font-size: 14px;
+  color: #aaa;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.confirm-overlay__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirm-overlay__btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.confirm-overlay__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirm-overlay__btn--cancel {
+  background: #333;
+  color: #ccc;
+}
+
+.confirm-overlay__btn--cancel:hover:not(:disabled) {
+  background: #404040;
+}
+
+.confirm-overlay__btn--primary {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.confirm-overlay__btn--primary:hover:not(:disabled) {
+  background: #3a8eef;
+}
+
+.confirm-overlay__btn--danger {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.confirm-overlay__btn--danger:hover:not(:disabled) {
+  background: #ff5252;
+}

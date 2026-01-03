@@ -1,0 +1,63 @@
+/**
+ * ReelForge VirtualList Styles
+ *
+ * @module virtual-list/VirtualList.css
+ */
+
+/* ============ VirtualList ============ */
+
+.virtual-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.virtual-list__inner {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list__item {
+  box-sizing: border-box;
+}
+
+/* ============ VirtualGrid ============ */
+
+.virtual-grid {
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.virtual-grid__inner {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-grid__item {
+  box-sizing: border-box;
+}
+
+/* ============ Scrollbar ============ */
+
+.virtual-list::-webkit-scrollbar,
+.virtual-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.virtual-list::-webkit-scrollbar-track,
+.virtual-grid::-webkit-scrollbar-track {
+  background: var(--rf-scrollbar-track, rgba(255, 255, 255, 0.05));
+  border-radius: 4px;
+}
+
+.virtual-list::-webkit-scrollbar-thumb,
+.virtual-grid::-webkit-scrollbar-thumb {
+  background: var(--rf-scrollbar-thumb, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+}
+
+.virtual-list::-webkit-scrollbar-thumb:hover,
+.virtual-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--rf-scrollbar-thumb-hover, rgba(255, 255, 255, 0.3));
+}

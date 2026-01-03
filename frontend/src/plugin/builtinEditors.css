@@ -1,0 +1,195 @@
+/**
+ * ReelForge M9.1 Built-in Plugin Editor Styles
+ */
+
+/* Plugin Editor Container */
+.rf-plugin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: #1a1a2e;
+  border-radius: 4px;
+}
+
+/* Parameter Row */
+.rf-plugin-param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.rf-plugin-param-label {
+  flex: 0 0 70px;
+  font-size: 12px;
+  color: #a0a0a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rf-plugin-param-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Slider */
+.rf-plugin-param-slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background: #333;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.rf-plugin-param-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #4a90d9;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: background 0.15s ease;
+}
+
+.rf-plugin-param-slider::-webkit-slider-thumb:hover {
+  background: #5aa0e9;
+}
+
+.rf-plugin-param-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rf-plugin-param-slider:disabled::-webkit-slider-thumb {
+  background: #666;
+  cursor: not-allowed;
+}
+
+/* Value Display - clickable for numeric input */
+.rf-plugin-param-display {
+  flex: 0 0 60px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #d0d0d0;
+  text-align: right;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+}
+
+.rf-plugin-param-display:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Numeric Input (replaces display when editing) */
+.rf-plugin-param-input {
+  flex: 0 0 60px;
+  width: 60px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #fff;
+  background: #222;
+  border: 1px solid #4a90d9;
+  border-radius: 3px;
+  padding: 2px 4px;
+  text-align: right;
+  outline: none;
+}
+
+.rf-plugin-param-input:focus {
+  border-color: #5aa0e9;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.3);
+}
+
+/* Read-only Param */
+.rf-plugin-param-readonly {
+  opacity: 0.7;
+}
+
+.rf-plugin-param-fixed {
+  font-size: 10px;
+  color: #666;
+  margin-left: 4px;
+}
+
+.rf-plugin-params-fixed {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #333;
+}
+
+/* EQ Band Tabs */
+.rf-eq-band-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.rf-eq-band-tab {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-eq-band-tab:hover {
+  background: #2a2a3e;
+  color: #aaa;
+}
+
+.rf-eq-band-tab.active {
+  background: #3a3a5e;
+  color: #fff;
+  border-color: #4a90d9;
+}
+
+.rf-eq-band-reset {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #666;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-eq-band-reset:hover {
+  background: #2a2a2a;
+  color: #888;
+  border-color: #444;
+}
+
+/* Plugin Params Container */
+.rf-plugin-params {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Specific Editor Styles */
+.rf-eq-editor {
+  min-width: 280px;
+}
+
+.rf-compressor-editor {
+  min-width: 280px;
+}
+
+.rf-limiter-editor {
+  min-width: 280px;
+}

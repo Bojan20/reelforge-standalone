@@ -1,0 +1,144 @@
+/**
+ * ReelForge AutoComplete Styles
+ *
+ * @module auto-complete/AutoComplete.css
+ */
+
+/* ============ AutoComplete ============ */
+
+.auto-complete {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  min-width: 200px;
+}
+
+.auto-complete--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Input Wrapper */
+.auto-complete__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auto-complete__input {
+  width: 100%;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 6px;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.auto-complete__input::placeholder {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.auto-complete__input:focus {
+  outline: none;
+  border-color: var(--rf-primary, #6366f1);
+}
+
+.auto-complete--open .auto-complete__input {
+  border-color: var(--rf-primary, #6366f1);
+}
+
+/* Spinner */
+.auto-complete__spinner {
+  position: absolute;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-top-color: var(--rf-primary, #6366f1);
+  border-radius: 50%;
+  animation: auto-complete-spin 0.6s linear infinite;
+}
+
+@keyframes auto-complete-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Clear */
+.auto-complete__clear {
+  position: absolute;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.auto-complete__clear:hover {
+  background: var(--rf-error, #ef4444);
+  color: #fff;
+}
+
+/* Dropdown */
+.auto-complete__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  z-index: 1000;
+  background: var(--rf-surface, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* Options */
+.auto-complete__options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.auto-complete__option {
+  padding: 10px 12px;
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auto-complete__option:hover,
+.auto-complete__option--highlighted {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.auto-complete__option--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Highlight */
+.auto-complete__highlight {
+  background: rgba(99, 102, 241, 0.3);
+  color: var(--rf-primary, #6366f1);
+  border-radius: 2px;
+}
+
+/* Loading & Empty */
+.auto-complete__loading,
+.auto-complete__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 13px;
+}

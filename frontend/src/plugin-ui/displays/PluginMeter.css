@@ -1,0 +1,70 @@
+/**
+ * Plugin Meter Styles
+ */
+
+.plugin-meter {
+  position: relative;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plugin-meter--vertical {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.plugin-meter--horizontal {
+  display: flex;
+  flex-direction: row;
+}
+
+.plugin-meter__fill {
+  position: absolute;
+  border-radius: 2px;
+  transition: height 0.05s linear, width 0.05s linear;
+}
+
+.plugin-meter--vertical .plugin-meter__fill {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.plugin-meter--horizontal .plugin-meter__fill {
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.plugin-meter__peak {
+  position: absolute;
+  transition: bottom 0.05s linear, left 0.05s linear;
+}
+
+.plugin-meter--vertical .plugin-meter__peak {
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.plugin-meter--horizontal .plugin-meter__peak {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.plugin-meter__segment {
+  position: absolute;
+  border-radius: 1px;
+  transition: background-color 0.05s linear;
+}
+
+.plugin-meter--vertical .plugin-meter__segment {
+  left: 0;
+  right: 0;
+}
+
+.plugin-meter--horizontal .plugin-meter__segment {
+  top: 0;
+  bottom: 0;
+}

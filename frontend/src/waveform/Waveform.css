@@ -1,0 +1,141 @@
+/**
+ * ReelForge Waveform Styles
+ *
+ * @module waveform/Waveform.css
+ */
+
+/* ============ Waveform ============ */
+
+.waveform {
+  position: relative;
+  width: 100%;
+  background: var(--rf-surface, #1a1a1a);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.waveform__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ============ Waveform Overlays ============ */
+
+.waveform__cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rf-error, #ef4444);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.waveform__selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(99, 102, 241, 0.3);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.waveform__region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(99, 102, 241, 0.2);
+  border-left: 2px solid var(--rf-primary, #6366f1);
+  border-right: 2px solid var(--rf-primary, #6366f1);
+  cursor: move;
+}
+
+.waveform__region:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.waveform__region-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 2px 6px;
+  background: var(--rf-primary, #6366f1);
+  border-radius: 3px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ============ Time Ruler ============ */
+
+.waveform__ruler {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.waveform__ruler-mark {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  background: var(--rf-border, rgba(255, 255, 255, 0.2));
+}
+
+.waveform__ruler-mark--major {
+  height: 12px;
+}
+
+.waveform__ruler-mark--minor {
+  height: 6px;
+}
+
+.waveform__ruler-label {
+  position: absolute;
+  bottom: 14px;
+  transform: translateX(-50%);
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ Loading State ============ */
+
+.waveform--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.waveform__loading-text {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 13px;
+}
+
+/* ============ Mini Waveform ============ */
+
+.waveform--mini {
+  height: 32px;
+  border-radius: 3px;
+}
+
+/* ============ Overview Waveform ============ */
+
+.waveform--overview {
+  height: 48px;
+}
+
+.waveform--overview .waveform__viewport {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--rf-primary, #6366f1);
+  cursor: ew-resize;
+}

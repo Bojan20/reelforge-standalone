@@ -1,0 +1,19 @@
+[package]
+name = "rf-dsp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-core = { workspace = true }
+realfft = { workspace = true }
+rustfft = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "biquad"
+harness = false

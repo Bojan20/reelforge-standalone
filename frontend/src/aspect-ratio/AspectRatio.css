@@ -1,0 +1,30 @@
+/**
+ * ReelForge AspectRatio Styles
+ *
+ * @module aspect-ratio/AspectRatio.css
+ */
+
+/* ============ AspectRatio ============ */
+
+.aspect-ratio {
+  position: relative;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+}
+
+.aspect-ratio__content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.aspect-ratio__content > img,
+.aspect-ratio__content > video,
+.aspect-ratio__content > iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

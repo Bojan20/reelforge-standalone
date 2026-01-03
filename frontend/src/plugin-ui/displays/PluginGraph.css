@@ -1,0 +1,8 @@
+/**
+ * Plugin Graph Styles
+ */
+
+.plugin-graph {
+  display: block;
+  border-radius: 4px;
+}

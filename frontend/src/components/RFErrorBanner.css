@@ -1,0 +1,165 @@
+/**
+ * ReelForge M8.9 Error Banner Styles
+ */
+
+/* Error Banner */
+.rf-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 8px 0;
+  animation: rf-error-slide-in 0.2s ease-out;
+}
+
+@keyframes rf-error-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rf-error-banner--warning {
+  background: #3d3520;
+  border: 1px solid #6b5a28;
+}
+
+.rf-error-banner--error {
+  background: #3d2020;
+  border: 1px solid #6b2828;
+}
+
+.rf-error-banner--fatal {
+  background: #4d1a1a;
+  border: 1px solid #8b2828;
+}
+
+.rf-error-banner__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rf-error-banner__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.rf-error-banner__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rf-error-banner__code {
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: #888;
+}
+
+.rf-error-banner__title-text {
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.rf-error-banner__body {
+  font-size: 12px;
+  color: #b0b0b0;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.rf-error-banner__hint {
+  font-size: 11px;
+  color: #808080;
+  font-style: italic;
+}
+
+.rf-error-banner__details {
+  font-size: 10px;
+  color: #666;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.rf-error-banner__dismiss {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.rf-error-banner__dismiss:hover {
+  color: #aaa;
+}
+
+/* Inline Error (for panels) */
+.rf-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #3d2020;
+  border: 1px solid #6b2828;
+  border-radius: 4px;
+  margin: 4px 0;
+  animation: rf-error-flash 0.3s ease-out;
+}
+
+@keyframes rf-error-flash {
+  0% {
+    background: #5d3030;
+  }
+  100% {
+    background: #3d2020;
+  }
+}
+
+.rf-inline-error__code {
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 9px;
+  padding: 1px 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  color: #888;
+}
+
+.rf-inline-error__message {
+  font-size: 11px;
+  color: #d0a0a0;
+}
+
+/* Toast Container */
+.rf-error-toast-container {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  z-index: 9999;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.rf-error-toast-container > * {
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}

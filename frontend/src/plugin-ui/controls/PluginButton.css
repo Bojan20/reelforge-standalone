@@ -1,0 +1,66 @@
+/**
+ * Plugin Button Styles
+ */
+
+.plugin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.plugin-button:focus {
+  outline: none;
+}
+
+.plugin-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--rf-accent-primary, #4080c0);
+}
+
+.plugin-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.plugin-button:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.plugin-button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* Sizes */
+.plugin-button--small {
+  padding: 4px 8px;
+  font-size: 10px;
+  min-height: 24px;
+}
+
+.plugin-button--medium {
+  padding: 6px 12px;
+  font-size: 11px;
+  min-height: 28px;
+}
+
+.plugin-button--large {
+  padding: 8px 16px;
+  font-size: 12px;
+  min-height: 32px;
+}
+
+/* Full width */
+.plugin-button.full-width {
+  width: 100%;
+}
+
+/* Ghost variant hover */
+.plugin-button--ghost:not(:disabled):hover {
+  background: var(--rf-bg-3, #2a2a38) !important;
+}

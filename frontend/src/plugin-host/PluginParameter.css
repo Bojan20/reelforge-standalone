@@ -1,0 +1,284 @@
+/**
+ * ReelForge Plugin Parameter Styles
+ *
+ * @module plugin-host/PluginParameter.css
+ */
+
+/* ============ Base ============ */
+
+.plugin-param {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.plugin-param--compact {
+  gap: 2px;
+}
+
+.plugin-param--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.plugin-param--dragging {
+  cursor: ns-resize;
+}
+
+.plugin-param__label {
+  font-size: 10px;
+  color: #888;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.plugin-param__value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #aaa;
+  text-align: center;
+}
+
+/* ============ Knob ============ */
+
+.plugin-param__knob {
+  position: relative;
+  cursor: ns-resize;
+}
+
+.plugin-param__knob-track {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 225deg,
+    #333 0deg,
+    #444 270deg,
+    #333 270deg
+  );
+  border: 1px solid #555;
+}
+
+.plugin-param__knob-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.plugin-param__knob-indicator::after {
+  content: '';
+  width: 3px;
+  height: 10px;
+  background: #4a9eff;
+  border-radius: 1px;
+  box-shadow: 0 0 4px rgba(74, 158, 255, 0.5);
+}
+
+.plugin-param__knob-center {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+  border: 1px solid #444;
+}
+
+.plugin-param--dragging .plugin-param__knob-indicator::after {
+  background: #6bc0ff;
+  box-shadow: 0 0 8px rgba(74, 158, 255, 0.8);
+}
+
+/* ============ Slider ============ */
+
+.plugin-param--slider.plugin-param--horizontal {
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+}
+
+.plugin-param--slider.plugin-param--vertical {
+  flex-direction: column;
+  height: 100%;
+}
+
+.plugin-param__slider-track {
+  position: relative;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.plugin-param--horizontal .plugin-param__slider-track {
+  flex: 1;
+  height: 8px;
+}
+
+.plugin-param--vertical .plugin-param__slider-track {
+  width: 8px;
+  flex: 1;
+}
+
+.plugin-param__slider-fill {
+  position: absolute;
+  background: linear-gradient(90deg, #4a9eff 0%, #357abd 100%);
+  border-radius: 3px;
+}
+
+.plugin-param--horizontal .plugin-param__slider-fill {
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.plugin-param--vertical .plugin-param__slider-fill {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.plugin-param__slider-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(180deg, #666 0%, #444 100%);
+  border: 1px solid #777;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -50%);
+}
+
+.plugin-param--horizontal .plugin-param__slider-thumb {
+  top: 50%;
+}
+
+.plugin-param--vertical .plugin-param__slider-thumb {
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+
+/* ============ Toggle ============ */
+
+.plugin-param__toggle {
+  padding: 6px 12px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-param__toggle:hover {
+  background: #3a3a3a;
+  color: #aaa;
+}
+
+.plugin-param__toggle--on {
+  background: #4a9eff;
+  border-color: #5aafff;
+  color: #fff;
+}
+
+.plugin-param__toggle--on:hover {
+  background: #5aafff;
+}
+
+/* ============ Select ============ */
+
+.plugin-param__select {
+  padding: 4px 8px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #ccc;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.plugin-param__select:hover {
+  border-color: #555;
+}
+
+.plugin-param__select:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+/* ============ Meter ============ */
+
+.plugin-param__meter {
+  position: relative;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plugin-param--horizontal .plugin-param__meter {
+  width: 100%;
+  height: 6px;
+}
+
+.plugin-param--vertical .plugin-param__meter {
+  width: 6px;
+  height: 100%;
+}
+
+.plugin-param__meter-fill {
+  position: absolute;
+  background: linear-gradient(
+    to top,
+    #00ff88 0%,
+    #00ff88 70%,
+    #ffaa00 85%,
+    #ff4444 100%
+  );
+}
+
+.plugin-param--horizontal .plugin-param__meter-fill {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to right,
+    #00ff88 0%,
+    #00ff88 70%,
+    #ffaa00 85%,
+    #ff4444 100%
+  );
+}
+
+.plugin-param--vertical .plugin-param__meter-fill {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.plugin-param__meter-peak {
+  position: absolute;
+  background: #ff4444;
+}
+
+.plugin-param--horizontal .plugin-param__meter-peak {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.plugin-param--vertical .plugin-param__meter-peak {
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(50%);
+}

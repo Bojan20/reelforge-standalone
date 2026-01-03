@@ -1,0 +1,156 @@
+/**
+ * ReelForge Breadcrumbs Styles
+ *
+ * @module breadcrumbs/Breadcrumbs.css
+ */
+
+/* ============ Container ============ */
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+}
+
+/* ============ List ============ */
+
+.breadcrumbs__list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ============ Item ============ */
+
+.breadcrumbs__item {
+  display: flex;
+  align-items: center;
+}
+
+/* ============ Separator ============ */
+
+.breadcrumbs__separator {
+  margin: 0 8px;
+  color: #555;
+  font-size: 12px;
+}
+
+/* ============ Link / Button ============ */
+
+.breadcrumbs__link,
+.breadcrumbs__button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.breadcrumbs__link:hover:not(.breadcrumbs__link--disabled),
+.breadcrumbs__button:hover:not(:disabled) {
+  background: #252525;
+  color: #fff;
+}
+
+.breadcrumbs__link--current,
+.breadcrumbs__button--current {
+  color: #fff;
+  cursor: default;
+}
+
+.breadcrumbs__link--current:hover,
+.breadcrumbs__button--current:hover {
+  background: transparent;
+}
+
+.breadcrumbs__link--disabled,
+.breadcrumbs__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ Icon ============ */
+
+.breadcrumbs__icon {
+  font-size: 14px;
+}
+
+/* ============ Collapsed ============ */
+
+.breadcrumbs__collapsed {
+  padding: 4px 8px;
+  color: #666;
+  cursor: default;
+}
+
+/* ============ Sizes ============ */
+
+/* Small */
+.breadcrumbs--small .breadcrumbs__separator {
+  margin: 0 6px;
+  font-size: 10px;
+}
+
+.breadcrumbs--small .breadcrumbs__link,
+.breadcrumbs--small .breadcrumbs__button {
+  padding: 2px 6px;
+  margin: -2px -6px;
+  font-size: 12px;
+}
+
+.breadcrumbs--small .breadcrumbs__icon {
+  font-size: 12px;
+}
+
+/* Large */
+.breadcrumbs--large .breadcrumbs__separator {
+  margin: 0 10px;
+  font-size: 14px;
+}
+
+.breadcrumbs--large .breadcrumbs__link,
+.breadcrumbs--large .breadcrumbs__button {
+  padding: 6px 10px;
+  margin: -6px -10px;
+  font-size: 14px;
+}
+
+.breadcrumbs--large .breadcrumbs__icon {
+  font-size: 16px;
+}
+
+/* ============ Variants ============ */
+
+/* With background */
+.breadcrumbs--filled .breadcrumbs__list {
+  padding: 8px 12px;
+  background: #1e1e1e;
+  border-radius: 6px;
+}
+
+/* With border */
+.breadcrumbs--bordered .breadcrumbs__list {
+  padding: 8px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+/* Arrow separator */
+.breadcrumbs--arrows .breadcrumbs__separator {
+  font-size: 10px;
+}
+
+.breadcrumbs--arrows .breadcrumbs__separator::before {
+  content: '›';
+}

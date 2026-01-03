@@ -1,0 +1,510 @@
+/**
+ * ReelForge Pro Suite - Shared Styles
+ *
+ * Common styles for VanEQ, VanComp, VanLimit Pro plugins.
+ * Uses VanSuite design tokens (--vs-*) for premium matte aesthetics.
+ */
+
+/* ============ Top Bar ============ */
+
+.vp-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--vs-bg-1, #10141b);
+  border-bottom: 1px solid var(--vs-border, rgba(255, 255, 255, 0.06));
+  user-select: none;
+}
+
+.vp-top-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vp-top-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* A/B Group */
+.vp-ab-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.vp-ab-btn {
+  width: 28px;
+  height: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--vs-bg-2, #151a23);
+  color: var(--vs-text-1, rgba(255, 255, 255, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+  transition:
+    transform var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    box-shadow var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    filter var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+}
+
+.vp-ab-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.vp-ab-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+    0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.vp-ab-btn.active {
+  background: var(--vs-accent-cyan, #3fd0ff);
+  color: var(--vs-bg-0, #0b0d12);
+}
+
+.vp-ab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vp-ab-copy-btn {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--vs-bg-2, #151a23);
+  color: var(--vs-text-2, rgba(255, 255, 255, 0.45));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+  transition:
+    transform var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    box-shadow var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    filter var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+  margin-left: 4px;
+}
+
+.vp-ab-copy-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  color: var(--vs-text-1, rgba(255, 255, 255, 0.7));
+}
+
+.vp-ab-copy-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+    0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* History Group */
+.vp-history-group {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--vp-grid-line);
+}
+
+/* Icon Button - Hardware-style tactile button */
+.vp-icon-btn {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--vs-bg-2, #151a23);
+  color: var(--vs-text-1, rgba(255, 255, 255, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.25);
+  transition:
+    transform var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    box-shadow var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    filter var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    background var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vp-icon-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  background: var(--vs-bg-3, #1b2230);
+}
+
+.vp-icon-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+    0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.vp-icon-btn.active {
+  background: var(--vs-accent-cyan, #3fd0ff);
+  color: var(--vs-bg-0, #0b0d12);
+}
+
+.vp-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Quality Select */
+.vp-quality-group {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--vp-grid-line);
+}
+
+.vp-quality-select {
+  padding: 4px 8px;
+  font-size: 11px;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+  outline: none;
+}
+
+.vp-quality-select:focus {
+  border-color: var(--vp-input-border-focus);
+}
+
+/* Bypass Button - Hardware toggle with LED indicator feel */
+.vp-bypass-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--vs-bg-2, #151a23);
+  color: var(--vs-text-1, rgba(255, 255, 255, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.25);
+  transition:
+    transform var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    box-shadow var(--vs-fast, 120ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    background var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    color var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+}
+
+.vp-bypass-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.vp-bypass-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+    0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Active state (ON) - green LED glow */
+.vp-bypass-btn.active {
+  background: var(--vs-accent-teal, #2fe3c0);
+  color: var(--vs-bg-0, #0b0d12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(47, 227, 192, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Bypassed state (OFF) - amber warning */
+.vp-bypass-btn.bypassed {
+  background: var(--vs-accent-amber, #ffc657);
+  color: var(--vs-bg-0, #0b0d12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(255, 198, 87, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.vp-bypass-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============ Numeric Control ============ */
+
+.vp-numeric-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vp-numeric-control.readonly {
+  opacity: 0.6;
+}
+
+.vp-numeric-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.vp-numeric-value {
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  text-align: center;
+  border: 1px solid;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.vp-numeric-control.dragging .vp-numeric-value {
+  border-color: var(--vp-accent-primary) !important;
+}
+
+.vp-numeric-input {
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  text-align: center;
+  border: 2px solid;
+  border-radius: 3px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ============ Param Strip ============ */
+
+.vp-param-strip {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 16px;
+  border-top: 1px solid var(--vp-grid-line);
+}
+
+.vp-param-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 16px;
+  border-right: 1px solid var(--vp-grid-line);
+}
+
+.vp-param-group:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.vp-param-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vp-text-muted);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+/* ============ Meters ============ */
+
+.vp-meter {
+  position: relative;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vp-meter-vertical {
+  width: 12px;
+}
+
+.vp-meter-horizontal {
+  height: 12px;
+}
+
+.vp-meter-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--vp-meter-bg);
+}
+
+.vp-meter-fill {
+  position: absolute;
+  transition: all 50ms ease-out;
+}
+
+.vp-meter-vertical .vp-meter-fill {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.vp-meter-horizontal .vp-meter-fill {
+  top: 0;
+  left: 0;
+  bottom: 0;
+}
+
+.vp-meter-peak {
+  position: absolute;
+  background: var(--vp-meter-red);
+  transition: all 100ms ease-out;
+}
+
+.vp-meter-vertical .vp-meter-peak {
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.vp-meter-horizontal .vp-meter-peak {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+/* Meter labels */
+.vp-meter-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 8px;
+  color: var(--vp-text-muted);
+}
+
+.vp-meter-labels-horizontal {
+  flex-direction: row;
+}
+
+/* ============ Gain Reduction Meter ============ */
+
+.vp-gr-meter {
+  position: relative;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vp-gr-fill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--vp-gr-color);
+  transition: width 50ms ease-out;
+}
+
+.vp-gr-label {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vp-text-primary);
+}
+
+/* ============ Plugin Container ============ */
+
+.vp-plugin-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.vp-plugin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vp-plugin-visualization {
+  flex: 1;
+  position: relative;
+  min-height: 200px;
+}
+
+/* ============ Toggle Switch - Hardware-style with LED indicator ============ */
+
+.vp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.vp-toggle-label {
+  font-size: 10px;
+  color: var(--vs-text-2, rgba(255, 255, 255, 0.45));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+}
+
+.vp-toggle:hover .vp-toggle-label {
+  color: var(--vs-text-1, rgba(255, 255, 255, 0.7));
+}
+
+.vp-toggle-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--vs-bg-2, #151a23);
+  position: relative;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  transition:
+    background var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    box-shadow var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+}
+
+.vp-toggle-switch.active {
+  background: var(--vs-accent-cyan, #3fd0ff);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(63, 208, 255, 0.4);
+}
+
+.vp-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition:
+    transform var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1)),
+    left var(--vs-med, 180ms) var(--vs-ease, cubic-bezier(0.2, 0.9, 0.2, 1));
+}
+
+.vp-toggle-switch.active::after {
+  left: 19px;
+}

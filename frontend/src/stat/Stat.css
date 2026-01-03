@@ -1,0 +1,179 @@
+/**
+ * ReelForge Stat Styles
+ *
+ * @module stat/Stat.css
+ */
+
+/* ============ Stat ============ */
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat--horizontal {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat--horizontal .stat__label {
+  order: 1;
+  margin-bottom: 0;
+}
+
+.stat--horizontal .stat__value-container {
+  order: 0;
+}
+
+/* ============ Label ============ */
+
+.stat__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.stat--small .stat__label {
+  font-size: 11px;
+}
+
+.stat--large .stat__label {
+  font-size: 13px;
+}
+
+/* ============ Value ============ */
+
+.stat__value-container {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat__value {
+  font-weight: 600;
+  color: #fff;
+}
+
+.stat--small .stat__value {
+  font-size: 20px;
+}
+
+.stat--medium .stat__value {
+  font-size: 28px;
+}
+
+.stat--large .stat__value {
+  font-size: 36px;
+}
+
+.stat__prefix,
+.stat__suffix {
+  font-size: 0.6em;
+  color: #888;
+}
+
+/* ============ Footer ============ */
+
+.stat__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.stat__description {
+  font-size: 12px;
+  color: #666;
+}
+
+/* ============ Trend ============ */
+
+.stat__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stat__trend svg {
+  width: 16px;
+  height: 16px;
+}
+
+.stat__trend--up {
+  color: #51cf66;
+}
+
+.stat__trend--down {
+  color: #ff6b6b;
+}
+
+.stat__trend--neutral {
+  color: #888;
+}
+
+/* ============ Skeleton ============ */
+
+.stat__skeleton {
+  width: 80px;
+  height: 1em;
+  background: #2a2a2a;
+  border-radius: 4px;
+  animation: stat-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.stat--small .stat__skeleton {
+  height: 20px;
+}
+
+.stat--medium .stat__skeleton {
+  height: 28px;
+}
+
+.stat--large .stat__skeleton {
+  height: 36px;
+}
+
+@keyframes stat-skeleton-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+/* ============ Stat Group ============ */
+
+.stat-group {
+  display: grid;
+  gap: 24px;
+}
+
+.stat-group--cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.stat-group--cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.stat-group--cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stat-group--cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.stat-group--dividers .stat {
+  padding-right: 24px;
+  border-right: 1px solid #2a2a2a;
+}
+
+.stat-group--dividers .stat:last-child {
+  padding-right: 0;
+  border-right: none;
+}

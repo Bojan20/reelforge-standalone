@@ -1,0 +1,73 @@
+/**
+ * ReelForge Signature Styles
+ *
+ * @module signature/Signature.css
+ */
+
+/* ============ Signature ============ */
+
+.signature {
+  position: relative;
+  display: inline-block;
+}
+
+.signature--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.signature__canvas {
+  display: block;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.signature__placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--rf-text-muted, rgba(0, 0, 0, 0.3));
+  font-size: 14px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ============ Controls ============ */
+
+.signature__controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.signature__btn {
+  padding: 6px 16px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.signature__btn:hover:not(:disabled) {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.signature__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.signature__btn--clear {
+  color: var(--rf-error, #ef4444);
+  border-color: var(--rf-error, #ef4444);
+}
+
+.signature__btn--clear:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+}

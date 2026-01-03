@@ -1,0 +1,30 @@
+/**
+ * ReelForge VanComp Pro - Editor Styles
+ */
+
+.vancomp-pro {
+  min-width: 700px;
+  min-height: 400px;
+}
+
+.vancomp-visualization {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vancomp-visualization canvas {
+  display: block;
+}
+
+/* Enhance toggle for compressor */
+.vancomp-pro .vp-toggle {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.vancomp-pro .vp-toggle-label {
+  font-size: 9px;
+  text-transform: uppercase;
+}

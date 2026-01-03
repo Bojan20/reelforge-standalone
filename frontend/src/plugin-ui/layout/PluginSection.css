@@ -1,0 +1,21 @@
+/**
+ * Plugin Section Styles
+ */
+
+.plugin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plugin-section__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.plugin-section__content {
+  display: flex;
+  flex-wrap: wrap;
+}

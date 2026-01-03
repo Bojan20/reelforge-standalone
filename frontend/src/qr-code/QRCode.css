@@ -1,0 +1,12 @@
+/**
+ * ReelForge QRCode Styles
+ *
+ * @module qr-code/QRCode.css
+ */
+
+/* ============ QRCode ============ */
+
+.qr-code-canvas,
+.qr-code-svg {
+  display: block;
+}

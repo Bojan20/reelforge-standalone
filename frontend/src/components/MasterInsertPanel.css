@@ -1,0 +1,723 @@
+/**
+ * ReelForge M8.0 Master Insert Panel Styles
+ */
+
+.rf-master-inserts {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(180deg, #1a1a1a 0%, #141414 100%);
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.rf-master-inserts-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-master-inserts-header:hover {
+  background: #222;
+}
+
+.rf-master-inserts-icon {
+  font-size: 14px;
+}
+
+.rf-master-inserts-title {
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.rf-master-inserts-latency {
+  margin-left: auto;
+  padding: 2px 6px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.rf-master-inserts-pdc-btn {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: monospace;
+}
+
+.rf-master-inserts-pdc-btn:hover {
+  border-color: #666;
+  color: #999;
+}
+
+.rf-master-inserts-pdc-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.rf-master-inserts-pdc-btn.clamped {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: pdc-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pdc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.rf-master-inserts-collapse-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.rf-master-inserts-collapse-btn.collapsed {
+  transform: rotate(-90deg);
+}
+
+.rf-master-inserts-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.rf-master-inserts-empty {
+  color: #555;
+  font-size: 11px;
+  text-align: center;
+  padding: 16px;
+  font-style: italic;
+}
+
+/* Add Insert Button */
+.rf-master-inserts-add {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #252525;
+  margin-top: 4px;
+}
+
+.rf-master-inserts-add-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-master-inserts-add-btn:hover {
+  background: #2a2a2a;
+  border-color: #3b82f6;
+  color: #e0e0e0;
+}
+
+/* Pro Plugin Buttons - gold accent */
+.rf-master-inserts-add-btn--pro {
+  background: linear-gradient(180deg, #2a2418 0%, #1f1a12 100%);
+  border-color: #3d3522;
+  color: #c4a34e;
+}
+
+.rf-master-inserts-add-btn--pro:hover {
+  background: linear-gradient(180deg, #352d1c 0%, #2a2418 100%);
+  border-color: #d4a53a;
+  color: #f0c85a;
+}
+
+/* Insert Slot */
+.rf-insert-slot {
+  background: #1a1a1a;
+  border: 1px solid #252525;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.15s;
+}
+
+.rf-insert-slot.bypassed {
+  opacity: 0.6;
+}
+
+.rf-insert-slot.bypassed .rf-insert-slot-header {
+  background: #1a1a1a;
+}
+
+.rf-insert-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1e1e1e;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+
+.rf-insert-slot.expanded .rf-insert-slot-header {
+  border-bottom-color: #252525;
+}
+
+.rf-insert-slot-icon {
+  font-size: 14px;
+}
+
+.rf-insert-slot-name {
+  font-weight: 500;
+  color: #ccc;
+  flex: 1;
+}
+
+.rf-insert-slot-bypass {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #888;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-insert-slot-bypass:hover {
+  border-color: #555;
+  color: #ccc;
+}
+
+.rf-insert-slot-bypass.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.rf-insert-slot-expand {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.rf-insert-slot-expand.expanded {
+  transform: rotate(180deg);
+}
+
+.rf-insert-slot-remove {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.15s;
+}
+
+.rf-insert-slot-remove:hover {
+  color: #ef4444;
+}
+
+/* Insert Params */
+.rf-insert-params {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #151515;
+}
+
+.rf-insert-param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rf-insert-param-label {
+  min-width: 70px;
+  color: #888;
+  font-size: 11px;
+}
+
+.rf-insert-param-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf-insert-param-slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background: #333;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.rf-insert-param-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-insert-param-slider::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+}
+
+.rf-insert-param-number {
+  min-width: 50px;
+  text-align: right;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.rf-insert-param-unit {
+  color: #666;
+  font-size: 10px;
+  min-width: 20px;
+}
+
+/* EQ Band Tabs */
+.rf-eq-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rf-eq-band-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #252525;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.rf-eq-band-tab {
+  flex: 1;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #888;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-eq-band-tab:hover {
+  border-color: #555;
+  color: #ccc;
+}
+
+.rf-eq-band-tab.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* Band Type Select */
+.rf-insert-param-select {
+  padding: 4px 8px;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
+.rf-insert-param-select:hover {
+  border-color: #555;
+}
+
+.rf-insert-param-select:focus {
+  border-color: #3b82f6;
+}
+
+/* ============ M8.3 Toolbar ============ */
+
+.rf-master-inserts-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #252525;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.rf-master-inserts-toolbar-group {
+  display: flex;
+  gap: 4px;
+  position: relative;
+}
+
+.rf-master-inserts-tool-btn {
+  padding: 4px 8px;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #888;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.rf-master-inserts-tool-btn:hover:not(:disabled) {
+  background: #2a2a2a;
+  border-color: #555;
+  color: #ccc;
+}
+
+.rf-master-inserts-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Preset Dropdown */
+.rf-master-inserts-preset-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.rf-master-inserts-preset-section {
+  padding: 4px 0;
+}
+
+.rf-master-inserts-preset-section-label {
+  padding: 4px 12px;
+  color: #555;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-master-inserts-preset-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rf-master-inserts-preset-item:hover:not(:disabled) {
+  background: #2a2a2a;
+}
+
+.rf-master-inserts-preset-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rf-master-inserts-preset-save {
+  color: #3b82f6;
+}
+
+.rf-master-inserts-preset-divider {
+  height: 1px;
+  background: #333;
+  margin: 4px 0;
+}
+
+/* A/B Buttons */
+.rf-master-inserts-ab-group {
+  margin-left: auto;
+}
+
+.rf-master-inserts-ab-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-master-inserts-ab-btn:hover {
+  border-color: #555;
+  color: #888;
+}
+
+.rf-master-inserts-ab-btn.has-data {
+  border-color: #444;
+  color: #888;
+}
+
+.rf-master-inserts-ab-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.rf-master-inserts-ab-toggle {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #444;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-master-inserts-ab-toggle:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.rf-master-inserts-ab-toggle.enabled {
+  border-color: #555;
+  color: #888;
+}
+
+.rf-master-inserts-ab-toggle.enabled:hover {
+  background: #252525;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* Error Message */
+.rf-master-inserts-error {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  z-index: 200;
+  animation: error-fade 3s ease-out forwards;
+}
+
+@keyframes error-fade {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Dialog */
+.rf-master-inserts-dialog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+}
+
+.rf-master-inserts-dialog-content {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 240px;
+  max-width: 90%;
+}
+
+.rf-master-inserts-dialog-content p {
+  margin: 0 0 12px 0;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.rf-master-inserts-dialog-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.rf-master-inserts-dialog-input:focus {
+  border-color: #3b82f6;
+}
+
+.rf-master-inserts-dialog-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.rf-master-inserts-dialog-buttons button {
+  padding: 6px 12px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-master-inserts-dialog-buttons button:hover:not(:disabled) {
+  background: #444;
+  border-color: #555;
+}
+
+.rf-master-inserts-dialog-buttons button:last-child {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.rf-master-inserts-dialog-buttons button:last-child:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.rf-master-inserts-dialog-buttons button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Insert Slot Index */
+.rf-insert-slot-index {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  border-radius: 50%;
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Insert Slot Menu */
+.rf-insert-slot-menu-wrapper {
+  position: relative;
+}
+
+.rf-insert-slot-menu-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.rf-insert-slot-menu-btn:hover {
+  color: #888;
+}
+
+.rf-insert-slot-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 120px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.rf-insert-slot-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rf-insert-slot-menu button:hover {
+  background: #2a2a2a;
+}
+
+/* EQ Band Reset Button */
+.rf-eq-band-reset {
+  width: 24px;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.rf-eq-band-reset:hover {
+  border-color: #555;
+  color: #ccc;
+}

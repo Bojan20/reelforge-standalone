@@ -1,0 +1,13 @@
+[package]
+name = "rf-viz"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-core = { workspace = true }
+rf-dsp = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+log = { workspace = true }

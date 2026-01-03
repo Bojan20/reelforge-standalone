@@ -1,0 +1,275 @@
+/**
+ * ReelForge Tabs Styles
+ *
+ * @module tabs/Tabs.css
+ */
+
+/* ============ Container ============ */
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+}
+
+/* ============ Tab List ============ */
+
+.tabs__list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+.tabs__list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs__list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+
+/* ============ Tab ============ */
+
+.tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  font-size: 13px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+
+.tabs__tab:hover {
+  background: #252525;
+  color: #ccc;
+}
+
+.tabs__tab--active {
+  background: #2a2a2a;
+  border-color: #333 #333 transparent;
+  color: #fff;
+}
+
+.tabs__tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #2a2a2a;
+}
+
+.tabs__tab--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tabs__tab--disabled:hover {
+  background: transparent;
+  color: #888;
+}
+
+/* ============ Drag States ============ */
+
+.tabs__tab--dragging {
+  opacity: 0.5;
+}
+
+.tabs__tab--drop-target {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: #4a9eff;
+}
+
+/* ============ Dirty Indicator ============ */
+
+.tabs__tab--dirty .tabs__tab-label {
+  font-style: italic;
+}
+
+.tabs__tab-dirty {
+  color: #4a9eff;
+  font-size: 10px;
+  margin-left: -2px;
+}
+
+/* ============ Tab Icon ============ */
+
+.tabs__tab-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.tabs__tab--active .tabs__tab-icon {
+  opacity: 1;
+}
+
+/* ============ Tab Label ============ */
+
+.tabs__tab-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============ Tab Badge ============ */
+
+.tabs__tab-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #4a9eff;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============ Tab Close ============ */
+
+.tabs__tab-close {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 2px;
+  margin-right: -4px;
+}
+
+.tabs__tab-close:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.tabs__tab--active .tabs__tab-close {
+  color: #888;
+}
+
+.tabs__tab--active .tabs__tab-close:hover {
+  background: #444;
+  color: #fff;
+}
+
+/* ============ Add Button ============ */
+
+.tabs__add {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px dashed #444;
+  border-radius: 6px;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tabs__add:hover {
+  background: #252525;
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+/* ============ Sizes ============ */
+
+/* Small */
+.tabs--small .tabs__list {
+  padding: 2px 6px;
+  gap: 1px;
+}
+
+.tabs--small .tabs__tab {
+  padding: 4px 8px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.tabs--small .tabs__tab-icon {
+  font-size: 12px;
+}
+
+.tabs--small .tabs__tab-badge {
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.tabs--small .tabs__tab-close {
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+}
+
+.tabs--small .tabs__add {
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+}
+
+/* Large */
+.tabs--large .tabs__list {
+  padding: 6px 10px;
+  gap: 3px;
+}
+
+.tabs--large .tabs__tab {
+  padding: 10px 16px;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.tabs--large .tabs__tab-icon {
+  font-size: 16px;
+}
+
+.tabs--large .tabs__tab-badge {
+  min-width: 20px;
+  height: 20px;
+  font-size: 12px;
+}
+
+.tabs--large .tabs__tab-close {
+  width: 20px;
+  height: 20px;
+  font-size: 18px;
+}
+
+.tabs--large .tabs__add {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+}

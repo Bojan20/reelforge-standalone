@@ -1,0 +1,257 @@
+/**
+ * ReelForge Calendar Styles
+ *
+ * @module calendar/Calendar.css
+ */
+
+/* ============ Calendar ============ */
+
+.calendar {
+  width: 280px;
+  padding: 12px;
+  background: var(--rf-surface, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  user-select: none;
+}
+
+/* Header */
+.calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar__nav {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.calendar__nav:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text, #fff);
+}
+
+.calendar__title {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.calendar__title:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+/* Weekdays */
+.calendar__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 8px;
+}
+
+.calendar__weekday {
+  padding: 8px 0;
+  text-align: center;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.calendar__weekday--number {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.3));
+}
+
+/* Days Grid */
+.calendar__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendar__week-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.3));
+  font-size: 11px;
+}
+
+.calendar__day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.calendar__day:hover:not(:disabled) {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.calendar__day--outside {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.3));
+}
+
+.calendar__day--today {
+  font-weight: 600;
+  color: var(--rf-primary, #6366f1);
+}
+
+.calendar__day--today::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  background: var(--rf-primary, #6366f1);
+  border-radius: 50%;
+}
+
+.calendar__day--selected {
+  background: var(--rf-primary, #6366f1) !important;
+  color: #fff !important;
+}
+
+.calendar__day--selected::after {
+  display: none;
+}
+
+.calendar__day--in-range {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 0;
+}
+
+.calendar__day--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Day Events */
+.calendar__day-events {
+  display: flex;
+  gap: 2px;
+  position: absolute;
+  bottom: 2px;
+}
+
+.calendar__day-event {
+  width: 4px;
+  height: 4px;
+  background: var(--rf-primary, #6366f1);
+  border-radius: 50%;
+}
+
+/* Months Grid */
+.calendar__months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.calendar__month {
+  padding: 16px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.calendar__month:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.calendar__month--current {
+  color: var(--rf-primary, #6366f1);
+  font-weight: 600;
+}
+
+.calendar__month--selected {
+  background: var(--rf-primary, #6366f1) !important;
+  color: #fff !important;
+}
+
+/* Years Grid */
+.calendar__years {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.calendar__year {
+  padding: 16px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rf-text, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.calendar__year:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+}
+
+.calendar__year--current {
+  color: var(--rf-primary, #6366f1);
+  font-weight: 600;
+}
+
+.calendar__year--selected {
+  background: var(--rf-primary, #6366f1) !important;
+  color: #fff !important;
+}
+
+.calendar__year--outside {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.3));
+}
+
+/* ============ Mini Calendar ============ */
+
+.calendar--mini {
+  width: 220px;
+  padding: 8px;
+}
+
+.calendar--mini .calendar__day {
+  font-size: 12px;
+}
+
+.calendar--mini .calendar__weekday {
+  font-size: 10px;
+  padding: 4px 0;
+}
+
+/* ============ Week Numbers ============ */
+
+.calendar--week-numbers .calendar__weekdays,
+.calendar--week-numbers .calendar__days {
+  grid-template-columns: 24px repeat(7, 1fr);
+}

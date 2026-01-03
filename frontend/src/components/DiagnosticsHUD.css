@@ -1,0 +1,431 @@
+/**
+ * ReelForge M8.6 Diagnostics HUD Styles
+ *
+ * Floating panel with monospace numbers and status colors:
+ * - Green: OK
+ * - Amber: ON / active
+ * - Red: error / clamped
+ */
+
+/* Toggle Button (when HUD hidden) */
+.rf-hud-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rf-hud-toggle-btn:hover {
+  background: #252525;
+  border-color: #10b981;
+  color: #10b981;
+}
+
+/* HUD Container */
+.rf-diagnostics-hud {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 280px;
+  max-height: 80vh;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 10px;
+  color: #aaa;
+  z-index: 1000;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.rf-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #141414;
+  border-bottom: 1px solid #252525;
+}
+
+.rf-hud-title {
+  font-weight: 600;
+  color: #ccc;
+  font-size: 11px;
+}
+
+/* Toolbar */
+.rf-hud-toolbar {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  margin-right: 6px;
+}
+
+.rf-hud-tool-btn {
+  padding: 2px 5px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #666;
+  cursor: pointer;
+  font-size: 8px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  transition: all 0.15s;
+}
+
+.rf-hud-tool-btn:hover {
+  background: #252525;
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.rf-hud-close-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+
+.rf-hud-close-btn:hover {
+  color: #ef4444;
+}
+
+/* Feedback toast */
+.rf-hud-feedback {
+  padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.9);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 500;
+  text-align: center;
+  animation: rf-hud-feedback-fade 2s ease-out forwards;
+}
+
+.rf-hud-feedback.error {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+@keyframes rf-hud-feedback-fade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Content */
+.rf-hud-content {
+  padding: 6px;
+  max-height: calc(80vh - 40px);
+  overflow-y: auto;
+}
+
+/* Sections */
+.rf-hud-section {
+  margin-bottom: 4px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rf-hud-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: #161616;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-hud-section-header:hover {
+  background: #1a1a1a;
+}
+
+.rf-hud-section-title {
+  font-weight: 600;
+  color: #888;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+
+.rf-hud-section-chevron {
+  color: #555;
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.rf-hud-section-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.rf-hud-section-content {
+  padding: 6px 8px;
+}
+
+/* Warnings Summary */
+.rf-hud-warnings {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.rf-hud-warnings-header {
+  padding: 5px 8px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 9px;
+}
+
+.rf-hud-warnings-list {
+  padding: 4px 8px;
+}
+
+.rf-hud-warning-item {
+  color: #f59e0b;
+  font-size: 9px;
+  padding: 2px 0;
+}
+
+.rf-hud-warning-item.error {
+  color: #ef4444;
+}
+
+/* Latency Panel */
+.rf-hud-latency {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rf-hud-latency-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rf-hud-latency-label {
+  min-width: 85px;
+  color: #666;
+}
+
+.rf-hud-latency-value {
+  min-width: 55px;
+  text-align: right;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.rf-hud-latency-badges {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.rf-hud-latency-separator {
+  color: #333;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.rf-hud-latency-total {
+  padding-top: 2px;
+}
+
+.rf-hud-latency-total .rf-hud-latency-label {
+  color: #888;
+  font-weight: 600;
+}
+
+.rf-hud-latency-total .rf-hud-latency-value {
+  color: #fff;
+}
+
+/* Badges */
+.rf-hud-badge {
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.rf-hud-badge-ok {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.rf-hud-badge-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  animation: rf-hud-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rf-hud-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* PDC Panel */
+.rf-hud-pdc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rf-hud-pdc-header {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #222;
+  margin-bottom: 2px;
+}
+
+.rf-hud-pdc-header .rf-hud-pdc-col {
+  color: #555;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.rf-hud-pdc-row {
+  display: flex;
+  gap: 6px;
+}
+
+.rf-hud-pdc-row.clamped {
+  background: rgba(239, 68, 68, 0.1);
+  margin: 0 -8px;
+  padding: 2px 8px;
+}
+
+.rf-hud-pdc-col {
+  color: #888;
+}
+
+.rf-hud-pdc-col:nth-child(1) {
+  min-width: 55px;
+}
+
+.rf-hud-pdc-col:nth-child(2) {
+  min-width: 30px;
+}
+
+.rf-hud-pdc-col:nth-child(3) {
+  min-width: 70px;
+  text-align: right;
+}
+
+.rf-hud-pdc-col:nth-child(4) {
+  flex: 1;
+  text-align: right;
+}
+
+.rf-hud-pdc-col.on {
+  color: #f59e0b;
+}
+
+.rf-hud-pdc-col.off {
+  color: #555;
+}
+
+.rf-hud-pdc-col.error {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Ducking Panel */
+.rf-hud-ducking {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rf-hud-ducking-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf-hud-ducking-label {
+  min-width: 85px;
+  color: #666;
+}
+
+.rf-hud-ducking-value {
+  color: #888;
+}
+
+.rf-hud-ducking-value.active {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Voice Health Panel */
+.rf-hud-voices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rf-hud-voices-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf-hud-voices-row.warning {
+  background: rgba(245, 158, 11, 0.1);
+  margin: 0 -8px;
+  padding: 2px 8px;
+}
+
+.rf-hud-voices-label {
+  min-width: 85px;
+  color: #666;
+}
+
+.rf-hud-voices-value {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.rf-hud-voices-row.warning .rf-hud-voices-value {
+  color: #f59e0b;
+}
+
+/* Scrollbar styling */
+.rf-hud-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rf-hud-content::-webkit-scrollbar-track {
+  background: #111;
+}
+
+.rf-hud-content::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+
+.rf-hud-content::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

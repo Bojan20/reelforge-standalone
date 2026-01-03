@@ -1,0 +1,559 @@
+/**
+ * ReelForge Mixer Channel Styles
+ *
+ * Professional DAW-style mixer channel strip.
+ *
+ * @module mixer/MixerChannel.css
+ */
+
+/* ============ Channel Container ============ */
+
+.mixer-channel {
+  --channel-color: #4a9eff;
+
+  display: flex;
+  flex-direction: column;
+  width: 80px;
+  min-width: 80px;
+  height: 100%;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%);
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 8px 4px;
+  gap: 8px;
+  user-select: none;
+}
+
+.mixer-channel--compact {
+  width: 60px;
+  min-width: 60px;
+  padding: 4px 2px;
+  gap: 4px;
+}
+
+.mixer-channel--muted {
+  opacity: 0.6;
+}
+
+.mixer-channel--solo {
+  box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
+}
+
+/* ============ Insert Slots ============ */
+
+.mixer-channel__inserts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mixer-channel__insert-slot {
+  width: 100%;
+  height: 18px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  color: #666;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mixer-channel__insert-slot:hover {
+  background: #252525;
+  border-color: #4a9eff;
+  color: #888;
+}
+
+.mixer-channel__insert-slot.active {
+  background: #2a3a4a;
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+/* ============ Pan Section ============ */
+
+.mixer-channel__pan-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.mixer-channel__pan {
+  width: 100%;
+  height: 16px;
+  cursor: ew-resize;
+  padding: 4px 8px;
+}
+
+.mixer-channel__pan-track {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.mixer-channel__pan-indicator {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #4a9eff, #357abd);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px rgba(74, 158, 255, 0.5);
+  transition: left 0.05s ease-out;
+}
+
+.mixer-channel__pan-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #555;
+  transform: translateX(-50%);
+}
+
+.mixer-channel__pan-label {
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #888;
+  text-align: center;
+}
+
+/* ============ Fader Section ============ */
+
+.mixer-channel__fader-section {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  min-height: 150px;
+}
+
+/* Level Meters */
+.mixer-channel__meters {
+  display: flex;
+  gap: 2px;
+}
+
+.mixer-channel__meter {
+  width: 6px;
+  height: 100%;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mixer-channel__meter-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transition: height 0.05s ease-out;
+}
+
+.mixer-channel__meter-peak {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transition: bottom 0.05s ease-out;
+}
+
+/* Fader */
+.mixer-channel__fader {
+  flex: 1;
+  cursor: ns-resize;
+  padding: 4px;
+}
+
+.mixer-channel__fader-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg,
+    #1a1a1a 0%,
+    #222 50%,
+    #1a1a1a 100%
+  );
+  border: 1px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mixer-channel__fader-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg,
+    var(--channel-color) 0%,
+    color-mix(in srgb, var(--channel-color) 60%, black) 100%
+  );
+  opacity: 0.3;
+  transition: height 0.05s ease-out;
+}
+
+.mixer-channel__fader-thumb {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 12px;
+  background: linear-gradient(180deg, #666 0%, #444 50%, #333 100%);
+  border: 1px solid #555;
+  border-radius: 2px;
+  transform: translateY(50%);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: bottom 0.05s ease-out;
+}
+
+.mixer-channel__fader-thumb::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60%;
+  height: 1px;
+  background: #888;
+  transform: translate(-50%, -50%);
+}
+
+.mixer-channel__fader-unity {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #666;
+  transform: translateY(50%);
+}
+
+/* dB Display */
+.mixer-channel__db {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #aaa;
+  min-width: 32px;
+}
+
+.mixer-channel__db-unit {
+  font-size: 8px;
+  color: #666;
+}
+
+/* ============ Buttons ============ */
+
+.mixer-channel__buttons {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+}
+
+.mixer-channel__btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #444;
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mixer-channel__btn--mute {
+  background: #333;
+  color: #888;
+}
+
+.mixer-channel__btn--mute:hover {
+  background: #3a3a3a;
+  color: #ff6b6b;
+}
+
+.mixer-channel__btn--mute.active {
+  background: #ff4444;
+  color: #fff;
+  border-color: #ff6666;
+  box-shadow: 0 0 6px rgba(255, 68, 68, 0.5);
+}
+
+.mixer-channel__btn--solo {
+  background: #333;
+  color: #888;
+}
+
+.mixer-channel__btn--solo:hover {
+  background: #3a3a3a;
+  color: #ffc844;
+}
+
+.mixer-channel__btn--solo.active {
+  background: #ffa500;
+  color: #000;
+  border-color: #ffb833;
+  box-shadow: 0 0 6px rgba(255, 165, 0, 0.5);
+}
+
+.mixer-channel__btn--arm {
+  background: #333;
+  color: #888;
+}
+
+.mixer-channel__btn--arm:hover {
+  background: #3a3a3a;
+  color: #ff6b6b;
+}
+
+.mixer-channel__btn--arm.active {
+  background: #cc0000;
+  color: #fff;
+  border-color: #ff3333;
+  box-shadow: 0 0 6px rgba(204, 0, 0, 0.5);
+  animation: arm-pulse 1s ease-in-out infinite;
+}
+
+@keyframes arm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ============ Channel Name ============ */
+
+.mixer-channel__name {
+  padding: 4px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  text-align: center;
+  cursor: text;
+  transition: border-color 0.15s ease;
+}
+
+.mixer-channel__name:hover {
+  border-color: #555;
+}
+
+.mixer-channel__name span {
+  display: block;
+  font-size: 10px;
+  font-family: 'Inter', sans-serif;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mixer-channel__name input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 10px;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  text-align: center;
+}
+
+/* ============ Compact Mode Adjustments ============ */
+
+.mixer-channel--compact .mixer-channel__insert-slot {
+  height: 14px;
+  font-size: 8px;
+}
+
+.mixer-channel--compact .mixer-channel__pan {
+  height: 12px;
+  padding: 2px 4px;
+}
+
+.mixer-channel--compact .mixer-channel__pan-indicator {
+  width: 8px;
+  height: 8px;
+}
+
+.mixer-channel--compact .mixer-channel__pan-label {
+  font-size: 8px;
+}
+
+.mixer-channel--compact .mixer-channel__fader-section {
+  min-height: 100px;
+}
+
+.mixer-channel--compact .mixer-channel__meter {
+  width: 4px;
+}
+
+.mixer-channel--compact .mixer-channel__db {
+  font-size: 9px;
+  min-width: 24px;
+}
+
+.mixer-channel--compact .mixer-channel__btn {
+  width: 18px;
+  height: 18px;
+  font-size: 8px;
+}
+
+.mixer-channel--compact .mixer-channel__name span,
+.mixer-channel--compact .mixer-channel__name input {
+  font-size: 9px;
+}
+
+/* ============ Sends Section ============ */
+
+.mixer-channel__sends {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.mixer-channel__sends-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mixer-channel__send-add {
+  background: #252525;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #888;
+  font-size: 10px;
+  padding: 1px 4px;
+  cursor: pointer;
+  min-width: 24px;
+}
+
+.mixer-channel__send-add:hover {
+  background: #333;
+  border-color: #4a9eff;
+  color: #fff;
+}
+
+.mixer-channel__send {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: #222;
+  border-radius: 2px;
+  border: 1px solid #333;
+}
+
+.mixer-channel__send--disabled {
+  opacity: 0.5;
+}
+
+.mixer-channel__send-name {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mixer-channel__send-name:hover {
+  background: #333;
+  color: #fff;
+}
+
+.mixer-channel__send-level {
+  width: 40px;
+  height: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #1a1a1a;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+.mixer-channel__send-level::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #4a9eff, #357abd);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(74, 158, 255, 0.5);
+}
+
+.mixer-channel__send-level::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #4a9eff, #357abd);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 4px rgba(74, 158, 255, 0.5);
+}
+
+.mixer-channel__send-prefader {
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 2px;
+  color: #666;
+  font-size: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 1px 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mixer-channel__send-prefader:hover {
+  background: #3a3a3a;
+  color: #aaa;
+}
+
+.mixer-channel__send-prefader.active {
+  background: #2a3a4a;
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+.mixer-channel__send-remove {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.mixer-channel__send-remove:hover {
+  color: #ff6b6b;
+}

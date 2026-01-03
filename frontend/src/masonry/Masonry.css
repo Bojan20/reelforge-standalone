@@ -1,0 +1,48 @@
+/**
+ * ReelForge Masonry Styles
+ *
+ * @module masonry/Masonry.css
+ */
+
+/* ============ Masonry (Absolute Positioning) ============ */
+
+.masonry {
+  position: relative;
+  width: 100%;
+}
+
+.masonry__item {
+  position: absolute;
+  transition: left 0.3s ease, top 0.3s ease;
+}
+
+/* ============ SimpleMasonry (CSS Columns) ============ */
+
+.simple-masonry {
+  column-fill: balance;
+}
+
+.simple-masonry > * {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+
+/* ============ MasonryItem ============ */
+
+.masonry-item {
+  display: block;
+}
+
+/* ============ ResponsiveMasonry ============ */
+
+.responsive-masonry {
+  width: 100%;
+}
+
+.responsive-masonry__column {
+  min-width: 0;
+}
+
+.responsive-masonry__item {
+  width: 100%;
+}

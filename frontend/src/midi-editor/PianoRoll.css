@@ -1,0 +1,263 @@
+/**
+ * ReelForge Piano Roll Styles
+ *
+ * @module midi-editor/PianoRoll.css
+ */
+
+/* ============ Container ============ */
+
+.piano-roll {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  outline: none;
+}
+
+.piano-roll:focus {
+  border-color: #4a9eff;
+}
+
+/* ============ Main Area ============ */
+
+.piano-roll__main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ============ Keyboard ============ */
+
+.piano-roll__keyboard {
+  position: relative;
+  background: #252525;
+  border-right: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.piano-roll__key {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 9px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.piano-roll__key--white {
+  background: linear-gradient(90deg, #3a3a3a 0%, #444 100%);
+  color: #888;
+}
+
+.piano-roll__key--black {
+  background: linear-gradient(90deg, #1a1a1a 0%, #252525 100%);
+  color: #666;
+}
+
+.piano-roll__key:hover {
+  filter: brightness(1.2);
+}
+
+.piano-roll__key-label {
+  font-weight: 600;
+  color: #aaa;
+}
+
+/* ============ Grid Container ============ */
+
+.piano-roll__grid-container {
+  position: relative;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+/* ============ Grid ============ */
+
+.piano-roll__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.piano-roll__grid-line {
+  position: absolute;
+}
+
+.piano-roll__grid-line--h {
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.piano-roll__grid-line--h.black {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.piano-roll__grid-line--v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #2a2a2a;
+}
+
+.piano-roll__grid-line--v.beat {
+  background: #333;
+}
+
+.piano-roll__grid-line--v.bar {
+  background: #444;
+  width: 2px;
+}
+
+/* ============ Notes ============ */
+
+.piano-roll__note {
+  position: absolute;
+  background: linear-gradient(180deg, #4a9eff 0%, #357abd 100%);
+  border: 1px solid #5aafff;
+  border-radius: 2px;
+  cursor: move;
+  transition: box-shadow 0.1s ease;
+}
+
+.piano-roll__note:hover {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.piano-roll__note.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff, 0 0 8px rgba(74, 158, 255, 0.5);
+}
+
+.piano-roll__note-resize {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: transparent;
+}
+
+.piano-roll__note-resize:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============ Playhead ============ */
+
+.piano-roll__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ff4444;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.piano-roll__playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  background: #ff4444;
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+/* ============ Selection Box ============ */
+
+.piano-roll__select-box {
+  position: absolute;
+  border: 1px solid #4a9eff;
+  background: rgba(74, 158, 255, 0.15);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ============ Velocity Lane ============ */
+
+.piano-roll__velocity-lane {
+  display: flex;
+  background: #1e1e1e;
+  border-top: 1px solid #333;
+}
+
+.piano-roll__velocity-grid {
+  position: relative;
+  flex: 1;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 39px,
+    #2a2a2a 39px,
+    #2a2a2a 40px
+  );
+}
+
+.piano-roll__velocity-bar {
+  position: absolute;
+  bottom: 0;
+  background: linear-gradient(180deg, #4a9eff 0%, #357abd 100%);
+  border: 1px solid #5aafff;
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+  cursor: ns-resize;
+  transition: background 0.1s ease;
+}
+
+.piano-roll__velocity-bar:hover {
+  background: linear-gradient(180deg, #5aafff 0%, #4a9eff 100%);
+}
+
+.piano-roll__velocity-bar.selected {
+  border-color: #fff;
+  box-shadow: 0 0 4px rgba(74, 158, 255, 0.5);
+}
+
+/* ============ Scrollbar ============ */
+
+.piano-roll__main::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.piano-roll__main::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.piano-roll__main::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.piano-roll__main::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* ============ Tool Modes ============ */
+
+.piano-roll--draw .piano-roll__grid-container {
+  cursor: crosshair;
+}
+
+.piano-roll--select .piano-roll__grid-container {
+  cursor: default;
+}
+
+.piano-roll--erase .piano-roll__note {
+  cursor: not-allowed;
+}
+
+.piano-roll--erase .piano-roll__note:hover {
+  background: linear-gradient(180deg, #ff4444 0%, #cc3333 100%);
+  border-color: #ff6666;
+}

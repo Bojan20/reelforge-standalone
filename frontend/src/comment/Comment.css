@@ -1,0 +1,165 @@
+/**
+ * ReelForge Comment Styles
+ *
+ * @module comment/Comment.css
+ */
+
+/* ============ Comment ============ */
+
+.comment {
+  /* Container */
+}
+
+.comment__inner {
+  display: flex;
+  gap: 12px;
+}
+
+.comment__avatar {
+  flex-shrink: 0;
+}
+
+.comment__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.comment__author {
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.comment__datetime {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 12px;
+}
+
+.comment__content {
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.8));
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.comment__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.comment__action {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.comment__action:hover {
+  color: var(--rf-primary, #6366f1);
+}
+
+.comment__replies {
+  margin-top: 16px;
+  padding-left: 48px;
+  border-left: 2px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* ============ Comment Avatar ============ */
+
+.comment-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rf-primary, #6366f1);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ============ Comment List ============ */
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============ Comment Editor ============ */
+
+.comment-editor {
+  display: flex;
+  gap: 12px;
+}
+
+.comment-editor__avatar {
+  flex-shrink: 0;
+}
+
+.comment-editor__body {
+  flex: 1;
+}
+
+.comment-editor__input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+  border-radius: 6px;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.comment-editor__input::placeholder {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.comment-editor__input:focus {
+  outline: none;
+  border-color: var(--rf-primary, #6366f1);
+}
+
+.comment-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.comment-editor__submit {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--rf-primary, #6366f1);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.comment-editor__submit:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.comment-editor__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

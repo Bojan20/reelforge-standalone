@@ -1,0 +1,85 @@
+/**
+ * ReelForge Textarea Styles
+ *
+ * @module textarea/Textarea.css
+ */
+
+/* ============ Wrapper ============ */
+
+.textarea-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============ Textarea ============ */
+
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e0e0e0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.textarea::placeholder {
+  color: #666;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+}
+
+.textarea:hover:not(:focus):not(:disabled) {
+  border-color: #444;
+}
+
+.textarea--error {
+  border-color: #ff6b6b;
+}
+
+.textarea--error:focus {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
+}
+
+.textarea--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #1e1e1e;
+}
+
+/* ============ Count ============ */
+
+.textarea__count {
+  align-self: flex-end;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* ============ Scrollbar ============ */
+
+.textarea::-webkit-scrollbar {
+  width: 8px;
+}
+
+.textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.textarea::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.textarea::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

@@ -1,0 +1,200 @@
+/**
+ * ReelForge PianoRoll Styles
+ *
+ * @module piano-roll/PianoRoll.css
+ */
+
+/* ============ PianoRoll ============ */
+
+.piano-roll {
+  display: flex;
+  flex-direction: column;
+  background: var(--rf-bg, #0a0a0a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Keyboard */
+.piano-roll__keyboard {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--rf-surface, #1a1a1a);
+  border-right: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  overflow: hidden;
+}
+
+.piano-roll__key {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.05));
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.piano-roll__key--white {
+  background: var(--rf-surface, #1a1a1a);
+}
+
+.piano-roll__key--black {
+  background: #0a0a0a;
+}
+
+.piano-roll__key:hover {
+  background: var(--rf-primary, #6366f1);
+}
+
+.piano-roll__key-label {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 9px;
+  font-weight: 500;
+}
+
+/* Grid Area */
+.piano-roll__grid-area {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.piano-roll__grid-canvas,
+.piano-roll__notes-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.piano-roll__notes-canvas {
+  cursor: crosshair;
+}
+
+/* ============ Velocity Lane ============ */
+
+.piano-roll__velocity {
+  position: relative;
+  border-top: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  background: var(--rf-surface, #1a1a1a);
+}
+
+.piano-roll__velocity-label {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 10px;
+}
+
+.piano-roll__velocity-bars {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(100% - 20px);
+}
+
+.piano-roll__velocity-bar {
+  position: absolute;
+  bottom: 0;
+  background: var(--rf-primary, #6366f1);
+  border-radius: 2px 2px 0 0;
+  cursor: ns-resize;
+  transition: background 0.1s ease;
+}
+
+.piano-roll__velocity-bar:hover,
+.piano-roll__velocity-bar--selected {
+  background: #818cf8;
+}
+
+/* ============ Selection ============ */
+
+.piano-roll__selection {
+  position: absolute;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--rf-primary, #6366f1);
+  pointer-events: none;
+}
+
+/* ============ Header ============ */
+
+.piano-roll__header {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--rf-surface, #1a1a1a);
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.piano-roll__beat-numbers {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.piano-roll__beat-number {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ Toolbar ============ */
+
+.piano-roll__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--rf-surface, #1a1a1a);
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.piano-roll__tool-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.piano-roll__tool-btn:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text, #fff);
+}
+
+.piano-roll__tool-btn--active {
+  background: var(--rf-primary, #6366f1);
+  color: #fff;
+}
+
+/* ============ Snap Selector ============ */
+
+.piano-roll__snap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.05));
+  border-radius: 4px;
+}
+
+.piano-roll__snap-label {
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 11px;
+}
+
+.piano-roll__snap-value {
+  color: var(--rf-text, #fff);
+  font-size: 11px;
+  font-weight: 500;
+}

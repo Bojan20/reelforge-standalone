@@ -1,0 +1,238 @@
+/**
+ * Transport Controls Styles
+ *
+ * Professional DAW-style transport bar.
+ */
+
+/* ============ Container ============ */
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #222;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.transport--compact {
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+/* ============ Time Display ============ */
+
+.transport__time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100px;
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.transport__time:hover {
+  background: #252525;
+}
+
+.transport__time-value {
+  font-size: 18px;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-weight: 600;
+  color: #00ff88;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport__time-mode {
+  font-size: 9px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.transport--compact .transport__time {
+  min-width: 80px;
+  padding: 4px 8px;
+}
+
+.transport--compact .transport__time-value {
+  font-size: 14px;
+}
+
+/* ============ Controls ============ */
+
+.transport__controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transport__btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #333;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transport__btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.transport__btn.active {
+  background: #00aaff;
+  color: #fff;
+}
+
+.transport__btn--play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.transport__btn--play:hover {
+  background: #00aaff;
+}
+
+.transport__btn--play.playing {
+  background: #00ff88;
+  color: #1a1a1a;
+}
+
+.transport__btn--record {
+  color: #ff6b6b;
+}
+
+.transport__btn--record:hover {
+  background: #442222;
+}
+
+.transport__btn--record.recording {
+  background: #ff6b6b;
+  color: #fff;
+  animation: pulse-record 1s infinite;
+}
+
+@keyframes pulse-record {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.transport--compact .transport__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+
+.transport--compact .transport__btn--play {
+  width: 36px;
+  height: 36px;
+}
+
+/* ============ Divider ============ */
+
+.transport__divider {
+  width: 1px;
+  height: 24px;
+  background: #444;
+  margin: 0 8px;
+}
+
+/* ============ Tempo ============ */
+
+.transport__tempo {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.transport__tempo-value {
+  font-size: 16px;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  min-width: 50px;
+  text-align: right;
+}
+
+.transport__tempo-value:hover {
+  color: #00aaff;
+}
+
+.transport__tempo-input {
+  width: 60px;
+  padding: 2px 6px;
+  background: #333;
+  border: 1px solid #00aaff;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  text-align: right;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.transport__tempo-input::-webkit-outer-spin-button,
+.transport__tempo-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.transport__tempo-label {
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+/* ============ Time Signature ============ */
+
+.transport__signature {
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.transport__signature-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+}
+
+/* ============ Dark/Light Variants ============ */
+
+.transport--light {
+  background: #f0f0f0;
+}
+
+.transport--light .transport__time {
+  background: #e0e0e0;
+}
+
+.transport--light .transport__btn {
+  background: #ddd;
+  color: #666;
+}
+
+.transport--light .transport__btn:hover {
+  background: #ccc;
+  color: #333;
+}

@@ -1,0 +1,35 @@
+/**
+ * ReelForge Affix Styles
+ *
+ * @module affix/Affix.css
+ */
+
+/* ============ Affix ============ */
+
+.affix {
+  /* Base styles */
+}
+
+.affix--affixed {
+  z-index: 100;
+}
+
+.affix--top {
+  /* Affixed to top */
+}
+
+.affix--bottom {
+  /* Affixed to bottom */
+}
+
+/* ============ Placeholder ============ */
+
+.affix__placeholder {
+  /* Maintains layout space when content is affixed */
+}
+
+/* ============ StickyBox ============ */
+
+.sticky-box {
+  /* Uses native position: sticky */
+}

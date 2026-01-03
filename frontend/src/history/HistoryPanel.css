@@ -1,0 +1,240 @@
+/**
+ * ReelForge History Panel Styles
+ *
+ * @module history/HistoryPanel.css
+ */
+
+/* ============ Container ============ */
+
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  max-width: 90vw;
+  height: 400px;
+  max-height: 80vh;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  outline: none;
+}
+
+/* ============ Header ============ */
+
+.history-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.history-panel__header h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+}
+
+.history-panel__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.history-panel__btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-panel__btn:hover:not(:disabled) {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.history-panel__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.history-panel__btn--danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.2);
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+.history-panel__close {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 4px;
+}
+
+.history-panel__close:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* ============ List ============ */
+
+.history-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.history-panel__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border-left: 2px solid transparent;
+}
+
+.history-panel__item:hover {
+  background: #252525;
+}
+
+.history-panel__item--current {
+  background: rgba(74, 158, 255, 0.15);
+  border-left-color: #4a9eff;
+}
+
+.history-panel__item--future {
+  opacity: 0.5;
+}
+
+.history-panel__item--future:hover {
+  opacity: 0.8;
+}
+
+.history-panel__item--initial {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.history-panel__item--grouped {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px dashed #444;
+}
+
+.history-panel__item-icon {
+  width: 16px;
+  font-size: 12px;
+  text-align: center;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.history-panel__item--current .history-panel__item-icon {
+  color: #4a9eff;
+}
+
+.history-panel__item-desc {
+  flex: 1;
+  font-size: 12px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-panel__item--future .history-panel__item-desc {
+  color: #888;
+}
+
+.history-panel__item-time {
+  font-size: 10px;
+  color: #555;
+  flex-shrink: 0;
+}
+
+/* ============ Divider ============ */
+
+.history-panel__divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  margin: 4px 0;
+}
+
+.history-panel__divider span {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555;
+  padding: 2px 8px;
+  background: #222;
+  border-radius: 4px;
+}
+
+/* ============ Empty ============ */
+
+.history-panel__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 12px;
+  color: #555;
+}
+
+/* ============ Footer ============ */
+
+.history-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #222;
+  border-top: 1px solid #333;
+  font-size: 10px;
+  color: #555;
+}
+
+/* ============ Scrollbar ============ */
+
+.history-panel__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-panel__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-panel__list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.history-panel__list::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

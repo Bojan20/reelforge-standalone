@@ -1,0 +1,376 @@
+/**
+ * ReelForge Preset Manager Styles
+ *
+ * @module presets/PresetManager.css
+ */
+
+/* ============ Container ============ */
+
+.preset-manager {
+  display: flex;
+  flex-direction: column;
+  width: 500px;
+  max-width: 90vw;
+  height: 600px;
+  max-height: 80vh;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* ============ Header ============ */
+
+.preset-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.preset-manager__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.preset-manager__close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-manager__close:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* ============ Toolbar ============ */
+
+.preset-manager__toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #222;
+  border-bottom: 1px solid #333;
+}
+
+.preset-manager__search {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.preset-manager__search::placeholder {
+  color: #666;
+}
+
+.preset-manager__search:focus {
+  border-color: #4a9eff;
+}
+
+.preset-manager__btn {
+  padding: 6px 12px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-manager__btn:hover {
+  background: #3a3a3a;
+  color: #ccc;
+}
+
+.preset-manager__btn.active {
+  background: #4a9eff;
+  border-color: #5aafff;
+  color: #fff;
+}
+
+.preset-manager__btn.primary {
+  background: #4a9eff;
+  border-color: #5aafff;
+  color: #fff;
+}
+
+.preset-manager__btn.primary:hover {
+  background: #5aafff;
+}
+
+.preset-manager__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ Content ============ */
+
+.preset-manager__content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ============ Categories ============ */
+
+.preset-manager__categories {
+  width: 140px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.preset-manager__category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.preset-manager__category:hover {
+  background: #252525;
+  color: #aaa;
+}
+
+.preset-manager__category.active {
+  background: #2a2a2a;
+  color: #4a9eff;
+}
+
+.preset-manager__category-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.preset-manager__category-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: #555;
+  padding: 2px 6px;
+  background: #222;
+  border-radius: 10px;
+}
+
+.preset-manager__category.active .preset-manager__category-count {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+/* ============ Preset List ============ */
+
+.preset-manager__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.preset-manager__group {
+  margin-bottom: 12px;
+}
+
+.preset-manager__group-header {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  background: #1a1a1a;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+/* ============ Preset Item ============ */
+
+.preset-manager__preset {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: #252525;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-manager__preset:hover {
+  background: #2a2a2a;
+  border-color: #333;
+}
+
+.preset-manager__preset.active {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: #4a9eff;
+}
+
+.preset-manager__preset.factory {
+  opacity: 0.8;
+}
+
+.preset-manager__preset-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-manager__preset-author {
+  font-size: 10px;
+  color: #666;
+  margin-left: 8px;
+}
+
+.preset-manager__preset-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.preset-manager__preset:hover .preset-manager__preset-actions {
+  opacity: 1;
+}
+
+.preset-manager__preset-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-manager__preset-btn:hover {
+  background: #333;
+  color: #888;
+}
+
+.preset-manager__preset-btn.favorite {
+  color: #ffd43b;
+}
+
+/* ============ Edit Input ============ */
+
+.preset-manager__edit-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: #1a1a1a;
+  border: 1px solid #4a9eff;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #fff;
+  outline: none;
+}
+
+/* ============ Empty State ============ */
+
+.preset-manager__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: #666;
+}
+
+/* ============ Footer ============ */
+
+.preset-manager__footer {
+  padding: 12px 16px;
+  background: #222;
+  border-top: 1px solid #333;
+}
+
+.preset-manager__save-form {
+  display: flex;
+  gap: 8px;
+}
+
+.preset-manager__save-form input,
+.preset-manager__save-form select {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #fff;
+  outline: none;
+}
+
+.preset-manager__save-form input:focus,
+.preset-manager__save-form select:focus {
+  border-color: #4a9eff;
+}
+
+.preset-manager__save-form select {
+  max-width: 120px;
+}
+
+/* ============ Scrollbar ============ */
+
+.preset-manager__categories::-webkit-scrollbar,
+.preset-manager__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.preset-manager__categories::-webkit-scrollbar-track,
+.preset-manager__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.preset-manager__categories::-webkit-scrollbar-thumb,
+.preset-manager__list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.preset-manager__categories::-webkit-scrollbar-thumb:hover,
+.preset-manager__list::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

@@ -1,0 +1,182 @@
+/**
+ * ReelForge File Upload Styles
+ *
+ * @module file-upload/FileUpload.css
+ */
+
+/* ============ File Upload ============ */
+
+.file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ============ Dropzone ============ */
+
+.file-upload__dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 24px;
+  border: 2px dashed #333;
+  border-radius: 8px;
+  background: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-upload__dropzone:hover {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.05);
+}
+
+.file-upload__dropzone--dragging {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.1);
+}
+
+.file-upload__dropzone--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.file-upload__dropzone--disabled:hover {
+  border-color: #333;
+  background: #1a1a1a;
+}
+
+.file-upload__input {
+  display: none;
+}
+
+/* ============ Content ============ */
+
+.file-upload__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.file-upload__icon {
+  width: 48px;
+  height: 48px;
+  color: #666;
+}
+
+.file-upload__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.file-upload__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-upload__text-primary {
+  font-size: 14px;
+  color: #ccc;
+}
+
+.file-upload__text-secondary {
+  font-size: 12px;
+  color: #666;
+}
+
+/* ============ File List ============ */
+
+.file-upload__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-upload__file {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: #1e1e1e;
+  border-radius: 6px;
+  border: 1px solid #2a2a2a;
+  position: relative;
+}
+
+.file-upload__file--success {
+  border-color: rgba(81, 207, 102, 0.3);
+}
+
+.file-upload__file--error {
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.file-upload__file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 28px;
+}
+
+.file-upload__file-name {
+  font-size: 13px;
+  color: #e0e0e0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-upload__file-size {
+  font-size: 12px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.file-upload__file-error {
+  font-size: 12px;
+  color: #ff6b6b;
+}
+
+.file-upload__file-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.file-upload__file-remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+/* ============ Progress ============ */
+
+.file-upload__progress {
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.file-upload__progress-bar {
+  height: 100%;
+  background: #4a9eff;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}

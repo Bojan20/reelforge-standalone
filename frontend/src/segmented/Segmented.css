@@ -1,0 +1,138 @@
+/**
+ * ReelForge Segmented Control Styles
+ *
+ * @module segmented/Segmented.css
+ */
+
+/* ============ Segmented ============ */
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.segmented--block {
+  display: flex;
+  width: 100%;
+}
+
+.segmented--block .segmented__option {
+  flex: 1;
+}
+
+.segmented--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ============ Indicator ============ */
+
+.segmented__indicator {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: calc(100% - 6px);
+  background: #333;
+  border-radius: 6px;
+  transition: transform 0.2s ease, width 0.2s ease;
+  z-index: 0;
+}
+
+/* ============ Option ============ */
+
+.segmented__option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.segmented__option:hover:not(.segmented__option--disabled) {
+  color: #ccc;
+}
+
+.segmented__option--selected {
+  color: #fff;
+}
+
+.segmented__option--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ Sizes ============ */
+
+.segmented--small {
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.segmented--small .segmented__indicator {
+  top: 2px;
+  height: calc(100% - 4px);
+  border-radius: 4px;
+}
+
+.segmented--small .segmented__option {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.segmented--medium .segmented__option {
+  height: 36px;
+  font-size: 13px;
+}
+
+.segmented--large .segmented__option {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+
+/* ============ Icon ============ */
+
+.segmented__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.segmented--small .segmented__icon {
+  width: 14px;
+  height: 14px;
+}
+
+.segmented--large .segmented__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.segmented__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============ Label ============ */
+
+.segmented__label {
+  display: flex;
+  align-items: center;
+}

@@ -1,0 +1,155 @@
+/**
+ * ReelForge Code Styles
+ *
+ * @module code/Code.css
+ */
+
+/* ============ Inline Code ============ */
+
+.inline-code {
+  padding: 2px 6px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #e06c75;
+}
+
+/* ============ Code Block ============ */
+
+.code-block {
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  overflow: hidden;
+}
+
+/* ============ Header ============ */
+
+.code-block__header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.code-block__filename {
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+}
+
+.code-block__language {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #666;
+}
+
+.code-block__spacer {
+  flex: 1;
+}
+
+.code-block__copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.code-block__copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.code-block__copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ============ Pre ============ */
+
+.code-block__pre {
+  margin: 0;
+  padding: 12px 0;
+  overflow-x: auto;
+}
+
+.code-block__code {
+  display: block;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #abb2bf;
+}
+
+/* ============ Line ============ */
+
+.code-block__line {
+  display: flex;
+  padding: 0 16px;
+}
+
+.code-block__line--highlighted {
+  background: rgba(74, 158, 255, 0.1);
+  border-left: 3px solid #4a9eff;
+  padding-left: 13px;
+}
+
+.code-block__line-number {
+  flex-shrink: 0;
+  width: 40px;
+  padding-right: 16px;
+  text-align: right;
+  color: #4a4a4a;
+  user-select: none;
+}
+
+.code-block__line-content {
+  flex: 1;
+  white-space: pre;
+}
+
+/* ============ Simple Pre ============ */
+
+.pre {
+  margin: 0;
+  padding: 16px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #abb2bf;
+  overflow-x: auto;
+}
+
+/* ============ Scrollbar ============ */
+
+.code-block__pre::-webkit-scrollbar,
+.pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+.code-block__pre::-webkit-scrollbar-track,
+.pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-block__pre::-webkit-scrollbar-thumb,
+.pre::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.code-block__pre::-webkit-scrollbar-thumb:hover,
+.pre::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

@@ -1,0 +1,440 @@
+/**
+ * PresetBrowser Component Styles
+ *
+ * Professional preset browser with dark theme.
+ */
+
+/* ============ Container ============ */
+
+.preset-browser {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #e0e0e0;
+  min-width: 280px;
+}
+
+.preset-browser--compact {
+  min-width: 200px;
+  font-size: 11px;
+}
+
+/* ============ Header ============ */
+
+.preset-browser__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.preset-browser__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preset-browser__plugin-name {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preset-browser__current {
+  font-weight: 600;
+  color: #fff;
+}
+
+.preset-browser__modified {
+  color: #ffaa00;
+  margin-left: 4px;
+}
+
+/* ============ A/B Controls ============ */
+
+.preset-browser__ab {
+  display: flex;
+  gap: 4px;
+}
+
+.ab-button {
+  padding: 4px 8px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ab-button:hover {
+  background: #404040;
+  color: #fff;
+}
+
+.ab-button--active {
+  background: #00aaff;
+  border-color: #00aaff;
+  color: #fff;
+}
+
+.ab-button--enable {
+  background: #2a2a2a;
+  color: #888;
+}
+
+.ab-button--enable:hover {
+  background: #00aaff;
+  border-color: #00aaff;
+  color: #fff;
+}
+
+.ab-button--copy {
+  font-size: 14px;
+  padding: 4px 6px;
+}
+
+.ab-button--off {
+  color: #666;
+}
+
+.ab-button--off:hover {
+  color: #ff6666;
+  border-color: #ff6666;
+}
+
+/* ============ Controls ============ */
+
+.preset-browser__controls {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.preset-browser__search {
+  flex: 1;
+  padding: 6px 10px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.preset-browser__search:focus {
+  border-color: #00aaff;
+}
+
+.preset-browser__search::placeholder {
+  color: #666;
+}
+
+.preset-browser__category {
+  padding: 6px 8px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.preset-browser__category:focus {
+  border-color: #00aaff;
+}
+
+/* ============ Preset List ============ */
+
+.preset-browser__list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 300px;
+  min-height: 100px;
+}
+
+.preset-browser__empty {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+/* ============ Preset Item ============ */
+
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #222;
+  transition: background 0.1s ease;
+}
+
+.preset-item:hover {
+  background: #252525;
+}
+
+.preset-item--selected {
+  background: #1a3a50;
+  border-left: 3px solid #00aaff;
+  padding-left: 9px;
+}
+
+.preset-item__icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.preset-item__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preset-item__name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-item__description {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-item__edit-input {
+  padding: 2px 6px;
+  background: #333;
+  border: 1px solid #00aaff;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+}
+
+.preset-item__actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.preset-item:hover .preset-item__actions {
+  opacity: 1;
+}
+
+.preset-action {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.preset-action:hover {
+  background: #333;
+  color: #fff;
+}
+
+.preset-action--active {
+  color: #ffcc00;
+}
+
+.preset-action--danger:hover {
+  background: #442222;
+  color: #ff6666;
+}
+
+/* ============ Actions ============ */
+
+.preset-browser__actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #222;
+  border-top: 1px solid #333;
+}
+
+.preset-browser__btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-browser__btn:hover {
+  background: #404040;
+  color: #fff;
+}
+
+.preset-browser__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============ Stats ============ */
+
+.preset-browser__stats {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  background: #1a1a1a;
+  border-top: 1px solid #222;
+}
+
+/* ============ Save Dialog ============ */
+
+.preset-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.preset-dialog {
+  background: #252525;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.preset-dialog__header {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.preset-dialog__input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.preset-dialog__input:focus {
+  border-color: #00aaff;
+}
+
+.preset-dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.preset-dialog__btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-dialog__btn--cancel {
+  background: transparent;
+  border: 1px solid #444;
+  color: #888;
+}
+
+.preset-dialog__btn--cancel:hover {
+  background: #333;
+  color: #fff;
+}
+
+.preset-dialog__btn--save {
+  background: #00aaff;
+  border: 1px solid #00aaff;
+  color: #fff;
+}
+
+.preset-dialog__btn--save:hover {
+  background: #0099ee;
+}
+
+.preset-dialog__btn--save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============ Scrollbar ============ */
+
+.preset-browser__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.preset-browser__list::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.preset-browser__list::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.preset-browser__list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ============ Compact Mode Adjustments ============ */
+
+.preset-browser--compact .preset-browser__header {
+  padding: 8px 10px;
+}
+
+.preset-browser--compact .preset-browser__controls {
+  padding: 6px 10px;
+}
+
+.preset-browser--compact .preset-item {
+  padding: 6px 10px;
+}
+
+.preset-browser--compact .preset-browser__actions {
+  padding: 8px 10px;
+}
+
+.preset-browser--compact .preset-browser__list {
+  max-height: 200px;
+}

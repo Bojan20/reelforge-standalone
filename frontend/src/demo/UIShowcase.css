@@ -1,0 +1,250 @@
+/**
+ * ReelForge UI Showcase Styles
+ *
+ * @module demo/UIShowcase.css
+ */
+
+/* ============ Container ============ */
+
+.ui-showcase {
+  min-height: 100vh;
+  background: var(--rf-bg-0, #0a0a0a);
+  color: var(--rf-text-primary, #fff);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ============ Header ============ */
+
+.ui-showcase__header {
+  padding: 32px 48px;
+  background: var(--rf-bg-1, #1a1a1a);
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.ui-showcase__header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--rf-accent-primary, #4a9eff);
+}
+
+.ui-showcase__header p {
+  margin: 8px 0 0;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 14px;
+}
+
+.ui-showcase__theme-toggle {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ui-showcase__theme-toggle button,
+.ui-showcase__theme-toggle select {
+  padding: 8px 16px;
+  background: var(--rf-bg-2, #252525);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  color: var(--rf-text-primary, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ui-showcase__theme-toggle button:hover,
+.ui-showcase__theme-toggle select:hover {
+  background: var(--rf-bg-3, #333);
+  border-color: var(--rf-accent-primary, #4a9eff);
+}
+
+/* ============ Content ============ */
+
+.ui-showcase__content {
+  padding: 32px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ============ Section ============ */
+
+.ui-showcase__section {
+  margin-bottom: 48px;
+  padding: 24px;
+  background: var(--rf-bg-1, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+}
+
+.ui-showcase__section-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.ui-showcase__section-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--rf-text-primary, #fff);
+}
+
+.ui-showcase__section-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.ui-showcase__section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============ Demo Components ============ */
+
+.ui-showcase__demo-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Waveform */
+.ui-showcase__waveform {
+  background: #111;
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Spectrogram */
+.ui-showcase__spectrogram {
+  background: #111;
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Meters */
+.ui-showcase__meters {
+  display: flex;
+  gap: 32px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ui-showcase__meter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-showcase__meter-group label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ui-showcase__meter-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+
+.ui-showcase__meter-slider input[type="range"] {
+  width: 150px;
+  cursor: pointer;
+}
+
+.ui-showcase__meter-slider span {
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+/* Automation */
+.ui-showcase__automation {
+  background: var(--rf-bg-0, #0a0a0a);
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Piano Roll */
+.ui-showcase__piano-roll {
+  height: 350px;
+  background: var(--rf-bg-0, #0a0a0a);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Arrangement */
+.ui-showcase__arrangement {
+  height: 300px;
+  background: var(--rf-bg-0, #0a0a0a);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Transport */
+.ui-showcase__transport {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* ============ Footer ============ */
+
+.ui-showcase__footer {
+  padding: 24px 48px;
+  background: var(--rf-bg-1, #1a1a1a);
+  border-top: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  text-align: center;
+}
+
+.ui-showcase__footer p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.ui-showcase__footer p:first-child {
+  margin-bottom: 8px;
+  color: var(--rf-text-primary, #fff);
+}
+
+.ui-showcase__footer a {
+  color: var(--rf-accent-primary, #4a9eff);
+  text-decoration: none;
+}
+
+.ui-showcase__footer a:hover {
+  text-decoration: underline;
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 900px) {
+  .ui-showcase__header,
+  .ui-showcase__content,
+  .ui-showcase__footer {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .ui-showcase__section {
+    padding: 16px;
+  }
+
+  .ui-showcase__meters {
+    gap: 16px;
+  }
+}

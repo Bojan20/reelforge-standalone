@@ -1,0 +1,169 @@
+/**
+ * ReelForge Mixer Styles
+ *
+ * Main mixer container with channels and master bus.
+ *
+ * @module mixer/Mixer.css
+ */
+
+/* ============ Main Container ============ */
+
+.mixer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mixer--compact {
+  /* Compact mode adjustments handled by children */
+}
+
+/* ============ Toolbar ============ */
+
+.mixer__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #2a2a2a 0%, #222 100%);
+  border-bottom: 1px solid #333;
+}
+
+.mixer__btn {
+  width: 28px;
+  height: 28px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mixer__btn:hover {
+  background: #3a3a3a;
+  color: #fff;
+  border-color: #4a9eff;
+}
+
+.mixer__toolbar-spacer {
+  flex: 1;
+}
+
+.mixer__scroll-btn {
+  width: 24px;
+  height: 24px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mixer__scroll-btn:hover:not(:disabled) {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.mixer__scroll-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ============ Content ============ */
+
+.mixer__content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ============ Channels Container ============ */
+
+.mixer__channels {
+  display: flex;
+  gap: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #444 #222;
+}
+
+.mixer__channels::-webkit-scrollbar {
+  height: 8px;
+}
+
+.mixer__channels::-webkit-scrollbar-track {
+  background: #222;
+  border-radius: 4px;
+}
+
+.mixer__channels::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.mixer__channels::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ============ Master Section ============ */
+
+.mixer__master-section {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  padding-left: 8px;
+  border-left: 2px solid #444;
+  background: linear-gradient(90deg, #1a1a1a 0%, #1e1e1e 100%);
+}
+
+.mixer__master-label {
+  text-align: center;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: #ffd43b;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.mixer__master-section .mixer-channel {
+  border-color: #4a4a4a;
+  background: linear-gradient(180deg, #333 0%, #252525 100%);
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 768px) {
+  .mixer__channels {
+    gap: 2px;
+    padding: 8px;
+  }
+
+  .mixer__master-section {
+    padding: 8px;
+  }
+}
+
+/* ============ Animation for meter simulation ============ */
+
+@keyframes meter-bounce {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.95);
+  }
+}

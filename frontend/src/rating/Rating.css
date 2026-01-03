@@ -1,0 +1,122 @@
+/**
+ * ReelForge Rating Styles
+ *
+ * @module rating/Rating.css
+ */
+
+/* ============ Rating ============ */
+
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ============ Stars ============ */
+
+.rating__stars {
+  display: flex;
+  gap: 2px;
+}
+
+.rating__star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #444;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.rating--interactive .rating__star {
+  cursor: pointer;
+}
+
+.rating--interactive .rating__star:hover {
+  transform: scale(1.15);
+}
+
+.rating__star--filled,
+.rating__star--half {
+  color: #ffd43b;
+}
+
+.rating__star svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============ Sizes ============ */
+
+.rating--small .rating__star {
+  width: 16px;
+  height: 16px;
+}
+
+.rating--medium .rating__star {
+  width: 24px;
+  height: 24px;
+}
+
+.rating--large .rating__star {
+  width: 32px;
+  height: 32px;
+}
+
+/* ============ Value ============ */
+
+.rating__value {
+  font-size: 14px;
+  color: #888;
+  font-weight: 500;
+}
+
+.rating--small .rating__value {
+  font-size: 12px;
+}
+
+.rating--large .rating__value {
+  font-size: 16px;
+}
+
+/* ============ Rate Display ============ */
+
+.rate-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rate-display__value {
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.rate-display--small .rate-display__value {
+  font-size: 13px;
+}
+
+.rate-display--medium .rate-display__value {
+  font-size: 15px;
+}
+
+.rate-display--large .rate-display__value {
+  font-size: 18px;
+}
+
+.rate-display__count {
+  font-size: 12px;
+  color: #666;
+}
+
+.rate-display--small .rate-display__count {
+  font-size: 11px;
+}
+
+.rate-display--large .rate-display__count {
+  font-size: 14px;
+}

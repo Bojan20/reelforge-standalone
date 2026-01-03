@@ -1,0 +1,118 @@
+/**
+ * ReelForge M6.9 Action Templates Styles
+ */
+
+.rf-action-templates {
+  position: relative;
+  display: inline-block;
+}
+
+/* Button */
+.rf-action-templates-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #2d4a6f 0%, #1e3a5f 100%);
+  border: 1px solid #3d5a7f;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rf-action-templates-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3d5a7f 0%, #2d4a6f 100%);
+  border-color: #4d6a8f;
+}
+
+.rf-action-templates-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rf-action-templates-icon {
+  font-size: 14px;
+}
+
+.rf-action-templates-arrow {
+  font-size: 8px;
+  color: #888;
+  margin-left: 2px;
+}
+
+/* Dropdown */
+.rf-action-templates-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 220px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.rf-action-templates-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  background: #242424;
+  border-bottom: 1px solid #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Item */
+.rf-action-templates-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #333;
+  color: #e0e0e0;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.rf-action-templates-item:last-child {
+  border-bottom: none;
+}
+
+.rf-action-templates-item:hover {
+  background: #333;
+}
+
+.rf-action-templates-item-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+}
+
+.rf-action-templates-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rf-action-templates-item-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e0e0e0;
+}
+
+.rf-action-templates-item-desc {
+  font-size: 10px;
+  color: #888;
+}

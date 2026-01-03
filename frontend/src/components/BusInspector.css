@@ -1,0 +1,342 @@
+/**
+ * ReelForge M7.1 Bus Inspector Styles
+ */
+
+.rf-bus-inspector {
+  position: relative; /* NOT absolute/fixed */
+  width: 100%;
+  max-height: 400px; /* Bounded height */
+  background: linear-gradient(180deg, #1a1a1a 0%, #141414 100%);
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.rf-bus-inspector-collapsed {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-bus-inspector-collapsed:hover {
+  background: #1e1e1e;
+}
+
+.rf-bus-inspector-collapsed-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #888;
+}
+
+.rf-bus-inspector-icon {
+  font-size: 14px;
+}
+
+.rf-bus-inspector-duck-badge {
+  padding: 2px 6px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  animation: pulse-duck 1s ease-in-out infinite;
+}
+
+@keyframes pulse-duck {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.rf-bus-inspector-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rf-bus-inspector-header:hover {
+  background: #222;
+}
+
+.rf-bus-inspector-title {
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.rf-bus-inspector-subtitle {
+  color: #666;
+  font-size: 10px;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-bus-inspector-collapse-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.rf-bus-inspector-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 360px; /* Leave room for header */
+  overflow-y: auto;
+}
+
+/* Master Gain */
+.rf-bus-inspector-master {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 6px;
+}
+
+.rf-bus-inspector-master-label {
+  font-weight: 600;
+  color: #f59e0b;
+  min-width: 50px;
+}
+
+.rf-bus-inspector-master-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ducking Status */
+.rf-bus-inspector-ducking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+}
+
+.rf-bus-inspector-ducking.active {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.rf-bus-inspector-ducking-label {
+  color: #888;
+  font-size: 11px;
+}
+
+.rf-bus-inspector-ducking-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-bus-inspector-ducking-status.off {
+  background: #2a2a2a;
+  color: #666;
+}
+
+.rf-bus-inspector-ducking-status.on {
+  background: #ef4444;
+  color: #fff;
+  animation: pulse-duck 1s ease-in-out infinite;
+}
+
+.rf-bus-inspector-ducking-info {
+  color: #888;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+/* Per-Bus State */
+.rf-bus-inspector-buses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rf-bus-inspector-bus {
+  padding: 8px 10px;
+  background: #1a1a1a;
+  border: 1px solid #252525;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.rf-bus-inspector-bus.active {
+  background: #1e1e1e;
+  border-color: #333;
+}
+
+.rf-bus-inspector-bus.ducked {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.rf-bus-inspector-bus-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rf-bus-inspector-bus-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.rf-bus-inspector-bus-name {
+  font-weight: 500;
+  color: #ccc;
+  min-width: 70px;
+}
+
+.rf-bus-inspector-bus-voices {
+  margin-left: auto;
+  color: #666;
+  font-size: 11px;
+}
+
+.rf-bus-inspector-bus.active .rf-bus-inspector-bus-voices {
+  color: #4ade80;
+}
+
+.rf-bus-inspector-bus-gain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf-bus-inspector-gain-track {
+  flex: 1;
+  height: 6px;
+  background: #252525;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rf-bus-inspector-gain-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.1s ease-out;
+}
+
+.rf-bus-inspector-gain-base {
+  z-index: 1;
+}
+
+.rf-bus-inspector-gain-effective {
+  z-index: 2;
+}
+
+.rf-bus-inspector-gain-text,
+.rf-bus-inspector-gain-value {
+  min-width: 45px;
+  text-align: right;
+  color: #888;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.rf-bus-inspector-duck-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+/* Signal Chain */
+.rf-bus-inspector-chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #252525;
+  margin-top: 4px;
+}
+
+.rf-bus-inspector-chain-label {
+  color: #666;
+  font-size: 10px;
+}
+
+.rf-bus-inspector-chain-flow {
+  color: #4a9eff;
+  font-size: 10px;
+  font-family: monospace;
+  letter-spacing: 0.3px;
+}
+
+/* Debug Overlay */
+.rf-bus-inspector-debug {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px dashed #333;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.rf-bus-inspector-debug-label {
+  color: #666;
+}
+
+.rf-bus-inspector-debug-cmd {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.rf-bus-inspector-debug-play {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.rf-bus-inspector-debug-stop {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rf-bus-inspector-debug-stopall {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.rf-bus-inspector-debug-setbusgain {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.rf-bus-inspector-debug-bus {
+  color: #888;
+}
+
+.rf-bus-inspector-debug-time {
+  margin-left: auto;
+  color: #555;
+}

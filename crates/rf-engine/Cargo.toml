@@ -1,0 +1,16 @@
+[package]
+name = "rf-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-core = { workspace = true }
+rf-dsp = { workspace = true }
+rf-audio = { workspace = true }
+rtrb = { workspace = true }
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,15 @@
+{
+  "manifestVersion": "1.0.0",
+  "assets": [
+    { "id": "spin_loop", "path": "dist/audio/spin_loop.mp3" },
+    { "id": "reel_stop", "path": "dist/audio/reel_stop.ogg" },
+    { "id": "win_small", "path": "dist/audio/win_small.mp3" },
+    { "id": "win_medium", "path": "dist/audio/win_medium.mp3" },
+    { "id": "win_big", "path": "dist/audio/win_big.mp3" },
+    { "id": "ui_click", "path": "dist/audio/ui_click.wav" },
+    { "id": "ui_hover", "path": "dist/audio/ui_hover.wav" },
+    { "id": "bonus_intro", "path": "dist/audio/bonus_intro.mp3" },
+    { "id": "bonus_ambient", "path": "dist/audio/bonus_ambient.ogg" },
+    { "id": "base_music", "path": "dist/audio/base_music.ogg" }
+  ]
+}

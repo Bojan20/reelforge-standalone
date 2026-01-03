@@ -1,0 +1,7 @@
+/**
+ * Plugin Row Styles
+ */
+
+.plugin-row {
+  display: flex;
+}

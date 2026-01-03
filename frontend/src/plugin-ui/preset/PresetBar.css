@@ -1,0 +1,100 @@
+/**
+ * Preset Bar Styles
+ */
+
+.preset-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid;
+}
+
+.preset-bar__left,
+.preset-bar__center,
+.preset-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-bar__preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 120px;
+  transition: all 0.15s ease;
+}
+
+.preset-bar__preset-btn:hover {
+  filter: brightness(1.1);
+}
+
+.preset-bar__preset-name {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-bar__preset-arrow {
+  font-size: 8px;
+  opacity: 0.6;
+}
+
+.preset-bar__icon-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.preset-bar__icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.preset-bar__icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.preset-bar__ab-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 28px;
+  transition: all 0.15s ease;
+}
+
+.preset-bar__ab-btn:hover {
+  filter: brightness(1.1);
+}
+
+.preset-bar__bypass-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.15s ease;
+}
+
+.preset-bar__bypass-btn:hover {
+  filter: brightness(1.1);
+}

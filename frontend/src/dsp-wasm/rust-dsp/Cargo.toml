@@ -1,0 +1,45 @@
+[package]
+name = "reelforge-dsp"
+version = "1.0.0"
+edition = "2021"
+authors = ["ReelForge Team"]
+description = "High-performance DSP kernel for ReelForge - Cubase-killer audio processing"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+# Enable SIMD optimizations (requires nightly for some)
+simd = []
+
+[dependencies]
+wasm-bindgen = "0.2.99"
+
+# Error handling in WASM
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+# For JS interop
+js-sys = "0.3"
+
+# SIMD-friendly math
+# Using manual SIMD for now, can add packed_simd later
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+# Maximum optimization
+opt-level = 3
+# Link-time optimization for smaller WASM
+lto = true
+# Single codegen unit for better optimization
+codegen-units = 1
+# Remove debug info
+debug = false
+# Optimize for size while keeping speed
+# strip = true  # Uncomment for production
+
+# Critical for audio: no panic unwinding (smaller + faster)
+panic = "abort"

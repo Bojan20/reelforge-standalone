@@ -1,0 +1,208 @@
+/**
+ * ReelForge Avatar Styles
+ *
+ * @module avatar/Avatar.css
+ */
+
+/* ============ Avatar ============ */
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar--clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avatar--clickable:hover {
+  transform: scale(1.05);
+}
+
+.avatar--clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.4);
+}
+
+/* ============ Shapes ============ */
+
+.avatar--circle {
+  border-radius: 50%;
+}
+
+.avatar--square {
+  border-radius: 4px;
+}
+
+.avatar--rounded {
+  border-radius: 8px;
+}
+
+/* ============ Sizes ============ */
+
+.avatar--xs {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+.avatar--small {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.avatar--medium {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.avatar--large {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
+.avatar--xl {
+  width: 80px;
+  height: 80px;
+  font-size: 24px;
+}
+
+/* ============ Image ============ */
+
+.avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ============ Initials ============ */
+
+.avatar__initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+/* ============ Icon ============ */
+
+.avatar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60%;
+  height: 60%;
+  color: #888;
+}
+
+/* ============ Placeholder ============ */
+
+.avatar__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60%;
+  height: 60%;
+  color: #666;
+}
+
+.avatar__placeholder svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============ Status ============ */
+
+.avatar__status {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 25%;
+  height: 25%;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 50%;
+  border: 2px solid #1a1a1a;
+}
+
+.avatar__status--online {
+  background: #51cf66;
+}
+
+.avatar__status--offline {
+  background: #666;
+}
+
+.avatar__status--away {
+  background: #ffd43b;
+}
+
+.avatar__status--busy {
+  background: #ff6b6b;
+}
+
+/* ============ Avatar Group ============ */
+
+.avatar-group {
+  display: inline-flex;
+  flex-direction: row-reverse;
+}
+
+.avatar-group > .avatar {
+  margin-left: -8px;
+  border: 2px solid #1a1a1a;
+  transition: transform 0.15s ease, z-index 0.15s ease;
+}
+
+.avatar-group > .avatar:last-child {
+  margin-left: 0;
+}
+
+.avatar-group > .avatar:hover {
+  z-index: 1;
+  transform: translateY(-2px);
+}
+
+/* Group sizes */
+.avatar-group--xs > .avatar {
+  margin-left: -6px;
+}
+
+.avatar-group--small > .avatar {
+  margin-left: -8px;
+}
+
+.avatar-group--medium > .avatar {
+  margin-left: -10px;
+}
+
+.avatar-group--large > .avatar {
+  margin-left: -14px;
+}
+
+.avatar-group--xl > .avatar {
+  margin-left: -20px;
+}
+
+/* Overflow */
+.avatar-group__overflow {
+  background: #444;
+}
+
+.avatar-group__overflow .avatar__initials {
+  background: transparent;
+  font-size: 0.8em;
+}

@@ -1,0 +1,96 @@
+/**
+ * ReelForge Splitter Styles
+ *
+ * @module splitter/Splitter.css
+ */
+
+/* ============ Container ============ */
+
+.splitter {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.splitter--horizontal {
+  flex-direction: row;
+}
+
+.splitter--vertical {
+  flex-direction: column;
+}
+
+/* ============ Panel Wrapper ============ */
+
+.splitter__panel-wrapper {
+  display: contents;
+}
+
+/* ============ Panel ============ */
+
+.splitter__panel {
+  overflow: hidden;
+  transition: none;
+}
+
+.splitter__panel--collapsed {
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden;
+}
+
+/* ============ Gutter ============ */
+
+.splitter__gutter {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+  transition: background 0.15s ease;
+}
+
+.splitter__gutter--horizontal {
+  width: var(--gutter-size, 6px);
+  cursor: col-resize;
+}
+
+.splitter__gutter--vertical {
+  height: var(--gutter-size, 6px);
+  cursor: row-resize;
+}
+
+.splitter__gutter:hover {
+  background: #2a2a2a;
+}
+
+.splitter__gutter:active {
+  background: #333;
+}
+
+/* ============ Gutter Handle ============ */
+
+.splitter__gutter-handle {
+  background: #444;
+  border-radius: 2px;
+  transition: background 0.15s ease;
+}
+
+.splitter__gutter--horizontal .splitter__gutter-handle {
+  width: 2px;
+  height: 32px;
+}
+
+.splitter__gutter--vertical .splitter__gutter-handle {
+  width: 32px;
+  height: 2px;
+}
+
+.splitter__gutter:hover .splitter__gutter-handle {
+  background: #4a9eff;
+}
+
+.splitter__gutter:active .splitter__gutter-handle {
+  background: #5aafff;
+}

@@ -1,0 +1,17 @@
+/**
+ * ReelForge Spectrum Analyzer Styles
+ *
+ * @module meters/SpectrumAnalyzer.css
+ */
+
+.spectrum-analyzer {
+  background: #1e1e1e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.spectrum-analyzer__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,320 @@
+/**
+ * ReelForge M9.2 VanEQ Editor Styles
+ *
+ * Professional parametric EQ with frequency response graph.
+ */
+
+/* Main Editor Container */
+.rf-vaneq-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #1a1a2e;
+  border-radius: 6px;
+  min-width: 420px;
+}
+
+/* ============ Frequency Graph ============ */
+
+.rf-vaneq-graph {
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+  border-radius: 4px;
+  overflow: visible;
+}
+
+.rf-vaneq-graph-bg {
+  fill: #0d0d1a;
+}
+
+.rf-vaneq-graph-grid {
+  stroke: #2a2a3e;
+  stroke-width: 0.5;
+  fill: none;
+}
+
+.rf-vaneq-graph-zero {
+  stroke: #4a4a6e;
+  stroke-width: 1;
+}
+
+.rf-vaneq-axis-label {
+  font-size: 9px;
+  fill: #666;
+  font-family: monospace;
+  text-anchor: middle;
+}
+
+.rf-vaneq-axis-label:first-of-type {
+  text-anchor: start;
+}
+
+/* Band Handles */
+.rf-vaneq-band-handle {
+  transition: r 0.15s ease;
+}
+
+.rf-vaneq-band.enabled .rf-vaneq-band-handle:hover {
+  filter: brightness(1.2);
+}
+
+.rf-vaneq-band.disabled .rf-vaneq-band-handle {
+  opacity: 0.4;
+}
+
+.rf-vaneq-band-number {
+  font-size: 10px;
+  fill: #fff;
+  font-weight: bold;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* ============ Band Tabs ============ */
+
+.rf-vaneq-band-tabs {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.rf-vaneq-band-tab {
+  width: 36px;
+  height: 28px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  background: #222;
+  border: 2px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-vaneq-band-tab:hover {
+  background: #2a2a3e;
+  color: #888;
+}
+
+.rf-vaneq-band-tab.active {
+  background: #2a2a4e;
+  color: #fff;
+}
+
+.rf-vaneq-band-tab.enabled {
+  color: #fff;
+}
+
+/* ============ Band Controls ============ */
+
+.rf-vaneq-band-controls {
+  background: #151520;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.rf-vaneq-band-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+.rf-vaneq-enable-btn {
+  width: 40px;
+  height: 24px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  background: #333;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-vaneq-enable-btn.enabled {
+  color: #fff;
+}
+
+.rf-vaneq-enable-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.rf-vaneq-enable-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rf-vaneq-band-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: #aaa;
+}
+
+/* Type Selector */
+.rf-vaneq-type-selector {
+  display: flex;
+  gap: 4px;
+}
+
+.rf-vaneq-type-btn {
+  width: 26px;
+  height: 24px;
+  font-size: 12px;
+  color: #666;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-vaneq-type-btn:hover:not(:disabled) {
+  background: #2a2a3e;
+  color: #888;
+}
+
+.rf-vaneq-type-btn.active {
+  background: #3a3a5e;
+  color: #fff;
+  border-color: #4a90d9;
+}
+
+.rf-vaneq-type-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Band Parameters */
+.rf-vaneq-band-params {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============ Parameter Row ============ */
+
+.rf-vaneq-param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rf-vaneq-param-label {
+  flex: 0 0 50px;
+  font-size: 11px;
+  color: #888;
+}
+
+.rf-vaneq-param-slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background: #333;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.rf-vaneq-param-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--slider-color, #4a90d9);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease;
+}
+
+.rf-vaneq-param-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.rf-vaneq-param-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--slider-color, #4a90d9);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.rf-vaneq-param-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rf-vaneq-param-slider:disabled::-webkit-slider-thumb {
+  background: #666;
+  cursor: not-allowed;
+}
+
+.rf-vaneq-param-display {
+  flex: 0 0 65px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #ccc;
+  text-align: right;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+}
+
+.rf-vaneq-param-display:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Numeric Input (replaces display when editing) */
+.rf-vaneq-param-input {
+  flex: 0 0 65px;
+  width: 65px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #fff;
+  background: #222;
+  border: 1px solid #4a90d9;
+  border-radius: 3px;
+  padding: 2px 4px;
+  text-align: right;
+  outline: none;
+}
+
+.rf-vaneq-param-input:focus {
+  border-color: #5aa0e9;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.3);
+}
+
+/* ============ Output Section ============ */
+
+.rf-vaneq-output {
+  padding-top: 10px;
+  border-top: 1px solid #2a2a3e;
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 480px) {
+  .rf-vaneq-editor {
+    min-width: 320px;
+    padding: 8px;
+  }
+
+  .rf-vaneq-band-tab {
+    width: 30px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .rf-vaneq-type-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+}

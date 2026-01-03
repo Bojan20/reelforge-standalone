@@ -1,0 +1,24 @@
+/**
+ * ReelForge Watermark Styles
+ *
+ * @module watermark/Watermark.css
+ */
+
+/* ============ Watermark ============ */
+
+.watermark {
+  position: relative;
+}
+
+.watermark__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ============ ImageWatermark ============ */
+
+.image-watermark {
+  display: block;
+  max-width: 100%;
+}

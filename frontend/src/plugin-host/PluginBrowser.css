@@ -1,0 +1,313 @@
+/**
+ * ReelForge Plugin Browser Styles
+ *
+ * @module plugin-host/PluginBrowser.css
+ */
+
+/* ============ Container ============ */
+
+.plugin-browser {
+  display: flex;
+  flex-direction: column;
+  width: 500px;
+  max-width: 90vw;
+  height: 600px;
+  max-height: 80vh;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* ============ Header ============ */
+
+.plugin-browser__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.plugin-browser__header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.plugin-browser__close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-browser__close:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* ============ Search ============ */
+
+.plugin-browser__search {
+  padding: 12px 16px;
+  background: #222;
+  border-bottom: 1px solid #333;
+}
+
+.plugin-browser__search input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.plugin-browser__search input::placeholder {
+  color: #666;
+}
+
+.plugin-browser__search input:focus {
+  border-color: #4a9eff;
+}
+
+/* ============ Filters ============ */
+
+.plugin-browser__filters {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #222;
+  border-bottom: 1px solid #333;
+}
+
+.plugin-browser__filter {
+  padding: 6px 12px;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-browser__filter:hover {
+  background: #3a3a3a;
+  color: #aaa;
+}
+
+.plugin-browser__filter.active {
+  background: #4a9eff;
+  border-color: #5aafff;
+  color: #fff;
+}
+
+/* ============ Main Content ============ */
+
+.plugin-browser__main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ============ Categories ============ */
+
+.plugin-browser__categories {
+  width: 140px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+}
+
+.plugin-browser__category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #252525;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.plugin-browser__category:hover {
+  background: #252525;
+  color: #aaa;
+}
+
+.plugin-browser__category.active {
+  background: #2a2a2a;
+  color: #4a9eff;
+}
+
+.plugin-browser__category-count {
+  font-size: 10px;
+  color: #555;
+  padding: 2px 6px;
+  background: #222;
+  border-radius: 10px;
+}
+
+.plugin-browser__category.active .plugin-browser__category-count {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+/* ============ Plugin List ============ */
+
+.plugin-browser__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.plugin-browser__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: #666;
+}
+
+/* ============ Vendor Group ============ */
+
+.plugin-browser__vendor-group {
+  margin-bottom: 12px;
+}
+
+.plugin-browser__vendor-name {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  background: #1a1a1a;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+/* ============ Plugin Item ============ */
+
+.plugin-browser__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #252525;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-browser__item:hover {
+  background: #2a2a2a;
+  border-color: #333;
+}
+
+.plugin-browser__item:active {
+  background: #333;
+}
+
+.plugin-browser__item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plugin-browser__item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plugin-browser__item-version {
+  font-size: 10px;
+  color: #666;
+}
+
+.plugin-browser__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============ Favorite Button ============ */
+
+.plugin-browser__favorite {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-browser__favorite:hover {
+  background: #333;
+  color: #ffd43b;
+}
+
+.plugin-browser__favorite.active {
+  color: #ffd43b;
+}
+
+/* ============ Scrollbar ============ */
+
+.plugin-browser__categories::-webkit-scrollbar,
+.plugin-browser__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.plugin-browser__categories::-webkit-scrollbar-track,
+.plugin-browser__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plugin-browser__categories::-webkit-scrollbar-thumb,
+.plugin-browser__list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.plugin-browser__categories::-webkit-scrollbar-thumb:hover,
+.plugin-browser__list::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}

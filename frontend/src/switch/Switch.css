@@ -1,0 +1,153 @@
+/**
+ * ReelForge Switch Styles
+ *
+ * @module switch/Switch.css
+ */
+
+/* ============ Switch ============ */
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.switch--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* ============ Track ============ */
+
+.switch__track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #333;
+  border-radius: 100px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.switch__track:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.3);
+}
+
+.switch--checked .switch__track {
+  background: #4a9eff;
+}
+
+/* Sizes */
+.switch--small .switch__track {
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+}
+
+.switch--medium .switch__track {
+  width: 44px;
+  height: 24px;
+  padding: 3px;
+}
+
+.switch--large .switch__track {
+  width: 56px;
+  height: 30px;
+  padding: 4px;
+}
+
+/* ============ Thumb ============ */
+
+.switch__thumb {
+  position: relative;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.switch--small .switch__thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.switch--medium .switch__thumb {
+  width: 18px;
+  height: 18px;
+}
+
+.switch--large .switch__thumb {
+  width: 22px;
+  height: 22px;
+}
+
+.switch--checked .switch__thumb {
+  transform: translateX(100%);
+}
+
+.switch--small.switch--checked .switch__thumb {
+  transform: translateX(14px);
+}
+
+.switch--medium.switch--checked .switch__thumb {
+  transform: translateX(20px);
+}
+
+.switch--large.switch--checked .switch__thumb {
+  transform: translateX(26px);
+}
+
+/* ============ Text ============ */
+
+.switch__text {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #888;
+  transition: opacity 0.15s ease;
+}
+
+.switch--checked .switch__text {
+  color: rgba(255, 255, 255, 0.9);
+  left: 6px;
+}
+
+.switch:not(.switch--checked) .switch__text {
+  right: 6px;
+}
+
+/* ============ Spinner ============ */
+
+.switch__spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid transparent;
+  border-top-color: #4a9eff;
+  border-radius: 50%;
+  animation: switch-spin 0.6s linear infinite;
+}
+
+@keyframes switch-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ Label ============ */
+
+.switch__label {
+  font-size: 14px;
+  color: #e0e0e0;
+  user-select: none;
+}

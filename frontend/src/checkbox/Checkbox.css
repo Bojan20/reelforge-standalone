@@ -1,0 +1,96 @@
+/**
+ * ReelForge Checkbox Styles
+ *
+ * @module checkbox/Checkbox.css
+ */
+
+/* ============ Checkbox Group ============ */
+
+.checkbox-group {
+  display: flex;
+  gap: 12px;
+}
+
+.checkbox-group--vertical {
+  flex-direction: column;
+}
+
+.checkbox-group--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+/* ============ Checkbox ============ */
+
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* ============ Indicator ============ */
+
+.checkbox__indicator {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 2px solid #444;
+  border-radius: 4px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checkbox__indicator svg {
+  width: 14px;
+  height: 14px;
+  color: #fff;
+}
+
+.checkbox:hover:not(.checkbox--disabled) .checkbox__indicator {
+  border-color: #666;
+}
+
+.checkbox--checked .checkbox__indicator,
+.checkbox--indeterminate .checkbox__indicator {
+  border-color: #4a9eff;
+  background: #4a9eff;
+}
+
+.checkbox__input:focus-visible + .checkbox__indicator {
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.3);
+}
+
+/* ============ Content ============ */
+
+.checkbox__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkbox__label {
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.checkbox__description {
+  font-size: 12px;
+  color: #888;
+}

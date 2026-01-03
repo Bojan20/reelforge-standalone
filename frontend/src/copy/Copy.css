@@ -1,0 +1,141 @@
+/**
+ * ReelForge Copy Styles
+ *
+ * @module copy/Copy.css
+ */
+
+/* ============ CopyButton ============ */
+
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--rf-surface, #2a2a2a);
+  color: var(--rf-text, #fff);
+}
+
+.copy-button:hover:not(:disabled) {
+  background: var(--rf-surface-hover, #333);
+}
+
+.copy-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Variants */
+.copy-button--ghost {
+  background: transparent;
+}
+
+.copy-button--ghost:hover:not(:disabled) {
+  background: var(--rf-surface, rgba(255, 255, 255, 0.1));
+}
+
+.copy-button--outline {
+  background: transparent;
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.2));
+}
+
+.copy-button--outline:hover:not(:disabled) {
+  background: var(--rf-surface, rgba(255, 255, 255, 0.05));
+}
+
+/* Sizes */
+.copy-button--small {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.copy-button--large {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* Copied state */
+.copy-button--copied {
+  color: var(--rf-success, #22c55e);
+}
+
+/* Icon */
+.copy-button__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.copy-button--small .copy-button__icon {
+  width: 12px;
+  height: 12px;
+}
+
+.copy-button--large .copy-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+.copy-button__icon--check {
+  color: var(--rf-success, #22c55e);
+}
+
+/* ============ CopyToClipboard ============ */
+
+.copy-to-clipboard {
+  cursor: pointer;
+  display: inline;
+}
+
+/* ============ CopyText ============ */
+
+.copy-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--rf-font-mono, monospace);
+  font-size: 13px;
+}
+
+.copy-text--truncate .copy-text__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-text__button {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copy-text__button:hover {
+  background: var(--rf-surface, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text, #fff);
+}
+
+.copy-text__button--copied {
+  color: var(--rf-success, #22c55e);
+}
+
+/* Hover only */
+.copy-text--hover-only .copy-text__button {
+  opacity: 0;
+}
+
+.copy-text--hover-only:hover .copy-text__button {
+  opacity: 1;
+}

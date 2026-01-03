@@ -1,0 +1,204 @@
+/**
+ * ReelForge Tour Styles
+ *
+ * @module tour/Tour.css
+ */
+
+/* ============ Tour ============ */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+/* ============ Overlay ============ */
+
+.tour__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.tour__highlight {
+  position: absolute;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* ============ Tooltip ============ */
+
+.tour__tooltip {
+  position: fixed;
+  z-index: 10001;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--rf-surface, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* Arrow */
+.tour__tooltip::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--rf-surface, #1a1a1a);
+  border: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+  transform: rotate(45deg);
+}
+
+.tour__tooltip--top::before {
+  bottom: -7px;
+  left: 50%;
+  margin-left: -6px;
+  border-top: none;
+  border-left: none;
+}
+
+.tour__tooltip--bottom::before {
+  top: -7px;
+  left: 50%;
+  margin-left: -6px;
+  border-bottom: none;
+  border-right: none;
+}
+
+.tour__tooltip--left::before {
+  right: -7px;
+  top: 50%;
+  margin-top: -6px;
+  border-top: none;
+  border-left: none;
+}
+
+.tour__tooltip--right::before {
+  left: -7px;
+  top: 50%;
+  margin-top: -6px;
+  border-bottom: none;
+  border-right: none;
+}
+
+/* ============ Header ============ */
+
+.tour__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.tour__step-number {
+  padding: 2px 8px;
+  background: var(--rf-primary, #6366f1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tour__title {
+  flex: 1;
+  margin: 0;
+  color: var(--rf-text, #fff);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tour__close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tour__close:hover {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text, #fff);
+}
+
+/* ============ Content ============ */
+
+.tour__content {
+  padding: 16px;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.7));
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ============ Progress ============ */
+
+.tour__progress {
+  height: 3px;
+  background: var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.tour__progress-bar {
+  height: 100%;
+  background: var(--rf-primary, #6366f1);
+  transition: width 0.3s ease;
+}
+
+/* ============ Footer ============ */
+
+.tour__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+.tour__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.tour__btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tour__btn--skip {
+  background: transparent;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.tour__btn--skip:hover {
+  color: var(--rf-text, #fff);
+}
+
+.tour__btn--prev {
+  background: var(--rf-surface-hover, rgba(255, 255, 255, 0.1));
+  color: var(--rf-text, #fff);
+}
+
+.tour__btn--prev:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tour__btn--next {
+  background: var(--rf-primary, #6366f1);
+  color: #fff;
+}
+
+.tour__btn--next:hover {
+  background: var(--rf-primary-hover, #5558e3);
+}

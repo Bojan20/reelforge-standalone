@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VanEQ Pro</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-void: #050508;
+      --bg-deep: #0a0a10;
+      --bg-dark: #0e0e16;
+      --bg-surface: #14141e;
+      --bg-elevated: #1a1a28;
+      --bg-hover: #222234;
+
+      --border-void: rgba(255,255,255,0.02);
+      --border-subtle: rgba(255,255,255,0.04);
+      --border-light: rgba(255,255,255,0.08);
+      --border-accent: rgba(0,200,255,0.3);
+
+      --text-bright: #ffffff;
+      --text-primary: #e8e8f0;
+      --text-secondary: #9898b0;
+      --text-muted: #606078;
+      --text-dim: #404058;
+
+      --accent-cyan: #00d4ff;
+      --accent-cyan-dim: #0099cc;
+      --accent-glow: rgba(0,212,255,0.5);
+      --accent-subtle: rgba(0,180,255,0.08);
+
+      --band-1: #ff6b8a;
+      --band-2: #ffb347;
+      --band-3: #47d4ff;
+      --band-4: #4ade80;
+      --band-5: #a78bfa;
+      --band-6: #f472b6;
+      --band-7: #fb923c;
+      --band-8: #22d3d3;
+
+      --gradient-spectrum: linear-gradient(180deg,
+        rgba(255,100,150,0.4) 0%,
+        rgba(255,180,100,0.3) 20%,
+        rgba(100,220,255,0.25) 40%,
+        rgba(80,200,255,0.2) 60%,
+        rgba(60,180,255,0.15) 80%,
+        rgba(40,160,255,0.05) 100%
+      );
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background: var(--bg-void);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ============ Main Container ============ */
+    .eq-plugin {
+      width: 1200px;
+      max-width: 98vw;
+      background: var(--bg-dark);
+      border-radius: 20px;
+      box-shadow:
+        0 0 0 1px var(--border-subtle),
+        0 4px 24px rgba(0,0,0,0.4),
+        0 24px 80px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.03);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============ Top Bar ============ */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan) 0%, #0088cc 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .logo svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: -0.3px;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .mode-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-dark);
+      padding: 3px;
+      border-radius: 10px;
+    }
+
+    .mode-tab {
+      padding: 8px 18px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.3px;
+    }
+
+    .mode-tab:hover {
+      color: var(--text-secondary);
+      background: var(--bg-hover);
+    }
+
+    .mode-tab.active {
+      background: var(--accent-subtle);
+      color: var(--accent-cyan);
+      box-shadow: inset 0 0 0 1px var(--border-accent);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .preset-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .preset-arrow {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      transition: all 0.1s;
+    }
+
+    .preset-arrow:hover {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+      border-color: var(--border-light);
+    }
+
+    .preset-name {
+      padding: 7px 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      min-width: 180px;
+      text-align: center;
+      transition: all 0.1s;
+    }
+
+    .preset-name:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-accent);
+    }
+
+    .power-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-light);
+      border-radius: 50%;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .power-btn.active {
+      background: rgba(0,212,255,0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .power-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ============ Spectrum Display ============ */
+    .spectrum-section {
+      position: relative;
+      height: 400px;
+      background: var(--bg-void);
+      overflow: hidden;
+    }
+
+    #spectrumCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Frequency Scale */
+    .freq-scale {
+      position: absolute;
+      left: 50px;
+      right: 24px;
+      bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .freq-tick {
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    /* dB Scale */
+    .db-scale {
+      position: absolute;
+      left: 8px;
+      top: 30px;
+      bottom: 30px;
+      width: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .db-tick {
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      font-weight: 500;
+      text-align: right;
+      padding-right: 4px;
+    }
+
+    .db-tick.zero {
+      color: var(--text-muted);
+    }
+
+    /* Band Nodes */
+    .band-nodes-container {
+      position: absolute;
+      left: 50px;
+      right: 24px;
+      top: 30px;
+      bottom: 30px;
+      z-index: 20;
+    }
+
+    .band-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      cursor: grab;
+      z-index: 10;
+      transition: transform 0.08s ease-out;
+    }
+
+    .band-node:active {
+      cursor: grabbing;
+    }
+
+    .band-node-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      opacity: 0;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.15s ease;
+      pointer-events: none;
+    }
+
+    .band-node:hover .band-node-ring,
+    .band-node.selected .band-node-ring {
+      opacity: 0.4;
+      width: 52px;
+      height: 52px;
+    }
+
+    .band-node-core {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      box-shadow: 0 0 24px currentColor;
+      position: relative;
+      transition: transform 0.1s ease;
+    }
+
+    .band-node:hover .band-node-core {
+      transform: scale(1.1);
+    }
+
+    .band-node.selected .band-node-core {
+      transform: scale(1.15);
+      box-shadow: 0 0 32px currentColor, 0 0 64px currentColor;
+    }
+
+    .band-node.inactive {
+      opacity: 0.25;
+    }
+
+    .band-node.inactive:hover {
+      opacity: 0.5;
+    }
+
+    .band-node[data-band="1"] { color: var(--band-1); }
+    .band-node[data-band="2"] { color: var(--band-2); }
+    .band-node[data-band="3"] { color: var(--band-3); }
+    .band-node[data-band="4"] { color: var(--band-4); }
+    .band-node[data-band="5"] { color: var(--band-5); }
+    .band-node[data-band="6"] { color: var(--band-6); }
+    .band-node[data-band="7"] { color: var(--band-7); }
+    .band-node[data-band="8"] { color: var(--band-8); }
+
+    /* Tooltip */
+    .band-tooltip {
+      position: absolute;
+      bottom: calc(100% + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 8px 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+      z-index: 100;
+    }
+
+    .band-node:hover .band-tooltip,
+    .band-node.selected .band-tooltip {
+      opacity: 1;
+    }
+
+    .band-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--bg-elevated);
+    }
+
+    .tooltip-freq {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tooltip-gain {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* ============ Controls Section ============ */
+    .controls-section {
+      display: flex;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* Band Pills */
+    .band-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 16px;
+      background: var(--bg-dark);
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .band-pills-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .band-pill {
+      width: 44px;
+      height: 48px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.12s ease;
+      position: relative;
+    }
+
+    .band-pill::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 11px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .band-pill:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-light);
+    }
+
+    .band-pill.selected {
+      border-color: currentColor;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .band-pill.selected::before {
+      opacity: 0.1;
+      background: currentColor;
+    }
+
+    .band-pill .indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .band-pill.inactive .indicator {
+      opacity: 0.3;
+      box-shadow: none;
+    }
+
+    .band-pill .number {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .band-pill.selected .number {
+      color: var(--text-secondary);
+    }
+
+    .band-pill[data-band="1"] { color: var(--band-1); }
+    .band-pill[data-band="2"] { color: var(--band-2); }
+    .band-pill[data-band="3"] { color: var(--band-3); }
+    .band-pill[data-band="4"] { color: var(--band-4); }
+    .band-pill[data-band="5"] { color: var(--band-5); }
+    .band-pill[data-band="6"] { color: var(--band-6); }
+    .band-pill[data-band="7"] { color: var(--band-7); }
+    .band-pill[data-band="8"] { color: var(--band-8); }
+
+    /* Parameters Panel */
+    .params-panel {
+      flex: 1;
+      display: flex;
+      padding: 20px 28px;
+      gap: 36px;
+      align-items: flex-start;
+    }
+
+    /* Filter Shape Selector */
+    .shape-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .shape-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 4px;
+    }
+
+    .shape-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+
+    .shape-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+    }
+
+    .shape-btn.active {
+      background: var(--accent-subtle);
+      border-color: var(--border-accent);
+      color: var(--accent-cyan);
+    }
+
+    .shape-icon {
+      width: 24px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    /* Knob Group */
+    .knob-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .knob-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 12px;
+    }
+
+    .knob-container {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      cursor: grab;
+    }
+
+    .knob-container:active {
+      cursor: grabbing;
+    }
+
+    .knob-bg {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 225deg,
+        var(--bg-void) 0deg,
+        var(--bg-void) 270deg,
+        transparent 270deg
+      );
+    }
+
+    .knob-track {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 225deg,
+        var(--bg-elevated) 0deg,
+        var(--bg-elevated) 270deg,
+        transparent 270deg
+      );
+    }
+
+    .knob-value-arc {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 225deg,
+        var(--accent-cyan) 0deg,
+        var(--accent-cyan) var(--arc-deg, 135deg),
+        transparent var(--arc-deg, 135deg)
+      );
+      mask: radial-gradient(circle at center, transparent 60%, black 62%);
+      -webkit-mask: radial-gradient(circle at center, transparent 60%, black 62%);
+      filter: drop-shadow(0 0 8px var(--accent-glow));
+    }
+
+    .knob-inner {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
+      border: 1px solid var(--border-light);
+      box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.3),
+        0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .knob-indicator {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      width: 3px;
+      height: 12px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+      transform-origin: center calc(100% + 6px);
+      transform: translateX(-50%) rotate(var(--rotation, -135deg));
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .knob-readout {
+      margin-top: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.5px;
+    }
+
+    .knob-readout .unit {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-left: 2px;
+    }
+
+    /* Large Gain Display */
+    .gain-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 32px;
+      background: var(--bg-dark);
+      border-left: 1px solid var(--border-subtle);
+      margin-left: auto;
+    }
+
+    .gain-value {
+      font-size: 42px;
+      font-weight: 300;
+      color: var(--text-bright);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    .gain-value .unit {
+      font-size: 16px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    .gain-info {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 8px;
+    }
+
+    .gain-band-color {
+      width: 24px;
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 8px;
+      background: var(--band-1);
+    }
+
+    /* ============ Bottom Toolbar ============ */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tool-btn {
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+    }
+
+    .tool-btn.active {
+      background: var(--accent-subtle);
+      border-color: var(--border-accent);
+      color: var(--accent-cyan);
+    }
+
+    .tool-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border-light);
+      margin: 0 8px;
+    }
+
+    /* Output Slider */
+    .output-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .output-label {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .slider-container {
+      width: 140px;
+      height: 6px;
+      background: var(--bg-dark);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .slider-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, var(--accent-cyan-dim), var(--accent-cyan));
+      border-radius: 3px;
+    }
+
+    .slider-thumb {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent-glow), 0 2px 4px rgba(0,0,0,0.3);
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+
+    .output-value {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      min-width: 52px;
+    }
+
+    /* A/B Button */
+    .ab-switch {
+      display: flex;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .ab-btn {
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .ab-btn.active {
+      background: var(--accent-subtle);
+      color: var(--accent-cyan);
+    }
+
+    .ab-btn:hover:not(.active) {
+      color: var(--text-secondary);
+    }
+
+    /* Copy/Swap */
+    .copy-swap {
+      padding: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .copy-swap:hover {
+      color: var(--text-secondary);
+    }
+
+    .copy-swap svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Analyzer Quality */
+    .quality-switch {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-dark);
+      padding: 3px;
+      border-radius: 6px;
+    }
+
+    .quality-btn {
+      padding: 5px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.1s;
+      letter-spacing: 0.5px;
+    }
+
+    .quality-btn:hover {
+      color: var(--text-muted);
+    }
+
+    .quality-btn.active {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="eq-plugin">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 18.5L4 16V8.5l8 4v8zm1-9.5L5 7l7-3.5L19 7l-6 4z"/></svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">VanEQ Pro</div>
+          <div class="brand-subtitle">8-Band Parametric EQ</div>
+        </div>
+      </div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active">Minimum Phase</button>
+        <button class="mode-tab">Linear Phase</button>
+        <button class="mode-tab">Dynamic</button>
+        <button class="mode-tab">Match EQ</button>
+      </div>
+
+      <div class="header-controls">
+        <div class="preset-nav">
+          <button class="preset-arrow">◀</button>
+          <div class="preset-name">Warm Vocal Presence</div>
+          <button class="preset-arrow">▶</button>
+        </div>
+        <button class="power-btn active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 3v9M18.4 6.6a9 9 0 1 1-12.8 0"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Spectrum Display -->
+    <section class="spectrum-section">
+      <canvas id="spectrumCanvas"></canvas>
+
+      <div class="db-scale">
+        <span class="db-tick">+24</span>
+        <span class="db-tick">+18</span>
+        <span class="db-tick">+12</span>
+        <span class="db-tick">+6</span>
+        <span class="db-tick zero">0</span>
+        <span class="db-tick">-6</span>
+        <span class="db-tick">-12</span>
+        <span class="db-tick">-18</span>
+        <span class="db-tick">-24</span>
+      </div>
+
+      <div class="freq-scale">
+        <span class="freq-tick">20</span>
+        <span class="freq-tick">30</span>
+        <span class="freq-tick">50</span>
+        <span class="freq-tick">100</span>
+        <span class="freq-tick">200</span>
+        <span class="freq-tick">500</span>
+        <span class="freq-tick">1k</span>
+        <span class="freq-tick">2k</span>
+        <span class="freq-tick">5k</span>
+        <span class="freq-tick">10k</span>
+        <span class="freq-tick">20k</span>
+      </div>
+
+      <div class="band-nodes-container" id="bandNodesContainer"></div>
+    </section>
+
+    <!-- Controls Section -->
+    <section class="controls-section">
+      <div class="band-pills">
+        <div class="band-pills-row">
+          <div class="band-pill selected" data-band="1"><div class="indicator"></div><div class="number">1</div></div>
+          <div class="band-pill" data-band="2"><div class="indicator"></div><div class="number">2</div></div>
+          <div class="band-pill" data-band="3"><div class="indicator"></div><div class="number">3</div></div>
+          <div class="band-pill" data-band="4"><div class="indicator"></div><div class="number">4</div></div>
+        </div>
+        <div class="band-pills-row">
+          <div class="band-pill" data-band="5"><div class="indicator"></div><div class="number">5</div></div>
+          <div class="band-pill inactive" data-band="6"><div class="indicator"></div><div class="number">6</div></div>
+          <div class="band-pill inactive" data-band="7"><div class="indicator"></div><div class="number">7</div></div>
+          <div class="band-pill" data-band="8"><div class="indicator"></div><div class="number">8</div></div>
+        </div>
+      </div>
+
+      <div class="params-panel">
+        <!-- Shape Selector -->
+        <div class="shape-selector">
+          <div class="shape-label">Shape</div>
+          <button class="shape-btn">
+            <svg class="shape-icon" viewBox="0 0 24 14"><path d="M2 12h4l4-10h12"/></svg>
+            High Pass
+          </button>
+          <button class="shape-btn active">
+            <svg class="shape-icon" viewBox="0 0 24 14"><path d="M2 10h6l4-6h10"/></svg>
+            Low Shelf
+          </button>
+          <button class="shape-btn">
+            <svg class="shape-icon" viewBox="0 0 24 14"><path d="M2 10h4l3-6 6 0 3 6h4"/></svg>
+            Bell
+          </button>
+          <button class="shape-btn">
+            <svg class="shape-icon" viewBox="0 0 24 14"><path d="M2 4h10l4 6h6"/></svg>
+            High Shelf
+          </button>
+          <button class="shape-btn">
+            <svg class="shape-icon" viewBox="0 0 24 14"><path d="M2 2h12l4 10h4"/></svg>
+            Low Pass
+          </button>
+        </div>
+
+        <!-- Frequency Knob -->
+        <div class="knob-group">
+          <div class="knob-label">Frequency</div>
+          <div class="knob-container">
+            <div class="knob-bg"></div>
+            <div class="knob-track"></div>
+            <div class="knob-value-arc" style="--arc-deg: 90deg;"></div>
+            <div class="knob-inner"></div>
+            <div class="knob-indicator" style="--rotation: -45deg;"></div>
+          </div>
+          <div class="knob-readout">80<span class="unit">Hz</span></div>
+        </div>
+
+        <!-- Gain Knob -->
+        <div class="knob-group">
+          <div class="knob-label">Gain</div>
+          <div class="knob-container">
+            <div class="knob-bg"></div>
+            <div class="knob-track"></div>
+            <div class="knob-value-arc" style="--arc-deg: 160deg;"></div>
+            <div class="knob-inner"></div>
+            <div class="knob-indicator" style="--rotation: 25deg;"></div>
+          </div>
+          <div class="knob-readout">+4.5<span class="unit">dB</span></div>
+        </div>
+
+        <!-- Q Knob -->
+        <div class="knob-group">
+          <div class="knob-label">Q / Width</div>
+          <div class="knob-container">
+            <div class="knob-bg"></div>
+            <div class="knob-track"></div>
+            <div class="knob-value-arc" style="--arc-deg: 60deg;"></div>
+            <div class="knob-inner"></div>
+            <div class="knob-indicator" style="--rotation: -75deg;"></div>
+          </div>
+          <div class="knob-readout">0.71</div>
+        </div>
+
+        <!-- Slope Knob -->
+        <div class="knob-group">
+          <div class="knob-label">Slope</div>
+          <div class="knob-container">
+            <div class="knob-bg"></div>
+            <div class="knob-track"></div>
+            <div class="knob-value-arc" style="--arc-deg: 120deg;"></div>
+            <div class="knob-inner"></div>
+            <div class="knob-indicator" style="--rotation: -15deg;"></div>
+          </div>
+          <div class="knob-readout">12<span class="unit">dB/oct</span></div>
+        </div>
+
+        <!-- Gain Display -->
+        <div class="gain-display">
+          <div class="gain-value">+4.5<span class="unit">dB</span></div>
+          <div class="gain-info">Band 1 · Low Shelf</div>
+          <div class="gain-band-color"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Toolbar -->
+    <footer class="bottom-bar">
+      <div class="toolbar-group">
+        <button class="tool-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Bypass
+        </button>
+        <button class="tool-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/></svg>
+          Solo Band
+        </button>
+        <button class="tool-btn active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>
+          Analyzer
+        </button>
+        <div class="toolbar-divider"></div>
+        <div class="quality-switch">
+          <button class="quality-btn">LOW</button>
+          <button class="quality-btn active">MID</button>
+          <button class="quality-btn">HIGH</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button class="tool-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+          Mid/Side
+        </button>
+        <button class="tool-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>
+          Auto Gain
+        </button>
+      </div>
+
+      <div class="toolbar-group">
+        <div class="output-control">
+          <span class="output-label">Output</span>
+          <div class="slider-container">
+            <div class="slider-fill"></div>
+            <div class="slider-thumb"></div>
+          </div>
+          <span class="output-value">0.0 dB</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="ab-switch">
+          <button class="ab-btn active">A</button>
+          <button class="copy-swap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4h12v12H7z"/><path d="M3 8v12h12"/></svg>
+          </button>
+          <button class="ab-btn">B</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // ============ Configuration ============
+    const CONFIG = {
+      freqMin: 20,
+      freqMax: 20000,
+      dbRange: 48,
+      fftSize: 1024,
+      smoothingAttack: 0.35,
+      smoothingRelease: 0.08,
+      peakHoldDecay: 0.992,
+    };
+
+    // ============ Band State ============
+    const bands = [
+      { id: 1, freq: 80, gain: 4.5, q: 0.71, type: 'lowshelf', active: true },
+      { id: 2, freq: 250, gain: 2.0, q: 1.2, type: 'bell', active: true },
+      { id: 3, freq: 800, gain: 5.0, q: 2.5, type: 'bell', active: true },
+      { id: 4, freq: 2500, gain: -3.0, q: 1.5, type: 'bell', active: true },
+      { id: 5, freq: 6000, gain: 2.0, q: 1.0, type: 'bell', active: true },
+      { id: 6, freq: 10000, gain: 0, q: 0.71, type: 'highshelf', active: false },
+      { id: 7, freq: 14000, gain: 0, q: 0.71, type: 'bell', active: false },
+      { id: 8, freq: 18000, gain: 3.0, q: 0.71, type: 'highshelf', active: true },
+    ];
+
+    let selectedBand = 1;
+
+    // ============ Canvas Setup ============
+    const canvas = document.getElementById('spectrumCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = canvas.parentElement;
+    const nodesContainer = document.getElementById('bandNodesContainer');
+
+    // Spectrum data
+    const spectrum = new Float32Array(CONFIG.fftSize);
+    const smoothed = new Float32Array(CONFIG.fftSize);
+    const peakHold = new Float32Array(CONFIG.fftSize);
+
+    // High DPI
+    function resize() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      updateBandNodes();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ============ Coordinate Conversion ============
+    const MARGIN = { left: 50, right: 24, top: 30, bottom: 30 };
+
+    function freqToX(freq) {
+      const w = canvas.width / (window.devicePixelRatio || 1) - MARGIN.left - MARGIN.right;
+      const logMin = Math.log10(CONFIG.freqMin);
+      const logMax = Math.log10(CONFIG.freqMax);
+      return MARGIN.left + ((Math.log10(freq) - logMin) / (logMax - logMin)) * w;
+    }
+
+    function xToFreq(x) {
+      const w = canvas.width / (window.devicePixelRatio || 1) - MARGIN.left - MARGIN.right;
+      const logMin = Math.log10(CONFIG.freqMin);
+      const logMax = Math.log10(CONFIG.freqMax);
+      const t = (x - MARGIN.left) / w;
+      return Math.pow(10, logMin + t * (logMax - logMin));
+    }
+
+    function gainToY(gain) {
+      const h = canvas.height / (window.devicePixelRatio || 1) - MARGIN.top - MARGIN.bottom;
+      return MARGIN.top + (1 - (gain + CONFIG.dbRange/2) / CONFIG.dbRange) * h;
+    }
+
+    function yToGain(y) {
+      const h = canvas.height / (window.devicePixelRatio || 1) - MARGIN.top - MARGIN.bottom;
+      return (1 - (y - MARGIN.top) / h) * CONFIG.dbRange - CONFIG.dbRange/2;
+    }
+
+    // ============ EQ Curve Calculation ============
+    function calcBandResponse(band, freq) {
+      if (!band.active) return 0;
+
+      const octaves = Math.log2(freq / band.freq);
+
+      switch (band.type) {
+        case 'lowshelf':
+          if (freq < band.freq) return band.gain;
+          return band.gain * Math.max(0, 1 - octaves * band.q * 0.7);
+
+        case 'highshelf':
+          if (freq > band.freq) return band.gain;
+          return band.gain * Math.max(0, 1 + octaves * band.q * 0.7);
+
+        case 'bell':
+        default:
+          return band.gain * Math.exp(-octaves * octaves * band.q * 1.5);
+      }
+    }
+
+    function calcTotalResponse(freq) {
+      return bands.reduce((sum, band) => sum + calcBandResponse(band, freq), 0);
+    }
+
+    // ============ Band Nodes ============
+    function updateBandNodes() {
+      nodesContainer.innerHTML = '';
+      const rect = nodesContainer.getBoundingClientRect();
+
+      bands.forEach(band => {
+        const node = document.createElement('div');
+        node.className = `band-node ${band.id === selectedBand ? 'selected' : ''} ${!band.active ? 'inactive' : ''}`;
+        node.dataset.band = band.id;
+
+        const xPercent = ((freqToX(band.freq) - MARGIN.left) / (rect.width)) * 100;
+        const yPercent = ((gainToY(band.gain) - MARGIN.top) / (rect.height)) * 100;
+
+        node.style.left = `${xPercent}%`;
+        node.style.top = `${yPercent}%`;
+
+        node.innerHTML = `
+          <div class="band-node-ring"></div>
+          <div class="band-node-core">${band.id}</div>
+          <div class="band-tooltip">
+            <div class="tooltip-freq">${formatFreq(band.freq)}</div>
+            <div class="tooltip-gain">${band.gain >= 0 ? '+' : ''}${band.gain.toFixed(1)} dB</div>
+          </div>
+        `;
+
+        // Drag handling
+        let dragging = false;
+        node.addEventListener('mousedown', (e) => {
+          dragging = true;
+          selectedBand = band.id;
+          node.classList.add('selected');
+          document.querySelectorAll('.band-node').forEach(n => {
+            if (n !== node) n.classList.remove('selected');
+          });
+          document.querySelectorAll('.band-pill').forEach(p => {
+            p.classList.toggle('selected', parseInt(p.dataset.band) === band.id);
+          });
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!dragging) return;
+          const rect = nodesContainer.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          band.freq = Math.max(CONFIG.freqMin, Math.min(CONFIG.freqMax, xToFreq(x + MARGIN.left)));
+          band.gain = Math.max(-CONFIG.dbRange/2, Math.min(CONFIG.dbRange/2, yToGain(y + MARGIN.top)));
+
+          updateBandNodes();
+        });
+
+        document.addEventListener('mouseup', () => {
+          dragging = false;
+        });
+
+        nodesContainer.appendChild(node);
+      });
+    }
+
+    function formatFreq(freq) {
+      if (freq >= 1000) return (freq / 1000).toFixed(freq >= 10000 ? 0 : 1) + ' kHz';
+      return Math.round(freq) + ' Hz';
+    }
+
+    // ============ Spectrum Generation ============
+    function generateSpectrum(time) {
+      for (let i = 0; i < CONFIG.fftSize; i++) {
+        const t = i / CONFIG.fftSize;
+        const freq = CONFIG.freqMin * Math.pow(CONFIG.freqMax / CONFIG.freqMin, t);
+
+        // Pink noise shape
+        let level = 0.65 - t * 0.35;
+
+        // Add formant-like peaks
+        if (freq > 80 && freq < 300) level += 0.12;
+        if (freq > 500 && freq < 1500) level += 0.08;
+        if (freq > 2000 && freq < 5000) level += 0.1;
+
+        // Slow variation
+        const slow = Math.sin(time * 0.0008 + i * 0.05) * 0.06;
+        // Fast random
+        const fast = (Math.random() - 0.5) * 0.12;
+
+        spectrum[i] = Math.max(0, Math.min(1, level + slow + fast));
+      }
+    }
+
+    function smoothSpectrum() {
+      for (let i = 0; i < CONFIG.fftSize; i++) {
+        const target = spectrum[i];
+        if (target > smoothed[i]) {
+          smoothed[i] += (target - smoothed[i]) * CONFIG.smoothingAttack;
+        } else {
+          smoothed[i] += (target - smoothed[i]) * CONFIG.smoothingRelease;
+        }
+
+        if (smoothed[i] > peakHold[i]) {
+          peakHold[i] = smoothed[i];
+        } else {
+          peakHold[i] *= CONFIG.peakHoldDecay;
+        }
+      }
+    }
+
+    // ============ Drawing ============
+    function draw(time) {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      const areaW = w - MARGIN.left - MARGIN.right;
+      const areaH = h - MARGIN.top - MARGIN.bottom;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Generate spectrum
+      generateSpectrum(time);
+      smoothSpectrum();
+
+      // Clip to area
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MARGIN.left, MARGIN.top, areaW, areaH);
+      ctx.clip();
+
+      // ---- Draw Spectrum ----
+      // Gradient fill
+      const specGrad = ctx.createLinearGradient(0, MARGIN.top + areaH, 0, MARGIN.top);
+      specGrad.addColorStop(0, 'rgba(0,180,255,0.01)');
+      specGrad.addColorStop(0.3, 'rgba(0,180,255,0.06)');
+      specGrad.addColorStop(0.6, 'rgba(80,200,255,0.12)');
+      specGrad.addColorStop(1, 'rgba(120,220,255,0.2)');
+
+      ctx.beginPath();
+      ctx.moveTo(MARGIN.left, MARGIN.top + areaH);
+      for (let i = 0; i < CONFIG.fftSize; i++) {
+        const x = MARGIN.left + (i / CONFIG.fftSize) * areaW;
+        const y = MARGIN.top + areaH - smoothed[i] * areaH * 0.9;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(MARGIN.left + areaW, MARGIN.top + areaH);
+      ctx.closePath();
+      ctx.fillStyle = specGrad;
+      ctx.fill();
+
+      // Spectrum line
+      ctx.beginPath();
+      for (let i = 0; i < CONFIG.fftSize; i++) {
+        const x = MARGIN.left + (i / CONFIG.fftSize) * areaW;
+        const y = MARGIN.top + areaH - smoothed[i] * areaH * 0.9;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(100,210,255,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Peak hold
+      ctx.beginPath();
+      for (let i = 0; i < CONFIG.fftSize; i++) {
+        const x = MARGIN.left + (i / CONFIG.fftSize) * areaW;
+        const y = MARGIN.top + areaH - peakHold[i] * areaH * 0.9;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(120,230,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // ---- Draw EQ Curve ----
+      const steps = 400;
+      const eqPoints = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const freq = CONFIG.freqMin * Math.pow(CONFIG.freqMax / CONFIG.freqMin, t);
+        const gain = calcTotalResponse(freq);
+        eqPoints.push({
+          x: freqToX(freq),
+          y: gainToY(gain)
+        });
+      }
+
+      // EQ fill (above/below zero)
+      const zeroY = gainToY(0);
+
+      // Fill above zero
+      ctx.beginPath();
+      ctx.moveTo(eqPoints[0].x, zeroY);
+      for (const pt of eqPoints) {
+        ctx.lineTo(pt.x, Math.min(pt.y, zeroY));
+      }
+      ctx.lineTo(eqPoints[eqPoints.length - 1].x, zeroY);
+      ctx.closePath();
+      const aboveGrad = ctx.createLinearGradient(0, MARGIN.top, 0, zeroY);
+      aboveGrad.addColorStop(0, 'rgba(255,120,150,0.25)');
+      aboveGrad.addColorStop(1, 'rgba(0,180,255,0.05)');
+      ctx.fillStyle = aboveGrad;
+      ctx.fill();
+
+      // Fill below zero
+      ctx.beginPath();
+      ctx.moveTo(eqPoints[0].x, zeroY);
+      for (const pt of eqPoints) {
+        ctx.lineTo(pt.x, Math.max(pt.y, zeroY));
+      }
+      ctx.lineTo(eqPoints[eqPoints.length - 1].x, zeroY);
+      ctx.closePath();
+      const belowGrad = ctx.createLinearGradient(0, zeroY, 0, MARGIN.top + areaH);
+      belowGrad.addColorStop(0, 'rgba(0,180,255,0.05)');
+      belowGrad.addColorStop(1, 'rgba(80,220,180,0.2)');
+      ctx.fillStyle = belowGrad;
+      ctx.fill();
+
+      // EQ curve line with glow
+      ctx.beginPath();
+      for (let i = 0; i < eqPoints.length; i++) {
+        if (i === 0) ctx.moveTo(eqPoints[i].x, eqPoints[i].y);
+        else ctx.lineTo(eqPoints[i].x, eqPoints[i].y);
+      }
+      ctx.strokeStyle = '#00d4ff';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(0,212,255,0.7)';
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.restore();
+
+      // ---- Draw Grid ----
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+
+      // Horizontal grid
+      for (let db = -18; db <= 18; db += 6) {
+        const y = gainToY(db);
+        ctx.beginPath();
+        ctx.moveTo(MARGIN.left, y);
+        ctx.lineTo(w - MARGIN.right, y);
+        ctx.stroke();
+      }
+
+      // Zero line (brighter)
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath();
+      ctx.moveTo(MARGIN.left, zeroY);
+      ctx.lineTo(w - MARGIN.right, zeroY);
+      ctx.stroke();
+
+      // Vertical grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      const freqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+      for (const f of freqs) {
+        const x = freqToX(f);
+        ctx.beginPath();
+        ctx.moveTo(x, MARGIN.top);
+        ctx.lineTo(x, h - MARGIN.bottom);
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // ============ Initialize ============
+    updateBandNodes();
+    requestAnimationFrame(draw);
+
+    // Band pill clicks
+    document.querySelectorAll('.band-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const bandId = parseInt(pill.dataset.band);
+        selectedBand = bandId;
+        document.querySelectorAll('.band-pill').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+        updateBandNodes();
+      });
+    });
+  </script>
+</body>
+</html>

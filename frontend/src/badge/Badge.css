@@ -1,0 +1,223 @@
+/**
+ * ReelForge Badge Styles
+ *
+ * @module badge/Badge.css
+ */
+
+/* ============ Badge ============ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  position: relative;
+}
+
+/* ============ Variants ============ */
+
+.badge--default {
+  background: #444;
+  color: #ccc;
+}
+
+.badge--primary {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.badge--success {
+  background: #51cf66;
+  color: #fff;
+}
+
+.badge--warning {
+  background: #ffd43b;
+  color: #1a1a1a;
+}
+
+.badge--danger {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.badge--info {
+  background: #22b8cf;
+  color: #fff;
+}
+
+/* ============ Sizes ============ */
+
+.badge--small {
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 8px;
+}
+
+.badge--large {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 12px;
+}
+
+/* ============ Dot ============ */
+
+.badge--dot {
+  padding: 0;
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.badge--dot.badge--small {
+  min-width: 6px;
+  width: 6px;
+  height: 6px;
+}
+
+.badge--dot.badge--large {
+  min-width: 10px;
+  width: 10px;
+  height: 10px;
+}
+
+/* ============ Pulse ============ */
+
+.badge--pulse {
+  overflow: visible;
+}
+
+.badge__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: badge-pulse 1.5s ease-out infinite;
+}
+
+@keyframes badge-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+/* ============ Badge Anchor ============ */
+
+.badge-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.badge-anchor__badge {
+  position: absolute;
+  z-index: 1;
+  transform: translate(
+    var(--badge-offset-x, 50%),
+    var(--badge-offset-y, -50%)
+  );
+}
+
+.badge-anchor--top-right .badge-anchor__badge {
+  top: 0;
+  right: 0;
+}
+
+.badge-anchor--top-left .badge-anchor__badge {
+  top: 0;
+  left: 0;
+  transform: translate(
+    calc(var(--badge-offset-x, -50%)),
+    var(--badge-offset-y, -50%)
+  );
+}
+
+.badge-anchor--bottom-right .badge-anchor__badge {
+  bottom: 0;
+  right: 0;
+  transform: translate(
+    var(--badge-offset-x, 50%),
+    var(--badge-offset-y, 50%)
+  );
+}
+
+.badge-anchor--bottom-left .badge-anchor__badge {
+  bottom: 0;
+  left: 0;
+  transform: translate(
+    calc(var(--badge-offset-x, -50%)),
+    var(--badge-offset-y, 50%)
+  );
+}
+
+/* ============ Status Badge ============ */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge__label {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.status-badge--online .status-badge__label {
+  color: #51cf66;
+}
+
+.status-badge--away .status-badge__label {
+  color: #ffd43b;
+}
+
+.status-badge--busy .status-badge__label {
+  color: #ff6b6b;
+}
+
+.status-badge--offline .status-badge__label,
+.status-badge--invisible .status-badge__label {
+  color: #666;
+}
+
+/* ============ Outline Variants ============ */
+
+.badge--outline {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+.badge--outline.badge--default {
+  color: #888;
+  border-color: #555;
+}
+
+.badge--outline.badge--primary {
+  color: #4a9eff;
+}
+
+.badge--outline.badge--success {
+  color: #51cf66;
+}
+
+.badge--outline.badge--warning {
+  color: #ffd43b;
+}
+
+.badge--outline.badge--danger {
+  color: #ff6b6b;
+}
+
+.badge--outline.badge--info {
+  color: #22b8cf;
+}

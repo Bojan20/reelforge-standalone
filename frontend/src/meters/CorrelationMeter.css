@@ -1,0 +1,45 @@
+/**
+ * ReelForge Correlation Meter Styles
+ *
+ * @module meters/CorrelationMeter.css
+ */
+
+.correlation-meter {
+  display: flex;
+  flex-direction: column;
+  background: #1e1e1e;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.correlation-meter--vertical {
+  flex-direction: row;
+}
+
+.correlation-meter__labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px 2px;
+}
+
+.correlation-meter--vertical .correlation-meter__labels {
+  flex-direction: column;
+  padding: 2px 2px 2px 0;
+  writing-mode: vertical-lr;
+}
+
+.correlation-meter__label {
+  font-size: 9px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: #555;
+}
+
+.correlation-meter__label--center {
+  color: #888;
+}
+
+.correlation-meter__canvas {
+  display: block;
+  border-radius: 2px;
+  overflow: hidden;
+}

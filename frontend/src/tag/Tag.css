@@ -1,0 +1,225 @@
+/**
+ * ReelForge Tag Styles
+ *
+ * @module tag/Tag.css
+ */
+
+/* ============ Tag ============ */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.tag--clickable {
+  cursor: pointer;
+}
+
+.tag--clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.4);
+}
+
+.tag--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ Variants ============ */
+
+.tag--default {
+  background: #333;
+  color: #ccc;
+}
+
+.tag--default.tag--clickable:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.tag--default.tag--selected {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.tag--primary {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+.tag--primary.tag--clickable:hover,
+.tag--primary.tag--selected {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.tag--success {
+  background: rgba(81, 207, 102, 0.2);
+  color: #51cf66;
+}
+
+.tag--success.tag--clickable:hover,
+.tag--success.tag--selected {
+  background: #51cf66;
+  color: #fff;
+}
+
+.tag--warning {
+  background: rgba(255, 212, 59, 0.2);
+  color: #ffd43b;
+}
+
+.tag--warning.tag--clickable:hover,
+.tag--warning.tag--selected {
+  background: #ffd43b;
+  color: #1a1a1a;
+}
+
+.tag--danger {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+}
+
+.tag--danger.tag--clickable:hover,
+.tag--danger.tag--selected {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.tag--info {
+  background: rgba(34, 184, 207, 0.2);
+  color: #22b8cf;
+}
+
+.tag--info.tag--clickable:hover,
+.tag--info.tag--selected {
+  background: #22b8cf;
+  color: #fff;
+}
+
+/* ============ Outlined ============ */
+
+.tag--outlined {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+.tag--outlined.tag--default {
+  border-color: #555;
+  color: #888;
+}
+
+.tag--outlined.tag--clickable:hover,
+.tag--outlined.tag--selected {
+  background: currentColor;
+}
+
+.tag--outlined.tag--default.tag--clickable:hover,
+.tag--outlined.tag--default.tag--selected {
+  background: #4a9eff;
+  border-color: #4a9eff;
+  color: #fff;
+}
+
+/* ============ Custom Color ============ */
+
+.tag[style*="--tag-color"] {
+  background: var(--tag-color);
+  color: #fff;
+}
+
+.tag--outlined[style*="--tag-color"] {
+  background: transparent;
+  border-color: var(--tag-color);
+  color: var(--tag-color);
+}
+
+/* ============ Icon ============ */
+
+.tag__icon {
+  font-size: 1em;
+  opacity: 0.8;
+}
+
+/* ============ Content ============ */
+
+.tag__content {
+  /* Tag text */
+}
+
+/* ============ Remove Button ============ */
+
+.tag__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  margin-right: -4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.tag__remove:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tag__remove:disabled {
+  cursor: not-allowed;
+}
+
+/* ============ Sizes ============ */
+
+/* Small */
+.tag--small {
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+}
+
+.tag--small .tag__remove {
+  width: 12px;
+  height: 12px;
+  font-size: 12px;
+}
+
+/* Large */
+.tag--large {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 5px;
+}
+
+.tag--large .tag__remove {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+/* ============ Tag Group ============ */
+
+.tag-group {
+  display: flex;
+  align-items: center;
+}
+
+.tag-group--wrap {
+  flex-wrap: wrap;
+}

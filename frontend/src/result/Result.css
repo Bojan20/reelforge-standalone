@@ -1,0 +1,118 @@
+/**
+ * ReelForge Result Styles
+ *
+ * @module result/Result.css
+ */
+
+/* ============ Result ============ */
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 32px;
+  text-align: center;
+}
+
+/* Icon */
+.result__icon-wrapper {
+  margin-bottom: 24px;
+}
+
+.result__icon {
+  width: 72px;
+  height: 72px;
+  stroke: currentColor;
+}
+
+.result__icon--success {
+  color: var(--rf-success, #22c55e);
+}
+
+.result__icon--error {
+  color: var(--rf-error, #ef4444);
+}
+
+.result__icon--warning {
+  color: var(--rf-warning, #f59e0b);
+}
+
+.result__icon--info {
+  color: var(--rf-info, #3b82f6);
+}
+
+.result__icon--404,
+.result__icon--403,
+.result__icon--500 {
+  width: 120px;
+  height: 80px;
+  color: var(--rf-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+/* Title */
+.result__title {
+  margin-bottom: 8px;
+  color: var(--rf-text, #fff);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Subtitle */
+.result__subtitle {
+  max-width: 480px;
+  margin-bottom: 24px;
+  color: var(--rf-text-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Extra (buttons) */
+.result__extra {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+/* Content */
+.result__content {
+  width: 100%;
+  max-width: 600px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rf-border, rgba(255, 255, 255, 0.1));
+}
+
+/* ============ Status Variants ============ */
+
+.result--success .result__icon-wrapper {
+  animation: result-success 0.5s ease;
+}
+
+.result--error .result__icon-wrapper {
+  animation: result-error 0.5s ease;
+}
+
+@keyframes result-success {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes result-error {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-5px);
+  }
+  40%, 80% {
+    transform: translateX(5px);
+  }
+}
