@@ -27,6 +27,14 @@ export interface TimelineClipData {
   sourceOffset?: number;
   /** Output bus for this clip's track */
   outputBus?: BusType;
+  /** Track is muted - clip will be silent */
+  trackMuted?: boolean;
+  /** Track is soloed - only soloed tracks play */
+  trackSoloed?: boolean;
+  /** Track volume (0-1, 1 = unity gain) */
+  trackVolume?: number;
+  /** Track pan (-1 = left, 0 = center, 1 = right) */
+  trackPan?: number;
 }
 
 export interface PlayingClip {
@@ -163,13 +171,21 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
 
   // Schedule a clip for playback
   // Cubase-style: supports scheduling at precise future AudioContext time
+  // Applies track mute/solo/volume/pan from clip data
   const scheduleClip = useCallback(async (
     clip: TimelineClipData,
     currentTime: number,
     ctx: AudioContext,
     _masterGain: GainNode, // Reserved for bus routing
-    scheduleAtTime?: number // Optional: schedule to start at this AudioContext time (for seamless loops)
+    scheduleAtTime?: number, // Optional: schedule to start at this AudioContext time (for seamless loops)
+    hasSoloedTracks?: boolean // Are there any soloed tracks in the session?
   ) => {
+    // Skip if track is muted
+    if (clip.trackMuted) return;
+
+    // Skip if there are soloed tracks and this track is not soloed
+    if (hasSoloedTracks && !clip.trackSoloed) return;
+
     // Generate unique key for this scheduling (allows multiple schedules for loop pre-scheduling)
     const scheduleKey = scheduleAtTime ? `${clip.id}@${scheduleAtTime.toFixed(3)}` : clip.id;
 
@@ -208,16 +224,22 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
     // Don't play if nothing left
     if (playDuration <= 0 || bufferOffset >= buffer.duration) return;
 
-    // Create nodes
+    // Create audio nodes chain: source -> gain -> panner -> destination
     const source = ctx.createBufferSource();
     source.buffer = buffer;
 
+    // Track volume (0-1)
     const gainNode = ctx.createGain();
-    gainNode.gain.value = 1;
+    gainNode.gain.value = clip.trackVolume ?? 1;
 
-    // Connect: source -> gain -> destination
+    // Track pan (-1 to 1)
+    const panNode = ctx.createStereoPanner();
+    panNode.pan.value = clip.trackPan ?? 0;
+
+    // Connect: source -> gain -> pan -> destination
     source.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(panNode);
+    panNode.connect(ctx.destination);
 
     // Mark as scheduled
     scheduledClipsRef.current.add(scheduleKey);
@@ -246,6 +268,10 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
       bufferOffset: bufferOffset.toFixed(3),
       playDuration: playDuration.toFixed(3),
       startWhen: startWhen.toFixed(3),
+      volume: clip.trackVolume,
+      pan: clip.trackPan,
+      muted: clip.trackMuted,
+      soloed: clip.trackSoloed,
     });
   }, [loadClipBuffer, busGains]);
 
@@ -334,6 +360,9 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
     setState((prev) => ({ ...prev, currentTime }));
     onTimeUpdate?.(currentTime);
 
+    // Check if any track is soloed (for solo logic)
+    const hasSoloedTracks = clips.some(c => c.trackSoloed);
+
     // Schedule any clips that should start playing
     for (const clip of clips) {
       const clipStart = clip.startTime;
@@ -342,7 +371,7 @@ export function useTimelinePlayback(options: UseTimelinePlaybackOptions) {
       // If clip should be playing now and isn't scheduled yet
       if (currentTime >= clipStart && currentTime < clipEnd) {
         if (!playingClipsRef.current.has(clip.id) && !scheduledClipsRef.current.has(clip.id)) {
-          scheduleClip(clip, currentTime, ctx, masterGain);
+          scheduleClip(clip, currentTime, ctx, masterGain, undefined, hasSoloedTracks);
         }
       }
       // NOTE: Don't force-stop clips here!

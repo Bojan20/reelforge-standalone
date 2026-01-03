@@ -1,14 +1,30 @@
 //! rf-audio: Audio I/O using cpal
 //!
 //! Provides low-latency audio input/output with support for ASIO, CoreAudio, JACK, etc.
+//!
+//! # Architecture
+//!
+//! ```text
+//! ┌──────────────┐     ┌─────────────┐     ┌─────────────┐
+//! │ AudioEngine  │────▶│ AudioStream │────▶│ cpal Device │
+//! │              │     │             │     │             │
+//! │ - transport  │     │ - callback  │     │ - output    │
+//! │ - metering   │     │ - buffers   │     │ - input     │
+//! │ - processor  │     │             │     │             │
+//! └──────────────┘     └─────────────┘     └─────────────┘
+//! ```
 
 mod device;
 mod stream;
 mod error;
+mod engine;
+mod ringbuf;
 
 pub use device::*;
 pub use stream::*;
 pub use error::*;
+pub use engine::*;
+pub use ringbuf::*;
 
 use rf_core::{BufferSize, SampleRate};
 

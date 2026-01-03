@@ -18,7 +18,7 @@ rf-engine = { path = "crates/rf-engine" }
 rf-state = { path = "crates/rf-state" }
 rf-gui = { path = "crates/rf-gui" }
 rf-viz = { path = "crates/rf-viz" }
-iced = { version = "0.13", features = ["wgpu", "tokio", "advanced"] }
+iced = { version = "0.13", features = ["wgpu", "tokio", "advanced", "canvas"] }
 log = "0.4"
 env_logger = "0.11"
 
@@ -32,7 +32,12 @@ members = [
     "crates/rf-state",
     "crates/rf-gui",
     "crates/rf-viz",
+    "crates/rf-plugin",
+    "crates/rf-bridge",
+    "crates/rf-file",
+    "crates/rf-host",
     "src-tauri",
+    "xtask",
 ]
 
 [workspace.package]
@@ -51,12 +56,24 @@ rf-engine = { path = "crates/rf-engine" }
 rf-state = { path = "crates/rf-state" }
 rf-gui = { path = "crates/rf-gui" }
 rf-viz = { path = "crates/rf-viz" }
+rf-plugin = { path = "crates/rf-plugin" }
+rf-bridge = { path = "crates/rf-bridge" }
+rf-file = { path = "crates/rf-file" }
+rf-host = { path = "crates/rf-host" }
+
+# Audio file I/O
+hound = "3.5"
+symphonia = { version = "0.5", features = ["aac", "flac", "mp3", "ogg", "wav"] }
+
+# File system
+walkdir = "2.5"
+dirs-next = "2.0"
 
 # App shell
 tauri = "2.2"
 
 # GUI
-iced = { version = "0.13", features = ["wgpu", "tokio", "advanced"] }
+iced = { version = "0.13", features = ["wgpu", "tokio", "advanced", "canvas"] }
 
 # Graphics
 wgpu = "24.0"

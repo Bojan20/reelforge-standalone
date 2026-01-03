@@ -1,0 +1,55 @@
+name: reelforge_ui
+description: "ReelForge DAW - Professional digital audio workstation with Cubase-inspired layout"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.5+1
+
+  # Animations
+  flutter_animate: ^4.5.2
+
+  # Utilities
+  gap: ^3.0.1
+  cupertino_icons: ^1.0.8
+
+  # Audio Engine FFI
+  flutter_rust_bridge: ^2.11.1
+  ffi: ^2.1.3
+  freezed_annotation: ^2.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.15
+  freezed: ^2.5.8
+  flutter_rust_bridge_codegen: ^2.11.1
+
+flutter:
+  uses-material-design: true
+
+  # Assets - add when needed
+  # assets:
+  #   - assets/fonts/
+  #   - assets/icons/
+
+  # Custom fonts for professional look
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+  #   - family: JetBrains Mono
+  #     fonts:
+  #       - asset: assets/fonts/JetBrainsMono-Regular.ttf

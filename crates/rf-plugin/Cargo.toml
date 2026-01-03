@@ -1,0 +1,26 @@
+[package]
+name = "rf-plugin"
+version = "0.1.0"
+edition = "2021"
+description = "ReelForge plugin wrapper using nih-plug"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+rf-core = { path = "../rf-core" }
+rf-dsp = { path = "../rf-dsp" }
+
+# Plugin framework
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+
+# Utilities
+parking_lot = "0.12"
+log = "0.4"
+
+[features]
+default = []
+
+# Build as standalone application
+standalone = ["nih_plug/standalone"]

@@ -871,13 +871,13 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
     });
   }, [storeClips, importedAudioFiles, selectedClipIds]);
 
-  // Adapter: Convert to TimelineClipData format for playback (includes AudioBuffer)
+  // Adapter: Convert to TimelineClipData format for playback (includes AudioBuffer + track params)
   const playbackClips = useMemo((): TimelineClipData[] => {
     const result = storeClips.map((clip): TimelineClipData => {
       const audioFile = importedAudioFiles.find(f => f.id === clip.audioFileId);
-      // Find the track to get its output bus routing
+      // Find the track to get its output bus routing and mix parameters
       const track = storeTracks.find(t => t.id === clip.trackId);
-      const playbackClip = {
+      const playbackClip: TimelineClipData = {
         id: clip.id,
         trackId: clip.trackId,
         name: clip.name,
@@ -890,6 +890,11 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
         sourceOffset: clip.offset,
         // Route through track's output bus
         outputBus: (track?.outputBus as 'master' | 'music' | 'sfx' | 'ambience' | 'voice') || 'sfx',
+        // Track mix parameters
+        trackMuted: track?.muted ?? false,
+        trackSoloed: track?.solo ?? false,
+        trackVolume: track?.volume ?? 1,
+        trackPan: track?.pan ?? 0,
       };
       return playbackClip;
     });
@@ -901,6 +906,9 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
         bufferDuration: c.audioBuffer?.duration?.toFixed(2),
         clipDuration: c.duration.toFixed(2),
         outputBus: c.outputBus,
+        muted: c.trackMuted,
+        soloed: c.trackSoloed,
+        volume: c.trackVolume,
       })));
     }
     return result;
@@ -2894,6 +2902,24 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
     }
   }, [storeTracks, updateTrack]);
 
+  // Handle track volume change (0-1)
+  const handleTrackVolumeChange = useCallback((trackId: string, volume: number) => {
+    updateTrack(trackId, { volume: Math.max(0, Math.min(1.5, volume)) }); // Allow up to +3.5dB boost
+  }, [updateTrack]);
+
+  // Handle track pan change (-1 to 1)
+  const handleTrackPanChange = useCallback((trackId: string, pan: number) => {
+    updateTrack(trackId, { pan: Math.max(-1, Math.min(1, pan)) });
+  }, [updateTrack]);
+
+  // Handle track arm toggle (for recording)
+  const handleTrackArmToggle = useCallback((trackId: string) => {
+    const track = storeTracks.find(t => t.id === trackId);
+    if (track) {
+      updateTrack(trackId, { armed: !track.armed });
+    }
+  }, [storeTracks, updateTrack]);
+
   // Handle track color change
   const handleTrackColorChange = useCallback((trackId: string, color: string) => {
     updateTrack(trackId, { color });
@@ -3807,6 +3833,9 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
             onLoopToggle={() => setLoopEnabled(l => !l)}
             onTrackMuteToggle={handleTrackMuteToggle}
             onTrackSoloToggle={handleTrackSoloToggle}
+            onTrackVolumeChange={handleTrackVolumeChange}
+            onTrackPanChange={handleTrackPanChange}
+            onTrackArmToggle={handleTrackArmToggle}
             onTrackSelect={setSelectedTrackId}
             onLoopRegionChange={setLoopRegion}
             onAudioDrop={handleTimelineAudioDrop}
@@ -5049,6 +5078,9 @@ export function LayoutDemo({ initialImportedFiles }: LayoutDemoProps) {
                 onLoopToggle={() => setLoopEnabled(l => !l)}
                 onTrackMuteToggle={handleTrackMuteToggle}
                 onTrackSoloToggle={handleTrackSoloToggle}
+                onTrackVolumeChange={handleTrackVolumeChange}
+                onTrackPanChange={handleTrackPanChange}
+                onTrackArmToggle={handleTrackArmToggle}
                 onTrackSelect={setSelectedTrackId}
                 onLoopRegionChange={setLoopRegion}
                 onAudioDrop={handleTimelineAudioDrop}

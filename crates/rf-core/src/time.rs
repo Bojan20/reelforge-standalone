@@ -125,23 +125,4 @@ impl Default for Tempo {
     }
 }
 
-/// Time signature
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct TimeSignature {
-    pub numerator: u32,
-    pub denominator: u32,
-}
-
-impl TimeSignature {
-    pub const FOUR_FOUR: Self = Self { numerator: 4, denominator: 4 };
-
-    pub fn beats_per_bar(&self) -> u32 {
-        self.numerator
-    }
-}
-
-impl Default for TimeSignature {
-    fn default() -> Self {
-        Self::FOUR_FOUR
-    }
-}
+// TimeSignature is now in tempo.rs with enhanced functionality

@@ -8,11 +8,15 @@ mod sample;
 mod time;
 mod params;
 mod error;
+mod midi;
+mod tempo;
 
 pub use sample::*;
 pub use time::*;
 pub use params::*;
 pub use error::*;
+pub use midi::*;
+pub use tempo::*;
 
 /// Standard sample rate options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

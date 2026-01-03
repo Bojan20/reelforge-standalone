@@ -213,3 +213,187 @@ fn get_device_info(device: &Device, is_input: bool) -> (u16, Vec<u32>) {
         get_output_device_info(device)
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DEVICE SELECTOR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+use parking_lot::RwLock;
+use std::sync::Arc;
+
+/// Device selection state
+#[derive(Debug, Clone)]
+pub struct DeviceSelection {
+    pub input_device: Option<String>,
+    pub output_device: Option<String>,
+    pub sample_rate: u32,
+    pub buffer_size: u32,
+}
+
+impl Default for DeviceSelection {
+    fn default() -> Self {
+        Self {
+            input_device: None,
+            output_device: None,
+            sample_rate: 48000,
+            buffer_size: 256,
+        }
+    }
+}
+
+/// Device manager for hot-plugging and device changes
+pub struct DeviceManager {
+    /// Current selection
+    selection: RwLock<DeviceSelection>,
+    /// Cached input devices
+    input_devices: RwLock<Vec<DeviceInfo>>,
+    /// Cached output devices
+    output_devices: RwLock<Vec<DeviceInfo>>,
+}
+
+impl DeviceManager {
+    pub fn new() -> Self {
+        let manager = Self {
+            selection: RwLock::new(DeviceSelection::default()),
+            input_devices: RwLock::new(Vec::new()),
+            output_devices: RwLock::new(Vec::new()),
+        };
+
+        // Initial scan
+        manager.refresh_devices();
+
+        manager
+    }
+
+    /// Refresh device lists
+    pub fn refresh_devices(&self) {
+        if let Ok(inputs) = list_input_devices() {
+            *self.input_devices.write() = inputs;
+        }
+
+        if let Ok(outputs) = list_output_devices() {
+            *self.output_devices.write() = outputs;
+        }
+    }
+
+    /// Get available input devices
+    pub fn input_devices(&self) -> Vec<DeviceInfo> {
+        self.input_devices.read().clone()
+    }
+
+    /// Get available output devices
+    pub fn output_devices(&self) -> Vec<DeviceInfo> {
+        self.output_devices.read().clone()
+    }
+
+    /// Get current selection
+    pub fn selection(&self) -> DeviceSelection {
+        self.selection.read().clone()
+    }
+
+    /// Set output device by name
+    pub fn set_output_device(&self, name: Option<String>) {
+        self.selection.write().output_device = name;
+    }
+
+    /// Set input device by name
+    pub fn set_input_device(&self, name: Option<String>) {
+        self.selection.write().input_device = name;
+    }
+
+    /// Set sample rate
+    pub fn set_sample_rate(&self, rate: u32) {
+        self.selection.write().sample_rate = rate;
+    }
+
+    /// Set buffer size
+    pub fn set_buffer_size(&self, size: u32) {
+        self.selection.write().buffer_size = size;
+    }
+
+    /// Get default output device name
+    pub fn default_output_name(&self) -> Option<String> {
+        self.output_devices.read()
+            .iter()
+            .find(|d| d.is_default)
+            .map(|d| d.name.clone())
+    }
+
+    /// Get default input device name
+    pub fn default_input_name(&self) -> Option<String> {
+        self.input_devices.read()
+            .iter()
+            .find(|d| d.is_default)
+            .map(|d| d.name.clone())
+    }
+
+    /// Get supported sample rates for current output device
+    pub fn supported_sample_rates(&self) -> Vec<u32> {
+        let selection = self.selection.read();
+        let outputs = self.output_devices.read();
+
+        if let Some(ref name) = selection.output_device {
+            outputs.iter()
+                .find(|d| &d.name == name)
+                .map(|d| d.sample_rates.clone())
+                .unwrap_or_default()
+        } else {
+            // Return default rates
+            outputs.iter()
+                .find(|d| d.is_default)
+                .map(|d| d.sample_rates.clone())
+                .unwrap_or_else(|| vec![44100, 48000, 96000])
+        }
+    }
+
+    /// Check if a device is available
+    pub fn is_device_available(&self, name: &str, is_input: bool) -> bool {
+        let devices = if is_input {
+            self.input_devices.read()
+        } else {
+            self.output_devices.read()
+        };
+
+        devices.iter().any(|d| d.name == name)
+    }
+}
+
+impl Default for DeviceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOST INFO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Audio backend information
+#[derive(Debug, Clone)]
+pub struct HostInfo {
+    pub name: String,
+    pub is_asio: bool,
+    pub is_jack: bool,
+    pub is_core_audio: bool,
+}
+
+/// Get current audio host info
+pub fn get_host_info() -> HostInfo {
+    let host = get_host();
+    let id = host.id();
+
+    HostInfo {
+        name: format!("{:?}", id),
+        is_asio: cfg!(target_os = "windows") && format!("{:?}", id).contains("Asio"),
+        is_jack: cfg!(target_os = "linux") && format!("{:?}", id).contains("Jack"),
+        is_core_audio: cfg!(target_os = "macos"),
+    }
+}
+
+/// List available audio backends
+pub fn list_available_hosts() -> Vec<String> {
+    cpal::available_hosts()
+        .into_iter()
+        .map(|h| format!("{:?}", h))
+        .collect()
+}

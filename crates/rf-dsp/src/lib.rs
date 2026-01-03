@@ -2,7 +2,13 @@
 //!
 //! High-performance, SIMD-optimized audio processing.
 //!
-//! ## Modules
+//! ## Core Modules
+//! - `simd` - Runtime SIMD dispatch (AVX-512/AVX2/SSE4.2/NEON)
+//! - `automation` - Sample-accurate parameter automation
+//! - `delay_compensation` - Full delay compensation system
+//! - `smoothing` - Lock-free parameter smoothing
+//!
+//! ## DSP Modules
 //! - `biquad` - TDF-II biquad filters (lowpass, highpass, peaking, shelving)
 //! - `eq` - 64-band parametric EQ with dynamic EQ per band
 //! - `dynamics` - Compressor (VCA/Opto/FET), limiter, gate, expander
@@ -12,9 +18,22 @@
 //! - `saturation` - Tape, tube, transistor saturation, waveshaper
 //! - `channel` - Complete channel strip processor
 //! - `analysis` - FFT, peak/RMS meters, LUFS, true peak
+//!
+//! ## Advanced DSP
+//! - `convolution` - Professional partitioned convolution (IR reverb)
+//! - `linear_phase` - True linear phase EQ (FIR-based)
+//! - `spectral` - Spectral processing (gate, freeze, compressor)
+//! - `multiband` - Multi-band dynamics (compressor, limiter)
 
 #![feature(portable_simd)]
 
+// Core infrastructure
+pub mod simd;
+pub mod automation;
+pub mod delay_compensation;
+pub mod smoothing;
+
+// DSP processors
 pub mod biquad;
 pub mod eq;
 pub mod dynamics;
@@ -24,6 +43,26 @@ pub mod spatial;
 pub mod saturation;
 pub mod channel;
 pub mod analysis;
+
+// Advanced DSP
+pub mod convolution;
+pub mod linear_phase;
+pub mod spectral;
+pub mod multiband;
+pub mod metering;
+
+// Re-exports for convenience
+pub use simd::{SimdLevel, DspDispatch, detect_simd_level, simd_level};
+pub use simd::{apply_gain, process_biquad, mix_add, apply_stereo_gain};
+pub use simd::{BiquadCoeffsSimd, BiquadStateSimd};
+
+pub use automation::{CurveType, AutomationPoint, AutomationLane, AutomationManager};
+pub use automation::AtomicAutomationValue;
+
+pub use delay_compensation::{DelayLine, StereoDelayLine, DelayCompensationManager};
+pub use delay_compensation::TrackDelayCompensation;
+
+pub use smoothing::{SmoothingType, SmoothedParam, SmoothedStereoParam, ParameterBank};
 
 use rf_core::Sample;
 

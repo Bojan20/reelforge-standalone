@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 
 /// Trait for undoable commands
-pub trait Command: Send {
+pub trait Command: Send + Sync {
     /// Execute the command
     fn execute(&mut self);
 

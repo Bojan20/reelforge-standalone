@@ -61,7 +61,8 @@ impl SpectrumAnalyzer {
             max_freq: config.max_freq,
             sample_rate: config.sample_rate,
             fft_size: config.fft_size as u32,
-            _padding: [0; 2],
+            time: 0.0,
+            bar_width: 1.0,
         };
 
         let config_buffer = ctx
@@ -212,90 +213,9 @@ struct SpectrumUniforms {
     max_freq: f32,
     sample_rate: f32,
     fft_size: u32,
-    _padding: [u32; 2],
+    time: f32,
+    bar_width: f32,
 }
 
-const SPECTRUM_SHADER: &str = r#"
-struct Config {
-    min_db: f32,
-    max_db: f32,
-    min_freq: f32,
-    max_freq: f32,
-    sample_rate: f32,
-    fft_size: u32,
-}
-
-@group(0) @binding(0) var<storage, read> magnitudes: array<f32>;
-@group(0) @binding(1) var<uniform> config: Config;
-
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-}
-
-@vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    // Full-screen triangle
-    var positions = array<vec2<f32>, 6>(
-        vec2<f32>(-1.0, -1.0),
-        vec2<f32>(1.0, -1.0),
-        vec2<f32>(1.0, 1.0),
-        vec2<f32>(-1.0, -1.0),
-        vec2<f32>(1.0, 1.0),
-        vec2<f32>(-1.0, 1.0),
-    );
-
-    var uvs = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 1.0),
-        vec2<f32>(1.0, 1.0),
-        vec2<f32>(1.0, 0.0),
-        vec2<f32>(0.0, 1.0),
-        vec2<f32>(1.0, 0.0),
-        vec2<f32>(0.0, 0.0),
-    );
-
-    var output: VertexOutput;
-    output.position = vec4<f32>(positions[vertex_index], 0.0, 1.0);
-    output.uv = uvs[vertex_index];
-    return output;
-}
-
-fn log10(x: f32) -> f32 {
-    return log(x) / log(10.0);
-}
-
-fn freq_to_bin(freq: f32) -> u32 {
-    return u32(freq * f32(config.fft_size) / config.sample_rate);
-}
-
-@fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Log-frequency mapping
-    let log_min = log10(config.min_freq);
-    let log_max = log10(config.max_freq);
-    let freq = pow(10.0, mix(log_min, log_max, input.uv.x));
-
-    // Get magnitude from nearest bin
-    let bin = freq_to_bin(freq);
-    let magnitude = magnitudes[min(bin, arrayLength(&magnitudes) - 1u)];
-
-    // Convert to normalized level
-    let db = 20.0 * log10(max(magnitude, 1e-10));
-    let normalized = (db - config.min_db) / (config.max_db - config.min_db);
-
-    // Draw filled spectrum
-    let level = clamp(normalized, 0.0, 1.0);
-
-    if (1.0 - input.uv.y) < level {
-        // Color gradient based on level
-        let t = 1.0 - input.uv.y;
-        let r = mix(0.25, 1.0, t);
-        let g = mix(0.78, 0.25, pow(t, 2.0));
-        let b = mix(1.0, 0.25, t);
-        return vec4<f32>(r, g, b, 0.8);
-    }
-
-    // Background
-    return vec4<f32>(0.05, 0.05, 0.06, 1.0);
-}
-"#;
+/// Pro-quality spectrum shader with peak hold, glow, and grid
+const SPECTRUM_SHADER: &str = include_str!("../../../shaders/spectrum.wgsl");

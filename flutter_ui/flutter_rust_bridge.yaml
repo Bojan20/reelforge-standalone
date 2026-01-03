@@ -1,0 +1,26 @@
+# flutter_rust_bridge configuration for ReelForge
+
+rust_input: ../crates/rf-bridge/src/api.rs
+dart_output: lib/src/rust/api.dart
+
+# Additional Rust files to include
+rust_root: ../crates/rf-bridge/
+
+# Dart class for initialization
+dart_entrypoint_class_name: RustLib
+
+# Output structure
+dart_output_class_name_prefix: ""
+
+# Enable full Dart null safety
+full_dep: true
+
+# C output for FFI
+c_output: ../crates/rf-bridge/src/frb_generated.rs
+
+# Extra Rust files
+extra_rust_inputs:
+  - ../crates/rf-bridge/src/viz.rs
+
+# Dart decl output
+dart_decl_output: lib/src/rust/api.freezed.dart
