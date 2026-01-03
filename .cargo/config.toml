@@ -1,6 +1,13 @@
 [build]
-# Use all CPU cores
 jobs = -1
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "target-feature=+avx2,+fma",
+    "-C", "link-arg=-fuse-ld=mold",
+]
 
 [target.x86_64-apple-darwin]
 rustflags = [
@@ -15,20 +22,8 @@ rustflags = [
 ]
 
 [target.x86_64-pc-windows-msvc]
+linker = "lld-link"
 rustflags = [
     "-C", "target-cpu=native",
     "-C", "target-feature=+avx2,+fma",
 ]
-
-[target.x86_64-unknown-linux-gnu]
-rustflags = [
-    "-C", "target-cpu=native",
-    "-C", "target-feature=+avx2,+fma",
-]
-
-[alias]
-b = "build"
-br = "build --release"
-t = "test"
-c = "clippy"
-xtask = "run --package xtask --"

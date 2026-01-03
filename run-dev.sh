@@ -1,30 +1,46 @@
 #!/bin/bash
-# ReelForge Dev Runner
-# Pokreće frontend i Tauri backend zajedno
+# ReelForge Dev Runner - Flutter + Rust
 
 cd "$(dirname "$0")"
 
-# Kill existing processes on exit
-cleanup() {
-    echo "Stopping..."
-    kill $FRONTEND_PID 2>/dev/null
-    exit
-}
-trap cleanup INT TERM
-
-# Start frontend
-echo "Starting frontend..."
-cd frontend
-npm run dev &
-FRONTEND_PID=$!
-cd ..
-
-# Wait for frontend to start
-echo "Waiting for frontend (localhost:5173)..."
-sleep 3
-
-# Start Tauri
-echo "Starting Tauri..."
-cargo run -p reelforge-app
-
-cleanup
+case "$1" in
+    flutter|f)
+        echo "🎹 Starting Flutter UI..."
+        cd flutter_ui
+        flutter run -d macos
+        ;;
+    bridge|b)
+        echo "🔗 Generating Rust bridge..."
+        cd flutter_ui
+        flutter_rust_bridge_codegen generate
+        ;;
+    rust|r)
+        echo "🦀 Building Rust libraries..."
+        cargo build --release -p rf-bridge
+        ;;
+    all|a)
+        echo "🚀 Full build: Rust + Bridge + Flutter..."
+        cargo build --release -p rf-bridge
+        cd flutter_ui
+        flutter_rust_bridge_codegen generate
+        flutter run -d macos
+        ;;
+    clean|c)
+        echo "🧹 Cleaning..."
+        cargo clean
+        cd flutter_ui && flutter clean
+        ;;
+    *)
+        echo "ReelForge Dev Commands:"
+        echo "  ./run-dev.sh          - Run Flutter app (default)"
+        echo "  ./run-dev.sh flutter  - Run Flutter app"
+        echo "  ./run-dev.sh bridge   - Regenerate Rust bridge"
+        echo "  ./run-dev.sh rust     - Build Rust libraries"
+        echo "  ./run-dev.sh all      - Full rebuild + run"
+        echo "  ./run-dev.sh clean    - Clean all builds"
+        echo ""
+        echo "Starting Flutter..."
+        cd flutter_ui
+        flutter run -d macos
+        ;;
+esac
