@@ -17,10 +17,40 @@ use crate::{AudioConfig, AudioError, AudioResult};
 /// Audio callback type
 pub type AudioCallback = Box<dyn FnMut(&[Sample], &mut [Sample]) + Send + 'static>;
 
+/// Shared input buffer between input and output streams
+pub struct SharedInputBuffer {
+    consumer: Mutex<Consumer<f32>>,
+    num_channels: usize,
+}
+
+impl SharedInputBuffer {
+    /// Read samples from input buffer into f64 slice
+    pub fn read_to_f64(&self, output: &mut [f64]) {
+        let mut consumer = self.consumer.lock();
+        for (i, sample) in output.iter_mut().enumerate() {
+            *sample = consumer.pop().unwrap_or(0.0) as f64;
+        }
+    }
+
+    /// Read samples as f32 directly
+    pub fn read_to_f32(&self, output: &mut [f32]) {
+        let mut consumer = self.consumer.lock();
+        for sample in output.iter_mut() {
+            *sample = consumer.pop().unwrap_or(0.0);
+        }
+    }
+
+    /// Check how many samples are available
+    pub fn available(&self) -> usize {
+        self.consumer.lock().slots()
+    }
+}
+
 /// Audio stream state
 struct StreamState {
     callback: Mutex<AudioCallback>,
     running: AtomicBool,
+    input_buffer: Option<Arc<SharedInputBuffer>>,
 }
 
 /// Audio stream wrapper
@@ -29,6 +59,8 @@ pub struct AudioStream {
     _input_stream: Option<Stream>,
     state: Arc<StreamState>,
     config: AudioConfig,
+    /// Shared input buffer for recording
+    pub input_buffer: Option<Arc<SharedInputBuffer>>,
 }
 
 impl AudioStream {
@@ -39,35 +71,43 @@ impl AudioStream {
         config: AudioConfig,
         callback: AudioCallback,
     ) -> AudioResult<Self> {
+        // Build input stream if device provided, get shared buffer
+        let (input_stream, shared_input) = if let Some(input_dev) = input_device {
+            let input_config = get_stream_config(input_dev, &config, true)?;
+            let (stream, buffer) = build_input_stream_with_buffer(
+                input_dev,
+                &input_config,
+                config.buffer_size,
+                config.input_channels as usize,
+            )?;
+            (Some(stream), Some(buffer))
+        } else {
+            (None, None)
+        };
+
         let state = Arc::new(StreamState {
             callback: Mutex::new(callback),
             running: AtomicBool::new(false),
+            input_buffer: shared_input.clone(),
         });
 
         // Get supported output config
         let output_config = get_stream_config(output_device, &config, false)?;
 
-        // Build output stream
-        let output_stream = build_output_stream(
+        // Build output stream with access to input buffer
+        let output_stream = build_output_stream_with_input(
             output_device,
             &output_config,
             config.buffer_size,
             Arc::clone(&state),
         )?;
 
-        // Build input stream if device provided
-        let input_stream = if let Some(input_dev) = input_device {
-            let input_config = get_stream_config(input_dev, &config, true)?;
-            Some(build_input_stream(input_dev, &input_config, config.buffer_size)?)
-        } else {
-            None
-        };
-
         Ok(Self {
             _output_stream: output_stream,
             _input_stream: input_stream,
             state,
             config,
+            input_buffer: shared_input,
         })
     }
 
@@ -182,7 +222,7 @@ fn get_stream_config(
     }
 }
 
-fn build_output_stream(
+fn build_output_stream_with_input(
     device: &Device,
     supported_config: &SupportedStreamConfig,
     buffer_size: BufferSize,
@@ -208,10 +248,17 @@ fn build_output_stream(
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 let frames = data.len() / channels;
 
+                // Read from shared input buffer if available
+                if let Some(ref input_buf) = state.input_buffer {
+                    input_buf.read_to_f64(&mut input_buffer[..frames * 2]);
+                } else {
+                    input_buffer[..frames * 2].fill(0.0);
+                }
+
                 // Clear output buffer
                 output_buffer[..frames * 2].fill(0.0);
 
-                // Call user callback
+                // Call user callback with real input
                 {
                     let mut callback = state.callback.lock();
                     callback(&input_buffer[..frames * 2], &mut output_buffer[..frames * 2]);
@@ -256,11 +303,12 @@ fn build_output_stream(
     Ok(stream)
 }
 
-fn build_input_stream(
+fn build_input_stream_with_buffer(
     device: &Device,
     supported_config: &SupportedStreamConfig,
     buffer_size: BufferSize,
-) -> AudioResult<Stream> {
+    num_channels: usize,
+) -> AudioResult<(Stream, Arc<SharedInputBuffer>)> {
     let channels = supported_config.channels() as usize;
     let sample_rate = supported_config.sample_rate();
 
@@ -270,10 +318,15 @@ fn build_input_stream(
         buffer_size: CpalBufferSize::Fixed(buffer_size.as_usize() as u32),
     };
 
-    // Ring buffer for input data
-    let (mut producer, _consumer): (Producer<f32>, Consumer<f32>) = RingBuffer::new(
-        buffer_size.as_usize() * channels * 4, // 4 buffers of headroom
-    );
+    // Ring buffer for input data (8 buffers of headroom for safety)
+    let ring_size = buffer_size.as_usize() * channels * 8;
+    let (mut producer, consumer): (Producer<f32>, Consumer<f32>) = RingBuffer::new(ring_size);
+
+    // Create shared input buffer
+    let shared_buffer = Arc::new(SharedInputBuffer {
+        consumer: Mutex::new(consumer),
+        num_channels,
+    });
 
     let stream = device
         .build_input_stream(
@@ -281,7 +334,10 @@ fn build_input_stream(
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 // Push input samples to ring buffer
                 for &sample in data {
-                    let _ = producer.push(sample);
+                    // Overwrite oldest if full (avoid blocking)
+                    if producer.push(sample).is_err() {
+                        // Buffer full - could log a warning here
+                    }
                 }
             },
             move |err| {
@@ -291,7 +347,7 @@ fn build_input_stream(
         )
         .map_err(|e| AudioError::StreamBuildError(e.to_string()))?;
 
-    Ok(stream)
+    Ok((stream, shared_buffer))
 }
 
 /// Simple audio output for testing

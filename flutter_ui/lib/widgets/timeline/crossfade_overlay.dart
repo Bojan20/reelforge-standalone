@@ -204,6 +204,24 @@ class _CrossfadePainter extends CustomPainter {
           size.height * 0.9,
         );
         break;
+      case CrossfadeCurve.logarithmic:
+        fadeOutPath.moveTo(0, size.height * 0.1);
+        fadeOutPath.quadraticBezierTo(
+          size.width * 0.2,
+          size.height * 0.6,
+          size.width,
+          size.height * 0.9,
+        );
+        break;
+      case CrossfadeCurve.exponential:
+        fadeOutPath.moveTo(0, size.height * 0.1);
+        fadeOutPath.quadraticBezierTo(
+          size.width * 0.8,
+          size.height * 0.4,
+          size.width,
+          size.height * 0.9,
+        );
+        break;
     }
     canvas.drawPath(fadeOutPath, fadeOutPaint);
 
@@ -230,6 +248,24 @@ class _CrossfadePainter extends CustomPainter {
           size.height * 0.9,
           size.width * 0.7,
           size.height * 0.1,
+          size.width,
+          size.height * 0.1,
+        );
+        break;
+      case CrossfadeCurve.logarithmic:
+        fadeInPath.moveTo(0, size.height * 0.9);
+        fadeInPath.quadraticBezierTo(
+          size.width * 0.8,
+          size.height * 0.4,
+          size.width,
+          size.height * 0.1,
+        );
+        break;
+      case CrossfadeCurve.exponential:
+        fadeInPath.moveTo(0, size.height * 0.9);
+        fadeInPath.quadraticBezierTo(
+          size.width * 0.2,
+          size.height * 0.6,
           size.width,
           size.height * 0.1,
         );

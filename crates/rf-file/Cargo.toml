@@ -9,6 +9,7 @@ license.workspace = true
 rf-core = { workspace = true }
 hound = { workspace = true }
 symphonia = { workspace = true }
+flac-bound = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

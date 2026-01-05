@@ -26,6 +26,9 @@ pub enum InsertPosition {
     PostFader,
 }
 
+/// Maximum buffer size for wet/dry blending (pre-allocated to avoid audio thread allocations)
+const MAX_BLEND_BUFFER_SIZE: usize = 8192;
+
 /// Single insert slot
 pub struct InsertSlot {
     /// The effect processor (trait object)
@@ -40,6 +43,11 @@ pub struct InsertSlot {
     latency: LatencySamples,
     /// Wet/dry mix (0.0 = dry, 1.0 = wet)
     mix: AtomicU64,
+    /// Pre-allocated buffer for wet/dry blending (left channel)
+    /// Avoids heap allocation in audio thread
+    dry_buffer_l: Box<[Sample; MAX_BLEND_BUFFER_SIZE]>,
+    /// Pre-allocated buffer for wet/dry blending (right channel)
+    dry_buffer_r: Box<[Sample; MAX_BLEND_BUFFER_SIZE]>,
 }
 
 impl InsertSlot {
@@ -51,6 +59,9 @@ impl InsertSlot {
             index,
             latency: 0,
             mix: AtomicU64::new(1.0_f64.to_bits()),
+            // Pre-allocate buffers to avoid audio thread allocation
+            dry_buffer_l: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
+            dry_buffer_r: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
         }
     }
 
@@ -107,6 +118,10 @@ impl InsertSlot {
     }
 
     /// Process audio through this slot
+    ///
+    /// # Audio Thread Safety
+    /// This method uses pre-allocated buffers for wet/dry blending,
+    /// avoiding heap allocations in the audio thread.
     #[inline]
     pub fn process(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         if self.is_bypassed() {
@@ -124,24 +139,22 @@ impl InsertSlot {
                 // Full dry - skip processing
                 return;
             } else {
-                // Wet/dry blend
+                // Wet/dry blend using pre-allocated buffers (no audio thread allocation!)
                 let dry_gain = 1.0 - mix;
                 let wet_gain = mix;
 
-                // Store dry signal
-                let len = left.len().min(right.len());
-                let mut dry_l = vec![0.0; len];
-                let mut dry_r = vec![0.0; len];
-                dry_l.copy_from_slice(&left[..len]);
-                dry_r.copy_from_slice(&right[..len]);
+                // Store dry signal in pre-allocated buffers
+                let len = left.len().min(right.len()).min(MAX_BLEND_BUFFER_SIZE);
+                self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
+                self.dry_buffer_r[..len].copy_from_slice(&right[..len]);
 
                 // Process wet
                 processor.process_stereo(left, right);
 
-                // Blend
+                // Blend using pre-allocated dry buffers
                 for i in 0..len {
-                    left[i] = dry_l[i] * dry_gain + left[i] * wet_gain;
-                    right[i] = dry_r[i] * dry_gain + right[i] * wet_gain;
+                    left[i] = self.dry_buffer_l[i] * dry_gain + left[i] * wet_gain;
+                    right[i] = self.dry_buffer_r[i] * dry_gain + right[i] * wet_gain;
                 }
             }
         }
@@ -179,11 +192,19 @@ pub trait InsertProcessor: Send + Sync {
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]);
 
     /// Process mono audio in-place
+    ///
+    /// # Warning
+    /// Default implementation allocates on heap - not suitable for audio thread!
+    /// Implementors should override this with a pre-allocated buffer if mono
+    /// processing is needed in real-time context.
     fn process_mono(&mut self, buffer: &mut [Sample]) {
         // Default: process left only (for mono compatibility)
-        let mut dummy = vec![0.0; buffer.len()];
-        dummy.copy_from_slice(buffer);
-        self.process_stereo(buffer, &mut dummy);
+        // NOTE: This default allocates! Override in performance-critical code.
+        // Most DAW inserts are stereo, so this is rarely called in audio thread.
+        let len = buffer.len().min(MAX_BLEND_BUFFER_SIZE);
+        let mut dummy = [0.0_f64; MAX_BLEND_BUFFER_SIZE];
+        dummy[..len].copy_from_slice(&buffer[..len]);
+        self.process_stereo(&mut buffer[..len], &mut dummy[..len]);
     }
 
     /// Get latency in samples

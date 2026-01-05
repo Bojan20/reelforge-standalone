@@ -249,6 +249,7 @@ class MenuCallbacks {
   final VoidCallback? onExportJSON;
   final VoidCallback? onImportAudioFolder;
   final VoidCallback? onImportAudioFiles;
+  final VoidCallback? onExportAudio;
   // Edit menu
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
@@ -266,6 +267,10 @@ class MenuCallbacks {
   final VoidCallback? onProjectSettings;
   final VoidCallback? onValidateProject;
   final VoidCallback? onBuildProject;
+  // Studio menu
+  final VoidCallback? onAudioSettings;
+  final VoidCallback? onMidiSettings;
+  final VoidCallback? onPluginManager;
 
   const MenuCallbacks({
     this.onNewProject,
@@ -276,6 +281,7 @@ class MenuCallbacks {
     this.onExportJSON,
     this.onImportAudioFolder,
     this.onImportAudioFiles,
+    this.onExportAudio,
     this.onUndo,
     this.onRedo,
     this.onCut,
@@ -290,6 +296,9 @@ class MenuCallbacks {
     this.onProjectSettings,
     this.onValidateProject,
     this.onBuildProject,
+    this.onAudioSettings,
+    this.onMidiSettings,
+    this.onPluginManager,
   });
 }
 

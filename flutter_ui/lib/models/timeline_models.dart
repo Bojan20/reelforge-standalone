@@ -35,6 +35,8 @@ class TimelineClip {
   final bool muted;
   /// Is selected
   final bool selected;
+  /// Clip FX chain (non-destructive per-clip processing)
+  final ClipFxChain fxChain;
 
   const TimelineClip({
     required this.id,
@@ -51,7 +53,11 @@ class TimelineClip {
     this.gain = 1,
     this.muted = false,
     this.selected = false,
+    this.fxChain = const ClipFxChain(),
   });
+
+  /// Check if clip has active FX processing
+  bool get hasFx => fxChain.hasActiveProcessing;
 
   double get endTime => startTime + duration;
 
@@ -70,6 +76,7 @@ class TimelineClip {
     double? gain,
     bool? muted,
     bool? selected,
+    ClipFxChain? fxChain,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -86,6 +93,7 @@ class TimelineClip {
       gain: gain ?? this.gain,
       muted: muted ?? this.muted,
       selected: selected ?? this.selected,
+      fxChain: fxChain ?? this.fxChain,
     );
   }
 }
@@ -174,7 +182,421 @@ class TimelineMarker {
 }
 
 /// Crossfade curve type
-enum CrossfadeCurve { linear, equalPower, sCurve }
+enum CrossfadeCurve { linear, equalPower, sCurve, logarithmic, exponential }
+
+// ============ Clip FX Types ============
+
+/// Maximum number of FX slots per clip
+const int kMaxClipFxSlots = 8;
+
+/// FX processor type for clip-based processing
+enum ClipFxType {
+  gain,
+  compressor,
+  limiter,
+  gate,
+  saturation,
+  pitchShift,
+  timeStretch,
+  proEq,
+  ultraEq,
+  pultec,
+  api550,
+  neve1073,
+  morphEq,
+  roomCorrection,
+  external,
+}
+
+/// Display name for FX type
+String clipFxTypeName(ClipFxType type) {
+  switch (type) {
+    case ClipFxType.gain:
+      return 'Gain';
+    case ClipFxType.compressor:
+      return 'Compressor';
+    case ClipFxType.limiter:
+      return 'Limiter';
+    case ClipFxType.gate:
+      return 'Gate';
+    case ClipFxType.saturation:
+      return 'Saturation';
+    case ClipFxType.pitchShift:
+      return 'Pitch Shift';
+    case ClipFxType.timeStretch:
+      return 'Time Stretch';
+    case ClipFxType.proEq:
+      return 'Pro EQ';
+    case ClipFxType.ultraEq:
+      return 'Ultra EQ';
+    case ClipFxType.pultec:
+      return 'Pultec EQ';
+    case ClipFxType.api550:
+      return 'API 550';
+    case ClipFxType.neve1073:
+      return 'Neve 1073';
+    case ClipFxType.morphEq:
+      return 'Morph EQ';
+    case ClipFxType.roomCorrection:
+      return 'Room Correction';
+    case ClipFxType.external:
+      return 'External Plugin';
+  }
+}
+
+/// Icon for FX type
+IconData clipFxTypeIcon(ClipFxType type) {
+  switch (type) {
+    case ClipFxType.gain:
+      return Icons.volume_up;
+    case ClipFxType.compressor:
+      return Icons.compress;
+    case ClipFxType.limiter:
+      return Icons.vertical_align_top;
+    case ClipFxType.gate:
+      return Icons.door_front_door_outlined;
+    case ClipFxType.saturation:
+      return Icons.whatshot;
+    case ClipFxType.pitchShift:
+      return Icons.music_note;
+    case ClipFxType.timeStretch:
+      return Icons.timer;
+    case ClipFxType.proEq:
+    case ClipFxType.ultraEq:
+    case ClipFxType.pultec:
+    case ClipFxType.api550:
+    case ClipFxType.neve1073:
+    case ClipFxType.morphEq:
+    case ClipFxType.roomCorrection:
+      return Icons.equalizer;
+    case ClipFxType.external:
+      return Icons.extension;
+  }
+}
+
+/// Color for FX type category
+Color clipFxTypeColor(ClipFxType type) {
+  switch (type) {
+    case ClipFxType.gain:
+      return const Color(0xFF4A9EFF);
+    case ClipFxType.compressor:
+    case ClipFxType.limiter:
+    case ClipFxType.gate:
+      return const Color(0xFFFF6B6B);
+    case ClipFxType.saturation:
+      return const Color(0xFFFF922B);
+    case ClipFxType.pitchShift:
+    case ClipFxType.timeStretch:
+      return const Color(0xFF845EF7);
+    case ClipFxType.proEq:
+    case ClipFxType.ultraEq:
+    case ClipFxType.pultec:
+    case ClipFxType.api550:
+    case ClipFxType.neve1073:
+    case ClipFxType.morphEq:
+    case ClipFxType.roomCorrection:
+      return const Color(0xFF51CF66);
+    case ClipFxType.external:
+      return const Color(0xFF888888);
+  }
+}
+
+/// Parameters for Gain FX
+class GainFxParams {
+  final double db;
+  final double pan;
+
+  const GainFxParams({this.db = 0.0, this.pan = 0.0});
+
+  GainFxParams copyWith({double? db, double? pan}) {
+    return GainFxParams(db: db ?? this.db, pan: pan ?? this.pan);
+  }
+}
+
+/// Parameters for Compressor FX
+class CompressorFxParams {
+  final double ratio;
+  final double thresholdDb;
+  final double attackMs;
+  final double releaseMs;
+
+  const CompressorFxParams({
+    this.ratio = 4.0,
+    this.thresholdDb = -20.0,
+    this.attackMs = 10.0,
+    this.releaseMs = 100.0,
+  });
+
+  CompressorFxParams copyWith({
+    double? ratio,
+    double? thresholdDb,
+    double? attackMs,
+    double? releaseMs,
+  }) {
+    return CompressorFxParams(
+      ratio: ratio ?? this.ratio,
+      thresholdDb: thresholdDb ?? this.thresholdDb,
+      attackMs: attackMs ?? this.attackMs,
+      releaseMs: releaseMs ?? this.releaseMs,
+    );
+  }
+}
+
+/// Parameters for Limiter FX
+class LimiterFxParams {
+  final double ceilingDb;
+
+  const LimiterFxParams({this.ceilingDb = -0.3});
+
+  LimiterFxParams copyWith({double? ceilingDb}) {
+    return LimiterFxParams(ceilingDb: ceilingDb ?? this.ceilingDb);
+  }
+}
+
+/// Parameters for Gate FX
+class GateFxParams {
+  final double thresholdDb;
+  final double attackMs;
+  final double releaseMs;
+
+  const GateFxParams({
+    this.thresholdDb = -40.0,
+    this.attackMs = 1.0,
+    this.releaseMs = 50.0,
+  });
+
+  GateFxParams copyWith({
+    double? thresholdDb,
+    double? attackMs,
+    double? releaseMs,
+  }) {
+    return GateFxParams(
+      thresholdDb: thresholdDb ?? this.thresholdDb,
+      attackMs: attackMs ?? this.attackMs,
+      releaseMs: releaseMs ?? this.releaseMs,
+    );
+  }
+}
+
+/// Parameters for Saturation FX
+class SaturationFxParams {
+  final double drive;
+  final double mix;
+
+  const SaturationFxParams({this.drive = 0.5, this.mix = 1.0});
+
+  SaturationFxParams copyWith({double? drive, double? mix}) {
+    return SaturationFxParams(drive: drive ?? this.drive, mix: mix ?? this.mix);
+  }
+}
+
+/// Single FX slot in a clip's chain
+class ClipFxSlot {
+  final String id;
+  final ClipFxType type;
+  final String name;
+  final bool bypass;
+  final double wetDry;
+  final double outputGainDb;
+  final int order;
+
+  // Type-specific parameters
+  final GainFxParams? gainParams;
+  final CompressorFxParams? compressorParams;
+  final LimiterFxParams? limiterParams;
+  final GateFxParams? gateParams;
+  final SaturationFxParams? saturationParams;
+
+  // For external plugins
+  final String? pluginId;
+
+  const ClipFxSlot({
+    required this.id,
+    required this.type,
+    this.name = '',
+    this.bypass = false,
+    this.wetDry = 1.0,
+    this.outputGainDb = 0.0,
+    this.order = 0,
+    this.gainParams,
+    this.compressorParams,
+    this.limiterParams,
+    this.gateParams,
+    this.saturationParams,
+    this.pluginId,
+  });
+
+  /// Create a new slot with default parameters
+  factory ClipFxSlot.create(ClipFxType type) {
+    final id = 'fx-${DateTime.now().millisecondsSinceEpoch}';
+    switch (type) {
+      case ClipFxType.gain:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: 'Gain',
+          gainParams: const GainFxParams(),
+        );
+      case ClipFxType.compressor:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: 'Compressor',
+          compressorParams: const CompressorFxParams(),
+        );
+      case ClipFxType.limiter:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: 'Limiter',
+          limiterParams: const LimiterFxParams(),
+        );
+      case ClipFxType.gate:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: 'Gate',
+          gateParams: const GateFxParams(),
+        );
+      case ClipFxType.saturation:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: 'Saturation',
+          saturationParams: const SaturationFxParams(),
+        );
+      default:
+        return ClipFxSlot(
+          id: id,
+          type: type,
+          name: clipFxTypeName(type),
+        );
+    }
+  }
+
+  ClipFxSlot copyWith({
+    String? id,
+    ClipFxType? type,
+    String? name,
+    bool? bypass,
+    double? wetDry,
+    double? outputGainDb,
+    int? order,
+    GainFxParams? gainParams,
+    CompressorFxParams? compressorParams,
+    LimiterFxParams? limiterParams,
+    GateFxParams? gateParams,
+    SaturationFxParams? saturationParams,
+    String? pluginId,
+  }) {
+    return ClipFxSlot(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      name: name ?? this.name,
+      bypass: bypass ?? this.bypass,
+      wetDry: wetDry ?? this.wetDry,
+      outputGainDb: outputGainDb ?? this.outputGainDb,
+      order: order ?? this.order,
+      gainParams: gainParams ?? this.gainParams,
+      compressorParams: compressorParams ?? this.compressorParams,
+      limiterParams: limiterParams ?? this.limiterParams,
+      gateParams: gateParams ?? this.gateParams,
+      saturationParams: saturationParams ?? this.saturationParams,
+      pluginId: pluginId ?? this.pluginId,
+    );
+  }
+
+  /// Get display label for the slot
+  String get displayName => name.isNotEmpty ? name : clipFxTypeName(type);
+}
+
+/// FX chain for a clip (collection of FX slots)
+class ClipFxChain {
+  final List<ClipFxSlot> slots;
+  final bool bypass;
+  final double inputGainDb;
+  final double outputGainDb;
+
+  const ClipFxChain({
+    this.slots = const [],
+    this.bypass = false,
+    this.inputGainDb = 0.0,
+    this.outputGainDb = 0.0,
+  });
+
+  bool get isEmpty => slots.isEmpty;
+  bool get isNotEmpty => slots.isNotEmpty;
+  int get length => slots.length;
+
+  /// Check if chain has any active (non-bypassed) processing
+  bool get hasActiveProcessing {
+    if (bypass) return false;
+    return slots.any((s) => !s.bypass);
+  }
+
+  /// Get active (non-bypassed) slots
+  List<ClipFxSlot> get activeSlots => slots.where((s) => !s.bypass).toList();
+
+  ClipFxChain copyWith({
+    List<ClipFxSlot>? slots,
+    bool? bypass,
+    double? inputGainDb,
+    double? outputGainDb,
+  }) {
+    return ClipFxChain(
+      slots: slots ?? this.slots,
+      bypass: bypass ?? this.bypass,
+      inputGainDb: inputGainDb ?? this.inputGainDb,
+      outputGainDb: outputGainDb ?? this.outputGainDb,
+    );
+  }
+
+  /// Add a slot to the chain
+  ClipFxChain addSlot(ClipFxSlot slot) {
+    if (slots.length >= kMaxClipFxSlots) {
+      // Remove oldest if at capacity
+      return copyWith(
+        slots: [...slots.sublist(1), slot.copyWith(order: slots.length - 1)],
+      );
+    }
+    return copyWith(
+      slots: [...slots, slot.copyWith(order: slots.length)],
+    );
+  }
+
+  /// Remove a slot from the chain
+  ClipFxChain removeSlot(String slotId) {
+    final newSlots = slots.where((s) => s.id != slotId).toList();
+    // Reorder
+    for (int i = 0; i < newSlots.length; i++) {
+      newSlots[i] = newSlots[i].copyWith(order: i);
+    }
+    return copyWith(slots: newSlots);
+  }
+
+  /// Update a slot in the chain
+  ClipFxChain updateSlot(String slotId, ClipFxSlot Function(ClipFxSlot) update) {
+    return copyWith(
+      slots: slots.map((s) => s.id == slotId ? update(s) : s).toList(),
+    );
+  }
+
+  /// Move a slot to a new position
+  ClipFxChain moveSlot(String slotId, int newIndex) {
+    final index = slots.indexWhere((s) => s.id == slotId);
+    if (index == -1 || index == newIndex) return this;
+
+    final newSlots = List<ClipFxSlot>.from(slots);
+    final slot = newSlots.removeAt(index);
+    newSlots.insert(newIndex.clamp(0, newSlots.length), slot);
+
+    // Reorder
+    for (int i = 0; i < newSlots.length; i++) {
+      newSlots[i] = newSlots[i].copyWith(order: i);
+    }
+    return copyWith(slots: newSlots);
+  }
+}
 
 /// Crossfade between two clips
 class Crossfade {

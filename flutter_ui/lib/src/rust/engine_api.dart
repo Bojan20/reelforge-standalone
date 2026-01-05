@@ -397,6 +397,47 @@ class EngineApi {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // PROJECT DIRTY STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if project has unsaved changes
+  bool get isProjectModified {
+    if (!_useMock) {
+      return _ffi.isProjectModified();
+    }
+    return false; // Mock always clean
+  }
+
+  /// Mark project as dirty (has unsaved changes)
+  void markProjectDirty() {
+    if (!_useMock) {
+      _ffi.markProjectDirty();
+    }
+  }
+
+  /// Mark project as clean (just saved)
+  void markProjectClean() {
+    if (!_useMock) {
+      _ffi.markProjectClean();
+    }
+  }
+
+  /// Set project file path
+  void setProjectFilePath(String? path) {
+    if (!_useMock) {
+      _ffi.setProjectFilePath(path);
+    }
+  }
+
+  /// Get project file path
+  String? get projectFilePath {
+    if (!_useMock) {
+      return _ffi.getProjectFilePath();
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TRACK MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -695,6 +736,235 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         return _ffi.clipApplyGain(nativeClipId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP FX
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add FX to a clip
+  /// fxType: 0=Gain, 1=Compressor, 2=Limiter, 3=Gate, 4=Saturation, etc.
+  String? addClipFx(String clipId, int fxType) {
+    print('[Engine] Add FX type $fxType to clip $clipId');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        final slotId = _ffi.addClipFx(nativeClipId, fxType);
+        if (slotId != 0) {
+          return slotId.toString();
+        }
+      }
+    }
+    return 'fxslot-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Remove FX from a clip
+  bool removeClipFx(String clipId, String slotId) {
+    print('[Engine] Remove FX slot $slotId from clip $clipId');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.removeClipFx(nativeClipId, nativeSlotId);
+      }
+    }
+    return true;
+  }
+
+  /// Bypass/enable a clip FX slot
+  bool setClipFxBypass(String clipId, String slotId, bool bypass) {
+    print('[Engine] Set FX slot $slotId bypass: $bypass');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxBypass(nativeClipId, nativeSlotId, bypass);
+      }
+    }
+    return true;
+  }
+
+  /// Bypass/enable entire clip FX chain
+  bool setClipFxChainBypass(String clipId, bool bypass) {
+    print('[Engine] Set clip $clipId FX chain bypass: $bypass');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.setClipFxChainBypass(nativeClipId, bypass);
+      }
+    }
+    return true;
+  }
+
+  /// Set clip FX slot wet/dry mix (0.0-1.0)
+  bool setClipFxWetDry(String clipId, String slotId, double wetDry) {
+    print('[Engine] Set FX slot $slotId wet/dry: $wetDry');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxWetDry(nativeClipId, nativeSlotId, wetDry);
+      }
+    }
+    return true;
+  }
+
+  /// Set clip FX chain input gain (dB)
+  bool setClipFxInputGain(String clipId, double gainDb) {
+    print('[Engine] Set clip $clipId FX input gain: $gainDb dB');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.setClipFxInputGain(nativeClipId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set clip FX chain output gain (dB)
+  bool setClipFxOutputGain(String clipId, double gainDb) {
+    print('[Engine] Set clip $clipId FX output gain: $gainDb dB');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.setClipFxOutputGain(nativeClipId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set Gain FX parameters
+  bool setClipFxGainParams(String clipId, String slotId, double db, double pan) {
+    print('[Engine] Set Gain FX params: $db dB, pan $pan');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxGainParams(nativeClipId, nativeSlotId, db, pan);
+      }
+    }
+    return true;
+  }
+
+  /// Set Compressor FX parameters
+  bool setClipFxCompressorParams(
+    String clipId,
+    String slotId, {
+    required double ratio,
+    required double thresholdDb,
+    required double attackMs,
+    required double releaseMs,
+  }) {
+    print('[Engine] Set Compressor FX params');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxCompressorParams(
+          nativeClipId,
+          nativeSlotId,
+          ratio,
+          thresholdDb,
+          attackMs,
+          releaseMs,
+        );
+      }
+    }
+    return true;
+  }
+
+  /// Set Limiter FX parameters
+  bool setClipFxLimiterParams(String clipId, String slotId, double ceilingDb) {
+    print('[Engine] Set Limiter FX ceiling: $ceilingDb dB');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxLimiterParams(nativeClipId, nativeSlotId, ceilingDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set Gate FX parameters
+  bool setClipFxGateParams(
+    String clipId,
+    String slotId, {
+    required double thresholdDb,
+    required double attackMs,
+    required double releaseMs,
+  }) {
+    print('[Engine] Set Gate FX params');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxGateParams(
+          nativeClipId,
+          nativeSlotId,
+          thresholdDb,
+          attackMs,
+          releaseMs,
+        );
+      }
+    }
+    return true;
+  }
+
+  /// Set Saturation FX parameters
+  bool setClipFxSaturationParams(
+    String clipId,
+    String slotId, {
+    required double drive,
+    required double mix,
+  }) {
+    print('[Engine] Set Saturation FX params: drive $drive, mix $mix');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.setClipFxSaturationParams(nativeClipId, nativeSlotId, drive, mix);
+      }
+    }
+    return true;
+  }
+
+  /// Move FX slot to new position in chain
+  bool moveClipFx(String clipId, String slotId, int newIndex) {
+    print('[Engine] Move FX slot $slotId to index $newIndex');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeSlotId = int.tryParse(slotId);
+      if (nativeClipId != null && nativeSlotId != null) {
+        return _ffi.moveClipFx(nativeClipId, nativeSlotId, newIndex);
+      }
+    }
+    return true;
+  }
+
+  /// Copy FX chain from one clip to another
+  bool copyClipFx(String sourceClipId, String targetClipId) {
+    print('[Engine] Copy FX from clip $sourceClipId to $targetClipId');
+    if (!_useMock) {
+      final nativeSourceId = int.tryParse(sourceClipId);
+      final nativeTargetId = int.tryParse(targetClipId);
+      if (nativeSourceId != null && nativeTargetId != null) {
+        return _ffi.copyClipFx(nativeSourceId, nativeTargetId);
+      }
+    }
+    return true;
+  }
+
+  /// Clear all FX from a clip
+  bool clearClipFx(String clipId) {
+    print('[Engine] Clear all FX from clip $clipId');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clearClipFx(nativeClipId);
       }
     }
     return true;
@@ -1007,6 +1277,132 @@ class EngineApi {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // VCA FADERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new VCA fader
+  /// Returns VCA ID
+  int vcaCreate(String name) {
+    print('[Engine] Create VCA: $name');
+    if (!_useMock) {
+      return _ffi.vcaCreate(name);
+    }
+    return DateTime.now().millisecondsSinceEpoch;
+  }
+
+  /// Delete a VCA fader
+  bool vcaDelete(int vcaId) {
+    print('[Engine] Delete VCA: $vcaId');
+    if (!_useMock) {
+      return _ffi.vcaDelete(vcaId);
+    }
+    return true;
+  }
+
+  /// Set VCA level (0.0 - 1.5, where 1.0 = unity/0dB)
+  bool vcaSetLevel(int vcaId, double level) {
+    print('[Engine] VCA $vcaId level: $level');
+    if (!_useMock) {
+      return _ffi.vcaSetLevel(vcaId, level);
+    }
+    return true;
+  }
+
+  /// Get VCA level
+  double vcaGetLevel(int vcaId) {
+    if (!_useMock) {
+      return _ffi.vcaGetLevel(vcaId);
+    }
+    return 1.0;
+  }
+
+  /// Set VCA mute state
+  bool vcaSetMute(int vcaId, bool muted) {
+    print('[Engine] VCA $vcaId mute: $muted');
+    if (!_useMock) {
+      return _ffi.vcaSetMute(vcaId, muted);
+    }
+    return true;
+  }
+
+  /// Assign track to VCA
+  bool vcaAssignTrack(int vcaId, int trackId) {
+    print('[Engine] Assign track $trackId to VCA $vcaId');
+    if (!_useMock) {
+      return _ffi.vcaAssignTrack(vcaId, trackId);
+    }
+    return true;
+  }
+
+  /// Remove track from VCA
+  bool vcaRemoveTrack(int vcaId, int trackId) {
+    print('[Engine] Remove track $trackId from VCA $vcaId');
+    if (!_useMock) {
+      return _ffi.vcaRemoveTrack(vcaId, trackId);
+    }
+    return true;
+  }
+
+  /// Get effective volume for track including VCA contribution
+  double vcaGetTrackEffectiveVolume(int trackId, double baseVolume) {
+    if (!_useMock) {
+      return _ffi.vcaGetTrackEffectiveVolume(trackId, baseVolume);
+    }
+    return baseVolume;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRACK GROUPS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new track group
+  /// Returns group ID
+  int groupCreate(String name) {
+    print('[Engine] Create group: $name');
+    if (!_useMock) {
+      return _ffi.groupCreate(name);
+    }
+    return DateTime.now().millisecondsSinceEpoch;
+  }
+
+  /// Delete a track group
+  bool groupDelete(int groupId) {
+    print('[Engine] Delete group: $groupId');
+    if (!_useMock) {
+      return _ffi.groupDelete(groupId);
+    }
+    return true;
+  }
+
+  /// Add track to group
+  bool groupAddTrack(int groupId, int trackId) {
+    print('[Engine] Add track $trackId to group $groupId');
+    if (!_useMock) {
+      return _ffi.groupAddTrack(groupId, trackId);
+    }
+    return true;
+  }
+
+  /// Remove track from group
+  bool groupRemoveTrack(int groupId, int trackId) {
+    print('[Engine] Remove track $trackId from group $groupId');
+    if (!_useMock) {
+      return _ffi.groupRemoveTrack(groupId, trackId);
+    }
+    return true;
+  }
+
+  /// Set group link mode
+  /// linkMode: 0=Relative, 1=Absolute
+  bool groupSetLinkMode(int groupId, int linkMode) {
+    print('[Engine] Group $groupId link mode: $linkMode');
+    if (!_useMock) {
+      return _ffi.groupSetLinkMode(groupId, linkMode);
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1139,6 +1535,8 @@ class EngineApi {
       // Real metering from native engine
       final (peakL, peakR) = _ffi.getPeakMeters();
       final (rmsL, rmsR) = _ffi.getRmsMeters();
+      final (lufsM, lufsS, lufsI) = _ffi.getLufsMeters();
+      final (truePeakL, truePeakR) = _ffi.getTruePeakMeters();
 
       // Convert linear to dB (log10 = log(x) / ln(10))
       double linearToDb(double linear) {
@@ -1177,10 +1575,10 @@ class EngineApi {
         masterPeakR: masterPeakRDb,
         masterRmsL: masterRmsLDb,
         masterRmsR: masterRmsRDb,
-        masterLufsM: masterRmsLDb - 3.0, // Approximate LUFS from RMS
-        masterLufsS: masterRmsLDb - 3.0,
-        masterLufsI: masterRmsLDb - 3.0,
-        masterTruePeak: max(masterPeakLDb, masterPeakRDb),
+        masterLufsM: lufsM, // Real ITU-R BS.1770-4 LUFS
+        masterLufsS: lufsS,
+        masterLufsI: lufsI,
+        masterTruePeak: max(truePeakL, truePeakR), // Real 4x oversampled True Peak
         cpuUsage: 5.0,
         bufferUnderruns: 0,
         buses: busMeters,

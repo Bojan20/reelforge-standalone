@@ -17,6 +17,7 @@ import 'providers/engine_provider.dart';
 import 'providers/timeline_playback_provider.dart';
 import 'providers/mixer_dsp_provider.dart';
 import 'providers/meter_provider.dart';
+import 'providers/mixer_provider.dart';
 import 'providers/editor_mode_provider.dart';
 import 'providers/global_shortcuts_provider.dart' show GlobalShortcutsProvider, ShortcutAction;
 import 'providers/project_history_provider.dart';
@@ -47,6 +48,9 @@ class ReelForgeApp extends StatelessWidget {
 
         // Real-time metering
         ChangeNotifierProvider(create: (_) => MeterProvider()),
+
+        // Pro DAW Mixer state
+        ChangeNotifierProvider(create: (_) => MixerProvider()),
 
         // Editor mode (DAW/Middleware)
         ChangeNotifierProvider(create: (_) => EditorModeProvider()),

@@ -22,6 +22,7 @@ use crate::track_manager::{
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::waveform::{StereoWaveformPeaks, WaveformCache, NUM_LOD_LEVELS, SAMPLES_PER_PEAK};
 use crate::playback::{PlaybackEngine, PlaybackState, AudioCache};
+use rf_state::UndoManager;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
@@ -33,6 +34,53 @@ lazy_static::lazy_static! {
     static ref IMPORTED_AUDIO: RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>> =
         RwLock::new(std::collections::HashMap::new());
     static ref PLAYBACK_ENGINE: PlaybackEngine = PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000);
+    static ref UNDO_MANAGER: RwLock<UndoManager> = RwLock::new(UndoManager::new(500));
+    /// Project dirty state tracking
+    static ref PROJECT_STATE: ProjectState = ProjectState::new();
+}
+
+/// Project dirty state for FFI
+pub struct ProjectState {
+    is_dirty: std::sync::atomic::AtomicBool,
+    last_saved_undo_count: std::sync::atomic::AtomicUsize,
+    file_path: RwLock<Option<String>>,
+}
+
+impl ProjectState {
+    fn new() -> Self {
+        Self {
+            is_dirty: std::sync::atomic::AtomicBool::new(false),
+            last_saved_undo_count: std::sync::atomic::AtomicUsize::new(0),
+            file_path: RwLock::new(None),
+        }
+    }
+
+    fn is_modified(&self) -> bool {
+        use std::sync::atomic::Ordering;
+        self.is_dirty.load(Ordering::Relaxed)
+            || UNDO_MANAGER.read().undo_count() != self.last_saved_undo_count.load(Ordering::Relaxed)
+    }
+
+    fn mark_dirty(&self) {
+        self.is_dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn mark_clean(&self) {
+        use std::sync::atomic::Ordering;
+        self.is_dirty.store(false, Ordering::Relaxed);
+        self.last_saved_undo_count.store(
+            UNDO_MANAGER.read().undo_count(),
+            Ordering::Relaxed
+        );
+    }
+
+    fn set_file_path(&self, path: Option<String>) {
+        *self.file_path.write() = path;
+    }
+
+    fn file_path(&self) -> Option<String> {
+        self.file_path.read().clone()
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -377,6 +425,46 @@ pub extern "C" fn engine_get_clip_info(
         1
     } else {
         0
+    }
+}
+
+/// Get clip duration (in seconds)
+/// Returns -1.0 if clip not found
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_clip_duration(clip_id: u64) -> f64 {
+    TRACK_MANAGER.get_clip(ClipId(clip_id))
+        .map(|c| c.duration)
+        .unwrap_or(-1.0)
+}
+
+/// Get clip source duration (original file duration in seconds)
+/// Returns -1.0 if clip not found
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_clip_source_duration(clip_id: u64) -> f64 {
+    TRACK_MANAGER.get_clip(ClipId(clip_id))
+        .map(|c| c.source_duration)
+        .unwrap_or(-1.0)
+}
+
+/// Get audio file duration (in seconds) by reading the file
+/// Returns -1.0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_audio_file_duration(path: *const c_char) -> f64 {
+    let path_str = match unsafe { cstr_to_string(path) } {
+        Some(p) => p,
+        None => return -1.0,
+    };
+
+    // Try to get from cache first
+    if let Some(audio) = IMPORTED_AUDIO.read().values().find(|a| a.source_path == path_str) {
+        return audio.sample_count as f64 / audio.sample_rate as f64;
+    }
+
+    // Load and get duration
+    use std::path::Path;
+    match crate::AudioImporter::import(Path::new(&path_str)) {
+        Ok(audio) => audio.sample_count as f64 / audio.sample_rate as f64,
+        Err(_) => -1.0,
     }
 }
 
@@ -884,6 +972,41 @@ pub extern "C" fn engine_get_rms_meters(out_left: *mut f64, out_right: *mut f64)
     }
 }
 
+/// Get LUFS meters (momentary, short-term, integrated)
+/// Returns values in LUFS per ITU-R BS.1770-4 (typically -70 to 0)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_lufs_meters(
+    out_momentary: *mut f64,
+    out_short: *mut f64,
+    out_integrated: *mut f64,
+) {
+    let (momentary, short, integrated) = PLAYBACK_ENGINE.get_lufs();
+
+    if !out_momentary.is_null() {
+        unsafe { *out_momentary = momentary; }
+    }
+    if !out_short.is_null() {
+        unsafe { *out_short = short; }
+    }
+    if !out_integrated.is_null() {
+        unsafe { *out_integrated = integrated; }
+    }
+}
+
+/// Get true peak meters (left, right)
+/// Returns values in dBTP per ITU-R BS.1770-4 (4x oversampled)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_true_peak_meters(out_left: *mut f64, out_right: *mut f64) {
+    let (db_l, db_r) = PLAYBACK_ENGINE.get_true_peak();
+
+    if !out_left.is_null() {
+        unsafe { *out_left = db_l; }
+    }
+    if !out_right.is_null() {
+        unsafe { *out_right = db_r; }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MEMORY MANAGEMENT FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1060,41 +1183,52 @@ pub extern "C" fn engine_is_playback_running() -> i32 {
 /// Returns 1 if action was undone, 0 if nothing to undo
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_undo() -> i32 {
-    // TODO: Implement undo with UndoManager
-    log::debug!("Undo requested");
-    0
+    let mut manager = UNDO_MANAGER.write();
+    if manager.undo() {
+        log::debug!("Undo successful");
+        1
+    } else {
+        log::debug!("Nothing to undo");
+        0
+    }
 }
 
 /// Redo last undone action
 /// Returns 1 if action was redone, 0 if nothing to redo
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_redo() -> i32 {
-    // TODO: Implement redo with UndoManager
-    log::debug!("Redo requested");
-    0
+    let mut manager = UNDO_MANAGER.write();
+    if manager.redo() {
+        log::debug!("Redo successful");
+        1
+    } else {
+        log::debug!("Nothing to redo");
+        0
+    }
 }
 
 /// Check if undo is available
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_can_undo() -> i32 {
-    // TODO: Implement with UndoManager
-    0
+    let manager = UNDO_MANAGER.read();
+    if manager.can_undo() { 1 } else { 0 }
 }
 
 /// Check if redo is available
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_can_redo() -> i32 {
-    // TODO: Implement with UndoManager
-    0
+    let manager = UNDO_MANAGER.read();
+    if manager.can_redo() { 1 } else { 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PROJECT SAVE/LOAD FFI
+// PROJECT SAVE/LOAD FFI (DEPRECATED - use rf-bridge/api.rs for Flutter)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Save project to path
+/// Save project to path (legacy C FFI - use rf-bridge for Flutter)
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::save_project for Flutter")]
 pub extern "C" fn engine_save_project(path: *const c_char) -> i32 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
@@ -1102,14 +1236,14 @@ pub extern "C" fn engine_save_project(path: *const c_char) -> i32 {
     };
 
     log::info!("Saving project to: {}", path_str);
-    // TODO: Implement actual project save
-    // For now, just return success
+    // C FFI stub - Flutter uses rf-bridge::api::save_project
     1
 }
 
-/// Load project from path
+/// Load project from path (legacy C FFI - use rf-bridge for Flutter)
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::load_project for Flutter")]
 pub extern "C" fn engine_load_project(path: *const c_char) -> i32 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
@@ -1117,9 +1251,60 @@ pub extern "C" fn engine_load_project(path: *const c_char) -> i32 {
     };
 
     log::info!("Loading project from: {}", path_str);
-    // TODO: Implement actual project load
-    // For now, just return success
+    // C FFI stub - Flutter uses rf-bridge::api::load_project
     1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT DIRTY STATE FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Check if project has unsaved changes
+/// Returns 1 if modified, 0 if clean
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_project_is_modified() -> i32 {
+    if PROJECT_STATE.is_modified() { 1 } else { 0 }
+}
+
+/// Mark project as dirty (has unsaved changes)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_project_mark_dirty() {
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Mark project as clean (just saved)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_project_mark_clean() {
+    PROJECT_STATE.mark_clean();
+}
+
+/// Set project file path (empty string = None)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_project_set_file_path(path: *const c_char) {
+    let path_opt = unsafe { cstr_to_string(path) }
+        .filter(|s| !s.is_empty());
+    PROJECT_STATE.set_file_path(path_opt);
+}
+
+/// Get project file path (returns null if no path set)
+/// Caller must NOT free the returned string (static lifetime)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_project_get_file_path() -> *const c_char {
+    use std::ffi::CString;
+    use std::sync::OnceLock;
+
+    static LAST_PATH: OnceLock<parking_lot::Mutex<Option<CString>>> = OnceLock::new();
+    let mutex = LAST_PATH.get_or_init(|| parking_lot::Mutex::new(None));
+
+    match PROJECT_STATE.file_path() {
+        Some(path) => {
+            let c_str = CString::new(path).unwrap_or_default();
+            let ptr = c_str.as_ptr();
+            *mutex.lock() = Some(c_str);
+            ptr
+        }
+        None => std::ptr::null(),
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1142,46 +1327,57 @@ pub extern "C" fn engine_get_memory_usage() -> f32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EQ FFI
+// EQ FFI (DEPRECATED - use rf-bridge/api.rs for Flutter)
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// NOTE: These C FFI functions are legacy stubs. For Flutter integration,
+// use the rf-bridge crate which has full implementation with lock-free
+// command queue (DspCommand) for real-time safe parameter updates.
+//
+// The actual DSP processing happens in rf-bridge/playback.rs via DspStorage.
 
-/// Set EQ band enabled
+/// Set EQ band enabled (legacy C FFI - use rf-bridge for Flutter)
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::eq_set_band_enabled for Flutter")]
 pub extern "C" fn eq_set_band_enabled(track_id: u32, band_index: u8, enabled: i32) -> i32 {
     log::debug!("EQ track {} band {} enabled: {}", track_id, band_index, enabled != 0);
-    // TODO: Forward to DSP
+    // C FFI stub - Flutter uses rf-bridge command queue
     1
 }
 
-/// Set EQ band frequency
+/// Set EQ band frequency (legacy C FFI - use rf-bridge for Flutter)
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::eq_set_band_frequency for Flutter")]
 pub extern "C" fn eq_set_band_frequency(track_id: u32, band_index: u8, frequency: f64) -> i32 {
     log::debug!("EQ track {} band {} freq: {} Hz", track_id, band_index, frequency);
-    // TODO: Forward to DSP
+    // C FFI stub - Flutter uses rf-bridge command queue
     1
 }
 
-/// Set EQ band gain
+/// Set EQ band gain (legacy C FFI - use rf-bridge for Flutter)
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::eq_set_band_gain for Flutter")]
 pub extern "C" fn eq_set_band_gain(track_id: u32, band_index: u8, gain: f64) -> i32 {
     log::debug!("EQ track {} band {} gain: {} dB", track_id, band_index, gain);
-    // TODO: Forward to DSP
+    // C FFI stub - Flutter uses rf-bridge command queue
     1
 }
 
-/// Set EQ band Q
+/// Set EQ band Q (legacy C FFI - use rf-bridge for Flutter)
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::eq_set_band_q for Flutter")]
 pub extern "C" fn eq_set_band_q(track_id: u32, band_index: u8, q: f64) -> i32 {
     log::debug!("EQ track {} band {} Q: {}", track_id, band_index, q);
-    // TODO: Forward to DSP
+    // C FFI stub - Flutter uses rf-bridge command queue
     1
 }
 
-/// Set EQ bypass
+/// Set EQ bypass (legacy C FFI - use rf-bridge for Flutter)
 #[unsafe(no_mangle)]
+#[deprecated(note = "Use rf-bridge::api::eq_set_bypass for Flutter")]
 pub extern "C" fn eq_set_bypass(track_id: u32, bypass: i32) -> i32 {
     log::debug!("EQ track {} bypass: {}", track_id, bypass != 0);
-    // TODO: Forward to DSP
+    // C FFI stub - Flutter uses rf-bridge command queue
     1
 }
 
@@ -1243,15 +1439,104 @@ pub extern "C" fn mixer_set_master_volume(volume_db: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
     log::debug!("Normalize clip {} to {} dB", clip_id, target_db);
-    // TODO: Implement normalization
+
+    // Get clip info
+    let clip = match TRACK_MANAGER.get_clip(ClipId(clip_id)) {
+        Some(c) => c,
+        None => {
+            log::error!("Clip {} not found for normalization", clip_id);
+            return 0;
+        }
+    };
+
+    // Load or get cached audio
+    let audio = IMPORTED_AUDIO.read()
+        .get(&ClipId(clip_id))
+        .cloned()
+        .or_else(|| {
+            // Try to load from source file
+            match AudioImporter::import(std::path::Path::new(&clip.source_file)) {
+                Ok(audio) => {
+                    let arc = Arc::new(audio);
+                    IMPORTED_AUDIO.write().insert(ClipId(clip_id), Arc::clone(&arc));
+                    Some(arc)
+                }
+                Err(e) => {
+                    log::error!("Failed to load audio for normalization: {}", e);
+                    None
+                }
+            }
+        });
+
+    let audio = match audio {
+        Some(a) => a,
+        None => return 0,
+    };
+
+    // Find peak level within clip region
+    let sample_rate = audio.sample_rate as f64;
+    let source_offset_samples = (clip.source_offset * sample_rate) as usize;
+    let duration_samples = (clip.source_duration * sample_rate) as usize;
+    let end_sample = (source_offset_samples + duration_samples).min(audio.sample_count);
+
+    let mut peak: f32 = 0.0;
+    let channels = audio.channels as usize;
+
+    for frame in source_offset_samples..end_sample {
+        for ch in 0..channels {
+            let sample_idx = frame * channels + ch;
+            if sample_idx < audio.samples.len() {
+                let sample = audio.samples[sample_idx].abs();
+                if sample > peak {
+                    peak = sample;
+                }
+            }
+        }
+    }
+
+    if peak < 1e-6 {
+        log::warn!("Clip {} has near-zero peak level, skipping normalization", clip_id);
+        return 1;
+    }
+
+    // Calculate gain needed to reach target
+    let peak_db = 20.0 * (peak as f64).log10();
+    let gain_db = target_db - peak_db;
+    let gain_linear = 10.0_f64.powf(gain_db / 20.0);
+
+    log::info!(
+        "Normalizing clip {}: peak={:.2} dB, applying {:.2} dB gain",
+        clip_id, peak_db, gain_db
+    );
+
+    // Apply gain to clip
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |c| {
+        c.gain *= gain_linear;
+        c.gain = c.gain.clamp(0.001, 10.0); // Limit to reasonable range
+    });
+
     1
 }
 
 /// Reverse clip audio
+/// This sets a flag on the clip to play audio in reverse
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_reverse(clip_id: u64) -> i32 {
     log::debug!("Reverse clip {}", clip_id);
-    // TODO: Implement reverse
+
+    // Check if clip exists
+    let clip = TRACK_MANAGER.get_clip(ClipId(clip_id));
+    if clip.is_none() {
+        log::error!("Clip {} not found for reverse", clip_id);
+        return 0;
+    }
+
+    // Toggle reversed state
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |c| {
+        c.reversed = !c.reversed;
+        log::info!("Clip {} reversed: {}", clip_id, c.reversed);
+    });
+
     1
 }
 

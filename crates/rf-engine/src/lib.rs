@@ -23,7 +23,7 @@ mod send_return;
 mod dual_path;
 mod sidechain;
 mod freeze;
-mod groups;
+pub mod groups;
 mod click;
 mod pdc;
 
@@ -46,6 +46,9 @@ pub mod link;
 
 // Phase 7: DSP Wrappers
 pub mod dsp_wrappers;
+
+// Phase 8: Automation Engine
+pub mod automation;
 
 // Re-exports: Core
 pub use graph::*;
@@ -115,6 +118,8 @@ pub use groups::{
     GroupManager,
     LinkParameter,
     LinkMode,
+    VcaInfo,
+    GroupInfo,
 };
 
 pub use click::{
@@ -165,14 +170,21 @@ pub use track_manager::{
     Track,
     Clip,
     Crossfade,
+    CrossfadeShape,
+    CrossfadeCurve,
     Marker,
     LoopRegion,
     TrackId,
     ClipId,
     CrossfadeId,
     MarkerId,
-    CrossfadeCurve,
     OutputBus,
+    // Clip FX
+    ClipFxChain,
+    ClipFxSlot,
+    ClipFxSlotId,
+    ClipFxType,
+    MAX_CLIP_FX_SLOTS,
 };
 
 pub use audio_import::{
@@ -230,7 +242,36 @@ pub use dsp_wrappers::{
     Neve1073Wrapper,
     MorphEqWrapper,
     RoomCorrectionWrapper,
+    CompressorWrapper,
+    TruePeakLimiterWrapper,
+    GateWrapper,
+    ExpanderWrapper,
     create_processor,
+    create_processor_extended,
+    available_processors,
+};
+
+// Re-exports: Phase 8 - Automation
+pub use automation::{
+    AutomationEngine,
+    AutomationLane,
+    AutomationPoint,
+    AutomationMode,
+    AutomationBlock,
+    CurveType,
+    ParamId,
+    TargetType,
+    ParamChange,
+};
+
+// Re-exports: Freeze additions
+pub use freeze::OfflineRenderer;
+
+// Re-exports: Audio Import additions
+pub use audio_import::{
+    AudioFileInfo,
+    SampleRateConverter,
+    WaveformPeaks as ImportWaveformPeaks,
 };
 
 use rf_core::SampleRate;

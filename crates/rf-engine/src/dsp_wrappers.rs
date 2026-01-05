@@ -48,6 +48,7 @@ impl Default for AtomicF64 {
 pub struct ProEqWrapper {
     eq: ProEq,
     sample_rate: f64,
+    bypassed: bool,
 }
 
 impl ProEqWrapper {
@@ -55,7 +56,18 @@ impl ProEqWrapper {
         Self {
             eq: ProEq::new(sample_rate),
             sample_rate,
+            bypassed: false,
         }
+    }
+
+    /// Set bypass state
+    pub fn set_bypass(&mut self, bypass: bool) {
+        self.bypassed = bypass;
+    }
+
+    /// Get bypass state
+    pub fn is_bypassed(&self) -> bool {
+        self.bypassed
     }
 
     /// Add a band at frequency
@@ -96,7 +108,9 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        self.eq.process_block(left, right);
+        if !self.bypassed {
+            self.eq.process_block(left, right);
+        }
     }
 
     fn latency(&self) -> LatencySamples {
@@ -718,6 +732,443 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
         "room-correction" | "RoomCorrection" => Some(Box::new(RoomCorrectionWrapper::new(sample_rate))),
         _ => None,
     }
+}
+
+// ============ Dynamics Wrappers ============
+
+use rf_dsp::dynamics::{
+    Compressor, StereoCompressor, CompressorType,
+    TruePeakLimiter, Limiter, Gate, Expander, Oversampling,
+};
+use rf_dsp::MonoProcessor;
+
+/// Compressor wrapper for insert chain
+pub struct CompressorWrapper {
+    comp: StereoCompressor,
+    sample_rate: f64,
+}
+
+impl CompressorWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            comp: StereoCompressor::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_threshold(&mut self, db: f64) {
+        self.comp.set_both(|c| c.set_threshold(db));
+    }
+
+    pub fn set_ratio(&mut self, ratio: f64) {
+        self.comp.set_both(|c| c.set_ratio(ratio));
+    }
+
+    pub fn set_attack(&mut self, ms: f64) {
+        self.comp.set_both(|c| c.set_attack(ms));
+    }
+
+    pub fn set_release(&mut self, ms: f64) {
+        self.comp.set_both(|c| c.set_release(ms));
+    }
+
+    pub fn set_makeup(&mut self, db: f64) {
+        self.comp.set_both(|c| c.set_makeup(db));
+    }
+
+    pub fn set_mix(&mut self, mix: f64) {
+        self.comp.set_both(|c| c.set_mix(mix));
+    }
+
+    pub fn set_type(&mut self, comp_type: CompressorType) {
+        self.comp.set_both(|c| c.set_type(comp_type));
+    }
+
+    pub fn set_link(&mut self, link: f64) {
+        self.comp.set_link(link);
+    }
+
+    pub fn gain_reduction_db(&self) -> (f64, f64) {
+        self.comp.gain_reduction_db()
+    }
+}
+
+impl InsertProcessor for CompressorWrapper {
+    fn name(&self) -> &str {
+        "ReelForge Compressor"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.comp.process_sample(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn reset(&mut self) {
+        self.comp.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.comp = StereoCompressor::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        8
+    }
+
+    fn get_param(&self, _index: usize) -> f64 {
+        0.0 // Would need to store params separately for get
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_threshold(value),
+            1 => self.set_ratio(value),
+            2 => self.set_attack(value),
+            3 => self.set_release(value),
+            4 => self.set_makeup(value),
+            5 => self.set_mix(value),
+            6 => self.set_link(value),
+            7 => {
+                let comp_type = match value as u8 {
+                    0 => CompressorType::Vca,
+                    1 => CompressorType::Opto,
+                    _ => CompressorType::Fet,
+                };
+                self.set_type(comp_type);
+            }
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Threshold",
+            1 => "Ratio",
+            2 => "Attack",
+            3 => "Release",
+            4 => "Makeup",
+            5 => "Mix",
+            6 => "Link",
+            7 => "Type",
+            _ => "",
+        }
+    }
+}
+
+/// True Peak Limiter wrapper
+pub struct TruePeakLimiterWrapper {
+    limiter: TruePeakLimiter,
+    sample_rate: f64,
+}
+
+impl TruePeakLimiterWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            limiter: TruePeakLimiter::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_threshold(&mut self, db: f64) {
+        self.limiter.set_threshold(db);
+    }
+
+    pub fn set_ceiling(&mut self, db: f64) {
+        self.limiter.set_ceiling(db);
+    }
+
+    pub fn set_release(&mut self, ms: f64) {
+        self.limiter.set_release(ms);
+    }
+
+    pub fn set_oversampling(&mut self, os: Oversampling) {
+        self.limiter.set_oversampling(os);
+    }
+
+    pub fn true_peak_db(&self) -> f64 {
+        self.limiter.true_peak_db()
+    }
+
+    pub fn gain_reduction_db(&self) -> f64 {
+        self.limiter.gain_reduction_db()
+    }
+}
+
+impl InsertProcessor for TruePeakLimiterWrapper {
+    fn name(&self) -> &str {
+        "ReelForge True Peak Limiter"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.limiter.process_sample(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn latency(&self) -> LatencySamples {
+        self.limiter.latency()
+    }
+
+    fn reset(&mut self) {
+        self.limiter.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.limiter = TruePeakLimiter::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        4
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_threshold(value),
+            1 => self.set_ceiling(value),
+            2 => self.set_release(value),
+            3 => {
+                let os = match value as u8 {
+                    0 => Oversampling::X1,
+                    1 => Oversampling::X2,
+                    2 => Oversampling::X4,
+                    _ => Oversampling::X8,
+                };
+                self.set_oversampling(os);
+            }
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Threshold",
+            1 => "Ceiling",
+            2 => "Release",
+            3 => "Oversampling",
+            _ => "",
+        }
+    }
+}
+
+/// Gate wrapper for insert chain
+pub struct GateWrapper {
+    left: Gate,
+    right: Gate,
+    sample_rate: f64,
+}
+
+impl GateWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            left: Gate::new(sample_rate),
+            right: Gate::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_threshold(&mut self, db: f64) {
+        self.left.set_threshold(db);
+        self.right.set_threshold(db);
+    }
+
+    pub fn set_range(&mut self, db: f64) {
+        self.left.set_range(db);
+        self.right.set_range(db);
+    }
+
+    pub fn set_attack(&mut self, ms: f64) {
+        self.left.set_attack(ms);
+        self.right.set_attack(ms);
+    }
+
+    pub fn set_hold(&mut self, ms: f64) {
+        self.left.set_hold(ms);
+        self.right.set_hold(ms);
+    }
+
+    pub fn set_release(&mut self, ms: f64) {
+        self.left.set_release(ms);
+        self.right.set_release(ms);
+    }
+}
+
+impl InsertProcessor for GateWrapper {
+    fn name(&self) -> &str {
+        "ReelForge Gate"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            *l = self.left.process_sample(*l);
+            *r = self.right.process_sample(*r);
+        }
+    }
+
+    fn reset(&mut self) {
+        self.left.reset();
+        self.right.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.left = Gate::new(sample_rate);
+        self.right = Gate::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        5
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_threshold(value),
+            1 => self.set_range(value),
+            2 => self.set_attack(value),
+            3 => self.set_hold(value),
+            4 => self.set_release(value),
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Threshold",
+            1 => "Range",
+            2 => "Attack",
+            3 => "Hold",
+            4 => "Release",
+            _ => "",
+        }
+    }
+}
+
+/// Expander wrapper for insert chain
+pub struct ExpanderWrapper {
+    left: Expander,
+    right: Expander,
+    sample_rate: f64,
+}
+
+impl ExpanderWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            left: Expander::new(sample_rate),
+            right: Expander::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_threshold(&mut self, db: f64) {
+        self.left.set_threshold(db);
+        self.right.set_threshold(db);
+    }
+
+    pub fn set_ratio(&mut self, ratio: f64) {
+        self.left.set_ratio(ratio);
+        self.right.set_ratio(ratio);
+    }
+
+    pub fn set_knee(&mut self, db: f64) {
+        self.left.set_knee(db);
+        self.right.set_knee(db);
+    }
+
+    pub fn set_times(&mut self, attack_ms: f64, release_ms: f64) {
+        self.left.set_times(attack_ms, release_ms);
+        self.right.set_times(attack_ms, release_ms);
+    }
+}
+
+impl InsertProcessor for ExpanderWrapper {
+    fn name(&self) -> &str {
+        "ReelForge Expander"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            *l = self.left.process_sample(*l);
+            *r = self.right.process_sample(*r);
+        }
+    }
+
+    fn reset(&mut self) {
+        self.left.reset();
+        self.right.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.left = Expander::new(sample_rate);
+        self.right = Expander::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        4
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_threshold(value),
+            1 => self.set_ratio(value),
+            2 => self.set_knee(value),
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Threshold",
+            1 => "Ratio",
+            2 => "Knee",
+            3 => "Attack/Release",
+            _ => "",
+        }
+    }
+}
+
+// ============ Extended Factory ============
+
+/// Create any processor by type name (extended version)
+pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn InsertProcessor>> {
+    // First try the basic factory
+    if let Some(proc) = create_processor(name, sample_rate) {
+        return Some(proc);
+    }
+
+    // Extended processors
+    match name.to_lowercase().as_str() {
+        "compressor" | "comp" => Some(Box::new(CompressorWrapper::new(sample_rate))),
+        "limiter" | "true-peak" | "truepeak" => Some(Box::new(TruePeakLimiterWrapper::new(sample_rate))),
+        "gate" | "noise-gate" => Some(Box::new(GateWrapper::new(sample_rate))),
+        "expander" | "exp" => Some(Box::new(ExpanderWrapper::new(sample_rate))),
+        _ => None,
+    }
+}
+
+/// Get list of all available processors
+pub fn available_processors() -> Vec<&'static str> {
+    vec![
+        // EQ
+        "pro-eq",
+        "ultra-eq",
+        "pultec",
+        "api550",
+        "neve1073",
+        "morph-eq",
+        "room-correction",
+        // Dynamics
+        "compressor",
+        "limiter",
+        "gate",
+        "expander",
+    ]
 }
 
 // ============ Tests ============

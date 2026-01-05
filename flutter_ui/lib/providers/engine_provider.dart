@@ -203,6 +203,22 @@ class EngineProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP OPERATIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Normalize clip to target dB level
+  bool normalizeClip(String clipId, {double targetDb = -3.0}) {
+    if (!isRunning) return false;
+    return engine.normalizeClip(clipId, targetDb: targetDb);
+  }
+
+  /// Reverse clip audio
+  bool reverseClip(String clipId) {
+    if (!isRunning) return false;
+    return engine.reverseClip(clipId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 

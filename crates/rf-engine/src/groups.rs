@@ -28,7 +28,8 @@ pub type GroupId = u64;
 /// VCA ID
 pub type VcaId = u64;
 
-/// Track ID
+/// Track ID - using u64 directly for compatibility with track_manager
+/// Note: rf-core::TrackId is a newtype struct, this is a type alias for internal use
 pub type TrackId = u64;
 
 static NEXT_GROUP_ID: AtomicU64 = AtomicU64::new(1);
@@ -488,6 +489,84 @@ impl GroupManager {
         self.folders
             .values()
             .find(|f| f.children.contains(&track_id))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FFI Helper Methods (for Flutter bridge)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /// List all VCAs with their info
+    pub fn list_vcas(&self) -> Vec<(VcaId, VcaInfo)> {
+        self.vcas.iter().map(|(&id, vca)| {
+            (id, VcaInfo {
+                name: vca.name.clone(),
+                level: db_to_linear(vca.level_db),
+                is_muted: vca.muted,
+                color: vca.color,
+                assigned_tracks: vca.members.iter().copied().collect(),
+            })
+        }).collect()
+    }
+
+    /// List all groups with their info
+    pub fn list_groups(&self) -> Vec<(GroupId, GroupInfo)> {
+        self.groups.iter().map(|(&id, group)| {
+            (id, GroupInfo {
+                name: group.name.clone(),
+                color: group.color,
+                tracks: group.members.iter().copied().collect(),
+                linked_params: group.linked_params.clone(),
+            })
+        }).collect()
+    }
+
+    /// Get VCA level (linear)
+    pub fn get_vca_level(&self, vca_id: VcaId) -> Option<f64> {
+        self.vcas.get(&vca_id).map(|vca| db_to_linear(vca.level_db))
+    }
+
+    /// Get effective volume for track including VCA contribution
+    pub fn get_track_effective_volume(&self, track_id: TrackId, base_volume: f64) -> f64 {
+        let vca_db = self.get_vca_contribution(track_id);
+        // Convert: base is linear, VCA contribution is in dB
+        let base_db = linear_to_db(base_volume);
+        db_to_linear(base_db + vca_db)
+    }
+}
+
+/// VCA info for FFI
+#[derive(Debug, Clone)]
+pub struct VcaInfo {
+    pub name: String,
+    pub level: f64,
+    pub is_muted: bool,
+    pub color: u32,
+    pub assigned_tracks: Vec<TrackId>,
+}
+
+/// Group info for FFI
+#[derive(Debug, Clone)]
+pub struct GroupInfo {
+    pub name: String,
+    pub color: u32,
+    pub tracks: Vec<TrackId>,
+    pub linked_params: HashSet<LinkParameter>,
+}
+
+// Helper functions for dB conversion
+fn db_to_linear(db: f64) -> f64 {
+    if db <= -144.0 {
+        0.0
+    } else {
+        10.0_f64.powf(db / 20.0)
+    }
+}
+
+fn linear_to_db(linear: f64) -> f64 {
+    if linear <= 0.0 {
+        -144.0
+    } else {
+        20.0 * linear.log10()
     }
 }
 

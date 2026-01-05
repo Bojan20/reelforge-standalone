@@ -320,6 +320,88 @@ pub fn write_wav<P: AsRef<Path>>(
     Ok(())
 }
 
+/// Write FLAC file using flac-bound
+pub fn write_flac<P: AsRef<Path>>(
+    path: P,
+    data: &AudioData,
+    bit_depth: BitDepth,
+) -> FileResult<()> {
+    use flac_bound::{FlacEncoder, WriteWrapper};
+    use std::fs::File;
+    use std::io::BufWriter;
+
+    let bits = match bit_depth {
+        BitDepth::Int8 => 8,
+        BitDepth::Int16 => 16,
+        BitDepth::Int24 => 24,
+        BitDepth::Int32 | BitDepth::Float32 | BitDepth::Float64 => 24, // FLAC max is 24-bit
+    };
+
+    let num_channels = data.num_channels() as u32;
+    let num_frames = data.num_frames();
+
+    // Create output file
+    let file = File::create(path.as_ref())?;
+    let mut buf_writer = BufWriter::new(file);
+    let mut write_wrapper = WriteWrapper(&mut buf_writer);
+
+    // Initialize encoder
+    let encoder = FlacEncoder::new()
+        .ok_or_else(|| FileError::WriteError("Failed to create FLAC encoder".to_string()))?
+        .channels(num_channels)
+        .bits_per_sample(bits)
+        .sample_rate(data.sample_rate)
+        .compression_level(5) // Good balance of speed/compression
+        .total_samples_estimate(num_frames as u64);
+
+    let mut encoder = encoder.init_write(&mut write_wrapper)
+        .map_err(|e| FileError::WriteError(format!("FLAC encoder init failed: {:?}", e)))?;
+
+    // Convert samples to i32 and process in chunks
+    const CHUNK_SIZE: usize = 4096;
+
+    // Prepare channel buffers
+    let mut channel_buffers: Vec<Vec<i32>> = (0..num_channels)
+        .map(|_| Vec::with_capacity(CHUNK_SIZE))
+        .collect();
+
+    let scale = match bits {
+        8 => 127.0,
+        16 => 32767.0,
+        24 => 8388607.0,
+        _ => 8388607.0,
+    };
+
+    for chunk_start in (0..num_frames).step_by(CHUNK_SIZE) {
+        let chunk_end = (chunk_start + CHUNK_SIZE).min(num_frames);
+        let chunk_len = chunk_end - chunk_start;
+
+        // Fill channel buffers
+        for (ch, buf) in channel_buffers.iter_mut().enumerate() {
+            buf.clear();
+            for i in chunk_start..chunk_end {
+                let sample = (data.channels[ch][i].clamp(-1.0, 1.0) * scale) as i32;
+                buf.push(sample);
+            }
+        }
+
+        // Create slice references for process()
+        let channel_refs: Vec<&[i32]> = channel_buffers.iter().map(|v| v.as_slice()).collect();
+
+        encoder.process(&channel_refs)
+            .map_err(|_| FileError::WriteError(format!(
+                "FLAC encoding failed at frame {}, state: {:?}",
+                chunk_start, encoder.state()
+            )))?;
+    }
+
+    // Finish encoding
+    encoder.finish()
+        .map_err(|e| FileError::WriteError(format!("FLAC finalize failed: {:?}", e.state())))?;
+
+    Ok(())
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SYMPHONIA READING (FLAC, MP3, OGG, AAC)
 // ═══════════════════════════════════════════════════════════════════════════════

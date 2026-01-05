@@ -14,13 +14,13 @@ import 'package:file_picker/file_picker.dart';
 
 import '../providers/engine_provider.dart';
 import '../providers/meter_provider.dart';
+import '../providers/mixer_provider.dart';
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../theme/reelforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
-import '../widgets/layout/lower_zone.dart' show MixerStrip;
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/mixer/pro_mixer_strip.dart';
 import '../widgets/mixer/plugin_selector.dart';
@@ -32,9 +32,15 @@ import '../widgets/tabs/tab_placeholders.dart';
 import '../widgets/timeline/timeline.dart' as timeline_widget;
 import '../widgets/eq/eq_editor.dart';
 import '../widgets/spectrum/spectrum_analyzer.dart';
+import '../widgets/meters/loudness_meter.dart';
 import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart';
+import '../widgets/editors/crossfade_editor.dart';
+import '../widgets/timeline/automation_lane.dart';
 import '../src/rust/engine_api.dart';
+import '../dialogs/export_audio_dialog.dart';
+import 'settings/audio_settings_screen.dart';
+import 'project/project_settings_screen.dart';
 import 'main_layout.dart';
 
 class EngineConnectedLayout extends StatefulWidget {
@@ -99,6 +105,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   double _headerFadeTime = 0.1;
   double _headerGain = 1.0;
   bool _headerLoop = false;
+
+  // Loudness meter state
+  LoudnessTarget _loudnessTarget = LoudnessTarget.streaming;
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
   List<ProjectTreeNode> _buildProjectTree() {
@@ -297,18 +306,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void _handleAddTrack() {
     final trackIndex = _tracks.length;
     final color = _trackColors[trackIndex % _trackColors.length];
+    final trackName = 'Audio ${trackIndex + 1}';
     final trackId = engine.createTrack(
-      name: 'Audio ${trackIndex + 1}',
+      name: trackName,
       color: color.value,
       busId: 0, // Master
     );
+
+    // Create corresponding mixer channel (Cubase-style auto-fader)
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.createChannelFromTrack(trackId, trackName, color);
 
     setState(() {
       _tracks = [
         ..._tracks,
         timeline.TimelineTrack(
           id: trackId,
-          name: 'Audio ${trackIndex + 1}',
+          name: trackName,
           color: color,
           outputBus: timeline.OutputBus.master,
         ),
@@ -319,6 +333,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// Delete a track
   void _handleDeleteTrack(String trackId) {
     engine.deleteTrack(trackId);
+
+    // Remove mixer channel (Cubase-style: track delete = fader delete)
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.deleteChannel('ch_$trackId');
+
     setState(() {
       _tracks = _tracks.where((t) => t.id != trackId).toList();
       _clips = _clips.where((c) => c.trackId != trackId).toList();
@@ -347,6 +366,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _tracks = [..._tracks, newTrack];
       _clips = [..._clips, ...newClips];
     });
+
+    // Create mixer channel for the duplicated track
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.createChannelFromTrack(newTrackId, newTrack.name, track.color);
 
     _showSnackBar('Track duplicated');
   }
@@ -571,6 +594,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _tracks = [..._tracks, newTrack];
       _clips = [..._clips, newClip];
     });
+
+    // Create mixer channel for the new track (Cubase-style: track = fader)
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.createChannelFromTrack(trackId, trackName, color);
 
     debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
@@ -1061,6 +1088,92 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STUDIO MENU HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Open Audio Settings screen
+  void _handleAudioSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const AudioSettingsScreen(),
+      ),
+    );
+  }
+
+  /// Open MIDI Settings (placeholder)
+  void _handleMidiSettings() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ReelForgeTheme.bgElevated,
+        title: const Text('MIDI Settings', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        content: Text(
+          'MIDI settings coming soon...',
+          style: TextStyle(color: ReelForgeTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Open Plugin Manager (placeholder)
+  void _handlePluginManager() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ReelForgeTheme.bgElevated,
+        title: const Text('Plugin Manager', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        content: Text(
+          'Plugin Manager coming soon...',
+          style: TextStyle(color: ReelForgeTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Open Project Settings screen
+  void _handleProjectSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ProjectSettingsScreen(),
+      ),
+    );
+  }
+
+  /// Open Audio Export dialog
+  void _handleExportAudio() async {
+    final engine = context.read<EngineProvider>();
+    final projectName = engine.project.name.isNotEmpty
+        ? engine.project.name
+        : (widget.projectName ?? 'Untitled');
+    // Compute duration in seconds from samples
+    final projectDuration = engine.project.sampleRate > 0
+        ? engine.project.durationSamples / engine.project.sampleRate
+        : 60.0;
+
+    final result = await ExportAudioDialog.show(
+      context,
+      projectName: projectName,
+      projectDuration: projectDuration,
+    );
+
+    if (result != null && result.success) {
+      _showSnackBar('Audio exported to ${result.outputPath}');
+    }
+  }
+
   /// Show snackbar message
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1481,6 +1594,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onExportJSON: () => _handleExportJSON(),
             onImportAudioFolder: () => _handleImportAudioFolder(),
             onImportAudioFiles: _openFilePicker,
+            onExportAudio: () => _handleExportAudio(),
             // ═══════════════════════════════════════════════════════════════
             // EDIT MENU - All connected
             // ═══════════════════════════════════════════════════════════════
@@ -1501,9 +1615,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             // ═══════════════════════════════════════════════════════════════
             // PROJECT MENU - All connected
             // ═══════════════════════════════════════════════════════════════
-            onProjectSettings: () => _showProjectSettingsDialog(engine),
+            onProjectSettings: () => _handleProjectSettings(),
             onValidateProject: () => _handleValidateProject(),
             onBuildProject: () => _handleBuildProject(),
+            // ═══════════════════════════════════════════════════════════════
+            // STUDIO MENU - All connected
+            // ═══════════════════════════════════════════════════════════════
+            onAudioSettings: () => _handleAudioSettings(),
+            onMidiSettings: () => _handleMidiSettings(),
+            onPluginManager: () => _handlePluginManager(),
           ),
 
           // Left zone - mode-aware tree
@@ -1624,6 +1744,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
               return c.copyWith(startTime: newStartTime);
+            }
+            return c;
+          }).toList();
+        });
+      },
+      onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
+        // Move clip to a different track
+        engine.moveClip(
+          clipId: clipId,
+          targetTrackId: targetTrackId,
+          startTime: newStartTime,
+        );
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(
+                trackId: targetTrackId,
+                startTime: newStartTime,
+              );
             }
             return c;
           }).toList();
@@ -1913,6 +2052,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onTrackContextMenu: (trackId, position) {
         _showTrackContextMenu(trackId, position);
       },
+      // Transport shortcuts (SPACE)
+      onPlayPause: () {
+        if (engine.transport.isPlaying) {
+          engine.pause();
+        } else {
+          engine.play();
+        }
+      },
+      onStop: () => engine.stop(),
+      // Undo/Redo shortcuts (Cmd+Z, Cmd+Shift+Z)
+      onUndo: engine.canUndo ? () => engine.undo() : null,
+      onRedo: engine.canRedo ? () => engine.redo() : null,
     );
   }
 
@@ -2553,10 +2704,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onNormalize: (clipId) {
-        // TODO: Implement audio normalization
+        // Call Rust normalize function via FFI
+        engine.normalizeClip(clipId, targetDb: -3.0);
       },
       onReverse: (clipId) {
-        // TODO: Implement audio reverse
+        // Call Rust reverse function via FFI
+        engine.reverseClip(clipId);
       },
       onTrimToSelection: (clipId, selection) {
         setState(() {
@@ -2601,6 +2754,66 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (clip != null) {
           engine.seek(clip.startTime + localPosition);
         }
+      },
+    );
+  }
+
+  /// Build Crossfade Editor content
+  Widget _buildCrossfadeEditorContent() {
+    // Find any selected crossfade between clips
+    // For now, show a placeholder with default config
+    return CrossfadeEditor(
+      initialConfig: const CrossfadeConfig(
+        fadeOut: FadeCurveConfig(
+          preset: CrossfadePreset.equalPower,
+        ),
+        fadeIn: FadeCurveConfig(
+          preset: CrossfadePreset.equalPower,
+        ),
+        duration: 1.0,
+        centerOffset: 0.0,
+        linked: true,
+      ),
+      onConfigChanged: (config) {
+        // Apply crossfade changes to timeline
+        debugPrint('Crossfade config changed: duration=${config.duration}');
+      },
+      onAudition: () {
+        // Start playback of crossfade region
+      },
+    );
+  }
+
+  /// Build Automation Editor content
+  Widget _buildAutomationEditorContent() {
+    // Demo automation data
+    final automationData = AutomationLaneData(
+      id: 'vol',
+      parameter: AutomationParameter.volume,
+      parameterName: 'Volume',
+      color: const Color(0xFF4A9EFF),
+      mode: AutomationMode.read,
+      points: [
+        const AutomationPoint(id: '1', time: 0, value: 0.75),
+        const AutomationPoint(id: '2', time: 2.0, value: 0.9),
+        const AutomationPoint(id: '3', time: 4.0, value: 0.5),
+        const AutomationPoint(id: '4', time: 8.0, value: 0.75),
+      ],
+      minValue: 0.0,
+      maxValue: 1.0,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return AutomationLane(
+          data: automationData,
+          zoom: _timelineZoom,
+          scrollOffset: _timelineScrollOffset,
+          width: constraints.maxWidth,
+          onDataChanged: (data) {
+            debugPrint('Automation data changed: ${data.points.length} points');
+          },
+        );
       },
     );
   }
@@ -3208,6 +3421,174 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     debugPrint('[EQ] Syncing ${_eqBands.length} bands to engine');
   }
 
+  /// Build Loudness meter content (LUFS + True Peak)
+  Widget _buildLoudnessContent(MeteringState metering) {
+    return Container(
+      color: ReelForgeTheme.bgDeep,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Main loudness meter
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: LoudnessMeter(
+                metering: metering,
+                target: _loudnessTarget,
+                showHistory: false,
+                onTargetChanged: (target) {
+                  setState(() => _loudnessTarget = target);
+                },
+                onResetIntegrated: () {
+                  // TODO: Call engine.resetLufsIntegrated()
+                  debugPrint('[Loudness] Reset integrated LUFS');
+                },
+              ),
+            ),
+          ),
+
+          // Right panel - info and recommendations
+          Container(
+            width: 200,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgMid,
+              border: Border(
+                left: BorderSide(color: ReelForgeTheme.borderSubtle),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Target Standards',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: ReelForgeTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildTargetInfoRow('Broadcast (R128)', '-23 LUFS', '-1 dBTP'),
+                _buildTargetInfoRow('Streaming', '-14 LUFS', '-2 dBTP'),
+                _buildTargetInfoRow('Cinema (ATSC)', '-24 LUFS', '-2 dBTP'),
+                const Spacer(),
+                // Current status
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ReelForgeTheme.bgDeepest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: ReelForgeTheme.borderSubtle),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Current Reading',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: ReelForgeTheme.textTertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'LUFS-I',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: ReelForgeTheme.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            metering.masterLufsI > -70
+                                ? '${metering.masterLufsI.toStringAsFixed(1)} LUFS'
+                                : '-∞',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                              color: ReelForgeTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'True Peak',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: ReelForgeTheme.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            metering.masterTruePeak > -70
+                                ? '${metering.masterTruePeak.toStringAsFixed(1)} dBTP'
+                                : '-∞',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                              color: metering.masterTruePeak > -1
+                                  ? const Color(0xFFFF4040)
+                                  : ReelForgeTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetInfoRow(String name, String lufs, String tp) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 10,
+                color: ReelForgeTheme.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            lufs,
+            style: TextStyle(
+              fontSize: 9,
+              fontFamily: 'monospace',
+              color: ReelForgeTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            tp,
+            style: TextStyle(
+              fontSize: 9,
+              fontFamily: 'monospace',
+              color: ReelForgeTheme.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build inspector sections based on mode
   List<InspectorSection> _buildInspectorSections() {
     if (_editorMode == EditorMode.daw) {
@@ -3323,6 +3704,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: _buildClipEditorContent(),
         groupId: 'editor',
       ),
+      // ========== Crossfade Editor (Editor group) ==========
+      LowerZoneTab(
+        id: 'crossfade',
+        label: 'Crossfade',
+        icon: Icons.compare,
+        content: _buildCrossfadeEditorContent(),
+        groupId: 'editor',
+      ),
+      // ========== Automation Editor (Editor group) ==========
+      LowerZoneTab(
+        id: 'automation',
+        label: 'Automation',
+        icon: Icons.timeline,
+        content: _buildAutomationEditorContent(),
+        groupId: 'editor',
+      ),
       // ========== Piano Roll (Editor group) ==========
       LowerZoneTab(
         id: 'piano-roll',
@@ -3417,6 +3814,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         groupId: 'dsp',
       ),
       LowerZoneTab(
+        id: 'loudness',
+        label: 'Loudness',
+        icon: Icons.surround_sound,
+        content: _buildLoudnessContent(metering),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
         id: 'sidechain',
         label: 'Sidechain',
         icon: Icons.link,
@@ -3484,11 +3888,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'MixConsole',
         tabs: ['mixer'], // NOTE: timeline is in center zone, not lower
       ),
-      // Editor - Clip Editor and Piano Roll (like Cubase Lower Zone editors)
+      // Editor - Clip Editor, Crossfade, Automation, Piano Roll (like Cubase Lower Zone editors)
       const TabGroup(
         id: 'editor',
         label: 'Editor',
-        tabs: ['clip-editor', 'piano-roll'],
+        tabs: ['clip-editor', 'crossfade', 'automation', 'piano-roll'],
       ),
       // Sampler - Layered music system (like Cubase Sampler Control)
       const TabGroup(

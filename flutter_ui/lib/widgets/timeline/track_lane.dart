@@ -24,6 +24,14 @@ class TrackLane extends StatefulWidget {
   final int timeSignatureNum;
   final ValueChanged<String>? onClipSelect;
   final void Function(String clipId, double newStartTime)? onClipMove;
+  /// Called during cross-track drag with clip ID, new start time, and Y delta
+  final void Function(String clipId, double newStartTime, double verticalDelta)? onClipCrossTrackDrag;
+  /// Called when cross-track drag ends - determines final track placement
+  final void Function(String clipId)? onClipCrossTrackDragEnd;
+  /// Smooth drag callbacks (Cubase-style ghost preview)
+  final void Function(String clipId, Offset globalPosition, Offset localPosition)? onClipDragStart;
+  final void Function(String clipId, Offset globalPosition)? onClipDragUpdate;
+  final void Function(String clipId, Offset globalPosition)? onClipDragEnd;
   final void Function(String clipId, double gain)? onClipGainChange;
   final void Function(String clipId, double fadeIn, double fadeOut)?
       onClipFadeChange;
@@ -40,6 +48,8 @@ class TrackLane extends StatefulWidget {
   final bool snapEnabled;
   final double snapValue;
   final List<TimelineClip> allClips;
+  /// ID of clip being dragged (used to hide original during ghost preview)
+  final String? draggingClipId;
 
   const TrackLane({
     super.key,
@@ -53,6 +63,11 @@ class TrackLane extends StatefulWidget {
     this.timeSignatureNum = 4,
     this.onClipSelect,
     this.onClipMove,
+    this.onClipCrossTrackDrag,
+    this.onClipCrossTrackDragEnd,
+    this.onClipDragStart,
+    this.onClipDragUpdate,
+    this.onClipDragEnd,
     this.onClipGainChange,
     this.onClipFadeChange,
     this.onClipResize,
@@ -63,6 +78,7 @@ class TrackLane extends StatefulWidget {
     this.snapEnabled = false,
     this.snapValue = 1,
     this.allClips = const [],
+    this.draggingClipId,
   });
 
   @override
@@ -94,8 +110,10 @@ class _TrackLaneState extends State<TrackLane> {
                 timeSignatureNum: widget.timeSignatureNum,
               ),
 
-              // Clips
-              ...widget.clips.map((clip) => ClipWidget(
+              // Clips (hide clip being dragged - ghost is shown instead)
+              ...widget.clips
+                  .where((clip) => clip.id != widget.draggingClipId)
+                  .map((clip) => ClipWidget(
                     key: ValueKey(clip.id),
                     clip: clip,
                     zoom: widget.zoom,
@@ -104,6 +122,17 @@ class _TrackLaneState extends State<TrackLane> {
                     onSelect: (multi) => widget.onClipSelect?.call(clip.id),
                     onMove: (newStart) =>
                         widget.onClipMove?.call(clip.id, newStart),
+                    onCrossTrackDrag: (newStart, verticalDelta) =>
+                        widget.onClipCrossTrackDrag?.call(clip.id, newStart, verticalDelta),
+                    onCrossTrackDragEnd: () =>
+                        widget.onClipCrossTrackDragEnd?.call(clip.id),
+                    // Smooth drag callbacks (Cubase-style)
+                    onDragStart: (globalPos, localPos) =>
+                        widget.onClipDragStart?.call(clip.id, globalPos, localPos),
+                    onDragUpdate: (globalPos) =>
+                        widget.onClipDragUpdate?.call(clip.id, globalPos),
+                    onDragEnd: (globalPos) =>
+                        widget.onClipDragEnd?.call(clip.id, globalPos),
                     onGainChange: (gain) =>
                         widget.onClipGainChange?.call(clip.id, gain),
                     onFadeChange: (fadeIn, fadeOut) =>

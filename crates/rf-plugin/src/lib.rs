@@ -78,6 +78,9 @@ pub enum PluginError {
     #[error("Plugin initialization failed: {0}")]
     InitFailed(String),
 
+    #[error("Plugin init error: {0}")]
+    InitError(String),
+
     #[error("Audio processing error: {0}")]
     ProcessingError(String),
 
@@ -266,6 +269,16 @@ pub trait PluginInstance: Send + Sync {
 
     /// Close editor
     fn close_editor(&mut self) -> PluginResult<()>;
+
+    /// Get editor size (width, height) if open
+    fn editor_size(&self) -> Option<(u32, u32)> {
+        None
+    }
+
+    /// Resize editor to new dimensions
+    fn resize_editor(&mut self, _width: u32, _height: u32) -> PluginResult<()> {
+        Ok(())
+    }
 }
 
 /// Central plugin host managing all plugin instances

@@ -11,6 +11,7 @@
 /// - Keyboard shortcuts
 /// - Drag & drop audio files
 
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,6 +57,8 @@ class Timeline extends StatefulWidget {
   final ValueChanged<double>? onPlayheadScrub;
   final void Function(String clipId, bool multiSelect)? onClipSelect;
   final void Function(String clipId, double newStartTime)? onClipMove;
+  /// Move clip to a different track
+  final void Function(String clipId, String targetTrackId, double newStartTime)? onClipMoveToTrack;
   final void Function(
     String clipId,
     double newStartTime,
@@ -89,6 +92,14 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipCopy;
   final VoidCallback? onClipPaste;
   final ValueChanged<String>? onMarkerClick;
+
+  /// Transport controls
+  final VoidCallback? onPlayPause;
+  final VoidCallback? onStop;
+
+  /// Undo/Redo
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
 
   /// Crossfades
   final List<Crossfade> crossfades;
@@ -135,6 +146,7 @@ class Timeline extends StatefulWidget {
     this.onPlayheadScrub,
     this.onClipSelect,
     this.onClipMove,
+    this.onClipMoveToTrack,
     this.onClipResize,
     this.onClipSlipEdit,
     this.onZoomChange,
@@ -162,6 +174,10 @@ class Timeline extends StatefulWidget {
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
+    this.onPlayPause,
+    this.onStop,
+    this.onUndo,
+    this.onRedo,
     this.crossfades = const [],
     this.onCrossfadeUpdate,
     this.onCrossfadeDelete,
@@ -191,11 +207,32 @@ class _TimelineState extends State<Timeline> {
   Offset? _dropPosition;
   Offset? _poolDropPosition;
 
+  // Cross-track drag state
+  String? _crossTrackDraggingClipId;
+  double _crossTrackDragTime = 0;
+  double _crossTrackDragYDelta = 0;
+  int _crossTrackTargetIndex = -1;
+
+  // Smooth drag ghost state (Cubase-style)
+  TimelineClip? _draggingClip;
+  Offset? _dragGhostPosition;  // Global position for ghost overlay
+  Offset? _dragStartLocalPosition;  // Where drag started relative to clip
+  int _dragSourceTrackIndex = -1;
+
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
 
   /// Supported audio file extensions
   static const _audioExtensions = {'.wav', '.mp3', '.flac', '.ogg', '.aiff', '.aif'};
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-focus after first frame to enable keyboard shortcuts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
@@ -246,6 +283,9 @@ class _TimelineState extends State<Timeline> {
   }
 
   void _handleTimelineClick(TapDownDetails details) {
+    // Request focus for keyboard shortcuts (G, H, L, etc.)
+    _focusNode.requestFocus();
+
     final x = details.localPosition.dx - _headerWidth;
     if (x < 0) return;
     final time = widget.scrollOffset + x / widget.zoom;
@@ -324,6 +364,15 @@ class _TimelineState extends State<Timeline> {
     });
   }
 
+  /// Format drop position as time string
+  String _formatDropTime(double x) {
+    final time = (widget.scrollOffset + (x - _headerWidth) / widget.zoom).clamp(0.0, widget.totalDuration);
+    final minutes = (time / 60).floor();
+    final seconds = (time % 60).floor();
+    final ms = ((time % 1) * 1000).floor();
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${ms.toString().padLeft(3, '0')}';
+  }
+
   /// Handle pool file drop on timeline (drag from Audio Pool)
   void _handlePoolFileDrop(dynamic poolFile, Offset globalPosition) {
     if (widget.onPoolFileDrop == null) return;
@@ -388,14 +437,14 @@ class _TimelineState extends State<Timeline> {
       }
     }
 
-    // G - zoom in
+    // G - zoom out (Cubase-style)
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
-      widget.onZoomChange?.call((widget.zoom * 1.25).clamp(10, 500));
+      widget.onZoomChange?.call((widget.zoom * 0.8).clamp(10, 500));
     }
 
-    // H - zoom out
+    // H - zoom in (Cubase-style)
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
-      widget.onZoomChange?.call((widget.zoom * 0.8).clamp(10, 500));
+      widget.onZoomChange?.call((widget.zoom * 1.25).clamp(10, 500));
     }
 
     // L - set loop around selected clip OR toggle loop if no selection
@@ -453,6 +502,236 @@ class _TimelineState extends State<Timeline> {
         event.logicalKey == LogicalKeyboardKey.keyV) {
       widget.onClipPaste?.call();
     }
+
+    // SPACE - play/pause
+    if (event.logicalKey == LogicalKeyboardKey.space) {
+      widget.onPlayPause?.call();
+    }
+
+    // Cmd+Z - undo, Cmd+Shift+Z - redo
+    if ((HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed) &&
+        event.logicalKey == LogicalKeyboardKey.keyZ) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        widget.onRedo?.call();
+      } else {
+        widget.onUndo?.call();
+      }
+    }
+
+    // Cmd+Y - redo (Windows style)
+    if ((HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed) &&
+        event.logicalKey == LogicalKeyboardKey.keyY) {
+      widget.onRedo?.call();
+    }
+  }
+
+  /// Handle cross-track drag update
+  void _handleCrossTrackDrag(String clipId, double newStartTime, double verticalDelta, int sourceTrackIndex) {
+    // Calculate target track index based on vertical delta
+    final tracksDelta = (verticalDelta / _trackHeight).round();
+    final targetIndex = (sourceTrackIndex + tracksDelta).clamp(0, widget.tracks.length - 1);
+
+    setState(() {
+      _crossTrackDraggingClipId = clipId;
+      _crossTrackDragTime = newStartTime;
+      _crossTrackDragYDelta = verticalDelta;
+      _crossTrackTargetIndex = targetIndex;
+    });
+  }
+
+  /// Handle cross-track drag end - commit the move
+  void _handleCrossTrackDragEnd(String clipId) {
+    if (_crossTrackDraggingClipId == clipId && _crossTrackTargetIndex >= 0) {
+      final targetTrack = widget.tracks[_crossTrackTargetIndex];
+
+      // Find the original clip to check if we're actually moving to a different track
+      final clip = widget.clips.firstWhere(
+        (c) => c.id == clipId,
+        orElse: () => widget.clips.first,
+      );
+
+      if (clip.trackId != targetTrack.id) {
+        // Move to different track
+        widget.onClipMoveToTrack?.call(clipId, targetTrack.id, _crossTrackDragTime);
+      } else {
+        // Same track, just update time
+        widget.onClipMove?.call(clipId, _crossTrackDragTime);
+      }
+    }
+
+    setState(() {
+      _crossTrackDraggingClipId = null;
+      _crossTrackTargetIndex = -1;
+    });
+  }
+
+  /// Start dragging a clip - show ghost preview
+  void _handleClipDragStart(String clipId, Offset globalPosition, Offset localPosition, int trackIndex) {
+    final clip = widget.clips.firstWhere(
+      (c) => c.id == clipId,
+      orElse: () => widget.clips.first,
+    );
+
+    setState(() {
+      _draggingClip = clip;
+      _dragGhostPosition = globalPosition;
+      _dragStartLocalPosition = localPosition;
+      _dragSourceTrackIndex = trackIndex;
+    });
+  }
+
+  /// Update ghost position during drag
+  void _handleClipDragUpdate(Offset globalPosition) {
+    if (_draggingClip == null) return;
+
+    setState(() {
+      _dragGhostPosition = globalPosition;
+    });
+  }
+
+  /// End drag and commit the move
+  void _handleClipDragEnd(Offset globalPosition, RenderBox? timelineBox) {
+    if (_draggingClip == null || timelineBox == null) {
+      setState(() {
+        _draggingClip = null;
+        _dragGhostPosition = null;
+        _dragStartLocalPosition = null;
+        _dragSourceTrackIndex = -1;
+      });
+      return;
+    }
+
+    // Convert global position to local timeline position
+    final localPos = timelineBox.globalToLocal(globalPosition);
+
+    // Calculate new time position
+    final x = localPos.dx - _headerWidth - (_dragStartLocalPosition?.dx ?? 0);
+    final newStartTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+
+    // Calculate target track index
+    final y = localPos.dy - _rulerHeight;
+    final targetTrackIndex = (y / _trackHeight).floor().clamp(0, widget.tracks.length - 1);
+
+    final clipId = _draggingClip!.id;
+    final sourceTrackId = _draggingClip!.trackId;
+    final targetTrackId = widget.tracks.isNotEmpty ? widget.tracks[targetTrackIndex].id : sourceTrackId;
+
+    // Apply snap
+    final snappedTime = applySnap(
+      newStartTime,
+      widget.snapEnabled,
+      widget.snapValue,
+      widget.tempo,
+      widget.clips,
+    );
+
+    // Commit the move
+    if (targetTrackId != sourceTrackId) {
+      widget.onClipMoveToTrack?.call(clipId, targetTrackId, snappedTime);
+    } else {
+      widget.onClipMove?.call(clipId, snappedTime);
+    }
+
+    // Clear drag state
+    setState(() {
+      _draggingClip = null;
+      _dragGhostPosition = null;
+      _dragStartLocalPosition = null;
+      _dragSourceTrackIndex = -1;
+    });
+  }
+
+  /// Build ghost clip overlay for smooth drag preview
+  Widget _buildDragGhost(RenderBox? timelineBox) {
+    if (_draggingClip == null || _dragGhostPosition == null || timelineBox == null) {
+      return const SizedBox.shrink();
+    }
+
+    final clip = _draggingClip!;
+    final clipWidth = clip.duration * widget.zoom;
+    final clipHeight = _trackHeight - 4;
+    final clipColor = clip.color ?? const Color(0xFF3A6EA5);
+
+    // Convert global position to local
+    final localPos = timelineBox.globalToLocal(_dragGhostPosition!);
+    final ghostX = localPos.dx - (_dragStartLocalPosition?.dx ?? 0);
+    final ghostY = localPos.dy - (_dragStartLocalPosition?.dy ?? 0);
+
+    // Calculate which track we're hovering over (snap to track lanes)
+    final trackIndex = ((ghostY - _rulerHeight) / _trackHeight).floor().clamp(0, widget.tracks.length - 1);
+    final targetTrackY = trackIndex * _trackHeight + _rulerHeight + 2;
+
+    return Positioned(
+      left: ghostX,
+      top: targetTrackY,
+      child: IgnorePointer(
+        child: Container(
+          width: clipWidth.clamp(20.0, double.infinity),
+          height: clipHeight,
+          decoration: BoxDecoration(
+            color: clipColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.9),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: clipColor.withValues(alpha: 0.5),
+                blurRadius: 12,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: Stack(
+              children: [
+                // Simplified waveform representation (gradient)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.3),
+                          Colors.white.withValues(alpha: 0.1),
+                          Colors.white.withValues(alpha: 0.3),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Label
+                Positioned(
+                  left: 4,
+                  top: 2,
+                  right: 4,
+                  child: Text(
+                    clip.name,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -540,7 +819,9 @@ class _TimelineState extends State<Timeline> {
                                 sampleRate: widget.sampleRate,
                                 loopRegion: widget.loopRegion,
                                 loopEnabled: widget.loopEnabled,
+                                playheadPosition: widget.playheadPosition,
                                 onTimeClick: widget.onPlayheadChange,
+                                onTimeScrub: widget.onPlayheadScrub ?? widget.onPlayheadChange,
                                 onLoopToggle: widget.onLoopToggle,
                               ),
                               // Loop region handles
@@ -666,6 +947,17 @@ class _TimelineState extends State<Timeline> {
                                         onClipSelect: (id) =>
                                             widget.onClipSelect?.call(id, false),
                                         onClipMove: widget.onClipMove,
+                                        onClipCrossTrackDrag: (clipId, newStartTime, verticalDelta) =>
+                                            _handleCrossTrackDrag(clipId, newStartTime, verticalDelta, index),
+                                        onClipCrossTrackDragEnd: (clipId) =>
+                                            _handleCrossTrackDragEnd(clipId),
+                                        // Smooth drag callbacks (Cubase-style ghost preview)
+                                        onClipDragStart: (clipId, globalPos, localPos) =>
+                                            _handleClipDragStart(clipId, globalPos, localPos, index),
+                                        onClipDragUpdate: (clipId, globalPos) =>
+                                            _handleClipDragUpdate(globalPos),
+                                        onClipDragEnd: (clipId, globalPos) =>
+                                            _handleClipDragEnd(globalPos, context.findRenderObject() as RenderBox?),
                                         onClipGainChange: widget.onClipGainChange,
                                         onClipFadeChange: widget.onClipFadeChange,
                                         onClipResize: widget.onClipResize,
@@ -676,6 +968,8 @@ class _TimelineState extends State<Timeline> {
                                         snapEnabled: widget.snapEnabled,
                                         snapValue: widget.snapValue,
                                         allClips: widget.clips,
+                                        // Hide original clip while ghost is shown
+                                        draggingClipId: _draggingClip?.id,
                                       ),
                                     ),
                                   ],
@@ -684,7 +978,7 @@ class _TimelineState extends State<Timeline> {
                             },
                           ),
 
-                          // Playhead
+                          // Playhead (Cubase-style)
                           if (_playheadX >= 0 && _playheadX <= _containerWidth)
                             Positioned(
                               left: _headerWidth + _playheadX,
@@ -699,23 +993,54 @@ class _TimelineState extends State<Timeline> {
                                   setState(() => _isDraggingPlayhead = false);
                                 },
                                 child: MouseRegion(
-                                  cursor: SystemMouseCursors.resizeColumn,
+                                  cursor: _isDraggingPlayhead
+                                      ? SystemMouseCursors.grabbing
+                                      : SystemMouseCursors.resizeColumn,
                                   child: Container(
-                                    width: 12,
-                                    transform: Matrix4.translationValues(-6, 0, 0),
+                                    width: 16,
+                                    transform: Matrix4.translationValues(-8, 0, 0),
                                     child: Stack(
                                       alignment: Alignment.topCenter,
                                       children: [
-                                        // Glow
-                                        Container(
-                                          width: _isDraggingPlayhead ? 4 : 2,
-                                          color: ReelForgeTheme.accentRed
-                                              .withValues(alpha: _isDraggingPlayhead ? 0.8 : 0.6),
+                                        // Glow effect (Cubase-style)
+                                        if (_isDraggingPlayhead)
+                                          Container(
+                                            width: 8,
+                                            decoration: BoxDecoration(
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+                                                  blurRadius: 12,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        // Main line
+                                        Positioned(
+                                          left: 7,
+                                          top: 0,
+                                          bottom: 0,
+                                          child: Container(
+                                            width: _isDraggingPlayhead ? 3 : 2,
+                                            decoration: BoxDecoration(
+                                              color: ReelForgeTheme.accentRed,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.5),
+                                                  blurRadius: 2,
+                                                  offset: const Offset(1, 0),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                        // Head
+                                        // Head triangle (Cubase-style at top)
                                         CustomPaint(
-                                          size: const Size(12, 10),
-                                          painter: _PlayheadPainter(),
+                                          size: const Size(14, 12),
+                                          painter: _PlayheadPainter(
+                                            isDragging: _isDraggingPlayhead,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -768,6 +1093,14 @@ class _TimelineState extends State<Timeline> {
                               ),
                             );
                           }),
+
+                          // Drag ghost overlay (Cubase-style smooth drag preview)
+                          Builder(
+                            builder: (ctx) {
+                              final box = ctx.findRenderObject() as RenderBox?;
+                              return _buildDragGhost(box);
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -791,68 +1124,136 @@ class _TimelineState extends State<Timeline> {
                 ],
                     ), // Column
 
-                    // Drop overlay
+                    // Drop overlay with ghost clip preview (Cubase-style)
                     if (_isDroppingFile)
                       Positioned.fill(
                         child: Container(
-                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                              decoration: BoxDecoration(
-                                color: ReelForgeTheme.bgMid,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: ReelForgeTheme.accentBlue,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.audio_file,
-                                    size: 48,
-                                    color: ReelForgeTheme.accentBlue,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Drop audio files here',
-                                    style: ReelForgeTheme.body.copyWith(
-                                      color: ReelForgeTheme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'WAV, MP3, FLAC, OGG, AIFF',
-                                    style: ReelForgeTheme.bodySmall.copyWith(
-                                      color: ReelForgeTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.05),
                         ),
                       ),
 
-                    // Drop position indicator
+                    // Ghost clip preview at drop position
                     if (_isDroppingFile && _dropPosition != null)
-                      Positioned(
-                        left: _dropPosition!.dx - 1,
-                        top: _rulerHeight,
-                        bottom: 20,
-                        child: Container(
-                          width: 2,
-                          color: ReelForgeTheme.accentBlue,
-                        ),
+                      Builder(
+                        builder: (context) {
+                          // Calculate target track
+                          final yInContent = _dropPosition!.dy - _rulerHeight;
+                          final trackIndex = (yInContent / _trackHeight).floor().clamp(0, math.max(0, widget.tracks.length - 1));
+                          final targetTrackY = trackIndex * _trackHeight + _rulerHeight + 2;
+
+                          // Ghost clip dimensions (preview)
+                          const ghostWidth = 120.0; // Default width for preview
+                          final ghostHeight = _trackHeight - 4;
+
+                          return Stack(
+                            children: [
+                              // Track highlight
+                              if (widget.tracks.isNotEmpty)
+                                Positioned(
+                                  left: _headerWidth,
+                                  top: targetTrackY - 2,
+                                  right: 0,
+                                  height: _trackHeight,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
+                                      border: Border.all(
+                                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              // Ghost clip
+                              Positioned(
+                                left: _dropPosition!.dx - ghostWidth / 2,
+                                top: targetTrackY,
+                                child: Container(
+                                  width: ghostWidth,
+                                  height: ghostHeight,
+                                  decoration: BoxDecoration(
+                                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: ReelForgeTheme.accentBlue,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      // Waveform placeholder
+                                      Positioned.fill(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(2),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.white.withValues(alpha: 0.2),
+                                                  Colors.white.withValues(alpha: 0.1),
+                                                  Colors.white.withValues(alpha: 0.2),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // Icon
+                                      Center(
+                                        child: Icon(
+                                          Icons.audio_file,
+                                          size: 20,
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // Position line
+                              Positioned(
+                                left: _dropPosition!.dx - 1,
+                                top: _rulerHeight,
+                                bottom: 0,
+                                child: Container(
+                                  width: 2,
+                                  color: ReelForgeTheme.accentBlue,
+                                ),
+                              ),
+
+                              // Time tooltip
+                              Positioned(
+                                left: _dropPosition!.dx + 8,
+                                top: _rulerHeight + 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: ReelForgeTheme.bgMid,
+                                    borderRadius: BorderRadius.circular(3),
+                                    border: Border.all(color: ReelForgeTheme.accentBlue),
+                                  ),
+                                  child: Text(
+                                    _formatDropTime(_dropPosition!.dx),
+                                    style: ReelForgeTheme.monoSmall.copyWith(
+                                      color: ReelForgeTheme.accentBlue,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                   ],
                 ), // Stack
@@ -938,21 +1339,54 @@ class _TimelineState extends State<Timeline> {
 }
 
 class _PlayheadPainter extends CustomPainter {
+  final bool isDragging;
+
+  _PlayheadPainter({this.isDragging = false});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ReelForgeTheme.accentRed
+    // Cubase-style playhead triangle with shadow
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
 
+    final paint = Paint()
+      ..color = isDragging
+          ? ReelForgeTheme.accentRed
+          : ReelForgeTheme.accentRed.withValues(alpha: 0.95)
+      ..style = PaintingStyle.fill;
+
+    // Shadow
+    final shadowPath = Path()
+      ..moveTo(1, 1)
+      ..lineTo(size.width - 1, 1)
+      ..lineTo(size.width / 2, size.height + 1)
+      ..close();
+    canvas.drawPath(shadowPath, shadowPaint);
+
+    // Main triangle
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo(size.width, 0)
       ..lineTo(size.width / 2, size.height)
       ..close();
-
     canvas.drawPath(path, paint);
+
+    // Inner highlight for 3D effect
+    if (isDragging) {
+      final highlightPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      final highlightPath = Path()
+        ..moveTo(2, 2)
+        ..lineTo(size.width - 2, 2)
+        ..lineTo(size.width / 2, size.height - 2);
+      canvas.drawPath(highlightPath, highlightPaint);
+    }
   }
 
   @override
-  bool shouldRepaint(_PlayheadPainter oldDelegate) => false;
+  bool shouldRepaint(_PlayheadPainter oldDelegate) =>
+      isDragging != oldDelegate.isDragging;
 }

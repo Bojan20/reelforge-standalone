@@ -36,6 +36,8 @@ use rf_engine::playback::{PlaybackEngine as EnginePlayback, BusState};
 // Re-export BusState for external use
 pub use rf_engine::playback::BusState as EngineBusState;
 
+use rf_file::{AudioRecorder, RecordingConfig, RecordingState};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // BRIDGE PLAYBACK STATE (atomic for Flutter access)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -332,8 +334,10 @@ impl DspStorage {
                 }
             }
             DspCommand::EqBypass { track_id, bypass } => {
-                // TODO: Add bypass to ProEqWrapper
-                let _ = (track_id, bypass);
+                let dsp = self.get_or_create(track_id);
+                if let Some(ref mut eq) = dsp.pro_eq {
+                    eq.set_bypass(bypass);
+                }
             }
 
             // Pultec commands
@@ -485,11 +489,37 @@ pub struct PlaybackEngine {
     master_volume: Arc<AtomicU64>,
     /// Bus volumes (linear, atomic for audio thread) - 7 buses including master
     bus_volumes: [AtomicU64; 7],
+    /// Audio recorder (for input capture)
+    recorder: Arc<AudioRecorder>,
+    /// Input level meters (L, R)
+    input_peak_l: AtomicU64,
+    input_peak_r: AtomicU64,
+    /// Requested sample rate (0 = use device default)
+    requested_sample_rate: AtomicU64,
+    /// Requested buffer size (0 = use device default)
+    requested_buffer_size: AtomicU64,
+    /// Current output device name
+    current_device: RwLock<Option<String>>,
 }
 
 impl PlaybackEngine {
     /// Create new playback engine
     pub fn new() -> Self {
+        // Default recording config
+        let rec_config = RecordingConfig {
+            output_dir: std::path::PathBuf::from(std::env::var("HOME").unwrap_or("/tmp".into()))
+                .join("Documents/Recordings"),
+            file_prefix: "Recording".to_string(),
+            sample_rate: 48000,
+            bit_depth: rf_file::BitDepth::Int24,
+            num_channels: 2,
+            pre_roll_secs: 2.0,
+            capture_pre_roll: true,
+            min_disk_space: 100 * 1024 * 1024, // 100MB minimum
+            disk_buffer_size: 256 * 1024,      // 256KB buffer
+            auto_increment: true,
+        };
+
         Self {
             state: Arc::new(PlaybackState::new(48000.0)),
             meters: Arc::new(PlaybackMeters::new()),
@@ -500,6 +530,12 @@ impl PlaybackEngine {
             use_engine_mode: AtomicBool::new(false),
             master_volume: Arc::new(AtomicU64::new(1.0_f64.to_bits())), // Unity gain
             bus_volumes: std::array::from_fn(|_| AtomicU64::new(1.0_f64.to_bits())),
+            recorder: Arc::new(AudioRecorder::new(rec_config)),
+            input_peak_l: AtomicU64::new(0),
+            input_peak_r: AtomicU64::new(0),
+            requested_sample_rate: AtomicU64::new(0), // 0 = device default
+            requested_buffer_size: AtomicU64::new(0), // 0 = device default
+            current_device: RwLock::new(None),
         }
     }
 
@@ -787,6 +823,75 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // RECORDING
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get the audio recorder
+    pub fn recorder(&self) -> &Arc<AudioRecorder> {
+        &self.recorder
+    }
+
+    /// Arm recording
+    pub fn recording_arm(&self) -> bool {
+        self.recorder.arm().is_ok()
+    }
+
+    /// Disarm recording
+    pub fn recording_disarm(&self) {
+        self.recorder.disarm();
+    }
+
+    /// Start recording
+    pub fn recording_start(&self) -> Result<String, String> {
+        self.state.recording.store(true, Ordering::Relaxed);
+        self.recorder.start()
+            .map(|path| path.to_string_lossy().to_string())
+            .map_err(|e| e.to_string())
+    }
+
+    /// Stop recording
+    pub fn recording_stop(&self) -> Option<String> {
+        self.state.recording.store(false, Ordering::Relaxed);
+        self.recorder.stop()
+            .ok()
+            .flatten()
+            .map(|path| path.to_string_lossy().to_string())
+    }
+
+    /// Pause recording
+    pub fn recording_pause(&self) -> bool {
+        self.recorder.pause().is_ok()
+    }
+
+    /// Resume recording
+    pub fn recording_resume(&self) -> bool {
+        self.recorder.resume().is_ok()
+    }
+
+    /// Get recording state
+    pub fn recording_state(&self) -> RecordingState {
+        self.recorder.state()
+    }
+
+    /// Is recording
+    pub fn is_recording(&self) -> bool {
+        self.recorder.state() == RecordingState::Recording
+    }
+
+    /// Set recording config
+    pub fn set_recording_config(&self, config: RecordingConfig) {
+        self.recorder.set_config(config);
+    }
+
+    /// Get input peak levels
+    pub fn get_input_peaks(&self) -> (f32, f32) {
+        (
+            f32::from_bits(self.input_peak_l.load(Ordering::Relaxed) as u32),
+            f32::from_bits(self.input_peak_r.load(Ordering::Relaxed) as u32),
+        )
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SIMPLE MODE (clips without full engine)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -857,6 +962,305 @@ impl PlaybackEngine {
     /// Check if using engine mode
     pub fn is_engine_mode(&self) -> bool {
         self.use_engine_mode.load(Ordering::Relaxed)
+    }
+
+    /// Get sample rate
+    pub fn sample_rate(&self) -> f64 {
+        self.state.sample_rate()
+    }
+
+    /// Get estimated latency in milliseconds
+    pub fn latency_ms(&self) -> f64 {
+        // Approximate based on buffer size (assume 256 samples at current rate)
+        let buffer_size = 256.0;
+        let sr = self.state.sample_rate();
+        if sr > 0.0 {
+            (buffer_size / sr) * 1000.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Get current output device name
+    pub fn current_output_device(&self) -> Option<String> {
+        // TODO: Store this when setting device
+        let host = cpal::default_host();
+        host.default_output_device()
+            .and_then(|d| d.name().ok())
+    }
+
+    /// Start with specific device
+    pub fn start_with_device(&self, device_name: &str) -> Result<(), String> {
+        if self.running.load(Ordering::Acquire) {
+            self.stop()?;
+        }
+
+        let host = cpal::default_host();
+
+        // Find device by name
+        let device = host.output_devices()
+            .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+            .find(|d| d.name().ok().as_deref() == Some(device_name))
+            .ok_or_else(|| format!("Device not found: {}", device_name))?;
+
+        let config = device.default_output_config()
+            .map_err(|e| format!("Failed to get config: {}", e))?;
+
+        let sample_rate = config.sample_rate().0 as f64;
+        self.state.set_sample_rate(sample_rate);
+
+        log::info!("Starting audio on device '{}': {} Hz, {} channels",
+            device_name, config.sample_rate().0, config.channels());
+
+        // Clone what we need for the callback
+        let state = Arc::clone(&self.state);
+        let meters = Arc::clone(&self.meters);
+        let engine_playback = self.engine_playback.read().clone();
+        let simple_clips = Arc::new(RwLock::new(self.simple_clips.read().clone()));
+        let use_engine = self.use_engine_mode.load(Ordering::Relaxed);
+        let master_volume = Arc::clone(&self.master_volume);
+
+        let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
+        let channels = config.channels() as usize;
+        let buffer_size = 1024;
+        let mut engine_output_l = vec![0.0f64; buffer_size];
+        let mut engine_output_r = vec![0.0f64; buffer_size];
+        let mut dsp_storage = DspStorage::new(sample_rate);
+
+        // Flag for one-time priority elevation in audio thread
+        let priority_set = std::sync::atomic::AtomicBool::new(false);
+
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::F32 => {
+                device.build_output_stream(
+                    &config.into(),
+                    move |data: &mut [f32], _| {
+                        // Set real-time thread priority on first callback
+                        // This runs in the audio thread context
+                        if !priority_set.swap(true, Ordering::Relaxed) {
+                            rf_audio::set_realtime_priority();
+                        }
+
+                        let frames = data.len() / channels;
+                        if engine_output_l.len() < frames {
+                            engine_output_l.resize(frames, 0.0);
+                            engine_output_r.resize(frames, 0.0);
+                        }
+                        process_audio_unified(
+                            data, channels, frames, &state, &meters,
+                            &engine_playback, &simple_clips, use_engine, decay,
+                            &mut engine_output_l, &mut engine_output_r,
+                            &mut dsp_storage, &master_volume,
+                        );
+                    },
+                    |err| log::error!("Audio stream error: {}", err),
+                    None,
+                )
+            }
+            _ => return Err("Unsupported sample format".to_string()),
+        }.map_err(|e| format!("Failed to build stream: {}", e))?;
+
+        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+
+        self.stream.lock().0 = Some(stream);
+        self.running.store(true, Ordering::Release);
+
+        Ok(())
+    }
+
+    /// Play test tone (440Hz for specified duration)
+    pub fn play_test_tone(&self, freq: f32, duration_sec: f32) {
+        let sample_rate = self.state.sample_rate() as usize;
+        let num_samples = (duration_sec * sample_rate as f32) as usize;
+
+        let mut samples_l = Vec::with_capacity(num_samples);
+        let mut samples_r = Vec::with_capacity(num_samples);
+
+        for i in 0..num_samples {
+            let t = i as f32 / sample_rate as f32;
+            // Sine wave with envelope
+            let envelope = if i < sample_rate / 20 {
+                i as f32 / (sample_rate / 20) as f32
+            } else if i > num_samples - sample_rate / 20 {
+                (num_samples - i) as f32 / (sample_rate / 20) as f32
+            } else {
+                1.0
+            };
+            let sample = (2.0 * std::f32::consts::PI * freq * t).sin() * 0.3 * envelope;
+            samples_l.push(sample);
+            samples_r.push(sample);
+        }
+
+        let clip = PlaybackClip {
+            id: "_test_tone".to_string(),
+            samples_l: Arc::new(samples_l),
+            samples_r: Arc::new(samples_r),
+            start_sample: self.state.position_samples.load(Ordering::Relaxed),
+            length_samples: num_samples as u64,
+            gain: 1.0,
+            muted: false,
+        };
+
+        // Remove old test tone and add new
+        self.remove_clip("_test_tone");
+        self.add_clip(clip);
+
+        // Start playing if not already
+        if !self.is_playing() {
+            self.play();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDIO DEVICE SETTINGS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Set requested sample rate (will be applied on next start/restart)
+    pub fn set_requested_sample_rate(&self, sample_rate: u32) {
+        self.requested_sample_rate.store(sample_rate as u64, Ordering::Relaxed);
+    }
+
+    /// Get requested sample rate (0 = device default)
+    pub fn get_requested_sample_rate(&self) -> u32 {
+        self.requested_sample_rate.load(Ordering::Relaxed) as u32
+    }
+
+    /// Set requested buffer size (will be applied on next start/restart)
+    pub fn set_requested_buffer_size(&self, buffer_size: u32) {
+        self.requested_buffer_size.store(buffer_size as u64, Ordering::Relaxed);
+    }
+
+    /// Get requested buffer size (0 = device default)
+    pub fn get_requested_buffer_size(&self) -> u32 {
+        self.requested_buffer_size.load(Ordering::Relaxed) as u32
+    }
+
+    /// Get current buffer size (from stream config)
+    pub fn get_current_buffer_size(&self) -> u32 {
+        // Approximate - cpal doesn't expose this directly
+        // Return requested if set, otherwise default estimate
+        let requested = self.get_requested_buffer_size();
+        if requested > 0 { requested } else { 256 }
+    }
+
+    /// Restart audio with new settings
+    pub fn restart_with_settings(&self, sample_rate: Option<u32>, buffer_size: Option<u32>) -> Result<(), String> {
+        // Store new settings
+        if let Some(sr) = sample_rate {
+            self.set_requested_sample_rate(sr);
+        }
+        if let Some(bs) = buffer_size {
+            self.set_requested_buffer_size(bs);
+        }
+
+        // Stop current stream
+        let was_playing = self.is_playing();
+        if self.running.load(Ordering::Acquire) {
+            self.stop()?;
+        }
+
+        // Get device
+        let device_name = self.current_device.read().clone();
+        let host = cpal::default_host();
+
+        let device = if let Some(ref name) = device_name {
+            host.output_devices()
+                .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+                .find(|d| d.name().ok().as_deref() == Some(name))
+                .ok_or_else(|| format!("Device not found: {}", name))?
+        } else {
+            host.default_output_device()
+                .ok_or_else(|| "No output device found".to_string())?
+        };
+
+        // Get supported configs
+        let supported = device.supported_output_configs()
+            .map_err(|e| format!("Failed to get supported configs: {}", e))?;
+
+        // Find best matching config
+        let req_sr = self.get_requested_sample_rate();
+        let target_sr = if req_sr > 0 { req_sr } else { 48000 };
+
+        let config = supported
+            .filter(|c| c.channels() >= 2)
+            .filter(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
+            .next()
+            .map(|c| c.with_sample_rate(cpal::SampleRate(target_sr)))
+            .or_else(|| device.default_output_config().ok())
+            .ok_or_else(|| "No suitable config found".to_string())?;
+
+        let actual_sample_rate = config.sample_rate().0 as f64;
+        self.state.set_sample_rate(actual_sample_rate);
+
+        log::info!("Restarting audio: {} Hz, {} channels (requested: {} Hz)",
+            config.sample_rate().0, config.channels(), target_sr);
+
+        // Clone what we need for the callback
+        let state = Arc::clone(&self.state);
+        let meters = Arc::clone(&self.meters);
+        let engine_playback = self.engine_playback.read().clone();
+        let simple_clips = Arc::new(RwLock::new(self.simple_clips.read().clone()));
+        let use_engine = self.use_engine_mode.load(Ordering::Relaxed);
+        let master_volume = Arc::clone(&self.master_volume);
+
+        let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
+        let channels = config.channels() as usize;
+        let buffer_len = 1024;
+        let mut engine_output_l = vec![0.0f64; buffer_len];
+        let mut engine_output_r = vec![0.0f64; buffer_len];
+        let mut dsp_storage = DspStorage::new(actual_sample_rate);
+
+        let priority_set = std::sync::atomic::AtomicBool::new(false);
+
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::F32 => {
+                device.build_output_stream(
+                    &config.into(),
+                    move |data: &mut [f32], _| {
+                        if !priority_set.swap(true, Ordering::Relaxed) {
+                            rf_audio::set_realtime_priority();
+                        }
+                        let frames = data.len() / channels;
+                        if engine_output_l.len() < frames {
+                            engine_output_l.resize(frames, 0.0);
+                            engine_output_r.resize(frames, 0.0);
+                        }
+                        process_audio_unified(
+                            data, channels, frames, &state, &meters,
+                            &engine_playback, &simple_clips, use_engine, decay,
+                            &mut engine_output_l, &mut engine_output_r,
+                            &mut dsp_storage, &master_volume,
+                        );
+                    },
+                    |err| log::error!("Audio stream error: {}", err),
+                    None,
+                )
+            }
+            _ => return Err("Unsupported sample format".to_string()),
+        }.map_err(|e| format!("Failed to build stream: {}", e))?;
+
+        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+
+        self.stream.lock().0 = Some(stream);
+        self.running.store(true, Ordering::Release);
+
+        // Resume playback if was playing
+        if was_playing {
+            self.play();
+        }
+
+        Ok(())
+    }
+
+    /// Set output device and optionally restart
+    pub fn set_output_device(&self, device_name: &str, restart: bool) -> Result<(), String> {
+        *self.current_device.write() = Some(device_name.to_string());
+
+        if restart && self.running.load(Ordering::Acquire) {
+            self.start_with_device(device_name)?;
+        }
+
+        Ok(())
     }
 }
 

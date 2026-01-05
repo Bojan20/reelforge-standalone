@@ -83,11 +83,23 @@ struct StftProcessor {
     output_pos: usize,
     /// Overlap-add buffer
     ola_buffer: Vec<f64>,
+    // ═══════════════════════════════════════════════════════════════
+    // PRE-ALLOCATED SCRATCH BUFFERS — ZERO ALLOCATION HOT PATH
+    // ═══════════════════════════════════════════════════════════════
+    /// Windowed input scratch buffer
+    scratch_windowed: Vec<f64>,
+    /// FFT spectrum scratch buffer
+    scratch_spectrum: Vec<Complex<f64>>,
+    /// Synthesis output scratch buffer
+    scratch_output: Vec<f64>,
+    /// Reusable spectral frame for analyze
+    scratch_frame: SpectralFrame,
 }
 
 impl StftProcessor {
     fn new(fft_size: usize, hop_size: usize) -> Self {
         let mut planner = RealFftPlanner::<f64>::new();
+        let spectrum_size = fft_size / 2 + 1;
 
         // Hann window
         let window: Vec<f64> = (0..fft_size)
@@ -109,10 +121,15 @@ impl StftProcessor {
             input_pos: 0,
             output_pos: 0,
             ola_buffer: vec![0.0; fft_size * 2],
+            // Pre-allocate scratch buffers for ZERO ALLOCATION processing
+            scratch_windowed: vec![0.0; fft_size],
+            scratch_spectrum: vec![Complex::new(0.0, 0.0); spectrum_size],
+            scratch_output: vec![0.0; fft_size],
+            scratch_frame: SpectralFrame::new(spectrum_size),
         }
     }
 
-    /// Analyze: time domain -> spectral frame
+    /// Analyze: time domain -> spectral frame (ALLOCATING - legacy)
     fn analyze(&self, input: &[f64]) -> SpectralFrame {
         let mut windowed = vec![0.0; self.fft_size];
         for (i, (&sample, &win)) in input.iter().zip(&self.window).enumerate() {
@@ -125,7 +142,27 @@ impl StftProcessor {
         SpectralFrame::from_complex(&spectrum)
     }
 
-    /// Synthesize: spectral frame -> time domain
+    /// Analyze into pre-allocated frame (ZERO ALLOCATION)
+    #[inline]
+    fn analyze_into(&mut self, input: &[f64], frame: &mut SpectralFrame) {
+        // Window input into scratch buffer
+        for (i, (&sample, &win)) in input.iter().zip(&self.window).enumerate() {
+            self.scratch_windowed[i] = sample * win;
+        }
+
+        // FFT into scratch spectrum
+        self.fft_forward.process(&mut self.scratch_windowed, &mut self.scratch_spectrum).ok();
+
+        // Convert to magnitude/phase in-place
+        for (i, c) in self.scratch_spectrum.iter().enumerate() {
+            if i < frame.magnitude.len() {
+                frame.magnitude[i] = c.norm();
+                frame.phase[i] = c.arg();
+            }
+        }
+    }
+
+    /// Synthesize: spectral frame -> time domain (ALLOCATING - legacy)
     fn synthesize(&self, frame: &SpectralFrame) -> Vec<f64> {
         let mut spectrum = frame.to_complex();
 
@@ -141,10 +178,37 @@ impl StftProcessor {
         output
     }
 
+    /// Synthesize into pre-allocated output buffer (ZERO ALLOCATION)
+    #[inline]
+    fn synthesize_into(&mut self, frame: &SpectralFrame, output: &mut [f64]) {
+        // Convert frame to complex in scratch_spectrum
+        let len = frame.magnitude.len().min(self.scratch_spectrum.len());
+        for i in 0..len {
+            self.scratch_spectrum[i] = Complex::from_polar(frame.magnitude[i], frame.phase[i]);
+        }
+
+        // IFFT into scratch_output
+        self.fft_inverse.process(&mut self.scratch_spectrum, &mut self.scratch_output).ok();
+
+        // Normalize, window, and copy to output
+        let norm = 1.0 / self.fft_size as f64;
+        let out_len = output.len().min(self.scratch_output.len()).min(self.synthesis_window.len());
+        for i in 0..out_len {
+            output[i] = self.scratch_output[i] * norm * self.synthesis_window[i];
+        }
+    }
+
     fn reset(&mut self) {
         self.input_buffer.fill(0.0);
         self.output_buffer.fill(0.0);
         self.ola_buffer.fill(0.0);
+        self.scratch_windowed.fill(0.0);
+        self.scratch_output.fill(0.0);
+        for c in &mut self.scratch_spectrum {
+            *c = Complex::new(0.0, 0.0);
+        }
+        self.scratch_frame.magnitude.fill(0.0);
+        self.scratch_frame.phase.fill(0.0);
         self.input_pos = 0;
         self.output_pos = 0;
     }
@@ -181,6 +245,15 @@ pub struct SpectralGate {
     output_ring: Vec<f64>,
     output_read_pos: usize,
     output_write_pos: usize,
+    // ═══════════════════════════════════════════════════════════════
+    // PRE-ALLOCATED SCRATCH BUFFERS — ZERO ALLOCATION HOT PATH
+    // ═══════════════════════════════════════════════════════════════
+    /// Pre-allocated spectral frame for processing
+    scratch_frame: SpectralFrame,
+    /// Pre-allocated input copy buffer
+    input_copy: Vec<f64>,
+    /// Pre-allocated synthesis output buffer
+    synth_output: Vec<f64>,
 }
 
 impl SpectralGate {
@@ -205,6 +278,10 @@ impl SpectralGate {
             output_ring: vec![0.0; fft_size * 4],
             output_read_pos: 0,
             output_write_pos: fft_size, // Start with latency
+            // Pre-allocated scratch buffers for ZERO ALLOCATION hot path
+            scratch_frame: SpectralFrame::new(num_bins),
+            input_copy: vec![0.0; fft_size],
+            synth_output: vec![0.0; fft_size],
         }
     }
 
@@ -320,25 +397,53 @@ impl StereoProcessor for SpectralGate {
                     self.input_accum[i];
             }
 
-            // Analyze
-            let mut frame = self.stft.analyze(&self.stft.input_buffer);
+            // Copy input buffer (ZERO ALLOCATION - use pre-allocated buffer)
+            self.input_copy.copy_from_slice(&self.stft.input_buffer);
 
-            // Learn noise if active
+            // Analyze into pre-allocated frame (ZERO ALLOCATION)
+            self.stft.analyze_into(&self.input_copy, &mut self.scratch_frame);
+
+            // Learn noise if active (only allocation when learning)
             if self.learning_noise {
-                self.noise_frames.push_back(frame.clone());
+                self.noise_frames.push_back(self.scratch_frame.clone());
                 if self.noise_frames.len() > NOISE_FRAMES {
                     self.noise_frames.pop_front();
                 }
             }
 
-            // Process
-            self.process_frame(&mut frame);
+            // Process frame in-place (INLINED to avoid borrow conflict)
+            {
+                let num_bins = self.scratch_frame.magnitude.len();
+                let threshold_linear = 10.0_f64.powf(self.threshold_db / 20.0);
+                let reduction_linear = 10.0_f64.powf(self.reduction_db / 20.0);
 
-            // Synthesize
-            let output = self.stft.synthesize(&frame);
+                let attack_coef = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
+                let release_coef = (-1.0 / (self.release_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
+
+                for i in 0..num_bins {
+                    let mag = self.scratch_frame.magnitude[i];
+                    let noise = self.noise_floor[i];
+
+                    let signal_ratio = if noise > 1e-10 { mag / noise } else { 1000.0 };
+
+                    let target_gain = if signal_ratio > threshold_linear {
+                        1.0
+                    } else {
+                        reduction_linear
+                    };
+
+                    let coef = if target_gain < self.bin_gains[i] { attack_coef } else { release_coef };
+                    self.bin_gains[i] = target_gain + coef * (self.bin_gains[i] - target_gain);
+
+                    self.scratch_frame.magnitude[i] *= self.bin_gains[i];
+                }
+            }
+
+            // Synthesize into pre-allocated output (ZERO ALLOCATION)
+            self.stft.synthesize_into(&self.scratch_frame, &mut self.synth_output);
 
             // Overlap-add to output ring
-            for (i, &sample) in output.iter().enumerate() {
+            for (i, &sample) in self.synth_output.iter().enumerate() {
                 let pos = (self.output_write_pos + i) % self.output_ring.len();
                 self.output_ring[pos] += sample;
             }
@@ -389,11 +494,23 @@ pub struct SpectralFreeze {
     output_ring: Vec<f64>,
     output_read_pos: usize,
     output_write_pos: usize,
+    // ═══════════════════════════════════════════════════════════════
+    // PRE-ALLOCATED SCRATCH BUFFERS — ZERO ALLOCATION HOT PATH
+    // ═══════════════════════════════════════════════════════════════
+    /// Pre-allocated current frame
+    current_frame: SpectralFrame,
+    /// Pre-allocated mixed/output frame
+    mixed_frame: SpectralFrame,
+    /// Pre-allocated input copy buffer
+    input_copy: Vec<f64>,
+    /// Pre-allocated synthesis output buffer
+    synth_output: Vec<f64>,
 }
 
 impl SpectralFreeze {
     pub fn new(sample_rate: f64) -> Self {
         let fft_size = DEFAULT_FFT_SIZE;
+        let num_bins = fft_size / 2 + 1;
 
         Self {
             stft: StftProcessor::new(fft_size, DEFAULT_HOP_SIZE),
@@ -408,6 +525,11 @@ impl SpectralFreeze {
             output_ring: vec![0.0; fft_size * 4],
             output_read_pos: 0,
             output_write_pos: fft_size,
+            // Pre-allocated scratch buffers for ZERO ALLOCATION hot path
+            current_frame: SpectralFrame::new(num_bins),
+            mixed_frame: SpectralFrame::new(num_bins),
+            input_copy: vec![0.0; fft_size],
+            synth_output: vec![0.0; fft_size],
         }
     }
 
@@ -472,38 +594,46 @@ impl StereoProcessor for SpectralFreeze {
                     self.input_accum[i];
             }
 
-            // Analyze current
-            let current_frame = self.stft.analyze(&self.stft.input_buffer);
+            // Copy input buffer (ZERO ALLOCATION - use pre-allocated buffer)
+            self.input_copy.copy_from_slice(&self.stft.input_buffer);
 
-            // Capture frame if starting freeze
+            // Analyze into pre-allocated frame (ZERO ALLOCATION)
+            self.stft.analyze_into(&self.input_copy, &mut self.current_frame);
+
+            // Capture frame if starting freeze (only allocation when freezing)
             if self.frozen && self.frozen_frame.is_none() {
-                self.frozen_frame = Some(current_frame.clone());
+                self.frozen_frame = Some(self.current_frame.clone());
             }
 
-            // Use frozen or current frame
-            let output_frame = if self.frozen {
+            // Prepare output frame (ZERO ALLOCATION - use pre-allocated mixed_frame)
+            if self.frozen {
                 if let Some(ref frozen) = self.frozen_frame {
                     // Mix frozen magnitude with current phase for natural sound
-                    let mut mixed = SpectralFrame::new(frozen.magnitude.len());
-                    for i in 0..frozen.magnitude.len() {
-                        mixed.magnitude[i] = frozen.magnitude[i] * self.mix
-                            + current_frame.magnitude[i] * (1.0 - self.mix);
+                    let len = frozen.magnitude.len().min(self.mixed_frame.magnitude.len());
+                    for i in 0..len {
+                        self.mixed_frame.magnitude[i] = frozen.magnitude[i] * self.mix
+                            + self.current_frame.magnitude[i] * (1.0 - self.mix);
                         // Use current phase for less metallic sound
-                        mixed.phase[i] = current_frame.phase[i];
+                        self.mixed_frame.phase[i] = self.current_frame.phase[i];
                     }
-                    mixed
                 } else {
-                    current_frame
+                    // Copy current to mixed
+                    let len = self.current_frame.magnitude.len().min(self.mixed_frame.magnitude.len());
+                    self.mixed_frame.magnitude[..len].copy_from_slice(&self.current_frame.magnitude[..len]);
+                    self.mixed_frame.phase[..len].copy_from_slice(&self.current_frame.phase[..len]);
                 }
             } else {
-                current_frame
-            };
+                // Copy current to mixed
+                let len = self.current_frame.magnitude.len().min(self.mixed_frame.magnitude.len());
+                self.mixed_frame.magnitude[..len].copy_from_slice(&self.current_frame.magnitude[..len]);
+                self.mixed_frame.phase[..len].copy_from_slice(&self.current_frame.phase[..len]);
+            }
 
-            // Synthesize
-            let output = self.stft.synthesize(&output_frame);
+            // Synthesize into pre-allocated output (ZERO ALLOCATION)
+            self.stft.synthesize_into(&self.mixed_frame, &mut self.synth_output);
 
             // Overlap-add
-            for (i, &sample) in output.iter().enumerate() {
+            for (i, &sample) in self.synth_output.iter().enumerate() {
                 let pos = (self.output_write_pos + i) % self.output_ring.len();
                 self.output_ring[pos] += sample;
             }

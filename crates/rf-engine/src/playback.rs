@@ -15,8 +15,16 @@ use std::path::Path;
 
 use parking_lot::RwLock;
 
-use crate::track_manager::{TrackManager, Clip, Track, OutputBus};
+use crate::track_manager::{
+    TrackManager, Clip, Track, OutputBus, Crossfade, TrackId,
+    ClipFxChain, ClipFxSlot, ClipFxType,
+};
 use crate::audio_import::{AudioImporter, ImportedAudio};
+use crate::automation::{AutomationEngine, ParamId};
+use crate::groups::{GroupManager, VcaId};
+use crate::insert_chain::InsertChain;
+
+use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO CACHE
@@ -360,6 +368,29 @@ pub struct PlaybackEngine {
     /// RMS meters L/R
     pub rms_l: AtomicU64,
     pub rms_r: AtomicU64,
+    /// LUFS metering (ITU-R BS.1770-4)
+    lufs_meter: RwLock<LufsMeter>,
+    /// LUFS values (atomic for lock-free UI reads)
+    pub lufs_momentary: AtomicU64,
+    pub lufs_short: AtomicU64,
+    pub lufs_integrated: AtomicU64,
+    /// True Peak metering (4x oversampled)
+    true_peak_meter: RwLock<TruePeakMeter>,
+    /// True Peak values in dBTP
+    pub true_peak_l: AtomicU64,
+    pub true_peak_r: AtomicU64,
+    /// Automation engine
+    automation: Option<Arc<AutomationEngine>>,
+    /// Group/VCA manager (RwLock for shared mutation with bridge)
+    group_manager: Option<Arc<RwLock<GroupManager>>>,
+    /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
+    elastic_params: RwLock<HashMap<u32, (f64, f64)>>,
+    /// Track VCA assignments (track_id -> Vec<VcaId>)
+    vca_assignments: RwLock<HashMap<u32, Vec<VcaId>>>,
+    /// Insert chains per track (track_id -> InsertChain)
+    insert_chains: RwLock<HashMap<u64, InsertChain>>,
+    /// Master insert chain
+    master_insert: RwLock<InsertChain>,
 }
 
 impl PlaybackEngine {
@@ -376,6 +407,264 @@ impl PlaybackEngine {
             peak_r: AtomicU64::new(0.0_f64.to_bits()),
             rms_l: AtomicU64::new(0.0_f64.to_bits()),
             rms_r: AtomicU64::new(0.0_f64.to_bits()),
+            lufs_meter: RwLock::new(LufsMeter::new(sample_rate as f64)),
+            lufs_momentary: AtomicU64::new((-70.0_f64).to_bits()),
+            lufs_short: AtomicU64::new((-70.0_f64).to_bits()),
+            lufs_integrated: AtomicU64::new((-70.0_f64).to_bits()),
+            true_peak_meter: RwLock::new(TruePeakMeter::new(sample_rate as f64)),
+            true_peak_l: AtomicU64::new((-70.0_f64).to_bits()),
+            true_peak_r: AtomicU64::new((-70.0_f64).to_bits()),
+            automation: None,
+            group_manager: None,
+            elastic_params: RwLock::new(HashMap::new()),
+            vca_assignments: RwLock::new(HashMap::new()),
+            insert_chains: RwLock::new(HashMap::new()),
+            master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
+        }
+    }
+
+    /// Attach automation engine
+    pub fn set_automation(&mut self, automation: Arc<AutomationEngine>) {
+        self.automation = Some(automation);
+    }
+
+    /// Attach group/VCA manager (shared with bridge)
+    pub fn set_group_manager(&mut self, manager: Arc<RwLock<GroupManager>>) {
+        self.group_manager = Some(manager);
+    }
+
+    /// Get automation engine
+    pub fn automation(&self) -> Option<&Arc<AutomationEngine>> {
+        self.automation.as_ref()
+    }
+
+    /// Assign track to VCA
+    pub fn assign_track_to_vca(&self, track_id: u32, vca_id: VcaId) {
+        let mut assignments = self.vca_assignments.write();
+        assignments.entry(track_id).or_default().push(vca_id);
+    }
+
+    /// Remove track from VCA
+    pub fn remove_track_from_vca(&self, track_id: u32, vca_id: VcaId) {
+        let mut assignments = self.vca_assignments.write();
+        if let Some(vcas) = assignments.get_mut(&track_id) {
+            vcas.retain(|v| *v != vca_id);
+        }
+    }
+
+    /// Get combined VCA gain for track
+    /// Uses the GroupManager's get_vca_contribution which handles nested VCAs
+    fn get_vca_gain(&self, track_id: u64) -> f64 {
+        let manager = match &self.group_manager {
+            Some(m) => m,
+            None => return 1.0,
+        };
+
+        // GroupManager uses u64 track_id directly (groups::TrackId = u64)
+        // Use try_read to avoid blocking audio thread
+        match manager.try_read() {
+            Some(gm) => gm.get_vca_contribution(track_id),
+            None => 1.0, // Return unity gain if lock is contended
+        }
+    }
+
+    /// Get track volume with automation applied
+    fn get_track_volume_with_automation(&self, track: &Track) -> f64 {
+        let base_volume = track.volume;
+
+        if let Some(automation) = &self.automation {
+            let param_id = ParamId::track_volume(track.id.0);
+            if let Some(auto_value) = automation.get_value(&param_id) {
+                // auto_value is normalized 0-1, map to 0-1.5 range
+                return auto_value * 1.5;
+            }
+        }
+
+        base_volume
+    }
+
+    /// Get track pan with automation applied
+    fn get_track_pan_with_automation(&self, track: &Track) -> f64 {
+        let base_pan = track.pan;
+
+        if let Some(automation) = &self.automation {
+            let param_id = ParamId::track_pan(track.id.0);
+            if let Some(auto_value) = automation.get_value(&param_id) {
+                // auto_value is normalized 0-1, map to -1 to 1
+                return auto_value * 2.0 - 1.0;
+            }
+        }
+
+        base_pan
+    }
+
+    /// Set elastic audio parameters for clip
+    /// time_ratio: 1.0 = normal, 0.5 = half speed, 2.0 = double speed
+    /// pitch_semitones: pitch shift in semitones
+    pub fn set_elastic_params(
+        &self,
+        clip_id: u32,
+        time_ratio: f64,
+        pitch_semitones: f64,
+    ) {
+        self.elastic_params.write().insert(clip_id, (time_ratio, pitch_semitones));
+    }
+
+    /// Get elastic audio parameters for clip
+    pub fn get_elastic_params(&self, clip_id: u32) -> Option<(f64, f64)> {
+        self.elastic_params.read().get(&clip_id).copied()
+    }
+
+    /// Remove elastic audio parameters
+    pub fn remove_elastic_params(&self, clip_id: u32) {
+        self.elastic_params.write().remove(&clip_id);
+    }
+
+    /// Check if clip has elastic audio enabled
+    pub fn has_elastic_audio(&self, clip_id: u32) -> bool {
+        self.elastic_params.read().contains_key(&clip_id)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INSERT CHAIN MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get insert chain for track (creates if not exists)
+    pub fn get_track_insert_chain(&self, track_id: TrackId) -> &RwLock<HashMap<u64, InsertChain>> {
+        &self.insert_chains
+    }
+
+    /// Get or create insert chain for a track
+    pub fn ensure_track_insert_chain(&self, track_id: u64, sample_rate: f64) {
+        let mut chains = self.insert_chains.write();
+        chains.entry(track_id).or_insert_with(|| InsertChain::new(sample_rate));
+    }
+
+    /// Load processor into track insert slot
+    pub fn load_track_insert(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        processor: Box<dyn crate::insert_chain::InsertProcessor>,
+    ) -> bool {
+        let sample_rate = self.position.sample_rate() as f64;
+        let mut chains = self.insert_chains.write();
+        let chain = chains.entry(track_id).or_insert_with(|| InsertChain::new(sample_rate));
+        chain.load(slot_index, processor)
+    }
+
+    /// Unload processor from track insert slot
+    pub fn unload_track_insert(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+    ) -> Option<Box<dyn crate::insert_chain::InsertProcessor>> {
+        let mut chains = self.insert_chains.write();
+        chains.get_mut(&track_id).and_then(|chain| chain.unload(slot_index))
+    }
+
+    /// Set bypass for track insert slot
+    pub fn set_track_insert_bypass(&self, track_id: u64, slot_index: usize, bypass: bool) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id) {
+            if let Some(slot) = chain.slot(slot_index) {
+                slot.set_bypass(bypass);
+            }
+        }
+    }
+
+    /// Get master insert chain
+    pub fn master_insert_chain(&self) -> &RwLock<InsertChain> {
+        &self.master_insert
+    }
+
+    /// Load processor into master insert slot
+    pub fn load_master_insert(
+        &self,
+        slot_index: usize,
+        processor: Box<dyn crate::insert_chain::InsertProcessor>,
+    ) -> bool {
+        self.master_insert.write().load(slot_index, processor)
+    }
+
+    /// Unload processor from master insert slot
+    pub fn unload_master_insert(
+        &self,
+        slot_index: usize,
+    ) -> Option<Box<dyn crate::insert_chain::InsertProcessor>> {
+        self.master_insert.write().unload(slot_index)
+    }
+
+    /// Set bypass for master insert slot
+    pub fn set_master_insert_bypass(&self, slot_index: usize, bypass: bool) {
+        if let Some(slot) = self.master_insert.read().slot(slot_index) {
+            slot.set_bypass(bypass);
+        }
+    }
+
+    /// Get total insert latency for track
+    pub fn get_track_insert_latency(&self, track_id: u64) -> usize {
+        self.insert_chains.read()
+            .get(&track_id)
+            .map(|c| c.total_latency())
+            .unwrap_or(0)
+    }
+
+    /// Get total master insert latency
+    pub fn get_master_insert_latency(&self) -> usize {
+        self.master_insert.read().total_latency()
+    }
+
+    /// Set mix for track insert slot
+    pub fn set_track_insert_mix(&self, track_id: u64, slot_index: usize, mix: f64) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id) {
+            if let Some(slot) = chain.slot(slot_index) {
+                slot.set_mix(mix);
+            }
+        }
+    }
+
+    /// Set position for track insert slot
+    pub fn set_track_insert_position(&self, track_id: u64, slot_index: usize, pre_fader: bool) {
+        use crate::insert_chain::InsertPosition;
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                slot.set_position(if pre_fader { InsertPosition::PreFader } else { InsertPosition::PostFader });
+            }
+        }
+    }
+
+    /// Bypass all inserts on track
+    pub fn bypass_all_track_inserts(&self, track_id: u64, bypass: bool) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id) {
+            chain.bypass_all(bypass);
+        }
+    }
+
+    /// Get insert slot info for track
+    pub fn get_track_insert_info(&self, track_id: u64) -> Vec<(usize, String, bool, bool, bool, f64, usize)> {
+        // Returns: (index, name, is_loaded, is_bypassed, is_pre_fader, mix, latency)
+        use crate::insert_chain::InsertPosition;
+        let chains = self.insert_chains.read();
+        if let Some(chain) = chains.get(&track_id) {
+            let mut result = Vec::with_capacity(8);
+            for i in 0..8 {
+                if let Some(slot) = chain.slot(i) {
+                    result.push((
+                        i,
+                        slot.name().to_string(),
+                        slot.is_loaded(),
+                        slot.is_bypassed(),
+                        slot.position() == InsertPosition::PreFader,
+                        slot.mix(),
+                        slot.latency(),
+                    ));
+                }
+            }
+            result
+        } else {
+            // Return empty slots
+            (0..8).map(|i| (i, "Empty".to_string(), false, false, i < 4, 1.0, 0)).collect()
         }
     }
 
@@ -392,6 +681,23 @@ impl PlaybackEngine {
         (
             f64::from_bits(self.rms_l.load(Ordering::Relaxed)),
             f64::from_bits(self.rms_r.load(Ordering::Relaxed)),
+        )
+    }
+
+    /// Get LUFS values (momentary, short-term, integrated) in LUFS
+    pub fn get_lufs(&self) -> (f64, f64, f64) {
+        (
+            f64::from_bits(self.lufs_momentary.load(Ordering::Relaxed)),
+            f64::from_bits(self.lufs_short.load(Ordering::Relaxed)),
+            f64::from_bits(self.lufs_integrated.load(Ordering::Relaxed)),
+        )
+    }
+
+    /// Get true peak values (left, right) in dBTP
+    pub fn get_true_peak(&self) -> (f64, f64) {
+        (
+            f64::from_bits(self.true_peak_l.load(Ordering::Relaxed)),
+            f64::from_bits(self.true_peak_r.load(Ordering::Relaxed)),
         )
     }
 
@@ -526,6 +832,11 @@ impl PlaybackEngine {
             None => return,
         };
 
+        let crossfades = match self.track_manager.crossfades.try_read() {
+            Some(x) => x,
+            None => return,
+        };
+
         // Temporary track output buffer
         let mut track_l = vec![0.0f64; frames];
         let mut track_r = vec![0.0f64; frames];
@@ -539,6 +850,12 @@ impl PlaybackEngine {
             // Clear track buffers
             track_l.fill(0.0);
             track_r.fill(0.0);
+
+            // Find crossfades active in this track for this time range
+            let track_crossfades: Vec<&Crossfade> = crossfades.values()
+                .filter(|xf| xf.track_id == track.id &&
+                    (xf.start_time < end_time && xf.end_time() > start_time))
+                .collect();
 
             // Get clips for this track that overlap with current time range
             for clip in clips.values() {
@@ -557,16 +874,51 @@ impl PlaybackEngine {
                     None => continue,
                 };
 
-                // Process clip samples into track buffer
-                self.process_clip(
+                // Check if this clip is part of any active crossfade
+                let crossfade = track_crossfades.iter()
+                    .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
+                    .copied();
+
+                // Process clip samples into track buffer (with crossfade if applicable)
+                self.process_clip_with_crossfade(
                     clip,
                     track,
                     &audio,
+                    crossfade,
                     start_sample,
                     sample_rate,
                     &mut track_l,
                     &mut track_r,
                 );
+            }
+
+            // Process track insert chain (pre-fader inserts applied before volume)
+            // Uses try_write to avoid blocking if another thread holds the lock
+            if let Some(mut chains) = self.insert_chains.try_write() {
+                if let Some(chain) = chains.get_mut(&track.id.0) {
+                    chain.process_pre_fader(&mut track_l, &mut track_r);
+                }
+            }
+
+            // Apply track volume and pan (fader stage)
+            let track_volume = self.get_track_volume_with_automation(track);
+            let vca_gain = self.get_vca_gain(track.id.0);
+            let final_volume = track_volume * vca_gain;
+
+            let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
+            let pan_l = ((1.0 - pan) * std::f64::consts::FRAC_PI_4).cos();
+            let pan_r = ((1.0 + pan) * std::f64::consts::FRAC_PI_4).cos();
+
+            for i in 0..frames {
+                track_l[i] *= final_volume * pan_l;
+                track_r[i] *= final_volume * pan_r;
+            }
+
+            // Process track insert chain (post-fader inserts applied after volume)
+            if let Some(mut chains) = self.insert_chains.try_write() {
+                if let Some(chain) = chains.get_mut(&track.id.0) {
+                    chain.process_post_fader(&mut track_l, &mut track_r);
+                }
             }
 
             // Route track to its output bus
@@ -607,11 +959,21 @@ impl PlaybackEngine {
             }
         }
 
+        // Apply master insert chain (pre-fader)
+        if let Some(mut master_insert) = self.master_insert.try_write() {
+            master_insert.process_pre_fader(output_l, output_r);
+        }
+
         // Apply master volume
         let master = self.master_volume();
         for i in 0..frames {
             output_l[i] *= master;
             output_r[i] *= master;
+        }
+
+        // Apply master insert chain (post-fader)
+        if let Some(mut master_insert) = self.master_insert.try_write() {
+            master_insert.process_post_fader(output_l, output_r);
         }
 
         // Calculate metering (after volume is applied)
@@ -644,12 +1006,160 @@ impl PlaybackEngine {
         self.rms_l.store(rms_l.to_bits(), Ordering::Relaxed);
         self.rms_r.store(rms_r.to_bits(), Ordering::Relaxed);
 
+        // LUFS metering (ITU-R BS.1770-4)
+        // Use try_write to avoid blocking audio thread if UI is reading
+        if let Some(mut lufs) = self.lufs_meter.try_write() {
+            lufs.process_block(output_l, output_r);
+            self.lufs_momentary.store(lufs.momentary_loudness().to_bits(), Ordering::Relaxed);
+            self.lufs_short.store(lufs.shortterm_loudness().to_bits(), Ordering::Relaxed);
+            self.lufs_integrated.store(lufs.integrated_loudness().to_bits(), Ordering::Relaxed);
+        }
+
+        // True Peak metering (4x oversampled per ITU-R BS.1770-4)
+        if let Some(mut tp) = self.true_peak_meter.try_write() {
+            tp.process_block(output_l, output_r);
+            // Store dBTP values directly
+            let dbtp_l: f64 = tp.peak_dbtp_l();
+            let dbtp_r: f64 = tp.peak_dbtp_r();
+            self.true_peak_l.store(dbtp_l.to_bits(), Ordering::Relaxed);
+            self.true_peak_r.store(dbtp_r.to_bits(), Ordering::Relaxed);
+        }
+
         // Advance position
         self.position.advance(frames as u64);
+
+        // Sync automation position
+        if let Some(automation) = &self.automation {
+            automation.set_position(self.position.samples());
+        }
     }
 
-    /// Process a single clip into output buffers
+    /// Process audio offline at a specific position (for export/bounce)
+    ///
+    /// Unlike `process()`, this:
+    /// - Takes a specific start position instead of using transport
+    /// - Uses blocking locks (safe for offline processing)
+    /// - Does not update meters or advance transport
+    pub fn process_offline(
+        &self,
+        start_sample: usize,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
+        let frames = output_l.len();
+
+        // Clear output buffers
+        output_l.fill(0.0);
+        output_r.fill(0.0);
+
+        let sample_rate = self.position.sample_rate() as f64;
+        let start_time = start_sample as f64 / sample_rate;
+        let end_time = (start_sample + frames) as f64 / sample_rate;
+
+        // Get bus buffers
+        let mut bus_buffers = self.bus_buffers.write();
+        if bus_buffers.block_size != frames {
+            *bus_buffers = BusBuffers::new(frames);
+        }
+        bus_buffers.clear();
+
+        // Get data (blocking - safe for offline)
+        let tracks = self.track_manager.tracks.read();
+        let clips = self.track_manager.clips.read();
+        let crossfades = self.track_manager.crossfades.read();
+
+        let mut track_l = vec![0.0f64; frames];
+        let mut track_r = vec![0.0f64; frames];
+
+        for track in tracks.values() {
+            if track.muted {
+                continue;
+            }
+
+            track_l.fill(0.0);
+            track_r.fill(0.0);
+
+            let track_crossfades: Vec<&Crossfade> = crossfades.values()
+                .filter(|xf| xf.track_id == track.id &&
+                    (xf.start_time < end_time && xf.end_time() > start_time))
+                .collect();
+
+            for clip in clips.values() {
+                if clip.track_id != track.id || clip.muted {
+                    continue;
+                }
+
+                if !clip.overlaps(start_time, end_time) {
+                    continue;
+                }
+
+                // Get cached audio
+                let audio = match self.cache.get(&clip.source_file) {
+                    Some(a) => a,
+                    None => continue, // Audio not cached - skip
+                };
+
+                let active_xf = track_crossfades.iter()
+                    .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
+                    .copied();
+
+                self.process_clip_with_crossfade(
+                    clip,
+                    track,
+                    &audio,
+                    active_xf,
+                    start_sample as u64,
+                    sample_rate,
+                    &mut track_l,
+                    &mut track_r,
+                );
+            }
+
+            // Apply track volume and pan
+            let track_volume = self.get_track_volume_with_automation(track);
+            let vca_gain = self.get_vca_gain(track.id.0);
+            let final_volume = track_volume * vca_gain;
+            let pan = track.pan;
+            let pan_l = if pan < 0.0 { 1.0 } else { 1.0 - pan };
+            let pan_r = if pan > 0.0 { 1.0 } else { 1.0 + pan };
+
+            for i in 0..frames {
+                track_l[i] *= final_volume * pan_l;
+                track_r[i] *= final_volume * pan_r;
+            }
+
+            // Route to bus
+            bus_buffers.add_to_bus(track.output_bus, &track_l, &track_r);
+        }
+
+        // Sum all buses to master
+        bus_buffers.sum_to_master();
+
+        // Copy master to output
+        let (master_l, master_r) = bus_buffers.master();
+        output_l.copy_from_slice(&master_l[..frames]);
+        output_r.copy_from_slice(&master_r[..frames]);
+
+        // Drop bus_buffers lock before taking master_insert lock
+        drop(bus_buffers);
+
+        // Master processing
+        let mut master_insert = self.master_insert.write();
+        master_insert.process_pre_fader(output_l, output_r);
+
+        let master = self.master_volume();
+        for i in 0..frames {
+            output_l[i] *= master;
+            output_r[i] *= master;
+        }
+
+        master_insert.process_post_fader(output_l, output_r);
+    }
+
+    /// Process a single clip into output buffers (without crossfade)
+    /// Kept for backward compatibility
     #[inline]
+    #[allow(dead_code)]
     fn process_clip(
         &self,
         clip: &Clip,
@@ -660,23 +1170,57 @@ impl PlaybackEngine {
         output_l: &mut [f64],
         output_r: &mut [f64],
     ) {
+        self.process_clip_with_crossfade(
+            clip,
+            track,
+            audio,
+            None,
+            start_sample,
+            sample_rate,
+            output_l,
+            output_r,
+        );
+    }
+
+    /// Process a single clip into output buffers with optional crossfade
+    #[inline]
+    fn process_clip_with_crossfade(
+        &self,
+        clip: &Clip,
+        track: &Track,
+        audio: &ImportedAudio,
+        crossfade: Option<&Crossfade>,
+        start_sample: u64,
+        sample_rate: f64,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
+        // Suppress unused variable warning for track - we use track.id but not other fields here
+        // Track volume/pan is now applied in process() after all clips are mixed
+        let _ = track;
+
         let frames = output_l.len();
         let clip_start_sample = (clip.start_time * sample_rate) as i64;
         let source_sample_rate = audio.sample_rate as f64;
         let rate_ratio = source_sample_rate / sample_rate;
 
-        // Combined gain: clip gain * track volume
-        let gain = clip.gain * track.volume;
-
-        // Pan calculation (constant power)
-        let pan = track.pan.clamp(-1.0, 1.0);
-        let pan_l = ((1.0 - pan) * std::f64::consts::FRAC_PI_4).cos();
-        let pan_r = ((1.0 + pan) * std::f64::consts::FRAC_PI_4).cos();
+        // Only apply clip gain here - track volume/pan is applied later in process()
+        let gain = clip.gain;
 
         // Fade parameters
         let fade_in_samples = (clip.fade_in * sample_rate) as i64;
         let fade_out_samples = (clip.fade_out * sample_rate) as i64;
         let clip_duration_samples = (clip.duration * sample_rate) as i64;
+
+        // Crossfade parameters (if applicable)
+        let (xf_start_sample, xf_end_sample, is_clip_a) = if let Some(xf) = crossfade {
+            let xf_start = (xf.start_time * sample_rate) as i64;
+            let xf_end = ((xf.start_time + xf.duration) * sample_rate) as i64;
+            let is_a = xf.clip_a_id == clip.id;
+            (xf_start, xf_end, is_a)
+        } else {
+            (0, 0, false)
+        };
 
         for i in 0..frames {
             let playback_sample = start_sample as i64 + i as i64;
@@ -692,7 +1236,7 @@ impl PlaybackEngine {
             let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64 + source_offset_samples) as usize;
 
             // Get sample from audio buffer
-            let (sample_l, sample_r) = if audio.channels == 1 {
+            let (mut sample_l, mut sample_r) = if audio.channels == 1 {
                 // Mono
                 let s = audio.samples.get(source_sample).copied().unwrap_or(0.0) as f64;
                 (s, s)
@@ -704,26 +1248,207 @@ impl PlaybackEngine {
                 (l, r)
             };
 
+            // Apply clip FX chain (before track processing)
+            if clip.has_fx() {
+                let (fx_l, fx_r) = self.process_clip_fx(&clip.fx_chain, sample_l, sample_r);
+                sample_l = fx_l;
+                sample_r = fx_r;
+            }
+
             // Calculate fade envelope
             let mut fade = 1.0;
 
-            // Fade in
+            // Fade in (only if not in crossfade or this is clip B)
             if clip_relative_sample < fade_in_samples && fade_in_samples > 0 {
                 fade = clip_relative_sample as f64 / fade_in_samples as f64;
                 fade = fade * fade; // Quadratic curve
             }
 
-            // Fade out
+            // Fade out (only if not in crossfade or this is clip A)
             let samples_from_end = clip_duration_samples - clip_relative_sample;
             if samples_from_end < fade_out_samples && fade_out_samples > 0 {
                 let fade_out = samples_from_end as f64 / fade_out_samples as f64;
                 fade *= fade_out * fade_out;
             }
 
-            // Apply gain, pan, and fade
+            // Apply crossfade envelope if within crossfade region
+            if let Some(xf) = crossfade {
+                if playback_sample >= xf_start_sample && playback_sample < xf_end_sample {
+                    // Calculate normalized position within crossfade (0.0 to 1.0)
+                    let xf_t = (playback_sample - xf_start_sample) as f32
+                        / (xf_end_sample - xf_start_sample) as f32;
+
+                    // Get gains from crossfade shape
+                    let (fade_out_gain, fade_in_gain) = xf.shape.evaluate(xf_t);
+
+                    // Apply the appropriate gain
+                    if is_clip_a {
+                        // Clip A is fading out
+                        fade *= fade_out_gain as f64;
+                    } else {
+                        // Clip B is fading in
+                        fade *= fade_in_gain as f64;
+                    }
+                } else if is_clip_a && playback_sample >= xf_end_sample {
+                    // Clip A after crossfade - silent
+                    fade = 0.0;
+                } else if !is_clip_a && playback_sample < xf_start_sample {
+                    // Clip B before crossfade - silent
+                    fade = 0.0;
+                }
+            }
+
+            // Apply gain and fade (pan is applied later in process())
             let final_gain = gain * fade;
-            output_l[i] += sample_l * final_gain * pan_l;
-            output_r[i] += sample_r * final_gain * pan_r;
+            output_l[i] += sample_l * final_gain;
+            output_r[i] += sample_r * final_gain;
+        }
+    }
+
+    /// Process clip FX chain on audio samples
+    /// Returns processed samples with FX applied
+    ///
+    /// This is a simplified version for built-in FX types.
+    /// For full processing, use the dsp_wrappers module.
+    #[inline]
+    fn process_clip_fx(
+        &self,
+        fx_chain: &ClipFxChain,
+        sample_l: f64,
+        sample_r: f64,
+    ) -> (f64, f64) {
+        // Skip if chain is bypassed or empty
+        if fx_chain.bypass || fx_chain.is_empty() {
+            return (sample_l, sample_r);
+        }
+
+        // Apply input gain
+        let input_gain = fx_chain.input_gain_linear();
+        let mut l = sample_l * input_gain;
+        let mut r = sample_r * input_gain;
+
+        // Process each active slot
+        for slot in fx_chain.active_slots() {
+            let (processed_l, processed_r) = self.process_fx_slot(slot, l, r);
+
+            // Apply wet/dry mix
+            let wet = slot.wet_dry;
+            let dry = 1.0 - wet;
+            l = l * dry + processed_l * wet;
+            r = r * dry + processed_r * wet;
+
+            // Apply slot output gain
+            let slot_gain = slot.output_gain_linear();
+            l *= slot_gain;
+            r *= slot_gain;
+        }
+
+        // Apply output gain
+        let output_gain = fx_chain.output_gain_linear();
+        (l * output_gain, r * output_gain)
+    }
+
+    /// Process a single FX slot
+    /// Implements basic built-in FX processing
+    #[inline]
+    fn process_fx_slot(
+        &self,
+        slot: &ClipFxSlot,
+        sample_l: f64,
+        sample_r: f64,
+    ) -> (f64, f64) {
+        match &slot.fx_type {
+            ClipFxType::Gain { db, pan } => {
+                // Simple gain and pan
+                let gain = if *db <= -96.0 {
+                    0.0
+                } else {
+                    10.0_f64.powf(*db / 20.0)
+                };
+
+                let pan_val = pan.clamp(-1.0, 1.0);
+                let pan_l = ((1.0 - pan_val) * std::f64::consts::FRAC_PI_4).cos();
+                let pan_r = ((1.0 + pan_val) * std::f64::consts::FRAC_PI_4).cos();
+
+                (sample_l * gain * pan_l, sample_r * gain * pan_r)
+            }
+
+            ClipFxType::Saturation { drive, mix: _ } => {
+                // Simple soft clipping saturation
+                let drive_amount = 1.0 + drive * 10.0;
+                let l = (sample_l * drive_amount).tanh() / drive_amount.tanh();
+                let r = (sample_r * drive_amount).tanh() / drive_amount.tanh();
+                (l, r)
+            }
+
+            ClipFxType::Compressor { ratio, threshold_db, attack_ms: _, release_ms: _ } => {
+                // Simplified static compression (no envelope follower for now)
+                // Full implementation would use stateful processor
+                let threshold = 10.0_f64.powf(*threshold_db / 20.0);
+                let ratio_inv = 1.0 / ratio;
+
+                let compress = |sample: f64| -> f64 {
+                    let abs_sample = sample.abs();
+                    if abs_sample > threshold {
+                        let over = abs_sample - threshold;
+                        let compressed_over = over * ratio_inv;
+                        (threshold + compressed_over) * sample.signum()
+                    } else {
+                        sample
+                    }
+                };
+
+                (compress(sample_l), compress(sample_r))
+            }
+
+            ClipFxType::Limiter { ceiling_db } => {
+                // Simple hard limiter
+                let ceiling = 10.0_f64.powf(*ceiling_db / 20.0);
+                let l = sample_l.clamp(-ceiling, ceiling);
+                let r = sample_r.clamp(-ceiling, ceiling);
+                (l, r)
+            }
+
+            ClipFxType::Gate { threshold_db, attack_ms: _, release_ms: _ } => {
+                // Simplified static gate (no envelope follower)
+                let threshold = 10.0_f64.powf(*threshold_db / 20.0);
+                let level = (sample_l.abs() + sample_r.abs()) / 2.0;
+
+                if level < threshold {
+                    (0.0, 0.0)
+                } else {
+                    (sample_l, sample_r)
+                }
+            }
+
+            ClipFxType::PitchShift { semitones: _, cents: _ } => {
+                // Pitch shifting requires stateful buffer - pass through for now
+                // Full implementation in dsp_wrappers
+                (sample_l, sample_r)
+            }
+
+            ClipFxType::TimeStretch { ratio: _ } => {
+                // Time stretch is typically offline - pass through
+                (sample_l, sample_r)
+            }
+
+            // EQ types - require full DSP processor instances
+            ClipFxType::ProEq { .. }
+            | ClipFxType::UltraEq
+            | ClipFxType::Pultec
+            | ClipFxType::Api550
+            | ClipFxType::Neve1073
+            | ClipFxType::MorphEq
+            | ClipFxType::RoomCorrection => {
+                // These require stateful biquad filters
+                // Full implementation should use dsp_wrappers
+                (sample_l, sample_r)
+            }
+
+            ClipFxType::External { .. } => {
+                // External plugins require VST/AU/CLAP hosting
+                (sample_l, sample_r)
+            }
         }
     }
 

@@ -12,6 +12,7 @@ crate-type = ["rlib", "cdylib"]
 rf-core = { workspace = true }
 rf-dsp = { workspace = true }
 rf-audio = { workspace = true }
+rf-state = { workspace = true }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
 crossbeam-channel = { workspace = true }
@@ -23,3 +24,8 @@ serde_json = { workspace = true }
 num_cpus = "1.16"
 lazy_static = "1.5"
 cpal = { workspace = true }
+
+# Audio file decoding (MP3, FLAC, OGG, AAC, WAV)
+symphonia = { version = "0.5", default-features = false, features = [
+    "mp3", "flac", "ogg", "vorbis", "wav", "pcm", "aac", "alac"
+] }

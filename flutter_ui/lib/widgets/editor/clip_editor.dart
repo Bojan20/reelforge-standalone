@@ -1262,6 +1262,220 @@ class _WaveformPainter extends CustomPainter {
     final amplitude = size.height / 2 - 4;
     final samplesPerSecond = waveform!.length / duration;
 
+    // Calculate samples per pixel for LOD decision
+    final visibleDuration = size.width / zoom;
+    final samplesPerPixel = (visibleDuration * samplesPerSecond) / size.width;
+
+    // LOD: Choose rendering method based on zoom level (Cubase-style)
+    if (samplesPerPixel < 4) {
+      _drawDetailedWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
+    } else if (samplesPerPixel < 50) {
+      _drawMinMaxWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
+    } else {
+      _drawOverviewWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
+    }
+  }
+
+  /// HIGH ZOOM: Sample-accurate rendering with interpolation and transients
+  void _drawDetailedWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.4)
+      ..style = PaintingStyle.fill;
+
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    bool pathStarted = false;
+
+    for (double x = 0; x < size.width; x++) {
+      final time = scrollOffset + x / zoom;
+      if (time < 0 || time > duration) continue;
+
+      final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final nextIndex = ((scrollOffset + (x + 1) / zoom) * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+
+      final sample = waveform![sampleIndex];
+      final t = (time * samplesPerSecond) - sampleIndex.floor();
+      final interpolated = nextIndex < waveform!.length
+          ? sample * (1 - t) + waveform![nextIndex] * t
+          : sample;
+
+      // Apply fade envelope
+      double envelope = 1;
+      if (fadeIn > 0 && time < fadeIn) {
+        envelope = time / fadeIn;
+      } else if (fadeOut > 0 && time > duration - fadeOut) {
+        envelope = (duration - time) / fadeOut;
+      }
+
+      final y = centerY - interpolated * amplitude * envelope;
+
+      if (!pathStarted) {
+        path.moveTo(x, y);
+        pathStarted = true;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Draw filled area
+    if (pathStarted) {
+      final fillPath = Path()..addPath(path, Offset.zero);
+      for (double x = size.width - 1; x >= 0; x--) {
+        final time = scrollOffset + x / zoom;
+        if (time < 0 || time > duration) continue;
+        final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+        double envelope = 1;
+        if (fadeIn > 0 && time < fadeIn) envelope = time / fadeIn;
+        else if (fadeOut > 0 && time > duration - fadeOut) envelope = (duration - time) / fadeOut;
+        fillPath.lineTo(x, centerY + waveform![sampleIndex].abs() * amplitude * envelope);
+      }
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+      canvas.drawPath(path, linePaint);
+    }
+
+    // Draw transient markers
+    _drawTransientMarkers(canvas, size, centerY, samplesPerSecond);
+  }
+
+  /// Draw transient markers at sudden amplitude changes
+  void _drawTransientMarkers(Canvas canvas, Size size, double centerY, double samplesPerSecond) {
+    final transientPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.6)
+      ..strokeWidth = 1;
+
+    double prevSample = 0;
+    double prevSlope = 0;
+    const slopeThreshold = 0.25;
+
+    for (double x = 1; x < size.width; x++) {
+      final time = scrollOffset + x / zoom;
+      if (time < 0 || time > duration) continue;
+
+      final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final sample = waveform![sampleIndex];
+      final slope = (sample - prevSample).abs();
+
+      if (slope > slopeThreshold && slope > prevSlope * 1.8) {
+        canvas.drawLine(
+          Offset(x, centerY - 4),
+          Offset(x, centerY + 4),
+          transientPaint,
+        );
+      }
+
+      prevSample = sample;
+      prevSlope = slope;
+    }
+  }
+
+  /// MEDIUM ZOOM: True min/max envelope - accurate peak display
+  void _drawMinMaxWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.4)
+      ..style = PaintingStyle.fill;
+
+    final rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..style = PaintingStyle.fill;
+
+    // Collect data for path-based rendering (smoother than rectangles)
+    final minValues = <double>[];
+    final maxValues = <double>[];
+    final rmsValues = <double>[];
+    final envelopes = <double>[];
+
+    for (double x = 0; x < size.width; x++) {
+      final timeStart = scrollOffset + x / zoom;
+      final timeEnd = scrollOffset + (x + 1) / zoom;
+      if (timeEnd < 0 || timeStart > duration) {
+        minValues.add(0);
+        maxValues.add(0);
+        rmsValues.add(0);
+        envelopes.add(0);
+        continue;
+      }
+
+      final startSample = (timeStart * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final endSample = (timeEnd * samplesPerSecond).ceil().clamp(startSample + 1, waveform!.length);
+
+      double minVal = waveform![startSample];
+      double maxVal = waveform![startSample];
+      double sumSq = 0;
+      int count = 0;
+
+      for (int i = startSample; i < endSample && i < waveform!.length; i++) {
+        final s = waveform![i];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
+        sumSq += s * s;
+        count++;
+      }
+
+      // Apply fade envelope
+      final midTime = (timeStart + timeEnd) / 2;
+      double envelope = 1;
+      if (fadeIn > 0 && midTime < fadeIn) {
+        envelope = midTime / fadeIn;
+      } else if (fadeOut > 0 && midTime > duration - fadeOut) {
+        envelope = (duration - midTime) / fadeOut;
+      }
+
+      minValues.add(minVal);
+      maxValues.add(maxVal);
+      rmsValues.add(count > 0 ? math.sqrt(sumSq / count) : 0);
+      envelopes.add(envelope);
+    }
+
+    // Draw peak envelope as path (true min/max)
+    final peakPath = Path();
+    for (int i = 0; i < maxValues.length; i++) {
+      final y = centerY - maxValues[i] * amplitude * envelopes[i];
+      if (i == 0) {
+        peakPath.moveTo(i.toDouble(), y);
+      } else {
+        peakPath.lineTo(i.toDouble(), y);
+      }
+    }
+    for (int i = minValues.length - 1; i >= 0; i--) {
+      final y = centerY - minValues[i] * amplitude * envelopes[i];
+      peakPath.lineTo(i.toDouble(), y);
+    }
+    peakPath.close();
+    canvas.drawPath(peakPath, peakPaint);
+
+    // Draw RMS envelope
+    final rmsPath = Path();
+    for (int i = 0; i < rmsValues.length; i++) {
+      final y = centerY - rmsValues[i] * amplitude * envelopes[i];
+      if (i == 0) {
+        rmsPath.moveTo(i.toDouble(), y);
+      } else {
+        rmsPath.lineTo(i.toDouble(), y);
+      }
+    }
+    for (int i = rmsValues.length - 1; i >= 0; i--) {
+      final y = centerY + rmsValues[i] * amplitude * envelopes[i];
+      rmsPath.lineTo(i.toDouble(), y);
+    }
+    rmsPath.close();
+    canvas.drawPath(rmsPath, rmsPaint);
+
+    // Zero line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5,
+    );
+  }
+
+  /// LOW ZOOM: RMS overview waveform
+  void _drawOverviewWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
     final rmsPaint = Paint()
       ..color = color.withValues(alpha: 0.9)
       ..style = PaintingStyle.fill;
@@ -1288,7 +1502,6 @@ class _WaveformPainter extends CustomPainter {
       final peak = sample * envelope;
       final rms = peak * 0.7;
 
-      // Draw RMS (inner)
       final rmsHeight = rms * amplitude;
       canvas.drawRect(
         Rect.fromCenter(
@@ -1299,7 +1512,6 @@ class _WaveformPainter extends CustomPainter {
         rmsPaint,
       );
 
-      // Draw peak (outer)
       final peakHeight = peak * amplitude;
       if (peakHeight > rmsHeight) {
         canvas.drawRect(

@@ -19,7 +19,11 @@ rustflags = [
 rustflags = [
     "-C", "target-cpu=native",
     "-C", "target-feature=+neon",
+    "-L", "/opt/homebrew/opt/flac/lib",
 ]
+
+[env]
+LIBRARY_PATH = "/opt/homebrew/opt/flac/lib"
 
 [target.x86_64-pc-windows-msvc]
 linker = "lld-link"

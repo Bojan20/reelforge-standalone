@@ -30,11 +30,18 @@ pub use playback::{PlaybackEngine, PlaybackState, PlaybackMeters, PlaybackClip};
 pub use dsp_commands::*;
 pub use command_queue::*;
 
+// Re-export recording types from rf-file
+pub use rf_file::{RecordingConfig, RecordingState, RecordingStats};
+
 use std::sync::Arc;
 use parking_lot::RwLock;
 use once_cell::sync::Lazy;
 
 use rf_engine::{DualPathEngine, EngineConfig, ProcessingMode};
+use rf_engine::track_manager::TrackManager;
+use rf_engine::playback::PlaybackEngine as EnginePlayback;
+use rf_engine::automation::AutomationEngine;
+use rf_engine::groups::GroupManager;
 use rf_state::{Project, UndoManager};
 
 /// Global engine instance (singleton for Flutter access)
@@ -55,6 +62,20 @@ pub struct EngineBridge {
     config: EngineConfig,
     metering: MeteringState,
     transport: TransportState,
+    /// Track manager for timeline clips
+    track_manager: Arc<TrackManager>,
+    /// Playback engine for real-time audio processing
+    playback_engine: Arc<EnginePlayback>,
+    /// Automation engine for parameter automation
+    automation_engine: Arc<AutomationEngine>,
+    /// VCA/Group manager for track grouping
+    group_manager: Arc<RwLock<GroupManager>>,
+    /// Dirty state - project has unsaved changes
+    is_dirty: std::sync::atomic::AtomicBool,
+    /// Last saved undo position
+    last_saved_undo_pos: std::sync::atomic::AtomicUsize,
+    /// Current project file path
+    project_file_path: RwLock<Option<String>>,
 }
 
 /// Real-time metering data (lock-free updates)
@@ -90,6 +111,34 @@ pub struct TransportState {
 
 impl EngineBridge {
     pub fn new(config: EngineConfig) -> Self {
+        // Create track manager for timeline clips
+        let track_manager = Arc::new(TrackManager::new());
+
+        // Create automation engine
+        let automation_engine = Arc::new(AutomationEngine::new(config.sample_rate.as_f64()));
+
+        // Create VCA/group manager
+        let group_manager = Arc::new(RwLock::new(GroupManager::new()));
+
+        // Create playback engine connected to track manager
+        let sample_rate = config.sample_rate.as_u32();
+        let mut playback_engine = EnginePlayback::new(
+            Arc::clone(&track_manager),
+            sample_rate,
+        );
+
+        // Connect automation to playback engine
+        playback_engine.set_automation(Arc::clone(&automation_engine));
+        // Connect group/VCA manager to playback engine for audio-thread VCA gain
+        playback_engine.set_group_manager(Arc::clone(&group_manager));
+
+        let playback_engine = Arc::new(playback_engine);
+
+        // Connect playback engine to audio output
+        PLAYBACK.connect_engine(Arc::clone(&playback_engine));
+        log::info!("EngineBridge: Connected rf-engine PlaybackEngine to audio output");
+        log::info!("EngineBridge: Automation and VCA systems connected");
+
         Self {
             engine: DualPathEngine::new(
                 config.processing_mode,
@@ -107,6 +156,64 @@ impl EngineBridge {
                 time_sig_denom: 4,
                 ..Default::default()
             },
+            track_manager,
+            playback_engine,
+            automation_engine,
+            group_manager,
+            is_dirty: std::sync::atomic::AtomicBool::new(false),
+            last_saved_undo_pos: std::sync::atomic::AtomicUsize::new(0),
+            project_file_path: RwLock::new(None),
         }
+    }
+
+    /// Mark project as dirty (has unsaved changes)
+    pub fn mark_dirty(&self) {
+        self.is_dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Mark project as clean (just saved)
+    pub fn mark_clean(&self) {
+        self.is_dirty.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.last_saved_undo_pos.store(
+            self.undo_manager.undo_count(),
+            std::sync::atomic::Ordering::Relaxed
+        );
+    }
+
+    /// Check if project has unsaved changes
+    pub fn is_dirty(&self) -> bool {
+        // Dirty if explicitly marked OR if undo count differs from saved position
+        self.is_dirty.load(std::sync::atomic::Ordering::Relaxed)
+            || self.undo_manager.undo_count() != self.last_saved_undo_pos.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Set project file path
+    pub fn set_file_path(&self, path: Option<String>) {
+        *self.project_file_path.write() = path;
+    }
+
+    /// Get project file path
+    pub fn file_path(&self) -> Option<String> {
+        self.project_file_path.read().clone()
+    }
+
+    /// Get track manager for adding clips/tracks
+    pub fn track_manager(&self) -> &Arc<TrackManager> {
+        &self.track_manager
+    }
+
+    /// Get playback engine for transport control
+    pub fn playback_engine(&self) -> &Arc<EnginePlayback> {
+        &self.playback_engine
+    }
+
+    /// Get automation engine for parameter automation
+    pub fn automation_engine(&self) -> &Arc<AutomationEngine> {
+        &self.automation_engine
+    }
+
+    /// Get VCA/group manager for track grouping
+    pub fn group_manager(&self) -> &Arc<RwLock<GroupManager>> {
+        &self.group_manager
     }
 }

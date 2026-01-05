@@ -40,6 +40,7 @@ pub mod dynamics;
 pub mod reverb;
 pub mod delay;
 pub mod spatial;
+pub mod surround;
 pub mod saturation;
 pub mod channel;
 pub mod analysis;
@@ -220,6 +221,25 @@ pub use wavelet::{
     CQTResult,
     MultiResolutionAnalyzer,
     MultiResolutionResult,
+};
+
+// Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)
+pub use metering::{
+    LufsMeter,
+    TruePeakMeter,
+    BroadcastMeter,
+    CorrelationMeter as StereoCorrelationMeter,
+    BalanceMeter,
+    KSystem,
+    KMeter,
+    VuMeter,
+    PpmMeter,
+    PpmType,
+    StereoPpmMeter,
+    DynamicRangeMeter,
+    PhaseScope,
+    PhasePoint,
+    StereoMeter,
 };
 
 // Re-exports for convenience

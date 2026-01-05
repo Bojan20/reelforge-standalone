@@ -42,6 +42,7 @@ dirs-next = "2.0"
 # Audio file I/O
 hound = "3.5"
 symphonia = { version = "0.5", features = ["aac", "flac", "mp3", "ogg", "wav"] }
+flac-bound = "0.5"
 
 # File system
 walkdir = "2.5"

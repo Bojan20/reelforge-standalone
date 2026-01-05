@@ -66,6 +66,15 @@ class ReelForgeTheme {
   static const Color infoBlue = accentCyan;
   static const Color clipRed = Color(0xFFFF2040);  // Brighter for clip indicators
 
+  // Common aliases for convenience
+  static const Color accent = accentBlue;
+  static const Color border = borderSubtle;
+  static const Color textMuted = textTertiary;
+  static const Color surface = bgSurface;
+  static const Color surfaceDark = bgMid;
+  static const Color success = accentGreen;
+  static const Color warning = accentOrange;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TEXT COLORS - WCAG AAA Contrast (7:1+)
   // ═══════════════════════════════════════════════════════════════════════════

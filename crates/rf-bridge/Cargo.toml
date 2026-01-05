@@ -17,6 +17,8 @@ rf-dsp = { path = "../rf-dsp" }
 rf-engine = { path = "../rf-engine" }
 rf-state = { path = "../rf-state" }
 rf-audio = { path = "../rf-audio" }
+rf-file = { path = "../rf-file" }
+rf-plugin = { path = "../rf-plugin" }
 
 # Audio I/O
 cpal.workspace = true

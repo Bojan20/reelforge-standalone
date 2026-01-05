@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 
-class TimeRuler extends StatelessWidget {
+class TimeRuler extends StatefulWidget {
   final double width;
   final double zoom; // pixels per second
   final double scrollOffset;
@@ -22,7 +22,10 @@ class TimeRuler extends StatelessWidget {
   final int sampleRate;
   final LoopRegion? loopRegion;
   final bool loopEnabled;
+  final double playheadPosition;
   final ValueChanged<double>? onTimeClick;
+  /// Called during scrub/drag on ruler (Cubase-style)
+  final ValueChanged<double>? onTimeScrub;
   final VoidCallback? onLoopToggle;
 
   const TimeRuler({
@@ -37,41 +40,97 @@ class TimeRuler extends StatelessWidget {
     this.sampleRate = 48000,
     this.loopRegion,
     this.loopEnabled = true,
+    this.playheadPosition = 0,
     this.onTimeClick,
+    this.onTimeScrub,
     this.onLoopToggle,
   });
 
   @override
+  State<TimeRuler> createState() => _TimeRulerState();
+}
+
+class _TimeRulerState extends State<TimeRuler> {
+  bool _isDragging = false;
+  bool _isHovering = false;
+  double _hoverX = -1;
+
+  double _xToTime(double x) {
+    return widget.scrollOffset + x / widget.zoom;
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    final x = details.localPosition.dx;
+    final y = details.localPosition.dy;
+    final time = _xToTime(x);
+
+    // Cubase-style: Upper half is loop region, lower half is position
+    // Upper 12px = loop region interaction
+    // Lower 16px = position cursor
+
+    if (y < 12 && widget.loopRegion != null && widget.onLoopToggle != null) {
+      // Check if click is within loop region (upper zone)
+      final loopStartX = (widget.loopRegion!.start - widget.scrollOffset) * widget.zoom;
+      final loopEndX = (widget.loopRegion!.end - widget.scrollOffset) * widget.zoom;
+      if (x >= loopStartX && x <= loopEndX) {
+        widget.onLoopToggle?.call();
+        return;
+      }
+    }
+
+    // Lower zone - set position (Cubase-style immediate position)
+    widget.onTimeClick?.call(time.clamp(0, double.infinity));
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    setState(() => _isDragging = true);
+    final time = _xToTime(details.localPosition.dx);
+    // Start scrubbing
+    (widget.onTimeScrub ?? widget.onTimeClick)?.call(time.clamp(0, double.infinity));
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (!_isDragging) return;
+    final time = _xToTime(details.localPosition.dx);
+    // Continue scrubbing (Cubase-style - cursor follows mouse)
+    (widget.onTimeScrub ?? widget.onTimeClick)?.call(time.clamp(0, double.infinity));
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (details) {
-        final x = details.localPosition.dx;
-        final time = scrollOffset + x / zoom;
-
-        // Check if click is within loop region
-        if (loopRegion != null && onLoopToggle != null) {
-          final loopStartX = (loopRegion!.start - scrollOffset) * zoom;
-          final loopEndX = (loopRegion!.end - scrollOffset) * zoom;
-          if (x >= loopStartX && x <= loopEndX) {
-            onLoopToggle?.call();
-            return;
-          }
-        }
-
-        onTimeClick?.call(time.clamp(0, double.infinity));
-      },
-      child: CustomPaint(
-        painter: _TimeRulerPainter(
-          zoom: zoom,
-          scrollOffset: scrollOffset,
-          tempo: tempo,
-          timeSignatureNum: timeSignatureNum,
-          timeDisplayMode: timeDisplayMode,
-          sampleRate: sampleRate,
-          loopRegion: loopRegion,
-          loopEnabled: loopEnabled,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() {
+        _isHovering = false;
+        _hoverX = -1;
+      }),
+      onHover: (event) => setState(() => _hoverX = event.localPosition.dx),
+      cursor: _isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onHorizontalDragStart: _handleDragStart,
+        onHorizontalDragUpdate: _handleDragUpdate,
+        onHorizontalDragEnd: _handleDragEnd,
+        child: CustomPaint(
+          painter: _TimeRulerPainter(
+            zoom: widget.zoom,
+            scrollOffset: widget.scrollOffset,
+            tempo: widget.tempo,
+            timeSignatureNum: widget.timeSignatureNum,
+            timeDisplayMode: widget.timeDisplayMode,
+            sampleRate: widget.sampleRate,
+            loopRegion: widget.loopRegion,
+            loopEnabled: widget.loopEnabled,
+            playheadPosition: widget.playheadPosition,
+            hoverX: _isHovering ? _hoverX : -1,
+            isDragging: _isDragging,
+          ),
+          size: Size(widget.width, 28),
         ),
-        size: Size(width, 28),
       ),
     );
   }
@@ -86,6 +145,9 @@ class _TimeRulerPainter extends CustomPainter {
   final int sampleRate;
   final LoopRegion? loopRegion;
   final bool loopEnabled;
+  final double playheadPosition;
+  final double hoverX;
+  final bool isDragging;
 
   _TimeRulerPainter({
     required this.zoom,
@@ -96,6 +158,9 @@ class _TimeRulerPainter extends CustomPainter {
     required this.sampleRate,
     this.loopRegion,
     required this.loopEnabled,
+    required this.playheadPosition,
+    this.hoverX = -1,
+    this.isDragging = false,
   });
 
   @override
@@ -174,6 +239,44 @@ class _TimeRulerPainter extends CustomPainter {
       Offset(size.width, size.height - 1),
       borderPaint,
     );
+
+    // Hover indicator (Cubase-style position preview)
+    if (hoverX >= 0 && hoverX <= size.width && !isDragging) {
+      final hoverPaint = Paint()
+        ..color = ReelForgeTheme.textTertiary.withValues(alpha: 0.5)
+        ..strokeWidth = 1;
+      canvas.drawLine(
+        Offset(hoverX, 12),
+        Offset(hoverX, size.height),
+        hoverPaint,
+      );
+    }
+
+    // Playhead triangle (Cubase-style at top of ruler)
+    final playheadX = (playheadPosition - scrollOffset) * zoom;
+    if (playheadX >= 0 && playheadX <= size.width) {
+      final playheadPaint = Paint()
+        ..color = ReelForgeTheme.accentRed
+        ..style = PaintingStyle.fill;
+
+      // Draw inverted triangle at bottom pointing down
+      final path = Path()
+        ..moveTo(playheadX - 6, size.height - 10)
+        ..lineTo(playheadX + 6, size.height - 10)
+        ..lineTo(playheadX, size.height)
+        ..close();
+
+      canvas.drawPath(path, playheadPaint);
+
+      // Playhead line
+      canvas.drawLine(
+        Offset(playheadX, size.height - 10),
+        Offset(playheadX, 0),
+        Paint()
+          ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.4)
+          ..strokeWidth = 1,
+      );
+    }
   }
 
   void _drawLoopRegion(Canvas canvas, Size size) {
@@ -258,5 +361,8 @@ class _TimeRulerPainter extends CustomPainter {
       scrollOffset != oldDelegate.scrollOffset ||
       tempo != oldDelegate.tempo ||
       loopRegion != oldDelegate.loopRegion ||
-      loopEnabled != oldDelegate.loopEnabled;
+      loopEnabled != oldDelegate.loopEnabled ||
+      playheadPosition != oldDelegate.playheadPosition ||
+      hoverX != oldDelegate.hoverX ||
+      isDragging != oldDelegate.isDragging;
 }

@@ -341,6 +341,7 @@ class _Tab extends StatelessWidget {
     final color = isActive ? accentColor : ReelForgeTheme.textSecondary;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

@@ -28,26 +28,41 @@ DynamicLibrary _loadNativeLibrary() {
     throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
   }
 
+  // Get script/executable directory for reliable path resolution
+  final scriptDir = Platform.script.toFilePath();
+  final execDir = Platform.resolvedExecutable;
+  print('[NativeFFI] Script path: $scriptDir');
+  print('[NativeFFI] Executable path: $execDir');
+  print('[NativeFFI] CWD: ${Directory.current.path}');
+
   // Try multiple paths
   final paths = [
+    // Relative to CWD
     libName,
     'lib/$libName',
+    // Relative to project root
     '../target/release/$libName',
     '../target/debug/$libName',
     '../../target/release/$libName',
     '../../target/debug/$libName',
+    // Absolute paths for macOS development
+    '/Users/vanvinklstudio/Desktop/reelforge-standalone/flutter_ui/lib/$libName',
+    '/Users/vanvinklstudio/Desktop/reelforge-standalone/target/release/$libName',
   ];
 
   for (final path in paths) {
     try {
+      print('[NativeFFI] Trying: $path');
       _cachedLib = DynamicLibrary.open(path);
+      print('[NativeFFI] SUCCESS: Loaded from $path');
       return _cachedLib!;
-    } catch (_) {
+    } catch (e) {
+      print('[NativeFFI] Failed: $path - $e');
       continue;
     }
   }
 
-  throw Exception('Could not load native library: $libName');
+  throw Exception('Could not load native library: $libName (tried ${paths.length} paths)');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -104,6 +119,15 @@ typedef EngineDeleteClipDart = int Function(int clipId);
 
 typedef EngineSetClipGainNative = Int32 Function(Uint64 clipId, Double gain);
 typedef EngineSetClipGainDart = int Function(int clipId, double gain);
+
+typedef EngineGetClipDurationNative = Double Function(Uint64 clipId);
+typedef EngineGetClipDurationDart = double Function(int clipId);
+
+typedef EngineGetClipSourceDurationNative = Double Function(Uint64 clipId);
+typedef EngineGetClipSourceDurationDart = double Function(int clipId);
+
+typedef EngineGetAudioFileDurationNative = Double Function(Pointer<Utf8> path);
+typedef EngineGetAudioFileDurationDart = double Function(Pointer<Utf8> path);
 
 // Waveform
 typedef EngineGetWaveformPeaksNative = IntPtr Function(Uint64 clipId, Uint32 lodLevel, Pointer<Float> outPeaks, IntPtr maxPeaks);
@@ -214,6 +238,22 @@ typedef EngineSaveProjectDart = int Function(Pointer<Utf8> path);
 typedef EngineLoadProjectNative = Int32 Function(Pointer<Utf8> path);
 typedef EngineLoadProjectDart = int Function(Pointer<Utf8> path);
 
+// Project dirty state
+typedef EngineIsProjectModifiedNative = Int32 Function();
+typedef EngineIsProjectModifiedDart = int Function();
+
+typedef EngineMarkProjectDirtyNative = Void Function();
+typedef EngineMarkProjectDirtyDart = void Function();
+
+typedef EngineMarkProjectCleanNative = Void Function();
+typedef EngineMarkProjectCleanDart = void Function();
+
+typedef EngineSetProjectFilePathNative = Void Function(Pointer<Utf8> path);
+typedef EngineSetProjectFilePathDart = void Function(Pointer<Utf8> path);
+
+typedef EngineGetProjectFilePathNative = Pointer<Utf8> Function();
+typedef EngineGetProjectFilePathDart = Pointer<Utf8> Function();
+
 // Memory stats
 typedef EngineGetMemoryUsageNative = Float Function();
 typedef EngineGetMemoryUsageDart = double Function();
@@ -224,6 +264,12 @@ typedef EngineGetPeakMetersDart = void Function(Pointer<Double> outLeft, Pointer
 
 typedef EngineGetRmsMetersNative = Void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 typedef EngineGetRmsMetersDart = void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
+
+typedef EngineGetLufsMetersNative = Void Function(Pointer<Double> outMomentary, Pointer<Double> outShort, Pointer<Double> outIntegrated);
+typedef EngineGetLufsMetersDart = void Function(Pointer<Double> outMomentary, Pointer<Double> outShort, Pointer<Double> outIntegrated);
+
+typedef EngineGetTruePeakMetersNative = Void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
+typedef EngineGetTruePeakMetersDart = void Function(Pointer<Double> outLeft, Pointer<Double> outRight);
 
 // EQ functions
 typedef EngineEqSetBandEnabledNative = Int32 Function(Uint32 trackId, Uint8 bandIndex, Int32 enabled);
@@ -283,6 +329,47 @@ typedef EngineTrackDuplicateDart = int Function(int trackId);
 typedef EngineTrackSetColorNative = Int32 Function(Uint64 trackId, Uint32 color);
 typedef EngineTrackSetColorDart = int Function(int trackId, int color);
 
+// VCA functions
+typedef EngineVcaCreateNative = Uint64 Function(Pointer<Utf8> name);
+typedef EngineVcaCreateDart = int Function(Pointer<Utf8> name);
+
+typedef EngineVcaDeleteNative = Int32 Function(Uint64 vcaId);
+typedef EngineVcaDeleteDart = int Function(int vcaId);
+
+typedef EngineVcaSetLevelNative = Int32 Function(Uint64 vcaId, Double level);
+typedef EngineVcaSetLevelDart = int Function(int vcaId, double level);
+
+typedef EngineVcaGetLevelNative = Double Function(Uint64 vcaId);
+typedef EngineVcaGetLevelDart = double Function(int vcaId);
+
+typedef EngineVcaSetMuteNative = Int32 Function(Uint64 vcaId, Int32 muted);
+typedef EngineVcaSetMuteDart = int Function(int vcaId, int muted);
+
+typedef EngineVcaAssignTrackNative = Int32 Function(Uint64 vcaId, Uint64 trackId);
+typedef EngineVcaAssignTrackDart = int Function(int vcaId, int trackId);
+
+typedef EngineVcaRemoveTrackNative = Int32 Function(Uint64 vcaId, Uint64 trackId);
+typedef EngineVcaRemoveTrackDart = int Function(int vcaId, int trackId);
+
+typedef EngineVcaGetTrackEffectiveVolumeNative = Double Function(Uint64 trackId, Double baseVolume);
+typedef EngineVcaGetTrackEffectiveVolumeDart = double Function(int trackId, double baseVolume);
+
+// Group functions
+typedef EngineGroupCreateNative = Uint64 Function(Pointer<Utf8> name);
+typedef EngineGroupCreateDart = int Function(Pointer<Utf8> name);
+
+typedef EngineGroupDeleteNative = Int32 Function(Uint64 groupId);
+typedef EngineGroupDeleteDart = int Function(int groupId);
+
+typedef EngineGroupAddTrackNative = Int32 Function(Uint64 groupId, Uint64 trackId);
+typedef EngineGroupAddTrackDart = int Function(int groupId, int trackId);
+
+typedef EngineGroupRemoveTrackNative = Int32 Function(Uint64 groupId, Uint64 trackId);
+typedef EngineGroupRemoveTrackDart = int Function(int groupId, int trackId);
+
+typedef EngineGroupSetLinkModeNative = Int32 Function(Uint64 groupId, Uint32 linkMode);
+typedef EngineGroupSetLinkModeDart = int Function(int groupId, int linkMode);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -314,6 +401,9 @@ class NativeFFI {
   late final EngineDuplicateClipDart _duplicateClip;
   late final EngineDeleteClipDart _deleteClip;
   late final EngineSetClipGainDart _setClipGain;
+  late final EngineGetClipDurationDart _getClipDuration;
+  late final EngineGetClipSourceDurationDart _getClipSourceDuration;
+  late final EngineGetAudioFileDurationDart _getAudioFileDuration;
 
   late final EngineGetWaveformPeaksDart _getWaveformPeaks;
   late final EngineGetWaveformLodLevelsDart _getWaveformLodLevels;
@@ -361,6 +451,11 @@ class NativeFFI {
   // Project
   late final EngineSaveProjectDart _saveProject;
   late final EngineLoadProjectDart _loadProject;
+  late final EngineIsProjectModifiedDart _isProjectModified;
+  late final EngineMarkProjectDirtyDart _markProjectDirty;
+  late final EngineMarkProjectCleanDart _markProjectClean;
+  late final EngineSetProjectFilePathDart _setProjectFilePath;
+  late final EngineGetProjectFilePathDart _getProjectFilePath;
 
   // Memory
   late final EngineGetMemoryUsageDart _getMemoryUsage;
@@ -368,6 +463,8 @@ class NativeFFI {
   // Metering
   late final EngineGetPeakMetersDart _getPeakMeters;
   late final EngineGetRmsMetersDart _getRmsMeters;
+  late final EngineGetLufsMetersDart _getLufsMeters;
+  late final EngineGetTruePeakMetersDart _getTruePeakMeters;
 
   // EQ
   late final EngineEqSetBandEnabledDart _eqSetBandEnabled;
@@ -394,6 +491,23 @@ class NativeFFI {
   late final EngineTrackRenameDart _trackRename;
   late final EngineTrackDuplicateDart _trackDuplicate;
   late final EngineTrackSetColorDart _trackSetColor;
+
+  // VCA
+  late final EngineVcaCreateDart _vcaCreate;
+  late final EngineVcaDeleteDart _vcaDelete;
+  late final EngineVcaSetLevelDart _vcaSetLevel;
+  late final EngineVcaGetLevelDart _vcaGetLevel;
+  late final EngineVcaSetMuteDart _vcaSetMute;
+  late final EngineVcaAssignTrackDart _vcaAssignTrack;
+  late final EngineVcaRemoveTrackDart _vcaRemoveTrack;
+  late final EngineVcaGetTrackEffectiveVolumeDart _vcaGetTrackEffectiveVolume;
+
+  // Group
+  late final EngineGroupCreateDart _groupCreate;
+  late final EngineGroupDeleteDart _groupDelete;
+  late final EngineGroupAddTrackDart _groupAddTrack;
+  late final EngineGroupRemoveTrackDart _groupRemoveTrack;
+  late final EngineGroupSetLinkModeDart _groupSetLinkMode;
 
   NativeFFI._();
 
@@ -435,6 +549,9 @@ class NativeFFI {
     _duplicateClip = _lib.lookupFunction<EngineDuplicateClipNative, EngineDuplicateClipDart>('engine_duplicate_clip');
     _deleteClip = _lib.lookupFunction<EngineDeleteClipNative, EngineDeleteClipDart>('engine_delete_clip');
     _setClipGain = _lib.lookupFunction<EngineSetClipGainNative, EngineSetClipGainDart>('engine_set_clip_gain');
+    _getClipDuration = _lib.lookupFunction<EngineGetClipDurationNative, EngineGetClipDurationDart>('engine_get_clip_duration');
+    _getClipSourceDuration = _lib.lookupFunction<EngineGetClipSourceDurationNative, EngineGetClipSourceDurationDart>('engine_get_clip_source_duration');
+    _getAudioFileDuration = _lib.lookupFunction<EngineGetAudioFileDurationNative, EngineGetAudioFileDurationDart>('engine_get_audio_file_duration');
 
     _getWaveformPeaks = _lib.lookupFunction<EngineGetWaveformPeaksNative, EngineGetWaveformPeaksDart>('engine_get_waveform_peaks');
     _getWaveformLodLevels = _lib.lookupFunction<EngineGetWaveformLodLevelsNative, EngineGetWaveformLodLevelsDart>('engine_get_waveform_lod_levels');
@@ -482,6 +599,11 @@ class NativeFFI {
     // Project
     _saveProject = _lib.lookupFunction<EngineSaveProjectNative, EngineSaveProjectDart>('engine_save_project');
     _loadProject = _lib.lookupFunction<EngineLoadProjectNative, EngineLoadProjectDart>('engine_load_project');
+    _isProjectModified = _lib.lookupFunction<EngineIsProjectModifiedNative, EngineIsProjectModifiedDart>('engine_project_is_modified');
+    _markProjectDirty = _lib.lookupFunction<EngineMarkProjectDirtyNative, EngineMarkProjectDirtyDart>('engine_project_mark_dirty');
+    _markProjectClean = _lib.lookupFunction<EngineMarkProjectCleanNative, EngineMarkProjectCleanDart>('engine_project_mark_clean');
+    _setProjectFilePath = _lib.lookupFunction<EngineSetProjectFilePathNative, EngineSetProjectFilePathDart>('engine_project_set_file_path');
+    _getProjectFilePath = _lib.lookupFunction<EngineGetProjectFilePathNative, EngineGetProjectFilePathDart>('engine_project_get_file_path');
 
     // Memory
     _getMemoryUsage = _lib.lookupFunction<EngineGetMemoryUsageNative, EngineGetMemoryUsageDart>('engine_get_memory_usage');
@@ -489,6 +611,8 @@ class NativeFFI {
     // Metering
     _getPeakMeters = _lib.lookupFunction<EngineGetPeakMetersNative, EngineGetPeakMetersDart>('engine_get_peak_meters');
     _getRmsMeters = _lib.lookupFunction<EngineGetRmsMetersNative, EngineGetRmsMetersDart>('engine_get_rms_meters');
+    _getLufsMeters = _lib.lookupFunction<EngineGetLufsMetersNative, EngineGetLufsMetersDart>('engine_get_lufs_meters');
+    _getTruePeakMeters = _lib.lookupFunction<EngineGetTruePeakMetersNative, EngineGetTruePeakMetersDart>('engine_get_true_peak_meters');
 
     // EQ
     _eqSetBandEnabled = _lib.lookupFunction<EngineEqSetBandEnabledNative, EngineEqSetBandEnabledDart>('eq_set_band_enabled');
@@ -515,6 +639,23 @@ class NativeFFI {
     _trackRename = _lib.lookupFunction<EngineTrackRenameNative, EngineTrackRenameDart>('track_rename');
     _trackDuplicate = _lib.lookupFunction<EngineTrackDuplicateNative, EngineTrackDuplicateDart>('track_duplicate');
     _trackSetColor = _lib.lookupFunction<EngineTrackSetColorNative, EngineTrackSetColorDart>('track_set_color');
+
+    // VCA
+    _vcaCreate = _lib.lookupFunction<EngineVcaCreateNative, EngineVcaCreateDart>('vca_create');
+    _vcaDelete = _lib.lookupFunction<EngineVcaDeleteNative, EngineVcaDeleteDart>('vca_delete');
+    _vcaSetLevel = _lib.lookupFunction<EngineVcaSetLevelNative, EngineVcaSetLevelDart>('vca_set_level');
+    _vcaGetLevel = _lib.lookupFunction<EngineVcaGetLevelNative, EngineVcaGetLevelDart>('vca_get_level');
+    _vcaSetMute = _lib.lookupFunction<EngineVcaSetMuteNative, EngineVcaSetMuteDart>('vca_set_mute');
+    _vcaAssignTrack = _lib.lookupFunction<EngineVcaAssignTrackNative, EngineVcaAssignTrackDart>('vca_add_track');
+    _vcaRemoveTrack = _lib.lookupFunction<EngineVcaRemoveTrackNative, EngineVcaRemoveTrackDart>('vca_remove_track');
+    _vcaGetTrackEffectiveVolume = _lib.lookupFunction<EngineVcaGetTrackEffectiveVolumeNative, EngineVcaGetTrackEffectiveVolumeDart>('vca_get_track_contribution');
+
+    // Group
+    _groupCreate = _lib.lookupFunction<EngineGroupCreateNative, EngineGroupCreateDart>('group_create');
+    _groupDelete = _lib.lookupFunction<EngineGroupDeleteNative, EngineGroupDeleteDart>('group_delete');
+    _groupAddTrack = _lib.lookupFunction<EngineGroupAddTrackNative, EngineGroupAddTrackDart>('group_add_track');
+    _groupRemoveTrack = _lib.lookupFunction<EngineGroupRemoveTrackNative, EngineGroupRemoveTrackDart>('group_remove_track');
+    _groupSetLinkMode = _lib.lookupFunction<EngineGroupSetLinkModeNative, EngineGroupSetLinkModeDart>('group_set_link_mode');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -640,6 +781,32 @@ class NativeFFI {
   bool setClipGain(int clipId, double gain) {
     if (!_loaded) return false;
     return _setClipGain(clipId, gain) != 0;
+  }
+
+  /// Get clip duration (in seconds)
+  /// Returns -1 if clip not found
+  double getClipDuration(int clipId) {
+    if (!_loaded) return -1;
+    return _getClipDuration(clipId);
+  }
+
+  /// Get clip source duration (original file duration in seconds)
+  /// Returns -1 if clip not found
+  double getClipSourceDuration(int clipId) {
+    if (!_loaded) return -1;
+    return _getClipSourceDuration(clipId);
+  }
+
+  /// Get audio file duration (in seconds) by reading the file
+  /// Returns -1 on error
+  double getAudioFileDuration(String path) {
+    if (!_loaded) return -1;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _getAudioFileDuration(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
   }
 
   /// Get waveform peaks for a clip
@@ -861,6 +1028,38 @@ class NativeFFI {
     }
   }
 
+  /// Get LUFS meter values (momentary, short-term, integrated) in LUFS
+  /// Returns (-70.0, -70.0, -70.0) if not loaded
+  (double, double, double) getLufsMeters() {
+    if (!_loaded) return (-70.0, -70.0, -70.0);
+    final momentaryPtr = calloc<Double>();
+    final shortPtr = calloc<Double>();
+    final integratedPtr = calloc<Double>();
+    try {
+      _getLufsMeters(momentaryPtr, shortPtr, integratedPtr);
+      return (momentaryPtr.value, shortPtr.value, integratedPtr.value);
+    } finally {
+      calloc.free(momentaryPtr);
+      calloc.free(shortPtr);
+      calloc.free(integratedPtr);
+    }
+  }
+
+  /// Get True Peak meter values (left, right) in dBTP
+  /// Returns (-70.0, -70.0) if not loaded
+  (double, double) getTruePeakMeters() {
+    if (!_loaded) return (-70.0, -70.0);
+    final leftPtr = calloc<Double>();
+    final rightPtr = calloc<Double>();
+    try {
+      _getTruePeakMeters(leftPtr, rightPtr);
+      return (leftPtr.value, rightPtr.value);
+    } finally {
+      calloc.free(leftPtr);
+      calloc.free(rightPtr);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // UNDO/REDO API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -913,6 +1112,54 @@ class NativeFFI {
     } finally {
       calloc.free(pathPtr);
     }
+  }
+
+  /// Check if project has unsaved changes
+  bool isProjectModified() {
+    if (!_loaded) return false;
+    return _isProjectModified() != 0;
+  }
+
+  /// Mark project as dirty (has unsaved changes)
+  void markProjectDirty() {
+    if (!_loaded) return;
+    _markProjectDirty();
+  }
+
+  /// Mark project as clean (just saved)
+  void markProjectClean() {
+    if (!_loaded) return;
+    _markProjectClean();
+  }
+
+  /// Set project file path
+  void setProjectFilePath(String? path) {
+    if (!_loaded) return;
+    if (path == null) {
+      // Pass null as empty string - Rust will interpret empty as None
+      final ptr = ''.toNativeUtf8();
+      try {
+        _setProjectFilePath(ptr);
+      } finally {
+        calloc.free(ptr);
+      }
+    } else {
+      final pathPtr = path.toNativeUtf8();
+      try {
+        _setProjectFilePath(pathPtr);
+      } finally {
+        calloc.free(pathPtr);
+      }
+    }
+  }
+
+  /// Get project file path
+  String? getProjectFilePath() {
+    if (!_loaded) return null;
+    final ptr = _getProjectFilePath();
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    return str.isEmpty ? null : str;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1053,5 +1300,224 @@ class NativeFFI {
   bool trackSetColor(int trackId, int color) {
     if (!_loaded) return false;
     return _trackSetColor(trackId, color) != 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP FX API (STUB - native implementation pending)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add FX to clip - returns slot ID or null
+  /// Note: Native implementation pending, returns mock ID
+  int? addClipFx(int clipId, int fxType) {
+    if (!_loaded) return null;
+    // TODO: Implement native FFI call when Rust API is ready
+    return null;
+  }
+
+  /// Remove FX from clip
+  bool removeClipFx(int clipId, int slotId) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set FX slot bypass
+  bool setClipFxBypass(int clipId, int slotId, bool bypass) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set FX chain bypass
+  bool setClipFxChainBypass(int clipId, bool bypass) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set FX wet/dry mix
+  bool setClipFxWetDry(int clipId, int slotId, double wetDry) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set FX chain input gain
+  bool setClipFxInputGain(int clipId, double gainDb) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set FX chain output gain
+  bool setClipFxOutputGain(int clipId, double gainDb) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set Gain FX parameters
+  bool setClipFxGainParams(int clipId, int slotId, double db, double pan) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set Compressor FX parameters
+  bool setClipFxCompressorParams(
+    int clipId,
+    int slotId,
+    double ratio,
+    double thresholdDb,
+    double attackMs,
+    double releaseMs,
+  ) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set Limiter FX parameters
+  bool setClipFxLimiterParams(int clipId, int slotId, double ceilingDb) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set Gate FX parameters
+  bool setClipFxGateParams(
+    int clipId,
+    int slotId,
+    double thresholdDb,
+    double attackMs,
+    double releaseMs,
+  ) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Set Saturation FX parameters
+  bool setClipFxSaturationParams(int clipId, int slotId, double drive, double mix) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Move FX slot in chain
+  bool moveClipFx(int clipId, int slotId, int newIndex) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Copy FX chain from one clip to another
+  bool copyClipFx(int sourceClipId, int targetClipId) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  /// Clear all FX from clip
+  bool clearClipFx(int clipId) {
+    if (!_loaded) return false;
+    // TODO: Implement native FFI call when Rust API is ready
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VCA API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new VCA fader
+  int vcaCreate(String name) {
+    if (!_loaded) return 0;
+    final namePtr = name.toNativeUtf8();
+    try {
+      return _vcaCreate(namePtr);
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Delete a VCA fader
+  bool vcaDelete(int vcaId) {
+    if (!_loaded) return false;
+    return _vcaDelete(vcaId) != 0;
+  }
+
+  /// Set VCA level (0.0 - 1.5)
+  bool vcaSetLevel(int vcaId, double level) {
+    if (!_loaded) return false;
+    return _vcaSetLevel(vcaId, level) != 0;
+  }
+
+  /// Get VCA level
+  double vcaGetLevel(int vcaId) {
+    if (!_loaded) return 1.0;
+    return _vcaGetLevel(vcaId);
+  }
+
+  /// Set VCA mute state
+  bool vcaSetMute(int vcaId, bool muted) {
+    if (!_loaded) return false;
+    return _vcaSetMute(vcaId, muted ? 1 : 0) != 0;
+  }
+
+  /// Assign track to VCA
+  bool vcaAssignTrack(int vcaId, int trackId) {
+    if (!_loaded) return false;
+    return _vcaAssignTrack(vcaId, trackId) != 0;
+  }
+
+  /// Remove track from VCA
+  bool vcaRemoveTrack(int vcaId, int trackId) {
+    if (!_loaded) return false;
+    return _vcaRemoveTrack(vcaId, trackId) != 0;
+  }
+
+  /// Get effective volume for track including VCA contribution
+  double vcaGetTrackEffectiveVolume(int trackId, double baseVolume) {
+    if (!_loaded) return baseVolume;
+    return _vcaGetTrackEffectiveVolume(trackId, baseVolume);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GROUP API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new track group
+  int groupCreate(String name) {
+    if (!_loaded) return 0;
+    final namePtr = name.toNativeUtf8();
+    try {
+      return _groupCreate(namePtr);
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Delete a track group
+  bool groupDelete(int groupId) {
+    if (!_loaded) return false;
+    return _groupDelete(groupId) != 0;
+  }
+
+  /// Add track to group
+  bool groupAddTrack(int groupId, int trackId) {
+    if (!_loaded) return false;
+    return _groupAddTrack(groupId, trackId) != 0;
+  }
+
+  /// Remove track from group
+  bool groupRemoveTrack(int groupId, int trackId) {
+    if (!_loaded) return false;
+    return _groupRemoveTrack(groupId, trackId) != 0;
+  }
+
+  /// Set group link mode (0=Relative, 1=Absolute)
+  bool groupSetLinkMode(int groupId, int linkMode) {
+    if (!_loaded) return false;
+    return _groupSetLinkMode(groupId, linkMode) != 0;
   }
 }

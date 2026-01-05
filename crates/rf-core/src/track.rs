@@ -14,13 +14,25 @@ use std::collections::HashMap;
 
 use crate::{Decibels, Sample};
 
-/// Unique track identifier
+/// Unique track identifier (u64 for large project support)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct TrackId(pub u32);
+pub struct TrackId(pub u64);
 
 impl TrackId {
-    pub fn new(id: u32) -> Self {
+    pub fn new(id: u64) -> Self {
         Self(id)
+    }
+
+    /// Create from u32 (backwards compatibility)
+    #[inline]
+    pub fn from_u32(id: u32) -> Self {
+        Self(id as u64)
+    }
+
+    /// Get as u64
+    #[inline]
+    pub fn as_u64(self) -> u64 {
+        self.0
     }
 }
 
@@ -396,7 +408,7 @@ pub struct TrackManager {
     /// All tracks (order matters)
     tracks: Vec<Track>,
     /// Next track ID
-    next_id: u32,
+    next_id: u64,
     /// Master track ID
     master_id: Option<TrackId>,
 }

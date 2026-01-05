@@ -8,6 +8,7 @@
 //! - Autosave with crash recovery
 //! - Preset management
 //! - Project serialization
+//! - App preferences
 
 mod undo;
 mod commands;
@@ -19,6 +20,7 @@ mod history;
 mod autosave;
 mod clip;
 mod markers;
+mod preferences;
 
 pub use undo::*;
 pub use commands::*;
@@ -30,3 +32,4 @@ pub use history::*;
 pub use autosave::*;
 pub use clip::*;
 pub use markers::*;
+pub use preferences::*;

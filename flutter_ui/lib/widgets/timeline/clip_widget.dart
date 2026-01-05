@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
+import '../editors/clip_fx_editor.dart';
 
 class ClipWidget extends StatefulWidget {
   final TimelineClip clip;
@@ -23,12 +24,21 @@ class ClipWidget extends StatefulWidget {
   final double trackHeight;
   final ValueChanged<bool>? onSelect;
   final ValueChanged<double>? onMove;
+  /// Called during vertical drag with Y delta to indicate cross-track intent
+  final void Function(double newStartTime, double verticalDelta)? onCrossTrackDrag;
+  /// Called when cross-track drag ends
+  final VoidCallback? onCrossTrackDragEnd;
+  /// Smooth drag callbacks (Cubase-style ghost preview)
+  final void Function(Offset globalPosition, Offset localPosition)? onDragStart;
+  final void Function(Offset globalPosition)? onDragUpdate;
+  final void Function(Offset globalPosition)? onDragEnd;
   final ValueChanged<double>? onGainChange;
   final void Function(double fadeIn, double fadeOut)? onFadeChange;
   final void Function(double newStartTime, double newDuration, double? newOffset)?
       onResize;
   final ValueChanged<String>? onRename;
   final ValueChanged<double>? onSlipEdit;
+  final VoidCallback? onOpenFxEditor;
   final bool snapEnabled;
   final double snapValue;
   final double tempo;
@@ -42,11 +52,17 @@ class ClipWidget extends StatefulWidget {
     required this.trackHeight,
     this.onSelect,
     this.onMove,
+    this.onCrossTrackDrag,
+    this.onCrossTrackDragEnd,
+    this.onDragStart,
+    this.onDragUpdate,
+    this.onDragEnd,
     this.onGainChange,
     this.onFadeChange,
     this.onResize,
     this.onRename,
     this.onSlipEdit,
+    this.onOpenFxEditor,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.tempo = 120,
@@ -74,6 +90,7 @@ class _ClipWidgetState extends State<ClipWidget> {
   double _dragStartTime = 0;
   double _dragStartDuration = 0;
   double _dragStartMouseX = 0;
+  double _dragStartMouseY = 0;
   double _dragStartSourceOffset = 0;
 
   @override
@@ -144,11 +161,18 @@ class _ClipWidgetState extends State<ClipWidget> {
           } else {
             _dragStartTime = clip.startTime;
             _dragStartMouseX = details.globalPosition.dx;
+            _dragStartMouseY = details.globalPosition.dy;
             setState(() => _isDraggingMove = true);
+
+            // Start smooth drag with ghost preview (Cubase-style)
+            if (widget.onDragStart != null) {
+              widget.onDragStart!(details.globalPosition, details.localPosition);
+            }
           }
         },
         onPanUpdate: (details) {
           final deltaX = details.globalPosition.dx - _dragStartMouseX;
+          final deltaY = details.globalPosition.dy - _dragStartMouseY;
           final deltaTime = deltaX / widget.zoom;
 
           if (_isSlipEditing) {
@@ -156,19 +180,29 @@ class _ClipWidgetState extends State<ClipWidget> {
             final newOffset = (_dragStartSourceOffset - deltaTime).clamp(0.0, double.infinity);
             widget.onSlipEdit?.call(newOffset);
           } else if (_isDraggingMove) {
-            // Move clip
-            double rawNewStartTime = _dragStartTime + deltaTime;
-            final snappedTime = applySnap(
-              rawNewStartTime,
-              widget.snapEnabled,
-              widget.snapValue,
-              widget.tempo,
-              widget.allClips,
-            );
-            widget.onMove?.call(snappedTime.clamp(0.0, double.infinity));
+            // Update ghost position for smooth preview
+            widget.onDragUpdate?.call(details.globalPosition);
+
+            // Also update cross-track state for track highlighting
+            if (deltaY.abs() > 20 && widget.onCrossTrackDrag != null) {
+              double rawNewStartTime = _dragStartTime + deltaTime;
+              final snappedTime = applySnap(
+                rawNewStartTime,
+                widget.snapEnabled,
+                widget.snapValue,
+                widget.tempo,
+                widget.allClips,
+              );
+              widget.onCrossTrackDrag!(snappedTime.clamp(0.0, double.infinity), deltaY);
+            }
           }
         },
-        onPanEnd: (_) {
+        onPanEnd: (details) {
+          if (_isDraggingMove) {
+            // End smooth drag - commit the move
+            widget.onDragEnd?.call(details.globalPosition);
+            widget.onCrossTrackDragEnd?.call();
+          }
           setState(() {
             _isDraggingMove = false;
             _isSlipEditing = false;
@@ -425,6 +459,20 @@ class _ClipWidgetState extends State<ClipWidget> {
                 onDragEnd: () => setState(() => _isDraggingRightEdge = false),
               ),
 
+              // FX badge (bottom-right corner)
+              if (clip.hasFx && width > 50)
+                Positioned(
+                  right: 4,
+                  bottom: 2,
+                  child: GestureDetector(
+                    onTap: widget.onOpenFxEditor,
+                    child: ClipFxBadge(
+                      fxChain: clip.fxChain,
+                      onTap: widget.onOpenFxEditor,
+                    ),
+                  ),
+                ),
+
               // Muted overlay
               if (clip.muted)
                 Positioned.fill(
@@ -483,26 +531,256 @@ class _WaveformPainter extends CustomPainter {
     if (waveform.isEmpty || size.width <= 0 || size.height <= 0) return;
 
     final centerY = size.height / 2;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
+    final amplitude = centerY * 0.9;
     final samplesPerPixel = waveform.length / size.width;
 
-    for (double x = 0; x < size.width; x++) {
-      final sampleIndex = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
-      final sample = waveform[sampleIndex].abs();
-      final barHeight = sample * centerY * 0.9;
+    // LOD: Choose rendering method based on zoom level (Cubase/Pro Tools style)
+    // High zoom (< 4 samples/pixel) = sample-accurate with interpolation
+    // Medium zoom (4-100 samples/pixel) = true min/max envelope (shows all transients)
+    // Low zoom (> 100 samples/pixel) = RMS + peak overview
 
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(x, centerY),
-          width: 1,
-          height: barHeight * 2,
-        ),
-        paint,
-      );
+    if (samplesPerPixel < 4) {
+      _drawDetailedWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
+    } else if (samplesPerPixel < 100) {
+      _drawMinMaxWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
+    } else {
+      _drawOverviewWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
     }
+  }
+
+  /// HIGH ZOOM: Sample-accurate waveform with sinc interpolation appearance
+  void _drawDetailedWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
+    // Use path for smooth curves (like Cubase)
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill;
+
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final topPath = Path();
+    final bottomPath = Path();
+    bool started = false;
+
+    for (double x = 0; x < size.width; x++) {
+      final exactSample = x * samplesPerPixel;
+      final sampleIndex = exactSample.floor().clamp(0, waveform.length - 1);
+      final nextIndex = (sampleIndex + 1).clamp(0, waveform.length - 1);
+
+      // Cubic interpolation for smoother curves
+      final t = exactSample - sampleIndex.floor();
+      final s0 = waveform[(sampleIndex - 1).clamp(0, waveform.length - 1)];
+      final s1 = waveform[sampleIndex];
+      final s2 = waveform[nextIndex];
+      final s3 = waveform[(nextIndex + 1).clamp(0, waveform.length - 1)];
+
+      // Catmull-Rom spline interpolation
+      final sample = _catmullRom(s0, s1, s2, s3, t);
+
+      final yTop = centerY - sample * amplitude;
+      final yBottom = centerY + sample * amplitude;
+
+      if (!started) {
+        topPath.moveTo(x, yTop);
+        bottomPath.moveTo(x, yBottom);
+        started = true;
+      } else {
+        topPath.lineTo(x, yTop);
+        bottomPath.lineTo(x, yBottom);
+      }
+    }
+
+    // Draw filled waveform area
+    final fillPath = Path()..addPath(topPath, Offset.zero);
+    // Connect to bottom path in reverse
+    for (double x = size.width - 1; x >= 0; x--) {
+      final exactSample = x * samplesPerPixel;
+      final sampleIndex = exactSample.floor().clamp(0, waveform.length - 1);
+      final sample = waveform[sampleIndex];
+      fillPath.lineTo(x, centerY + sample * amplitude);
+    }
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(topPath, linePaint);
+    canvas.drawPath(bottomPath, linePaint);
+
+    // Zero line (subtle)
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.1)..strokeWidth = 0.5,
+    );
+  }
+
+  /// Catmull-Rom spline interpolation for smooth waveform
+  double _catmullRom(double p0, double p1, double p2, double p3, double t) {
+    final t2 = t * t;
+    final t3 = t2 * t;
+    return 0.5 * ((2 * p1) +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  }
+
+  /// MEDIUM ZOOM: True min/max envelope - the standard DAW waveform view
+  /// This is critical for accuracy: shows ACTUAL peaks, not averaged
+  void _drawMinMaxWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
+    // Peak envelope (outer) - shows true transients
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.4)
+      ..style = PaintingStyle.fill;
+
+    // RMS envelope (inner) - shows perceived loudness
+    final rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..style = PaintingStyle.fill;
+
+    // Collect min/max for path-based rendering (smoother)
+    final minValues = <double>[];
+    final maxValues = <double>[];
+    final rmsValues = <double>[];
+
+    for (double x = 0; x < size.width; x++) {
+      final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
+      final endIdx = ((x + 1) * samplesPerPixel).ceil().clamp(startIdx + 1, waveform.length);
+
+      double minVal = waveform[startIdx];
+      double maxVal = waveform[startIdx];
+      double sumSq = 0;
+      int count = 0;
+
+      for (int i = startIdx; i < endIdx; i++) {
+        final s = waveform[i];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
+        sumSq += s * s;
+        count++;
+      }
+
+      minValues.add(minVal);
+      maxValues.add(maxVal);
+      rmsValues.add(count > 0 ? math.sqrt(sumSq / count) : 0);
+    }
+
+    // Draw peak envelope as filled path (more accurate than rectangles)
+    final peakPath = Path();
+    for (int i = 0; i < maxValues.length; i++) {
+      final y = centerY - maxValues[i] * amplitude;
+      if (i == 0) {
+        peakPath.moveTo(i.toDouble(), y);
+      } else {
+        peakPath.lineTo(i.toDouble(), y);
+      }
+    }
+    // Connect to min values in reverse
+    for (int i = minValues.length - 1; i >= 0; i--) {
+      final y = centerY - minValues[i] * amplitude;
+      peakPath.lineTo(i.toDouble(), y);
+    }
+    peakPath.close();
+    canvas.drawPath(peakPath, peakPaint);
+
+    // Draw RMS as filled path (inner, solid)
+    final rmsPath = Path();
+    for (int i = 0; i < rmsValues.length; i++) {
+      final y = centerY - rmsValues[i] * amplitude;
+      if (i == 0) {
+        rmsPath.moveTo(i.toDouble(), y);
+      } else {
+        rmsPath.lineTo(i.toDouble(), y);
+      }
+    }
+    for (int i = rmsValues.length - 1; i >= 0; i--) {
+      final y = centerY + rmsValues[i] * amplitude;
+      rmsPath.lineTo(i.toDouble(), y);
+    }
+    rmsPath.close();
+    canvas.drawPath(rmsPath, rmsPaint);
+
+    // Zero line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5,
+    );
+  }
+
+  /// LOW ZOOM: RMS overview with peak indicators
+  void _drawOverviewWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
+    final rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill;
+
+    final rmsPath = Path();
+    final peakPath = Path();
+    bool started = false;
+
+    final rmsBottom = <double>[];
+    final peakBottom = <double>[];
+
+    for (double x = 0; x < size.width; x++) {
+      final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
+      final endIdx = ((x + 1) * samplesPerPixel).ceil().clamp(startIdx + 1, waveform.length);
+
+      double peakAbs = 0;
+      double sumSq = 0;
+      int count = 0;
+
+      for (int i = startIdx; i < endIdx; i++) {
+        final s = waveform[i].abs();
+        if (s > peakAbs) peakAbs = s;
+        sumSq += s * s;
+        count++;
+      }
+
+      final rms = count > 0 ? math.sqrt(sumSq / count) : 0;
+
+      final rmsTop = centerY - rms * amplitude;
+      final peakTop = centerY - peakAbs * amplitude;
+
+      if (!started) {
+        rmsPath.moveTo(x, rmsTop);
+        peakPath.moveTo(x, peakTop);
+        started = true;
+      } else {
+        rmsPath.lineTo(x, rmsTop);
+        peakPath.lineTo(x, peakTop);
+      }
+
+      rmsBottom.add(centerY + rms * amplitude);
+      peakBottom.add(centerY + peakAbs * amplitude);
+    }
+
+    // Close peak path
+    for (int i = peakBottom.length - 1; i >= 0; i--) {
+      peakPath.lineTo(i.toDouble(), peakBottom[i]);
+    }
+    peakPath.close();
+
+    // Close RMS path
+    for (int i = rmsBottom.length - 1; i >= 0; i--) {
+      rmsPath.lineTo(i.toDouble(), rmsBottom[i]);
+    }
+    rmsPath.close();
+
+    canvas.drawPath(peakPath, peakPaint);
+    canvas.drawPath(rmsPath, rmsPaint);
+
+    // Zero line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.06)..strokeWidth = 0.5,
+    );
   }
 
   @override

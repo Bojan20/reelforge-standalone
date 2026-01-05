@@ -320,6 +320,7 @@ class _LowerZoneState extends State<LowerZone> {
     final isActive = tab.id == activeId;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => widget.onTabChange?.call(tab.id),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

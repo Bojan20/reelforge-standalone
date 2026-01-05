@@ -11,12 +11,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../theme/reelforge_theme.dart';
 import '../models/layout_models.dart';
+import '../providers/mixer_provider.dart';
 import '../widgets/layout/control_bar.dart';
 import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
 import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
-import '../widgets/layout/lower_zone.dart' show LowerZone, MixerStrip;
+import '../widgets/layout/lower_zone.dart' show LowerZone;
+import '../widgets/mixer/pro_daw_mixer.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 
 class MainLayout extends StatefulWidget {
@@ -668,46 +671,8 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
     );
   }
 
+  /// Build mixer content - uses ProDawMixer with MixerProvider
   Widget _buildMixerContent() {
-    return Row(
-      children: [
-        MixerStrip(
-          id: 'sfx',
-          name: 'SFX',
-          volume: 1.0,
-          meterLevel: 0.3,
-          meterLevelR: 0.25,
-          inserts: const [
-            InsertSlot(id: '1', name: 'EQ', type: 'eq'),
-            InsertSlot(id: '2', name: 'Comp', type: 'comp'),
-          ],
-        ),
-        MixerStrip(
-          id: 'music',
-          name: 'Music',
-          volume: 0.8,
-          meterLevel: 0.5,
-          meterLevelR: 0.45,
-        ),
-        MixerStrip(
-          id: 'voice',
-          name: 'Voice',
-          volume: 1.0,
-          meterLevel: 0.2,
-          meterLevelR: 0.2,
-        ),
-        MixerStrip(
-          id: 'master',
-          name: 'Master',
-          isMaster: true,
-          volume: 1.0,
-          meterLevel: 0.6,
-          meterLevelR: 0.55,
-          inserts: const [
-            InsertSlot(id: 'm1', name: 'Limiter', type: 'comp'),
-          ],
-        ),
-      ],
-    );
+    return const ProDawMixer();
   }
 }

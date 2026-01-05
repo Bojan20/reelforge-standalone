@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_wav};
+use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_wav, write_flac};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BOUNCE CONFIGURATION
@@ -694,10 +694,7 @@ impl OfflineRenderer {
                 write_wav(output_path, &output_data, self.config.export_format.bit_depth)?;
             }
             AudioFormat::Flac => {
-                // TODO: FLAC encoding
-                // For now, fall back to WAV
-                let wav_path = output_path.with_extension("wav");
-                write_wav(&wav_path, &output_data, self.config.export_format.bit_depth)?;
+                write_flac(output_path, &output_data, self.config.export_format.bit_depth)?;
             }
             AudioFormat::Mp3 | AudioFormat::Aac | AudioFormat::Ogg => {
                 // TODO: Lossy encoding
