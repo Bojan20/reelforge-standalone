@@ -28,6 +28,9 @@ class TrackHeader extends StatefulWidget {
   final ValueChanged<Color>? onColorChange;
   final ValueChanged<OutputBus>? onBusChange;
   final ValueChanged<String>? onRename;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onDelete;
+  final void Function(Offset position)? onContextMenu;
 
   const TrackHeader({
     super.key,
@@ -45,6 +48,9 @@ class TrackHeader extends StatefulWidget {
     this.onColorChange,
     this.onBusChange,
     this.onRename,
+    this.onDuplicate,
+    this.onDelete,
+    this.onContextMenu,
   });
 
   @override
@@ -118,7 +124,13 @@ class _TrackHeaderState extends State<TrackHeader> {
 
     return GestureDetector(
       onTap: widget.onClick,
-      onSecondaryTap: () => setState(() => _showColorPicker = true),
+      onSecondaryTapDown: (details) {
+        if (widget.onContextMenu != null) {
+          widget.onContextMenu!(details.globalPosition);
+        } else {
+          setState(() => _showColorPicker = true);
+        }
+      },
       child: Container(
         width: 180,
         height: widget.height,

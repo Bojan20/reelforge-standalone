@@ -10,6 +10,12 @@ mod params;
 mod error;
 mod midi;
 mod tempo;
+mod edit_mode;
+mod track;
+mod smart_tempo;
+mod routing;
+mod channel_strip;
+mod comping;
 
 pub use sample::*;
 pub use time::*;
@@ -17,6 +23,12 @@ pub use params::*;
 pub use error::*;
 pub use midi::*;
 pub use tempo::*;
+pub use edit_mode::*;
+pub use track::*;
+pub use smart_tempo::*;
+pub use routing::*;
+pub use channel_strip::*;
+pub use comping::*;
 
 /// Standard sample rate options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

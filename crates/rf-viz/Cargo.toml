@@ -1,0 +1,29 @@
+[package]
+name = "rf-viz"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "GPU-accelerated visualizations for ReelForge"
+
+[dependencies]
+rf-core = { workspace = true }
+
+# Graphics
+wgpu = { workspace = true }
+bytemuck = { version = "1.14", features = ["derive"] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+
+# Math
+glam = "0.29"
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+
+# Async
+pollster = "0.4"
+flume = "0.11"

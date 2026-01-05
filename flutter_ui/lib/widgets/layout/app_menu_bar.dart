@@ -46,6 +46,7 @@ class _AppMenuBarState extends State<AppMenuBar> {
             _MenuItem('Export Routes JSON...', '⇧⌘E', widget.callbacks?.onExportJSON),
             const _MenuSeparator(),
             _MenuItem('Import Audio Folder...', null, widget.callbacks?.onImportAudioFolder),
+            _MenuItem('Import Audio Files...', '⇧⌘I', widget.callbacks?.onImportAudioFiles),
           ],
           onItemTap: _handleItemClick,
         ),

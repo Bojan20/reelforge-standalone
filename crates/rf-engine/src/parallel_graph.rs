@@ -290,7 +290,9 @@ impl ParallelAudioGraph {
         // Count incoming edges
         for conn in &self.connections {
             if conn.connection_type == ConnectionType::Audio {
-                *in_degree.get_mut(&conn.to_node).unwrap() += 1;
+                if let Some(deg) = in_degree.get_mut(&conn.to_node) {
+                    *deg += 1;
+                }
             }
         }
 
@@ -312,10 +314,11 @@ impl ParallelAudioGraph {
                         depths.insert(to, new_depth);
                     }
 
-                    let deg = in_degree.get_mut(&to).unwrap();
-                    *deg -= 1;
-                    if *deg == 0 {
-                        queue.push(to);
+                    if let Some(deg) = in_degree.get_mut(&to) {
+                        *deg = deg.saturating_sub(1);
+                        if *deg == 0 {
+                            queue.push(to);
+                        }
                     }
                 }
             }

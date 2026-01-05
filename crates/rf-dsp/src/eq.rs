@@ -144,8 +144,17 @@ pub struct EqBand {
     needs_update: bool,
 }
 
+/// Default sample rate for fallback
+const DEFAULT_SAMPLE_RATE: f64 = 48000.0;
+
 impl EqBand {
     pub fn new(sample_rate: f64) -> Self {
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
         Self {
             enabled: false,
             filter_type: EqFilterType::Bell,
@@ -155,10 +164,10 @@ impl EqBand {
             slope: FilterSlope::Db12,
             stereo_mode: StereoMode::Stereo,
             dynamic: DynamicEqParams::default(),
-            filters_l: vec![BiquadTDF2::new(sample_rate)],
-            filters_r: vec![BiquadTDF2::new(sample_rate)],
+            filters_l: vec![BiquadTDF2::new(sr)],
+            filters_r: vec![BiquadTDF2::new(sr)],
             envelope: 0.0,
-            sample_rate,
+            sample_rate: sr,
             needs_update: true,
         }
     }
@@ -458,13 +467,19 @@ pub struct ParametricEq {
 
 impl ParametricEq {
     pub fn new(sample_rate: f64) -> Self {
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
         let bands = (0..MAX_BANDS)
-            .map(|_| EqBand::new(sample_rate))
+            .map(|_| EqBand::new(sr))
             .collect();
 
         Self {
             bands,
-            sample_rate,
+            sample_rate: sr,
             auto_gain: false,
             phase_mode: PhaseMode::Minimum,
             output_gain_db: 0.0,
@@ -472,6 +487,15 @@ impl ParametricEq {
             input_loudness: 0.0,
             output_loudness: 0.0,
         }
+    }
+
+    /// Set output gain with validation
+    pub fn set_output_gain(&mut self, gain_db: f64) {
+        self.output_gain_db = if gain_db.is_finite() {
+            gain_db.clamp(-60.0, 24.0)
+        } else {
+            0.0
+        };
     }
 
     /// Get a band by index

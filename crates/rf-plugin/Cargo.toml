@@ -1,0 +1,37 @@
+[package]
+name = "rf-plugin"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Plugin hosting for VST3/AU/CLAP formats"
+
+[dependencies]
+rf-core = { workspace = true }
+rf-dsp = { workspace = true }
+
+# Plugin hosting
+vst3 = { workspace = true }
+dirs-next = { workspace = true }
+
+# Core utilities
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Platform-specific
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+objc2 = "0.5"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = ["Win32_System_Com", "Win32_Foundation"] }
+
+[features]
+default = ["vst3"]
+vst3 = []
+clap = []
+au = []

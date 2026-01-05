@@ -1,0 +1,35 @@
+[package]
+name = "rf-video"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Enable FFmpeg backend (requires system FFmpeg installation)
+ffmpeg = ["dep:ffmpeg-next"]
+
+[dependencies]
+rf-core = { workspace = true }
+
+# Video decoding via FFmpeg (optional - requires system FFmpeg)
+ffmpeg-next = { version = "7.1", optional = true }
+
+# Pure Rust video container parsing
+mp4 = "0.14"
+
+# Image handling
+image = "0.25"
+
+# Concurrency
+parking_lot = { workspace = true }
+crossbeam-channel = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[dev-dependencies]

@@ -7,6 +7,11 @@
 //! - Audio I/O (device selection, buffer config)
 //!
 //! Uses flutter_rust_bridge for automatic Dart code generation.
+//!
+//! ## Lock-Free Architecture
+//! Uses rtrb ring buffers for real-time safe UI↔Audio communication:
+//! - `dsp_commands` - All DSP parameter command types
+//! - `command_queue` - Lock-free producer/consumer queues
 
 mod api;
 mod engine_bridge;
@@ -15,9 +20,15 @@ mod transport;
 mod project;
 mod audio_io;
 mod viz;
+mod playback;
+pub mod dsp_commands;
+pub mod command_queue;
 
 pub use api::*;
 pub use viz::*;
+pub use playback::{PlaybackEngine, PlaybackState, PlaybackMeters, PlaybackClip};
+pub use dsp_commands::*;
+pub use command_queue::*;
 
 use std::sync::Arc;
 use parking_lot::RwLock;
@@ -29,6 +40,11 @@ use rf_state::{Project, UndoManager};
 /// Global engine instance (singleton for Flutter access)
 static ENGINE: Lazy<Arc<RwLock<Option<EngineBridge>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(None))
+});
+
+/// Global playback engine (real-time audio output)
+pub static PLAYBACK: Lazy<Arc<PlaybackEngine>> = Lazy::new(|| {
+    Arc::new(PlaybackEngine::new())
 });
 
 /// Bridge wrapper for the audio engine

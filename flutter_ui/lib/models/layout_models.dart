@@ -89,12 +89,12 @@ class LowerZoneTab {
 class TabGroup {
   final String id;
   final String label;
-  final List<String> tabIds;
+  final List<String> tabs;
 
   const TabGroup({
     required this.id,
     required this.label,
-    required this.tabIds,
+    required this.tabs,
   });
 }
 
@@ -248,6 +248,7 @@ class MenuCallbacks {
   final VoidCallback? onImportJSON;
   final VoidCallback? onExportJSON;
   final VoidCallback? onImportAudioFolder;
+  final VoidCallback? onImportAudioFiles;
   // Edit menu
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
@@ -274,6 +275,7 @@ class MenuCallbacks {
     this.onImportJSON,
     this.onExportJSON,
     this.onImportAudioFolder,
+    this.onImportAudioFiles,
     this.onUndo,
     this.onRedo,
     this.onCut,
@@ -317,4 +319,54 @@ class LoopRegion {
   const LoopRegion({required this.start, required this.end});
 
   double get duration => end - start;
+}
+
+/// Event data for Middleware mode
+class EventData {
+  final String id;
+  final String name;
+  final String category;
+  final List<ActionData> actions;
+  final bool isExpanded;
+
+  const EventData({
+    required this.id,
+    required this.name,
+    this.category = 'General',
+    this.actions = const [],
+    this.isExpanded = false,
+  });
+
+  EventData copyWith({
+    String? id,
+    String? name,
+    String? category,
+    List<ActionData>? actions,
+    bool? isExpanded,
+  }) {
+    return EventData(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      actions: actions ?? this.actions,
+      isExpanded: isExpanded ?? this.isExpanded,
+    );
+  }
+}
+
+/// Action data for Events
+class ActionData {
+  final String id;
+  final String type; // 'play', 'stop', 'fade', 'pause', 'set_bus_gain', 'stop_all', 'execute'
+  final String? targetAsset;
+  final String? targetBus;
+  final Map<String, dynamic>? params;
+
+  const ActionData({
+    required this.id,
+    required this.type,
+    this.targetAsset,
+    this.targetBus,
+    this.params,
+  });
 }

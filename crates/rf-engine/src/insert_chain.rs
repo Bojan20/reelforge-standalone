@@ -230,6 +230,16 @@ pub struct InsertChain {
     sample_rate: f64,
 }
 
+impl std::fmt::Debug for InsertChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InsertChain")
+            .field("total_latency", &self.total_latency)
+            .field("sample_rate", &self.sample_rate)
+            .field("loaded_slots", &self.loaded_slots())
+            .finish()
+    }
+}
+
 impl InsertChain {
     pub fn new(sample_rate: f64) -> Self {
         Self {

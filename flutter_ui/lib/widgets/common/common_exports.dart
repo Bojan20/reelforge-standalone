@@ -6,3 +6,5 @@ export 'transport_controls.dart';
 export 'meter.dart';
 export 'fader.dart';
 export 'mixer_panel.dart';
+export 'animated_widgets.dart';
+export 'glass_panel.dart';

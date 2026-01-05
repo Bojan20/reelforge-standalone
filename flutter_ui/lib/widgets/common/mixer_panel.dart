@@ -10,6 +10,8 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../mixer/pro_mixer_strip.dart';
+import '../../theme/reelforge_theme.dart';
 
 // ============ Types ============
 
@@ -90,7 +92,119 @@ class ChannelLevel {
   const ChannelLevel({this.peak = -60, this.rms = -60});
 }
 
-// ============ Mixer Panel ============
+// ============ Pro Mixer Panel (New Design) ============
+
+/// New professional mixer panel using ProMixerStrip
+class ProMixerPanel extends StatelessWidget {
+  final List<BusChannel> buses;
+  final BusChannel? masterBus;
+  final Map<String, MeterReading>? meterReadings;
+  final String? selectedBusId;
+  final ValueChanged<(String, double)>? onVolumeChange;
+  final ValueChanged<(String, double)>? onPanChange;
+  final ValueChanged<String>? onMuteToggle;
+  final ValueChanged<String>? onSoloToggle;
+  final ValueChanged<String>? onArmToggle;
+  final ValueChanged<String>? onSelect;
+  final bool compact;
+
+  const ProMixerPanel({
+    super.key,
+    required this.buses,
+    this.masterBus,
+    this.meterReadings,
+    this.selectedBusId,
+    this.onVolumeChange,
+    this.onPanChange,
+    this.onMuteToggle,
+    this.onSoloToggle,
+    this.onArmToggle,
+    this.onSelect,
+    this.compact = false,
+  });
+
+  ProMixerStripData _toProStripData(BusChannel bus, {bool isMaster = false}) {
+    final reading = meterReadings?[bus.id];
+    return ProMixerStripData(
+      id: bus.id,
+      name: bus.name,
+      trackColor: bus.color ?? TrackColors.forIndex(buses.indexOf(bus)),
+      type: isMaster ? 'master' : 'audio',
+      volume: bus.volume,
+      pan: bus.pan,
+      muted: bus.muted,
+      soloed: bus.solo,
+      armed: bus.armed,
+      selected: bus.id == selectedBusId,
+      meters: reading != null
+          ? MeterData(
+              peakL: _dbToLinear(reading.left.peak),
+              peakR: _dbToLinear(reading.right.peak),
+              rmsL: _dbToLinear(reading.left.rms),
+              rmsR: _dbToLinear(reading.right.rms),
+              clipL: reading.isClipping,
+              clipR: reading.isClipping,
+            )
+          : const MeterData(),
+    );
+  }
+
+  double _dbToLinear(double db) {
+    if (db <= -60) return 0;
+    return math.pow(10, db / 20).toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: ReelForgeTheme.bgDeep,
+      child: Row(
+        children: [
+          // Bus channels
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: buses.map((bus) {
+                  return ProMixerStrip(
+                    data: _toProStripData(bus),
+                    compact: compact,
+                    onVolumeChange: (v) => onVolumeChange?.call((bus.id, v)),
+                    onPanChange: (p) => onPanChange?.call((bus.id, p)),
+                    onMuteToggle: () => onMuteToggle?.call(bus.id),
+                    onSoloToggle: () => onSoloToggle?.call(bus.id),
+                    onArmToggle: () => onArmToggle?.call(bus.id),
+                    onSelect: () => onSelect?.call(bus.id),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // Master bus separator
+          if (masterBus != null)
+            Container(
+              width: 2,
+              color: ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
+            ),
+
+          // Master bus
+          if (masterBus != null)
+            ProMixerStrip(
+              data: _toProStripData(masterBus!, isMaster: true),
+              compact: compact,
+              onVolumeChange: (v) => onVolumeChange?.call((masterBus!.id, v)),
+              onMuteToggle: () => onMuteToggle?.call(masterBus!.id),
+              onSoloToggle: () => onSoloToggle?.call(masterBus!.id),
+              onSelect: () => onSelect?.call(masterBus!.id),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============ Legacy Mixer Panel ============
 
 class MixerPanel extends StatelessWidget {
   final List<BusChannel> buses;

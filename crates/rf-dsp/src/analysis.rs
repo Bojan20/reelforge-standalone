@@ -1,9 +1,24 @@
 //! Audio analysis: FFT, metering, loudness measurement
+//!
+//! All analyzers include input validation for sample rates and FFT sizes.
 
 use rf_core::Sample;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 use std::sync::Arc;
+
+// ============================================================================
+// VALIDATION CONSTANTS
+// ============================================================================
+
+/// Default sample rate for fallback
+const DEFAULT_SAMPLE_RATE: f64 = 48000.0;
+/// Minimum FFT size
+const MIN_FFT_SIZE: usize = 64;
+/// Maximum FFT size
+const MAX_FFT_SIZE: usize = 65536;
+/// Default FFT size
+const DEFAULT_FFT_SIZE: usize = 2048;
 
 /// FFT analyzer for spectrum display
 pub struct FftAnalyzer {
@@ -18,6 +33,13 @@ pub struct FftAnalyzer {
 
 impl FftAnalyzer {
     pub fn new(fft_size: usize) -> Self {
+        // Validate FFT size (must be power of 2 and within range)
+        let fft_size = if fft_size >= MIN_FFT_SIZE && fft_size <= MAX_FFT_SIZE && fft_size.is_power_of_two() {
+            fft_size
+        } else {
+            DEFAULT_FFT_SIZE
+        };
+
         let mut planner = RealFftPlanner::new();
         let fft = planner.plan_fft_forward(fft_size);
 
@@ -62,10 +84,14 @@ impl FftAnalyzer {
         // Rotate buffer to start from write position for correct phase
         windowed.rotate_left(self.write_pos);
 
-        // Perform FFT
-        self.fft
-            .process(&mut windowed, &mut self.output_buffer)
-            .unwrap();
+        // Perform FFT (safe: buffer sizes are validated in new())
+        if let Err(_) = self.fft.process(&mut windowed, &mut self.output_buffer) {
+            // FFT failed - fill with silence
+            for c in &mut self.output_buffer {
+                *c = Complex::new(0.0, 0.0);
+            }
+            return;
+        }
 
         // Calculate magnitudes in dB
         let scale = 2.0 / self.fft_size as f64;
@@ -125,12 +151,18 @@ pub struct PeakMeter {
 
 impl PeakMeter {
     pub fn new(sample_rate: f64) -> Self {
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
         Self {
             current_peak: 0.0,
             held_peak: 0.0,
-            hold_samples: (sample_rate * 2.0) as usize, // 2 second hold
+            hold_samples: (sr * 2.0) as usize, // 2 second hold
             hold_counter: 0,
-            release_coeff: (-1.0 / (0.3 * sample_rate)).exp(), // 300ms release
+            release_coeff: (-1.0 / (0.3 * sr)).exp(), // 300ms release
         }
     }
 
@@ -193,7 +225,19 @@ pub struct RmsMeter {
 
 impl RmsMeter {
     pub fn new(sample_rate: f64, window_ms: f64) -> Self {
-        let window_samples = (window_ms * 0.001 * sample_rate) as usize;
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
+        // Validate window (1ms to 1000ms)
+        let window = if window_ms.is_finite() {
+            window_ms.clamp(1.0, 1000.0)
+        } else {
+            300.0
+        };
+        let window_samples = ((window * 0.001 * sr) as usize).max(1);
         Self {
             sum_squares: 0.0,
             window_samples,
@@ -250,6 +294,13 @@ pub struct TruePeakMeter {
 
 impl TruePeakMeter {
     pub fn new(sample_rate: f64) -> Self {
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
+
         // Simple 4-tap polyphase filter for 4x oversampling
         // In production, use a proper sinc-windowed filter
         let filter_coeffs = vec![
@@ -261,9 +312,9 @@ impl TruePeakMeter {
             filter_state: vec![0.0; 4],
             current_true_peak: 0.0,
             held_true_peak: 0.0,
-            hold_samples: (sample_rate * 2.0) as usize,
+            hold_samples: (sr * 2.0) as usize,
             hold_counter: 0,
-            release_coeff: (-1.0 / (0.3 * sample_rate)).exp(),
+            release_coeff: (-1.0 / (0.3 * sr)).exp(),
         }
     }
 
@@ -339,8 +390,15 @@ pub struct LufsMeter {
 
 impl LufsMeter {
     pub fn new(sample_rate: f64) -> Self {
-        let momentary_samples = (0.4 * sample_rate) as usize;
-        let short_term_samples = (3.0 * sample_rate) as usize;
+        // Validate sample rate
+        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
+            sample_rate
+        } else {
+            DEFAULT_SAMPLE_RATE
+        };
+
+        let momentary_samples = ((0.4 * sr) as usize).max(1);
+        let short_term_samples = ((3.0 * sr) as usize).max(1);
 
         Self {
             pre_filter_state: [0.0; 2],
@@ -353,7 +411,7 @@ impl LufsMeter {
             short_term_sum: 0.0,
             integrated_sum: 0.0,
             integrated_count: 0,
-            sample_rate,
+            sample_rate: sr,
         }
     }
 

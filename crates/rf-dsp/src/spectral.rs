@@ -682,6 +682,387 @@ impl ProcessorConfig for SpectralCompressor {
     }
 }
 
+// ============ Spectral Repair (RX-style) ============
+
+/// Selection region for spectral repair
+#[derive(Debug, Clone)]
+pub struct SpectralSelection {
+    /// Start time (samples)
+    pub start_time: u64,
+    /// End time (samples)
+    pub end_time: u64,
+    /// Start frequency (Hz)
+    pub start_freq: f64,
+    /// End frequency (Hz)
+    pub end_freq: f64,
+}
+
+impl SpectralSelection {
+    pub fn new(start_time: u64, end_time: u64, start_freq: f64, end_freq: f64) -> Self {
+        Self {
+            start_time: start_time.min(end_time),
+            end_time: start_time.max(end_time),
+            start_freq: start_freq.min(end_freq),
+            end_freq: start_freq.max(end_freq),
+        }
+    }
+
+    /// Check if a time/frequency point is in selection
+    pub fn contains(&self, time: u64, freq: f64) -> bool {
+        time >= self.start_time && time <= self.end_time &&
+        freq >= self.start_freq && freq <= self.end_freq
+    }
+}
+
+/// Spectral repair mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepairMode {
+    /// Attenuate selected region
+    Attenuate,
+    /// Replace with interpolated content
+    Replace,
+    /// Pattern-based replacement
+    PatternReplace,
+    /// Harmonic reconstruction
+    HarmonicFill,
+}
+
+/// Spectral repair processor (iZotope RX style)
+pub struct SpectralRepair {
+    /// STFT processor
+    stft: StftProcessor,
+    /// Sample rate
+    sample_rate: f64,
+    /// Selections for repair
+    selections: Vec<SpectralSelection>,
+    /// Repair mode
+    mode: RepairMode,
+    /// Attenuation amount (dB)
+    attenuation_db: f64,
+    /// Spectral history for pattern matching
+    history: Vec<SpectralFrame>,
+    history_pos: usize,
+    history_len: usize,
+    /// Processing buffers
+    input_accum: Vec<f64>,
+    input_accum_pos: usize,
+    output_ring: Vec<f64>,
+    output_read_pos: usize,
+    output_write_pos: usize,
+    /// Current processing position (samples)
+    current_pos: u64,
+}
+
+impl SpectralRepair {
+    pub fn new(sample_rate: f64) -> Self {
+        let fft_size = DEFAULT_FFT_SIZE;
+        let num_bins = fft_size / 2 + 1;
+        let history_len = 20;
+
+        let mut history = Vec::with_capacity(history_len);
+        for _ in 0..history_len {
+            history.push(SpectralFrame::new(num_bins));
+        }
+
+        Self {
+            stft: StftProcessor::new(fft_size, DEFAULT_HOP_SIZE),
+            sample_rate,
+            selections: Vec::new(),
+            mode: RepairMode::Replace,
+            attenuation_db: -40.0,
+            history,
+            history_pos: 0,
+            history_len,
+            input_accum: vec![0.0; fft_size],
+            input_accum_pos: 0,
+            output_ring: vec![0.0; fft_size * 4],
+            output_read_pos: 0,
+            output_write_pos: fft_size,
+            current_pos: 0,
+        }
+    }
+
+    /// Add selection for repair
+    pub fn add_selection(&mut self, selection: SpectralSelection) {
+        self.selections.push(selection);
+    }
+
+    /// Clear all selections
+    pub fn clear_selections(&mut self) {
+        self.selections.clear();
+    }
+
+    /// Set repair mode
+    pub fn set_mode(&mut self, mode: RepairMode) {
+        self.mode = mode;
+    }
+
+    /// Set attenuation for Attenuate mode
+    pub fn set_attenuation(&mut self, db: f64) {
+        self.attenuation_db = db.clamp(-80.0, 0.0);
+    }
+
+    /// Bin index to frequency
+    fn bin_to_freq(&self, bin: usize) -> f64 {
+        bin as f64 * self.sample_rate / self.stft.fft_size as f64
+    }
+
+    /// Process frame
+    fn process_frame(&mut self, frame: &mut SpectralFrame) {
+        let num_bins = frame.magnitude.len();
+
+        // Store in history
+        self.history[self.history_pos] = frame.clone();
+        self.history_pos = (self.history_pos + 1) % self.history_len;
+
+        for bin in 0..num_bins {
+            let freq = self.bin_to_freq(bin);
+
+            // Check if bin is in any selection
+            let in_selection = self.selections.iter().any(|s| s.contains(self.current_pos, freq));
+
+            if in_selection {
+                match self.mode {
+                    RepairMode::Attenuate => {
+                        let gain = 10.0_f64.powf(self.attenuation_db / 20.0);
+                        frame.magnitude[bin] *= gain;
+                    }
+                    RepairMode::Replace => {
+                        // Interpolate from surrounding bins
+                        let left_bin = bin.saturating_sub(3);
+                        let right_bin = (bin + 3).min(num_bins - 1);
+
+                        if left_bin < bin && right_bin > bin {
+                            let left_mag = frame.magnitude[left_bin];
+                            let right_mag = frame.magnitude[right_bin];
+                            let t = (bin - left_bin) as f64 / (right_bin - left_bin) as f64;
+                            frame.magnitude[bin] = left_mag * (1.0 - t) + right_mag * t;
+                        }
+                    }
+                    RepairMode::PatternReplace => {
+                        // Use average from history
+                        let sum: f64 = self.history.iter()
+                            .map(|h| h.magnitude[bin])
+                            .sum();
+                        frame.magnitude[bin] = sum / self.history_len as f64;
+                    }
+                    RepairMode::HarmonicFill => {
+                        // Find fundamental and reconstruct harmonic
+                        // This is simplified - real implementation would use pitch detection
+                        let fundamental_bin = bin / 2;
+                        if fundamental_bin > 0 && fundamental_bin < num_bins {
+                            frame.magnitude[bin] = frame.magnitude[fundamental_bin] * 0.5;
+                        }
+                    }
+                }
+            }
+        }
+
+        self.current_pos += self.stft.hop_size as u64;
+    }
+}
+
+impl Processor for SpectralRepair {
+    fn reset(&mut self) {
+        self.stft.reset();
+        self.input_accum.fill(0.0);
+        self.input_accum_pos = 0;
+        self.output_ring.fill(0.0);
+        self.output_read_pos = 0;
+        self.output_write_pos = self.stft.fft_size;
+        self.current_pos = 0;
+        for frame in &mut self.history {
+            frame.magnitude.fill(0.0);
+            frame.phase.fill(0.0);
+        }
+    }
+
+    fn latency(&self) -> usize {
+        self.stft.fft_size
+    }
+}
+
+impl StereoProcessor for SpectralRepair {
+    fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        let mono = (left + right) * 0.5;
+
+        self.input_accum[self.input_accum_pos] = mono;
+        self.input_accum_pos += 1;
+
+        if self.input_accum_pos >= self.stft.hop_size {
+            for i in 0..self.stft.fft_size - self.stft.hop_size {
+                self.stft.input_buffer[i] = self.stft.input_buffer[i + self.stft.hop_size];
+            }
+            for i in 0..self.stft.hop_size {
+                self.stft.input_buffer[self.stft.fft_size - self.stft.hop_size + i] =
+                    self.input_accum[i];
+            }
+
+            let mut frame = self.stft.analyze(&self.stft.input_buffer);
+            self.process_frame(&mut frame);
+            let output = self.stft.synthesize(&frame);
+
+            for (i, &sample) in output.iter().enumerate() {
+                let pos = (self.output_write_pos + i) % self.output_ring.len();
+                self.output_ring[pos] += sample;
+            }
+
+            self.output_write_pos = (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
+            self.input_accum_pos = 0;
+        }
+
+        let out = self.output_ring[self.output_read_pos];
+        self.output_ring[self.output_read_pos] = 0.0;
+        self.output_read_pos = (self.output_read_pos + 1) % self.output_ring.len();
+
+        (out, out)
+    }
+}
+
+impl ProcessorConfig for SpectralRepair {
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+    }
+}
+
+// ============ De-click / De-crackle ============
+
+/// De-click processor for removing clicks and pops
+pub struct DeClick {
+    /// Detection threshold
+    threshold: f64,
+    /// Interpolation length (samples)
+    interp_length: usize,
+    /// Detection buffer
+    buffer: Vec<f64>,
+    buffer_pos: usize,
+    /// Latency
+    latency_samples: usize,
+    /// Click detection state
+    click_detected: bool,
+    click_start: usize,
+    click_end: usize,
+    /// Sample rate
+    sample_rate: f64,
+}
+
+impl DeClick {
+    pub fn new(sample_rate: f64) -> Self {
+        let latency = 256;
+        Self {
+            threshold: 6.0, // dB above local average
+            interp_length: 16,
+            buffer: vec![0.0; latency * 2],
+            buffer_pos: 0,
+            latency_samples: latency,
+            click_detected: false,
+            click_start: 0,
+            click_end: 0,
+            sample_rate,
+        }
+    }
+
+    /// Set detection threshold (dB above average)
+    pub fn set_threshold(&mut self, db: f64) {
+        self.threshold = db.clamp(1.0, 20.0);
+    }
+
+    /// Set interpolation length
+    pub fn set_interp_length(&mut self, samples: usize) {
+        self.interp_length = samples.clamp(4, 128);
+    }
+
+    /// Detect click at current position
+    fn detect_click(&self, pos: usize) -> bool {
+        // Calculate local average (excluding current sample)
+        let window = 32;
+        let mut sum = 0.0;
+        let mut count = 0;
+
+        for i in 0..window {
+            let idx = (pos + self.buffer.len() - i - 1) % self.buffer.len();
+            if idx != pos {
+                sum += self.buffer[idx].abs();
+                count += 1;
+            }
+        }
+
+        let avg = if count > 0 { sum / count as f64 } else { 0.0 };
+        let current = self.buffer[pos].abs();
+
+        // Threshold in linear
+        let threshold_linear = 10.0_f64.powf(self.threshold / 20.0);
+
+        current > avg * threshold_linear && current > 0.01
+    }
+
+    /// Interpolate over click
+    fn repair_click(&mut self, start: usize, end: usize) {
+        let len = ((end + self.buffer.len() - start) % self.buffer.len()).max(1);
+
+        let before_idx = (start + self.buffer.len() - 1) % self.buffer.len();
+        let after_idx = (end + 1) % self.buffer.len();
+
+        let before = self.buffer[before_idx];
+        let after = self.buffer[after_idx];
+
+        // Linear interpolation
+        for i in 0..len {
+            let idx = (start + i) % self.buffer.len();
+            let t = (i + 1) as f64 / (len + 1) as f64;
+            self.buffer[idx] = before * (1.0 - t) + after * t;
+        }
+    }
+}
+
+impl Processor for DeClick {
+    fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.buffer_pos = 0;
+        self.click_detected = false;
+    }
+
+    fn latency(&self) -> usize {
+        self.latency_samples
+    }
+}
+
+impl StereoProcessor for DeClick {
+    fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        let mono = (left + right) * 0.5;
+
+        // Write to buffer
+        self.buffer[self.buffer_pos] = mono;
+
+        // Detect click
+        if self.detect_click(self.buffer_pos) {
+            if !self.click_detected {
+                self.click_detected = true;
+                self.click_start = self.buffer_pos;
+            }
+            self.click_end = self.buffer_pos;
+        } else if self.click_detected {
+            // End of click - repair
+            self.repair_click(self.click_start, self.click_end);
+            self.click_detected = false;
+        }
+
+        // Read from delayed position
+        let read_pos = (self.buffer_pos + self.buffer.len() - self.latency_samples) % self.buffer.len();
+        let out = self.buffer[read_pos];
+
+        self.buffer_pos = (self.buffer_pos + 1) % self.buffer.len();
+
+        (out, out)
+    }
+}
+
+impl ProcessorConfig for DeClick {
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+    }
+}
+
 // ============ Tests ============
 
 #[cfg(test)]

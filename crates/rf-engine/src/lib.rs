@@ -27,6 +27,26 @@ mod groups;
 mod click;
 mod pdc;
 
+// Phase 3: Advanced features
+mod anticipatory;
+mod fx_container;
+
+// Phase 4: Timeline & Track Management
+pub mod track_manager;
+pub mod audio_import;
+pub mod waveform;
+pub mod playback;
+pub mod ffi;
+
+// Phase 5: Dynamic Routing System
+pub mod routing;
+
+// Phase 6: DAW Integration
+pub mod link;
+
+// Phase 7: DSP Wrappers
+pub mod dsp_wrappers;
+
 // Re-exports: Core
 pub use graph::*;
 pub use node::*;
@@ -80,13 +100,9 @@ pub use sidechain::{
 };
 
 pub use freeze::{
-    FreezeStatus,
-    FreezeMode,
-    FreezeOptions,
-    FrozenTrackData,
-    FrozenOriginalState,
-    TrackFreezer,
-    FreezeRenderer,
+    FreezeConfig,
+    FrozenTrackInfo,
+    FreezeManager,
     FreezeError,
 };
 
@@ -120,6 +136,101 @@ pub use pdc::{
     SendPdc,
     MAX_PDC_SAMPLES,
     DEFAULT_CONSTRAIN_THRESHOLD,
+};
+
+pub use anticipatory::{
+    AnticipatoryScheduler,
+    SchedulerConfig,
+    ProcessingJob,
+    ProcessingResult,
+    NodeStats,
+    SchedulerStats,
+};
+
+pub use fx_container::{
+    FxContainer,
+    ContainerPath,
+    MacroParameter,
+    MacroMapping,
+    MappingCurve,
+    BlendMode,
+    PathId,
+    MAX_PARALLEL_PATHS,
+    MAX_MACROS,
+};
+
+// Re-exports: Phase 4 - Timeline
+pub use track_manager::{
+    TrackManager,
+    Track,
+    Clip,
+    Crossfade,
+    Marker,
+    LoopRegion,
+    TrackId,
+    ClipId,
+    CrossfadeId,
+    MarkerId,
+    CrossfadeCurve,
+    OutputBus,
+};
+
+pub use audio_import::{
+    AudioImporter,
+    ImportedAudio,
+    ImportError,
+};
+
+pub use waveform::{
+    Peak,
+    WaveformPeaks,
+    StereoWaveformPeaks,
+    WaveformCache,
+    NUM_LOD_LEVELS,
+    SAMPLES_PER_PEAK,
+};
+
+pub use playback::{
+    PlaybackEngine,
+    PlaybackPosition,
+    PlaybackState,
+    AudioCache,
+    BusBuffers,
+    BusState,
+};
+
+// Re-exports: Phase 5 - Dynamic Routing
+pub use routing::{
+    RoutingGraph,
+    Channel,
+    ChannelId,
+    ChannelKind,
+    OutputDestination,
+    SendConfig,
+    SendTapPoint as RoutingSendTapPoint,
+    RoutingError,
+};
+
+// Re-exports: Phase 6 - DAW Integration
+pub use link::{
+    LinkSession,
+    LinkHost,
+    LinkState,
+    LinkBeat,
+    LinkConfig,
+    LinkEvent,
+};
+
+// Re-exports: Phase 7 - DSP Wrappers
+pub use dsp_wrappers::{
+    ProEqWrapper,
+    UltraEqWrapper,
+    PultecWrapper,
+    Api550Wrapper,
+    Neve1073Wrapper,
+    MorphEqWrapper,
+    RoomCorrectionWrapper,
+    create_processor,
 };
 
 use rf_core::SampleRate;

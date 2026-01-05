@@ -9,8 +9,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/reelforge_theme.dart';
-import 'screens/main_layout.dart';
 import 'screens/engine_connected_layout.dart';
+import 'screens/splash_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'screens/eq_test_screen.dart';
 import 'providers/engine_provider.dart';
 import 'providers/timeline_playback_provider.dart';
 import 'providers/mixer_dsp_provider.dart';
@@ -68,7 +70,11 @@ class ReelForgeApp extends StatelessWidget {
         title: 'ReelForge',
         debugShowCheckedModeBanner: false,
         theme: ReelForgeTheme.darkTheme,
-        home: const _AppInitializer(),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const _AppInitializer(),
+          '/eq-test': (context) => const _EqTestRoute(),
+        },
       ),
     );
   }
@@ -82,9 +88,13 @@ class _AppInitializer extends StatefulWidget {
   State<_AppInitializer> createState() => _AppInitializerState();
 }
 
+enum _AppState { splash, welcome, main }
+
 class _AppInitializerState extends State<_AppInitializer> {
-  bool _initialized = false;
+  _AppState _appState = _AppState.splash;
   String? _error;
+  String _loadingMessage = 'Starting...';
+  String? _projectName;
 
   @override
   void initState() {
@@ -96,16 +106,20 @@ class _AppInitializerState extends State<_AppInitializer> {
 
   Future<void> _initializeApp() async {
     try {
-      // Initialize Rust engine first
+      // Phase 1: Initialize Rust engine
+      _updateLoading('Initializing audio engine...');
       final engine = context.read<EngineProvider>();
       await engine.initialize();
 
-      // Initialize providers that need setup
+      // Phase 2: Initialize providers
+      _updateLoading('Setting up providers...');
+
+      if (!mounted) return;
       final shortcuts = context.read<GlobalShortcutsProvider>();
       final history = context.read<ProjectHistoryProvider>();
-      final meters = context.read<MeterProvider>();
 
-      // Wire up keyboard shortcuts to engine actions
+      // Phase 3: Wire up shortcuts
+      _updateLoading('Configuring shortcuts...');
       final actions = ShortcutAction();
       actions.onPlayPause = () {
         if (engine.transport.isPlaying) {
@@ -123,16 +137,14 @@ class _AppInitializerState extends State<_AppInitializer> {
         engine.redo();
         history.redo();
       };
-
       shortcuts.setActions(actions);
 
-      // Start metering when engine starts playing
-      engine.addListener(() {
-        meters.setPlaying(engine.transport.isPlaying);
-      });
+      // Phase 4: Show welcome screen
+      _updateLoading('Ready');
+      await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        setState(() => _initialized = true);
+        setState(() => _appState = _AppState.welcome);
       }
     } catch (e) {
       if (mounted) {
@@ -141,62 +153,72 @@ class _AppInitializerState extends State<_AppInitializer> {
     }
   }
 
+  void _updateLoading(String message) {
+    if (mounted) {
+      setState(() => _loadingMessage = message);
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _error = null;
+      _appState = _AppState.splash;
+      _loadingMessage = 'Starting...';
+    });
+    _initializeApp();
+  }
+
+  void _handleNewProject(String name) {
+    final engine = context.read<EngineProvider>();
+    engine.newProject(name);
+    setState(() {
+      _projectName = name;
+      _appState = _AppState.main;
+    });
+  }
+
+  void _handleOpenProject(String path) {
+    final engine = context.read<EngineProvider>();
+    engine.loadProject(path);
+    setState(() {
+      _projectName = path.split('/').last.replaceAll('.rfp', '');
+      _appState = _AppState.main;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Scaffold(
-        backgroundColor: ReelForgeTheme.bgDeepest,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: ReelForgeTheme.errorRed, size: 48),
-              const SizedBox(height: 16),
-              Text('Failed to initialize', style: ReelForgeTheme.h2),
-              const SizedBox(height: 8),
-              Text(_error!, style: ReelForgeTheme.body),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _error = null;
-                    _initialized = false;
-                  });
-                  _initializeApp();
-                },
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    switch (_appState) {
+      case _AppState.splash:
+        return SplashScreen(
+          onComplete: () {},
+          loadingMessage: _loadingMessage,
+          hasError: _error != null,
+          errorMessage: _error,
+          onRetry: _retry,
+        );
 
-    if (!_initialized) {
-      return Scaffold(
-        backgroundColor: ReelForgeTheme.bgDeepest,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(ReelForgeTheme.accentBlue),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text('ReelForge', style: ReelForgeTheme.h1),
-              const SizedBox(height: 8),
-              Text('Loading...', style: ReelForgeTheme.body),
-            ],
-          ),
-        ),
-      );
-    }
+      case _AppState.welcome:
+        return WelcomeScreen(
+          onNewProject: _handleNewProject,
+          onOpenProject: _handleOpenProject,
+          onSkip: () => _handleNewProject('Untitled Project'),
+        );
 
-    return const EngineConnectedLayout();
+      case _AppState.main:
+        return EngineConnectedLayout(
+          projectName: _projectName,
+        );
+    }
+  }
+}
+
+/// Route wrapper for EQ Test Screen
+class _EqTestRoute extends StatelessWidget {
+  const _EqTestRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    return const EqTestScreen();
   }
 }

@@ -45,6 +45,12 @@ class ProjectTreeNode {
   final List<ProjectTreeNode> children;
   final int? count;
   final dynamic data;
+  /// Duration string for audio files (e.g. "02:35")
+  final String? duration;
+  /// Whether this node is selected
+  final bool isSelected;
+  /// Whether this node is draggable (for pool items)
+  final bool isDraggable;
 
   const ProjectTreeNode({
     required this.id,
@@ -53,6 +59,9 @@ class ProjectTreeNode {
     this.children = const [],
     this.count,
     this.data,
+    this.duration,
+    this.isSelected = false,
+    this.isDraggable = false,
   });
 }
 
@@ -184,6 +193,139 @@ class _TreeItem extends StatelessWidget {
             child.children.any((c) =>
                 c.label.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
 
+    // Build the item widget
+    Widget itemWidget = Container(
+      height: 26,
+      padding: EdgeInsets.only(left: 12.0 + level * 16),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
+            : Colors.transparent,
+        border: Border(
+          left: BorderSide(
+            color: isSelected ? ReelForgeTheme.accentBlue : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Expand arrow
+          SizedBox(
+            width: 16,
+            child: hasChildren
+                ? Icon(
+                    isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 14,
+                    color: ReelForgeTheme.textSecondary,
+                  )
+                : null,
+          ),
+
+          // Icon
+          Text(
+            treeItemIcons[node.type] ?? '📄',
+            style: const TextStyle(fontSize: 12),
+          ),
+
+          const SizedBox(width: 6),
+
+          // Label
+          Expanded(
+            child: Text(
+              node.label,
+              style: TextStyle(
+                fontSize: 12,
+                color: matchesSearch
+                    ? ReelForgeTheme.accentBlue
+                    : ReelForgeTheme.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // Duration for audio files
+          if (node.duration != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                node.duration!,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ReelForgeTheme.textTertiary,
+                ),
+              ),
+            ),
+
+          // Count badge
+          if (node.count != null && node.count! > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: ReelForgeTheme.bgElevated,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${node.count}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ReelForgeTheme.textSecondary,
+                ),
+              ),
+            ),
+
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+
+    // Wrap in Draggable if the node is draggable (pool audio files)
+    if (node.isDraggable && node.data != null) {
+      itemWidget = Draggable<Object>(
+        data: node.data!,
+        feedback: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgSurface,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ReelForgeTheme.accentBlue),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  treeItemIcons[node.type] ?? '📄',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  node.label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: ReelForgeTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.4,
+          child: itemWidget,
+        ),
+        child: itemWidget,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -193,77 +335,7 @@ class _TreeItem extends StatelessWidget {
             onSelect?.call(node.id, node.type, node.data);
           },
           onDoubleTap: () => onDoubleClick?.call(node.id, node.type, node.data),
-          child: Container(
-            height: 26,
-            padding: EdgeInsets.only(left: 12.0 + level * 16),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              border: Border(
-                left: BorderSide(
-                  color: isSelected ? ReelForgeTheme.accentBlue : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Expand arrow
-                SizedBox(
-                  width: 16,
-                  child: hasChildren
-                      ? Icon(
-                          isExpanded ? Icons.expand_more : Icons.chevron_right,
-                          size: 14,
-                          color: ReelForgeTheme.textSecondary,
-                        )
-                      : null,
-                ),
-
-                // Icon
-                Text(
-                  treeItemIcons[node.type] ?? '📄',
-                  style: const TextStyle(fontSize: 12),
-                ),
-
-                const SizedBox(width: 6),
-
-                // Label
-                Expanded(
-                  child: Text(
-                    node.label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: matchesSearch
-                          ? ReelForgeTheme.accentBlue
-                          : ReelForgeTheme.textPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-
-                // Count badge
-                if (node.count != null && node.count! > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${node.count}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: ReelForgeTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(width: 8),
-              ],
-            ),
-          ),
+          child: itemWidget,
         ),
 
         // Children

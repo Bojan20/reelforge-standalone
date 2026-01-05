@@ -51,6 +51,177 @@ pub mod spectral;
 pub mod multiband;
 pub mod metering;
 
+// Professional EQ (Pro-Q 4 competitor)
+pub mod eq_pro;
+
+// Ultimate EQ (beyond any competitor)
+pub mod eq_ultra;
+
+// Advanced EQ modules
+pub mod eq_analog;       // Pultec, API, Neve emulations
+pub mod eq_minimum_phase; // Hilbert transform, zero-latency
+pub mod eq_stereo;       // Bass mono, M/S, per-band stereo
+pub mod eq_room;         // Room correction, target curves
+pub mod eq_morph;        // Preset interpolation
+
+// Audio analysis & manipulation
+pub mod transient;
+pub mod elastic;
+pub mod pitch;
+pub mod wavelet;      // Multi-resolution analysis (DWT, CWT, CQT)
+
+// Re-export transient shaper
+pub use transient::{
+    TransientShaper,
+    MultibandTransientShaper,
+    TransientDetector,
+    TransientMarker,
+    TransientType,
+    DetectionAlgorithm,
+    DetectionSettings,
+    SliceGenerator,
+};
+
+// Re-export pitch editor
+pub use pitch::{
+    Pitch,
+    PitchSegment,
+    PitchDetector,
+    PitchDetectorConfig,
+    PitchCorrector,
+    PitchEditorState,
+    Scale,
+};
+
+// Re-export spectral processors
+pub use spectral::{
+    SpectralGate,
+    SpectralFreeze,
+    SpectralCompressor,
+    SpectralRepair,
+    SpectralSelection,
+    RepairMode,
+    DeClick,
+};
+
+// Re-export Professional EQ
+pub use eq_pro::{
+    ProEq,
+    EqBand as ProEqBand,
+    FilterShape,
+    Slope as FilterSlope2,
+    PhaseMode as ProPhaseMode,
+    StereoPlacement,
+    AnalyzerMode,
+    DynamicParams as ProDynamicParams,
+    SpectrumAnalyzer,
+    EqMatch,
+    CollisionDetector,
+    AutoGain,
+    SvfCore,
+    SvfCoeffs,
+    MAX_BANDS as PRO_EQ_MAX_BANDS,
+};
+
+// Re-export Ultimate EQ
+pub use eq_ultra::{
+    UltraEq,
+    UltraBand,
+    MztCoeffs,
+    MztFilter,
+    Oversampler,
+    OversampleMode,
+    TransientDetector as UltraTransientDetector,
+    HarmonicSaturator,
+    SaturationType,
+    EqualLoudness,
+    CorrelationMeter,
+    FrequencyAnalyzer,
+    FrequencySuggestion,
+    UltraFilterType,
+    ULTRA_MAX_BANDS,
+};
+
+// Re-export Analog EQ models
+pub use eq_analog::{
+    PultecEqp1a,
+    PultecLowFreq,
+    PultecHighBoostFreq,
+    PultecHighAttenFreq,
+    Api550,
+    Api550LowFreq,
+    Api550MidFreq,
+    Api550HighFreq,
+    Neve1073,
+    Neve1073HpFreq,
+    Neve1073LowFreq,
+    Neve1073HighFreq,
+    TubeSaturation,
+    OutputTransformer,
+    DiscreteSaturation,
+    NeveTransformer,
+    StereoPultec,
+    StereoApi550,
+    StereoNeve1073,
+    ANALOG_MAX_BANDS,
+};
+
+// Re-export Minimum Phase EQ
+pub use eq_minimum_phase::{
+    HilbertTransform,
+    MinimumPhaseReconstructor,
+    MinPhaseEq,
+    MinPhaseEqBand,
+    MinPhaseFilterType,
+    LinearToMinPhase,
+    MIN_PHASE_MAX_BANDS,
+};
+
+// Re-export Stereo EQ
+pub use eq_stereo::{
+    BassMono,
+    CrossoverSlope,
+    StereoMode,
+    StereoEqBand,
+    WidthBand,
+    StereoEq,
+    StereoImageAnalyzer,
+    StereoCorrector,
+    STEREO_EQ_MAX_BANDS,
+};
+
+// Re-export Room Correction
+pub use eq_room::{
+    TargetCurve,
+    RoomMeasurement,
+    RoomMode,
+    RoomModeType,
+    RoomCorrectionEq,
+};
+
+// Re-export Morphing EQ
+pub use eq_morph::{
+    BandSnapshot,
+    MorphFilterType,
+    EqPreset,
+    MorphingEq,
+    PRESET_MAX_BANDS,
+};
+
+// Re-export Wavelet/CQT analysis
+pub use wavelet::{
+    WaveletType,
+    WaveletFilter,
+    DWT,
+    WaveletDecomposition,
+    CWT,
+    CWTResult,
+    CQT,
+    CQTResult,
+    MultiResolutionAnalyzer,
+    MultiResolutionResult,
+};
+
 // Re-exports for convenience
 pub use simd::{SimdLevel, DspDispatch, detect_simd_level, simd_level};
 pub use simd::{apply_gain, process_biquad, mix_add, apply_stereo_gain};

@@ -407,3 +407,102 @@ const List<BusInfo> kBusOptions = [
 BusInfo getBusInfo(OutputBus bus) {
   return kBusOptions.firstWhere((b) => b.bus == bus, orElse: () => kBusOptions[0]);
 }
+
+// ============ Audio Pool ============
+
+/// Audio file in the pool (imported but not on timeline)
+class PoolAudioFile {
+  final String id;
+  final String path;
+  final String name;
+  final double duration;
+  final int sampleRate;
+  final int channels;
+  final String format;
+  final Float32List? waveform;
+  final DateTime importedAt;
+  /// Default bus for clips created from this file
+  final OutputBus defaultBus;
+
+  const PoolAudioFile({
+    required this.id,
+    required this.path,
+    required this.name,
+    required this.duration,
+    this.sampleRate = 48000,
+    this.channels = 2,
+    this.format = 'wav',
+    this.waveform,
+    required this.importedAt,
+    this.defaultBus = OutputBus.master,
+  });
+
+  PoolAudioFile copyWith({
+    String? id,
+    String? path,
+    String? name,
+    double? duration,
+    int? sampleRate,
+    int? channels,
+    String? format,
+    Float32List? waveform,
+    DateTime? importedAt,
+    OutputBus? defaultBus,
+  }) {
+    return PoolAudioFile(
+      id: id ?? this.id,
+      path: path ?? this.path,
+      name: name ?? this.name,
+      duration: duration ?? this.duration,
+      sampleRate: sampleRate ?? this.sampleRate,
+      channels: channels ?? this.channels,
+      format: format ?? this.format,
+      waveform: waveform ?? this.waveform,
+      importedAt: importedAt ?? this.importedAt,
+      defaultBus: defaultBus ?? this.defaultBus,
+    );
+  }
+
+  /// Format duration as MM:SS
+  String get durationFormatted {
+    final mins = (duration / 60).floor();
+    final secs = (duration % 60).floor();
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  /// Format file size info
+  String get formatInfo => '$format • ${sampleRate ~/ 1000}kHz • ${channels}ch';
+}
+
+/// Pool folder for organizing audio files
+class PoolFolder {
+  final String id;
+  final String name;
+  final String? parentId;
+  final List<String> fileIds;
+  final bool expanded;
+
+  const PoolFolder({
+    required this.id,
+    required this.name,
+    this.parentId,
+    this.fileIds = const [],
+    this.expanded = true,
+  });
+
+  PoolFolder copyWith({
+    String? id,
+    String? name,
+    String? parentId,
+    List<String>? fileIds,
+    bool? expanded,
+  }) {
+    return PoolFolder(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      fileIds: fileIds ?? this.fileIds,
+      expanded: expanded ?? this.expanded,
+    );
+  }
+}

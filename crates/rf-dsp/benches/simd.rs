@@ -63,7 +63,6 @@ fn bench_stereo_gain(c: &mut Criterion) {
                         black_box(&mut left),
                         black_box(&mut right),
                         black_box(0.8),
-                        black_box(0.6),
                     );
                 })
             },

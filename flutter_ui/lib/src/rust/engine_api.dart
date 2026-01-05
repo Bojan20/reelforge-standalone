@@ -6,7 +6,7 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'bridge.dart';
+import 'native_ffi.dart';
 
 /// Audio Engine API
 ///
@@ -17,11 +17,17 @@ class EngineApi {
 
   bool _initialized = false;
   bool _useMock = true; // Use mock until native lib is ready
+  bool _audioStarted = false; // Track if real audio playback is running
+  final NativeFFI _ffi = NativeFFI.instance;
 
   // State
   TransportState _transport = TransportState.empty();
   MeteringState _metering = MeteringState.empty();
   ProjectInfo _project = ProjectInfo.empty();
+
+  // Active buses for metering (index -> activity level 0-1)
+  // 0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=UI
+  final Map<int, double> _activeBuses = {};
 
   // Streams
   final _transportController = StreamController<TransportState>.broadcast();
@@ -39,30 +45,69 @@ class EngineApi {
   }) async {
     if (_initialized) return true;
 
+    // Try to load native library
+    if (_ffi.tryLoad()) {
+      _useMock = false;
+      print('[Engine] Native FFI loaded successfully');
+    } else {
+      _useMock = true;
+      print('[Engine] Using mock mode (native library not available)');
+    }
+
+    _initialized = true;
+
+    // Try to start real audio playback
+    try {
+      await startAudioPlayback();
+    } catch (e) {
+      print('Audio playback init failed, using mock: $e');
+    }
+
+    // Start update timer for metering/transport
+    _startUpdateTimer();
+
+    return true;
+  }
+
+  /// Start real audio playback engine
+  Future<void> startAudioPlayback() async {
+    if (_audioStarted) return;
+
     try {
       if (!_useMock) {
-        await RustBridge.instance.init();
-        // Call native engine_init
+        _ffi.startPlayback();
+        print('[Engine] Audio playback started via FFI');
+      } else {
+        print('[Engine] Audio playback ready (mock mode)');
       }
-
-      _initialized = true;
-
-      // Start update timer for metering/transport
-      _startUpdateTimer();
-
-      return true;
+      _audioStarted = true;
     } catch (e) {
-      print('Engine init failed: $e');
-      // Fall back to mock mode
-      _useMock = true;
-      _initialized = true;
-      _startUpdateTimer();
-      return true;
+      print('[Engine] Audio playback failed: $e');
+      rethrow;
     }
   }
 
+  /// Stop real audio playback engine
+  Future<void> stopAudioPlayback() async {
+    if (!_audioStarted) return;
+
+    try {
+      if (!_useMock) {
+        _ffi.stopPlayback();
+        print('[Engine] Audio playback stopped via FFI');
+      }
+      _audioStarted = false;
+    } catch (e) {
+      print('[Engine] Audio stop failed: $e');
+    }
+  }
+
+  /// Check if real audio is active
+  bool get isAudioActive => _audioStarted;
+
   /// Shutdown the engine
   void shutdown() {
+    stopAudioPlayback();
     _updateTimer?.cancel();
     _initialized = false;
     _transportController.close();
@@ -71,6 +116,35 @@ class EngineApi {
 
   /// Check if engine is running
   bool get isRunning => _initialized;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUS ROUTING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set active buses for metering based on which tracks have clips
+  /// busIndex: 0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=UI
+  /// activity: 0.0-1.0 level of activity (0 = silent, 1 = full)
+  void setActiveBuses(Map<int, double> buses) {
+    _activeBuses.clear();
+    _activeBuses.addAll(buses);
+  }
+
+  /// Set single bus activity
+  void setBusActivity(int busIndex, double activity) {
+    if (activity > 0) {
+      _activeBuses[busIndex] = activity.clamp(0.0, 1.0);
+    } else {
+      _activeBuses.remove(busIndex);
+    }
+  }
+
+  /// Clear all bus activity (silence)
+  void clearActiveBuses() {
+    _activeBuses.clear();
+  }
+
+  /// Get active buses
+  Map<int, double> get activeBuses => Map.unmodifiable(_activeBuses);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TRANSPORT
@@ -84,6 +158,9 @@ class EngineApi {
 
   /// Start playback
   void play() {
+    if (!_useMock) {
+      _ffi.play();
+    }
     _transport = TransportState(
       isPlaying: true,
       isRecording: _transport.isRecording,
@@ -101,6 +178,9 @@ class EngineApi {
 
   /// Stop playback
   void stop() {
+    if (!_useMock) {
+      _ffi.stop();
+    }
     _transport = TransportState(
       isPlaying: false,
       isRecording: false,
@@ -118,6 +198,9 @@ class EngineApi {
 
   /// Pause playback
   void pause() {
+    if (!_useMock) {
+      _ffi.pause();
+    }
     _transport = TransportState(
       isPlaying: false,
       isRecording: _transport.isRecording,
@@ -152,6 +235,9 @@ class EngineApi {
 
   /// Set position in seconds
   void setPosition(double seconds) {
+    if (!_useMock) {
+      _ffi.seek(seconds);
+    }
     final sampleRate = _project.sampleRate;
     _transport = TransportState(
       isPlaying: _transport.isPlaying,
@@ -187,6 +273,11 @@ class EngineApi {
 
   /// Toggle loop
   void toggleLoop() {
+    final newLoopEnabled = !_transport.loopEnabled;
+    if (!_useMock) {
+      _ffi.setLoopEnabled(newLoopEnabled);
+      _ffi.syncLoopFromRegion();
+    }
     _transport = TransportState(
       isPlaying: _transport.isPlaying,
       isRecording: _transport.isRecording,
@@ -195,9 +286,30 @@ class EngineApi {
       tempo: _transport.tempo,
       timeSigNum: _transport.timeSigNum,
       timeSigDenom: _transport.timeSigDenom,
-      loopEnabled: !_transport.loopEnabled,
+      loopEnabled: newLoopEnabled,
       loopStart: _transport.loopStart,
       loopEnd: _transport.loopEnd,
+    );
+    _transportController.add(_transport);
+  }
+
+  /// Set loop region
+  void setLoopRegion(double start, double end) {
+    if (!_useMock) {
+      _ffi.setLoopRegion(start, end);
+      _ffi.syncLoopFromRegion();
+    }
+    _transport = TransportState(
+      isPlaying: _transport.isPlaying,
+      isRecording: _transport.isRecording,
+      positionSamples: _transport.positionSamples,
+      positionSeconds: _transport.positionSeconds,
+      tempo: _transport.tempo,
+      timeSigNum: _transport.timeSigNum,
+      timeSigDenom: _transport.timeSigDenom,
+      loopEnabled: _transport.loopEnabled,
+      loopStart: start,
+      loopEnd: end,
     );
     _transportController.add(_transport);
   }
@@ -237,35 +349,661 @@ class EngineApi {
   }
 
   /// Save project
-  Future<void> saveProject(String path) async {
-    // TODO: Call native save
-    print('Saving project to: $path');
+  Future<bool> saveProject(String path) async {
+    print('[Engine] Saving project to: $path');
+    if (!_useMock) {
+      final result = _ffi.saveProject(path);
+      if (result) {
+        _project = ProjectInfo(
+          name: _project.name,
+          trackCount: _project.trackCount,
+          busCount: _project.busCount,
+          sampleRate: _project.sampleRate,
+          tempo: _project.tempo,
+          timeSigNum: _project.timeSigNum,
+          timeSigDenom: _project.timeSigDenom,
+          durationSamples: _project.durationSamples,
+          createdAt: _project.createdAt,
+          modifiedAt: DateTime.now().millisecondsSinceEpoch,
+        );
+        print('[Engine] Project saved via FFI');
+        return true;
+      }
+      return false;
+    }
+    // Mock save
+    await Future.delayed(const Duration(milliseconds: 100));
+    print('[Engine] Project saved (mock)');
+    return true;
   }
 
   /// Load project
-  Future<void> loadProject(String path) async {
-    // TODO: Call native load
-    print('Loading project from: $path');
+  Future<bool> loadProject(String path) async {
+    print('[Engine] Loading project from: $path');
+    if (!_useMock) {
+      final result = _ffi.loadProject(path);
+      if (result) {
+        // Sync project info from engine
+        _ffi.preloadAll();
+        print('[Engine] Project loaded via FFI');
+        return true;
+      }
+      return false;
+    }
+    // Mock load
+    await Future.delayed(const Duration(milliseconds: 100));
+    print('[Engine] Project loaded (mock)');
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRACK MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new track
+  /// Returns track ID
+  String createTrack({
+    required String name,
+    required int color,
+    int busId = 0,
+  }) {
+    if (!_useMock) {
+      final nativeId = _ffi.createTrack(name, color, busId);
+      if (nativeId != 0) {
+        print('[Engine] Created track via FFI: $name (id: $nativeId)');
+        return nativeId.toString();
+      }
+    }
+    // Fallback to mock
+    final id = 'track-${DateTime.now().millisecondsSinceEpoch}';
+    print('[Engine] Created track (mock): $name (id: $id)');
+    return id;
+  }
+
+  /// Delete a track
+  void deleteTrack(String trackId) {
+    if (!_useMock) {
+      final nativeId = int.tryParse(trackId);
+      if (nativeId != null) {
+        _ffi.deleteTrack(nativeId);
+        print('[Engine] Deleted track via FFI: $trackId');
+        return;
+      }
+    }
+    print('[Engine] Deleted track (mock): $trackId');
+  }
+
+  /// Update track properties
+  void updateTrack(String trackId, {
+    String? name,
+    int? color,
+    bool? muted,
+    bool? soloed,
+    bool? armed,
+    double? volume,
+    double? pan,
+    int? busId,
+  }) {
+    if (!_useMock) {
+      final nativeId = int.tryParse(trackId);
+      if (nativeId != null) {
+        if (name != null) _ffi.setTrackName(nativeId, name);
+        if (muted != null) _ffi.setTrackMute(nativeId, muted);
+        if (soloed != null) _ffi.setTrackSolo(nativeId, soloed);
+        if (volume != null) _ffi.setTrackVolume(nativeId, volume);
+        if (pan != null) _ffi.setTrackPan(nativeId, pan);
+        print('[Engine] Updated track via FFI: $trackId');
+        return;
+      }
+    }
+    print('[Engine] Updated track (mock): $trackId');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO IMPORT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Import audio file to a track
+  /// Returns clip ID or null on failure
+  Future<ImportedClipInfo?> importAudioFile({
+    required String filePath,
+    required String trackId,
+    required double startTime,
+  }) async {
+    print('[Engine] Importing audio: $filePath to track $trackId at $startTime');
+
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        final clipId = _ffi.importAudio(filePath, nativeTrackId, startTime);
+        if (clipId != 0) {
+          final fileName = filePath.split('/').last;
+          print('[Engine] Imported via FFI: $fileName (clip: $clipId)');
+          // Preload audio for playback
+          _ffi.preloadAll();
+          return ImportedClipInfo(
+            clipId: clipId.toString(),
+            trackId: trackId,
+            name: fileName,
+            startTime: startTime,
+            duration: 5.0, // TODO: Get actual duration from FFI
+            sourceDuration: 5.0,
+            sampleRate: 48000,
+            channels: 2,
+          );
+        }
+      }
+    }
+
+    // Fallback to mock
+    final fileName = filePath.split('/').last;
+    final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    return ImportedClipInfo(
+      clipId: clipId,
+      trackId: trackId,
+      name: fileName,
+      startTime: startTime,
+      duration: 5.0,
+      sourceDuration: 5.0,
+      sampleRate: 48000,
+      channels: 2,
+    );
+  }
+
+  /// Get waveform peaks for a clip
+  /// Returns list of (min, max) pairs
+  Future<List<double>> getWaveformPeaks({
+    required String clipId,
+    int lodLevel = 0,
+  }) async {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        final peaks = _ffi.getWaveformPeaks(nativeClipId, lodLevel: lodLevel);
+        if (peaks.isNotEmpty) {
+          return peaks;
+        }
+      }
+    }
+    // Return empty list (UI will use demo waveform)
+    return [];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Move a clip to a new position (and optionally new track)
+  void moveClip({
+    required String clipId,
+    required String targetTrackId,
+    required double startTime,
+  }) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      final nativeTrackId = int.tryParse(targetTrackId);
+      if (nativeClipId != null && nativeTrackId != null) {
+        _ffi.moveClip(nativeClipId, nativeTrackId, startTime);
+        print('[Engine] Moved clip via FFI: $clipId');
+        return;
+      }
+    }
+    print('[Engine] Move clip (mock): $clipId to track $targetTrackId at $startTime');
+  }
+
+  /// Resize a clip
+  void resizeClip({
+    required String clipId,
+    required double startTime,
+    required double duration,
+    required double sourceOffset,
+  }) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.resizeClip(nativeClipId, startTime, duration, sourceOffset);
+        print('[Engine] Resized clip via FFI: $clipId');
+        return;
+      }
+    }
+    print('[Engine] Resize clip (mock): $clipId');
+  }
+
+  /// Split a clip at playhead
+  /// Returns new clip ID or null on failure
+  String? splitClip({
+    required String clipId,
+    required double atTime,
+  }) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        final newId = _ffi.splitClip(nativeClipId, atTime);
+        if (newId != 0) {
+          print('[Engine] Split clip via FFI: $clipId -> $newId');
+          return newId.toString();
+        }
+      }
+    }
+    print('[Engine] Split clip (mock): $clipId at $atTime');
+    return 'clip-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Duplicate a clip
+  /// Returns new clip ID or null on failure
+  String? duplicateClip(String clipId) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        final newId = _ffi.duplicateClip(nativeClipId);
+        if (newId != 0) {
+          print('[Engine] Duplicated clip via FFI: $clipId -> $newId');
+          return newId.toString();
+        }
+      }
+    }
+    print('[Engine] Duplicate clip (mock): $clipId');
+    return 'clip-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Delete a clip
+  void deleteClip(String clipId) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.deleteClip(nativeClipId);
+        print('[Engine] Deleted clip via FFI: $clipId');
+        return;
+      }
+    }
+    print('[Engine] Delete clip (mock): $clipId');
+  }
+
+  /// Set clip gain
+  void setClipGain(String clipId, double gain) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipGain(nativeClipId, gain);
+        print('[Engine] Set clip gain via FFI: $clipId = $gain');
+        return;
+      }
+    }
+    print('[Engine] Set clip gain (mock): $clipId = $gain');
+  }
+
+  /// Set clip mute state
+  void setClipMuted(String clipId, bool muted) {
+    print('[Engine] Set clip $clipId muted to $muted');
+  }
+
+  /// Normalize clip to target dB
+  bool normalizeClip(String clipId, {double targetDb = -3.0}) {
+    print('[Engine] Normalize clip $clipId to $targetDb dB');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clipNormalize(nativeClipId, targetDb);
+      }
+    }
+    return true;
+  }
+
+  /// Reverse clip audio
+  bool reverseClip(String clipId) {
+    print('[Engine] Reverse clip $clipId');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clipReverse(nativeClipId);
+      }
+    }
+    return true;
+  }
+
+  /// Apply fade in to clip
+  /// curveType: 0=Linear, 1=EqualPower, 2=SCurve
+  bool fadeInClip(String clipId, double durationSec, {int curveType = 1}) {
+    print('[Engine] Fade in clip $clipId for $durationSec sec');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clipFadeIn(nativeClipId, durationSec, curveType);
+      }
+    }
+    return true;
+  }
+
+  /// Apply fade out to clip
+  bool fadeOutClip(String clipId, double durationSec, {int curveType = 1}) {
+    print('[Engine] Fade out clip $clipId for $durationSec sec');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clipFadeOut(nativeClipId, durationSec, curveType);
+      }
+    }
+    return true;
+  }
+
+  /// Apply gain adjustment to clip
+  bool applyGainToClip(String clipId, double gainDb) {
+    print('[Engine] Apply $gainDb dB gain to clip $clipId');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.clipApplyGain(nativeClipId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Rename a track
+  bool renameTrack(String trackId, String name) {
+    print('[Engine] Rename track $trackId to "$name"');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.trackRename(nativeTrackId, name);
+      }
+    }
+    return true;
+  }
+
+  /// Duplicate a track and return new track ID
+  String? duplicateTrack(String trackId) {
+    print('[Engine] Duplicate track $trackId');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        final newId = _ffi.trackDuplicate(nativeTrackId);
+        if (newId != 0) {
+          return newId.toString();
+        }
+      }
+    }
+    return 'track-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Set track color
+  bool setTrackColor(String trackId, int color) {
+    print('[Engine] Set track $trackId color to $color');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.trackSetColor(nativeTrackId, color);
+      }
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CROSSFADE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a crossfade between two clips
+  /// curve: 0=Linear, 1=EqualPower, 2=SCurve
+  String? createCrossfade({
+    required String clipAId,
+    required String clipBId,
+    required double duration,
+    int curve = 1, // EqualPower default
+  }) {
+    print('[Engine] Create crossfade between $clipAId and $clipBId');
+    if (!_useMock) {
+      final nativeClipAId = int.tryParse(clipAId);
+      final nativeClipBId = int.tryParse(clipBId);
+      if (nativeClipAId != null && nativeClipBId != null) {
+        final xfadeId = _ffi.createCrossfade(nativeClipAId, nativeClipBId, duration, curve);
+        if (xfadeId != 0) {
+          print('[Engine] Crossfade created via FFI: $xfadeId');
+          return xfadeId.toString();
+        }
+      }
+    }
+    return 'xfade-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Update crossfade
+  void updateCrossfade(String crossfadeId, double duration, int curve) {
+    print('[Engine] Update crossfade $crossfadeId');
+    // Note: update requires delete + recreate (no update function in FFI)
+  }
+
+  /// Delete crossfade
+  void deleteCrossfade(String crossfadeId) {
+    print('[Engine] Delete crossfade $crossfadeId');
+    if (!_useMock) {
+      final nativeId = int.tryParse(crossfadeId);
+      if (nativeId != null) {
+        _ffi.deleteCrossfade(nativeId);
+        print('[Engine] Crossfade deleted via FFI');
+        return;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MARKERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add a marker
+  String addMarker({
+    required String name,
+    required double time,
+    required int color,
+  }) {
+    print('[Engine] Add marker $name at $time');
+    if (!_useMock) {
+      final markerId = _ffi.addMarker(name, time, color);
+      if (markerId != 0) {
+        print('[Engine] Marker added via FFI: $markerId');
+        return markerId.toString();
+      }
+    }
+    return 'marker-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Delete a marker
+  void deleteMarker(String markerId) {
+    print('[Engine] Delete marker $markerId');
+    if (!_useMock) {
+      final nativeId = int.tryParse(markerId);
+      if (nativeId != null) {
+        _ffi.deleteMarker(nativeId);
+        print('[Engine] Marker deleted via FFI');
+        return;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SNAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Snap time to grid
+  double snapToGrid(double time, double gridSize) {
+    if (gridSize <= 0) return time;
+    return (time / gridSize).round() * gridSize;
+  }
+
+  /// Snap time to nearest event (clip boundary)
+  double snapToEvent(double time, double threshold) {
+    // TODO: Call native engine_snap_to_event via FFI
+    return time;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // UNDO/REDO
   // ═══════════════════════════════════════════════════════════════════════════
 
-  bool _canUndo = false;
-  bool _canRedo = false;
-
-  bool get canUndo => _canUndo;
-  bool get canRedo => _canRedo;
-
-  void undo() {
-    // TODO: Call native undo
-    print('Undo');
+  /// Check if undo is available
+  bool get canUndo {
+    if (!_useMock) {
+      return _ffi.canUndo();
+    }
+    return false;
   }
 
-  void redo() {
-    // TODO: Call native redo
-    print('Redo');
+  /// Check if redo is available
+  bool get canRedo {
+    if (!_useMock) {
+      return _ffi.canRedo();
+    }
+    return false;
+  }
+
+  /// Undo last action
+  bool undo() {
+    print('[Engine] Undo');
+    if (!_useMock) {
+      final result = _ffi.undo();
+      if (result) {
+        print('[Engine] Undo successful via FFI');
+      }
+      return result;
+    }
+    return false;
+  }
+
+  /// Redo last undone action
+  bool redo() {
+    print('[Engine] Redo');
+    if (!_useMock) {
+      final result = _ffi.redo();
+      if (result) {
+        print('[Engine] Redo successful via FFI');
+      }
+      return result;
+    }
+    return false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MEMORY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get memory usage in MB
+  double getMemoryUsage() {
+    if (!_useMock) {
+      return _ffi.getMemoryUsage();
+    }
+    return 0.0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EQ
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set EQ band enabled state
+  bool eqSetBandEnabled(String trackId, int bandIndex, bool enabled) {
+    print('[Engine] EQ track $trackId band $bandIndex enabled: $enabled');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBandEnabled(nativeTrackId, bandIndex, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Set EQ band frequency
+  bool eqSetBandFrequency(String trackId, int bandIndex, double frequency) {
+    print('[Engine] EQ track $trackId band $bandIndex freq: $frequency Hz');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBandFrequency(nativeTrackId, bandIndex, frequency);
+      }
+    }
+    return true;
+  }
+
+  /// Set EQ band gain
+  bool eqSetBandGain(String trackId, int bandIndex, double gain) {
+    print('[Engine] EQ track $trackId band $bandIndex gain: $gain dB');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBandGain(nativeTrackId, bandIndex, gain);
+      }
+    }
+    return true;
+  }
+
+  /// Set EQ band Q
+  bool eqSetBandQ(String trackId, int bandIndex, double q) {
+    print('[Engine] EQ track $trackId band $bandIndex Q: $q');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBandQ(nativeTrackId, bandIndex, q);
+      }
+    }
+    return true;
+  }
+
+  /// Set EQ bypass
+  bool eqSetBypass(String trackId, bool bypass) {
+    print('[Engine] EQ track $trackId bypass: $bypass');
+    if (!_useMock) {
+      final nativeTrackId = int.tryParse(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBypass(nativeTrackId, bypass);
+      }
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MIXER BUSES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set bus volume (in dB)
+  bool mixerSetBusVolume(int busId, double volumeDb) {
+    print('[Engine] Bus $busId volume: $volumeDb dB');
+    if (!_useMock) {
+      return _ffi.mixerSetBusVolume(busId, volumeDb);
+    }
+    return true;
+  }
+
+  /// Set bus mute
+  bool mixerSetBusMute(int busId, bool muted) {
+    print('[Engine] Bus $busId mute: $muted');
+    if (!_useMock) {
+      return _ffi.mixerSetBusMute(busId, muted);
+    }
+    return true;
+  }
+
+  /// Set bus solo
+  bool mixerSetBusSolo(int busId, bool solo) {
+    print('[Engine] Bus $busId solo: $solo');
+    if (!_useMock) {
+      return _ffi.mixerSetBusSolo(busId, solo);
+    }
+    return true;
+  }
+
+  /// Set bus pan
+  bool mixerSetBusPan(int busId, double pan) {
+    print('[Engine] Bus $busId pan: $pan');
+    if (!_useMock) {
+      return _ffi.mixerSetBusPan(busId, pan);
+    }
+    return true;
+  }
+
+  /// Set master volume
+  bool mixerSetMasterVolume(double volumeDb) {
+    print('[Engine] Master volume: $volumeDb dB');
+    if (!_useMock) {
+      return _ffi.mixerSetMasterVolume(volumeDb);
+    }
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -282,17 +1020,25 @@ class EngineApi {
   void _updateState() {
     if (!_initialized) return;
 
-    // Update transport position if playing
+    // Update transport position
     if (_transport.isPlaying) {
-      final newSeconds = _transport.positionSeconds + 0.016; // ~60fps
+      double finalSeconds;
       final sampleRate = _project.sampleRate;
 
-      // Handle loop
-      double finalSeconds = newSeconds;
-      if (_transport.loopEnabled &&
-          _transport.loopEnd > _transport.loopStart &&
-          newSeconds >= _transport.loopEnd) {
-        finalSeconds = _transport.loopStart;
+      if (!_useMock) {
+        // Read position from Rust engine
+        finalSeconds = _ffi.getPosition();
+      } else {
+        // Mock position update
+        final newSeconds = _transport.positionSeconds + 0.016; // ~60fps
+
+        // Handle loop in mock mode
+        finalSeconds = newSeconds;
+        if (_transport.loopEnabled &&
+            _transport.loopEnd > _transport.loopStart &&
+            newSeconds >= _transport.loopEnd) {
+          finalSeconds = _transport.loopStart;
+        }
       }
 
       _transport = TransportState(
@@ -312,20 +1058,132 @@ class EngineApi {
 
     // Update metering with mock data
     if (_useMock) {
-      final random = Random();
-      final activity = _transport.isPlaying ? 1.0 : 0.1;
+      // ONLY show meter activity when audio is playing
+      // When stopped, meters should be completely silent (no noise floor)
+      if (_transport.isPlaying) {
+        final random = Random();
+
+        // Generate bus metering based on active buses
+        // Only show activity on buses that have routed audio
+        final busMeters = List.generate(
+          _project.busCount,
+          (i) {
+            final activity = _activeBuses[i] ?? 0.0;
+            if (activity > 0) {
+              return BusMeteringState.mock(random, activity);
+            } else {
+              return BusMeteringState.empty();
+            }
+          },
+        );
+
+        // Calculate master level from sum of active buses
+        final hasAnyActivity = _activeBuses.isNotEmpty;
+        final masterActivity = hasAnyActivity
+            ? _activeBuses.values.reduce((a, b) => a + b).clamp(0.0, 1.0)
+            : 0.0;
+
+        if (masterActivity > 0) {
+          _metering = MeteringState(
+            masterPeakL: -12.0 + random.nextDouble() * 6 * masterActivity,
+            masterPeakR: -12.0 + random.nextDouble() * 6 * masterActivity,
+            masterRmsL: -18.0 + random.nextDouble() * 4 * masterActivity,
+            masterRmsR: -18.0 + random.nextDouble() * 4 * masterActivity,
+            masterLufsM: -14.0 + random.nextDouble() * 2,
+            masterLufsS: -14.0 + random.nextDouble() * 1,
+            masterLufsI: -14.0,
+            masterTruePeak: -6.0 + random.nextDouble() * 3,
+            cpuUsage: 5.0 + random.nextDouble() * 3,
+            bufferUnderruns: 0,
+            buses: busMeters,
+          );
+        } else {
+          // Playing but no active buses - silence
+          _metering = MeteringState(
+            masterPeakL: -60.0,
+            masterPeakR: -60.0,
+            masterRmsL: -60.0,
+            masterRmsR: -60.0,
+            masterLufsM: -60.0,
+            masterLufsS: -60.0,
+            masterLufsI: -60.0,
+            masterTruePeak: -60.0,
+            cpuUsage: 3.0 + random.nextDouble() * 2,
+            bufferUnderruns: 0,
+            buses: busMeters,
+          );
+        }
+      } else {
+        // Complete silence when not playing - meters at floor
+        final busMeters = List.generate(
+          _project.busCount,
+          (i) => BusMeteringState.empty(),
+        );
+
+        _metering = MeteringState(
+          masterPeakL: -60.0,
+          masterPeakR: -60.0,
+          masterRmsL: -60.0,
+          masterRmsR: -60.0,
+          masterLufsM: -60.0,
+          masterLufsS: -60.0,
+          masterLufsI: -60.0,
+          masterTruePeak: -60.0,
+          cpuUsage: 2.0 + Random().nextDouble() * 2, // CPU still shows small activity
+          bufferUnderruns: 0,
+          buses: busMeters,
+        );
+      }
+      _meteringController.add(_metering);
+    } else {
+      // Real metering from native engine
+      final (peakL, peakR) = _ffi.getPeakMeters();
+      final (rmsL, rmsR) = _ffi.getRmsMeters();
+
+      // Convert linear to dB (log10 = log(x) / ln(10))
+      double linearToDb(double linear) {
+        if (linear <= 0.000001) return -60.0;
+        return 20.0 * log(linear.clamp(0.000001, 10.0)) / ln10;
+      }
+
+      final masterPeakLDb = linearToDb(peakL);
+      final masterPeakRDb = linearToDb(peakR);
+      final masterRmsLDb = linearToDb(rmsL);
+      final masterRmsRDb = linearToDb(rmsR);
+
+      // Generate bus meters (for now, use master for all buses with audio)
+      final busMeters = List.generate(
+        _project.busCount,
+        (i) {
+          final activity = _activeBuses[i] ?? 0.0;
+          if (activity > 0) {
+            // Scale master meters by bus activity
+            return BusMeteringState(
+              peakL: masterPeakLDb * activity,
+              peakR: masterPeakRDb * activity,
+              rmsL: masterRmsLDb * activity,
+              rmsR: masterRmsRDb * activity,
+              heldPeakL: masterPeakLDb * activity,
+              heldPeakR: masterPeakRDb * activity,
+            );
+          } else {
+            return BusMeteringState.empty();
+          }
+        },
+      );
 
       _metering = MeteringState(
-        masterPeakL: -12.0 + random.nextDouble() * 6 * activity - (1 - activity) * 30,
-        masterPeakR: -12.0 + random.nextDouble() * 6 * activity - (1 - activity) * 30,
-        masterRmsL: -18.0 + random.nextDouble() * 4 * activity - (1 - activity) * 30,
-        masterRmsR: -18.0 + random.nextDouble() * 4 * activity - (1 - activity) * 30,
-        masterLufsM: -14.0 + random.nextDouble() * 2 * activity - (1 - activity) * 30,
-        masterLufsS: -14.0 + random.nextDouble() * 1 * activity - (1 - activity) * 30,
-        masterLufsI: -14.0,
-        masterTruePeak: -6.0 + random.nextDouble() * 3 * activity - (1 - activity) * 30,
-        cpuUsage: 5.0 + random.nextDouble() * 3,
+        masterPeakL: masterPeakLDb,
+        masterPeakR: masterPeakRDb,
+        masterRmsL: masterRmsLDb,
+        masterRmsR: masterRmsRDb,
+        masterLufsM: masterRmsLDb - 3.0, // Approximate LUFS from RMS
+        masterLufsS: masterRmsLDb - 3.0,
+        masterLufsI: masterRmsLDb - 3.0,
+        masterTruePeak: max(masterPeakLDb, masterPeakRDb),
+        cpuUsage: 5.0,
         bufferUnderruns: 0,
+        buses: busMeters,
       );
       _meteringController.add(_metering);
     }
@@ -334,3 +1192,208 @@ class EngineApi {
 
 /// Global engine instance
 final engine = EngineApi.instance;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE CLASSES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Transport state
+class TransportState {
+  final bool isPlaying;
+  final bool isRecording;
+  final int positionSamples;
+  final double positionSeconds;
+  final double tempo;
+  final int timeSigNum;
+  final int timeSigDenom;
+  final bool loopEnabled;
+  final double loopStart;
+  final double loopEnd;
+
+  const TransportState({
+    required this.isPlaying,
+    required this.isRecording,
+    required this.positionSamples,
+    required this.positionSeconds,
+    required this.tempo,
+    required this.timeSigNum,
+    required this.timeSigDenom,
+    required this.loopEnabled,
+    required this.loopStart,
+    required this.loopEnd,
+  });
+
+  factory TransportState.empty() => const TransportState(
+    isPlaying: false,
+    isRecording: false,
+    positionSamples: 0,
+    positionSeconds: 0.0,
+    tempo: 120.0,
+    timeSigNum: 4,
+    timeSigDenom: 4,
+    loopEnabled: false,
+    loopStart: 0.0,
+    loopEnd: 0.0,
+  );
+}
+
+/// Metering state for a single bus
+class BusMeteringState {
+  final double peakL;
+  final double peakR;
+  final double rmsL;
+  final double rmsR;
+  final double heldPeakL;
+  final double heldPeakR;
+
+  const BusMeteringState({
+    required this.peakL,
+    required this.peakR,
+    required this.rmsL,
+    required this.rmsR,
+    required this.heldPeakL,
+    required this.heldPeakR,
+  });
+
+  factory BusMeteringState.empty() => const BusMeteringState(
+    peakL: -60.0,
+    peakR: -60.0,
+    rmsL: -60.0,
+    rmsR: -60.0,
+    heldPeakL: -60.0,
+    heldPeakR: -60.0,
+  );
+
+  /// Generate mock metering data for active playback
+  /// activity: 0.0-1.0 controls meter level (1.0 = full level)
+  factory BusMeteringState.mock(Random random, double activity) {
+    // Clean mock data - only generate when activity > 0
+    if (activity <= 0) {
+      return BusMeteringState.empty();
+    }
+    // Base level scaled by activity
+    final base = -18.0 + random.nextDouble() * 6 * activity;
+    return BusMeteringState(
+      peakL: base + random.nextDouble() * 3,
+      peakR: base + random.nextDouble() * 3,
+      rmsL: base - 6 + random.nextDouble() * 2,
+      rmsR: base - 6 + random.nextDouble() * 2,
+      heldPeakL: base + 3,
+      heldPeakR: base + 3,
+    );
+  }
+}
+
+/// Metering state
+class MeteringState {
+  final double masterPeakL;
+  final double masterPeakR;
+  final double masterRmsL;
+  final double masterRmsR;
+  final double masterLufsM;
+  final double masterLufsS;
+  final double masterLufsI;
+  final double masterTruePeak;
+  final double cpuUsage;
+  final int bufferUnderruns;
+  final List<BusMeteringState> buses;
+
+  const MeteringState({
+    required this.masterPeakL,
+    required this.masterPeakR,
+    required this.masterRmsL,
+    required this.masterRmsR,
+    required this.masterLufsM,
+    required this.masterLufsS,
+    required this.masterLufsI,
+    required this.masterTruePeak,
+    required this.cpuUsage,
+    required this.bufferUnderruns,
+    this.buses = const [],
+  });
+
+  factory MeteringState.empty() => const MeteringState(
+    masterPeakL: -60.0,
+    masterPeakR: -60.0,
+    masterRmsL: -60.0,
+    masterRmsR: -60.0,
+    masterLufsM: -60.0,
+    masterLufsS: -60.0,
+    masterLufsI: -60.0,
+    masterTruePeak: -60.0,
+    cpuUsage: 0.0,
+    bufferUnderruns: 0,
+    buses: [],
+  );
+
+  /// Get metering for a specific bus
+  BusMeteringState? getBus(int index) {
+    if (index >= 0 && index < buses.length) {
+      return buses[index];
+    }
+    return null;
+  }
+}
+
+/// Imported clip info (returned from importAudioFile)
+class ImportedClipInfo {
+  final String clipId;
+  final String trackId;
+  final String name;
+  final double startTime;
+  final double duration;
+  final double sourceDuration;
+  final int sampleRate;
+  final int channels;
+
+  const ImportedClipInfo({
+    required this.clipId,
+    required this.trackId,
+    required this.name,
+    required this.startTime,
+    required this.duration,
+    required this.sourceDuration,
+    required this.sampleRate,
+    required this.channels,
+  });
+}
+
+/// Project info
+class ProjectInfo {
+  final String name;
+  final int trackCount;
+  final int busCount;
+  final int sampleRate;
+  final double tempo;
+  final int timeSigNum;
+  final int timeSigDenom;
+  final int durationSamples;
+  final int createdAt;
+  final int modifiedAt;
+
+  const ProjectInfo({
+    required this.name,
+    required this.trackCount,
+    required this.busCount,
+    required this.sampleRate,
+    required this.tempo,
+    required this.timeSigNum,
+    required this.timeSigDenom,
+    required this.durationSamples,
+    required this.createdAt,
+    required this.modifiedAt,
+  });
+
+  factory ProjectInfo.empty() => ProjectInfo(
+    name: 'Untitled Project',
+    trackCount: 0,
+    busCount: 6,
+    sampleRate: 48000,
+    tempo: 120.0,
+    timeSigNum: 4,
+    timeSigDenom: 4,
+    durationSamples: 0,
+    createdAt: DateTime.now().millisecondsSinceEpoch,
+    modifiedAt: DateTime.now().millisecondsSinceEpoch,
+  );
+}

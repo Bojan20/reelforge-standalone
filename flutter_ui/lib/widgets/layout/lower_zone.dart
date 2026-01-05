@@ -56,7 +56,7 @@ class LowerZone extends StatefulWidget {
     this.onToggleCollapse,
     this.height = 300,
     this.onHeightChange,
-    this.minHeight = 100,
+    this.minHeight = 300,
     this.maxHeight = 500,
   });
 
@@ -165,6 +165,12 @@ class _LowerZoneState extends State<LowerZone> {
   }
 
   Widget _buildTabBar(String activeId) {
+    // Find which group contains the active tab
+    final activeGroup = widget.tabGroups?.firstWhere(
+      (g) => g.tabs.contains(activeId),
+      orElse: () => const TabGroup(id: '', label: '', tabs: []),
+    );
+
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -176,10 +182,17 @@ class _LowerZoneState extends State<LowerZone> {
       ),
       child: Row(
         children: [
-          // Tabs
-          ...widget.tabs.map((tab) => _buildTab(tab, activeId)),
-
-          const Spacer(),
+          // Tabs with horizontal scroll
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: widget.tabGroups != null
+                    ? _buildGroupedTabs(activeId, activeGroup?.id)
+                    : widget.tabs.map((tab) => _buildTab(tab, activeId)).toList(),
+              ),
+            ),
+          ),
 
           // Collapse button
           if (widget.onToggleCollapse != null)
@@ -191,6 +204,114 @@ class _LowerZoneState extends State<LowerZone> {
               color: ReelForgeTheme.textSecondary,
             ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildGroupedTabs(String activeId, String? activeGroupId) {
+    final List<Widget> widgets = [];
+
+    for (int i = 0; i < widget.tabGroups!.length; i++) {
+      final group = widget.tabGroups![i];
+      final groupTabs = widget.tabs.where((t) => group.tabs.contains(t.id)).toList();
+      final isActiveGroup = activeGroupId == group.id;
+      final hasMultipleTabs = groupTabs.length > 1;
+
+      // Separator between groups
+      if (i > 0) {
+        widgets.add(Container(
+          width: 1,
+          height: 20,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          color: ReelForgeTheme.borderSubtle,
+        ));
+      }
+
+      if (hasMultipleTabs) {
+        // Group with dropdown
+        widgets.add(_buildGroupDropdown(group, groupTabs, isActiveGroup, activeId));
+      } else if (groupTabs.isNotEmpty) {
+        // Single tab in group
+        widgets.add(_buildTab(groupTabs.first, activeId));
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _buildGroupDropdown(TabGroup group, List<LowerZoneTab> groupTabs, bool isActiveGroup, String activeId) {
+    return PopupMenuButton<String>(
+      onSelected: (tabId) {
+        widget.onTabChange?.call(tabId);
+      },
+      offset: const Offset(0, 28),
+      color: ReelForgeTheme.bgElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+      ),
+      itemBuilder: (context) => groupTabs.map((tab) {
+        final isActive = activeId == tab.id;
+        return PopupMenuItem<String>(
+          value: tab.id,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: isActive ? ReelForgeTheme.accentBlue : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tab.icon != null) ...[
+                  Icon(tab.icon!, size: 12, color: isActive ? Colors.white : ReelForgeTheme.textSecondary),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  tab.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isActive ? Colors.white : ReelForgeTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActiveGroup ? ReelForgeTheme.bgElevated : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border(
+            bottom: BorderSide(
+              color: isActiveGroup ? ReelForgeTheme.accentBlue : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              group.label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isActiveGroup ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                fontWeight: isActiveGroup ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 14,
+              color: isActiveGroup ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }

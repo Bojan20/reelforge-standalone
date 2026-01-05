@@ -553,12 +553,17 @@ mod tests {
 
         sc.set_external_input(&external, &external);
 
-        let mut output = vec![0.0; 256];
-        sc.process(&internal, &internal, &mut output, &mut output);
+        let mut output_l = vec![0.0; 256];
+        let mut output_r = vec![0.0; 256];
+
+        // Process multiple times for smoothing to settle
+        for _ in 0..10 {
+            sc.process(&internal, &internal, &mut output_l, &mut output_r);
+        }
 
         // Should be mostly external signal
         // (smoothing means not exactly 1.0)
-        assert!(output[255] > 0.9);
+        assert!(output_l[255] > 0.9);
     }
 
     #[test]
@@ -569,18 +574,19 @@ mod tests {
 
         // DC signal should be filtered out
         let input = vec![1.0; 256];
-        let mut output = vec![0.0; 256];
+        let mut output_l = vec![0.0; 256];
+        let mut output_r = vec![0.0; 256];
 
-        sc.process(&input, &input, &mut output, &mut output);
+        sc.process(&input, &input, &mut output_l, &mut output_r);
 
         // After HPF, DC should approach zero
         // Need more samples for filter to settle
         for _ in 0..10 {
-            sc.process(&input, &input, &mut output, &mut output);
+            sc.process(&input, &input, &mut output_l, &mut output_r);
         }
 
         // Last samples should be near zero (DC filtered)
-        assert!(output[255].abs() < 0.1);
+        assert!(output_l[255].abs() < 0.1);
     }
 
     #[test]
@@ -629,14 +635,15 @@ mod tests {
         sc.set_gain_db(6.0); // +6dB
 
         let input = vec![0.5; 256];
-        let mut output = vec![0.0; 256];
+        let mut output_l = vec![0.0; 256];
+        let mut output_r = vec![0.0; 256];
 
         // Process multiple times for smoothing to settle
         for _ in 0..10 {
-            sc.process(&input, &input, &mut output, &mut output);
+            sc.process(&input, &input, &mut output_l, &mut output_r);
         }
 
         // +6dB = factor of ~2
-        assert!(output[255] > 0.9);
+        assert!(output_l[255] > 0.9);
     }
 }

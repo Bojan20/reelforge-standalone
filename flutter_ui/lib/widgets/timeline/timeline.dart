@@ -9,10 +9,13 @@
 /// - Markers
 /// - Zoom/scroll (Ctrl+wheel)
 /// - Keyboard shortcuts
+/// - Drag & drop audio files
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:cross_file/cross_file.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import 'time_ruler.dart';
@@ -96,6 +99,22 @@ class Timeline extends StatefulWidget {
   final bool snapEnabled;
   final double snapValue;
 
+  /// File drop callback
+  /// Called when audio files are dropped on the timeline
+  /// Returns (filePath, trackId, startTime) - trackId can be null for new track
+  final void Function(String filePath, String? trackId, double startTime)? onFileDrop;
+
+  /// Pool file drop callback (for drag from Audio Pool)
+  /// Called when PoolAudioFile is dropped on timeline
+  /// Returns (poolFile, trackId, startTime) - trackId can be null for new track
+  final void Function(dynamic poolFile, String? trackId, double startTime)? onPoolFileDrop;
+
+  /// Track duplicate/delete callbacks
+  final ValueChanged<String>? onTrackDuplicate;
+  final ValueChanged<String>? onTrackDelete;
+  /// Context menu callback for tracks (pass track ID and position)
+  final void Function(String trackId, Offset position)? onTrackContextMenu;
+
   const Timeline({
     super.key,
     required this.tracks,
@@ -148,6 +167,11 @@ class Timeline extends StatefulWidget {
     this.onCrossfadeDelete,
     this.snapEnabled = true,
     this.snapValue = 1,
+    this.onFileDrop,
+    this.onPoolFileDrop,
+    this.onTrackDuplicate,
+    this.onTrackDelete,
+    this.onTrackContextMenu,
   });
 
   @override
@@ -162,9 +186,16 @@ class _TimelineState extends State<Timeline> {
   bool _isDraggingPlayhead = false;
   bool _isDraggingLoopLeft = false;
   bool _isDraggingLoopRight = false;
+  bool _isDroppingFile = false;
+  bool _isDroppingPoolFile = false;
+  Offset? _dropPosition;
+  Offset? _poolDropPosition;
 
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
+
+  /// Supported audio file extensions
+  static const _audioExtensions = {'.wav', '.mp3', '.flac', '.ogg', '.aiff', '.aif'};
 
   @override
   void dispose() {
@@ -252,6 +283,84 @@ class _TimelineState extends State<Timeline> {
     }
   }
 
+  /// Handle file drop on timeline
+  void _handleFileDrop(DropDoneDetails details) {
+    if (widget.onFileDrop == null) return;
+
+    final position = _dropPosition ?? details.localPosition;
+
+    // Calculate time from X position
+    final x = position.dx - _headerWidth;
+    final startTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+
+    // Calculate track from Y position
+    final trackIndex = ((position.dy - _rulerHeight) / _trackHeight).floor();
+    String? trackId;
+    if (trackIndex >= 0 && trackIndex < widget.tracks.length) {
+      trackId = widget.tracks[trackIndex].id;
+    }
+
+    // Process dropped files
+    for (final file in details.files) {
+      final path = file.path;
+      final extension = path.toLowerCase().split('.').lastOrNull;
+
+      if (extension != null && _audioExtensions.contains('.$extension')) {
+        widget.onFileDrop!(path, trackId, startTime);
+      }
+    }
+
+    setState(() {
+      _isDroppingFile = false;
+      _dropPosition = null;
+    });
+  }
+
+  /// Check if any file is an audio file
+  bool _hasAudioFiles(List<XFile> files) {
+    return files.any((file) {
+      final ext = file.path.toLowerCase().split('.').lastOrNull;
+      return ext != null && _audioExtensions.contains('.$ext');
+    });
+  }
+
+  /// Handle pool file drop on timeline (drag from Audio Pool)
+  void _handlePoolFileDrop(dynamic poolFile, Offset globalPosition) {
+    if (widget.onPoolFileDrop == null) return;
+
+    // Convert global position to local position within this widget
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final localPosition = renderBox.globalToLocal(globalPosition);
+
+    // Calculate time from X position (local)
+    final x = localPosition.dx - _headerWidth;
+    final startTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+
+    // Calculate track from Y position (local)
+    // Account for ruler height (no vertical scroll in this timeline implementation)
+    final yInContent = localPosition.dy - _rulerHeight;
+    final trackIndex = (yInContent / _trackHeight).floor();
+
+    String? trackId;
+    // Only assign trackId if dropping ON an existing track
+    // If dropping below all tracks OR on empty space → trackId remains null → new track created
+    if (trackIndex >= 0 && trackIndex < widget.tracks.length && yInContent >= 0) {
+      trackId = widget.tracks[trackIndex].id;
+    }
+    // trackId == null means: create new track (Cubase-style behavior)
+
+    debugPrint('[Timeline] Pool drop: global=$globalPosition, local=$localPosition, trackIndex=$trackIndex, trackId=$trackId');
+
+    widget.onPoolFileDrop!(poolFile, trackId, startTime);
+
+    setState(() {
+      _isDroppingPoolFile = false;
+      _poolDropPosition = null;
+    });
+  }
+
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
 
@@ -287,6 +396,24 @@ class _TimelineState extends State<Timeline> {
     // H - zoom out
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
       widget.onZoomChange?.call((widget.zoom * 0.8).clamp(10, 500));
+    }
+
+    // L - set loop around selected clip OR toggle loop if no selection
+    if (event.logicalKey == LogicalKeyboardKey.keyL) {
+      if (selectedClip != null && widget.onLoopRegionChange != null) {
+        // Set loop region around selected clip
+        widget.onLoopRegionChange!(LoopRegion(
+          start: selectedClip.startTime,
+          end: selectedClip.endTime,
+        ));
+        // Enable loop if not already
+        if (!widget.loopEnabled) {
+          widget.onLoopToggle?.call();
+        }
+      } else {
+        // No selection - toggle loop on/off
+        widget.onLoopToggle?.call();
+      }
     }
 
     // Arrow keys - nudge clip
@@ -330,25 +457,64 @@ class _TimelineState extends State<Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      onKeyEvent: (node, event) {
-        _handleKeyEvent(event);
-        return KeyEventResult.handled;
+    // Wrap in DragTarget for Audio Pool items
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) {
+        // Accept any PoolAudioFile
+        setState(() {
+          _isDroppingPoolFile = true;
+        });
+        return true;
       },
-      child: Listener(
-        onPointerSignal: (event) {
-          if (event is PointerScrollEvent) {
-            _handleWheel(event);
-          }
+      onLeave: (data) {
+        setState(() {
+          _isDroppingPoolFile = false;
+          _poolDropPosition = null;
+        });
+      },
+      onAcceptWithDetails: (details) {
+        _handlePoolFileDrop(details.data, details.offset);
+      },
+      builder: (context, candidateData, rejectedData) {
+        return DropTarget(
+          onDragEntered: (details) {
+            setState(() {
+              _isDroppingFile = true;
+            });
+          },
+      onDragExited: (details) {
+        setState(() {
+          _isDroppingFile = false;
+          _dropPosition = null;
+        });
+      },
+      onDragUpdated: (details) {
+        setState(() {
+          _dropPosition = details.localPosition;
+        });
+      },
+      onDragDone: _handleFileDrop,
+      child: Focus(
+        focusNode: _focusNode,
+        onKeyEvent: (node, event) {
+          _handleKeyEvent(event);
+          return KeyEventResult.handled;
         },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            _containerWidth = constraints.maxWidth - _headerWidth;
+        child: Listener(
+          onPointerSignal: (event) {
+            if (event is PointerScrollEvent) {
+              _handleWheel(event);
+            }
+          },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _containerWidth = constraints.maxWidth - _headerWidth;
 
-            return Container(
-              color: ReelForgeTheme.bgDeepest,
-              child: Column(
+              return Container(
+                color: ReelForgeTheme.bgDeepest,
+                child: Stack(
+                  children: [
+                    Column(
                 children: [
                   // Ruler row
                   SizedBox(
@@ -479,6 +645,12 @@ class _TimelineState extends State<Timeline> {
                                           widget.onTrackBusChange?.call(track.id, b),
                                       onRename: (n) =>
                                           widget.onTrackRename?.call(track.id, n),
+                                      onDuplicate: () =>
+                                          widget.onTrackDuplicate?.call(track.id),
+                                      onDelete: () =>
+                                          widget.onTrackDelete?.call(track.id),
+                                      onContextMenu: (pos) =>
+                                          widget.onTrackContextMenu?.call(track.id, pos),
                                     ),
                                     // Track lane
                                     Expanded(
@@ -617,12 +789,81 @@ class _TimelineState extends State<Timeline> {
                     ),
                   ),
                 ],
-              ),
-            );
-          },
+                    ), // Column
+
+                    // Drop overlay
+                    if (_isDroppingFile)
+                      Positioned.fill(
+                        child: Container(
+                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: ReelForgeTheme.bgMid,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: ReelForgeTheme.accentBlue,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+                                    blurRadius: 20,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.audio_file,
+                                    size: 48,
+                                    color: ReelForgeTheme.accentBlue,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Drop audio files here',
+                                    style: ReelForgeTheme.body.copyWith(
+                                      color: ReelForgeTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'WAV, MP3, FLAC, OGG, AIFF',
+                                    style: ReelForgeTheme.bodySmall.copyWith(
+                                      color: ReelForgeTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Drop position indicator
+                    if (_isDroppingFile && _dropPosition != null)
+                      Positioned(
+                        left: _dropPosition!.dx - 1,
+                        top: _rulerHeight,
+                        bottom: 20,
+                        child: Container(
+                          width: 2,
+                          color: ReelForgeTheme.accentBlue,
+                        ),
+                      ),
+                  ],
+                ), // Stack
+              );
+            },
+          ),
         ),
       ),
-    );
+    ); // DropTarget
+      }, // DragTarget builder
+    ); // DragTarget
   }
 
   Widget _buildLoopHandles() {

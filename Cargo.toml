@@ -8,6 +8,10 @@ members = [
     "crates/rf-state",
     "crates/rf-bridge",
     "crates/rf-file",
+    "crates/rf-plugin",
+    "crates/rf-viz",
+    "crates/rf-video",
+    "crates/rf-script",
 ]
 
 [workspace.package]
@@ -26,6 +30,14 @@ rf-engine = { path = "crates/rf-engine" }
 rf-state = { path = "crates/rf-state" }
 rf-bridge = { path = "crates/rf-bridge" }
 rf-file = { path = "crates/rf-file" }
+rf-plugin = { path = "crates/rf-plugin" }
+rf-viz = { path = "crates/rf-viz" }
+rf-video = { path = "crates/rf-video" }
+rf-script = { path = "crates/rf-script" }
+
+# Plugin hosting
+vst3 = "0.3"
+dirs-next = "2.0"
 
 # Audio file I/O
 hound = "3.5"
@@ -33,7 +45,6 @@ symphonia = { version = "0.5", features = ["aac", "flac", "mp3", "ogg", "wav"] }
 
 # File system
 walkdir = "2.5"
-dirs-next = "2.0"
 
 # Graphics (for Flutter native rendering)
 wgpu = "24.0"

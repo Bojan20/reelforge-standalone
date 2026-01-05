@@ -1,23 +1,30 @@
 /// ReelForge Left Zone
 ///
-/// Two-tab layout panel:
-/// - Project Explorer: Wwise-style project hierarchy browser
-/// - Channel: Cubase-style channel strip for selected track
+/// Mode-aware layout panel:
+/// - DAW mode: Audio files browser + Channel strip
+/// - Middleware mode: Wwise-style event/bus hierarchy + Channel
+/// - Slot mode: Slot assets browser + Channel
+///
+/// 1:1 migration from React LeftZone.tsx
 
 import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
-import '../../models/layout_models.dart';
+import '../../models/layout_models.dart' show ChannelStripData, EditorMode;
 import 'project_tree.dart';
 import 'channel_panel.dart';
 
-// Re-export types for convenience
-export 'project_tree.dart' show TreeItemType, ProjectTreeNode, treeItemIcons;
-
-/// Left zone tabs
-enum LeftZoneTab { project, channel }
+/// Left zone tabs (matches React: 'project' | 'channel')
+enum LeftZoneTab {
+  /// Project browser (tree with folders, events, sounds, buses)
+  project,
+  /// Channel strip for selected track
+  channel,
+}
 
 /// Left Zone widget
 class LeftZone extends StatefulWidget {
+  /// Current editor mode (determines browser content)
+  final EditorMode editorMode;
   final bool collapsed;
   final List<ProjectTreeNode> tree;
   final String? selectedId;
@@ -41,6 +48,7 @@ class LeftZone extends StatefulWidget {
 
   const LeftZone({
     super.key,
+    this.editorMode = EditorMode.daw,
     this.collapsed = false,
     this.tree = const [],
     this.selectedId,
@@ -108,35 +116,127 @@ class _LeftZoneState extends State<LeftZone> {
             activeTab: widget.activeTab,
             onTabChange: widget.onTabChange,
             onToggleCollapse: widget.onToggleCollapse,
+            projectTabLabel: _projectTabLabel,
+            projectTabIcon: _projectTabIcon,
+            accentColor: _modeAccentColor,
           ),
           Expanded(
-            child: widget.activeTab == LeftZoneTab.project
-                ? _buildProjectExplorer()
-                : _buildChannelPanel(),
+            child: _buildContent(),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildContent() {
+    switch (widget.activeTab) {
+      case LeftZoneTab.project:
+        return _buildProjectExplorer();
+      case LeftZoneTab.channel:
+        return _buildChannelPanel();
+    }
+  }
+
+  /// Get mode-specific tab label
+  String get _projectTabLabel {
+    switch (widget.editorMode) {
+      case EditorMode.daw:
+        return 'Browser';
+      case EditorMode.middleware:
+        return 'Project';
+      case EditorMode.slot:
+        return 'Assets';
+    }
+  }
+
+  /// Get mode-specific tab icon
+  IconData get _projectTabIcon {
+    switch (widget.editorMode) {
+      case EditorMode.daw:
+        return Icons.audio_file;
+      case EditorMode.middleware:
+        return Icons.folder_outlined;
+      case EditorMode.slot:
+        return Icons.casino;
+    }
+  }
+
+  /// Get mode-specific accent color
+  Color get _modeAccentColor {
+    switch (widget.editorMode) {
+      case EditorMode.daw:
+        return ReelForgeTheme.accentBlue;
+      case EditorMode.middleware:
+        return ReelForgeTheme.accentOrange;
+      case EditorMode.slot:
+        return ReelForgeTheme.accentGreen;
+    }
+  }
+
   Widget _buildProjectExplorer() {
     return Column(
       children: [
+        // Mode indicator bar
+        _ModeIndicator(
+          mode: widget.editorMode,
+          accentColor: _modeAccentColor,
+        ),
         _SearchBar(
           controller: _searchController,
           onChanged: widget.onSearchChange,
+          placeholder: _getSearchPlaceholder(),
         ),
         Expanded(
-          child: ProjectTree(
-            nodes: widget.tree,
-            selectedId: widget.selectedId,
-            searchQuery: widget.searchQuery,
-            onSelect: widget.onSelect,
-            onDoubleClick: widget.onDoubleClick,
-            onAdd: widget.onAdd,
-          ),
+          child: widget.tree.isEmpty
+            ? _buildEmptyBrowser()
+            : ProjectTree(
+                nodes: widget.tree,
+                selectedId: widget.selectedId,
+                searchQuery: widget.searchQuery,
+                onSelect: widget.onSelect,
+                onDoubleClick: widget.onDoubleClick,
+                onAdd: widget.onAdd,
+              ),
         ),
       ],
+    );
+  }
+
+  String _getSearchPlaceholder() {
+    switch (widget.editorMode) {
+      case EditorMode.daw:
+        return 'Search audio files...';
+      case EditorMode.middleware:
+        return 'Search events, buses...';
+      case EditorMode.slot:
+        return 'Search slot assets...';
+    }
+  }
+
+  Widget _buildEmptyBrowser() {
+    final (icon, message) = switch (widget.editorMode) {
+      EditorMode.daw => (Icons.audio_file, 'Drop audio files here\nor import from File menu'),
+      EditorMode.middleware => (Icons.account_tree, 'No events defined\nCreate events from Project menu'),
+      EditorMode.slot => (Icons.casino, 'No slot assets\nImport from File menu'),
+    };
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: _modeAccentColor.withValues(alpha: 0.5)),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: ReelForgeTheme.textTertiary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -166,11 +266,17 @@ class _Header extends StatelessWidget {
   final LeftZoneTab activeTab;
   final ValueChanged<LeftZoneTab>? onTabChange;
   final VoidCallback? onToggleCollapse;
+  final String projectTabLabel;
+  final IconData projectTabIcon;
+  final Color accentColor;
 
   const _Header({
     required this.activeTab,
     this.onTabChange,
     this.onToggleCollapse,
+    required this.projectTabLabel,
+    required this.projectTabIcon,
+    required this.accentColor,
   });
 
   @override
@@ -184,17 +290,21 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Project/Browser tab (mode-specific)
           _Tab(
-            label: 'Project',
-            icon: Icons.folder_outlined,
+            label: projectTabLabel,
+            icon: projectTabIcon,
             isActive: activeTab == LeftZoneTab.project,
             onTap: () => onTabChange?.call(LeftZoneTab.project),
+            accentColor: accentColor,
           ),
+          // Channel tab
           _Tab(
             label: 'Channel',
             icon: Icons.tune,
             isActive: activeTab == LeftZoneTab.channel,
             onTap: () => onTabChange?.call(LeftZoneTab.channel),
+            accentColor: accentColor,
           ),
           const Spacer(),
           if (onToggleCollapse != null)
@@ -216,16 +326,20 @@ class _Tab extends StatelessWidget {
   final IconData icon;
   final bool isActive;
   final VoidCallback? onTap;
+  final Color accentColor;
 
   const _Tab({
     required this.label,
     required this.icon,
     required this.isActive,
     this.onTap,
+    required this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = isActive ? accentColor : ReelForgeTheme.textSecondary;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -233,29 +347,74 @@ class _Tab extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive ? ReelForgeTheme.accentBlue : Colors.transparent,
+              color: isActive ? accentColor : Colors.transparent,
               width: 2,
             ),
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
-            ),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: color,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODE INDICATOR
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ModeIndicator extends StatelessWidget {
+  final EditorMode mode;
+  final Color accentColor;
+
+  const _ModeIndicator({
+    required this.mode,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon) = switch (mode) {
+      EditorMode.daw => ('DAW Browser', Icons.audio_file),
+      EditorMode.middleware => ('Middleware Project', Icons.account_tree),
+      EditorMode.slot => ('Slot Assets', Icons.casino),
+    };
+
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(color: accentColor.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: accentColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: accentColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -268,8 +427,13 @@ class _Tab extends StatelessWidget {
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
+  final String placeholder;
 
-  const _SearchBar({required this.controller, this.onChanged});
+  const _SearchBar({
+    required this.controller,
+    this.onChanged,
+    this.placeholder = 'Search...',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -293,9 +457,9 @@ class _SearchBar extends StatelessWidget {
                 controller: controller,
                 onChanged: onChanged,
                 style: const TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: placeholder,
+                  hintStyle: const TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
@@ -319,3 +483,4 @@ class _SearchBar extends StatelessWidget {
     );
   }
 }
+

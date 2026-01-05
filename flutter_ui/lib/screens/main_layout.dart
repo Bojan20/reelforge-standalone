@@ -14,9 +14,10 @@ import 'package:flutter/services.dart';
 import '../theme/reelforge_theme.dart';
 import '../models/layout_models.dart';
 import '../widgets/layout/control_bar.dart';
-import '../widgets/layout/left_zone.dart';
-import '../widgets/layout/right_zone.dart';
-import '../widgets/layout/lower_zone.dart';
+import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
+import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
+import '../widgets/layout/lower_zone.dart' show LowerZone, MixerStrip;
+import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 
 class MainLayout extends StatefulWidget {
   // Control bar props
@@ -307,8 +308,8 @@ class _MainLayoutState extends State<MainLayout>
                       onSaveProjectAs: widget.menuCallbacks?.onSaveProjectAs,
                       onImportJSON: widget.menuCallbacks?.onImportJSON,
                       onExportJSON: widget.menuCallbacks?.onExportJSON,
-                      onImportAudioFolder:
-                          widget.menuCallbacks?.onImportAudioFolder,
+                      onImportAudioFolder: widget.menuCallbacks?.onImportAudioFolder,
+                      onImportAudioFiles: widget.menuCallbacks?.onImportAudioFiles,
                       onUndo: widget.menuCallbacks?.onUndo,
                       onRedo: widget.menuCallbacks?.onRedo,
                       onCut: widget.menuCallbacks?.onCut,
@@ -333,6 +334,7 @@ class _MainLayoutState extends State<MainLayout>
                 children: [
                   // Left Zone
                   LeftZone(
+                    editorMode: widget.editorMode,
                     collapsed: !_leftVisible,
                     tree: widget.projectTree,
                     selectedId: widget.selectedProjectId,
@@ -388,15 +390,15 @@ class _MainLayoutState extends State<MainLayout>
                           height: _lowerZoneHeight,
                           onHeightChange: (h) =>
                               setState(() => _lowerZoneHeight = h),
-                          minHeight: 100,
+                          minHeight: 300,
                           maxHeight: 500,
                         ),
                       ],
                     ),
                   ),
 
-                  // Right Zone - Only show Inspector in Middleware mode
-                  if (widget.editorMode == EditorMode.middleware)
+                  // Right Zone - Show Inspector in Middleware/Slot modes (not DAW)
+                  if (widget.editorMode != EditorMode.daw)
                     RightZone(
                       collapsed: !_rightVisible,
                       objectType: widget.inspectorType,

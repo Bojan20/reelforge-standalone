@@ -5,6 +5,9 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 rf-core = { workspace = true }
 rf-dsp = { workspace = true }
@@ -15,4 +18,8 @@ crossbeam-channel = { workspace = true }
 rayon = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+num_cpus = "1.16"
+lazy_static = "1.5"
+cpal = { workspace = true }
