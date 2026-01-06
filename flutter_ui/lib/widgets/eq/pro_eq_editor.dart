@@ -178,12 +178,28 @@ class ProEqEditor extends StatefulWidget {
   final String trackId;
   final double width;
   final double height;
+  /// Signal level from metering (0.0-1.0, linear)
+  /// When > 0, spectrum analyzer is visible
+  final double signalLevel;
+  /// Callback when EQ band parameters change - sends to Rust DSP
+  final void Function(int bandIndex, {
+    bool? enabled,
+    double? freq,
+    double? gain,
+    double? q,
+    int? filterType,
+  })? onBandChange;
+  /// Callback when global bypass changes
+  final void Function(bool bypass)? onBypassChange;
 
   const ProEqEditor({
     super.key,
     required this.trackId,
     this.width = 1200,
     this.height = 700,
+    this.signalLevel = 0.0,
+    this.onBandChange,
+    this.onBypassChange,
   });
 
   @override
@@ -227,14 +243,14 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
   void initState() {
     super.initState();
 
-    // Default bands
+    // Default bands - all reset (flat response)
     _bands = [
-      _Band(id: 0, shape: FilterShape.lowCut, freq: 30, slope: 24),
-      _Band(id: 1, shape: FilterShape.lowShelf, freq: 100, gain: 2.0),
-      _Band(id: 2, shape: FilterShape.bell, freq: 400, gain: -2.5, q: 1.2),
-      _Band(id: 3, shape: FilterShape.bell, freq: 2500, gain: 3.0, q: 0.8),
-      _Band(id: 4, shape: FilterShape.highShelf, freq: 8000, gain: 1.5),
-      _Band(id: 5, shape: FilterShape.highCut, freq: 18000, slope: 24),
+      _Band(id: 0, shape: FilterShape.lowCut, freq: 30, slope: 24, enabled: false),
+      _Band(id: 1, shape: FilterShape.lowShelf, freq: 100, gain: 0.0),
+      _Band(id: 2, shape: FilterShape.bell, freq: 400, gain: 0.0, q: 1.0),
+      _Band(id: 3, shape: FilterShape.bell, freq: 2500, gain: 0.0, q: 1.0),
+      _Band(id: 4, shape: FilterShape.highShelf, freq: 8000, gain: 0.0),
+      _Band(id: 5, shape: FilterShape.highCut, freq: 18000, slope: 24, enabled: false),
     ];
     _pushUndo();
 
@@ -262,16 +278,14 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
   }
 
   void _updateSpectrum() {
-    // In real app: _signalLevel comes from audio engine RMS meter
-    // For demo: simulate with random signal on/off (90% on, 10% off)
-    final rnd = math.Random();
-    final signalActive = rnd.nextDouble() > 0.1;
+    // Use real signal level from metering
+    final hasSignal = widget.signalLevel > 0.001;
 
-    // Smooth signal level transitions
-    if (signalActive) {
-      _signalLevel = (_signalLevel + 0.08).clamp(0.0, 1.0);
+    // Smooth signal level transitions for fade effect
+    if (hasSignal) {
+      _signalLevel = (_signalLevel + 0.15).clamp(0.0, 1.0);
     } else {
-      _signalLevel = (_signalLevel - 0.04).clamp(0.0, 1.0);
+      _signalLevel = (_signalLevel - 0.08).clamp(0.0, 1.0);
     }
 
     // NO SIGNAL: Clear spectrum completely - nothing to show
@@ -281,20 +295,27 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       return;
     }
 
-    // HAS SIGNAL: Generate spectrum visualization
+    // HAS SIGNAL: Generate spectrum visualization based on signal level
     const n = 256;
     if (_spectrum.length != n) _spectrum = List.filled(n, -100.0);
+
+    // Convert linear signal level to dB-ish scale for spectrum base
+    // widget.signalLevel is 0.0-1.0 linear, map to spectrum intensity
+    final signalDb = widget.signalLevel > 0.001
+        ? 20 * math.log(widget.signalLevel) / math.ln10
+        : -60.0;
 
     for (int i = 0; i < n; i++) {
       final t = i / (n - 1);
       final f = (20 * math.pow(1000, t)).toDouble();
 
-      // Base spectrum (pink noise slope: -3dB/octave)
-      double db = -35 - t * 15;
+      // Base spectrum scaled by actual signal level (pink noise slope: -3dB/octave)
+      double db = signalDb - t * 15;
 
-      // Musical content: bass bump + presence
-      if (f > 50 && f < 180) db += 10 * math.exp(-math.pow((f - 90) / 40, 2));
-      if (f > 1500 && f < 5000) db += 6 * math.exp(-math.pow((f - 2500) / 800, 2));
+      // Musical content: bass bump + presence (scaled by signal)
+      final signalScale = widget.signalLevel.clamp(0.0, 1.0);
+      if (f > 50 && f < 180) db += 10 * signalScale * math.exp(-math.pow((f - 90) / 40, 2));
+      if (f > 1500 && f < 5000) db += 6 * signalScale * math.exp(-math.pow((f - 2500) / 800, 2));
 
       // Apply EQ curve to spectrum
       for (final b in _bands) {
@@ -418,6 +439,42 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       _panelController.forward(from: 0);
     } else {
       _panelController.reverse();
+    }
+  }
+
+  /// Notify Rust DSP about band parameter changes
+  void _notifyBandChange(_Band band, {
+    bool? enabledChanged,
+    bool? freqChanged,
+    bool? gainChanged,
+    bool? qChanged,
+    bool? typeChanged,
+  }) {
+    if (widget.onBandChange == null) return;
+
+    // Convert FilterShape to int for Rust
+    int filterType = band.shape.index;
+
+    widget.onBandChange!(
+      band.id,
+      enabled: enabledChanged == true ? band.enabled && !band.bypassed : null,
+      freq: freqChanged == true ? band.freq : null,
+      gain: gainChanged == true ? band.gain : null,
+      q: qChanged == true ? band.q : null,
+      filterType: typeChanged == true ? filterType : null,
+    );
+  }
+
+  /// Notify all band parameters (used for initialization and undo/redo)
+  void _notifyAllBands() {
+    for (final band in _bands) {
+      _notifyBandChange(band,
+        enabledChanged: true,
+        freqChanged: true,
+        gainChanged: true,
+        qChanged: true,
+        typeChanged: true,
+      );
     }
   }
 
@@ -666,6 +723,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               final b = _bands[_hoveredBand!];
               final delta = e.scrollDelta.dy > 0 ? -0.1 : 0.1;
               b.q = (b.q + delta).clamp(0.1, 18.0);
+              _notifyBandChange(b, qChanged: true);
               setState(() {});
             }
           },
@@ -733,6 +791,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         _pushUndo();
         _bands[i].gain = 0;
         _bands[i].q = 1.0;
+        _notifyBandChange(_bands[i], gainChanged: true, qChanged: true);
         setState(() {});
         return;
       }
@@ -745,14 +804,23 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     final freq = _xToFreq(pos.dx, c.maxWidth);
     final gain = _yToGain(pos.dy, c.maxHeight);
 
+    final newBand = _Band(
+      id: _bands.length,
+      freq: freq.clamp(20.0, 20000.0),
+      gain: gain.clamp(-_range, _range),
+    );
     setState(() {
-      _bands.add(_Band(
-        id: _bands.length,
-        freq: freq.clamp(20.0, 20000.0),
-        gain: gain.clamp(-_range, _range),
-      ));
+      _bands.add(newBand);
       _selectBand(_bands.length - 1);
     });
+    // Notify Rust about new band
+    _notifyBandChange(newBand,
+      enabledChanged: true,
+      freqChanged: true,
+      gainChanged: true,
+      qChanged: true,
+      typeChanged: true,
+    );
   }
 
   void _handleDragStart(Offset pos, BoxConstraints c) {
@@ -773,12 +841,22 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     if (_draggingBand == null) return;
     final b = _bands[_draggingBand!];
 
-    setState(() {
-      b.freq = _xToFreq(pos.dx, c.maxWidth).clamp(10.0, 30000.0);
-      if (b.hasGain) {
-        b.gain = _yToGain(pos.dy, c.maxHeight).clamp(-30.0, 30.0);
-      }
-    });
+    final newFreq = _xToFreq(pos.dx, c.maxWidth).clamp(10.0, 30000.0);
+    final freqChanged = (newFreq - b.freq).abs() > 0.1;
+    b.freq = newFreq;
+
+    bool gainChanged = false;
+    if (b.hasGain) {
+      final newGain = _yToGain(pos.dy, c.maxHeight).clamp(-30.0, 30.0);
+      gainChanged = (newGain - b.gain).abs() > 0.01;
+      b.gain = newGain;
+    }
+
+    // Notify Rust about changes (throttled by change detection)
+    if (freqChanged || gainChanged) {
+      _notifyBandChange(b, freqChanged: freqChanged, gainChanged: gainChanged);
+    }
+    setState(() {});
   }
 
   Offset _getBandPosition(_Band b, BoxConstraints c) {
@@ -875,6 +953,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                       onTap: () {
                         _pushUndo();
                         band.bypassed = !band.bypassed;
+                        _notifyBandChange(band, enabledChanged: true);
                         setState(() {});
                       },
                     ),
@@ -891,24 +970,29 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                     _buildMiniParam('FREQ', _formatFreq(band.freq), band.color, (d) {
                       final logF = math.log(band.freq);
                       band.freq = math.exp(logF - d * 0.006).clamp(10.0, 30000.0);
+                      _notifyBandChange(band, freqChanged: true);
                       setState(() {});
                     }),
                     const SizedBox(width: 10),
                     _buildMiniParam('GAIN', _formatGain(band.gain), _Colors.curveMain, (d) {
                       band.gain = (band.gain - d * 0.08).clamp(-30.0, 30.0);
+                      _notifyBandChange(band, gainChanged: true);
                       setState(() {});
                     }, enabled: band.hasGain, onReset: () {
                       _pushUndo();
                       band.gain = 0;
+                      _notifyBandChange(band, gainChanged: true);
                       setState(() {});
                     }),
                     const SizedBox(width: 10),
                     _buildMiniParam('Q', band.q.toStringAsFixed(2), _Colors.textPrimary, (d) {
                       band.q = (band.q - d * 0.012).clamp(0.1, 18.0);
+                      _notifyBandChange(band, qChanged: true);
                       setState(() {});
                     }, onReset: () {
                       _pushUndo();
                       band.q = 1.0;
+                      _notifyBandChange(band, qChanged: true);
                       setState(() {});
                     }),
 
@@ -985,6 +1069,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         _pushUndo();
         final shapes = FilterShape.values;
         band.shape = shapes[(shapes.indexOf(band.shape) + 1) % shapes.length];
+        _notifyBandChange(band, typeChanged: true);
         setState(() {});
       },
       child: MouseRegion(
@@ -1463,7 +1548,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
 
           // Global bypass
           GestureDetector(
-            onTap: () => setState(() => _globalBypass = !_globalBypass),
+            onTap: () {
+              setState(() => _globalBypass = !_globalBypass);
+              widget.onBypassChange?.call(_globalBypass);
+            },
             child: Container(
               width: 32,
               height: 24,

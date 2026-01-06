@@ -171,12 +171,28 @@ class EngineApi {
     }
   }
 
+  /// Set track pan (-1.0 to 1.0, where 0.0 = center)
+  void setTrackPan(int trackId, double pan) {
+    final clampedPan = pan.clamp(-1.0, 1.0);
+    if (!_useMock) {
+      _ffi.setTrackPan(trackId, clampedPan);
+    }
+  }
+
   /// Set bus volume (0.0 - 1.5, where 1.0 = 0dB)
   void setBusVolume(int busIndex, double volume) {
     _mockBusVolumes[busIndex] = volume.clamp(0.0, 1.5);
     if (!_useMock) {
       final db = volume <= 0.0001 ? -60.0 : 20.0 * log(volume) / ln10;
       _ffi.mixerSetBusVolume(busIndex, db);
+    }
+  }
+
+  /// Set bus pan (-1.0 to 1.0, where 0.0 = center)
+  void setBusPan(int busIndex, double pan) {
+    final clampedPan = pan.clamp(-1.0, 1.0);
+    if (!_useMock) {
+      _ffi.mixerSetBusPan(busIndex, clampedPan);
     }
   }
 
@@ -1210,11 +1226,17 @@ class EngineApi {
   // EQ
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Convert track ID string to native int (master = 0, others parsed)
+  int? _trackIdToNative(String trackId) {
+    if (trackId == 'master') return 0;
+    return int.tryParse(trackId);
+  }
+
   /// Set EQ band enabled state
   bool eqSetBandEnabled(String trackId, int bandIndex, bool enabled) {
     print('[Engine] EQ track $trackId band $bandIndex enabled: $enabled');
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.eqSetBandEnabled(nativeTrackId, bandIndex, enabled);
       }
@@ -1226,7 +1248,7 @@ class EngineApi {
   bool eqSetBandFrequency(String trackId, int bandIndex, double frequency) {
     print('[Engine] EQ track $trackId band $bandIndex freq: $frequency Hz');
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.eqSetBandFrequency(nativeTrackId, bandIndex, frequency);
       }
@@ -1238,7 +1260,7 @@ class EngineApi {
   bool eqSetBandGain(String trackId, int bandIndex, double gain) {
     print('[Engine] EQ track $trackId band $bandIndex gain: $gain dB');
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.eqSetBandGain(nativeTrackId, bandIndex, gain);
       }
@@ -1250,7 +1272,7 @@ class EngineApi {
   bool eqSetBandQ(String trackId, int bandIndex, double q) {
     print('[Engine] EQ track $trackId band $bandIndex Q: $q');
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.eqSetBandQ(nativeTrackId, bandIndex, q);
       }
@@ -1262,7 +1284,7 @@ class EngineApi {
   bool eqSetBypass(String trackId, bool bypass) {
     print('[Engine] EQ track $trackId bypass: $bypass');
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.eqSetBypass(nativeTrackId, bypass);
       }

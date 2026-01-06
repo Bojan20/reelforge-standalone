@@ -3,6 +3,7 @@
 /// Connects MainLayout to the Rust EngineProvider.
 /// Bridges UI callbacks to engine API calls.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -26,7 +27,8 @@ import '../widgets/mixer/pro_mixer_strip.dart';
 import '../widgets/mixer/plugin_selector.dart';
 import '../models/plugin_models.dart';
 import '../widgets/editors/piano_roll.dart';
-import '../widgets/editors/eq_editor.dart' as pro_eq;
+import '../widgets/editors/eq_editor.dart' as generic_eq;
+import '../widgets/eq/pro_eq_editor.dart' as rf_eq;
 import '../widgets/layout/right_zone.dart' show InspectedObjectType;
 import '../widgets/tabs/tab_placeholders.dart';
 import '../widgets/timeline/timeline.dart' as timeline_widget;
@@ -108,6 +110,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // Loudness meter state
   LoudnessTarget _loudnessTarget = LoudnessTarget.streaming;
+
+  // Meter decay state - Cubase-style: meters decay to 0 when playback stops
+  bool _wasPlaying = false;
+  Timer? _meterDecayTimer;
+  double _decayMasterL = 0.0;
+  double _decayMasterR = 0.0;
+  double _decayMasterPeak = 0.0;
+
+  // Floating EQ windows - key is channel/bus ID
+  final Map<String, bool> _openEqWindows = {};
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
   List<ProjectTreeNode> _buildProjectTree() {
@@ -274,6 +286,36 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       meters.registerMeter('sfx');
       meters.registerMeter('music');
       meters.registerMeter('voice');
+    });
+  }
+
+  @override
+  void dispose() {
+    _meterDecayTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Start meter decay animation when playback stops
+  void _startMeterDecay() {
+    _meterDecayTimer?.cancel();
+    _meterDecayTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      // Decay factor: 0.85 gives smooth ~300ms decay
+      const decay = 0.85;
+      setState(() {
+        _decayMasterL *= decay;
+        _decayMasterR *= decay;
+        _decayMasterPeak *= decay;
+      });
+      // Stop when meters reach near-zero
+      if (_decayMasterL < 0.001 && _decayMasterR < 0.001) {
+        _meterDecayTimer?.cancel();
+        _meterDecayTimer = null;
+        setState(() {
+          _decayMasterL = 0;
+          _decayMasterR = 0;
+          _decayMasterPeak = 0;
+        });
+      }
     });
   }
 
@@ -910,7 +952,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   List<timeline.TimelineClip> _clipboardClips = [];
 
   // EQ state
-  List<pro_eq.EqBand> _eqBands = [];
+  List<generic_eq.EqBand> _eqBands = [];
   String? _selectedEqBandId;
 
   /// Paste clips from clipboard
@@ -1547,7 +1589,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }
         });
 
-        return MainLayout(
+        return Stack(
+          children: [
+            MainLayout(
           // Control bar - connected to engine
           editorMode: _editorMode,
           onEditorModeChange: (mode) => setState(() {
@@ -1656,7 +1700,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           inspectorSections: _buildInspectorSections(),
 
           // Lower zone - all tabs with mode-based filtering
-          lowerTabs: _buildLowerTabs(metering),
+          lowerTabs: _buildLowerTabs(metering, transport.isPlaying),
           lowerTabGroups: _buildTabGroups(),
           activeLowerTabId: _activeLowerTab,
           onLowerTabChange: (id) => setState(() => _activeLowerTab = id),
@@ -1670,6 +1714,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               setState(() => _rightVisible = !_rightVisible),
           onLowerZoneToggle: () =>
               setState(() => _lowerVisible = !_lowerVisible),
+        ),
+            // Floating EQ windows
+            ..._buildFloatingEqWindows(metering, transport.isPlaying),
+          ],
         );
       },
     );
@@ -1784,18 +1832,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onClipMoveToNewTrack: (clipId, newStartTime) {
-        // Create a new track
+        // Create a new track - use engine's returned ID
         final trackIndex = _tracks.length;
-        final newTrackId = 'track-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
-        final trackName = 'Track ${trackIndex + 1}';
+        final trackName = 'Audio ${trackIndex + 1}';
         final color = _trackColors[trackIndex % _trackColors.length];
 
-        // Create track in native engine
-        engine.createTrack(
+        // Create track in native engine - GET THE REAL ID
+        final newTrackId = engine.createTrack(
           name: trackName,
           color: color.value,
           busId: 0,
         );
+
+        // Create mixer channel for the new track (must use real engine ID)
+        final mixerProvider = context.read<MixerProvider>();
+        mixerProvider.createChannelFromTrack(newTrackId, trackName, color);
 
         // Move clip to new track in engine
         engine.moveClip(
@@ -1827,10 +1878,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return c;
           }).toList();
         });
-
-        // Create mixer channel for the new track
-        final mixerProvider = context.read<MixerProvider>();
-        mixerProvider.createChannelFromTrack(newTrackId, trackName, color);
       },
       onClipResize: (clipId, newStartTime, newDuration, newOffset) {
         // Notify engine
@@ -2882,125 +2929,88 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  Widget _buildMixerContent(dynamic metering) {
-    // Get per-bus metering (buses: 0=SFX, 1=Music, 2=Voice, 3=Amb, 4=UI, 5=Aux)
-    final sfxBus = metering.getBus(0);
-    final musicBus = metering.getBus(1);
-    final voiceBus = metering.getBus(2);
-    final ambBus = metering.getBus(3);
-    final uiBus = metering.getBus(4);
+  Widget _buildMixerContent(dynamic metering, bool isPlaying) {
+    // Cubase-style meter decay: when playback stops, meters decay to 0
+    if (_wasPlaying && !isPlaying) {
+      // Just stopped - start decay from current values
+      _decayMasterL = _dbToLinear(metering.masterPeakL);
+      _decayMasterR = _dbToLinear(metering.masterPeakR);
+      _decayMasterPeak = _dbToLinear(metering.masterTruePeak);
+      _startMeterDecay();
+    }
+    _wasPlaying = isPlaying;
 
     // Convert InsertChain to ProInsertSlot list
-    List<ProInsertSlot> _getInserts(String busId) {
-      final chain = _busInserts[busId];
-      if (chain == null) return [];
+    List<ProInsertSlot> _getInserts(String channelId) {
+      // Auto-create insert chain for any channel
+      if (!_busInserts.containsKey(channelId)) {
+        _busInserts[channelId] = InsertChain(channelId: channelId);
+      }
+      final chain = _busInserts[channelId]!;
       return chain.slots.map((slot) => ProInsertSlot(
-        id: '${busId}_${slot.index}',
+        id: '${channelId}_${slot.index}',
         name: slot.plugin?.displayName,
         bypassed: slot.bypassed,
         isPreFader: slot.isPreFader,
       )).toList();
     }
 
-    // Build ProMixerStrip data for each channel - ALL start with EMPTY inserts
-    // User adds plugins by clicking insert slots
-    final strips = [
-      ProMixerStripData(
-        id: 'sfx',
-        name: 'SFX',
-        trackColor: TrackColors.forIndex(0),
-        type: 'bus',
-        volume: _busVolumes['sfx'] ?? 1.0,
-        muted: _busMuted['sfx'] ?? false,
-        soloed: _busSoloed['sfx'] ?? false,
+    // Determine meter values: live during playback, decay values when stopped
+    double meterL, meterR, meterPeak;
+    if (isPlaying) {
+      meterL = _dbToLinear(metering.masterPeakL);
+      meterR = _dbToLinear(metering.masterPeakR);
+      meterPeak = _dbToLinear(metering.masterTruePeak);
+    } else {
+      // Use decay values when stopped
+      meterL = _decayMasterL;
+      meterR = _decayMasterR;
+      meterPeak = _decayMasterPeak;
+    }
+
+    // Get channels from MixerProvider and check which tracks have clips
+    final mixerProvider = context.watch<MixerProvider>();
+    final channelStrips = mixerProvider.channels.map((ch) {
+      // Extract track ID from channel ID (ch_trackId format)
+      final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
+      // Check if this track has any clips
+      final hasClips = _clips.any((clip) => clip.trackId == trackId);
+
+      return ProMixerStripData(
+        id: ch.id,
+        name: ch.name,
+        trackColor: ch.color,
+        type: 'audio',
+        volume: ch.volume,
+        muted: ch.muted,
+        soloed: ch.soloed,
+        // Show metering only if track has clips, scale by volume
         meters: MeterData.fromLinear(
-          peakL: sfxBus != null ? _dbToLinear(sfxBus.peakL) : 0,
-          peakR: sfxBus != null ? _dbToLinear(sfxBus.peakR) : 0,
-          peakHoldL: sfxBus != null ? _dbToLinear(sfxBus.heldPeakL) : 0,
-          peakHoldR: sfxBus != null ? _dbToLinear(sfxBus.heldPeakR) : 0,
+          peakL: hasClips ? meterL * ch.volume : 0.0,
+          peakR: hasClips ? meterR * ch.volume : 0.0,
+          peakHoldL: hasClips ? meterPeak * ch.volume : 0.0,
+          peakHoldR: hasClips ? meterPeak * ch.volume : 0.0,
         ),
-        inserts: _getInserts('sfx'),
+        inserts: _getInserts(ch.id),
+      );
+    }).toList();
+
+    // Master strip - always present
+    final masterStrip = ProMixerStripData(
+      id: 'master',
+      name: 'Stereo Out',
+      trackColor: ReelForgeTheme.warningOrange,
+      type: 'master',
+      volume: _busVolumes['master'] ?? 1.0,
+      muted: _busMuted['master'] ?? false,
+      meters: MeterData.fromLinear(
+        peakL: meterL,
+        peakR: meterR,
+        peakHoldL: meterPeak,
+        peakHoldR: meterPeak,
       ),
-      ProMixerStripData(
-        id: 'music',
-        name: 'Music',
-        trackColor: TrackColors.forIndex(2),
-        type: 'bus',
-        volume: _busVolumes['music'] ?? 1.0,
-        muted: _busMuted['music'] ?? false,
-        soloed: _busSoloed['music'] ?? false,
-        meters: MeterData.fromLinear(
-          peakL: musicBus != null ? _dbToLinear(musicBus.peakL) : 0,
-          peakR: musicBus != null ? _dbToLinear(musicBus.peakR) : 0,
-          peakHoldL: musicBus != null ? _dbToLinear(musicBus.heldPeakL) : 0,
-          peakHoldR: musicBus != null ? _dbToLinear(musicBus.heldPeakR) : 0,
-        ),
-        inserts: _getInserts('music'),
-      ),
-      ProMixerStripData(
-        id: 'voice',
-        name: 'Voice',
-        trackColor: TrackColors.forIndex(4),
-        type: 'bus',
-        volume: _busVolumes['voice'] ?? 1.0,
-        muted: _busMuted['voice'] ?? false,
-        soloed: _busSoloed['voice'] ?? false,
-        meters: MeterData.fromLinear(
-          peakL: voiceBus != null ? _dbToLinear(voiceBus.peakL) : 0,
-          peakR: voiceBus != null ? _dbToLinear(voiceBus.peakR) : 0,
-          peakHoldL: voiceBus != null ? _dbToLinear(voiceBus.heldPeakL) : 0,
-          peakHoldR: voiceBus != null ? _dbToLinear(voiceBus.heldPeakR) : 0,
-        ),
-        inserts: _getInserts('voice'),
-      ),
-      ProMixerStripData(
-        id: 'amb',
-        name: 'Ambient',
-        trackColor: TrackColors.forIndex(6),
-        type: 'bus',
-        volume: _busVolumes['amb'] ?? 1.0,
-        muted: _busMuted['amb'] ?? false,
-        soloed: _busSoloed['amb'] ?? false,
-        meters: MeterData.fromLinear(
-          peakL: ambBus != null ? _dbToLinear(ambBus.peakL) : 0,
-          peakR: ambBus != null ? _dbToLinear(ambBus.peakR) : 0,
-          peakHoldL: ambBus != null ? _dbToLinear(ambBus.heldPeakL) : 0,
-          peakHoldR: ambBus != null ? _dbToLinear(ambBus.heldPeakR) : 0,
-        ),
-        inserts: _getInserts('amb'),
-      ),
-      ProMixerStripData(
-        id: 'ui',
-        name: 'UI',
-        trackColor: TrackColors.forIndex(8),
-        type: 'bus',
-        volume: _busVolumes['ui'] ?? 1.0,
-        muted: _busMuted['ui'] ?? false,
-        soloed: _busSoloed['ui'] ?? false,
-        meters: MeterData.fromLinear(
-          peakL: uiBus != null ? _dbToLinear(uiBus.peakL) : 0,
-          peakR: uiBus != null ? _dbToLinear(uiBus.peakR) : 0,
-          peakHoldL: uiBus != null ? _dbToLinear(uiBus.heldPeakL) : 0,
-          peakHoldR: uiBus != null ? _dbToLinear(uiBus.heldPeakR) : 0,
-        ),
-        inserts: _getInserts('ui'),
-      ),
-      ProMixerStripData(
-        id: 'master',
-        name: 'Master',
-        trackColor: ReelForgeTheme.warningOrange,
-        type: 'master',
-        volume: _busVolumes['master'] ?? 1.0,
-        muted: _busMuted['master'] ?? false,
-        meters: MeterData.fromLinear(
-          peakL: _dbToLinear(metering.masterPeakL),
-          peakR: _dbToLinear(metering.masterPeakR),
-          peakHoldL: _dbToLinear(metering.masterTruePeak),
-          peakHoldR: _dbToLinear(metering.masterTruePeak),
-        ),
-        inserts: _getInserts('master'),
-      ),
-    ];
+      inserts: _getInserts('master'),
+    );
 
     return Container(
       color: ReelForgeTheme.bgDeepest,
@@ -3008,15 +3018,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Channel strips
-          ...strips.map((strip) => Padding(
+          // Track channel strips (from timeline tracks)
+          ...channelStrips.map((strip) => Padding(
             padding: const EdgeInsets.only(right: 1),
             child: ProMixerStrip(
               data: strip,
               compact: true,
-              onVolumeChange: (v) => _onBusVolumeChange(strip.id, v),
-              onMuteToggle: () => _onBusMuteToggle(strip.id),
-              onSoloToggle: () => _onBusSoloToggle(strip.id),
+              onVolumeChange: (v) => mixerProvider.setVolume(strip.id, v),
+              onPanChange: (p) => mixerProvider.setChannelPan(strip.id, p),
+              onMuteToggle: () => mixerProvider.toggleMute(strip.id),
+              onSoloToggle: () => mixerProvider.toggleSolo(strip.id),
+              onOutputClick: () => _onOutputClick(strip.id),
               onInsertClick: (idx) => _onInsertClick(strip.id, idx),
               onSlotDestinationChange: (slotIndex, type, targetId) =>
                   _onSlotDestinationChange(strip.id, slotIndex, type, targetId),
@@ -3024,6 +3036,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           )),
           // Spacer to push master to right
           const Spacer(),
+          // Master strip (always rightmost)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: ProMixerStrip(
+              data: masterStrip,
+              compact: true,
+              onVolumeChange: (v) => _onBusVolumeChange('master', v),
+              onMuteToggle: () => _onBusMuteToggle('master'),
+              onSoloToggle: () => _onBusSoloToggle('master'),
+              onInsertClick: (idx) => _onInsertClick('master', idx),
+              onSlotDestinationChange: (slotIndex, type, targetId) =>
+                  _onSlotDestinationChange('master', slotIndex, type, targetId),
+            ),
+          ),
         ],
       ),
     );
@@ -3065,10 +3091,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   void _sendBusVolumeToEngine(String busId, double volume) {
-    // Convert bus ID to numeric index for Rust
-    final busIndex = _busIdToIndex(busId);
-    if (busIndex < 0) return;
-
     // Convert linear to dB for Rust engine
     // volume: 0.0 = -inf, 1.0 = 0dB, 1.5 = +3.5dB (approx)
     double volumeDb;
@@ -3079,9 +3101,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       volumeDb = 20 * _log10(volume);
     }
 
-    // Call Rust engine directly (global singleton)
     try {
-      engine.mixerSetBusVolume(busIndex, volumeDb);
+      if (busId == 'master') {
+        // Master uses dedicated mixer_set_master_volume
+        engine.mixerSetMasterVolume(volumeDb);
+      } else {
+        // Other buses use bus index
+        final busIndex = _busIdToIndex(busId);
+        if (busIndex >= 0) {
+          engine.mixerSetBusVolume(busIndex, volumeDb);
+        }
+      }
     } catch (e) {
       // Engine not ready yet
     }
@@ -3122,6 +3152,46 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // TODO: Send to Rust engine via FFI
     // engine.setBusSolo(busId, _busSoloed[busId]);
     debugPrint('[Mixer] Bus $busId soloed: ${_busSoloed[busId]}');
+  }
+
+  /// Handle output routing click
+  void _onOutputClick(String channelId) async {
+    final mixerProvider = context.read<MixerProvider>();
+
+    // Available output destinations
+    final outputs = [
+      'Master',
+      'Bus 1',
+      'Bus 2',
+      'Bus 3',
+      'Bus 4',
+      'Out 1-2',
+      'Out 3-4',
+    ];
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ReelForgeTheme.bgElevated,
+        title: Text('Output Routing', style: ReelForgeTheme.label),
+        content: SizedBox(
+          width: 200,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: outputs.map((output) => ListTile(
+              dense: true,
+              title: Text(output, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              onTap: () => Navigator.pop(ctx, output),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      mixerProvider.setChannelOutput(channelId, result);
+      debugPrint('[Mixer] Channel $channelId output set to $result');
+    }
   }
 
   /// Handle insert slot destination change from popup menu
@@ -3314,10 +3384,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       );
 
       if (result == 'open') {
-        // Open plugin editor - switch to appropriate tab
+        // Open plugin editor in floating window
         final plugin = currentSlot.plugin!;
         if (plugin.category == PluginCategory.eq) {
-          setState(() => _activeLowerTab = 'eq');
+          _openEqWindow(busId);
         }
         debugPrint('[Mixer] Open editor for ${plugin.name}');
       } else if (result == 'bypass') {
@@ -3362,12 +3432,134 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
         debugPrint('[Mixer] Inserted ${plugin.name} on slot $insertIndex');
 
-        // Auto-open EQ editor if EQ was inserted
+        // Auto-open EQ editor in floating window if EQ was inserted
         if (plugin.category == PluginCategory.eq) {
-          setState(() => _activeLowerTab = 'eq');
+          _openEqWindow(busId);
         }
       }
     }
+  }
+
+  /// Open EQ in floating window
+  void _openEqWindow(String channelId) {
+    setState(() {
+      _openEqWindows[channelId] = true;
+    });
+  }
+
+  /// Close EQ floating window
+  void _closeEqWindow(String channelId) {
+    setState(() {
+      _openEqWindows.remove(channelId);
+    });
+  }
+
+  /// Build floating EQ windows
+  List<Widget> _buildFloatingEqWindows(MeteringState metering, bool isPlaying) {
+    return _openEqWindows.entries.map((entry) {
+      final channelId = entry.key;
+      final channelName = channelId == 'master' ? 'Master' : channelId;
+
+      // Calculate signal level from metering
+      double signalLevel = 0.0;
+      if (isPlaying) {
+        final peakDb = (metering.masterPeakL + metering.masterPeakR) / 2;
+        signalLevel = peakDb > -60 ? _dbToLinear(peakDb) : 0.0;
+      }
+
+      final engineApi = EngineApi.instance;
+
+      return Positioned(
+        left: 100 + (_openEqWindows.keys.toList().indexOf(channelId) * 50),
+        top: 80 + (_openEqWindows.keys.toList().indexOf(channelId) * 30),
+        child: Material(
+          elevation: 16,
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.transparent,
+          child: Container(
+            width: 900,
+            height: 500,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF404048)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Window title bar
+                GestureDetector(
+                  onPanUpdate: (details) {
+                    // TODO: Implement window dragging
+                  },
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF252528),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.graphic_eq, size: 16, color: Color(0xFFFFB347)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'RF-EQ 64 — $channelName',
+                          style: const TextStyle(
+                            color: Color(0xFFB0B0B8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 16, color: Color(0xFF707078)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          onPressed: () => _closeEqWindow(channelId),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // EQ content
+                Expanded(
+                  child: rf_eq.ProEqEditor(
+                    trackId: channelId,
+                    width: 900,
+                    height: 468,
+                    signalLevel: signalLevel,
+                    onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
+                      if (enabled != null) {
+                        engineApi.eqSetBandEnabled(channelId, bandIndex, enabled);
+                      }
+                      if (freq != null) {
+                        engineApi.eqSetBandFrequency(channelId, bandIndex, freq);
+                      }
+                      if (gain != null) {
+                        engineApi.eqSetBandGain(channelId, bandIndex, gain);
+                      }
+                      if (q != null) {
+                        engineApi.eqSetBandQ(channelId, bandIndex, q);
+                      }
+                    },
+                    onBypassChange: (bypass) {
+                      engineApi.eqSetBypass(channelId, bypass);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   /// Build Piano Roll content with FL Studio-style features
@@ -3408,73 +3600,62 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  /// Build Pro EQ content with FabFilter-style visualization - CONNECTED TO STATE
-  Widget _buildProEqContent() {
-    // Get current EQ bands from state
-    final bands = _eqBands.isEmpty ? _getDefaultEqBands() : _eqBands;
+  /// Build Pro EQ content - RF-EQ 64 (64-Band Parametric Equalizer)
+  Widget _buildProEqContent(dynamic metering, bool isPlaying) {
+    // Convert dB metering to linear for EQ signal level
+    double signalLevel = 0.0;
+    if (isPlaying) {
+      // Use master peak as signal indicator
+      final peakDb = (metering.masterPeakL + metering.masterPeakR) / 2;
+      signalLevel = peakDb > -60 ? _dbToLinear(peakDb) : 0.0;
+    }
 
-    // Generate spectrum from metering (real-time)
-    final metering = context.read<EngineProvider>().metering;
-    final spectrumPre = pro_eq.SpectrumData(
-      magnitudes: List.generate(256, (i) {
-        // Simulated spectrum based on playback state
-        final base = metering.masterPeakL > -50
-            ? -60 + 30 * (1 - (i / 256)) + (metering.masterPeakL + 60) * 0.2
-            : -80.0;
-        return base + (i % 32 == 0 ? 6.0 : 0.0);
-      }),
-    );
+    // Use global engine instance from engine_api.dart
+    final engineApi = EngineApi.instance;
 
-    return pro_eq.EqEditor(
-      bands: bands,
-      spectrumPre: spectrumPre,
-      selectedBandId: _selectedEqBandId,
-      config: const pro_eq.EqEditorConfig(
-        showSpectrum: true,
-        showPhase: false,
-        minFreq: 20,
-        maxFreq: 20000,
-        minDb: -24,
-        maxDb: 24,
-      ),
-      onBandSelect: (id) {
-        setState(() => _selectedEqBandId = id);
-      },
-      onBandUpdate: (id, band) {
-        setState(() {
-          _eqBands = _eqBands.map((b) => b.id == id ? band : b).toList();
-        });
-        // Sync to DSP engine
-        _syncEqToEngine();
-      },
-      onBandAdd: (band) {
-        setState(() {
-          final newId = 'eq-${DateTime.now().millisecondsSinceEpoch}';
-          _eqBands = [..._eqBands, band.copyWith(id: newId)];
-          _selectedEqBandId = newId;
-        });
-        _syncEqToEngine();
-      },
-      onBandRemove: (id) {
-        setState(() {
-          _eqBands = _eqBands.where((b) => b.id != id).toList();
-          if (_selectedEqBandId == id) {
-            _selectedEqBandId = _eqBands.isNotEmpty ? _eqBands.first.id : null;
-          }
-        });
-        _syncEqToEngine();
+    // Use RF-EQ 64 - the professional FabFilter-style EQ
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return rf_eq.ProEqEditor(
+          trackId: 'master',
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          signalLevel: signalLevel,
+          onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
+            // Send EQ band changes to Rust DSP engine
+            // trackId 0 = master bus for EQ
+            const trackId = 'master';
+            if (enabled != null) {
+              engineApi.eqSetBandEnabled(trackId, bandIndex, enabled);
+            }
+            if (freq != null) {
+              engineApi.eqSetBandFrequency(trackId, bandIndex, freq);
+            }
+            if (gain != null) {
+              engineApi.eqSetBandGain(trackId, bandIndex, gain);
+            }
+            if (q != null) {
+              engineApi.eqSetBandQ(trackId, bandIndex, q);
+            }
+            // Note: filterType mapping to Rust filter types may need adjustment
+          },
+          onBypassChange: (bypass) {
+            // Send global bypass to Rust DSP engine
+            engineApi.eqSetBypass('master', bypass);
+          },
+        );
       },
     );
   }
 
-  /// Get default EQ bands
-  List<pro_eq.EqBand> _getDefaultEqBands() {
+  /// Get default EQ bands (for generic EQ - kept for backwards compatibility)
+  List<generic_eq.EqBand> _getDefaultEqBands() {
     return [
-      const pro_eq.EqBand(id: '1', frequency: 80, gain: 0, q: 0.7, type: pro_eq.FilterType.lowShelf, enabled: true),
-      const pro_eq.EqBand(id: '2', frequency: 250, gain: 0, q: 1.5, type: pro_eq.FilterType.bell, enabled: true),
-      const pro_eq.EqBand(id: '3', frequency: 1000, gain: 0, q: 1.0, type: pro_eq.FilterType.bell, enabled: true),
-      const pro_eq.EqBand(id: '4', frequency: 4000, gain: 0, q: 2.0, type: pro_eq.FilterType.bell, enabled: true),
-      const pro_eq.EqBand(id: '5', frequency: 12000, gain: 0, q: 0.7, type: pro_eq.FilterType.highShelf, enabled: true),
+      const generic_eq.EqBand(id: '1', frequency: 80, gain: 0, q: 0.7, type: generic_eq.FilterType.lowShelf, enabled: true),
+      const generic_eq.EqBand(id: '2', frequency: 250, gain: 0, q: 1.5, type: generic_eq.FilterType.bell, enabled: true),
+      const generic_eq.EqBand(id: '3', frequency: 1000, gain: 0, q: 1.0, type: generic_eq.FilterType.bell, enabled: true),
+      const generic_eq.EqBand(id: '4', frequency: 4000, gain: 0, q: 2.0, type: generic_eq.FilterType.bell, enabled: true),
+      const generic_eq.EqBand(id: '5', frequency: 12000, gain: 0, q: 0.7, type: generic_eq.FilterType.highShelf, enabled: true),
     ];
   }
 
@@ -3742,7 +3923,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build all lower zone tabs (matches React LayoutDemo.tsx 1:1)
   /// All tabs are created, then filtered by mode visibility
-  List<LowerZoneTab> _buildLowerTabs(dynamic metering) {
+  List<LowerZoneTab> _buildLowerTabs(dynamic metering, bool isPlaying) {
     final List<LowerZoneTab> tabs = [
       // ========== Timeline (center zone in DAW, hidden in lower) ==========
       LowerZoneTab(
@@ -3757,7 +3938,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'mixer',
         label: 'Mixer',
         icon: Icons.tune,
-        content: _buildMixerContent(metering),
+        content: _buildMixerContent(metering, isPlaying),
         groupId: 'mixconsole',
       ),
       // ========== Clip Editor (Editor group) ==========
@@ -3867,7 +4048,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'eq',
         label: 'EQ',
         icon: Icons.graphic_eq,
-        content: _buildProEqContent(),
+        content: _buildProEqContent(metering, isPlaying),
         groupId: 'dsp',
       ),
       LowerZoneTab(

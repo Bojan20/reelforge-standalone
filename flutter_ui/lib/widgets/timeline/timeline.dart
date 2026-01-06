@@ -223,6 +223,7 @@ class _TimelineState extends State<Timeline> {
   // Ghost preview state (visual feedback during drag)
   Offset? _ghostPosition;
   TimelineClip? _draggingClip;
+  Offset _grabOffset = Offset.zero; // Where user grabbed the clip (local to clip)
 
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
@@ -587,11 +588,13 @@ class _TimelineState extends State<Timeline> {
       _draggingClip = null;
       _ghostPosition = null;
       _dragSourceTrackIndex = -1;
+      _grabOffset = Offset.zero;
     });
   }
 
   /// Start dragging a clip (track source for cross-track detection)
   void _handleClipDragStart(String clipId, Offset globalPosition, Offset localPosition, int trackIndex) {
+    debugPrint('[Timeline] _handleClipDragStart called for $clipId');
     // Find the clip being dragged
     final clip = widget.clips.firstWhere(
       (c) => c.id == clipId,
@@ -606,6 +609,8 @@ class _TimelineState extends State<Timeline> {
       _dragSourceTrackIndex = trackIndex;
       _draggingClip = clip;
       _ghostPosition = localPos;
+      // Store where user grabbed the clip (localPosition is relative to clip widget)
+      _grabOffset = localPosition;
     });
   }
 
@@ -620,11 +625,13 @@ class _TimelineState extends State<Timeline> {
   }
 
   /// End drag - clear ghost
-  void _handleClipDragEnd(Offset globalPosition, RenderBox? timelineBox) {
+  void _handleClipDragEnd(Offset globalPosition) {
+    debugPrint('[Timeline] _handleClipDragEnd called - clearing ghost');
     setState(() {
       _dragSourceTrackIndex = -1;
       _draggingClip = null;
       _ghostPosition = null;
+      _grabOffset = Offset.zero;
     });
   }
 
@@ -851,7 +858,7 @@ class _TimelineState extends State<Timeline> {
                                         onClipDragUpdate: (clipId, globalPos) =>
                                             _handleClipDragUpdate(globalPos),
                                         onClipDragEnd: (clipId, globalPos) =>
-                                            _handleClipDragEnd(globalPos, context.findRenderObject() as RenderBox?),
+                                            _handleClipDragEnd(globalPos),
                                         onClipGainChange: widget.onClipGainChange,
                                         onClipFadeChange: widget.onClipFadeChange,
                                         onClipResize: widget.onClipResize,
@@ -989,8 +996,9 @@ class _TimelineState extends State<Timeline> {
                           // Ghost clip preview during drag
                           if (_draggingClip != null && _ghostPosition != null)
                             Positioned(
-                              left: _ghostPosition!.dx - (_draggingClip!.duration * widget.zoom / 2),
-                              top: _ghostPosition!.dy - _rulerHeight - (_trackHeight / 2),
+                              // Position ghost so grab point stays under cursor
+                              left: _ghostPosition!.dx - _grabOffset.dx,
+                              top: _ghostPosition!.dy - _rulerHeight - _grabOffset.dy,
                               child: IgnorePointer(
                                 child: Opacity(
                                   opacity: 0.6,

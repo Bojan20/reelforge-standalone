@@ -222,8 +222,20 @@ class _ClipWidgetState extends State<ClipWidget> {
             if (!_isCrossTrackDrag) {
               widget.onMove?.call(_lastSnappedTime);
             }
-            widget.onDragEnd?.call(_lastDragPosition);
           }
+          // ALWAYS call onDragEnd to clear ghost in timeline - no conditions
+          widget.onDragEnd?.call(details.globalPosition);
+          // Clear local state
+          setState(() {
+            _isDraggingMove = false;
+            _isSlipEditing = false;
+            _isCrossTrackDrag = false;
+            _wasCrossTrackDrag = false;
+          });
+        },
+        onPanCancel: () {
+          // ALWAYS call onDragEnd to clear ghost - no conditions
+          widget.onDragEnd?.call(_lastDragPosition);
           setState(() {
             _isDraggingMove = false;
             _isSlipEditing = false;

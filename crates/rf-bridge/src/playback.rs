@@ -269,10 +269,13 @@ pub struct DspStorage {
 
 impl DspStorage {
     pub fn new(sample_rate: f64) -> Self {
-        Self {
+        let mut storage = Self {
             tracks: HashMap::new(),
             sample_rate,
-        }
+        };
+        // Pre-create master DSP (track_id = 0) so EQ works immediately
+        storage.tracks.insert(0, TrackDsp::new(sample_rate));
+        storage
     }
 
     /// Get or create track DSP

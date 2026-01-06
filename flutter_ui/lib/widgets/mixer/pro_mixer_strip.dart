@@ -207,8 +207,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
   double _dragStartX = 0;
 
   // Constants
-  static const double _width = 80;
-  static const double _compactWidth = 60;
+  static const double _width = 90;
+  static const double _compactWidth = 75;
 
   double get width => widget.compact ? _compactWidth : _width;
 
@@ -358,11 +358,14 @@ class _ProMixerStripState extends State<ProMixerStrip> {
   }
 
   Widget _buildInsertSection(ProMixerStripData d) {
-    final slotCount = widget.compact ? 4 : 8;
+    // Dynamic slots: show used slots + 1 empty slot for adding new plugins
+    // Always show at least 1 empty slot
+    final usedSlots = d.inserts.where((s) => !s.isEmpty).toList();
+    final slotCount = usedSlots.length + 1; // +1 for empty "add" slot
     final slots = List.generate(slotCount, (i) {
-      return i < d.inserts.length
-          ? d.inserts[i]
-          : ProInsertSlot(id: 'slot-$i', isPreFader: i < 4);
+      return i < usedSlots.length
+          ? usedSlots[i]
+          : ProInsertSlot(id: 'slot-$i', isPreFader: true);
     });
 
     return Container(
@@ -376,7 +379,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         children: slots.asMap().entries.map((e) {
           final i = e.key;
           final slot = e.value;
-          final isPreFader = i < 4;
+          final isPreFader = slot.isPreFader;
 
           return GestureDetector(
             onTap: () => _showSlotSelector(context, i, slot, isPreFader),
@@ -555,8 +558,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
 
     return plugins.map((plugin) => PopupMenuItem(
       onTap: () {
+        // Insert plugin and auto-open editor (handled by onSlotDestinationChange)
         widget.onSlotDestinationChange?.call(slotIndex, SlotDestinationType.insert, plugin);
-        widget.onInsertClick?.call(slotIndex);
       },
       height: 28,
       child: Row(
@@ -736,6 +739,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           final faderPos = _volumeToFaderPos(d.volume);
 
           return GestureDetector(
+            behavior: HitTestBehavior.opaque, // Capture all touch events
             onVerticalDragStart: (details) {
               setState(() {
                 _isDraggingFader = true;
