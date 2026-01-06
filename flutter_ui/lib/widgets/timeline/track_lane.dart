@@ -48,8 +48,6 @@ class TrackLane extends StatefulWidget {
   final bool snapEnabled;
   final double snapValue;
   final List<TimelineClip> allClips;
-  /// ID of clip being dragged (used to hide original during ghost preview)
-  final String? draggingClipId;
 
   const TrackLane({
     super.key,
@@ -78,7 +76,6 @@ class TrackLane extends StatefulWidget {
     this.snapEnabled = false,
     this.snapValue = 1,
     this.allClips = const [],
-    this.draggingClipId,
   });
 
   @override
@@ -110,10 +107,8 @@ class _TrackLaneState extends State<TrackLane> {
                 timeSignatureNum: widget.timeSignatureNum,
               ),
 
-              // Clips (hide clip being dragged - ghost is shown instead)
-              ...widget.clips
-                  .where((clip) => clip.id != widget.draggingClipId)
-                  .map((clip) => ClipWidget(
+              // Clips (all visible - original stays in place during drag)
+              ...widget.clips.map((clip) => ClipWidget(
                     key: ValueKey(clip.id),
                     clip: clip,
                     zoom: widget.zoom,

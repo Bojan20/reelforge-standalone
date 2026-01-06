@@ -80,7 +80,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
                           onSoloToggle: () => mixer.toggleChannelSolo(ch.id),
                           onArmToggle: () => mixer.toggleChannelArm(ch.id),
                           onOutputChange: (busId) => mixer.setChannelOutput(ch.id, busId),
-                          availableBuses: mixer.buses,
+                          availableBuses: mixer.buses.isEmpty ? null : mixer.buses,
                           hasSoloedChannels: mixer.hasSoloedChannels,
                         )),
                         const _SectionDivider(),
@@ -103,20 +103,22 @@ class _ProDawMixerState extends State<ProDawMixer> {
                         const _SectionDivider(),
                       ],
 
-                      // Bus section
-                      _buildSectionLabel('BUSES'),
-                      ...mixer.buses.map((bus) => _ChannelStrip(
-                        key: ValueKey(bus.id),
-                        channel: bus,
-                        width: stripWidth,
-                        compact: widget.compact,
-                        onVolumeChange: (v) => mixer.setChannelVolume(bus.id, v),
-                        onPanChange: (p) => mixer.setChannelPan(bus.id, p),
-                        onMuteToggle: () => mixer.toggleChannelMute(bus.id),
-                        onSoloToggle: () => mixer.toggleChannelSolo(bus.id),
-                        hasSoloedChannels: mixer.hasSoloedChannels,
-                      )),
-                      const _SectionDivider(),
+                      // Bus section (only show if buses exist - user-created)
+                      if (mixer.buses.isNotEmpty) ...[
+                        _buildSectionLabel('BUSES'),
+                        ...mixer.buses.map((bus) => _ChannelStrip(
+                          key: ValueKey(bus.id),
+                          channel: bus,
+                          width: stripWidth,
+                          compact: widget.compact,
+                          onVolumeChange: (v) => mixer.setChannelVolume(bus.id, v),
+                          onPanChange: (p) => mixer.setChannelPan(bus.id, p),
+                          onMuteToggle: () => mixer.toggleChannelMute(bus.id),
+                          onSoloToggle: () => mixer.toggleChannelSolo(bus.id),
+                          hasSoloedChannels: mixer.hasSoloedChannels,
+                        )),
+                        const _SectionDivider(),
+                      ],
 
                       // VCA section
                       if (mixer.vcas.isNotEmpty) ...[
@@ -857,10 +859,12 @@ class _VerticalFader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque, // Capture all drag events
       onVerticalDragUpdate: (details) {
         if (onChanged != null) {
           final delta = -details.delta.dy / 150;
-          onChanged!((value + delta).clamp(0.0, 1.5));
+          final newValue = (value + delta).clamp(0.0, 1.5);
+          onChanged!(newValue);
         }
       },
       onDoubleTap: () => onChanged?.call(1.0), // Reset to 0dB

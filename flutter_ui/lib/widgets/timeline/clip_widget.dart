@@ -92,6 +92,10 @@ class _ClipWidgetState extends State<ClipWidget> {
   double _dragStartMouseX = 0;
   double _dragStartMouseY = 0;
   double _dragStartSourceOffset = 0;
+  Offset _lastDragPosition = Offset.zero;
+  double _lastSnappedTime = 0;
+  bool _isCrossTrackDrag = false;
+  bool _wasCrossTrackDrag = false; // Track if cross-track drag was ever triggered
 
   @override
   void initState() {
@@ -162,6 +166,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             _dragStartTime = clip.startTime;
             _dragStartMouseX = details.globalPosition.dx;
             _dragStartMouseY = details.globalPosition.dy;
+            _lastDragPosition = details.globalPosition;
+            _wasCrossTrackDrag = false; // Reset at start of drag
             setState(() => _isDraggingMove = true);
 
             // Start smooth drag with ghost preview (Cubase-style)
@@ -174,38 +180,55 @@ class _ClipWidgetState extends State<ClipWidget> {
           final deltaX = details.globalPosition.dx - _dragStartMouseX;
           final deltaY = details.globalPosition.dy - _dragStartMouseY;
           final deltaTime = deltaX / widget.zoom;
+          _lastDragPosition = details.globalPosition;
 
           if (_isSlipEditing) {
             // Slip edit - offset changes inversely
             final newOffset = (_dragStartSourceOffset - deltaTime).clamp(0.0, double.infinity);
             widget.onSlipEdit?.call(newOffset);
           } else if (_isDraggingMove) {
-            // Update ghost position for smooth preview
+            // Cubase-style drag - only show ghost, don't move original until drop
+            double rawNewStartTime = _dragStartTime + deltaTime;
+            final snappedTime = applySnap(
+              rawNewStartTime,
+              widget.snapEnabled,
+              widget.snapValue,
+              widget.tempo,
+              widget.allClips,
+            );
+            _lastSnappedTime = snappedTime.clamp(0.0, double.infinity);
+
+            // Update ghost position (visual feedback)
             widget.onDragUpdate?.call(details.globalPosition);
 
-            // Also update cross-track state for track highlighting
-            if (deltaY.abs() > 20 && widget.onCrossTrackDrag != null) {
-              double rawNewStartTime = _dragStartTime + deltaTime;
-              final snappedTime = applySnap(
-                rawNewStartTime,
-                widget.snapEnabled,
-                widget.snapValue,
-                widget.tempo,
-                widget.allClips,
-              );
-              widget.onCrossTrackDrag!(snappedTime.clamp(0.0, double.infinity), deltaY);
+            // Cross-track drag (vertical movement)
+            _isCrossTrackDrag = deltaY.abs() > 20;
+            if (_isCrossTrackDrag) {
+              _wasCrossTrackDrag = true; // Remember if ever crossed track threshold
+              widget.onCrossTrackDrag?.call(_lastSnappedTime, deltaY);
             }
+            // Note: original clip position is NOT updated during drag
+            // It will be updated on drop via onPanEnd
           }
         },
         onPanEnd: (details) {
           if (_isDraggingMove) {
-            // End smooth drag - commit the move
-            widget.onDragEnd?.call(details.globalPosition);
-            widget.onCrossTrackDragEnd?.call();
+            // Use _wasCrossTrackDrag to ensure cleanup even if user moved back
+            if (_isCrossTrackDrag || _wasCrossTrackDrag) {
+              // Cross-track drag - let timeline handle the move
+              widget.onCrossTrackDragEnd?.call();
+            }
+            // Always call onMove for same-track or if cross-track resulted in same track
+            if (!_isCrossTrackDrag) {
+              widget.onMove?.call(_lastSnappedTime);
+            }
+            widget.onDragEnd?.call(_lastDragPosition);
           }
           setState(() {
             _isDraggingMove = false;
             _isSlipEditing = false;
+            _isCrossTrackDrag = false;
+            _wasCrossTrackDrag = false;
           });
         },
         child: Container(
@@ -512,6 +535,8 @@ class _WaveformCanvas extends StatelessWidget {
       painter: _WaveformPainter(
         waveform: waveform,
         color: color,
+        sourceOffset: sourceOffset,
+        duration: duration,
       ),
     );
   }
@@ -520,10 +545,14 @@ class _WaveformCanvas extends StatelessWidget {
 class _WaveformPainter extends CustomPainter {
   final Float32List waveform;
   final Color color;
+  final double sourceOffset;
+  final double duration;
 
   _WaveformPainter({
     required this.waveform,
     required this.color,
+    required this.sourceOffset,
+    required this.duration,
   });
 
   @override

@@ -10,7 +10,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../services/native_file_picker.dart';
 
 import '../providers/engine_provider.dart';
 import '../providers/meter_provider.dart';
@@ -497,18 +497,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// - Drop on existing track → add clip to that track
   /// - Drop below all tracks (empty space) → create new track with clip
   /// - No target specified → create new track with clip
-  void _addPoolFileToTimeline(timeline.PoolAudioFile poolFile, {
+  Future<void> _addPoolFileToTimeline(timeline.PoolAudioFile poolFile, {
     String? targetTrackId,
     double? startTime,
     timeline.OutputBus? bus,
-  }) {
+  }) async {
     final transport = context.read<EngineProvider>().transport;
     final insertTime = startTime ?? transport.positionSeconds;
 
     // CASE 1: No target track specified = drop on empty space → CREATE NEW TRACK
     // This is the Cubase behavior: dropping below existing tracks creates a new track
     if (targetTrackId == null) {
-      _createTrackWithClip(poolFile, insertTime, bus);
+      await _createTrackWithClip(poolFile, insertTime, bus);
       return;
     }
 
@@ -520,13 +520,28 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Track not found (shouldn't happen, but safety check)
     if (track == null) {
-      _createTrackWithClip(poolFile, insertTime, bus);
+      await _createTrackWithClip(poolFile, insertTime, bus);
       return;
     }
 
-    // Add clip to existing track
+    // Import audio to native engine (this loads into playback cache)
+    final clipInfo = await engine.importAudioFile(
+      filePath: poolFile.path,
+      trackId: track.id,
+      startTime: insertTime,
+    );
+
     final clipBus = bus ?? poolFile.defaultBus;
-    final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
+    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}';
+
+    // Get real waveform from engine (or fallback to pool waveform)
+    Float32List? waveform = poolFile.waveform;
+    if (clipInfo != null) {
+      final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
+      if (peaks.isNotEmpty) {
+        waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+      }
+    }
 
     setState(() {
       _clips = [
@@ -536,9 +551,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           trackId: track.id,
           name: poolFile.name,
           startTime: insertTime,
-          duration: poolFile.duration,
-          sourceDuration: poolFile.duration,
-          waveform: poolFile.waveform,
+          duration: clipInfo?.duration ?? poolFile.duration,
+          sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
+          sourceFile: poolFile.path,
+          waveform: waveform,
           color: track.color,
         ),
       ];
@@ -558,35 +574,59 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Create a new track with a clip (used for empty space drops and double-click)
-  void _createTrackWithClip(
+  Future<void> _createTrackWithClip(
     timeline.PoolAudioFile poolFile,
     double startTime, [
     timeline.OutputBus? bus,
-  ]) {
+  ]) async {
     final trackIndex = _tracks.length;
     final color = _trackColors[trackIndex % _trackColors.length];
-    final trackId = 'track-${DateTime.now().millisecondsSinceEpoch}';
     final clipBus = bus ?? poolFile.defaultBus;
 
     // Create track with audio file name (without extension)
     final trackName = poolFile.name.replaceAll(RegExp(r'\.[^.]+$'), '');
 
+    // Create track in native engine first
+    final nativeTrackId = engine.createTrack(
+      name: trackName,
+      color: color.value,
+      busId: clipBus.index,
+    );
+
     final newTrack = timeline.TimelineTrack(
-      id: trackId,
+      id: nativeTrackId,
       name: trackName,
       color: color,
       outputBus: clipBus,
     );
 
-    final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
+    // Import audio to native engine (this loads into playback cache)
+    final clipInfo = await engine.importAudioFile(
+      filePath: poolFile.path,
+      trackId: nativeTrackId,
+      startTime: startTime,
+    );
+
+    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
+
+    // Get real waveform from engine (or fallback to pool waveform)
+    Float32List? waveform = poolFile.waveform;
+    if (clipInfo != null) {
+      final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
+      if (peaks.isNotEmpty) {
+        waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+      }
+    }
+
     final newClip = timeline.TimelineClip(
       id: clipId,
-      trackId: trackId,
+      trackId: nativeTrackId,
       name: poolFile.name,
       startTime: startTime,
-      duration: poolFile.duration,
-      sourceDuration: poolFile.duration,
-      waveform: poolFile.waveform,
+      duration: clipInfo?.duration ?? poolFile.duration,
+      sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
+      sourceFile: poolFile.path,
+      waveform: waveform,
       color: color,
     );
 
@@ -597,7 +637,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Create mixer channel for the new track (Cubase-style: track = fader)
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(trackId, trackName, color);
+    mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color);
 
     debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
@@ -757,18 +797,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Open Project - file picker for .rfp files
   Future<void> _handleOpenProject(EngineProvider engine) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['rfp', 'json'],
-      dialogTitle: 'Open Project',
-    );
-
-    if (result == null || result.files.isEmpty) return;
-    final path = result.files.first.path;
+    final path = await NativeFilePicker.pickJsonFile();
     if (path == null) return;
 
     await engine.loadProject(path);
-    // TODO: Load tracks, clips, etc. from project file
     debugPrint('[UI] Opened project: $path');
   }
 
@@ -781,28 +813,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Save Project As - file picker for save location
   Future<void> _handleSaveProjectAs(EngineProvider engine) async {
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save Project As',
-      fileName: '${engine.project.name}.rfp',
-      type: FileType.custom,
-      allowedExtensions: ['rfp'],
+    final path = await NativeFilePicker.saveFile(
+      suggestedName: '${engine.project.name}.rfp',
+      fileType: 'json',
     );
 
-    if (result == null) return;
-    await engine.saveProject(result);
-    _showSnackBar('Project saved to: $result');
+    if (path == null) return;
+    await engine.saveProject(path);
+    _showSnackBar('Project saved to: $path');
   }
 
   /// Import JSON routes (Middleware mode)
   Future<void> _handleImportJSON() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-      dialogTitle: 'Import Routes JSON',
-    );
-
-    if (result == null || result.files.isEmpty) return;
-    final path = result.files.first.path;
+    final path = await NativeFilePicker.pickJsonFile();
     if (path == null) return;
 
     // Read and parse JSON
@@ -820,9 +843,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   Future<void> _handleImportAudioFolder() async {
     debugPrint('[UI] Opening folder picker...');
 
-    final result = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Import Audio Folder',
-    );
+    final result = await NativeFilePicker.pickAudioFolder();
 
     debugPrint('[UI] Folder picker result: $result');
 
@@ -1189,27 +1210,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   Future<void> _openFilePicker() async {
     debugPrint('[UI] Opening file picker...');
 
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aif'],
-      allowMultiple: true,
-      dialogTitle: 'Import Audio Files',
-    );
+    final paths = await NativeFilePicker.pickAudioFiles();
 
-    debugPrint('[UI] File picker result: ${result?.files.length ?? 0} files');
+    debugPrint('[UI] File picker result: ${paths.length} files');
 
-    if (result == null || result.files.isEmpty) {
+    if (paths.isEmpty) {
       debugPrint('[UI] No files selected');
       return;
     }
 
     // Import files to Pool (not timeline)
-    for (final file in result.files) {
-      if (file.path == null) continue;
-      await _addFileToPool(file.path!);
+    for (final path in paths) {
+      await _addFileToPool(path);
     }
 
-    _showSnackBar('Added ${result.files.length} file(s) to Pool');
+    _showSnackBar('Added ${paths.length} file(s) to Pool');
   }
 
   /// Add a file to the Audio Pool
@@ -1767,6 +1782,55 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return c;
           }).toList();
         });
+      },
+      onClipMoveToNewTrack: (clipId, newStartTime) {
+        // Create a new track
+        final trackIndex = _tracks.length;
+        final newTrackId = 'track-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
+        final trackName = 'Track ${trackIndex + 1}';
+        final color = _trackColors[trackIndex % _trackColors.length];
+
+        // Create track in native engine
+        engine.createTrack(
+          name: trackName,
+          color: color.value,
+          busId: 0,
+        );
+
+        // Move clip to new track in engine
+        engine.moveClip(
+          clipId: clipId,
+          targetTrackId: newTrackId,
+          startTime: newStartTime,
+        );
+
+        setState(() {
+          // Add the new track
+          _tracks = [
+            ..._tracks,
+            timeline.TimelineTrack(
+              id: newTrackId,
+              name: trackName,
+              color: color,
+              outputBus: timeline.OutputBus.master,
+            ),
+          ];
+
+          // Update clip's track assignment
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(
+                trackId: newTrackId,
+                startTime: newStartTime,
+              );
+            }
+            return c;
+          }).toList();
+        });
+
+        // Create mixer channel for the new track
+        final mixerProvider = context.read<MixerProvider>();
+        mixerProvider.createChannelFromTrack(newTrackId, trackName, color);
       },
       onClipResize: (clipId, newStartTime, newDuration, newOffset) {
         // Notify engine

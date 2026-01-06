@@ -273,13 +273,13 @@ class _ClipEditorState extends State<ClipEditor> {
         _ToolButton(
           icon: Icons.zoom_out,
           label: 'Zoom Out',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 0.8).clamp(10, 500)),
+          onTap: () => widget.onZoomChange?.call((widget.zoom * 0.8).clamp(1, 500)),
         ),
         Text('${widget.zoom.toInt()}%', style: ReelForgeTheme.monoSmall),
         _ToolButton(
           icon: Icons.zoom_in,
           label: 'Zoom In',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 1.25).clamp(10, 500)),
+          onTap: () => widget.onZoomChange?.call((widget.zoom * 1.25).clamp(1, 500)),
         ),
         const SizedBox(width: 8),
         Container(width: 1, height: 16, color: ReelForgeTheme.borderSubtle),
@@ -652,7 +652,7 @@ class _ClipEditorState extends State<ClipEditor> {
       // Zoom (centered on mouse position)
       final mouseTime = widget.scrollOffset + event.localPosition.dx / widget.zoom;
       final delta = event.scrollDelta.dy > 0 ? 0.85 : 1.18;
-      final newZoom = (widget.zoom * delta).clamp(10.0, 500.0);
+      final newZoom = (widget.zoom * delta).clamp(1.0, 500.0);
 
       // Adjust scroll to keep mouse position stable
       final newScrollOffset = mouseTime - event.localPosition.dx / newZoom;
@@ -687,9 +687,9 @@ class _ClipEditorState extends State<ClipEditor> {
       case EditorTool.zoom:
         // Zoom in on click, zoom out on alt+click
         if (HardwareKeyboard.instance.isAltPressed) {
-          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(10, 500));
+          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(1, 500));
         } else {
-          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(10, 500));
+          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(1, 500));
         }
         break;
       default:

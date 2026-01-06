@@ -19,11 +19,11 @@ DynamicLibrary _loadNativeLibrary() {
 
   String libName;
   if (Platform.isLinux) {
-    libName = 'librf_engine.so';
+    libName = 'librf_bridge.so';
   } else if (Platform.isMacOS) {
-    libName = 'librf_engine.dylib';
+    libName = 'librf_bridge.dylib';
   } else if (Platform.isWindows) {
-    libName = 'rf_engine.dll';
+    libName = 'rf_bridge.dll';
   } else {
     throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
   }
@@ -36,7 +36,17 @@ DynamicLibrary _loadNativeLibrary() {
   print('[NativeFFI] CWD: ${Directory.current.path}');
 
   // Try multiple paths
+  // Get executable directory for macOS app bundle
+  final executableDir = Platform.resolvedExecutable.contains('/')
+      ? Platform.resolvedExecutable.substring(0, Platform.resolvedExecutable.lastIndexOf('/'))
+      : '.';
+  final frameworksDir = '$executableDir/../Frameworks';
+
   final paths = [
+    // macOS app bundle - Frameworks directory (FIRST for sandboxed apps)
+    '$frameworksDir/$libName',
+    // macOS app bundle - MacOS directory
+    '$executableDir/$libName',
     // Relative to CWD
     libName,
     'lib/$libName',
@@ -46,7 +56,6 @@ DynamicLibrary _loadNativeLibrary() {
     '../../target/release/$libName',
     '../../target/debug/$libName',
     // Absolute paths for macOS development
-    '/Users/vanvinklstudio/Desktop/reelforge-standalone/flutter_ui/lib/$libName',
     '/Users/vanvinklstudio/Desktop/reelforge-standalone/target/release/$libName',
   ];
 

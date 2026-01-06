@@ -280,6 +280,9 @@ class MixerProvider extends ChangeNotifier {
 
   // Metering subscription
   StreamSubscription<MeteringState>? _meteringSub;
+  StreamSubscription<TransportState>? _transportSub;
+  Timer? _decayTimer;
+  bool _isPlaying = false;
 
   // Solo state tracking
   final Set<String> _soloedChannels = {};
@@ -287,6 +290,7 @@ class MixerProvider extends ChangeNotifier {
   MixerProvider() {
     _initializeDefaultBuses();
     _subscribeToMetering();
+    _subscribeToTransport();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -313,40 +317,81 @@ class MixerProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _initializeDefaultBuses() {
-    // Master bus
+    // Master bus only - Cubase style stereo output
+    // Buses are created dynamically when tracks are added
     _master = MixerChannel(
       id: 'master',
-      name: 'Master',
+      name: 'Stereo Out',
       type: ChannelType.master,
       color: const Color(0xFFFF9040),
     );
-
-    // Default buses (Cubase-style)
-    final defaultBuses = [
-      ('bus_ui', 'UI', const Color(0xFF4A9EFF), BusType.ui),
-      ('bus_sfx', 'SFX', const Color(0xFFFF6B6B), BusType.sfx),
-      ('bus_music', 'Music', const Color(0xFF40C8FF), BusType.music),
-      ('bus_vo', 'VO', const Color(0xFF40FF90), BusType.vo),
-      ('bus_ambient', 'Ambient', const Color(0xFFFFD93D), BusType.ambient),
-    ];
-
-    for (final (id, name, color, _) in defaultBuses) {
-      _buses[id] = MixerChannel(
-        id: id,
-        name: name,
-        type: ChannelType.bus,
-        color: color,
-        outputBus: 'master',
-      );
-    }
+    // No default buses - they are created when tracks are added
   }
 
   void _subscribeToMetering() {
     _meteringSub = engine.meteringStream.listen(_updateMeters);
   }
 
+  void _subscribeToTransport() {
+    _transportSub = engine.transportStream.listen((transport) {
+      final wasPlaying = _isPlaying;
+      _isPlaying = transport.isPlaying;
+
+      // When playback stops, immediately start decay (Cubase-style)
+      if (wasPlaying && !_isPlaying) {
+        _startMeterDecay();
+      } else if (_isPlaying) {
+        _stopMeterDecay();
+      }
+    });
+  }
+
+  void _startMeterDecay() {
+    _decayTimer?.cancel();
+    _decayTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      bool hasActivity = false;
+
+      // Decay master meters
+      if (_master.peakL > 0.001 || _master.peakR > 0.001) {
+        hasActivity = true;
+        _master = _master.copyWith(
+          peakL: _master.peakL * 0.85,
+          peakR: _master.peakR * 0.85,
+          rmsL: _master.rmsL * 0.85,
+          rmsR: _master.rmsR * 0.85,
+          clipping: false,
+        );
+      }
+
+      // Decay channel meters
+      for (final channel in _channels.values) {
+        if (channel.peakL > 0.001 || channel.peakR > 0.001) {
+          hasActivity = true;
+          _channels[channel.id] = channel.copyWith(
+            peakL: channel.peakL * 0.85,
+            peakR: channel.peakR * 0.85,
+            rmsL: channel.rmsL * 0.85,
+            rmsR: channel.rmsR * 0.85,
+            clipping: false,
+          );
+        }
+      }
+
+      notifyListeners();
+
+      if (!hasActivity) {
+        _stopMeterDecay();
+      }
+    });
+  }
+
+  void _stopMeterDecay() {
+    _decayTimer?.cancel();
+    _decayTimer = null;
+  }
+
   void _updateMeters(MeteringState metering) {
-    // Update master meters
+    // Update master meters (from master peak/rms)
     _master = _master.copyWith(
       peakL: _dbToLinear(metering.masterPeakL),
       peakR: _dbToLinear(metering.masterPeakR),
@@ -355,22 +400,8 @@ class MixerProvider extends ChangeNotifier {
       clipping: metering.masterPeakL > -0.1 || metering.masterPeakR > -0.1,
     );
 
-    // Update bus meters
-    for (int i = 0; i < metering.buses.length && i < _buses.length; i++) {
-      final busId = _buses.keys.elementAt(i);
-      final busMeter = metering.buses[i];
-      final bus = _buses[busId];
-      if (bus != null) {
-        _buses[busId] = bus.copyWith(
-          peakL: _dbToLinear(busMeter.peakL),
-          peakR: _dbToLinear(busMeter.peakR),
-          rmsL: _dbToLinear(busMeter.rmsL),
-          rmsR: _dbToLinear(busMeter.rmsR),
-        );
-      }
-    }
-
-    // Update channel meters (from track index mapping)
+    // Update channel meters (direct from track metering)
+    // In Cubase-style: each track has its own meter before master
     for (final channel in _channels.values) {
       if (channel.trackIndex != null && channel.trackIndex! < metering.buses.length) {
         final trackMeter = metering.buses[channel.trackIndex!];
@@ -426,21 +457,27 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Create channel from timeline track creation
+  /// trackId is the engine track ID (as string, but may be numeric for native tracks)
+  /// Cubase-style: track = mixer channel, direct to master
   MixerChannel createChannelFromTrack(String trackId, String trackName, Color trackColor) {
     // Check if channel already exists for this track
     final existing = _channels.values.where((c) => c.id == 'ch_$trackId').firstOrNull;
     if (existing != null) return existing;
 
     final id = 'ch_$trackId';
-    final trackIndex = _nextTrackIndex++;
 
+    // Try to parse trackId as native engine ID (for FFI calls)
+    // Native engine returns numeric IDs, mock returns 'track-123...' strings
+    final nativeTrackId = int.tryParse(trackId);
+
+    // Cubase-style: channels route directly to master (no intermediate buses)
     final channel = MixerChannel(
       id: id,
       name: trackName,
       type: ChannelType.audio,
       color: trackColor,
-      outputBus: 'bus_sfx',
-      trackIndex: trackIndex,
+      outputBus: 'master', // Direct to master, not to bus
+      trackIndex: nativeTrackId, // Store native engine track ID for FFI
     );
 
     _channels[id] = channel;
@@ -682,11 +719,11 @@ class MixerProvider extends ChangeNotifier {
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(volume: clampedVolume);
       if (channel.trackIndex != null) {
-        NativeFFI.instance.setTrackVolume(channel.trackIndex!, clampedVolume);
+        engine.setTrackVolume(channel.trackIndex!, clampedVolume);
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(volume: clampedVolume);
-      NativeFFI.instance.mixerSetBusVolume(_getBusEngineId(id), _linearToDb(clampedVolume));
+      engine.setBusVolume(_getBusEngineId(id), clampedVolume);
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(volume: clampedVolume);
     }
@@ -817,7 +854,8 @@ class MixerProvider extends ChangeNotifier {
   void setMasterVolume(double volume) {
     final clampedVolume = volume.clamp(0.0, 1.5);
     _master = _master.copyWith(volume: clampedVolume);
-    NativeFFI.instance.mixerSetMasterVolume(_linearToDb(clampedVolume));
+    // Use EngineApi which handles both FFI and mock mode
+    engine.setMasterVolume(clampedVolume);
     notifyListeners();
   }
 
@@ -882,6 +920,8 @@ class MixerProvider extends ChangeNotifier {
   @override
   void dispose() {
     _meteringSub?.cancel();
+    _transportSub?.cancel();
+    _decayTimer?.cancel();
     super.dispose();
   }
 }

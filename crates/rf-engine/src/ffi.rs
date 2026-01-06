@@ -265,13 +265,25 @@ pub extern "C" fn engine_import_audio(
 ) -> u64 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
-        None => return 0,
+        None => {
+            eprintln!("[FFI Import] ERROR: Invalid path pointer");
+            return 0;
+        }
     };
+
+    eprintln!("[FFI Import] Importing: {} to track {} at {:.2}s", path_str, track_id, start_time);
 
     // Import audio file
     let imported = match AudioImporter::import(Path::new(&path_str)) {
-        Ok(audio) => Arc::new(audio),
-        Err(_) => return 0,
+        Ok(audio) => {
+            eprintln!("[FFI Import] SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
+                audio.samples.len(), audio.sample_rate, audio.channels, audio.duration_secs);
+            Arc::new(audio)
+        },
+        Err(e) => {
+            eprintln!("[FFI Import] ERROR: Failed to import '{}': {:?}", path_str, e);
+            return 0;
+        }
     };
 
     let duration = imported.duration_secs;
@@ -297,7 +309,17 @@ pub extern "C" fn engine_import_audio(
     // Store in caches
     let key = format!("clip_{}", clip_id.0);
     WAVEFORM_CACHE.get_or_compute(&key, || peaks);
-    IMPORTED_AUDIO.write().insert(clip_id, imported);
+    IMPORTED_AUDIO.write().insert(clip_id, Arc::clone(&imported));
+
+    // Also add to PlaybackEngine cache for real-time playback
+    // (uses source_file path as key, matching how clips reference audio)
+    log::info!("[Import] Caching audio for path: '{}' (clip_id: {}, duration: {:.2}s, samples: {})",
+        path_str, clip_id.0, duration, imported.samples.len());
+    PLAYBACK_ENGINE.cache.files.write().insert(path_str.clone(), imported);
+
+    // Debug: verify cache contents
+    let cache_size = PLAYBACK_ENGINE.cache.files.read().len();
+    log::info!("[Import] Cache now has {} entries", cache_size);
 
     clip_id.0
 }

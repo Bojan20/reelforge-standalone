@@ -120,8 +120,12 @@ class MeterProvider extends ChangeNotifier {
   final Map<String, DateTime> _lastPeakTime = {};
 
   StreamSubscription<MeteringState>? _meteringSubscription;
+  StreamSubscription<TransportState>? _transportSubscription;
   Timer? _decayTimer;
+  Timer? _silenceTimer;
   bool _isActive = true;
+  bool _isPlaying = false;
+  DateTime _lastMeteringUpdate = DateTime.now();
 
   // Master meter state (from engine)
   MeterState _masterState = MeterState.zero;
@@ -131,6 +135,46 @@ class MeterProvider extends ChangeNotifier {
 
   MeterProvider() {
     _subscribeToEngine();
+    _subscribeToTransport();
+    _startSilenceDetection();
+  }
+
+  /// Subscribe to transport state to detect playback stop
+  void _subscribeToTransport() {
+    _transportSubscription = engine.transportStream.listen((transport) {
+      final wasPlaying = _isPlaying;
+      _isPlaying = transport.isPlaying;
+
+      // When playback stops, immediately start decay (Cubase-style instant meter drop)
+      if (wasPlaying && !_isPlaying) {
+        _startDecayLoop();
+      }
+    });
+  }
+
+  /// Start silence detection timer - if no metering updates for 100ms, start decay
+  void _startSilenceDetection() {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => _checkForSilence(),
+    );
+  }
+
+  void _checkForSilence() {
+    final now = DateTime.now();
+    final timeSinceUpdate = now.difference(_lastMeteringUpdate).inMilliseconds;
+
+    // If no metering updates for 100ms + we have non-zero levels, start decay
+    if (timeSinceUpdate > 100 && _decayTimer == null) {
+      final hasSignal = _masterState.peak > 0.001 ||
+          _masterState.rms > 0.001 ||
+          _busStates.any((s) => s.peak > 0.001 || s.rms > 0.001);
+
+      if (hasSignal) {
+        _startDecayLoop();
+      }
+    }
   }
 
   Map<String, MeterState> get meterStates => Map.unmodifiable(_meterStates);
@@ -164,6 +208,11 @@ class MeterProvider extends ChangeNotifier {
     if (!_isActive) return;
 
     final now = DateTime.now();
+    _lastMeteringUpdate = now;
+
+    // Stop decay timer when we receive new data
+    _decayTimer?.cancel();
+    _decayTimer = null;
 
     // Update master meter
     _masterState = _convertToMeterState(
@@ -347,7 +396,9 @@ class MeterProvider extends ChangeNotifier {
   @override
   void dispose() {
     _meteringSubscription?.cancel();
+    _transportSubscription?.cancel();
     _decayTimer?.cancel();
+    _silenceTimer?.cancel();
     super.dispose();
   }
 }

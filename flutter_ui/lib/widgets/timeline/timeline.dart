@@ -12,6 +12,7 @@
 /// - Drag & drop audio files
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,6 +60,8 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double newStartTime)? onClipMove;
   /// Move clip to a different track
   final void Function(String clipId, String targetTrackId, double newStartTime)? onClipMoveToTrack;
+  /// Move clip to a NEW track (created on-the-fly)
+  final void Function(String clipId, double newStartTime)? onClipMoveToNewTrack;
   final void Function(
     String clipId,
     double newStartTime,
@@ -147,6 +150,7 @@ class Timeline extends StatefulWidget {
     this.onClipSelect,
     this.onClipMove,
     this.onClipMoveToTrack,
+    this.onClipMoveToNewTrack,
     this.onClipResize,
     this.onClipSlipEdit,
     this.onZoomChange,
@@ -213,11 +217,12 @@ class _TimelineState extends State<Timeline> {
   double _crossTrackDragYDelta = 0;
   int _crossTrackTargetIndex = -1;
 
-  // Smooth drag ghost state (Cubase-style)
-  TimelineClip? _draggingClip;
-  Offset? _dragGhostPosition;  // Global position for ghost overlay
-  Offset? _dragStartLocalPosition;  // Where drag started relative to clip
+  // Drag state (Cubase-style direct move)
   int _dragSourceTrackIndex = -1;
+
+  // Ghost preview state (visual feedback during drag)
+  Offset? _ghostPosition;
+  TimelineClip? _draggingClip;
 
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
@@ -269,7 +274,7 @@ class _TimelineState extends State<Timeline> {
         HardwareKeyboard.instance.isMetaPressed) {
       // Zoom
       final delta = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
-      final newZoom = (widget.zoom * delta).clamp(10.0, 500.0);
+      final newZoom = (widget.zoom * delta).clamp(1.0, 500.0);
       widget.onZoomChange?.call(newZoom);
     } else {
       // Scroll
@@ -325,9 +330,15 @@ class _TimelineState extends State<Timeline> {
 
   /// Handle file drop on timeline
   void _handleFileDrop(DropDoneDetails details) {
+    // Always clear drop state first (fixes ghost staying visible)
+    setState(() {
+      _isDroppingFile = false;
+      _dropPosition = null;
+    });
+
     if (widget.onFileDrop == null) return;
 
-    final position = _dropPosition ?? details.localPosition;
+    final position = details.localPosition;
 
     // Calculate time from X position
     final x = position.dx - _headerWidth;
@@ -349,11 +360,6 @@ class _TimelineState extends State<Timeline> {
         widget.onFileDrop!(path, trackId, startTime);
       }
     }
-
-    setState(() {
-      _isDroppingFile = false;
-      _dropPosition = null;
-    });
   }
 
   /// Check if any file is an audio file
@@ -411,7 +417,13 @@ class _TimelineState extends State<Timeline> {
   }
 
   void _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent) return;
+    // G/H zoom - allow repeat (hold key for continuous zoom)
+    final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
+        event.logicalKey == LogicalKeyboardKey.keyH;
+
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    // Only allow repeat for zoom keys
+    if (event is KeyRepeatEvent && !isZoomKey) return;
 
     final selectedClip = widget.clips.cast<TimelineClip?>().firstWhere(
       (c) => c?.selected == true,
@@ -437,14 +449,14 @@ class _TimelineState extends State<Timeline> {
       }
     }
 
-    // G - zoom out (Cubase-style)
+    // G - zoom out (Cubase-style, hold for continuous)
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
-      widget.onZoomChange?.call((widget.zoom * 0.8).clamp(10, 500));
+      widget.onZoomChange?.call((widget.zoom * 0.92).clamp(1, 500));
     }
 
-    // H - zoom in (Cubase-style)
+    // H - zoom in (Cubase-style, hold for continuous)
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
-      widget.onZoomChange?.call((widget.zoom * 1.25).clamp(10, 500));
+      widget.onZoomChange?.call((widget.zoom * 1.08).clamp(1, 500));
     }
 
     // L - set loop around selected clip OR toggle loop if no selection
@@ -530,8 +542,9 @@ class _TimelineState extends State<Timeline> {
   /// Handle cross-track drag update
   void _handleCrossTrackDrag(String clipId, double newStartTime, double verticalDelta, int sourceTrackIndex) {
     // Calculate target track index based on vertical delta
+    // Allow tracks.length as valid target (means: create new track below)
     final tracksDelta = (verticalDelta / _trackHeight).round();
-    final targetIndex = (sourceTrackIndex + tracksDelta).clamp(0, widget.tracks.length - 1);
+    final targetIndex = (sourceTrackIndex + tracksDelta).clamp(0, widget.tracks.length);
 
     setState(() {
       _crossTrackDraggingClipId = clipId;
@@ -544,194 +557,75 @@ class _TimelineState extends State<Timeline> {
   /// Handle cross-track drag end - commit the move
   void _handleCrossTrackDragEnd(String clipId) {
     if (_crossTrackDraggingClipId == clipId && _crossTrackTargetIndex >= 0) {
-      final targetTrack = widget.tracks[_crossTrackTargetIndex];
-
-      // Find the original clip to check if we're actually moving to a different track
-      final clip = widget.clips.firstWhere(
-        (c) => c.id == clipId,
-        orElse: () => widget.clips.first,
-      );
-
-      if (clip.trackId != targetTrack.id) {
-        // Move to different track
-        widget.onClipMoveToTrack?.call(clipId, targetTrack.id, _crossTrackDragTime);
+      // Check if dropping below all existing tracks → create new track
+      if (_crossTrackTargetIndex >= widget.tracks.length) {
+        // Move to NEW track (will be created by the handler)
+        widget.onClipMoveToNewTrack?.call(clipId, _crossTrackDragTime);
       } else {
-        // Same track, just update time
-        widget.onClipMove?.call(clipId, _crossTrackDragTime);
+        final targetTrack = widget.tracks[_crossTrackTargetIndex];
+
+        // Find the original clip to check if we're actually moving to a different track
+        final clip = widget.clips.firstWhere(
+          (c) => c.id == clipId,
+          orElse: () => widget.clips.first,
+        );
+
+        if (clip.trackId != targetTrack.id) {
+          // Move to different track
+          widget.onClipMoveToTrack?.call(clipId, targetTrack.id, _crossTrackDragTime);
+        } else {
+          // Same track, just update time
+          widget.onClipMove?.call(clipId, _crossTrackDragTime);
+        }
       }
     }
 
     setState(() {
       _crossTrackDraggingClipId = null;
       _crossTrackTargetIndex = -1;
+      // Clear ghost state
+      _draggingClip = null;
+      _ghostPosition = null;
+      _dragSourceTrackIndex = -1;
     });
   }
 
-  /// Start dragging a clip - show ghost preview
+  /// Start dragging a clip (track source for cross-track detection)
   void _handleClipDragStart(String clipId, Offset globalPosition, Offset localPosition, int trackIndex) {
+    // Find the clip being dragged
     final clip = widget.clips.firstWhere(
       (c) => c.id == clipId,
       orElse: () => widget.clips.first,
     );
 
+    // Convert global position to local for ghost rendering
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    final localPos = renderBox?.globalToLocal(globalPosition) ?? globalPosition;
+
     setState(() {
-      _draggingClip = clip;
-      _dragGhostPosition = globalPosition;
-      _dragStartLocalPosition = localPosition;
       _dragSourceTrackIndex = trackIndex;
+      _draggingClip = clip;
+      _ghostPosition = localPos;
     });
   }
 
-  /// Update ghost position during drag
+  /// Update during drag - update ghost position
   void _handleClipDragUpdate(Offset globalPosition) {
-    if (_draggingClip == null) return;
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    final localPos = renderBox?.globalToLocal(globalPosition) ?? globalPosition;
 
     setState(() {
-      _dragGhostPosition = globalPosition;
+      _ghostPosition = localPos;
     });
   }
 
-  /// End drag and commit the move
+  /// End drag - clear ghost
   void _handleClipDragEnd(Offset globalPosition, RenderBox? timelineBox) {
-    if (_draggingClip == null || timelineBox == null) {
-      setState(() {
-        _draggingClip = null;
-        _dragGhostPosition = null;
-        _dragStartLocalPosition = null;
-        _dragSourceTrackIndex = -1;
-      });
-      return;
-    }
-
-    // Convert global position to local timeline position
-    final localPos = timelineBox.globalToLocal(globalPosition);
-
-    // Calculate new time position
-    final x = localPos.dx - _headerWidth - (_dragStartLocalPosition?.dx ?? 0);
-    final newStartTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
-
-    // Calculate target track index
-    final y = localPos.dy - _rulerHeight;
-    final targetTrackIndex = (y / _trackHeight).floor().clamp(0, widget.tracks.length - 1);
-
-    final clipId = _draggingClip!.id;
-    final sourceTrackId = _draggingClip!.trackId;
-    final targetTrackId = widget.tracks.isNotEmpty ? widget.tracks[targetTrackIndex].id : sourceTrackId;
-
-    // Apply snap
-    final snappedTime = applySnap(
-      newStartTime,
-      widget.snapEnabled,
-      widget.snapValue,
-      widget.tempo,
-      widget.clips,
-    );
-
-    // Commit the move
-    if (targetTrackId != sourceTrackId) {
-      widget.onClipMoveToTrack?.call(clipId, targetTrackId, snappedTime);
-    } else {
-      widget.onClipMove?.call(clipId, snappedTime);
-    }
-
-    // Clear drag state
     setState(() {
-      _draggingClip = null;
-      _dragGhostPosition = null;
-      _dragStartLocalPosition = null;
       _dragSourceTrackIndex = -1;
+      _draggingClip = null;
+      _ghostPosition = null;
     });
-  }
-
-  /// Build ghost clip overlay for smooth drag preview
-  Widget _buildDragGhost(RenderBox? timelineBox) {
-    if (_draggingClip == null || _dragGhostPosition == null || timelineBox == null) {
-      return const SizedBox.shrink();
-    }
-
-    final clip = _draggingClip!;
-    final clipWidth = clip.duration * widget.zoom;
-    final clipHeight = _trackHeight - 4;
-    final clipColor = clip.color ?? const Color(0xFF3A6EA5);
-
-    // Convert global position to local
-    final localPos = timelineBox.globalToLocal(_dragGhostPosition!);
-    final ghostX = localPos.dx - (_dragStartLocalPosition?.dx ?? 0);
-    final ghostY = localPos.dy - (_dragStartLocalPosition?.dy ?? 0);
-
-    // Calculate which track we're hovering over (snap to track lanes)
-    final trackIndex = ((ghostY - _rulerHeight) / _trackHeight).floor().clamp(0, widget.tracks.length - 1);
-    final targetTrackY = trackIndex * _trackHeight + _rulerHeight + 2;
-
-    return Positioned(
-      left: ghostX,
-      top: targetTrackY,
-      child: IgnorePointer(
-        child: Container(
-          width: clipWidth.clamp(20.0, double.infinity),
-          height: clipHeight,
-          decoration: BoxDecoration(
-            color: clipColor.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.9),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: clipColor.withValues(alpha: 0.5),
-                blurRadius: 12,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: Stack(
-              children: [
-                // Simplified waveform representation (gradient)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.3),
-                          Colors.white.withValues(alpha: 0.1),
-                          Colors.white.withValues(alpha: 0.3),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Label
-                Positioned(
-                  left: 4,
-                  top: 2,
-                  right: 4,
-                  child: Text(
-                    clip.name,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black54,
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -968,8 +862,6 @@ class _TimelineState extends State<Timeline> {
                                         snapEnabled: widget.snapEnabled,
                                         snapValue: widget.snapValue,
                                         allClips: widget.clips,
-                                        // Hide original clip while ghost is shown
-                                        draggingClipId: _draggingClip?.id,
                                       ),
                                     ),
                                   ],
@@ -1094,13 +986,67 @@ class _TimelineState extends State<Timeline> {
                             );
                           }),
 
-                          // Drag ghost overlay (Cubase-style smooth drag preview)
-                          Builder(
-                            builder: (ctx) {
-                              final box = ctx.findRenderObject() as RenderBox?;
-                              return _buildDragGhost(box);
-                            },
-                          ),
+                          // Ghost clip preview during drag
+                          if (_draggingClip != null && _ghostPosition != null)
+                            Positioned(
+                              left: _ghostPosition!.dx - (_draggingClip!.duration * widget.zoom / 2),
+                              top: _ghostPosition!.dy - _rulerHeight - (_trackHeight / 2),
+                              child: IgnorePointer(
+                                child: Opacity(
+                                  opacity: 0.6,
+                                  child: Container(
+                                    width: _draggingClip!.duration * widget.zoom,
+                                    height: _trackHeight - 4,
+                                    decoration: BoxDecoration(
+                                      color: (_draggingClip!.color ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.7),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.4),
+                                          blurRadius: 8,
+                                          offset: const Offset(2, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(2),
+                                      child: Stack(
+                                        children: [
+                                          // Waveform preview
+                                          if (_draggingClip!.waveform != null)
+                                            Positioned.fill(
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(2),
+                                                child: CustomPaint(
+                                                  painter: _GhostWaveformPainter(
+                                                    waveform: _draggingClip!.waveform!,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          // Name
+                                          Positioned(
+                                            left: 4,
+                                            top: 2,
+                                            child: Text(
+                                              _draggingClip!.name,
+                                              style: ReelForgeTheme.bodySmall.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1389,4 +1335,59 @@ class _PlayheadPainter extends CustomPainter {
   @override
   bool shouldRepaint(_PlayheadPainter oldDelegate) =>
       isDragging != oldDelegate.isDragging;
+}
+
+/// Simple waveform painter for ghost preview
+class _GhostWaveformPainter extends CustomPainter {
+  final Float32List waveform;
+
+  _GhostWaveformPainter({required this.waveform});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (waveform.isEmpty || size.width <= 0 || size.height <= 0) return;
+
+    final centerY = size.height / 2;
+    final amplitude = centerY * 0.8;
+    final samplesPerPixel = waveform.length / size.width;
+
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.5)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    bool started = false;
+    final bottomY = <double>[];
+
+    for (double x = 0; x < size.width; x++) {
+      final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
+      final endIdx = ((x + 1) * samplesPerPixel).ceil().clamp(startIdx + 1, waveform.length);
+
+      double maxVal = 0;
+      for (int i = startIdx; i < endIdx; i++) {
+        final s = waveform[i].abs();
+        if (s > maxVal) maxVal = s;
+      }
+
+      final yTop = centerY - maxVal * amplitude;
+      if (!started) {
+        path.moveTo(x, yTop);
+        started = true;
+      } else {
+        path.lineTo(x, yTop);
+      }
+      bottomY.add(centerY + maxVal * amplitude);
+    }
+
+    for (int i = bottomY.length - 1; i >= 0; i--) {
+      path.lineTo(i.toDouble(), bottomY[i]);
+    }
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_GhostWaveformPainter oldDelegate) =>
+      waveform != oldDelegate.waveform;
 }

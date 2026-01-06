@@ -16,7 +16,7 @@ class EngineApi {
   static EngineApi get instance => _instance ??= EngineApi._();
 
   bool _initialized = false;
-  bool _useMock = true; // Use mock until native lib is ready
+  bool _useMock = false; // Native library mode - no mock
   bool _audioStarted = false; // Track if real audio playback is running
   final NativeFFI _ffi = NativeFFI.instance;
 
@@ -28,6 +28,11 @@ class EngineApi {
   // Active buses for metering (index -> activity level 0-1)
   // 0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=UI
   final Map<int, double> _activeBuses = {};
+
+  // Mock volume state (used when native FFI not available)
+  double _mockMasterVolume = 1.0; // 0-1.5 linear
+  final Map<int, double> _mockTrackVolumes = {}; // trackId -> volume
+  final Map<int, double> _mockBusVolumes = {}; // busIndex -> volume
 
   // Streams
   final _transportController = StreamController<TransportState>.broadcast();
@@ -45,22 +50,21 @@ class EngineApi {
   }) async {
     if (_initialized) return true;
 
-    // Try to load native library
-    if (_ffi.tryLoad()) {
-      _useMock = false;
-      print('[Engine] Native FFI loaded successfully');
-    } else {
-      _useMock = true;
-      print('[Engine] Using mock mode (native library not available)');
+    // Load native library - required, no fallback to mock
+    if (!_ffi.tryLoad()) {
+      throw Exception('[Engine] FATAL: Native library failed to load. Cannot continue.');
     }
+    _useMock = false;
+    print('[Engine] Native FFI loaded successfully');
 
     _initialized = true;
 
-    // Try to start real audio playback
+    // Start real audio playback
     try {
       await startAudioPlayback();
     } catch (e) {
-      print('Audio playback init failed, using mock: $e');
+      print('[Engine] Audio playback init failed: $e');
+      rethrow;
     }
 
     // Start update timer for metering/transport
@@ -145,6 +149,39 @@ class EngineApi {
 
   /// Get active buses
   Map<int, double> get activeBuses => Map.unmodifiable(_activeBuses);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VOLUME CONTROLS (for mock mode metering)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set master volume (0.0 - 1.5, where 1.0 = 0dB)
+  void setMasterVolume(double volume) {
+    _mockMasterVolume = volume.clamp(0.0, 1.5);
+    if (!_useMock) {
+      final db = volume <= 0.0001 ? -60.0 : 20.0 * log(volume) / ln10;
+      _ffi.mixerSetMasterVolume(db);
+    }
+  }
+
+  /// Set track volume (0.0 - 1.5, where 1.0 = 0dB)
+  void setTrackVolume(int trackId, double volume) {
+    _mockTrackVolumes[trackId] = volume.clamp(0.0, 1.5);
+    if (!_useMock) {
+      _ffi.setTrackVolume(trackId, volume);
+    }
+  }
+
+  /// Set bus volume (0.0 - 1.5, where 1.0 = 0dB)
+  void setBusVolume(int busIndex, double volume) {
+    _mockBusVolumes[busIndex] = volume.clamp(0.0, 1.5);
+    if (!_useMock) {
+      final db = volume <= 0.0001 ? -60.0 : 20.0 * log(volume) / ln10;
+      _ffi.mixerSetBusVolume(busIndex, db);
+    }
+  }
+
+  /// Get current master volume
+  double get mockMasterVolume => _mockMasterVolume;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TRANSPORT
@@ -522,13 +559,19 @@ class EngineApi {
           print('[Engine] Imported via FFI: $fileName (clip: $clipId)');
           // Preload audio for playback
           _ffi.preloadAll();
+
+          // Get actual duration from engine
+          final duration = _ffi.getClipDuration(clipId);
+          final sourceDuration = _ffi.getClipSourceDuration(clipId);
+          print('[Engine] Clip duration: $duration, source: $sourceDuration');
+
           return ImportedClipInfo(
             clipId: clipId.toString(),
             trackId: trackId,
             name: fileName,
             startTime: startTime,
-            duration: 5.0, // TODO: Get actual duration from FFI
-            sourceDuration: 5.0,
+            duration: duration > 0 ? duration : 5.0,
+            sourceDuration: sourceDuration > 0 ? sourceDuration : duration > 0 ? duration : 5.0,
             sampleRate: 48000,
             channels: 2,
           );
@@ -1473,22 +1516,30 @@ class EngineApi {
           },
         );
 
-        // Calculate master level from sum of active buses
+        // Calculate master level from sum of active buses, scaled by master volume
         final hasAnyActivity = _activeBuses.isNotEmpty;
         final masterActivity = hasAnyActivity
             ? _activeBuses.values.reduce((a, b) => a + b).clamp(0.0, 1.0)
             : 0.0;
 
-        if (masterActivity > 0) {
+        // Apply master volume to metering (fader affects meter display)
+        final volumeScale = _mockMasterVolume.clamp(0.0, 1.5);
+        final volumeDb = volumeScale <= 0.0001 ? -60.0 : 20.0 * log(volumeScale) / ln10;
+
+        if (masterActivity > 0 && volumeScale > 0.001) {
+          // Base levels + volume adjustment
+          final basePeak = -12.0 + random.nextDouble() * 6 * masterActivity;
+          final baseRms = -18.0 + random.nextDouble() * 4 * masterActivity;
+
           _metering = MeteringState(
-            masterPeakL: -12.0 + random.nextDouble() * 6 * masterActivity,
-            masterPeakR: -12.0 + random.nextDouble() * 6 * masterActivity,
-            masterRmsL: -18.0 + random.nextDouble() * 4 * masterActivity,
-            masterRmsR: -18.0 + random.nextDouble() * 4 * masterActivity,
-            masterLufsM: -14.0 + random.nextDouble() * 2,
-            masterLufsS: -14.0 + random.nextDouble() * 1,
-            masterLufsI: -14.0,
-            masterTruePeak: -6.0 + random.nextDouble() * 3,
+            masterPeakL: (basePeak + volumeDb).clamp(-60.0, 6.0),
+            masterPeakR: (basePeak + volumeDb + random.nextDouble() * 0.5).clamp(-60.0, 6.0),
+            masterRmsL: (baseRms + volumeDb).clamp(-60.0, 0.0),
+            masterRmsR: (baseRms + volumeDb + random.nextDouble() * 0.3).clamp(-60.0, 0.0),
+            masterLufsM: -14.0 + volumeDb * 0.5 + random.nextDouble() * 2,
+            masterLufsS: -14.0 + volumeDb * 0.5 + random.nextDouble() * 1,
+            masterLufsI: -14.0 + volumeDb * 0.5,
+            masterTruePeak: (basePeak + volumeDb + 2.0).clamp(-60.0, 6.0),
             cpuUsage: 5.0 + random.nextDouble() * 3,
             bufferUnderruns: 0,
             buses: busMeters,

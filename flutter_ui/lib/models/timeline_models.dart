@@ -21,6 +21,8 @@ class TimelineClip {
   final Color? color;
   /// Pre-computed waveform peaks (0-1)
   final Float32List? waveform;
+  /// Source audio file path (for Rust engine lookup)
+  final String? sourceFile;
   /// Source offset within audio file (for left-edge trim)
   final double sourceOffset;
   /// Original source audio duration (immutable)
@@ -46,6 +48,7 @@ class TimelineClip {
     required this.duration,
     this.color,
     this.waveform,
+    this.sourceFile,
     this.sourceOffset = 0,
     this.sourceDuration,
     this.fadeIn = 0,
@@ -69,6 +72,7 @@ class TimelineClip {
     double? duration,
     Color? color,
     Float32List? waveform,
+    String? sourceFile,
     double? sourceOffset,
     double? sourceDuration,
     double? fadeIn,
@@ -86,6 +90,7 @@ class TimelineClip {
       duration: duration ?? this.duration,
       color: color ?? this.color,
       waveform: waveform ?? this.waveform,
+      sourceFile: sourceFile ?? this.sourceFile,
       sourceOffset: sourceOffset ?? this.sourceOffset,
       sourceDuration: sourceDuration ?? this.sourceDuration,
       fadeIn: fadeIn ?? this.fadeIn,

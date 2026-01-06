@@ -33,7 +33,7 @@ use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 /// Cache for loaded audio files
 pub struct AudioCache {
     /// Map from file path to loaded audio data
-    files: RwLock<HashMap<String, Arc<ImportedAudio>>>,
+    pub(crate) files: RwLock<HashMap<String, Arc<ImportedAudio>>>,
 }
 
 impl AudioCache {
@@ -351,7 +351,7 @@ pub struct PlaybackEngine {
     /// Track manager reference
     track_manager: Arc<TrackManager>,
     /// Audio file cache
-    cache: Arc<AudioCache>,
+    pub(crate) cache: Arc<AudioCache>,
     /// Playback position (shared with audio thread)
     pub position: Arc<PlaybackPosition>,
     /// Master volume (0.0 to 1.5)
@@ -800,6 +800,15 @@ impl PlaybackEngine {
         // Check if playing
         if !self.position.is_playing() {
             return;
+        }
+
+        // Debug: Log once every ~1 second (at 48kHz, ~188 calls per sec with 256 frame buffer)
+        static DEBUG_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if count % 200 == 0 {
+            let cache_size = self.cache.files.read().len();
+            log::info!("[Process] Playing at sample {}, cache has {} files",
+                self.position.samples(), cache_size);
         }
 
         let sample_rate = self.position.sample_rate() as f64;
