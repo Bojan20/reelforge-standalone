@@ -200,7 +200,10 @@ class Timeline extends StatefulWidget {
 }
 
 class _TimelineState extends State<Timeline> {
-  static const double _headerWidth = 180;
+  // Header width is now resizable (min 140, max 300)
+  double _headerWidth = 180;
+  static const double _headerWidthMin = 140;
+  static const double _headerWidthMax = 300;
   static const double _trackHeight = 80;
   static const double _rulerHeight = 28;
 
@@ -209,6 +212,7 @@ class _TimelineState extends State<Timeline> {
   bool _isDraggingLoopRight = false;
   bool _isDroppingFile = false;
   bool _isDroppingPoolFile = false;
+  bool _isResizingHeader = false;
   Offset? _dropPosition;
   Offset? _poolDropPosition;
 
@@ -269,6 +273,33 @@ class _TimelineState extends State<Timeline> {
       map[xfade.trackId]?.add(xfade);
     }
     return map;
+  }
+
+  /// Build resize handle for header width
+  Widget _buildHeaderResizeHandle() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onHorizontalDragStart: (_) {
+          setState(() => _isResizingHeader = true);
+        },
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            _headerWidth = (_headerWidth + details.delta.dx)
+                .clamp(_headerWidthMin, _headerWidthMax);
+          });
+        },
+        onHorizontalDragEnd: (_) {
+          setState(() => _isResizingHeader = false);
+        },
+        child: Container(
+          width: 4,
+          color: _isResizingHeader
+              ? ReelForgeTheme.accentBlue
+              : ReelForgeTheme.borderMedium,
+        ),
+      ),
+    );
   }
 
   void _handleWheel(PointerScrollEvent event) {
@@ -707,6 +738,8 @@ class _TimelineState extends State<Timeline> {
                           width: _headerWidth,
                           color: ReelForgeTheme.bgMid,
                         ),
+                        // Resize handle
+                        _buildHeaderResizeHandle(),
                         // Time ruler
                         Expanded(
                           child: Stack(
@@ -805,6 +838,7 @@ class _TimelineState extends State<Timeline> {
                                     TrackHeaderPro(
                                       track: track,
                                       size: TrackHeaderSize.compact,
+                                      width: _headerWidth,
                                       signalLevel: 0.0, // TODO: Connect to metering
                                       isEmpty: isEmpty,
                                       onMuteToggle: () =>

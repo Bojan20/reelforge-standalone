@@ -27,6 +27,7 @@ enum TrackHeaderSize {
 class TrackHeaderPro extends StatefulWidget {
   final TimelineTrack track;
   final TrackHeaderSize size;
+  final double width;  // Width from timeline (resizable)
   final double signalLevel;  // 0.0 - 1.0 for metering
   final bool isEmpty;  // Show drop zone if true
 
@@ -53,6 +54,7 @@ class TrackHeaderPro extends StatefulWidget {
     super.key,
     required this.track,
     this.size = TrackHeaderSize.compact,
+    this.width = 180,
     this.signalLevel = 0.0,
     this.isEmpty = false,
     this.onMuteToggle,
@@ -163,7 +165,7 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
           widget.onContextMenu?.call(details.globalPosition);
         },
         child: Container(
-          width: 200,
+          width: widget.width,
           height: widget.size.height,
           decoration: BoxDecoration(
             color: ReelForgeTheme.bgMid,
@@ -340,11 +342,11 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        // Volume meter
+        const SizedBox(width: 4),
+        // Volume meter (compact)
         SizedBox(
-          width: 24,
-          height: 16,
+          width: 16,
+          height: 14,
           child: CustomPaint(
             painter: _VolumeMeterPainter(
               level: widget.signalLevel,
@@ -352,13 +354,13 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
             ),
           ),
         ),
-        const SizedBox(width: 4),
-        // Volume readout
+        const SizedBox(width: 2),
+        // Volume readout (compact)
         SizedBox(
-          width: 42,
+          width: 36,
           child: Text(
             _volumeToDb(track.volume),
-            style: ReelForgeTheme.monoSmall.copyWith(fontSize: 10),
+            style: ReelForgeTheme.monoSmall.copyWith(fontSize: 9),
             textAlign: TextAlign.right,
           ),
         ),
@@ -382,18 +384,18 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        // Pan readout
+        const SizedBox(width: 4),
+        // Pan readout (compact)
         SizedBox(
-          width: 28,
+          width: 22,
           child: Text(
             _panDisplay(track.pan),
-            style: ReelForgeTheme.monoSmall.copyWith(fontSize: 10),
+            style: ReelForgeTheme.monoSmall.copyWith(fontSize: 9),
             textAlign: TextAlign.center,
           ),
         ),
-        const SizedBox(width: 6),
-        // Bus selector
+        const SizedBox(width: 4),
+        // Bus selector (compact)
         GestureDetector(
           onTap: () {
             final currentIndex = kBusOptions.indexWhere(
@@ -403,7 +405,7 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
             widget.onBusChange?.call(kBusOptions[nextIndex].bus);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: busInfo.color.withValues(alpha: 0.15),
               border: Border.all(
@@ -412,24 +414,13 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
               ),
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  busInfo.icon,
-                  size: 12,
-                  color: busInfo.color,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  busInfo.shortName,
-                  style: ReelForgeTheme.label.copyWith(
-                    color: busInfo.color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            child: Text(
+              busInfo.shortName,
+              style: ReelForgeTheme.label.copyWith(
+                color: busInfo.color,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
