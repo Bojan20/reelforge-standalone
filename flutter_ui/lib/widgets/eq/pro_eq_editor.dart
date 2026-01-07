@@ -450,11 +450,16 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     bool? qChanged,
     bool? typeChanged,
   }) {
-    if (widget.onBandChange == null) return;
+    debugPrint('[ProEQ] _notifyBandChange: band=${band.id} enabled=$enabledChanged freq=$freqChanged gain=$gainChanged q=$qChanged type=$typeChanged');
+    if (widget.onBandChange == null) {
+      debugPrint('[ProEQ] ERROR: onBandChange callback is NULL!');
+      return;
+    }
 
     // Convert FilterShape to int for Rust
     int filterType = band.shape.index;
 
+    debugPrint('[ProEQ] Calling onBandChange: id=${band.id} enabled=${enabledChanged == true ? band.enabled && !band.bypassed : null} freq=${freqChanged == true ? band.freq : null} gain=${gainChanged == true ? band.gain : null}');
     widget.onBandChange!(
       band.id,
       enabled: enabledChanged == true ? band.enabled && !band.bypassed : null,
@@ -804,6 +809,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     final freq = _xToFreq(pos.dx, c.maxWidth);
     final gain = _yToGain(pos.dy, c.maxHeight);
 
+    debugPrint('[ProEQ] Creating new band: freq=$freq gain=$gain');
     final newBand = _Band(
       id: _bands.length,
       freq: freq.clamp(20.0, 20000.0),
@@ -814,6 +820,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       _selectBand(_bands.length - 1);
     });
     // Notify Rust about new band
+    debugPrint('[ProEQ] Notifying Rust about new band ${newBand.id}');
     _notifyBandChange(newBand,
       enabledChanged: true,
       freqChanged: true,

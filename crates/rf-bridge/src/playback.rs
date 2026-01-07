@@ -309,11 +309,13 @@ impl DspStorage {
         match cmd {
             // Pro EQ commands
             DspCommand::EqSetGain { track_id, band_index, gain_db } => {
+                println!("[DSP] EqSetGain track={} band={} gain={}dB", track_id, band_index, gain_db);
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     // Get current params and update gain
                     let idx = band_index as usize;
                     eq.set_param(idx * 5 + 1, gain_db); // Param 1 = gain
+                    println!("[DSP] -> Applied gain to band {}", band_index);
                 }
             }
             DspCommand::EqSetFrequency { track_id, band_index, freq } => {
@@ -331,9 +333,11 @@ impl DspStorage {
                 }
             }
             DspCommand::EqEnableBand { track_id, band_index, enabled } => {
+                println!("[DSP] EqEnableBand track={} band={} enabled={}", track_id, band_index, enabled);
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     eq.set_band_enabled(band_index as usize, enabled);
+                    println!("[DSP] -> Band {} enabled={}", band_index, enabled);
                 }
             }
             DspCommand::EqBypass { track_id, bypass } => {

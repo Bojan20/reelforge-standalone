@@ -22,6 +22,7 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import 'time_ruler.dart';
 import 'track_header.dart';
+import 'track_header_pro.dart';
 import 'track_lane.dart';
 
 class Timeline extends StatefulWidget {
@@ -793,14 +794,19 @@ class _TimelineState extends State<Timeline> {
                               final trackCrossfades =
                                   _crossfadesByTrack[track.id] ?? [];
 
+                              // Check if track is empty (no clips)
+                              final isEmpty = trackClips.isEmpty;
+
                               return SizedBox(
                                 height: _trackHeight,
                                 child: Row(
                                   children: [
-                                    // Track header
-                                    TrackHeader(
+                                    // Track header - PRO VERSION
+                                    TrackHeaderPro(
                                       track: track,
-                                      height: _trackHeight,
+                                      size: TrackHeaderSize.compact,
+                                      signalLevel: 0.0, // TODO: Connect to metering
+                                      isEmpty: isEmpty,
                                       onMuteToggle: () =>
                                           widget.onTrackMuteToggle?.call(track.id),
                                       onSoloToggle: () =>

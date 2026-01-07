@@ -1715,8 +1715,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           onLowerZoneToggle: () =>
               setState(() => _lowerVisible = !_lowerVisible),
         ),
-            // Floating EQ windows
-            ..._buildFloatingEqWindows(metering, transport.isPlaying),
+        // Floating EQ windows
+        ..._buildFloatingEqWindows(metering, transport.isPlaying),
           ],
         );
       },
@@ -3442,9 +3442,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Open EQ in floating window
   void _openEqWindow(String channelId) {
+    debugPrint('[EQ] Opening floating window for: $channelId');
     setState(() {
       _openEqWindows[channelId] = true;
     });
+    debugPrint('[EQ] Open windows: $_openEqWindows');
   }
 
   /// Close EQ floating window
@@ -3456,6 +3458,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build floating EQ windows
   List<Widget> _buildFloatingEqWindows(MeteringState metering, bool isPlaying) {
+    debugPrint('[EQ] Building floating windows, count: ${_openEqWindows.length}');
     return _openEqWindows.entries.map((entry) {
       final channelId = entry.key;
       final channelName = channelId == 'master' ? 'Master' : channelId;
