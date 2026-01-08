@@ -1,0 +1,64 @@
+[package]
+name = "rf-ml"
+version = "0.1.0"
+edition = "2021"
+description = "ReelForge ML/AI Processing Suite - Neural audio processing"
+license = "MIT"
+
+[dependencies]
+# ONNX Runtime - disabled for now (versions yanked)
+# ort = { version = "2.0.0-rc.9", optional = true }
+
+# Pure Rust fallback (WASM compatible)
+tract-onnx = "0.21"
+tract-core = "0.21"
+
+# Hugging Face Rust framework (optional, for custom models)
+candle-core = { version = "0.8", optional = true }
+candle-nn = { version = "0.8", optional = true }
+
+# Audio processing
+rustfft = "6.2"
+realfft = "3.4"
+
+# Numeric
+ndarray = "0.16"
+num-complex = "0.4"
+
+# Parallel processing
+rayon = "1.10"
+
+# Async
+tokio = { version = "1.43", features = ["rt-multi-thread", "sync"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+tracing = "0.1"
+
+# Utilities
+num_cpus = "1.16"
+
+# Internal crates
+rf-core = { path = "../rf-core" }
+rf-dsp = { path = "../rf-dsp" }
+
+[features]
+default = []
+# ort-runtime = ["ort"]
+candle = ["candle-core", "candle-nn"]
+
+[dev-dependencies]
+criterion = "0.5"
+approx = "0.5"
+
+# [[bench]]
+# name = "ml_benchmarks"
+# harness = false

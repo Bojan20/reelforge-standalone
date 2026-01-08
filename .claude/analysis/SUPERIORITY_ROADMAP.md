@@ -1010,93 +1010,1620 @@ Total Phase 2 code:
 
 ---
 
-## PHASE 3: GAME CHANGERS (4-8 meseci)
+## PHASE 3: ULTIMATE SUPREMACY 🏆
 
-### 3.1 AI-Powered Processing
+> **Cilj:** Apsolutna dominacija — NIKO ne može dostići ovaj nivo
+> **Filozofija:** Ne "dovoljno dobro" — već "nemoguće nadmašiti"
 
-**Rust ML Options:**
-- `tract` - ONNX runtime, fast inference
-- `candle` - Hugging Face, PyTorch-like
-- `tch-rs` - PyTorch bindings
+---
 
-**Features:**
+### PHASE 3 OVERVIEW
 
-| Feature | Model | Effort |
-|---------|-------|--------|
-| Noise reduction | RNNoise / DeepFilterNet | L |
-| EQ matching | Custom CNN | XL |
-| Stem separation | Demucs / Spleeter | XL |
-| Mastering assistant | Custom | XL |
-| Auto gain staging | Simple DNN | M |
-| Chord detection | Transformer | L |
+| Modul | Opis | Competitors | ReelForge Advantage |
+|-------|------|-------------|---------------------|
+| **3.1 AI Processing Suite** | SOTA neural networks | Logic AI, iZotope | All-in-one, real-time, local |
+| **3.2 Immersive Audio Engine** | Full 3D audio | Pro Tools, Nuendo | Native HOA + all formats |
+| **3.3 Audio Restoration Suite** | iZotope RX level | iZotope RX 11 | Native, GPU-accelerated |
+| **3.4 Intelligent Mastering** | AI-assisted mastering | Ozone, LANDR | Fully integrated, local |
+| **3.5 Polyphonic Pitch Engine** | Melodyne DNA level | Melodyne 5 | Native, real-time |
 
-**Example Implementation:**
+**Ukupno:** ~30,000+ linija Rust koda
+
+---
+
+### 3.1 AI PROCESSING SUITE (crates/rf-ml)
+
+**Rust ML Stack:**
+- `ort` — ONNX Runtime bindings (CUDA/TensorRT/CoreML acceleration)
+- `tract` — Pure Rust ONNX (fallback, WASM compatible)
+- `candle` — Hugging Face Rust framework (custom training)
+
+**References:**
+- [ort - Fast ML inference in Rust](https://github.com/pykeio/ort)
+- [tract - Sonos ONNX runtime](https://github.com/sonos/tract)
+- [ClearerVoice-Studio](https://github.com/modelscope/ClearerVoice-Studio)
+
+#### 3.1.1 Neural Denoiser (SOTA)
+
+**Models:** DeepFilterNet3 / ClearerVoice-Studio FRCRN
 
 ```rust
-// crates/rf-ml/src/noise_reduction.rs
+// crates/rf-ml/src/denoise/deep_filter.rs
 
-use tract_onnx::prelude::*;
+pub struct DeepFilterNet {
+    erb_model: OrtSession,      // ERB (Equivalent Rectangular Bandwidth) path
+    df_model: OrtSession,       // Deep Filtering path
+    erb_bands: usize,           // 32 ERB bands
+    df_order: usize,            // 5 (filter order)
+    frame_size: usize,          // 480 samples (10ms @ 48kHz)
+    hop_size: usize,            // 480 samples (no overlap for real-time)
+    lookahead: usize,           // 2 frames (20ms)
 
-pub struct NeuralDenoiser {
-    model: SimplePlan<TypedFact, Box<dyn TypedOp>, Graph<TypedFact, Box<dyn TypedOp>>>,
-    hop_size: usize,
-    frame_size: usize,
+    // State
+    erb_state: Vec<f32>,
+    df_state: Vec<f32>,
+    stft: RealFft,
 }
 
-impl NeuralDenoiser {
-    pub fn load(model_path: &str) -> Result<Self> {
-        let model = tract_onnx::onnx()
-            .model_for_path(model_path)?
-            .into_optimized()?
-            .into_runnable()?;
+impl DeepFilterNet {
+    /// Real-time processing: < 5ms latency
+    pub fn process_frame(&mut self, input: &[f32], output: &mut [f32]) {
+        // 1. STFT analysis (480 samples → 257 complex bins)
+        let spectrum = self.stft.forward(input);
 
-        Ok(Self {
-            model,
-            hop_size: 480,
-            frame_size: 960,
-        })
-    }
+        // 2. ERB feature extraction (257 bins → 32 ERB bands)
+        let erb_features = self.compute_erb(&spectrum);
 
-    pub fn process_frame(&mut self, noisy: &[f32]) -> Vec<f32> {
-        let input = tract_ndarray::Array2::from_shape_vec(
-            (1, self.frame_size),
-            noisy.to_vec()
-        ).unwrap();
+        // 3. ERB model inference → gain mask
+        let erb_gains = self.erb_model.run(&erb_features);
 
-        let result = self.model.run(tvec!(input.into())).unwrap();
-        result[0].to_array_view::<f32>().unwrap().to_vec()
+        // 4. Deep Filtering model → complex filter coefficients
+        let df_coeffs = self.df_model.run(&erb_features);
+
+        // 5. Apply ERB gains + Deep Filtering
+        let enhanced = self.apply_filtering(&spectrum, &erb_gains, &df_coeffs);
+
+        // 6. ISTFT synthesis
+        self.stft.inverse(&enhanced, output);
     }
 }
 ```
 
-**Total effort:** ~3-6 meseci za full suite
+**Specs:**
+| Metric | Target |
+|--------|--------|
+| Latency | < 10ms (2 frame lookahead) |
+| CPU | < 5% single core @ 48kHz |
+| Quality | SDR > 20dB improvement |
+| Modes | Speech, Music, Hybrid |
+
+#### 3.1.2 Stem Separation (HTDemucs)
+
+**Model:** Hybrid Transformer Demucs v4 (htdemucs_ft) — SOTA per [MUSDB18 Benchmark](https://paperswithcode.com/sota/music-source-separation-on-musdb18)
+
+```rust
+// crates/rf-ml/src/separation/htdemucs.rs
+
+pub struct HTDemucs {
+    encoder: OrtSession,        // Time-domain encoder
+    transformer: OrtSession,    // Transformer layers (attention)
+    decoder: OrtSession,        // Multi-head decoder (4-6 stems)
+
+    // Configuration
+    sources: Vec<StemType>,     // drums, bass, vocals, other, (piano, guitar)
+    segment_length: usize,      // 7.8 seconds (default)
+    overlap: f32,               // 0.25 (25% overlap)
+    shifts: usize,              // 1 (random shifts for quality)
+}
+
+#[derive(Clone, Copy)]
+pub enum StemType {
+    Drums,
+    Bass,
+    Vocals,
+    Other,
+    Piano,      // htdemucs_6s only
+    Guitar,     // htdemucs_6s only
+}
+
+impl HTDemucs {
+    /// Separate full track (offline processing)
+    pub async fn separate(&self, audio: &AudioBuffer) -> HashMap<StemType, AudioBuffer> {
+        let segments = self.segment_audio(audio);
+
+        // Process segments in parallel (GPU batch)
+        let results: Vec<_> = segments
+            .par_iter()
+            .map(|seg| self.process_segment(seg))
+            .collect();
+
+        // Overlap-add reconstruction
+        self.reconstruct_stems(&results)
+    }
+
+    /// Process single segment
+    fn process_segment(&self, segment: &[f32]) -> StemOutputs {
+        // 1. Encode (waveform → latent)
+        let encoded = self.encoder.run(segment);
+
+        // 2. Transformer attention
+        let attended = self.transformer.run(&encoded);
+
+        // 3. Decode to stems
+        self.decoder.run(&attended)
+    }
+}
+```
+
+**Specs:**
+| Metric | Target |
+|--------|--------|
+| Sources | 4 (drums, bass, vocals, other) or 6 (+piano, guitar) |
+| Quality | SDR > 9.0 dB (MUSDB18-HQ) |
+| Speed | ~10x real-time on GPU, ~1x on CPU |
+| Memory | < 4GB VRAM |
+
+#### 3.1.3 Speech Enhancement (aTENNuate SSM)
+
+**Model:** State-Space Model autoencoder — ultra low-latency per [aTENNuate paper](https://arxiv.org/html/2409.03377v4)
+
+```rust
+// crates/rf-ml/src/enhance/atennuate.rs
+
+pub struct ATENNuate {
+    ssm_layers: Vec<StateSpaceLayer>,
+    frame_size: usize,          // 256 samples (5.3ms @ 48kHz)
+
+    // State-space state (persistent across frames)
+    hidden_state: Vec<f32>,
+}
+
+/// Mamba-style State Space Layer
+struct StateSpaceLayer {
+    a_matrix: DenseMatrix,      // State transition
+    b_matrix: DenseMatrix,      // Input projection
+    c_matrix: DenseMatrix,      // Output projection
+    d_matrix: DenseMatrix,      // Skip connection
+    dt: f32,                    // Discretization step
+}
+
+impl ATENNuate {
+    /// Ultra low-latency: 5ms
+    #[inline(always)]
+    pub fn process_sample(&mut self, input: f32) -> f32 {
+        // SSM recurrence: O(1) per sample
+        for layer in &mut self.ssm_layers {
+            let new_state = layer.a_matrix.mul(&self.hidden_state)
+                          + layer.b_matrix.mul_scalar(input);
+            let output = layer.c_matrix.dot(&new_state) + layer.d_matrix.mul_scalar(input);
+            self.hidden_state = new_state;
+        }
+        output
+    }
+}
+```
+
+**Specs:**
+| Metric | Target |
+|--------|--------|
+| Latency | 5ms (single frame) |
+| CPU | < 2% single core |
+| Tasks | Denoise, Super-resolution, De-quantization |
+
+#### 3.1.4 EQ Matching (Spectral Transfer)
+
+```rust
+// crates/rf-ml/src/match/eq_match.rs
+
+pub struct EQMatcher {
+    analyzer: SpectralAnalyzer,
+    filter_bank: ParametricEQBank,  // 64-band matching EQ
+    smoothing: f32,                 // Curve smoothing factor
+}
+
+impl EQMatcher {
+    /// Analyze reference and target, compute matching curve
+    pub fn compute_match(
+        &mut self,
+        reference: &AudioBuffer,
+        target: &AudioBuffer,
+    ) -> EQCurve {
+        // 1. Compute average spectrum of both
+        let ref_spectrum = self.analyzer.average_spectrum(reference);
+        let tgt_spectrum = self.analyzer.average_spectrum(target);
+
+        // 2. Compute difference curve (dB)
+        let diff_db: Vec<f64> = ref_spectrum.iter()
+            .zip(tgt_spectrum.iter())
+            .map(|(r, t)| 20.0 * (r / t).log10())
+            .collect();
+
+        // 3. Smooth curve to avoid over-correction
+        let smoothed = self.smooth_curve(&diff_db);
+
+        // 4. Convert to parametric EQ bands
+        self.curve_to_parametric(&smoothed)
+    }
+}
+```
+
+#### 3.1.5 Intelligent Assistant
+
+```rust
+// crates/rf-ml/src/assistant/audio_assistant.rs
+
+pub struct AudioAssistant {
+    analyzer: MultiDomainAnalyzer,
+    problem_detector: ProblemDetector,
+    suggestion_engine: SuggestionEngine,
+}
+
+pub struct AudioProblems {
+    pub clipping: Option<ClippingInfo>,
+    pub dc_offset: Option<f64>,
+    pub phase_issues: Option<PhaseInfo>,
+    pub frequency_buildup: Vec<FrequencyProblem>,
+    pub dynamics_issues: Option<DynamicsInfo>,
+    pub noise_floor: Option<NoiseInfo>,
+    pub loudness_target: Option<LoudnessDeviation>,
+}
+
+pub struct Suggestion {
+    pub processor: ProcessorType,
+    pub settings: HashMap<String, f64>,
+    pub priority: Priority,
+    pub explanation: String,
+}
+
+impl AudioAssistant {
+    /// Analyze and suggest fixes
+    pub fn analyze(&mut self, audio: &AudioBuffer) -> Vec<Suggestion> {
+        let problems = self.problem_detector.detect(audio);
+        self.suggestion_engine.generate_suggestions(&problems)
+    }
+}
+```
 
 ---
 
-### 3.2 Dolby Atmos Native
+### 3.2 IMMERSIVE AUDIO ENGINE (crates/rf-spatial)
 
-**Šta treba:**
-- 7.1.2 / 7.1.4 bed tracks
-- Up to 118 audio objects
-- 3D object panner
-- Binaural rendering
-- ADM BWF export
+> **Cilj:** Podrška za SVE immersive formate — Atmos, HOA, MPEG-H, Sony 360RA
 
-**Složenost:** XL (3-4 meseca)
+**References:**
+- [Dolby Atmos ADM Profile](https://developer.dolby.com/technology/dolby-atmos/adm-atmos-profile/)
+- [MPEG-H 3D Audio](https://en.wikipedia.org/wiki/MPEG-H_3D_Audio)
+- [libspatialaudio](https://github.com/videolabs/libspatialaudio)
+- [Higher Order Ambisonics](https://www.blueripplesound.com/notes/hoa)
+
+#### 3.2.1 Object-Based Audio Core
+
+```rust
+// crates/rf-spatial/src/object.rs
+
+pub struct AudioObject {
+    pub id: ObjectId,
+    pub audio: AudioSource,
+
+    // 3D Position (normalized -1.0 to 1.0)
+    pub position: Position3D,
+    pub size: f32,              // 0.0 = point source, 1.0 = diffuse
+
+    // Automation
+    pub position_automation: Option<AutomationLane>,
+    pub gain_automation: Option<AutomationLane>,
+
+    // Metadata
+    pub name: String,
+    pub group: Option<ObjectGroup>,
+}
+
+pub struct Position3D {
+    pub x: f64,     // Left (-1) to Right (+1)
+    pub y: f64,     // Front (-1) to Back (+1)
+    pub z: f64,     // Bottom (-1) to Top (+1)
+}
+
+pub struct ObjectRenderer {
+    objects: Vec<AudioObject>,
+    bed: BedChannels,
+
+    // Rendering targets
+    speaker_layout: SpeakerLayout,
+    binaural_renderer: Option<BinauralRenderer>,
+}
+
+impl ObjectRenderer {
+    /// Render all objects to speaker layout
+    pub fn render(&mut self, output: &mut ChannelBuffer) {
+        // 1. Render bed channels (direct mapping)
+        self.render_bed(output);
+
+        // 2. Render each object with VBAP/VBIP panning
+        for obj in &self.objects {
+            self.render_object(obj, output);
+        }
+    }
+}
+```
+
+#### 3.2.2 Dolby Atmos (ADM BWF)
+
+```rust
+// crates/rf-spatial/src/atmos/mod.rs
+
+pub struct AtmosSession {
+    // Bed: up to 7.1.4 (12 channels)
+    pub bed: AtmosBed,
+
+    // Objects: up to 118
+    pub objects: Vec<AtmosObject>,
+
+    // Binaural renderer
+    pub binaural: AtmosBinauralRenderer,
+
+    // Metadata
+    pub metadata: AtmosMetadata,
+}
+
+pub struct AtmosBed {
+    pub layout: BedLayout,      // 2.0, 5.1, 7.1, 5.1.2, 7.1.2, 7.1.4
+    pub channels: Vec<BedChannel>,
+}
+
+#[derive(Clone, Copy)]
+pub enum BedLayout {
+    Stereo,         // L, R
+    Surround51,     // L, R, C, LFE, Ls, Rs
+    Surround71,     // + Lrs, Rrs
+    Surround512,    // 5.1 + Ltf, Rtf (top front)
+    Surround712,    // 7.1 + Ltf, Rtf
+    Surround714,    // 7.1 + Ltf, Rtf, Ltr, Rtr (top rear)
+}
+
+pub struct AtmosObject {
+    pub id: u8,                 // 1-118
+    pub audio: AudioTrack,
+
+    // Position (Atmos coordinates)
+    pub azimuth: f64,           // -180 to +180 degrees
+    pub elevation: f64,         // -90 to +90 degrees
+    pub distance: f64,          // 0.0 to 1.0
+
+    // Size/spread
+    pub size: AtmosSize,
+    pub snap: bool,             // Snap to nearest speaker
+
+    // Metadata
+    pub divergence: f64,
+    pub dialogue: bool,
+}
+
+impl AtmosSession {
+    /// Export ADM BWF file (Dolby Atmos Master)
+    pub fn export_adm_bwf(&self, path: &Path) -> Result<()> {
+        let mut writer = AdmBwfWriter::new(path)?;
+
+        // Write audio (interleaved, up to 128 channels)
+        writer.write_audio(&self.bed, &self.objects)?;
+
+        // Write ADM metadata (XML chunk)
+        writer.write_adm_metadata(&self.metadata)?;
+
+        // Write Dolby-specific chunks
+        writer.write_dolby_chunks(&self.metadata)?;
+
+        writer.finalize()
+    }
+}
+```
+
+**ADM BWF Writer:**
+
+```rust
+// crates/rf-spatial/src/atmos/adm_bwf.rs
+
+pub struct AdmBwfWriter {
+    file: BufWriter<File>,
+    sample_rate: u32,           // 48000
+    bit_depth: u16,             // 24
+    channel_count: u16,         // up to 128
+
+    audio_data: Vec<Vec<i32>>,
+    adm_xml: String,
+}
+
+impl AdmBwfWriter {
+    /// Generate ADM XML metadata per ITU-R BS.2076
+    fn generate_adm_xml(&self, session: &AtmosSession) -> String {
+        let mut xml = String::new();
+
+        // audioProgramme
+        xml.push_str(&format!(r#"
+            <audioProgramme audioProgrammeID="APR_1001">
+                <audioProgrammeName>{}</audioProgrammeName>
+                <audioContentIDRef>ACO_1001</audioContentIDRef>
+            </audioProgramme>
+        "#, session.metadata.title));
+
+        // audioContent for bed
+        xml.push_str(&self.generate_bed_content(&session.bed));
+
+        // audioObject for each object
+        for obj in &session.objects {
+            xml.push_str(&self.generate_object_xml(obj));
+        }
+
+        // audioPackFormat, audioChannelFormat, audioBlockFormat
+        xml.push_str(&self.generate_formats(session));
+
+        xml
+    }
+}
+```
+
+#### 3.2.3 Higher Order Ambisonics (HOA)
+
+```rust
+// crates/rf-spatial/src/ambisonics/mod.rs
+
+pub struct AmbisonicsEncoder {
+    order: u8,                  // 1-7 (1st to 7th order)
+    channel_count: usize,       // (order+1)² channels
+    normalization: Normalization,
+}
+
+#[derive(Clone, Copy)]
+pub enum Normalization {
+    SN3D,       // Schmidt semi-normalized (Ambisonics standard)
+    N3D,        // Full 3D normalized
+    FuMa,       // Furse-Malham (legacy, 1st order only)
+}
+
+impl AmbisonicsEncoder {
+    /// Encode mono source to Ambisonics
+    pub fn encode(&self, source: f64, azimuth: f64, elevation: f64, output: &mut [f64]) {
+        let (az_rad, el_rad) = (azimuth.to_radians(), elevation.to_radians());
+
+        // ACN channel ordering
+        let mut ch = 0;
+        for l in 0..=self.order as i32 {
+            for m in -l..=l {
+                output[ch] = source * self.spherical_harmonic(l, m, az_rad, el_rad);
+                ch += 1;
+            }
+        }
+    }
+
+    /// Spherical harmonic Y_l^m
+    fn spherical_harmonic(&self, l: i32, m: i32, az: f64, el: f64) -> f64 {
+        let legendre = self.associated_legendre(l, m.abs(), el.sin());
+        let normalization = self.normalization_factor(l, m);
+
+        let angular = if m > 0 {
+            (m as f64 * az).cos()
+        } else if m < 0 {
+            ((-m) as f64 * az).sin()
+        } else {
+            1.0
+        };
+
+        normalization * legendre * angular
+    }
+}
+
+pub struct AmbisonicsDecoder {
+    order: u8,
+    speaker_layout: SpeakerLayout,
+    decode_matrix: DenseMatrix,     // (speakers × channels)
+
+    // Optional processing
+    near_field_compensation: bool,
+    distance_coding: bool,
+}
+
+impl AmbisonicsDecoder {
+    /// Decode to speaker layout
+    pub fn decode(&self, ambi_input: &[f64], speaker_output: &mut [f64]) {
+        // Matrix multiply: output = decode_matrix × input
+        self.decode_matrix.mul_vec(ambi_input, speaker_output);
+
+        // Apply near-field compensation if enabled
+        if self.near_field_compensation {
+            self.apply_nfc(speaker_output);
+        }
+    }
+
+    /// Decode to binaural (headphones)
+    pub fn decode_binaural(&self, ambi_input: &[f64], hrtf: &HrtfDatabase, output: &mut [f64; 2]) {
+        // Virtual speaker approach: decode to virtual speakers, then binauralize
+        let mut virtual_speakers = vec![0.0; self.speaker_layout.count()];
+        self.decode(ambi_input, &mut virtual_speakers);
+
+        // Convolve each virtual speaker with HRTF
+        for (i, &sample) in virtual_speakers.iter().enumerate() {
+            let (left, right) = hrtf.get_filter(self.speaker_layout.position(i));
+            output[0] += sample * left;
+            output[1] += sample * right;
+        }
+    }
+}
+```
+
+**HOA Specs:**
+| Order | Channels | Spatial Resolution | Use Case |
+|-------|----------|-------------------|----------|
+| 1st | 4 (ACN) | ~90° | Basic VR |
+| 2nd | 9 | ~60° | Good VR |
+| 3rd | 16 | ~45° | High quality |
+| 5th | 36 | ~30° | Broadcast/Cinema |
+| 7th | 64 | ~22° | Ultimate |
+
+#### 3.2.4 Binaural Renderer (HRTF)
+
+```rust
+// crates/rf-spatial/src/binaural/mod.rs
+
+pub struct BinauralRenderer {
+    hrtf_database: HrtfDatabase,
+    interpolation: HrtfInterpolation,
+
+    // Convolution engines per source
+    convolvers: Vec<StereoConvolver>,
+
+    // Head tracking (optional)
+    head_tracker: Option<HeadTracker>,
+    head_rotation: Quaternion,
+}
+
+pub struct HrtfDatabase {
+    /// SOFA file format support (AES69)
+    sofa_data: SofaFile,
+
+    /// Pre-computed filters for common positions
+    filter_cache: HashMap<PositionKey, (Vec<f64>, Vec<f64>)>,
+
+    /// Sample rate
+    sample_rate: u32,
+}
+
+impl HrtfDatabase {
+    /// Load SOFA file (Spatially Oriented Format for Acoustics)
+    pub fn load_sofa(path: &Path) -> Result<Self> {
+        let sofa = SofaFile::parse(path)?;
+
+        // Validate: must be SimpleFreeFieldHRIR or MultiSpeakerBRIR
+        if !sofa.is_hrtf_compatible() {
+            return Err(Error::InvalidSofaType);
+        }
+
+        Ok(Self {
+            sofa_data: sofa,
+            filter_cache: HashMap::new(),
+            sample_rate: sofa.sample_rate(),
+        })
+    }
+
+    /// Get HRTF filters for position with interpolation
+    pub fn get_interpolated(&self, azimuth: f64, elevation: f64, distance: f64) -> HrtfPair {
+        // Find nearest 3-4 measured positions
+        let neighbors = self.find_neighbors(azimuth, elevation);
+
+        // Barycentric interpolation in spherical domain
+        self.interpolate_hrtf(&neighbors, azimuth, elevation, distance)
+    }
+}
+
+impl BinauralRenderer {
+    /// Render object to binaural stereo
+    pub fn render_object(&mut self, object: &AudioObject, output: &mut [f64; 2]) {
+        // Get HRTF for object position (with head tracking compensation)
+        let position = self.apply_head_tracking(object.position);
+        let hrtf = self.hrtf_database.get_interpolated(
+            position.azimuth(),
+            position.elevation(),
+            position.distance(),
+        );
+
+        // Convolve object audio with HRTF pair
+        let convolver = &mut self.convolvers[object.id as usize];
+        convolver.process(&object.audio, &hrtf, output);
+    }
+}
+```
+
+#### 3.2.5 MPEG-H 3D Audio
+
+```rust
+// crates/rf-spatial/src/mpegh/mod.rs
+
+pub struct MpegH3DAudio {
+    /// Channel-based content
+    channels: Vec<MpegHChannel>,
+
+    /// Object-based content
+    objects: Vec<MpegHObject>,
+
+    /// HOA content
+    hoa: Option<MpegHHoa>,
+
+    /// Interactivity presets
+    presets: Vec<MpegHPreset>,
+
+    /// Loudness metadata
+    loudness: MpegHLoudness,
+}
+
+pub struct MpegHObject {
+    pub id: u16,
+    pub position: Position3D,
+    pub gain: f64,
+    pub importance: u8,         // 0-7 (for bitrate-limited playback)
+    pub dialogue: bool,
+    pub interactivity: InteractivityFlags,
+}
+
+pub struct MpegHPreset {
+    pub id: u8,
+    pub name: String,
+    pub language: String,
+
+    /// Object gain adjustments for this preset
+    pub object_gains: HashMap<u16, f64>,
+
+    /// Object on/off for this preset
+    pub object_enables: HashMap<u16, bool>,
+}
+
+impl MpegH3DAudio {
+    /// Export MPEG-H 3D Audio (ISO 23008-3)
+    pub fn export(&self, path: &Path, profile: MpegHProfile) -> Result<()> {
+        match profile {
+            MpegHProfile::LC => self.export_lc(path),          // Low Complexity
+            MpegHProfile::Baseline => self.export_baseline(path),
+            MpegHProfile::Full => self.export_full(path),
+        }
+    }
+}
+```
+
+#### 3.2.6 Sony 360 Reality Audio
+
+```rust
+// crates/rf-spatial/src/sony360ra/mod.rs
+
+pub struct Sony360RA {
+    objects: Vec<Sony360Object>,
+
+    // Up to 64 discrete channels
+    max_objects: u8,
+
+    // MPEG-H based
+    mpegh_core: MpegH3DAudio,
+}
+
+pub struct Sony360Object {
+    pub id: u8,                 // 1-64
+    pub audio: AudioTrack,
+    pub position: SphericalPosition,
+    pub elevation: f64,         // -90 to +90
+    pub azimuth: f64,           // 0 to 360
+    pub distance: f64,          // 0.0 to 1.0
+}
+
+impl Sony360RA {
+    /// Export for 360 Reality Audio ecosystem
+    pub fn export(&self, path: &Path) -> Result<()> {
+        // Sony 360RA uses MPEG-H as container
+        self.mpegh_core.export(path, MpegHProfile::LC)
+    }
+}
+```
+
+#### 3.2.7 3D Object Panner (UI)
+
+```dart
+// flutter_ui/lib/widgets/spatial/object_panner_3d.dart
+
+class ObjectPanner3D extends StatefulWidget {
+  final List<AudioObject> objects;
+  final SpeakerLayout layout;
+  final Function(int objectId, Position3D position) onPositionChanged;
+
+  // Features:
+  // - Hemisphere view (top-down + side)
+  // - Drag objects in 3D space
+  // - Speaker visualization
+  // - Distance attenuation preview
+  // - Path automation recording
+  // - Snap to speakers
+  // - Object grouping
+  // - LFE routing
+}
+```
 
 ---
 
-## PRIORITIZED IMPLEMENTATION ORDER
+### 3.3 AUDIO RESTORATION SUITE (crates/rf-restoration)
 
-| Phase | Feature | Effort | Timeline | Unique Value |
-|-------|---------|--------|----------|--------------|
-| **1.1** | Sample-Accurate Auto | M | 2-3 weeks | Only DAW with true sample-accurate |
-| **1.2** | K-System + Phase Scope | M | 3-4 weeks | Complete mastering metering |
-| **1.3** | Hybrid Phase EQ | L | 4-5 weeks | FabFilter-level, native |
-| **2.1** | DSD/DXD Native | L | 6-8 weeks | Only Rust DAW with DSD |
-| **2.2** | GPU DSP | L | 6-8 weeks | Revolutionary |
-| **3.1** | AI Noise Reduction | L | 4-6 weeks | Modern expectation |
-| **3.2** | Dolby Atmos | XL | 3-4 months | Professional requirement |
+> **Cilj:** iZotope RX 11 nivo — ali native, GPU-accelerated, real-time
+
+**References:**
+- [iZotope RX 11](https://www.izotope.com/en/products/rx.html)
+- [Accentize dxRevive](https://www.accentize.com/dxrevive/)
+
+#### 3.3.1 Module Overview
+
+| Module | Description | Technology |
+|--------|-------------|------------|
+| **Spectral Denoise** | Broadband + tonal noise | Neural network + classical |
+| **De-Click/Pop** | Transient detection + repair | Interpolation + ML |
+| **De-Clip** | Clipping reconstruction | Neural waveform synthesis |
+| **De-Hum** | Power line hum removal | Adaptive notch + harmonics |
+| **De-Reverb** | Dereverberation | Blind source separation |
+| **Spectral Repair** | Gap filling, artifact removal | Inpainting network |
+| **Dialogue Isolate** | Voice extraction | Source separation |
+| **Breath Control** | Breath reduction | Detection + attenuation |
+| **Mouth De-Click** | Lip smacks, clicks | Micro-transient detection |
+
+#### 3.3.2 Spectral Denoise
+
+```rust
+// crates/rf-restoration/src/denoise/spectral.rs
+
+pub struct SpectralDenoise {
+    // Analysis
+    fft: RealFft,
+    fft_size: usize,            // 4096 (default) or 8192 (high quality)
+    hop_size: usize,            // fft_size / 4
+    window: Vec<f64>,           // Hann window
+
+    // Noise profile
+    noise_profile: Option<NoiseProfile>,
+
+    // Neural enhancement (optional)
+    neural_model: Option<OrtSession>,
+
+    // Parameters
+    reduction_db: f64,          // 0-40 dB
+    sensitivity: f64,           // 0-100%
+    artifact_smoothing: f64,    // Reduce musical noise
+}
+
+pub struct NoiseProfile {
+    magnitude_floor: Vec<f64>,      // Noise floor per bin
+    variance: Vec<f64>,             // Noise variance per bin
+    frames_analyzed: usize,
+}
+
+impl SpectralDenoise {
+    /// Learn noise profile from selection
+    pub fn learn_noise(&mut self, noise_sample: &[f64]) {
+        let frames = self.analyze_frames(noise_sample);
+
+        // Compute average magnitude and variance per bin
+        let mut profile = NoiseProfile::new(self.fft_size / 2 + 1);
+
+        for frame in &frames {
+            for (i, &mag) in frame.iter().enumerate() {
+                profile.magnitude_floor[i] += mag;
+                profile.variance[i] += mag * mag;
+            }
+        }
+
+        let n = frames.len() as f64;
+        for i in 0..profile.magnitude_floor.len() {
+            profile.magnitude_floor[i] /= n;
+            profile.variance[i] = (profile.variance[i] / n)
+                                - profile.magnitude_floor[i].powi(2);
+        }
+
+        self.noise_profile = Some(profile);
+    }
+
+    /// Process frame with spectral subtraction + Wiener filter
+    pub fn process_frame(&mut self, input: &[f64], output: &mut [f64]) {
+        let profile = self.noise_profile.as_ref().unwrap();
+
+        // STFT
+        let spectrum = self.fft.forward(input);
+
+        // Compute gain per bin (Wiener filter)
+        let gains: Vec<f64> = spectrum.iter()
+            .zip(profile.magnitude_floor.iter())
+            .map(|(sig, noise)| {
+                let sig_power = sig.norm_sqr();
+                let noise_power = noise.powi(2) * self.sensitivity;
+                let snr = (sig_power - noise_power).max(0.0) / sig_power;
+                snr.sqrt().powf(self.reduction_db / 20.0)
+            })
+            .collect();
+
+        // Apply gains with smoothing
+        let smoothed_gains = self.smooth_gains(&gains);
+        let processed: Vec<_> = spectrum.iter()
+            .zip(smoothed_gains.iter())
+            .map(|(s, &g)| s * g)
+            .collect();
+
+        // ISTFT
+        self.fft.inverse(&processed, output);
+    }
+}
+```
+
+#### 3.3.3 De-Click/Pop
+
+```rust
+// crates/rf-restoration/src/declick.rs
+
+pub struct DeClick {
+    detection_threshold: f64,
+    interpolation_mode: InterpolationMode,
+    max_click_length_ms: f64,
+
+    // Neural inpainting (for longer artifacts)
+    neural_inpainter: Option<OrtSession>,
+}
+
+pub enum InterpolationMode {
+    Linear,
+    Polynomial,             // Polynomial fit
+    AutoRegressive,         // AR prediction
+    Neural,                 // Neural inpainting
+}
+
+impl DeClick {
+    /// Detect clicks using derivative analysis
+    fn detect_clicks(&self, audio: &[f64]) -> Vec<ClickRegion> {
+        let mut clicks = Vec::new();
+        let derivative: Vec<f64> = audio.windows(2)
+            .map(|w| (w[1] - w[0]).abs())
+            .collect();
+
+        // Find spikes in derivative
+        let threshold = self.compute_adaptive_threshold(&derivative);
+
+        for (i, &d) in derivative.iter().enumerate() {
+            if d > threshold {
+                // Expand region
+                let (start, end) = self.expand_click_region(audio, i);
+                clicks.push(ClickRegion { start, end });
+            }
+        }
+
+        clicks
+    }
+
+    /// Repair click region
+    fn repair_click(&self, audio: &mut [f64], region: &ClickRegion) {
+        let length = region.end - region.start;
+
+        match self.interpolation_mode {
+            InterpolationMode::Polynomial => {
+                // Fit polynomial to surrounding samples
+                let poly = self.fit_polynomial(audio, region);
+                for i in region.start..region.end {
+                    audio[i] = poly.evaluate(i as f64);
+                }
+            }
+            InterpolationMode::Neural => {
+                // Use neural network for inpainting
+                let repaired = self.neural_inpainter.as_ref().unwrap()
+                    .inpaint(audio, region);
+                audio[region.start..region.end].copy_from_slice(&repaired);
+            }
+            // ...
+        }
+    }
+}
+```
+
+#### 3.3.4 De-Clip
+
+```rust
+// crates/rf-restoration/src/declip.rs
+
+pub struct DeClip {
+    clip_threshold: f64,        // Detection threshold (e.g., 0.99)
+    neural_model: OrtSession,   // Waveform reconstruction network
+
+    // Classical methods
+    interpolation_order: usize,
+    constraint_optimization: bool,
+}
+
+impl DeClip {
+    /// Detect clipped regions
+    fn detect_clipping(&self, audio: &[f64]) -> Vec<ClipRegion> {
+        let mut regions = Vec::new();
+        let mut in_clip = false;
+        let mut start = 0;
+
+        for (i, &sample) in audio.iter().enumerate() {
+            let is_clipped = sample.abs() > self.clip_threshold;
+
+            if is_clipped && !in_clip {
+                start = i;
+                in_clip = true;
+            } else if !is_clipped && in_clip {
+                regions.push(ClipRegion {
+                    start,
+                    end: i,
+                    polarity: if audio[start] > 0.0 { Polarity::Positive } else { Polarity::Negative },
+                });
+                in_clip = false;
+            }
+        }
+
+        regions
+    }
+
+    /// Neural reconstruction of clipped waveform
+    fn reconstruct_neural(&self, audio: &[f64], region: &ClipRegion) -> Vec<f64> {
+        // Extract context around clip
+        let context_size = 512;
+        let context_start = region.start.saturating_sub(context_size);
+        let context_end = (region.end + context_size).min(audio.len());
+
+        let context = &audio[context_start..context_end];
+
+        // Create mask (1.0 = valid, 0.0 = clipped)
+        let mask: Vec<f32> = context.iter()
+            .map(|&s| if s.abs() > self.clip_threshold { 0.0 } else { 1.0 })
+            .collect();
+
+        // Run neural network
+        let input = ndarray::Array2::from_shape_vec((1, context.len()),
+            context.iter().map(|&x| x as f32).collect()).unwrap();
+        let mask_arr = ndarray::Array2::from_shape_vec((1, mask.len()), mask).unwrap();
+
+        let output = self.neural_model.run(ort::inputs![input, mask_arr]).unwrap();
+
+        // Extract reconstructed region
+        let full_output: Vec<f64> = output[0].to_array_view::<f32>().unwrap()
+            .iter().map(|&x| x as f64).collect();
+
+        let local_start = region.start - context_start;
+        let local_end = region.end - context_start;
+        full_output[local_start..local_end].to_vec()
+    }
+}
+```
+
+#### 3.3.5 De-Reverb
+
+```rust
+// crates/rf-restoration/src/dereverb.rs
+
+pub struct DeReverb {
+    neural_separator: OrtSession,   // Dry/wet separation network
+    rt60_estimator: RT60Estimator,  // Reverb time estimation
+
+    // Parameters
+    reduction_amount: f64,          // 0-100%
+    preserve_ambience: f64,         // Keep some natural reverb
+}
+
+impl DeReverb {
+    /// Estimate RT60 from audio
+    pub fn estimate_rt60(&self, audio: &[f64], sample_rate: u32) -> RT60Info {
+        // Schroeder backward integration method
+        let energy = audio.iter().map(|&x| x * x).collect::<Vec<_>>();
+        let integrated = self.backward_integrate(&energy);
+
+        // Find -60dB decay point
+        let start_db = 10.0 * integrated[0].log10();
+        let target_db = start_db - 60.0;
+
+        for (i, &e) in integrated.iter().enumerate() {
+            let db = 10.0 * e.log10();
+            if db < target_db {
+                return RT60Info {
+                    rt60_seconds: i as f64 / sample_rate as f64,
+                    confidence: self.compute_confidence(&integrated),
+                };
+            }
+        }
+
+        RT60Info { rt60_seconds: 0.0, confidence: 0.0 }
+    }
+
+    /// Separate dry from wet signal
+    pub fn process(&self, input: &[f64]) -> (Vec<f64>, Vec<f64>) {
+        // Neural separation
+        let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
+        let arr = ndarray::Array2::from_shape_vec((1, input.len()), input_f32).unwrap();
+
+        let output = self.neural_separator.run(ort::inputs![arr]).unwrap();
+
+        let dry: Vec<f64> = output[0].to_array_view::<f32>().unwrap()
+            .iter().map(|&x| x as f64).collect();
+        let wet: Vec<f64> = output[1].to_array_view::<f32>().unwrap()
+            .iter().map(|&x| x as f64).collect();
+
+        // Mix based on reduction amount
+        let processed: Vec<f64> = dry.iter()
+            .zip(wet.iter())
+            .map(|(&d, &w)| d + w * (1.0 - self.reduction_amount))
+            .collect();
+
+        (processed, wet)
+    }
+}
+```
+
+#### 3.3.6 Spectral Repair (Inpainting)
+
+```rust
+// crates/rf-restoration/src/spectral_repair.rs
+
+pub struct SpectralRepair {
+    fft: RealFft,
+    fft_size: usize,
+
+    // Neural inpainting
+    inpainter: OrtSession,
+
+    // Classical methods
+    pattern_search: PatternSearcher,
+}
+
+impl SpectralRepair {
+    /// Repair frequency range
+    pub fn repair_frequency_band(
+        &self,
+        audio: &mut [f64],
+        freq_low: f64,
+        freq_high: f64,
+        sample_rate: u32,
+    ) {
+        let frames = self.stft(audio);
+
+        let bin_low = (freq_low * self.fft_size as f64 / sample_rate as f64) as usize;
+        let bin_high = (freq_high * self.fft_size as f64 / sample_rate as f64) as usize;
+
+        // Create mask for affected bins
+        let mask: Vec<Vec<f32>> = frames.iter()
+            .map(|frame| {
+                frame.iter().enumerate()
+                    .map(|(i, _)| {
+                        if i >= bin_low && i <= bin_high { 0.0 } else { 1.0 }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        // Neural inpainting in spectrogram domain
+        let repaired = self.inpaint_spectrogram(&frames, &mask);
+
+        // ISTFT
+        let output = self.istft(&repaired);
+        audio.copy_from_slice(&output);
+    }
+
+    /// Repair time region (gap filling)
+    pub fn repair_time_region(
+        &self,
+        audio: &mut [f64],
+        start_sample: usize,
+        end_sample: usize,
+    ) {
+        // Similar approach but mask is in time domain
+        let mask: Vec<f32> = (0..audio.len())
+            .map(|i| if i >= start_sample && i <= end_sample { 0.0 } else { 1.0 })
+            .collect();
+
+        let repaired = self.inpaint_waveform(audio, &mask);
+        audio.copy_from_slice(&repaired);
+    }
+}
+```
+
+---
+
+### 3.4 INTELLIGENT MASTERING ENGINE (crates/rf-mastering)
+
+> **Cilj:** LANDR + Ozone AI — ali fully local, full control
+
+**References:**
+- [iZotope Ozone 12](https://www.izotope.com/en/products/ozone.html)
+- [LANDR Mastering](https://www.landr.com/)
+
+#### 3.4.1 Mastering Chain
+
+```rust
+// crates/rf-mastering/src/chain.rs
+
+pub struct MasteringChain {
+    // Analysis
+    analyzer: MasteringAnalyzer,
+
+    // Processors (ordered)
+    processors: Vec<Box<dyn MasteringProcessor>>,
+
+    // AI assistant
+    assistant: MasteringAssistant,
+
+    // Reference matching
+    reference: Option<ReferenceTrack>,
+}
+
+pub struct MasteringAnalyzer {
+    loudness: LufsMeter,
+    true_peak: TruePeakMeter,
+    spectrum: SpectrumAnalyzer,
+    dynamics: DynamicsAnalyzer,
+    stereo: StereoAnalyzer,
+}
+
+impl MasteringChain {
+    /// Auto-configure chain based on analysis
+    pub fn auto_configure(&mut self, audio: &AudioBuffer) -> ChainConfig {
+        let analysis = self.analyzer.analyze(audio);
+
+        let mut config = ChainConfig::new();
+
+        // 1. EQ decisions
+        if let Some(eq_curve) = self.suggest_eq(&analysis) {
+            config.add(ProcessorConfig::EQ(eq_curve));
+        }
+
+        // 2. Dynamics decisions
+        let dynamics = self.suggest_dynamics(&analysis);
+        config.add(ProcessorConfig::Multiband(dynamics));
+
+        // 3. Stereo enhancement
+        if analysis.stereo.width < 0.5 {
+            config.add(ProcessorConfig::StereoEnhance {
+                width: analysis.stereo.width * 1.3
+            });
+        }
+
+        // 4. Limiting to target
+        let target_lufs = self.determine_target_loudness(&analysis);
+        config.add(ProcessorConfig::Limiter {
+            target_lufs,
+            true_peak_limit: -1.0,
+        });
+
+        config
+    }
+}
+```
+
+#### 3.4.2 Reference Matching
+
+```rust
+// crates/rf-mastering/src/reference.rs
+
+pub struct ReferenceTrack {
+    loudness: LoudnessProfile,
+    spectrum: SpectrumProfile,
+    dynamics: DynamicsProfile,
+    stereo: StereoProfile,
+}
+
+pub struct ReferenceMatcher {
+    eq: MatchingEQ,
+    dynamics: MatchingDynamics,
+    loudness: MatchingLoudness,
+
+    // Blend amount
+    match_amount: f64,
+}
+
+impl ReferenceMatcher {
+    /// Compute matching settings
+    pub fn compute_match(
+        &self,
+        reference: &ReferenceTrack,
+        target: &AudioAnalysis,
+    ) -> MatchingSettings {
+        // EQ curve to match reference spectrum
+        let eq_curve = self.eq.compute_curve(
+            &reference.spectrum,
+            &target.spectrum,
+        );
+
+        // Multiband dynamics to match crest factor
+        let dynamics = self.dynamics.compute_settings(
+            &reference.dynamics,
+            &target.dynamics,
+        );
+
+        // Final loudness
+        let loudness = reference.loudness.integrated_lufs - target.loudness.integrated_lufs;
+
+        MatchingSettings {
+            eq_curve,
+            dynamics,
+            makeup_gain: loudness,
+        }
+    }
+}
+```
+
+#### 3.4.3 Genre-Aware Presets
+
+```rust
+// crates/rf-mastering/src/genre.rs
+
+pub struct GenreClassifier {
+    model: OrtSession,
+    genres: Vec<Genre>,
+}
+
+#[derive(Clone, Copy)]
+pub enum Genre {
+    Electronic,
+    Rock,
+    Pop,
+    HipHop,
+    Classical,
+    Jazz,
+    Acoustic,
+    Metal,
+    RnB,
+    Country,
+}
+
+impl GenreClassifier {
+    /// Classify audio genre
+    pub fn classify(&self, audio: &AudioBuffer) -> GenreResult {
+        let features = self.extract_features(audio);
+        let output = self.model.run(&features);
+
+        // Softmax to probabilities
+        let probs = softmax(&output);
+
+        GenreResult {
+            primary: self.genres[probs.argmax()],
+            confidence: probs.max(),
+            all: self.genres.iter()
+                .zip(probs.iter())
+                .map(|(&g, &p)| (g, p))
+                .collect(),
+        }
+    }
+
+    /// Get recommended settings for genre
+    pub fn get_genre_preset(&self, genre: Genre) -> MasteringPreset {
+        match genre {
+            Genre::Electronic => MasteringPreset {
+                target_lufs: -8.0,
+                low_end_emphasis: 1.2,
+                high_freq_presence: 1.1,
+                stereo_width: 1.2,
+                limiting_style: LimitingStyle::Aggressive,
+            },
+            Genre::Classical => MasteringPreset {
+                target_lufs: -18.0,
+                low_end_emphasis: 1.0,
+                high_freq_presence: 1.0,
+                stereo_width: 1.0,
+                limiting_style: LimitingStyle::Transparent,
+            },
+            // ...
+        }
+    }
+}
+```
+
+---
+
+### 3.5 POLYPHONIC PITCH ENGINE (crates/rf-pitch)
+
+> **Cilj:** Melodyne DNA level — native, real-time preview
+
+**References:**
+- [Celemony Melodyne DNA](https://www.celemony.com/en/melodyne/what-is-melodyne)
+
+#### 3.5.1 Polyphonic Detection
+
+```rust
+// crates/rf-pitch/src/detection/polyphonic.rs
+
+pub struct PolyphonicDetector {
+    // Multi-pitch estimation
+    pitch_model: OrtSession,        // Neural multi-pitch
+
+    // Note segmentation
+    onset_detector: OnsetDetector,
+    offset_detector: OffsetDetector,
+
+    // Partial tracking
+    partial_tracker: PartialTracker,
+}
+
+pub struct DetectedNote {
+    pub pitch_hz: f64,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub velocity: f64,
+    pub pitch_curve: Vec<PitchPoint>,   // Pitch over time (vibrato, slides)
+    pub partials: Vec<Partial>,          // Harmonic content
+}
+
+impl PolyphonicDetector {
+    /// Detect all notes in polyphonic audio
+    pub fn detect(&self, audio: &AudioBuffer) -> Vec<DetectedNote> {
+        // 1. Compute multi-pitch activation
+        let pitch_activation = self.compute_pitch_activation(audio);
+
+        // 2. Onset detection
+        let onsets = self.onset_detector.detect(audio);
+
+        // 3. Track pitch trajectories
+        let trajectories = self.track_pitches(&pitch_activation, &onsets);
+
+        // 4. Extract partials for each note
+        let notes: Vec<DetectedNote> = trajectories.iter()
+            .map(|traj| {
+                let partials = self.partial_tracker.extract(audio, traj);
+                DetectedNote {
+                    pitch_hz: traj.median_pitch(),
+                    start_time: traj.start,
+                    end_time: traj.end,
+                    velocity: traj.amplitude,
+                    pitch_curve: traj.pitch_points.clone(),
+                    partials,
+                }
+            })
+            .collect();
+
+        notes
+    }
+
+    /// Compute pitch activation matrix
+    fn compute_pitch_activation(&self, audio: &AudioBuffer) -> PitchActivation {
+        // CQT or HCQT (Harmonic CQT) for pitch representation
+        let cqt = self.compute_cqt(audio);
+
+        // Neural network for multi-pitch estimation
+        let activation = self.pitch_model.run(&cqt);
+
+        PitchActivation {
+            matrix: activation,
+            bins_per_octave: 36,    // 3 bins per semitone
+            min_freq: 27.5,         // A0
+            max_freq: 4186.0,       // C8
+        }
+    }
+}
+```
+
+#### 3.5.2 Pitch Shifting (Formant Preserving)
+
+```rust
+// crates/rf-pitch/src/shift/mod.rs
+
+pub struct PitchShifter {
+    // Pitch shifting methods
+    method: PitchShiftMethod,
+
+    // Formant preservation
+    formant_preservation: bool,
+    formant_envelope: Option<FormantEnvelope>,
+
+    // Phase vocoder
+    vocoder: PhaseVocoder,
+
+    // Time-domain (for transients)
+    tdhs: TDHarmonicShift,
+}
+
+pub enum PitchShiftMethod {
+    PhaseVocoder,           // Best for sustains
+    TDHS,                   // Time-domain harmonic scaling
+    Hybrid,                 // Combine both
+    Neural,                 // Neural resynthesis
+}
+
+impl PitchShifter {
+    /// Shift pitch while preserving formants
+    pub fn shift_note(
+        &mut self,
+        audio: &[f64],
+        note: &DetectedNote,
+        target_pitch: f64,
+    ) -> Vec<f64> {
+        let ratio = target_pitch / note.pitch_hz;
+
+        if self.formant_preservation {
+            // Extract formant envelope
+            let formants = self.extract_formants(audio, note);
+
+            // Shift pitch
+            let shifted = self.shift_pitch_internal(audio, ratio);
+
+            // Re-apply original formants
+            self.apply_formants(&shifted, &formants)
+        } else {
+            self.shift_pitch_internal(audio, ratio)
+        }
+    }
+
+    /// Extract formant envelope using LPC
+    fn extract_formants(&self, audio: &[f64], note: &DetectedNote) -> FormantEnvelope {
+        let order = 24;  // LPC order
+        let lpc_coeffs = self.compute_lpc(audio, order);
+
+        // Convert LPC to formant frequencies
+        let roots = self.find_lpc_roots(&lpc_coeffs);
+        let formants: Vec<FormantFreq> = roots.iter()
+            .filter(|r| r.im() > 0.0)  // Positive frequencies only
+            .map(|r| {
+                let freq = r.arg().abs() * note.sample_rate / (2.0 * std::f64::consts::PI);
+                let bandwidth = -0.5 * note.sample_rate * r.norm().ln() / std::f64::consts::PI;
+                FormantFreq { frequency: freq, bandwidth }
+            })
+            .collect();
+
+        FormantEnvelope { formants }
+    }
+}
+```
+
+#### 3.5.3 Note Editor
+
+```rust
+// crates/rf-pitch/src/editor.rs
+
+pub struct NoteEditor {
+    notes: Vec<EditableNote>,
+    audio_buffer: AudioBuffer,
+
+    // Undo/redo
+    history: EditHistory,
+}
+
+pub struct EditableNote {
+    pub original: DetectedNote,
+    pub modified_pitch: Option<f64>,
+    pub modified_timing: Option<(f64, f64)>,
+    pub modified_formant: Option<f64>,  // Formant shift ratio
+    pub muted: bool,
+}
+
+impl NoteEditor {
+    /// Edit single note
+    pub fn edit_note(
+        &mut self,
+        note_id: usize,
+        edit: NoteEdit,
+    ) -> Result<()> {
+        let note = &mut self.notes[note_id];
+
+        match edit {
+            NoteEdit::Pitch(semitones) => {
+                let ratio = 2.0_f64.powf(semitones / 12.0);
+                note.modified_pitch = Some(note.original.pitch_hz * ratio);
+            }
+            NoteEdit::Timing { start, duration } => {
+                note.modified_timing = Some((start, start + duration));
+            }
+            NoteEdit::FormantShift(ratio) => {
+                note.modified_formant = Some(ratio);
+            }
+            NoteEdit::Mute(muted) => {
+                note.muted = muted;
+            }
+        }
+
+        self.history.push(HistoryEntry::NoteEdit { note_id, edit });
+        Ok(())
+    }
+
+    /// Render edited audio
+    pub fn render(&self) -> AudioBuffer {
+        let mut output = AudioBuffer::silence(self.audio_buffer.len());
+
+        for note in &self.notes {
+            if note.muted {
+                continue;
+            }
+
+            let note_audio = self.extract_note_audio(&note.original);
+            let processed = self.process_note(&note_audio, note);
+
+            // Overlap-add at correct position
+            let start = self.time_to_samples(
+                note.modified_timing.map(|(s, _)| s).unwrap_or(note.original.start_time)
+            );
+            output.add_at(start, &processed);
+        }
+
+        output
+    }
+}
+```
+
+---
+
+### 3.6 IMPLEMENTATION SUMMARY
+
+| Module | Crate | Lines (est.) | Dependencies |
+|--------|-------|--------------|--------------|
+| AI Processing Suite | rf-ml | ~6,000 | ort, tract |
+| Immersive Audio | rf-spatial | ~8,000 | - |
+| Audio Restoration | rf-restoration | ~6,000 | ort |
+| Intelligent Mastering | rf-mastering | ~4,000 | rf-dsp, rf-ml |
+| Polyphonic Pitch | rf-pitch | ~5,000 | ort |
+| UI Panels | flutter_ui | ~8,000 | - |
+| **TOTAL** | - | **~37,000** | - |
+
+---
+
+### 3.7 SUCCESS CRITERIA
+
+| Feature | Metric | Target |
+|---------|--------|--------|
+| Stem Separation | SDR | > 9.0 dB |
+| Denoising | SDR improvement | > 20 dB |
+| De-reverb | RT60 reduction | > 50% |
+| Pitch detection | F1 score | > 95% |
+| Mastering assistant | Blind test | Preferred > LANDR |
+| Atmos export | Dolby certification | Pass |
+| HOA rendering | Order support | Up to 7th |
+| Binaural | HRTF personalization | SOFA support |
+| De-click | Detection rate | > 98% |
+| De-clip | Waveform reconstruction | SNR > 15dB |
+
+---
+
+### 3.8 COMPETITIVE POSITIONING (Post Phase 3)
+
+| Category | Current Leader | ReelForge Status |
+|----------|----------------|------------------|
+| **AI Denoising** | iZotope RX 11 | **EQUAL** (DeepFilterNet) |
+| **Stem Separation** | RX 11 / LALAL.AI | **EQUAL** (HTDemucs) |
+| **Audio Restoration** | iZotope RX 11 | **EQUAL** (Native suite) |
+| **Pitch Editing** | Melodyne 5 | **EQUAL** (DNA-level) |
+| **AI Mastering** | LANDR / Ozone | **SUPERIOR** (Fully integrated) |
+| **Dolby Atmos** | Pro Tools / Nuendo | **EQUAL** (ADM BWF) |
+| **HOA Support** | Reaper / Nuendo | **SUPERIOR** (7th order) |
+| **Binaural** | DearVR / Spatial Audio | **SUPERIOR** (SOFA + head tracking) |
+| **MPEG-H 3D Audio** | Limited support | **SUPERIOR** (Full export) |
+| **Sony 360RA** | Limited support | **SUPERIOR** (Native) |
+| **All-in-One** | None | **UNIQUE** ✅ |
+
+**Ultimativna prednost:** ReelForge je JEDINI DAW koji ima SVE ove feature-e native, integrisane, GPU-accelerated, u jednom paketu.
+
+---
+
+## PHASE 3 IMPLEMENTATION STATUS
+
+| # | Component | Status | Files |
+|---|-----------|--------|-------|
+| 1 | Neural Denoiser | ⏳ PENDING | `rf-ml/src/denoise/` |
+| 2 | HTDemucs Separation | ⏳ PENDING | `rf-ml/src/separation/` |
+| 3 | Speech Enhancement | ⏳ PENDING | `rf-ml/src/enhance/` |
+| 4 | EQ Matching | ⏳ PENDING | `rf-ml/src/match/` |
+| 5 | Audio Assistant | ⏳ PENDING | `rf-ml/src/assistant/` |
+| 6 | Object-Based Audio | ⏳ PENDING | `rf-spatial/src/object.rs` |
+| 7 | Dolby Atmos ADM BWF | ⏳ PENDING | `rf-spatial/src/atmos/` |
+| 8 | HOA Encoder/Decoder | ⏳ PENDING | `rf-spatial/src/ambisonics/` |
+| 9 | Binaural HRTF | ⏳ PENDING | `rf-spatial/src/binaural/` |
+| 10 | MPEG-H Export | ⏳ PENDING | `rf-spatial/src/mpegh/` |
+| 11 | Sony 360RA | ⏳ PENDING | `rf-spatial/src/sony360ra/` |
+| 12 | Spectral Denoise | ⏳ PENDING | `rf-restoration/src/denoise/` |
+| 13 | De-Click/Pop | ⏳ PENDING | `rf-restoration/src/declick.rs` |
+| 14 | De-Clip | ⏳ PENDING | `rf-restoration/src/declip.rs` |
+| 15 | De-Reverb | ⏳ PENDING | `rf-restoration/src/dereverb.rs` |
+| 16 | Spectral Repair | ⏳ PENDING | `rf-restoration/src/spectral_repair.rs` |
+| 17 | Mastering Chain | ⏳ PENDING | `rf-mastering/src/chain.rs` |
+| 18 | Reference Matching | ⏳ PENDING | `rf-mastering/src/reference.rs` |
+| 19 | Genre Classification | ⏳ PENDING | `rf-mastering/src/genre.rs` |
+| 20 | Polyphonic Detection | ⏳ PENDING | `rf-pitch/src/detection/` |
+| 21 | Formant-Preserving Shift | ⏳ PENDING | `rf-pitch/src/shift/` |
+| 22 | Note Editor | ⏳ PENDING | `rf-pitch/src/editor.rs` |
+| 23 | 3D Object Panner UI | ⏳ PENDING | `flutter_ui/lib/widgets/spatial/` |
+| 24 | Restoration Panels UI | ⏳ PENDING | `flutter_ui/lib/widgets/restoration/` |
+| 25 | Mastering Panels UI | ⏳ PENDING | `flutter_ui/lib/widgets/mastering/` |
+| 26 | Pitch Editor UI | ⏳ PENDING | `flutter_ui/lib/widgets/pitch/` |
+
+**Phase 3: 0/26 items** ⏳
 
 ---
 
@@ -1111,23 +2638,32 @@ impl NeuralDenoiser {
 - [x] PPM per EBU/BBC standards
 - [x] Broadcast Meter (EBU R128, ATSC A/85)
 
-### Po završetku Phase 2:
-- [ ] DSD64/128/256 playback
-- [ ] DXD editing workflow
-- [ ] GPU spectrum analyzer 60fps
-- [ ] GPU convolution working
+### Phase 2 ✅ KOMPLETNO (2025-01-08):
+- [x] DSD64/128/256/512 playback
+- [x] DoP encode/decode
+- [x] GPU FFT/EQ/Dynamics/Convolution
+- [x] True Stereo convolution
+- [x] Zero-latency convolution
+- [x] IR Morphing
+- [x] MQA decode
+- [x] TrueHD passthrough
 
 ### Po završetku Phase 3:
 - [ ] AI noise reduction < 10ms latency
-- [ ] Stem separation working
-- [ ] Dolby Atmos export validated
+- [ ] Stem separation SDR > 9.0 dB
+- [ ] Dolby Atmos ADM BWF export validated
+- [ ] HOA 7th order working
+- [ ] Binaural with SOFA HRTF
+- [ ] De-click/De-clip/De-reverb functional
+- [ ] Polyphonic pitch editing working
+- [ ] Reference mastering matching
 - [ ] Full ADM BWF compliance
 
 ---
 
-## COMPETITIVE POSITIONING
+## FINAL COMPETITIVE POSITIONING
 
-Po završetku svih faza:
+Po završetku SVIH faza:
 
 | Category | Winner |
 |----------|--------|
@@ -1135,10 +2671,17 @@ Po završetku svih faza:
 | **Native DSP Quality** | **ReelForge** ✅ |
 | **Spectral Processing** | **ReelForge** ✅ |
 | **Modern Architecture** | **ReelForge** ✅ |
-| **DSD Support** | Pyramix = ReelForge |
-| **GPU Acceleration** | **ReelForge** ✅ |
-| **AI Processing** | Logic ≈ ReelForge |
-| **Dolby Atmos** | Logic/PT ≈ ReelForge |
+| **DSD/DXD Support** | **ReelForge** > Pyramix |
+| **GPU Acceleration** | **ReelForge** ✅ UNIQUE |
+| **AI Processing** | **ReelForge** ✅ ALL-IN-ONE |
+| **Dolby Atmos** | **ReelForge** = Pro Tools |
+| **HOA/Ambisonics** | **ReelForge** ✅ 7th ORDER |
+| **Audio Restoration** | **ReelForge** = iZotope RX |
+| **Pitch Editing** | **ReelForge** = Melodyne |
+| **AI Mastering** | **ReelForge** ✅ INTEGRATED |
+| **All-in-One Pro Audio** | **ReelForge** ✅ UNIQUE |
+
+**Zaključak:** ReelForge postaje JEDINI pro audio alat koji kombinuje DAW + RX + Melodyne + Ozone + Atmos u jednom native Rust paketu. Nema konkurencije.
 
 ---
 

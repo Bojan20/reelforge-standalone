@@ -12,6 +12,11 @@ members = [
     "crates/rf-viz",
     "crates/rf-video",
     "crates/rf-script",
+    "crates/rf-ml",
+    "crates/rf-spatial",
+    "crates/rf-restore",
+    "crates/rf-master",
+    "crates/rf-pitch",
 ]
 
 [workspace.package]
@@ -34,6 +39,8 @@ rf-plugin = { path = "crates/rf-plugin" }
 rf-viz = { path = "crates/rf-viz" }
 rf-video = { path = "crates/rf-video" }
 rf-script = { path = "crates/rf-script" }
+rf-ml = { path = "crates/rf-ml" }
+rf-spatial = { path = "crates/rf-spatial" }
 
 # Plugin hosting
 vst3 = "0.3"
