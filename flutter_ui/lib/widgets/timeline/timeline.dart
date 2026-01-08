@@ -20,10 +20,12 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
+import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
 import 'track_header.dart';
 import 'track_header_pro.dart';
 import 'track_lane.dart';
+import 'automation_lane.dart';
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -88,6 +90,8 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onTrackMonitorToggle;
   final ValueChanged<String>? onTrackFreezeToggle;
   final ValueChanged<String>? onTrackLockToggle;
+  /// Toggle folder expanded state
+  final ValueChanged<String>? onTrackFolderToggle;
   final void Function(String trackId, double volume)? onTrackVolumeChange;
   final void Function(String trackId, double pan)? onTrackPanChange;
   final ValueChanged<String>? onClipSplit;
@@ -130,6 +134,16 @@ class Timeline extends StatefulWidget {
   /// Context menu callback for tracks (pass track ID and position)
   final void Function(String trackId, Offset position)? onTrackContextMenu;
 
+  // Automation callbacks
+  /// Toggle automation lanes visibility for a track
+  final ValueChanged<String>? onTrackAutomationToggle;
+  /// Update automation lane data
+  final void Function(String trackId, AutomationLaneData laneData)? onAutomationLaneChanged;
+  /// Add automation lane to track
+  final void Function(String trackId, AutomationParameter parameter)? onAddAutomationLane;
+  /// Remove automation lane from track
+  final void Function(String trackId, String laneId)? onRemoveAutomationLane;
+
   const Timeline({
     super.key,
     required this.tracks,
@@ -171,6 +185,7 @@ class Timeline extends StatefulWidget {
     this.onTrackMonitorToggle,
     this.onTrackFreezeToggle,
     this.onTrackLockToggle,
+    this.onTrackFolderToggle,
     this.onTrackVolumeChange,
     this.onTrackPanChange,
     this.onClipSplit,
@@ -193,6 +208,10 @@ class Timeline extends StatefulWidget {
     this.onTrackDuplicate,
     this.onTrackDelete,
     this.onTrackContextMenu,
+    this.onTrackAutomationToggle,
+    this.onAutomationLaneChanged,
+    this.onAddAutomationLane,
+    this.onRemoveAutomationLane,
   });
 
   @override
@@ -667,6 +686,167 @@ class _TimelineState extends State<Timeline> {
     });
   }
 
+  /// Build track row with optional automation lanes
+  Widget _buildTrackWithAutomation({
+    required TimelineTrack track,
+    required List<TimelineClip> trackClips,
+    required List<Crossfade> trackCrossfades,
+    required bool isEmpty,
+    required List<AutomationLaneData> visibleAutomationLanes,
+    required int trackIndex,
+  }) {
+    // Calculate total height including automation lanes
+    final automationHeight = visibleAutomationLanes.fold<double>(
+      0.0, (sum, lane) => sum + lane.height);
+    final totalHeight = _trackHeight + automationHeight;
+
+    return SizedBox(
+      height: totalHeight,
+      child: Column(
+        children: [
+          // Main track row
+          SizedBox(
+            height: _trackHeight,
+            child: Row(
+              children: [
+                // Track header - PRO VERSION
+                TrackHeaderPro(
+                  track: track,
+                  size: TrackHeaderSize.compact,
+                  width: _headerWidth,
+                  signalLevel: EngineApi.instance.getTrackPeak(int.tryParse(track.id) ?? 0),
+                  isEmpty: isEmpty,
+                  onMuteToggle: () =>
+                      widget.onTrackMuteToggle?.call(track.id),
+                  onSoloToggle: () =>
+                      widget.onTrackSoloToggle?.call(track.id),
+                  onArmToggle: () =>
+                      widget.onTrackArmToggle?.call(track.id),
+                  onMonitorToggle: () =>
+                      widget.onTrackMonitorToggle?.call(track.id),
+                  onFreezeToggle: () =>
+                      widget.onTrackFreezeToggle?.call(track.id),
+                  onLockToggle: () =>
+                      widget.onTrackLockToggle?.call(track.id),
+                  onFolderToggle: () =>
+                      widget.onTrackFolderToggle?.call(track.id),
+                  onVolumeChange: (v) =>
+                      widget.onTrackVolumeChange?.call(track.id, v),
+                  onPanChange: (p) =>
+                      widget.onTrackPanChange?.call(track.id, p),
+                  onClick: () =>
+                      widget.onTrackSelect?.call(track.id),
+                  onColorChange: (c) =>
+                      widget.onTrackColorChange?.call(track.id, c),
+                  onBusChange: (b) =>
+                      widget.onTrackBusChange?.call(track.id, b),
+                  onRename: (n) =>
+                      widget.onTrackRename?.call(track.id, n),
+                  onDuplicate: () =>
+                      widget.onTrackDuplicate?.call(track.id),
+                  onDelete: () =>
+                      widget.onTrackDelete?.call(track.id),
+                  onContextMenu: (pos) =>
+                      widget.onTrackContextMenu?.call(track.id, pos),
+                  onAutomationToggle: () =>
+                      widget.onTrackAutomationToggle?.call(track.id),
+                ),
+                // Track lane
+                Expanded(
+                  child: TrackLane(
+                    track: track,
+                    trackHeight: _trackHeight,
+                    clips: trackClips,
+                    crossfades: trackCrossfades,
+                    zoom: widget.zoom,
+                    scrollOffset: widget.scrollOffset,
+                    tempo: widget.tempo,
+                    timeSignatureNum: widget.timeSignatureNum,
+                    onClipSelect: (id) =>
+                        widget.onClipSelect?.call(id, false),
+                    onClipMove: widget.onClipMove,
+                    onClipCrossTrackDrag: (clipId, newStartTime, verticalDelta) =>
+                        _handleCrossTrackDrag(clipId, newStartTime, verticalDelta, trackIndex),
+                    onClipCrossTrackDragEnd: (clipId) =>
+                        _handleCrossTrackDragEnd(clipId),
+                    onClipDragStart: (clipId, globalPos, localPos) =>
+                        _handleClipDragStart(clipId, globalPos, localPos, trackIndex),
+                    onClipDragUpdate: (clipId, globalPos) =>
+                        _handleClipDragUpdate(globalPos),
+                    onClipDragEnd: (clipId, globalPos) =>
+                        _handleClipDragEnd(globalPos),
+                    onClipGainChange: widget.onClipGainChange,
+                    onClipFadeChange: widget.onClipFadeChange,
+                    onClipResize: widget.onClipResize,
+                    onClipRename: widget.onClipRename,
+                    onClipSlipEdit: widget.onClipSlipEdit,
+                    onCrossfadeUpdate: widget.onCrossfadeUpdate,
+                    onCrossfadeDelete: widget.onCrossfadeDelete,
+                    snapEnabled: widget.snapEnabled,
+                    snapValue: widget.snapValue,
+                    allClips: widget.clips,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Automation lanes
+          ...visibleAutomationLanes.map((laneData) => _buildAutomationLaneRow(
+            track: track,
+            laneData: laneData,
+          )),
+        ],
+      ),
+    );
+  }
+
+  /// Build a single automation lane row
+  Widget _buildAutomationLaneRow({
+    required TimelineTrack track,
+    required AutomationLaneData laneData,
+  }) {
+    return SizedBox(
+      height: laneData.height,
+      child: Row(
+        children: [
+          // Automation lane header (match main header width)
+          SizedBox(
+            width: _headerWidth,
+            child: AutomationLaneHeader(
+              data: laneData,
+              onModeChanged: (mode) {
+                final updatedLane = laneData.copyWith(mode: mode);
+                widget.onAutomationLaneChanged?.call(track.id, updatedLane);
+              },
+              onVisibilityChanged: (visible) {
+                final updatedLane = laneData.copyWith(visible: visible);
+                widget.onAutomationLaneChanged?.call(track.id, updatedLane);
+              },
+              onRemove: () {
+                widget.onRemoveAutomationLane?.call(track.id, laneData.id);
+              },
+            ),
+          ),
+          // Automation lane content
+          Expanded(
+            child: AutomationLane(
+              data: laneData,
+              zoom: widget.zoom,
+              scrollOffset: widget.scrollOffset,
+              width: _containerWidth,
+              onDataChanged: (updatedLane) {
+                widget.onAutomationLaneChanged?.call(track.id, updatedLane);
+              },
+              onRemove: () {
+                widget.onRemoveAutomationLane?.call(track.id, laneData.id);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Wrap in DragTarget for Audio Pool items
@@ -830,89 +1010,18 @@ class _TimelineState extends State<Timeline> {
                               // Check if track is empty (no clips)
                               final isEmpty = trackClips.isEmpty;
 
-                              return SizedBox(
-                                height: _trackHeight,
-                                child: Row(
-                                  children: [
-                                    // Track header - PRO VERSION
-                                    TrackHeaderPro(
-                                      track: track,
-                                      size: TrackHeaderSize.compact,
-                                      width: _headerWidth,
-                                      signalLevel: 0.0, // TODO: Connect to metering
-                                      isEmpty: isEmpty,
-                                      onMuteToggle: () =>
-                                          widget.onTrackMuteToggle?.call(track.id),
-                                      onSoloToggle: () =>
-                                          widget.onTrackSoloToggle?.call(track.id),
-                                      onArmToggle: () =>
-                                          widget.onTrackArmToggle?.call(track.id),
-                                      onMonitorToggle: () =>
-                                          widget.onTrackMonitorToggle?.call(track.id),
-                                      onFreezeToggle: () =>
-                                          widget.onTrackFreezeToggle?.call(track.id),
-                                      onLockToggle: () =>
-                                          widget.onTrackLockToggle?.call(track.id),
-                                      onVolumeChange: (v) =>
-                                          widget.onTrackVolumeChange
-                                              ?.call(track.id, v),
-                                      onPanChange: (p) =>
-                                          widget.onTrackPanChange?.call(track.id, p),
-                                      onClick: () =>
-                                          widget.onTrackSelect?.call(track.id),
-                                      onColorChange: (c) =>
-                                          widget.onTrackColorChange
-                                              ?.call(track.id, c),
-                                      onBusChange: (b) =>
-                                          widget.onTrackBusChange?.call(track.id, b),
-                                      onRename: (n) =>
-                                          widget.onTrackRename?.call(track.id, n),
-                                      onDuplicate: () =>
-                                          widget.onTrackDuplicate?.call(track.id),
-                                      onDelete: () =>
-                                          widget.onTrackDelete?.call(track.id),
-                                      onContextMenu: (pos) =>
-                                          widget.onTrackContextMenu?.call(track.id, pos),
-                                    ),
-                                    // Track lane
-                                    Expanded(
-                                      child: TrackLane(
-                                        track: track,
-                                        trackHeight: _trackHeight,
-                                        clips: trackClips,
-                                        crossfades: trackCrossfades,
-                                        zoom: widget.zoom,
-                                        scrollOffset: widget.scrollOffset,
-                                        tempo: widget.tempo,
-                                        timeSignatureNum: widget.timeSignatureNum,
-                                        onClipSelect: (id) =>
-                                            widget.onClipSelect?.call(id, false),
-                                        onClipMove: widget.onClipMove,
-                                        onClipCrossTrackDrag: (clipId, newStartTime, verticalDelta) =>
-                                            _handleCrossTrackDrag(clipId, newStartTime, verticalDelta, index),
-                                        onClipCrossTrackDragEnd: (clipId) =>
-                                            _handleCrossTrackDragEnd(clipId),
-                                        // Smooth drag callbacks (Cubase-style ghost preview)
-                                        onClipDragStart: (clipId, globalPos, localPos) =>
-                                            _handleClipDragStart(clipId, globalPos, localPos, index),
-                                        onClipDragUpdate: (clipId, globalPos) =>
-                                            _handleClipDragUpdate(globalPos),
-                                        onClipDragEnd: (clipId, globalPos) =>
-                                            _handleClipDragEnd(globalPos),
-                                        onClipGainChange: widget.onClipGainChange,
-                                        onClipFadeChange: widget.onClipFadeChange,
-                                        onClipResize: widget.onClipResize,
-                                        onClipRename: widget.onClipRename,
-                                        onClipSlipEdit: widget.onClipSlipEdit,
-                                        onCrossfadeUpdate: widget.onCrossfadeUpdate,
-                                        onCrossfadeDelete: widget.onCrossfadeDelete,
-                                        snapEnabled: widget.snapEnabled,
-                                        snapValue: widget.snapValue,
-                                        allClips: widget.clips,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              // Get visible automation lanes
+                              final visibleAutomationLanes = track.automationExpanded
+                                  ? track.visibleAutomationLanes
+                                  : <AutomationLaneData>[];
+
+                              return _buildTrackWithAutomation(
+                                track: track,
+                                trackClips: trackClips,
+                                trackCrossfades: trackCrossfades,
+                                isEmpty: isEmpty,
+                                visibleAutomationLanes: visibleAutomationLanes,
+                                trackIndex: index,
                               );
                             },
                           ),

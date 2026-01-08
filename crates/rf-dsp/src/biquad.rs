@@ -495,20 +495,35 @@ impl BiquadSimd4 {
         let len = buffer.len();
         let simd_len = len - (len % 4);
 
-        // Process 4 samples at a time
+        // Process 4 samples at a time using SIMD
         for i in (0..simd_len).step_by(4) {
             let input = f64x4::from_slice(&buffer[i..]);
             let output = self.process_simd(input);
             buffer[i..i + 4].copy_from_slice(&output.to_array());
         }
 
-        // Handle remaining samples with scalar processing
-        // For remaining samples, we need a scalar biquad
-        // This is a simplified handling - in production, maintain separate scalar state
-        for i in simd_len..len {
-            let input = f64x4::splat(buffer[i]);
-            let output = self.process_simd(input);
-            buffer[i] = output[0];
+        // Handle remaining samples with scalar processing (0-3 samples)
+        // Use lane 0 coefficients and state for scalar remainder
+        if simd_len < len {
+            let b0 = self.b0[0];
+            let b1 = self.b1[0];
+            let b2 = self.b2[0];
+            let a1 = self.a1[0];
+            let a2 = self.a2[0];
+            let mut z1 = self.z1[0];
+            let mut z2 = self.z2[0];
+
+            for i in simd_len..len {
+                let input = buffer[i];
+                let output = b0 * input + z1;
+                z1 = b1 * input - a1 * output + z2;
+                z2 = b2 * input - a2 * output;
+                buffer[i] = output;
+            }
+
+            // Update SIMD state from scalar state
+            self.z1 = f64x4::from_array([z1, self.z1[1], self.z1[2], self.z1[3]]);
+            self.z2 = f64x4::from_array([z2, self.z2[1], self.z2[2], self.z2[3]]);
         }
     }
 

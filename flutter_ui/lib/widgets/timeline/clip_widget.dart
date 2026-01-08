@@ -39,6 +39,11 @@ class ClipWidget extends StatefulWidget {
   final ValueChanged<String>? onRename;
   final ValueChanged<double>? onSlipEdit;
   final VoidCallback? onOpenFxEditor;
+  /// Context menu callbacks
+  final VoidCallback? onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onSplit;
+  final VoidCallback? onMute;
   final bool snapEnabled;
   final double snapValue;
   final double tempo;
@@ -63,6 +68,10 @@ class ClipWidget extends StatefulWidget {
     this.onRename,
     this.onSlipEdit,
     this.onOpenFxEditor,
+    this.onDelete,
+    this.onDuplicate,
+    this.onSplit,
+    this.onMute,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.tempo = 120,
@@ -135,6 +144,116 @@ class _ClipWidgetState extends State<ClipWidget> {
     setState(() => _isEditing = false);
   }
 
+  /// Show context menu on right-click
+  void _showContextMenu(BuildContext context, Offset position) {
+    final clip = widget.clip;
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 1,
+        position.dy + 1,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'rename',
+          child: Row(
+            children: [
+              const Icon(Icons.edit, size: 18),
+              const SizedBox(width: 8),
+              const Text('Rename'),
+              const Spacer(),
+              Text('F2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 18),
+              const SizedBox(width: 8),
+              const Text('Duplicate'),
+              const Spacer(),
+              Text('⌘D', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'split',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              const Text('Split at Playhead'),
+              const Spacer(),
+              Text('S', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'mute',
+          child: Row(
+            children: [
+              Icon(clip.muted ? Icons.volume_up : Icons.volume_off, size: 18),
+              const SizedBox(width: 8),
+              Text(clip.muted ? 'Unmute' : 'Mute'),
+              const Spacer(),
+              Text('M', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'fx',
+          child: Row(
+            children: [
+              const Icon(Icons.auto_fix_high, size: 18),
+              const SizedBox(width: 8),
+              const Text('Clip FX...'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 18, color: Colors.red[400]),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.red[400])),
+              const Spacer(),
+              Text('⌫', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+      switch (value) {
+        case 'rename':
+          _startEditing();
+          break;
+        case 'duplicate':
+          widget.onDuplicate?.call();
+          break;
+        case 'split':
+          widget.onSplit?.call();
+          break;
+        case 'mute':
+          widget.onMute?.call();
+          break;
+        case 'fx':
+          widget.onOpenFxEditor?.call();
+          break;
+        case 'delete':
+          widget.onDelete?.call();
+          break;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final clip = widget.clip;
@@ -155,6 +274,11 @@ class _ClipWidgetState extends State<ClipWidget> {
       child: GestureDetector(
         onTap: () => widget.onSelect?.call(false),
         onDoubleTap: _startEditing,
+        onSecondaryTapDown: (details) {
+          // Select clip on right-click before showing menu
+          widget.onSelect?.call(false);
+          _showContextMenu(context, details.globalPosition);
+        },
         onPanStart: (details) {
           // Check for modifier keys for slip edit
           if (HardwareKeyboard.instance.isMetaPressed ||

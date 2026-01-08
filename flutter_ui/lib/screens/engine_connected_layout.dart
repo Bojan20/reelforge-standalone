@@ -26,7 +26,7 @@ import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/mixer/pro_mixer_strip.dart';
 import '../widgets/mixer/plugin_selector.dart';
 import '../models/plugin_models.dart';
-import '../widgets/editors/piano_roll.dart';
+// piano_roll.dart is now replaced by midi/piano_roll_widget.dart
 import '../widgets/editors/eq_editor.dart' as generic_eq;
 import '../widgets/eq/pro_eq_editor.dart' as rf_eq;
 import '../widgets/layout/right_zone.dart' show InspectedObjectType;
@@ -35,11 +35,40 @@ import '../widgets/timeline/timeline.dart' as timeline_widget;
 import '../widgets/eq/eq_editor.dart';
 import '../widgets/spectrum/spectrum_analyzer.dart';
 import '../widgets/meters/loudness_meter.dart';
+import '../widgets/meters/pro_metering_panel.dart';
+import '../widgets/eq/pultec_eq.dart';
+import '../widgets/eq/api550_eq.dart';
+import '../widgets/eq/neve1073_eq.dart';
 import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart';
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
+import '../widgets/dsp/time_stretch_panel.dart';
+import '../widgets/dsp/delay_panel.dart';
+import '../widgets/dsp/reverb_panel.dart';
+import '../widgets/dsp/dynamics_panel.dart';
+import '../widgets/dsp/spatial_panel.dart';
+import '../widgets/dsp/spectral_panel.dart';
+import '../widgets/dsp/pitch_correction_panel.dart';
+import '../widgets/dsp/transient_panel.dart';
+import '../widgets/dsp/multiband_panel.dart';
+import '../widgets/dsp/saturation_panel.dart';
+import '../widgets/dsp/analog_eq_panel.dart';
+import '../widgets/dsp/eq_morph_panel.dart';
+import '../widgets/dsp/sidechain_panel.dart';
+import '../widgets/dsp/wavelet_panel.dart';
+import '../widgets/dsp/channel_strip_panel.dart';
+import '../widgets/dsp/surround_panner_panel.dart';
+import '../widgets/dsp/linear_phase_eq_panel.dart';
+import '../widgets/dsp/stereo_eq_panel.dart';
+import '../widgets/dsp/min_phase_eq_panel.dart';
+import '../widgets/dsp/pro_eq_panel.dart';
+import '../widgets/dsp/ultra_eq_panel.dart';
+import '../widgets/dsp/room_correction_panel.dart';
+import '../widgets/dsp/stereo_imager_panel.dart';
+import '../widgets/midi/piano_roll_widget.dart';
 import '../src/rust/engine_api.dart';
+import '../src/rust/native_ffi.dart';
 import '../dialogs/export_audio_dialog.dart';
 import 'settings/audio_settings_screen.dart';
 import 'project/project_settings_screen.dart';
@@ -71,6 +100,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   bool _metronomeEnabled = false;
   bool _snapEnabled = true;
   double _snapValue = 1;
+
+  // Analog EQ state
+  int _selectedAnalogEq = 0; // 0=Pultec, 1=API, 2=Neve
+  PultecParams _pultecParams = const PultecParams();
+  Api550Params _apiParams = const Api550Params();
+  Neve1073Params _neveParams = const Neve1073Params();
 
   // Timeline state
   double _timelineZoom = 50; // pixels per second
@@ -120,6 +155,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // Floating EQ windows - key is channel/bus ID
   final Map<String, bool> _openEqWindows = {};
+
+  // Analysis state (Transient/Pitch detection)
+  double _transientSensitivity = 0.5;
+  int _transientAlgorithm = 2; // 0=Energy, 1=Spectral, 2=Enhanced, 3=Onset, 4=ML
+  double _detectedPitch = 0.0;
+  int _detectedMidi = -1;
+  List<int> _detectedTransients = [];
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
   List<ProjectTreeNode> _buildProjectTree() {
@@ -1636,10 +1678,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           onSnapToggle: () => setState(() => _snapEnabled = !_snapEnabled),
           onSnapValueChange: (v) => setState(() => _snapValue = v),
           metronomeEnabled: _metronomeEnabled,
-          onMetronomeToggle: () =>
-              setState(() => _metronomeEnabled = !_metronomeEnabled),
+          onMetronomeToggle: () {
+            final newState = !_metronomeEnabled;
+            NativeFFI.instance.clickSetEnabled(newState);
+            setState(() => _metronomeEnabled = newState);
+          },
           cpuUsage: metering.cpuUsage,
-          memoryUsage: 35, // TODO: Get from engine
+          memoryUsage: NativeFFI.instance.getMemoryUsage(),
           projectName: engine.project.name,
           menuCallbacks: MenuCallbacks(
             // ═══════════════════════════════════════════════════════════════
@@ -2071,6 +2116,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onTrackBusChange: (trackId, bus) {
+        engine.updateTrack(trackId, busId: bus.index);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -2081,6 +2127,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onTrackRename: (trackId, newName) {
+        engine.updateTrack(trackId, name: newName);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -2914,6 +2961,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       maxValue: 1.0,
     );
 
+    // Get sample rate for time-to-samples conversion
+    final sampleRate = NativeFFI.instance.getSampleRate();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return AutomationLane(
@@ -2922,11 +2972,60 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           scrollOffset: _timelineScrollOffset,
           width: constraints.maxWidth,
           onDataChanged: (data) {
-            debugPrint('Automation data changed: ${data.points.length} points');
+            // Sync automation changes to engine
+            // Convert parameter type to string
+            final paramName = data.parameter.name;
+
+            // Clear existing lane and add all points
+            NativeFFI.instance.automationClearLane(1, paramName); // Track 1 for demo
+
+            for (final point in data.points) {
+              final timeSamples = (point.time * sampleRate).round();
+              final curveType = _curveTypeToInt(point.curveType);
+              NativeFFI.instance.automationAddPoint(1, paramName, timeSamples, point.value, curveType: curveType);
+            }
+
+            debugPrint('Automation synced: ${data.points.length} points to engine');
           },
         );
       },
     );
+  }
+
+  /// Convert UI curve type to FFI curve type
+  int _curveTypeToInt(AutomationCurveType type) {
+    switch (type) {
+      case AutomationCurveType.linear: return 0;
+      case AutomationCurveType.bezier: return 1;
+      case AutomationCurveType.step: return 4;
+      case AutomationCurveType.scurve: return 5;
+    }
+  }
+
+  /// Convert bus ID to numeric track ID for FFI
+  int _busIdToTrackId(String busId) {
+    // Map bus IDs to numeric track IDs
+    switch (busId) {
+      case 'master': return 0;
+      case 'sfx': return 1;
+      case 'music': return 2;
+      case 'voice': return 3;
+      case 'amb': return 4;
+      case 'ui': return 5;
+      default:
+        // Try to parse numeric ID from channel ID (ch_123)
+        if (busId.startsWith('ch_')) {
+          return int.tryParse(busId.substring(3)) ?? 0;
+        }
+        return int.tryParse(busId) ?? 0;
+    }
+  }
+
+  /// Convert bus ID to routing channel ID for FFI
+  int _busIdToChannelId(String busId) {
+    // Routing channels use same mapping as tracks for now
+    // Master=0, SFX=1, Music=2, Voice=3, Amb=4, UI=5
+    return _busIdToTrackId(busId);
   }
 
   Widget _buildMixerContent(dynamic metering, bool isPlaying) {
@@ -3232,13 +3331,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       case SlotDestinationType.aux:
         // Send to FX bus
         debugPrint('[Mixer] Send slot $slotIndex to AUX $targetId');
-        // TODO: Implement send routing
+        final fromChannelId = _busIdToChannelId(busId);
+        final toChannelId = int.tryParse(targetId) ?? 0;
+        NativeFFI.instance.routingAddSend(fromChannelId, toChannelId, preFader: false);
         break;
 
       case SlotDestinationType.bus:
-        // Route to group bus
-        debugPrint('[Mixer] Route slot $slotIndex to BUS $targetId');
-        // TODO: Implement bus routing
+        // Route output to bus
+        debugPrint('[Mixer] Route $busId output to BUS $targetId');
+        final fromId = _busIdToChannelId(busId);
+        final toId = int.tryParse(targetId) ?? 0;
+        NativeFFI.instance.routingSetOutputChannel(fromId, toId);
         break;
     }
   }
@@ -3395,7 +3498,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         setState(() {
           _busInserts[busId] = chain.toggleBypass(insertIndex);
         });
-        debugPrint('[Mixer] Bypass toggled for slot $insertIndex on $busId');
+        // Sync to engine FFI
+        final trackId = _busIdToTrackId(busId);
+        final newBypass = !currentSlot.bypassed;
+        NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
+        debugPrint('[Mixer] Bypass toggled for slot $insertIndex on $busId -> $newBypass');
       } else if (result == 'replace') {
         // Show plugin selector for replacement
         final plugin = await showPluginSelector(
@@ -3430,6 +3537,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         setState(() {
           _busInserts[busId] = chain.setPlugin(insertIndex, plugin);
         });
+
+        // Ensure insert chain exists in engine FFI
+        final trackId = _busIdToTrackId(busId);
+        NativeFFI.instance.insertCreateChain(trackId);
+
         debugPrint('[Mixer] Inserted ${plugin.name} on slot $insertIndex');
 
         // Auto-open EQ editor in floating window if EQ was inserted
@@ -3531,7 +3643,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     ),
                   ),
                 ),
-                // EQ content
+                // EQ content - Pro EQ DSP (64-band SVF)
                 Expanded(
                   child: rf_eq.ProEqEditor(
                     trackId: channelId,
@@ -3540,20 +3652,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     signalLevel: signalLevel,
                     onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
                       if (enabled != null) {
-                        engineApi.eqSetBandEnabled(channelId, bandIndex, enabled);
+                        engineApi.proEqSetBandEnabled(channelId, bandIndex, enabled);
                       }
                       if (freq != null) {
-                        engineApi.eqSetBandFrequency(channelId, bandIndex, freq);
+                        engineApi.proEqSetBandFrequency(channelId, bandIndex, freq);
                       }
                       if (gain != null) {
-                        engineApi.eqSetBandGain(channelId, bandIndex, gain);
+                        engineApi.proEqSetBandGain(channelId, bandIndex, gain);
                       }
                       if (q != null) {
-                        engineApi.eqSetBandQ(channelId, bandIndex, q);
+                        engineApi.proEqSetBandQ(channelId, bandIndex, q);
+                      }
+                      if (filterType != null) {
+                        final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
+                        engineApi.proEqSetBandShape(channelId, bandIndex, shape);
                       }
                     },
                     onBypassChange: (bypass) {
-                      engineApi.eqSetBypass(channelId, bypass);
+                      if (bypass) {
+                        engineApi.proEqReset(channelId);
+                      }
                     },
                   ),
                 ),
@@ -3565,41 +3683,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }).toList();
   }
 
-  /// Build Piano Roll content with FL Studio-style features
+  /// Build Piano Roll content - Professional MIDI editor
   Widget _buildPianoRollContent() {
-    // Demo notes for piano roll (using startBeat, not startTime)
-    final demoNotes = [
-      const MidiNote(id: '1', pitch: 60, startBeat: 0, duration: 0.5, velocity: 0.78),
-      const MidiNote(id: '2', pitch: 64, startBeat: 0.5, duration: 0.5, velocity: 0.70),
-      const MidiNote(id: '3', pitch: 67, startBeat: 1.0, duration: 0.5, velocity: 0.66),
-      const MidiNote(id: '4', pitch: 72, startBeat: 1.5, duration: 1.0, velocity: 0.86),
-      const MidiNote(id: '5', pitch: 60, startBeat: 2.5, duration: 0.25, velocity: 0.63),
-      const MidiNote(id: '6', pitch: 62, startBeat: 2.75, duration: 0.25, velocity: 0.63),
-      const MidiNote(id: '7', pitch: 64, startBeat: 3.0, duration: 0.5, velocity: 0.70),
-      const MidiNote(id: '8', pitch: 65, startBeat: 3.5, duration: 0.5, velocity: 0.66),
-    ];
-
-    // Ghost notes (from another track)
-    final ghostNotes = [
-      const MidiNote(id: 'g1', pitch: 48, startBeat: 0, duration: 2.0, velocity: 0.47),
-      const MidiNote(id: 'g2', pitch: 55, startBeat: 2.0, duration: 2.0, velocity: 0.47),
-    ];
-
-    return PianoRoll(
-      notes: demoNotes,
-      ghostNotes: ghostNotes,
-      selectedIds: const {'4'},
-      config: PianoRollConfig(
-        scale: MusicalScale.cMajor,
-        showGhostNotes: true,
-        showVelocity: true,
-        beatWidth: 80,
-        noteHeight: 16,
-      ),
-      onNoteAdd: (note) => debugPrint('Note added: ${note.pitch}'),
-      onNoteUpdate: (id, note) => debugPrint('Note $id updated'),
-      onNoteDelete: (id) => debugPrint('Note $id deleted'),
-      onSelectionChange: (ids) => debugPrint('Selection: $ids'),
+    // Use clip ID 1 as default MIDI clip
+    return PianoRollWidget(
+      clipId: 1,
+      lengthBars: 8,
+      bpm: 120.0,
+      onNotesChanged: () {
+        debugPrint('MIDI notes changed');
+      },
     );
   }
 
@@ -3616,7 +3709,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Use global engine instance from engine_api.dart
     final engineApi = EngineApi.instance;
 
-    // Use RF-EQ 64 - the professional FabFilter-style EQ
+    // Use RF-EQ 64 - the professional FabFilter-style EQ with Pro EQ DSP
     return LayoutBuilder(
       builder: (context, constraints) {
         return rf_eq.ProEqEditor(
@@ -3625,30 +3718,445 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           height: constraints.maxHeight,
           signalLevel: signalLevel,
           onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
-            // Send EQ band changes to Rust DSP engine
-            // trackId 0 = master bus for EQ
+            // Send EQ band changes to Pro EQ DSP engine (64-band SVF)
             const trackId = 'master';
             if (enabled != null) {
-              engineApi.eqSetBandEnabled(trackId, bandIndex, enabled);
+              engineApi.proEqSetBandEnabled(trackId, bandIndex, enabled);
             }
             if (freq != null) {
-              engineApi.eqSetBandFrequency(trackId, bandIndex, freq);
+              engineApi.proEqSetBandFrequency(trackId, bandIndex, freq);
             }
             if (gain != null) {
-              engineApi.eqSetBandGain(trackId, bandIndex, gain);
+              engineApi.proEqSetBandGain(trackId, bandIndex, gain);
             }
             if (q != null) {
-              engineApi.eqSetBandQ(trackId, bandIndex, q);
+              engineApi.proEqSetBandQ(trackId, bandIndex, q);
             }
-            // Note: filterType mapping to Rust filter types may need adjustment
+            if (filterType != null) {
+              // Map UI filter type to Pro EQ filter shape
+              final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
+              engineApi.proEqSetBandShape(trackId, bandIndex, shape);
+            }
           },
           onBypassChange: (bypass) {
-            // Send global bypass to Rust DSP engine
-            engineApi.eqSetBypass('master', bypass);
+            // Pro EQ doesn't have global bypass, reset all bands instead
+            if (bypass) {
+              engineApi.proEqReset('master');
+            }
           },
         );
       },
     );
+  }
+
+  /// Build Analog EQ content - Pultec, API 550, Neve 1073
+  Widget _buildAnalogEqContent() {
+    return Container(
+      color: const Color(0xFF0A0A0C),
+      child: Column(
+        children: [
+          // EQ Type selector
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF121216),
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+            ),
+            child: Row(
+              children: [
+                _buildAnalogEqTab('Pultec EQP-1A', 0),
+                const SizedBox(width: 8),
+                _buildAnalogEqTab('API 550A', 1),
+                const SizedBox(width: 8),
+                _buildAnalogEqTab('Neve 1073', 2),
+                const Spacer(),
+                Text(
+                  'Vintage Analog EQ Models',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // EQ Content
+          Expanded(
+            child: Center(
+              child: _selectedAnalogEq == 0
+                  ? PultecEq(
+                      initialParams: _pultecParams,
+                      onParamsChanged: (params) {
+                        setState(() => _pultecParams = params);
+                      },
+                    )
+                  : _selectedAnalogEq == 1
+                      ? Api550Eq(
+                          initialParams: _apiParams,
+                          onParamsChanged: (params) {
+                            setState(() => _apiParams = params);
+                          },
+                        )
+                      : Neve1073Eq(
+                          initialParams: _neveParams,
+                          onParamsChanged: (params) {
+                            setState(() => _neveParams = params);
+                          },
+                        ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalogEqTab(String label, int index) {
+    final isSelected = _selectedAnalogEq == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedAnalogEq = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF4A9EFF) : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF4A9EFF) : Colors.grey,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build Time Stretch content - RF-Elastic Pro
+  Widget _buildTimeStretchContent() {
+    // Get selected clip ID, default to 1 for demo
+    final selectedClipId = _clips.isNotEmpty
+        ? int.tryParse(_clips.first.id) ?? 1
+        : 1;
+
+    return Container(
+      color: const Color(0xFF0A0A0C),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Time Stretch Panel
+          Expanded(
+            flex: 2,
+            child: TimeStretchPanel(
+              clipId: selectedClipId,
+              sampleRate: NativeFFI.instance.getSampleRate().toDouble(),
+              onSettingsChanged: () {
+                // Trigger waveform redraw when stretch changes
+                setState(() {});
+              },
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Info Panel
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121216),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF2A2A30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'RF-Elastic Pro',
+                    style: TextStyle(
+                      color: Color(0xFF4A9EFF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Ultimate Time-Stretching Engine',
+                    style: TextStyle(color: Color(0xFFB0B0B8), fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow('STN Decomposition', 'Sines + Transients + Noise'),
+                  _buildInfoRow('Phase Vocoder', 'Peak-locked phase coherence'),
+                  _buildInfoRow('Transient Lock', 'WSOLA with preservation'),
+                  _buildInfoRow('Noise Morphing', 'Magnitude interpolation'),
+                  _buildInfoRow('Quality', 'Better than élastique Pro'),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A9EFF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Color(0xFF4A9EFF), size: 14),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Select a clip and adjust stretch/pitch parameters.',
+                            style: TextStyle(color: Color(0xFF4A9EFF), fontSize: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF40FF90), size: 12),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 11)),
+                Text(value, style: const TextStyle(color: Color(0xFF808088), fontSize: 9)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Analysis content - Transient & Pitch Detection
+  Widget _buildAnalysisContent() {
+    final sampleRate = NativeFFI.instance.getSampleRate();
+
+    return Container(
+      color: const Color(0xFF0A0A0C),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Transient Detection Panel
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121216),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.flash_on, color: const Color(0xFFFF9040), size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Transient Detection',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Detects transients in audio clips for:\n'
+                    '• Automatic beat slicing\n'
+                    '• Tempo detection\n'
+                    '• Quantization points',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  // Sensitivity slider
+                  Text('Sensitivity', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  Slider(
+                    value: _transientSensitivity,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (v) => setState(() => _transientSensitivity = v),
+                    activeColor: const Color(0xFFFF9040),
+                  ),
+                  // Algorithm selector
+                  Text('Algorithm', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  DropdownButton<int>(
+                    value: _transientAlgorithm,
+                    dropdownColor: const Color(0xFF1A1A20),
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                    underline: Container(height: 1, color: Colors.white24),
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('High Emphasis')),
+                      DropdownMenuItem(value: 1, child: Text('Low Emphasis')),
+                      DropdownMenuItem(value: 2, child: Text('Enhanced (Default)')),
+                      DropdownMenuItem(value: 3, child: Text('Spectral Flux')),
+                      DropdownMenuItem(value: 4, child: Text('Complex Domain')),
+                    ],
+                    onChanged: (v) => setState(() => _transientAlgorithm = v ?? 2),
+                  ),
+                  const Spacer(),
+                  // Detect button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.search, size: 16),
+                      label: const Text('Detect Transients'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9040),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        // TODO: Get audio data from selected clip
+                        // final positions = NativeFFI.instance.transientDetect(samples, sampleRate, sensitivity: _transientSensitivity, algorithm: _transientAlgorithm);
+                        debugPrint('[Analysis] Transient detection: sens=$_transientSensitivity algo=$_transientAlgorithm');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Pitch Detection Panel
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121216),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.music_note, color: const Color(0xFF40C8FF), size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pitch Detection',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Detects pitch in audio clips for:\n'
+                    '• Audio to MIDI conversion\n'
+                    '• Key detection\n'
+                    '• Melodyne-style editing',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  // Detected pitch display
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0A0C),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Detected Pitch', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                              Text(
+                                _detectedPitch > 0 ? '${_detectedPitch.toStringAsFixed(1)} Hz' : '-- Hz',
+                                style: TextStyle(
+                                  color: const Color(0xFF40C8FF),
+                                  fontSize: 20,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('MIDI Note', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                              Text(
+                                _detectedMidi >= 0 ? _midiNoteToName(_detectedMidi) : '--',
+                                style: TextStyle(
+                                  color: const Color(0xFF40FF90),
+                                  fontSize: 20,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  // Detect button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.piano, size: 16),
+                      label: const Text('Detect Pitch'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF40C8FF),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        // TODO: Get audio data from selected clip
+                        // _detectedPitch = NativeFFI.instance.pitchDetect(samples, sampleRate);
+                        // _detectedMidi = NativeFFI.instance.pitchDetectMidi(samples, sampleRate);
+                        debugPrint('[Analysis] Pitch detection triggered');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert MIDI note number to name (e.g., 60 -> "C4")
+  String _midiNoteToName(int midi) {
+    if (midi < 0 || midi > 127) return '--';
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    final octave = (midi ~/ 12) - 1;
+    final note = notes[midi % 12];
+    return '$note$octave';
   }
 
   /// Get default EQ bands (for generic EQ - kept for backwards compatibility)
@@ -4055,6 +4563,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         groupId: 'dsp',
       ),
       LowerZoneTab(
+        id: 'analog-eq',
+        label: 'Analog EQ',
+        icon: Icons.tune,
+        content: _buildAnalogEqContent(),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
         id: 'spectrum',
         label: 'Spectrum',
         icon: Icons.show_chart,
@@ -4069,6 +4584,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         groupId: 'dsp',
       ),
       LowerZoneTab(
+        id: 'meters',
+        label: 'Meters',
+        icon: Icons.speed,
+        content: ProMeteringPanel(metering: metering),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
         id: 'sidechain',
         label: 'Sidechain',
         icon: Icons.link,
@@ -4079,7 +4601,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'multiband',
         label: 'Multiband',
         icon: Icons.equalizer,
-        content: const MultibandTabPlaceholder(),
+        content: MultibandPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'analysis',
+        label: 'Analysis',
+        icon: Icons.analytics,
+        content: _buildAnalysisContent(),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'timestretch',
+        label: 'Time Stretch',
+        icon: Icons.speed,
+        content: _buildTimeStretchContent(),
         groupId: 'dsp',
       ),
       LowerZoneTab(
@@ -4087,6 +4623,154 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'FX Presets',
         icon: Icons.auto_fix_high,
         content: const FXPresetsTabPlaceholder(),
+        groupId: 'dsp',
+      ),
+      // ========== DSP Processing Panels ==========
+      LowerZoneTab(
+        id: 'delay',
+        label: 'Delay',
+        icon: Icons.timer,
+        content: DelayPanel(trackId: 0, bpm: 120.0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'reverb',
+        label: 'Reverb',
+        icon: Icons.blur_on,
+        content: ReverbPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'dynamics',
+        label: 'Dynamics',
+        icon: Icons.compress,
+        content: DynamicsPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'spatial',
+        label: 'Spatial',
+        icon: Icons.surround_sound,
+        content: SpatialPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'spectral',
+        label: 'Spectral',
+        icon: Icons.waves,
+        content: SpectralPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'pitch',
+        label: 'Pitch',
+        icon: Icons.music_note,
+        content: PitchCorrectionPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'transient',
+        label: 'Transient',
+        icon: Icons.flash_on,
+        content: TransientPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'saturation',
+        label: 'Saturation',
+        icon: Icons.whatshot,
+        content: SaturationPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'analog-eq',
+        label: 'Analog EQ',
+        icon: Icons.graphic_eq,
+        content: AnalogEqPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'eq-morph',
+        label: 'EQ Morph',
+        icon: Icons.compare_arrows,
+        content: EqMorphPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'sidechain',
+        label: 'Sidechain',
+        icon: Icons.call_split,
+        content: SidechainPanel(processorId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'wavelet',
+        label: 'Wavelet',
+        icon: Icons.waves,
+        content: WaveletPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'channel-strip',
+        label: 'Channel Strip',
+        icon: Icons.tune,
+        content: ChannelStripPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'surround-panner',
+        label: 'Surround',
+        icon: Icons.surround_sound,
+        content: SurroundPannerPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'linear-phase-eq',
+        label: 'Linear EQ',
+        icon: Icons.graphic_eq,
+        content: LinearPhaseEqPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'stereo-eq',
+        label: 'Stereo EQ',
+        icon: Icons.graphic_eq,
+        content: StereoEqPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'min-phase-eq',
+        label: 'Min Phase EQ',
+        icon: Icons.show_chart,
+        content: MinPhaseEqPanel(trackId: 0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'pro-eq',
+        label: 'Pro-EQ 64',
+        icon: Icons.auto_graph,
+        content: ProEqPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'ultra-eq',
+        label: 'Ultra-EQ 256',
+        icon: Icons.multiline_chart,
+        content: UltraEqPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'room-correction',
+        label: 'Room Correct',
+        icon: Icons.room_preferences,
+        content: RoomCorrectionPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'stereo-imager',
+        label: 'Stereo Imager',
+        icon: Icons.spatial_audio,
+        content: StereoImagerPanel(trackId: 0, sampleRate: 48000.0),
         groupId: 'dsp',
       ),
       // ========== Media Tabs ==========
@@ -4158,7 +4842,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'dsp',
         label: 'DSP',
-        tabs: ['eq', 'spectrum', 'sidechain', 'multiband', 'fx-presets'],
+        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager'],
       ),
 
       // ========== MIDDLEWARE MODE GROUPS ==========

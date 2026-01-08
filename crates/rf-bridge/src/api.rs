@@ -217,17 +217,43 @@ pub fn metering_get_cpu_usage() -> f32 {
     engine.as_ref().map(|e| e.metering.cpu_usage).unwrap_or(0.0)
 }
 
+/// Get master stereo correlation (-1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono)
+#[flutter_rust_bridge::frb(sync)]
+pub fn metering_get_master_correlation() -> f32 {
+    let engine = ENGINE.read();
+    engine.as_ref().map(|e| e.metering.correlation).unwrap_or(1.0)
+}
+
+/// Get master stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
+#[flutter_rust_bridge::frb(sync)]
+pub fn metering_get_master_balance() -> f32 {
+    let engine = ENGINE.read();
+    engine.as_ref().map(|e| e.metering.stereo_balance).unwrap_or(0.0)
+}
+
+/// Get master dynamic range (peak - RMS in dB)
+#[flutter_rust_bridge::frb(sync)]
+pub fn metering_get_master_dynamic_range() -> f32 {
+    let engine = ENGINE.read();
+    engine.as_ref().map(|e| e.metering.dynamic_range).unwrap_or(0.0)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MIXER
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Set track volume (in dB)
+/// Set track volume (linear, 0.0 to 2.0, 1.0 = unity)
 #[flutter_rust_bridge::frb(sync)]
-pub fn mixer_set_track_volume(track_id: u32, volume_db: f64) -> bool {
+pub fn mixer_set_track_volume(track_id: u32, volume: f64) -> bool {
+    use rf_engine::track_manager::TrackId;
+
     let engine = ENGINE.read();
-    if engine.is_some() {
-        // TODO: Forward to engine
-        log::debug!("Set track {} volume to {} dB", track_id, volume_db);
+    if let Some(ref e) = *engine {
+        // Update track in TrackManager
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.volume = volume.clamp(0.0, 2.0);
+        });
+        log::debug!("Set track {} volume to {}", track_id, volume);
         true
     } else {
         false
@@ -237,8 +263,13 @@ pub fn mixer_set_track_volume(track_id: u32, volume_db: f64) -> bool {
 /// Set track pan (-1.0 to 1.0)
 #[flutter_rust_bridge::frb(sync)]
 pub fn mixer_set_track_pan(track_id: u32, pan: f64) -> bool {
+    use rf_engine::track_manager::TrackId;
+
     let engine = ENGINE.read();
-    if engine.is_some() {
+    if let Some(ref e) = *engine {
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.pan = pan.clamp(-1.0, 1.0);
+        });
         log::debug!("Set track {} pan to {}", track_id, pan);
         true
     } else {
@@ -249,8 +280,13 @@ pub fn mixer_set_track_pan(track_id: u32, pan: f64) -> bool {
 /// Set track mute
 #[flutter_rust_bridge::frb(sync)]
 pub fn mixer_set_track_mute(track_id: u32, muted: bool) -> bool {
+    use rf_engine::track_manager::TrackId;
+
     let engine = ENGINE.read();
-    if engine.is_some() {
+    if let Some(ref e) = *engine {
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.muted = muted;
+        });
         log::debug!("Set track {} mute to {}", track_id, muted);
         true
     } else {
@@ -261,13 +297,85 @@ pub fn mixer_set_track_mute(track_id: u32, muted: bool) -> bool {
 /// Set track solo
 #[flutter_rust_bridge::frb(sync)]
 pub fn mixer_set_track_solo(track_id: u32, solo: bool) -> bool {
+    use rf_engine::track_manager::TrackId;
+
     let engine = ENGINE.read();
-    if engine.is_some() {
+    if let Some(ref e) = *engine {
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.soloed = solo;
+        });
         log::debug!("Set track {} solo to {}", track_id, solo);
         true
     } else {
         false
     }
+}
+
+/// Set track output bus (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux)
+#[flutter_rust_bridge::frb(sync)]
+pub fn mixer_set_track_bus(track_id: u32, bus_id: u8) -> bool {
+    use rf_engine::track_manager::{TrackId, OutputBus};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.output_bus = OutputBus::from(bus_id as u32);
+        });
+        log::debug!("Set track {} output bus to {}", track_id, bus_id);
+        true
+    } else {
+        false
+    }
+}
+
+/// Set track record arm
+#[flutter_rust_bridge::frb(sync)]
+pub fn mixer_set_track_armed(track_id: u32, armed: bool) -> bool {
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_track(TrackId(track_id as u64), |track| {
+            track.armed = armed;
+        });
+        log::debug!("Set track {} armed to {}", track_id, armed);
+        true
+    } else {
+        false
+    }
+}
+
+/// Get track state (volume, pan, mute, solo, armed, bus)
+#[flutter_rust_bridge::frb(sync)]
+pub fn mixer_get_track_state(track_id: u32) -> Option<TrackMixerState> {
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().get_track(TrackId(track_id as u64)).map(|track| {
+            TrackMixerState {
+                volume: track.volume,
+                pan: track.pan,
+                muted: track.muted,
+                soloed: track.soloed,
+                armed: track.armed,
+                bus_id: track.output_bus as u8,
+            }
+        })
+    } else {
+        None
+    }
+}
+
+/// Track mixer state for UI sync
+#[derive(Debug, Clone)]
+pub struct TrackMixerState {
+    pub volume: f64,
+    pub pan: f64,
+    pub muted: bool,
+    pub soloed: bool,
+    pub armed: bool,
+    pub bus_id: u8,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4667,3 +4775,293 @@ pub fn insert_available_processors() -> Vec<String> {
         .map(|s| s.to_string())
         .collect()
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLIP FX CHAIN API
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// ClipFxType enum values for FFI
+/// 0 = Gain, 1 = Compressor, 2 = Limiter, 3 = Gate, 4 = Saturation,
+/// 5 = PitchShift, 6 = TimeStretch, 7 = ProEq, 8 = UltraEq,
+/// 9 = Pultec, 10 = Api550, 11 = Neve1073, 12 = MorphEq, 13 = RoomCorrection, 14 = External
+fn fx_type_from_int(value: u8) -> rf_engine::track_manager::ClipFxType {
+    use rf_engine::track_manager::ClipFxType;
+    match value {
+        0 => ClipFxType::Gain { db: 0.0, pan: 0.0 },
+        1 => ClipFxType::Compressor { ratio: 4.0, threshold_db: -18.0, attack_ms: 10.0, release_ms: 100.0 },
+        2 => ClipFxType::Limiter { ceiling_db: -0.3 },
+        3 => ClipFxType::Gate { threshold_db: -40.0, attack_ms: 1.0, release_ms: 50.0 },
+        4 => ClipFxType::Saturation { drive: 0.5, mix: 1.0 },
+        5 => ClipFxType::PitchShift { semitones: 0.0, cents: 0.0 },
+        6 => ClipFxType::TimeStretch { ratio: 1.0 },
+        7 => ClipFxType::ProEq { bands: 8 },
+        8 => ClipFxType::UltraEq,
+        9 => ClipFxType::Pultec,
+        10 => ClipFxType::Api550,
+        11 => ClipFxType::Neve1073,
+        12 => ClipFxType::MorphEq,
+        13 => ClipFxType::RoomCorrection,
+        14 => ClipFxType::External { plugin_id: String::new(), state: None },
+        _ => ClipFxType::Gain { db: 0.0, pan: 0.0 },
+    }
+}
+
+/// Add FX slot to clip FX chain
+/// Returns slot ID or 0 on failure
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_add(clip_id: u64, fx_type: u8) -> u64 {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let fx = fx_type_from_int(fx_type);
+        if let Some(slot_id) = e.track_manager().add_clip_fx(ClipId(clip_id), fx) {
+            log::debug!("Added clip FX to clip {}: slot {}", clip_id, slot_id.0);
+            return slot_id.0;
+        }
+    }
+    0
+}
+
+/// Remove FX slot from clip
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_remove(clip_id: u64, slot_id: u64) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let result = e.track_manager().remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id));
+        log::debug!("Removed clip FX slot {} from clip {}: {}", slot_id, clip_id, result);
+        result
+    } else {
+        false
+    }
+}
+
+/// Move FX slot to new position in chain
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: usize) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let result = e.track_manager().move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index);
+        log::debug!("Moved clip FX slot {} to index {}: {}", slot_id, new_index, result);
+        result
+    } else {
+        false
+    }
+}
+
+/// Set FX slot bypass state
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_bypass(clip_id: u64, slot_id: u64, bypass: bool) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass)
+    } else {
+        false
+    }
+}
+
+/// Set entire FX chain bypass state
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_chain_bypass(clip_id: u64, bypass: bool) -> bool {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().set_clip_fx_chain_bypass(ClipId(clip_id), bypass)
+    } else {
+        false
+    }
+}
+
+/// Set FX slot wet/dry mix (0.0 = dry, 1.0 = wet)
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_wet_dry(clip_id: u64, slot_id: u64, wet_dry: f64) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.wet_dry = wet_dry.clamp(0.0, 1.0);
+        })
+    } else {
+        false
+    }
+}
+
+/// Set clip FX chain input gain (dB)
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_input_gain(clip_id: u64, gain_db: f64) -> bool {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().set_clip_fx_input_gain(ClipId(clip_id), gain_db)
+    } else {
+        false
+    }
+}
+
+/// Set clip FX chain output gain (dB)
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_output_gain(clip_id: u64, gain_db: f64) -> bool {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().set_clip_fx_output_gain(ClipId(clip_id), gain_db)
+    } else {
+        false
+    }
+}
+
+/// Set Gain FX parameters
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_gain_params(clip_id: u64, slot_id: u64, db: f64, pan: f64) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.fx_type = ClipFxType::Gain { db, pan: pan.clamp(-1.0, 1.0) };
+        })
+    } else {
+        false
+    }
+}
+
+/// Set Compressor FX parameters
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_compressor_params(
+    clip_id: u64,
+    slot_id: u64,
+    ratio: f64,
+    threshold_db: f64,
+    attack_ms: f64,
+    release_ms: f64,
+) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.fx_type = ClipFxType::Compressor {
+                ratio: ratio.clamp(1.0, 100.0),
+                threshold_db: threshold_db.clamp(-60.0, 0.0),
+                attack_ms: attack_ms.clamp(0.01, 500.0),
+                release_ms: release_ms.clamp(1.0, 5000.0),
+            };
+        })
+    } else {
+        false
+    }
+}
+
+/// Set Limiter FX parameters
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_limiter_params(clip_id: u64, slot_id: u64, ceiling_db: f64) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.fx_type = ClipFxType::Limiter {
+                ceiling_db: ceiling_db.clamp(-30.0, 0.0),
+            };
+        })
+    } else {
+        false
+    }
+}
+
+/// Set Gate FX parameters
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_gate_params(
+    clip_id: u64,
+    slot_id: u64,
+    threshold_db: f64,
+    attack_ms: f64,
+    release_ms: f64,
+) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.fx_type = ClipFxType::Gate {
+                threshold_db: threshold_db.clamp(-80.0, 0.0),
+                attack_ms: attack_ms.clamp(0.01, 100.0),
+                release_ms: release_ms.clamp(1.0, 2000.0),
+            };
+        })
+    } else {
+        false
+    }
+}
+
+/// Set Saturation FX parameters
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_set_saturation_params(clip_id: u64, slot_id: u64, drive: f64, mix: f64) -> bool {
+    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+            slot.fx_type = ClipFxType::Saturation {
+                drive: drive.clamp(0.0, 1.0),
+                mix: mix.clamp(0.0, 1.0),
+            };
+        })
+    } else {
+        false
+    }
+}
+
+/// Copy FX chain from one clip to another
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_copy(source_clip_id: u64, target_clip_id: u64) -> bool {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id))
+    } else {
+        false
+    }
+}
+
+/// Clear all FX from clip
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_clear(clip_id: u64) -> bool {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.track_manager().clear_clip_fx(ClipId(clip_id))
+    } else {
+        false
+    }
+}
+
+/// Get clip FX chain info
+/// Returns: (bypass, input_gain_db, output_gain_db, slot_count)
+#[flutter_rust_bridge::frb(sync)]
+pub fn clip_fx_get_chain_info(clip_id: u64) -> Option<(bool, f64, f64, usize)> {
+    use rf_engine::track_manager::ClipId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        if let Some(chain) = e.track_manager().get_clip_fx_chain(ClipId(clip_id)) {
+            return Some((chain.bypass, chain.input_gain_db, chain.output_gain_db, chain.slots.len()));
+        }
+    }
+    None
+}
+
+// Note: Saturation FFI functions are defined in rf-engine/src/ffi.rs
+// and exposed via C FFI for NativeFFI Dart bindings

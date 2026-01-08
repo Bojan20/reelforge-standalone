@@ -8,6 +8,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import '../src/rust/native_ffi.dart';
 
 // ============ Types ============
 
@@ -360,8 +361,33 @@ class EqProvider extends ChangeNotifier {
 
   /// Sync EQ state to Rust engine
   void _syncToEngine(String busId) {
-    // TODO: Call Rust engine via flutter_rust_bridge
-    // engine.setEqBands(busId, _busEqBands[busId]?.map((b) => b.toMap()).toList() ?? []);
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
+
+    final bands = _busEqBands[busId] ?? [];
+    final trackId = _busIdToTrackId(busId);
+
+    // Sync each band to Rust engine
+    for (var i = 0; i < bands.length; i++) {
+      final band = bands[i];
+      ffi.eqSetBandEnabled(trackId, i, band.enabled);
+      ffi.eqSetBandFrequency(trackId, i, band.frequency);
+      ffi.eqSetBandGain(trackId, i, band.gainDb);
+      ffi.eqSetBandQ(trackId, i, band.q);
+    }
+
+    debugPrint('[EQ] Synced ${bands.length} bands to engine for $busId');
+  }
+
+  /// Convert bus ID to track ID for FFI
+  int _busIdToTrackId(String busId) {
+    // Bus IDs are like "bus_0", "bus_1", "master"
+    if (busId == 'master') return 0;
+    if (busId.startsWith('bus_')) {
+      final idx = int.tryParse(busId.substring(4)) ?? 0;
+      return idx + 1; // Bus 0 = track 1, etc
+    }
+    return int.tryParse(busId) ?? 0;
   }
 
   /// Load preset

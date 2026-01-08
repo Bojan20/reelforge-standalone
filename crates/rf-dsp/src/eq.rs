@@ -419,24 +419,29 @@ impl EqBand {
 }
 
 /// Calculate biquad frequency response at a specific frequency
+///
+/// Evaluates H(z) = (b0 + b1*z^-1 + b2*z^-2) / (1 + a1*z^-1 + a2*z^-2)
+/// at z = e^(jω) where ω = 2πf/fs
 fn biquad_frequency_response(coeffs: &BiquadCoeffs, freq: f64, sample_rate: f64) -> (f64, f64) {
     let omega = 2.0 * PI * freq / sample_rate;
-    let cos_omega = omega.cos();
-    let sin_omega = omega.sin();
+    let cos_w = omega.cos();
+    let sin_w = omega.sin();
+    let cos_2w = (2.0 * omega).cos();  // = 2cos²(ω) - 1
+    let sin_2w = (2.0 * omega).sin();  // = 2sin(ω)cos(ω)
 
     // Numerator: b0 + b1*z^-1 + b2*z^-2
+    // z^-1 = cos(ω) - j*sin(ω)
+    // z^-2 = cos(2ω) - j*sin(2ω)
+    let num_real = coeffs.b0 + coeffs.b1 * cos_w + coeffs.b2 * cos_2w;
+    let num_imag = -coeffs.b1 * sin_w - coeffs.b2 * sin_2w;
+
     // Denominator: 1 + a1*z^-1 + a2*z^-2
-    // where z = e^(j*omega)
-
-    let num_real = coeffs.b0 + coeffs.b1 * cos_omega + coeffs.b2 * (2.0 * cos_omega * cos_omega - 1.0);
-    let num_imag = -coeffs.b1 * sin_omega - coeffs.b2 * 2.0 * sin_omega * cos_omega;
-
-    let den_real = 1.0 + coeffs.a1 * cos_omega + coeffs.a2 * (2.0 * cos_omega * cos_omega - 1.0);
-    let den_imag = -coeffs.a1 * sin_omega - coeffs.a2 * 2.0 * sin_omega * cos_omega;
+    let den_real = 1.0 + coeffs.a1 * cos_w + coeffs.a2 * cos_2w;
+    let den_imag = -coeffs.a1 * sin_w - coeffs.a2 * sin_2w;
 
     let den_mag_sq = den_real * den_real + den_imag * den_imag;
 
-    // H(z) = num / den
+    // H(z) = num / den (complex division)
     let h_real = (num_real * den_real + num_imag * den_imag) / den_mag_sq;
     let h_imag = (num_imag * den_real - num_real * den_imag) / den_mag_sq;
 
@@ -590,12 +595,15 @@ impl ParametricEq {
     pub fn process_block(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         debug_assert_eq!(left.len(), right.len());
 
-        // Update all band coefficients
+        // Update band coefficients only when needed
         for band in &mut self.bands {
             if band.enabled && band.needs_update {
                 band.update_coeffs();
             }
         }
+
+        // Pre-compute output gain (moved outside loop - was computing pow() every sample!)
+        let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
 
         // Process each sample
         for (l, r) in left.iter_mut().zip(right.iter_mut()) {
@@ -609,7 +617,6 @@ impl ParametricEq {
             }
 
             // Apply output gain
-            let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
             *l = out_l * gain;
             *r = out_r * gain;
         }

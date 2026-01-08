@@ -96,6 +96,21 @@ impl ProEqWrapper {
         self.eq.enable_band(index, enabled);
     }
 
+    /// Set band frequency
+    pub fn set_band_frequency(&mut self, index: usize, freq: f64) {
+        self.eq.set_band_frequency(index, freq);
+    }
+
+    /// Set band gain
+    pub fn set_band_gain(&mut self, index: usize, gain_db: f64) {
+        self.eq.set_band_gain(index, gain_db);
+    }
+
+    /// Set band Q
+    pub fn set_band_q(&mut self, index: usize, q: f64) {
+        self.eq.set_band_q(index, q);
+    }
+
     /// Get enabled band count
     pub fn band_count(&self) -> usize {
         self.eq.enabled_band_count()

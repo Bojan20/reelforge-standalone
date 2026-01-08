@@ -867,23 +867,38 @@ impl EqBand {
 }
 
 /// Calculate SVF frequency response
+///
+/// SVF topology outputs:
+/// - m0: contributes to highpass (direct path, no delay)
+/// - m1: contributes to bandpass (one integrator, z^-1 term)
+/// - m2: contributes to lowpass (two integrators, z^-2 term)
+///
+/// Transfer function: H(z) = (m0 + m1*z^-1 + m2*z^-2) / D(z)
 fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
     let cos_w = omega.cos();
     let sin_w = omega.sin();
+    let cos_2w = (2.0 * omega).cos();  // cos(2ω) = 2cos²(ω) - 1
+    let sin_2w = (2.0 * omega).sin();  // sin(2ω) = 2sin(ω)cos(ω)
 
-    // SVF transfer function approximation
-    let g = omega.tan();
+    // Denominator: SVF characteristic polynomial
+    // D(z) = 1 + a1*a2*(z^-1) + a3*(z^-2)
     let k = coeffs.a1 * coeffs.a2;
+    let den_real = 1.0 + k * cos_w + coeffs.a3 * cos_2w;
+    let den_imag = -k * sin_w - coeffs.a3 * sin_2w;
+    let den_mag_sq = den_real * den_real + den_imag * den_imag;
 
-    let den_real = 1.0 - k * cos_w + coeffs.a3 * (1.0 - cos_w);
-    let den_imag = k * sin_w + coeffs.a3 * sin_w;
-    let den_mag = (den_real * den_real + den_imag * den_imag).sqrt();
+    // Numerator: H(z) = m0 + m1*z^-1 + m2*z^-2
+    // z^-1 = cos(ω) - j*sin(ω)
+    // z^-2 = cos(2ω) - j*sin(2ω)
+    let num_real = coeffs.m0 + coeffs.m1 * cos_w + coeffs.m2 * cos_2w;
+    let num_imag = -coeffs.m1 * sin_w - coeffs.m2 * sin_2w;
+    let num_mag_sq = num_real * num_real + num_imag * num_imag;
 
-    let num_real = coeffs.m0 + coeffs.m1 * (1.0 - cos_w) + coeffs.m2 * (1.0 - cos_w);
-    let num_imag = coeffs.m1 * sin_w + coeffs.m2 * sin_w;
-    let num_mag = (num_real * num_real + num_imag * num_imag).sqrt();
-
-    let magnitude = if den_mag > 1e-10 { num_mag / den_mag } else { 1.0 };
+    let magnitude = if den_mag_sq > 1e-20 {
+        (num_mag_sq / den_mag_sq).sqrt()
+    } else {
+        1.0
+    };
     let phase = num_imag.atan2(num_real) - den_imag.atan2(den_real);
 
     (magnitude.max(0.001), phase)
@@ -899,6 +914,8 @@ pub struct SpectrumAnalyzer {
     fft_forward: Arc<dyn RealToComplex<f64>>,
     /// Input buffer
     input_buffer: Vec<f64>,
+    /// Pre-computed Blackman-Harris window coefficients
+    window: Vec<f64>,
     /// FFT output
     spectrum: Vec<Complex<f64>>,
     /// Smoothed magnitude (for display)
@@ -925,9 +942,21 @@ impl SpectrumAnalyzer {
 
         let num_bins = fft_size / 2 + 1;
 
+        // Pre-compute Blackman-Harris window coefficients (computed once, used every FFT)
+        let window: Vec<f64> = (0..fft_size)
+            .map(|i| {
+                let t = i as f64 / (fft_size - 1) as f64;
+                0.35875
+                    - 0.48829 * (2.0 * PI * t).cos()
+                    + 0.14128 * (4.0 * PI * t).cos()
+                    - 0.01168 * (6.0 * PI * t).cos()
+            })
+            .collect();
+
         Self {
             fft_forward,
             input_buffer: vec![0.0; fft_size],
+            window,
             spectrum: vec![Complex::new(0.0, 0.0); num_bins],
             magnitude_db: vec![-120.0; num_bins],
             peak_hold_db: vec![-120.0; num_bins],
@@ -953,15 +982,10 @@ impl SpectrumAnalyzer {
     }
 
     fn compute_spectrum(&mut self) {
-        // Apply Blackman-Harris window
+        // Apply pre-computed Blackman-Harris window (no trig recalculation!)
         let mut windowed = self.input_buffer.clone();
-        for (i, sample) in windowed.iter_mut().enumerate() {
-            let t = i as f64 / (self.fft_size - 1) as f64;
-            let window = 0.35875
-                - 0.48829 * (2.0 * PI * t).cos()
-                + 0.14128 * (4.0 * PI * t).cos()
-                - 0.01168 * (6.0 * PI * t).cos();
-            *sample *= window;
+        for (sample, &w) in windowed.iter_mut().zip(self.window.iter()) {
+            *sample *= w;
         }
 
         // Compute FFT
@@ -1464,6 +1488,33 @@ impl ProEq {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = true;
             band.set_params(freq, gain_db, q, shape);
+            self.linear_phase_dirty = true;
+        }
+    }
+
+    /// Set band frequency only
+    pub fn set_band_frequency(&mut self, index: usize, freq: f64) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.frequency = freq.clamp(20.0, 20000.0);
+            band.needs_update = true;
+            self.linear_phase_dirty = true;
+        }
+    }
+
+    /// Set band gain only
+    pub fn set_band_gain(&mut self, index: usize, gain_db: f64) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.gain_db = gain_db.clamp(-30.0, 30.0);
+            band.needs_update = true;
+            self.linear_phase_dirty = true;
+        }
+    }
+
+    /// Set band Q only
+    pub fn set_band_q(&mut self, index: usize, q: f64) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.q = q.clamp(0.1, 30.0);
+            band.needs_update = true;
             self.linear_phase_dirty = true;
         }
     }

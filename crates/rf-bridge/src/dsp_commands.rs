@@ -582,6 +582,40 @@ pub enum DspCommand {
         track_id: u32,
         num_points: u16,
     },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MIXER / TRACK CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Set track volume (linear, 0.0-2.0, 1.0 = unity)
+    TrackSetVolume {
+        track_id: u32,
+        volume: f64,
+    },
+
+    /// Set track pan (-1.0 left, 0.0 center, 1.0 right)
+    TrackSetPan {
+        track_id: u32,
+        pan: f64,
+    },
+
+    /// Set track mute
+    TrackSetMute {
+        track_id: u32,
+        muted: bool,
+    },
+
+    /// Set track solo
+    TrackSetSolo {
+        track_id: u32,
+        solo: bool,
+    },
+
+    /// Set track output bus
+    TrackSetBus {
+        track_id: u32,
+        bus_id: u8,
+    },
 }
 
 impl DspCommand {
@@ -639,6 +673,12 @@ impl DspCommand {
             DspCommand::RequestCorrelation { track_id, .. } => *track_id,
             DspCommand::RequestLufs { track_id, .. } => *track_id,
             DspCommand::RequestGoniometer { track_id, .. } => *track_id,
+            // Mixer commands
+            DspCommand::TrackSetVolume { track_id, .. } => *track_id,
+            DspCommand::TrackSetPan { track_id, .. } => *track_id,
+            DspCommand::TrackSetMute { track_id, .. } => *track_id,
+            DspCommand::TrackSetSolo { track_id, .. } => *track_id,
+            DspCommand::TrackSetBus { track_id, .. } => *track_id,
         }
     }
 }

@@ -68,6 +68,7 @@ pub mod eq_morph;        // Preset interpolation
 // Audio analysis & manipulation
 pub mod transient;
 pub mod elastic;
+pub mod elastic_pro;  // Ultimate time-stretching (STN + Phase Vocoder + Formant)
 pub mod pitch;
 pub mod wavelet;      // Multi-resolution analysis (DWT, CWT, CQT)
 
@@ -221,6 +222,22 @@ pub use wavelet::{
     CQTResult,
     MultiResolutionAnalyzer,
     MultiResolutionResult,
+};
+
+// Re-export Elastic Pro (Ultimate Time Stretching)
+pub use elastic_pro::{
+    StnComponent,
+    StnDecomposition,
+    StnDecomposer,
+    PhaseVocoder,
+    TransientProcessor,
+    NoiseMorpher,
+    FormantPreserver,
+    MultiResolutionStretcher,
+    StretchQuality,
+    StretchMode,
+    ElasticProConfig,
+    ElasticPro,
 };
 
 // Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)

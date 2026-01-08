@@ -16,6 +16,7 @@ mod smart_tempo;
 mod routing;
 mod channel_strip;
 mod comping;
+mod piano_roll;
 
 pub use sample::*;
 pub use time::*;
@@ -29,6 +30,7 @@ pub use smart_tempo::*;
 pub use routing::*;
 pub use channel_strip::*;
 pub use comping::*;
+pub use piano_roll::*;
 
 /// Standard sample rate options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

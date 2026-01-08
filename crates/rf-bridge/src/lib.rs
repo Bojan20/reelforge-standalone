@@ -89,6 +89,12 @@ pub struct MeteringState {
     pub master_lufs_s: f32,
     pub master_lufs_i: f32,
     pub master_true_peak: f32,
+    /// Stereo correlation (-1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono)
+    pub correlation: f32,
+    /// Stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
+    pub stereo_balance: f32,
+    /// Dynamic range (peak - RMS in dB)
+    pub dynamic_range: f32,
     pub track_peaks: Vec<(f32, f32)>,
     pub cpu_usage: f32,
     pub buffer_underruns: u32,

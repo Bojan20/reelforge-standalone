@@ -36,6 +36,14 @@ pub struct MarkerId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClipFxSlotId(pub u64);
 
+/// Unique take identifier (for comping)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TakeId(pub u64);
+
+/// Unique comp lane identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CompLaneId(pub u64);
+
 // Global ID counter for generating unique IDs
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -118,6 +126,88 @@ impl Track {
             frozen: false,
             input_monitor: false,
             order: 0,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPING SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A take within a comp lane
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Take {
+    pub id: TakeId,
+    pub name: String,
+    pub source_file: String,    // Audio file path
+    pub source_offset: f64,     // Offset within source file (seconds)
+    pub source_duration: f64,   // Duration in source file (seconds)
+    pub track_id: TrackId,
+    pub lane_id: CompLaneId,
+    pub start_time: f64,        // Position on timeline (seconds)
+    pub duration: f64,          // Duration on timeline (seconds)
+    pub gain: f64,              // Take gain (linear, default 1.0)
+    pub muted: bool,
+    pub color: u32,             // Take-specific color (ARGB)
+    pub rating: u8,             // 0-5 star rating
+}
+
+impl Take {
+    pub fn new(
+        source_file: &str,
+        track_id: TrackId,
+        lane_id: CompLaneId,
+        start_time: f64,
+        duration: f64,
+    ) -> Self {
+        Self {
+            id: TakeId(next_id()),
+            name: format!("Take {}", next_id() % 100),
+            source_file: source_file.to_string(),
+            source_offset: 0.0,
+            source_duration: duration,
+            track_id,
+            lane_id,
+            start_time,
+            duration,
+            gain: 1.0,
+            muted: false,
+            color: 0xFF4A9EFF, // Default blue
+            rating: 0,
+        }
+    }
+}
+
+/// A comp region - selected portion of a take for final comp
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompRegion {
+    pub start_time: f64,        // Region start on timeline
+    pub end_time: f64,          // Region end on timeline
+    pub take_id: TakeId,        // Which take is selected for this region
+}
+
+/// A comp lane containing multiple takes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompLane {
+    pub id: CompLaneId,
+    pub name: String,
+    pub track_id: TrackId,
+    pub height: f64,            // UI height in pixels
+    pub order: usize,           // Order within track's comp lanes
+    pub visible: bool,
+    pub color: u32,
+}
+
+impl CompLane {
+    pub fn new(name: &str, track_id: TrackId, order: usize) -> Self {
+        Self {
+            id: CompLaneId(next_id()),
+            name: name.to_string(),
+            track_id,
+            height: 40.0,
+            order,
+            visible: true,
+            color: 0xFF808090,
         }
     }
 }
@@ -769,6 +859,12 @@ pub struct TrackManager {
     pub loop_region: RwLock<LoopRegion>,
     /// Track ordering
     pub track_order: RwLock<Vec<TrackId>>,
+    /// Comp lanes for recording takes
+    pub comp_lanes: RwLock<HashMap<CompLaneId, CompLane>>,
+    /// All takes (for comping)
+    pub takes: RwLock<HashMap<TakeId, Take>>,
+    /// Comp regions (selected portions of takes)
+    pub comp_regions: RwLock<HashMap<TrackId, Vec<CompRegion>>>,
 }
 
 impl TrackManager {
@@ -780,6 +876,9 @@ impl TrackManager {
             markers: RwLock::new(Vec::new()),
             loop_region: RwLock::new(LoopRegion::default()),
             track_order: RwLock::new(Vec::new()),
+            comp_lanes: RwLock::new(HashMap::new()),
+            takes: RwLock::new(HashMap::new()),
+            comp_regions: RwLock::new(HashMap::new()),
         }
     }
 
@@ -1402,6 +1501,121 @@ impl TrackManager {
     /// Get clip count
     pub fn clip_count(&self) -> usize {
         self.clips.read().len()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMPING OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Create a new comp lane for a track
+    pub fn create_comp_lane(&self, track_id: TrackId, name: &str) -> CompLaneId {
+        let order = self.comp_lanes.read().values()
+            .filter(|l| l.track_id == track_id)
+            .count();
+        let lane = CompLane::new(name, track_id, order);
+        let lane_id = lane.id;
+        self.comp_lanes.write().insert(lane_id, lane);
+        lane_id
+    }
+
+    /// Delete a comp lane and all its takes
+    pub fn delete_comp_lane(&self, lane_id: CompLaneId) {
+        // Remove all takes in this lane
+        self.takes.write().retain(|_, take| take.lane_id != lane_id);
+        // Remove the lane
+        self.comp_lanes.write().remove(&lane_id);
+    }
+
+    /// Add a take to a comp lane
+    pub fn add_take(&self, lane_id: CompLaneId, source_file: &str, start_time: f64, duration: f64) -> Option<TakeId> {
+        let lane = self.comp_lanes.read().get(&lane_id)?.clone();
+        let take = Take::new(source_file, lane.track_id, lane_id, start_time, duration);
+        let take_id = take.id;
+        self.takes.write().insert(take_id, take);
+        Some(take_id)
+    }
+
+    /// Delete a take
+    pub fn delete_take(&self, take_id: TakeId) {
+        self.takes.write().remove(&take_id);
+        // Also remove any comp regions using this take
+        for regions in self.comp_regions.write().values_mut() {
+            regions.retain(|r| r.take_id != take_id);
+        }
+    }
+
+    /// Set take rating (0-5 stars)
+    pub fn rate_take(&self, take_id: TakeId, rating: u8) {
+        if let Some(take) = self.takes.write().get_mut(&take_id) {
+            take.rating = rating.min(5);
+        }
+    }
+
+    /// Mute/unmute a take
+    pub fn mute_take(&self, take_id: TakeId, muted: bool) {
+        if let Some(take) = self.takes.write().get_mut(&take_id) {
+            take.muted = muted;
+        }
+    }
+
+    /// Set comp region - select which take is active for a time range
+    pub fn set_comp_region(&self, track_id: TrackId, start_time: f64, end_time: f64, take_id: TakeId) {
+        let mut regions = self.comp_regions.write();
+        let track_regions = regions.entry(track_id).or_insert_with(Vec::new);
+
+        // Remove overlapping regions
+        track_regions.retain(|r| r.end_time <= start_time || r.start_time >= end_time);
+
+        // Add new region
+        track_regions.push(CompRegion {
+            start_time,
+            end_time,
+            take_id,
+        });
+
+        // Sort by start time
+        track_regions.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+    }
+
+    /// Get all comp lanes for a track
+    pub fn get_comp_lanes(&self, track_id: TrackId) -> Vec<CompLane> {
+        self.comp_lanes.read().values()
+            .filter(|l| l.track_id == track_id)
+            .cloned()
+            .collect()
+    }
+
+    /// Get all takes for a comp lane
+    pub fn get_takes(&self, lane_id: CompLaneId) -> Vec<Take> {
+        self.takes.read().values()
+            .filter(|t| t.lane_id == lane_id)
+            .cloned()
+            .collect()
+    }
+
+    /// Get comp regions for a track
+    pub fn get_comp_regions(&self, track_id: TrackId) -> Vec<CompRegion> {
+        self.comp_regions.read().get(&track_id).cloned().unwrap_or_default()
+    }
+
+    /// Flatten comp to clip - create a clip from the comp regions
+    pub fn flatten_comp(&self, track_id: TrackId) -> Option<ClipId> {
+        let regions = self.get_comp_regions(track_id);
+        if regions.is_empty() {
+            return None;
+        }
+
+        // Find overall time range
+        let start = regions.iter().map(|r| r.start_time).fold(f64::INFINITY, f64::min);
+        let end = regions.iter().map(|r| r.end_time).fold(f64::NEG_INFINITY, f64::max);
+
+        // Create a new clip (audio will need to be rendered/bounced separately)
+        // Source file will be set after rendering
+        let clip = Clip::new(track_id, &format!("Comp {}", track_id.0), "", start, end - start);
+        let clip_id = clip.id;
+        self.clips.write().insert(clip_id, clip);
+
+        Some(clip_id)
     }
 }
 

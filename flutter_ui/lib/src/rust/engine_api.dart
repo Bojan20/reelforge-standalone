@@ -5,6 +5,7 @@
 
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'native_ffi.dart';
 
@@ -39,6 +40,7 @@ class EngineApi {
   final _meteringController = StreamController<MeteringState>.broadcast();
 
   Timer? _updateTimer;
+  int _meteringFrameCounter = 0; // For 30fps metering (every 2nd frame)
 
   EngineApi._();
 
@@ -544,13 +546,29 @@ class EngineApi {
         if (name != null) _ffi.setTrackName(nativeId, name);
         if (muted != null) _ffi.setTrackMute(nativeId, muted);
         if (soloed != null) _ffi.setTrackSolo(nativeId, soloed);
+        if (armed != null) _ffi.setTrackArmed(nativeId, armed);
         if (volume != null) _ffi.setTrackVolume(nativeId, volume);
         if (pan != null) _ffi.setTrackPan(nativeId, pan);
+        if (busId != null) _ffi.setTrackBus(nativeId, busId);
         print('[Engine] Updated track via FFI: $trackId');
         return;
       }
     }
     print('[Engine] Updated track (mock): $trackId');
+  }
+
+  /// Get track peak level for metering (0.0 - 1.0+)
+  /// Get track peak level by track ID
+  double getTrackPeak(int trackId) {
+    if (_useMock) return 0.0;
+    return _ffi.getTrackPeak(trackId);
+  }
+
+  /// Get all track peak levels at once (more efficient for UI metering)
+  /// Returns map of track_id -> peak value
+  Map<int, double> getAllTrackPeaks(int maxTracks) {
+    if (_useMock) return {};
+    return _ffi.getAllTrackPeaks(maxTracks);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1293,6 +1311,283 @@ class EngineApi {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // PRO EQ - 64-Band Professional Parametric EQ
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create Pro EQ for a track
+  bool proEqCreate(String trackId, {double sampleRate = 48000.0}) {
+    print('[Engine] Pro EQ create: $trackId @ ${sampleRate}Hz');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqCreate(nativeTrackId, sampleRate: sampleRate);
+      }
+    }
+    return true;
+  }
+
+  /// Destroy Pro EQ for a track
+  bool proEqDestroy(String trackId) {
+    print('[Engine] Pro EQ destroy: $trackId');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqDestroy(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band enabled
+  bool proEqSetBandEnabled(String trackId, int bandIndex, bool enabled) {
+    print('[Engine] Pro EQ $trackId band $bandIndex enabled: $enabled');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandEnabled(nativeTrackId, bandIndex, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band frequency
+  bool proEqSetBandFrequency(String trackId, int bandIndex, double freq) {
+    print('[Engine] Pro EQ $trackId band $bandIndex freq: $freq Hz');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandFrequency(nativeTrackId, bandIndex, freq);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band gain
+  bool proEqSetBandGain(String trackId, int bandIndex, double gainDb) {
+    print('[Engine] Pro EQ $trackId band $bandIndex gain: $gainDb dB');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandGain(nativeTrackId, bandIndex, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band Q
+  bool proEqSetBandQ(String trackId, int bandIndex, double q) {
+    print('[Engine] Pro EQ $trackId band $bandIndex Q: $q');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandQ(nativeTrackId, bandIndex, q);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band shape
+  bool proEqSetBandShape(String trackId, int bandIndex, ProEqFilterShape shape) {
+    print('[Engine] Pro EQ $trackId band $bandIndex shape: $shape');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandShape(nativeTrackId, bandIndex, shape);
+      }
+    }
+    return true;
+  }
+
+  /// Set all Pro EQ band parameters at once
+  bool proEqSetBand(
+    String trackId,
+    int bandIndex, {
+    required double freq,
+    required double gainDb,
+    required double q,
+    required ProEqFilterShape shape,
+  }) {
+    print('[Engine] Pro EQ $trackId band $bandIndex: f=$freq g=$gainDb q=$q shape=$shape');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBand(nativeTrackId, bandIndex, freq: freq, gainDb: gainDb, q: q, shape: shape);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band stereo placement
+  bool proEqSetBandPlacement(String trackId, int bandIndex, ProEqPlacement placement) {
+    print('[Engine] Pro EQ $trackId band $bandIndex placement: $placement');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandPlacement(nativeTrackId, bandIndex, placement);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ band slope
+  bool proEqSetBandSlope(String trackId, int bandIndex, ProEqSlope slope) {
+    print('[Engine] Pro EQ $trackId band $bandIndex slope: $slope');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandSlope(nativeTrackId, bandIndex, slope);
+      }
+    }
+    return true;
+  }
+
+  /// Configure dynamic EQ for a band
+  bool proEqSetBandDynamic(
+    String trackId,
+    int bandIndex, {
+    required bool enabled,
+    required double thresholdDb,
+    required double ratio,
+    required double attackMs,
+    required double releaseMs,
+  }) {
+    print('[Engine] Pro EQ $trackId band $bandIndex dynamic: enabled=$enabled thr=$thresholdDb');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandDynamic(
+          nativeTrackId, bandIndex,
+          enabled: enabled,
+          thresholdDb: thresholdDb,
+          ratio: ratio,
+          attackMs: attackMs,
+          releaseMs: releaseMs,
+        );
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ output gain
+  bool proEqSetOutputGain(String trackId, double gainDb) {
+    print('[Engine] Pro EQ $trackId output gain: $gainDb dB');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetOutputGain(nativeTrackId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ analyzer mode
+  bool proEqSetAnalyzerMode(String trackId, ProEqAnalyzerMode mode) {
+    print('[Engine] Pro EQ $trackId analyzer: $mode');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetAnalyzerMode(nativeTrackId, mode);
+      }
+    }
+    return true;
+  }
+
+  /// Enable/disable Pro EQ auto gain
+  bool proEqSetAutoGain(String trackId, bool enabled) {
+    print('[Engine] Pro EQ $trackId auto gain: $enabled');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetAutoGain(nativeTrackId, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Enable/disable Pro EQ match mode
+  bool proEqSetMatchEnabled(String trackId, bool enabled) {
+    print('[Engine] Pro EQ $trackId match: $enabled');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetMatchEnabled(nativeTrackId, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Store Pro EQ state A
+  bool proEqStoreStateA(String trackId) {
+    print('[Engine] Pro EQ $trackId store state A');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqStoreStateA(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  /// Store Pro EQ state B
+  bool proEqStoreStateB(String trackId) {
+    print('[Engine] Pro EQ $trackId store state B');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqStoreStateB(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  /// Recall Pro EQ state A
+  bool proEqRecallStateA(String trackId) {
+    print('[Engine] Pro EQ $trackId recall state A');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqRecallStateA(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  /// Recall Pro EQ state B
+  bool proEqRecallStateB(String trackId) {
+    print('[Engine] Pro EQ $trackId recall state B');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqRecallStateB(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  /// Get Pro EQ enabled band count
+  int proEqGetEnabledBandCount(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqGetEnabledBandCount(nativeTrackId);
+      }
+    }
+    return 0;
+  }
+
+  /// Reset Pro EQ state
+  bool proEqReset(String trackId) {
+    print('[Engine] Pro EQ $trackId reset');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqReset(nativeTrackId);
+      }
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // MIXER BUSES
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1517,6 +1812,13 @@ class EngineApi {
       _transportController.add(_transport);
     }
 
+    // Update metering at 30fps (every 2nd frame) to reduce UI thread load
+    // Transport runs at 60fps for smooth playhead, metering at 30fps is visually sufficient
+    _meteringFrameCounter++;
+    if (_meteringFrameCounter % 2 != 0) {
+      return; // Skip metering on odd frames
+    }
+
     // Update metering with mock data
     if (_useMock) {
       // ONLY show meter activity when audio is playing
@@ -1553,6 +1855,13 @@ class EngineApi {
           final basePeak = -12.0 + random.nextDouble() * 6 * masterActivity;
           final baseRms = -18.0 + random.nextDouble() * 4 * masterActivity;
 
+          // Stereo correlation: typical stereo content 0.3-0.9, mono = 1.0
+          final mockCorrelation = 0.5 + random.nextDouble() * 0.4;
+          // Stereo balance: slight L/R imbalance in typical mixes
+          final mockBalance = (random.nextDouble() - 0.5) * 0.2;
+          // Dynamic range: peak - RMS, typical 6-18dB for music
+          final mockDynamicRange = (basePeak - baseRms).abs();
+
           _metering = MeteringState(
             masterPeakL: (basePeak + volumeDb).clamp(-60.0, 6.0),
             masterPeakR: (basePeak + volumeDb + random.nextDouble() * 0.5).clamp(-60.0, 6.0),
@@ -1562,6 +1871,9 @@ class EngineApi {
             masterLufsS: -14.0 + volumeDb * 0.5 + random.nextDouble() * 1,
             masterLufsI: -14.0 + volumeDb * 0.5,
             masterTruePeak: (basePeak + volumeDb + 2.0).clamp(-60.0, 6.0),
+            correlation: mockCorrelation,
+            stereoBalance: mockBalance,
+            dynamicRange: mockDynamicRange,
             cpuUsage: 5.0 + random.nextDouble() * 3,
             bufferUnderruns: 0,
             buses: busMeters,
@@ -1577,6 +1889,9 @@ class EngineApi {
             masterLufsS: -60.0,
             masterLufsI: -60.0,
             masterTruePeak: -60.0,
+            correlation: 1.0, // Mono when silent
+            stereoBalance: 0.0, // Center
+            dynamicRange: 0.0,
             cpuUsage: 3.0 + random.nextDouble() * 2,
             bufferUnderruns: 0,
             buses: busMeters,
@@ -1598,6 +1913,9 @@ class EngineApi {
           masterLufsS: -60.0,
           masterLufsI: -60.0,
           masterTruePeak: -60.0,
+          correlation: 1.0, // Mono when silent
+          stereoBalance: 0.0, // Center
+          dynamicRange: 0.0,
           cpuUsage: 2.0 + Random().nextDouble() * 2, // CPU still shows small activity
           bufferUnderruns: 0,
           buses: busMeters,
@@ -1643,6 +1961,12 @@ class EngineApi {
         },
       );
 
+      // Get stereo analysis metering
+      final correlation = _ffi.getCorrelation();
+      final stereoBalance = _ffi.getStereoBalance();
+      final dynamicRange = _ffi.getDynamicRange();
+      final spectrum = _ffi.getMasterSpectrum();
+
       _metering = MeteringState(
         masterPeakL: masterPeakLDb,
         masterPeakR: masterPeakRDb,
@@ -1652,6 +1976,10 @@ class EngineApi {
         masterLufsS: lufsS,
         masterLufsI: lufsI,
         masterTruePeak: max(truePeakL, truePeakR), // Real 4x oversampled True Peak
+        correlation: correlation,
+        stereoBalance: stereoBalance,
+        dynamicRange: dynamicRange,
+        spectrum: spectrum,
         cpuUsage: 5.0,
         bufferUnderruns: 0,
         buses: busMeters,
@@ -1765,11 +2093,19 @@ class MeteringState {
   final double masterLufsS;
   final double masterLufsI;
   final double masterTruePeak;
+  /// Stereo correlation (-1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono)
+  final double correlation;
+  /// Stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
+  final double stereoBalance;
+  /// Dynamic range (peak - RMS in dB)
+  final double dynamicRange;
+  /// Spectrum data (256 bins, normalized 0-1, log-scaled 20Hz-20kHz)
+  final Float32List spectrum;
   final double cpuUsage;
   final int bufferUnderruns;
   final List<BusMeteringState> buses;
 
-  const MeteringState({
+  MeteringState({
     required this.masterPeakL,
     required this.masterPeakR,
     required this.masterRmsL,
@@ -1778,12 +2114,16 @@ class MeteringState {
     required this.masterLufsS,
     required this.masterLufsI,
     required this.masterTruePeak,
+    this.correlation = 1.0,
+    this.stereoBalance = 0.0,
+    this.dynamicRange = 0.0,
+    Float32List? spectrum,
     required this.cpuUsage,
     required this.bufferUnderruns,
     this.buses = const [],
-  });
+  }) : spectrum = spectrum ?? Float32List(256);
 
-  factory MeteringState.empty() => const MeteringState(
+  factory MeteringState.empty() => MeteringState(
     masterPeakL: -60.0,
     masterPeakR: -60.0,
     masterRmsL: -60.0,
@@ -1792,6 +2132,10 @@ class MeteringState {
     masterLufsS: -60.0,
     masterLufsI: -60.0,
     masterTruePeak: -60.0,
+    correlation: 1.0,
+    stereoBalance: 0.0,
+    dynamicRange: 0.0,
+    spectrum: Float32List(256),
     cpuUsage: 0.0,
     bufferUnderruns: 0,
     buses: [],

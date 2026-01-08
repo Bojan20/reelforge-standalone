@@ -11,6 +11,9 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
+// Forward declaration for automation types (full impl in automation_lane.dart)
+import '../widgets/timeline/automation_lane.dart';
+
 /// Clip on a timeline track
 class TimelineClip {
   final String id;
@@ -106,6 +109,17 @@ class TimelineClip {
 /// Bus routing options
 enum OutputBus { master, music, sfx, ambience, voice }
 
+/// Track type for the timeline
+enum TrackType {
+  audio,      // Standard audio track
+  midi,       // MIDI track
+  instrument, // Instrument track (MIDI + synth)
+  folder,     // Folder track (contains child tracks)
+  bus,        // Bus/Group track
+  aux,        // Aux/Return track
+  master,     // Master output
+}
+
 /// Track on the timeline
 class TimelineTrack {
   final String id;
@@ -121,6 +135,20 @@ class TimelineTrack {
   final bool frozen;
   final double volume; // 0-1, 1 = unity
   final double pan; // -1 to 1, 0 = center
+  /// Automation lanes for this track
+  final List<AutomationLaneData> automationLanes;
+  /// Whether automation lanes are expanded/visible
+  final bool automationExpanded;
+  /// Track type (audio, midi, folder, etc.)
+  final TrackType trackType;
+  /// Parent folder track ID (null if root level)
+  final String? parentFolderId;
+  /// Child track IDs (only for folder tracks)
+  final List<String> childTrackIds;
+  /// Whether folder is expanded
+  final bool folderExpanded;
+  /// Indent level (depth in folder hierarchy)
+  final int indentLevel;
 
   const TimelineTrack({
     required this.id,
@@ -136,7 +164,30 @@ class TimelineTrack {
     this.frozen = false,
     this.volume = 1,
     this.pan = 0,
+    this.automationLanes = const [],
+    this.automationExpanded = false,
+    this.trackType = TrackType.audio,
+    this.parentFolderId,
+    this.childTrackIds = const [],
+    this.folderExpanded = true,
+    this.indentLevel = 0,
   });
+
+  /// Whether this is a folder track
+  bool get isFolder => trackType == TrackType.folder;
+
+  /// Total height including automation lanes if expanded
+  double get totalHeight {
+    if (!automationExpanded || automationLanes.isEmpty) return height;
+    final automationHeight = automationLanes
+        .where((l) => l.visible)
+        .fold<double>(0, (sum, lane) => sum + lane.height);
+    return height + automationHeight;
+  }
+
+  /// Get visible automation lanes
+  List<AutomationLaneData> get visibleAutomationLanes =>
+      automationLanes.where((l) => l.visible).toList();
 
   TimelineTrack copyWith({
     String? id,
@@ -152,6 +203,13 @@ class TimelineTrack {
     bool? frozen,
     double? volume,
     double? pan,
+    List<AutomationLaneData>? automationLanes,
+    bool? automationExpanded,
+    TrackType? trackType,
+    String? parentFolderId,
+    List<String>? childTrackIds,
+    bool? folderExpanded,
+    int? indentLevel,
   }) {
     return TimelineTrack(
       id: id ?? this.id,
@@ -167,6 +225,13 @@ class TimelineTrack {
       frozen: frozen ?? this.frozen,
       volume: volume ?? this.volume,
       pan: pan ?? this.pan,
+      automationLanes: automationLanes ?? this.automationLanes,
+      automationExpanded: automationExpanded ?? this.automationExpanded,
+      trackType: trackType ?? this.trackType,
+      parentFolderId: parentFolderId ?? this.parentFolderId,
+      childTrackIds: childTrackIds ?? this.childTrackIds,
+      folderExpanded: folderExpanded ?? this.folderExpanded,
+      indentLevel: indentLevel ?? this.indentLevel,
     );
   }
 }

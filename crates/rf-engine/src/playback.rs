@@ -25,6 +25,7 @@ use crate::groups::{GroupManager, VcaId};
 use crate::insert_chain::InsertChain;
 
 use rf_dsp::metering::{LufsMeter, TruePeakMeter};
+use rf_dsp::analysis::FftAnalyzer;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO CACHE
@@ -379,6 +380,10 @@ pub struct PlaybackEngine {
     /// True Peak values in dBTP
     pub true_peak_l: AtomicU64,
     pub true_peak_r: AtomicU64,
+    /// Stereo correlation (-1.0 to 1.0)
+    pub correlation: AtomicU64,
+    /// Stereo balance (-1.0 left to 1.0 right)
+    pub balance: AtomicU64,
     /// Automation engine
     automation: Option<Arc<AutomationEngine>>,
     /// Group/VCA manager (RwLock for shared mutation with bridge)
@@ -391,6 +396,12 @@ pub struct PlaybackEngine {
     insert_chains: RwLock<HashMap<u64, InsertChain>>,
     /// Master insert chain
     master_insert: RwLock<InsertChain>,
+    /// Per-track peak meters (track_id -> peak value as AtomicU64 bits)
+    track_peaks: RwLock<HashMap<u64, f64>>,
+    /// Master spectrum analyzer (FFT)
+    spectrum_analyzer: RwLock<FftAnalyzer>,
+    /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
+    spectrum_data: RwLock<Vec<f32>>,
 }
 
 impl PlaybackEngine {
@@ -414,12 +425,17 @@ impl PlaybackEngine {
             true_peak_meter: RwLock::new(TruePeakMeter::new(sample_rate as f64)),
             true_peak_l: AtomicU64::new((-70.0_f64).to_bits()),
             true_peak_r: AtomicU64::new((-70.0_f64).to_bits()),
+            correlation: AtomicU64::new(1.0_f64.to_bits()),
+            balance: AtomicU64::new(0.0_f64.to_bits()),
             automation: None,
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
             vca_assignments: RwLock::new(HashMap::new()),
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
+            track_peaks: RwLock::new(HashMap::new()),
+            spectrum_analyzer: RwLock::new(FftAnalyzer::new(2048)),
+            spectrum_data: RwLock::new(vec![0.0_f32; 256]),
         }
     }
 
@@ -701,6 +717,31 @@ impl PlaybackEngine {
         )
     }
 
+    /// Get stereo correlation (-1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono)
+    pub fn get_correlation(&self) -> f64 {
+        f64::from_bits(self.correlation.load(Ordering::Relaxed))
+    }
+
+    /// Get stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
+    pub fn get_balance(&self) -> f64 {
+        f64::from_bits(self.balance.load(Ordering::Relaxed))
+    }
+
+    /// Get track peak by track ID (0.0 - 1.0+)
+    pub fn get_track_peak(&self, track_id: u64) -> f64 {
+        self.track_peaks.read().get(&track_id).copied().unwrap_or(0.0)
+    }
+
+    /// Get all track peaks as HashMap
+    pub fn get_all_track_peaks(&self) -> HashMap<u64, f64> {
+        self.track_peaks.read().clone()
+    }
+
+    /// Get spectrum data (256 bins, normalized 0-1, log-scaled 20Hz-20kHz)
+    pub fn get_spectrum_data(&self) -> Vec<f32> {
+        self.spectrum_data.read().clone()
+    }
+
     /// Get audio cache
     pub fn cache(&self) -> &Arc<AudioCache> {
         &self.cache
@@ -816,6 +857,9 @@ impl PlaybackEngine {
         let start_time = start_sample as f64 / sample_rate;
         let end_time = (start_sample + frames as u64) as f64 / sample_rate;
 
+        // Decay factor for meters (60dB in ~300ms at 48kHz, 256 block size)
+        let decay = 0.9995_f64.powf(frames as f64 / 8.0);
+
         // Get bus buffers (try lock)
         let mut bus_buffers = match self.bus_buffers.try_write() {
             Some(b) => b,
@@ -930,6 +974,18 @@ impl PlaybackEngine {
                 }
             }
 
+            // Calculate per-track peak (post-fader, post-insert)
+            let mut track_peak = 0.0_f64;
+            for i in 0..frames {
+                track_peak = track_peak.max(track_l[i].abs()).max(track_r[i].abs());
+            }
+            // Apply decay to existing peak (same as master)
+            if let Some(mut peaks) = self.track_peaks.try_write() {
+                let prev = peaks.get(&track.id.0).copied().unwrap_or(0.0);
+                let decayed = prev * decay;
+                peaks.insert(track.id.0, decayed.max(track_peak));
+            }
+
             // Route track to its output bus
             bus_buffers.add_to_bus(track.output_bus, &track_l, &track_r);
         }
@@ -986,8 +1042,6 @@ impl PlaybackEngine {
         }
 
         // Calculate metering (after volume is applied)
-        // Peak with decay (60dB in ~300ms at 48kHz, 256 block size)
-        let decay = 0.9995_f64.powf(frames as f64 / 8.0);
         let prev_peak_l = f64::from_bits(self.peak_l.load(Ordering::Relaxed));
         let prev_peak_r = f64::from_bits(self.peak_r.load(Ordering::Relaxed));
 
@@ -996,13 +1050,18 @@ impl PlaybackEngine {
         let mut sum_sq_l = 0.0;
         let mut sum_sq_r = 0.0;
 
+        let mut sum_lr = 0.0; // For correlation calculation
+
         for i in 0..frames {
-            let abs_l = output_l[i].abs();
-            let abs_r = output_r[i].abs();
+            let l = output_l[i];
+            let r = output_r[i];
+            let abs_l = l.abs();
+            let abs_r = r.abs();
             peak_l = peak_l.max(abs_l);
             peak_r = peak_r.max(abs_r);
-            sum_sq_l += output_l[i] * output_l[i];
-            sum_sq_r += output_r[i] * output_r[i];
+            sum_sq_l += l * l;
+            sum_sq_r += r * r;
+            sum_lr += l * r; // Cross-correlation
         }
 
         // Store peaks
@@ -1014,6 +1073,31 @@ impl PlaybackEngine {
         let rms_r = (sum_sq_r / frames as f64).sqrt();
         self.rms_l.store(rms_l.to_bits(), Ordering::Relaxed);
         self.rms_r.store(rms_r.to_bits(), Ordering::Relaxed);
+
+        // Stereo correlation: r = Σ(L*R) / √(Σ(L²) * Σ(R²))
+        // -1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono/correlated
+        let denom = (sum_sq_l * sum_sq_r).sqrt();
+        let correlation = if denom > 1e-10 {
+            (sum_lr / denom).clamp(-1.0, 1.0)
+        } else {
+            1.0 // Silent = mono (default)
+        };
+        // Smooth correlation with decay to avoid jitter
+        let prev_corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
+        let smoothed_corr = prev_corr * 0.9 + correlation * 0.1;
+        self.correlation.store(smoothed_corr.to_bits(), Ordering::Relaxed);
+
+        // Stereo balance: based on RMS difference
+        // -1.0 = full left, 0.0 = center, 1.0 = full right
+        let balance = if rms_l + rms_r > 1e-10 {
+            ((rms_r - rms_l) / (rms_l + rms_r)).clamp(-1.0, 1.0)
+        } else {
+            0.0 // Silent = center
+        };
+        // Smooth balance
+        let prev_bal = f64::from_bits(self.balance.load(Ordering::Relaxed));
+        let smoothed_bal = prev_bal * 0.9 + balance * 0.1;
+        self.balance.store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
         // LUFS metering (ITU-R BS.1770-4)
         // Use try_write to avoid blocking audio thread if UI is reading
@@ -1032,6 +1116,34 @@ impl PlaybackEngine {
             let dbtp_r: f64 = tp.peak_dbtp_r();
             self.true_peak_l.store(dbtp_l.to_bits(), Ordering::Relaxed);
             self.true_peak_r.store(dbtp_r.to_bits(), Ordering::Relaxed);
+        }
+
+        // Spectrum analyzer (FFT)
+        // Mix to mono and feed to analyzer
+        if let Some(mut analyzer) = self.spectrum_analyzer.try_write() {
+            let mono_samples: Vec<f64> = output_l.iter()
+                .zip(output_r.iter())
+                .map(|(&l, &r)| (l + r) * 0.5)
+                .collect();
+            analyzer.push_samples(&mono_samples);
+            analyzer.analyze();
+
+            // Convert FFT bins to log-scaled 256 bins (20Hz-20kHz)
+            if let Some(mut spectrum) = self.spectrum_data.try_write() {
+                let sample_rate = self.position.sample_rate() as f64;
+                let bin_count = analyzer.bin_count();
+
+                for i in 0..256 {
+                    // Log-scale frequency mapping: 20Hz to 20kHz
+                    let freq_ratio = i as f64 / 255.0;
+                    let freq = 20.0 * (1000.0_f64).powf(freq_ratio); // 20Hz to 20kHz
+                    let bin = analyzer.freq_to_bin(freq, sample_rate).min(bin_count - 1);
+                    let db = analyzer.magnitude(bin);
+                    // Normalize to 0-1 range (-80dB to 0dB)
+                    let normalized = ((db + 80.0) / 80.0).clamp(0.0, 1.0);
+                    spectrum[i] = normalized as f32;
+                }
+            }
         }
 
         // Advance position

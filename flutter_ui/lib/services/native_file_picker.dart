@@ -60,4 +60,15 @@ class NativeFilePicker {
       return null;
     }
   }
+
+  /// Pick an impulse response audio file
+  /// Returns file path or null if cancelled
+  static Future<String?> pickIrFile() async {
+    try {
+      return await _channel.invokeMethod<String>('pickIrFile');
+    } catch (e) {
+      print('[NativeFilePicker] Error picking IR file: $e');
+      return null;
+    }
+  }
 }

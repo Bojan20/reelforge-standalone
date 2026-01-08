@@ -49,6 +49,10 @@ class TrackHeaderPro extends StatefulWidget {
   final void Function(Offset position)? onContextMenu;
   final VoidCallback? onSettingsMenu;
   final VoidCallback? onFileDrop;
+  /// Toggle automation lanes visibility
+  final VoidCallback? onAutomationToggle;
+  /// Toggle folder expanded state (only for folder tracks)
+  final VoidCallback? onFolderToggle;
 
   const TrackHeaderPro({
     super.key,
@@ -74,6 +78,8 @@ class TrackHeaderPro extends StatefulWidget {
     this.onContextMenu,
     this.onSettingsMenu,
     this.onFileDrop,
+    this.onAutomationToggle,
+    this.onFolderToggle,
   });
 
   @override
@@ -141,14 +147,33 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
   double _log10(double x) => x > 0 ? (math.log(x) / math.ln10) : double.negativeInfinity;
 
   IconData _getTrackIcon() {
-    final name = widget.track.name.toLowerCase();
-    if (name.contains('voice') || name.contains('vocal')) return Icons.mic;
-    if (name.contains('guitar')) return Icons.music_note;
-    if (name.contains('bass')) return Icons.graphic_eq;
-    if (name.contains('drum')) return Icons.album;
-    if (name.contains('key') || name.contains('piano')) return Icons.piano;
-    if (name.contains('synth')) return Icons.waves;
-    return Icons.audiotrack;
+    // Folder tracks get folder icon
+    if (widget.track.isFolder) {
+      return widget.track.folderExpanded ? Icons.folder_open : Icons.folder;
+    }
+    // Track type specific icons
+    switch (widget.track.trackType) {
+      case TrackType.midi:
+        return Icons.piano;
+      case TrackType.instrument:
+        return Icons.music_note;
+      case TrackType.bus:
+        return Icons.call_split;
+      case TrackType.aux:
+        return Icons.arrow_forward;
+      case TrackType.master:
+        return Icons.speaker;
+      case TrackType.audio:
+      default:
+        final name = widget.track.name.toLowerCase();
+        if (name.contains('voice') || name.contains('vocal')) return Icons.mic;
+        if (name.contains('guitar')) return Icons.music_note;
+        if (name.contains('bass')) return Icons.graphic_eq;
+        if (name.contains('drum')) return Icons.album;
+        if (name.contains('key') || name.contains('piano')) return Icons.piano;
+        if (name.contains('synth')) return Icons.waves;
+        return Icons.audiotrack;
+    }
   }
 
   @override
@@ -184,13 +209,14 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Row 1: Icon + Name + M/S/R + Settings
                     _buildTopRow(track),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Row 2: Volume slider + meter
                     _buildVolumeRow(track),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Row 3: Pan slider + Bus
                     _buildPanRow(track, busInfo),
                   ],
@@ -236,11 +262,36 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
   Widget _buildTopRow(TimelineTrack track) {
     return Row(
       children: [
+        // Indent for nested tracks
+        if (track.indentLevel > 0)
+          SizedBox(width: track.indentLevel * 12.0),
+        // Folder expand/collapse button
+        if (track.isFolder)
+          GestureDetector(
+            onTap: widget.onFolderToggle,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Icon(
+                track.folderExpanded
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_right,
+                size: 14,
+                color: ReelForgeTheme.textSecondary,
+              ),
+            ),
+          ),
         // Track icon
         Icon(
           _getTrackIcon(),
           size: 16,
-          color: track.color.withValues(alpha: 0.8),
+          color: track.isFolder
+              ? ReelForgeTheme.accentYellow.withValues(alpha: 0.8)
+              : track.color.withValues(alpha: 0.8),
         ),
         const SizedBox(width: 4),
         // Name
@@ -299,6 +350,14 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
           isActive: track.armed,
           activeColor: ReelForgeTheme.accentRed,
           onTap: widget.onArmToggle,
+        ),
+        const SizedBox(width: 2),
+        // Automation toggle button
+        _MSRButton(
+          label: 'A',
+          isActive: track.automationExpanded,
+          activeColor: const Color(0xFFFF9040), // Orange for automation
+          onTap: widget.onAutomationToggle,
         ),
         const SizedBox(width: 2),
         // Settings button
