@@ -88,6 +88,7 @@ pub mod elastic;
 pub mod elastic_pro;  // Ultimate time-stretching (STN + Phase Vocoder + Formant)
 pub mod pitch;
 pub mod wavelet;      // Multi-resolution analysis (DWT, CWT, CQT)
+pub mod timestretch;  // ULTIMATIVNI Time Stretch Engine (NSGT + RTPGHI + STN + Formant)
 
 // Re-export transient shaper
 pub use transient::{

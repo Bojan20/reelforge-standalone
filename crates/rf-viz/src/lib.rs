@@ -19,6 +19,7 @@ pub mod eq_spectrum;
 pub mod gpu_filter;
 pub mod plugin_browser;
 pub mod plugin_chain;
+pub mod stretch_overlay;
 
 pub use waveform::{WaveformRenderer, WaveformData, WaveformConfig};
 pub use common::{GpuContext, VizError, VizResult};
