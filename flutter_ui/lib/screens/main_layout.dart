@@ -243,13 +243,10 @@ class _MainLayoutState extends State<MainLayout>
     }
 
     // Transport shortcuts (only in DAW mode)
+    // Space = Play/Pause toggle (onPlay callback handles the toggle logic)
     if (key == LogicalKeyboardKey.space &&
         widget.editorMode == EditorMode.daw) {
-      if (widget.isPlaying) {
-        widget.onStop?.call();
-      } else {
-        widget.onPlay?.call();
-      }
+      widget.onPlay?.call();
       return KeyEventResult.handled;
     } else if (key == LogicalKeyboardKey.period &&
         !isCtrl &&

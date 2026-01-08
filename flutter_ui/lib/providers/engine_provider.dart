@@ -158,6 +158,9 @@ class EngineProvider extends ChangeNotifier {
   void toggleLoop() {
     if (!isRunning) return;
     engine.toggleLoop();
+    // Force immediate UI update (stream may have slight delay)
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
