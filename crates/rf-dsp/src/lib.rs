@@ -53,6 +53,8 @@ pub mod multiband;
 pub mod metering;
 pub mod metering_simd;      // SIMD-optimized metering (AVX2/AVX-512, 8x True Peak)
 pub mod loudness_advanced;  // Psychoacoustic loudness (Zwicker, sharpness, roughness)
+pub mod signal_integrity;   // Signal integrity chain (DC block, auto-gain, ISP limiter, dither)
+pub mod oversampling;       // Global oversampling + SIMD biquad batch processing
 
 // Professional EQ (Pro-Q 4 competitor)
 pub mod eq_pro;
