@@ -70,6 +70,9 @@ import '../widgets/dsp/stereo_imager_panel.dart';
 import '../widgets/dsp/convolution_ultra_panel.dart';
 import '../widgets/dsp/gpu_settings_panel.dart';
 import '../widgets/dsp/deconvolution_wizard.dart';
+import '../widgets/dsp/ml_processor_panel.dart';
+import '../widgets/dsp/mastering_panel.dart';
+import '../widgets/dsp/restoration_panel.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../src/rust/engine_api.dart';
 import '../src/rust/native_ffi.dart';
@@ -4799,6 +4802,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: const GpuSettingsPanel(),
         groupId: 'dsp',
       ),
+      LowerZoneTab(
+        id: 'ml-processor',
+        label: 'ML Processor',
+        icon: Icons.psychology,
+        content: MlProcessorPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'mastering',
+        label: 'Mastering',
+        icon: Icons.auto_awesome,
+        content: MasteringPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'restoration',
+        label: 'Restoration',
+        icon: Icons.healing,
+        content: RestorationPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'dsp',
+      ),
       // ========== Media Tabs ==========
       LowerZoneTab(
         id: 'audio-browser',
@@ -4868,7 +4892,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'dsp',
         label: 'DSP',
-        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings'],
+        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings', 'ml-processor', 'mastering', 'restoration'],
       ),
 
       // ========== MIDDLEWARE MODE GROUPS ==========
