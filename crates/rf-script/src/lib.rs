@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, bounded};
 use mlua::{Lua, Table, UserData, UserDataMethods};
 use parking_lot::RwLock;
 use thiserror::Error;
@@ -85,8 +85,12 @@ impl UserData for ScriptContext {
         methods.add_method("get_sample_rate", |_, this, ()| Ok(this.sample_rate));
         methods.add_method("is_playing", |_, this, ()| Ok(this.is_playing));
         methods.add_method("is_recording", |_, this, ()| Ok(this.is_recording));
-        methods.add_method("get_selected_tracks", |_, this, ()| Ok(this.selected_tracks.clone()));
-        methods.add_method("get_selected_clips", |_, this, ()| Ok(this.selected_clips.clone()));
+        methods.add_method("get_selected_tracks", |_, this, ()| {
+            Ok(this.selected_tracks.clone())
+        });
+        methods.add_method("get_selected_clips", |_, this, ()| {
+            Ok(this.selected_clips.clone())
+        });
     }
 }
 
@@ -103,7 +107,10 @@ pub enum ScriptAction {
     SetLoop(u64, u64),
 
     // Track operations
-    CreateTrack { name: String, track_type: String },
+    CreateTrack {
+        name: String,
+        track_type: String,
+    },
     DeleteTrack(u64),
     RenameTrack(u64, String),
     MuteTrack(u64, bool),
@@ -112,11 +119,25 @@ pub enum ScriptAction {
     SetTrackPan(u64, f64),
 
     // Clip operations
-    CreateClip { track_id: u64, start: u64, length: u64 },
+    CreateClip {
+        track_id: u64,
+        start: u64,
+        length: u64,
+    },
     DeleteClip(u64),
-    MoveClip { clip_id: u64, new_start: u64 },
-    TrimClip { clip_id: u64, new_start: u64, new_end: u64 },
-    SplitClip { clip_id: u64, position: u64 },
+    MoveClip {
+        clip_id: u64,
+        new_start: u64,
+    },
+    TrimClip {
+        clip_id: u64,
+        new_start: u64,
+        new_end: u64,
+    },
+    SplitClip {
+        clip_id: u64,
+        position: u64,
+    },
     DuplicateClip(u64),
 
     // Selection
@@ -134,25 +155,55 @@ pub enum ScriptAction {
     Redo,
 
     // Plugin operations
-    InsertPlugin { track_id: u64, slot: usize, plugin_id: String },
-    RemovePlugin { track_id: u64, slot: usize },
-    SetPluginParam { track_id: u64, slot: usize, param_id: u32, value: f64 },
+    InsertPlugin {
+        track_id: u64,
+        slot: usize,
+        plugin_id: String,
+    },
+    RemovePlugin {
+        track_id: u64,
+        slot: usize,
+    },
+    SetPluginParam {
+        track_id: u64,
+        slot: usize,
+        param_id: u32,
+        value: f64,
+    },
 
     // Automation
-    WriteAutomation { track_id: u64, param: String, time: u64, value: f64 },
-    ClearAutomation { track_id: u64, param: String },
+    WriteAutomation {
+        track_id: u64,
+        param: String,
+        time: u64,
+        value: f64,
+    },
+    ClearAutomation {
+        track_id: u64,
+        param: String,
+    },
 
     // Markers
-    AddMarker { position: u64, name: String, color: u32 },
+    AddMarker {
+        position: u64,
+        name: String,
+        color: u32,
+    },
     DeleteMarker(u64),
 
     // Project
     Save,
     SaveAs(PathBuf),
-    Export { path: PathBuf, format: String },
+    Export {
+        path: PathBuf,
+        format: String,
+    },
 
     // Custom message
-    Custom { name: String, data: String },
+    Custom {
+        name: String,
+        data: String,
+    },
 }
 
 // ============ Script Engine ============
@@ -210,242 +261,400 @@ impl ScriptEngine {
 
         // Transport API
         let tx = self.action_tx.clone();
-        rf.set("play", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Play).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "play",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Play).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("stop", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Stop).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "stop",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Stop).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("record", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Record).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "record",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Record).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("set_playhead", self.lua.create_function(move |_, position: u64| {
-            tx.send(ScriptAction::SetPlayhead(position)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "set_playhead",
+            self.lua.create_function(move |_, position: u64| {
+                tx.send(ScriptAction::SetPlayhead(position)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("set_loop", self.lua.create_function(move |_, (start, end): (u64, u64)| {
-            tx.send(ScriptAction::SetLoop(start, end)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "set_loop",
+            self.lua
+                .create_function(move |_, (start, end): (u64, u64)| {
+                    tx.send(ScriptAction::SetLoop(start, end)).ok();
+                    Ok(())
+                })?,
+        )?;
 
         // Track API
         let tx = self.action_tx.clone();
-        rf.set("create_track", self.lua.create_function(move |_, (name, track_type): (String, String)| {
-            tx.send(ScriptAction::CreateTrack { name, track_type }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "create_track",
+            self.lua
+                .create_function(move |_, (name, track_type): (String, String)| {
+                    tx.send(ScriptAction::CreateTrack { name, track_type }).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("delete_track", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::DeleteTrack(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "delete_track",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::DeleteTrack(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("mute_track", self.lua.create_function(move |_, (id, muted): (u64, bool)| {
-            tx.send(ScriptAction::MuteTrack(id, muted)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "mute_track",
+            self.lua
+                .create_function(move |_, (id, muted): (u64, bool)| {
+                    tx.send(ScriptAction::MuteTrack(id, muted)).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("solo_track", self.lua.create_function(move |_, (id, solo): (u64, bool)| {
-            tx.send(ScriptAction::SoloTrack(id, solo)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "solo_track",
+            self.lua
+                .create_function(move |_, (id, solo): (u64, bool)| {
+                    tx.send(ScriptAction::SoloTrack(id, solo)).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("set_track_volume", self.lua.create_function(move |_, (id, vol): (u64, f64)| {
-            tx.send(ScriptAction::SetTrackVolume(id, vol)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "set_track_volume",
+            self.lua.create_function(move |_, (id, vol): (u64, f64)| {
+                tx.send(ScriptAction::SetTrackVolume(id, vol)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("set_track_pan", self.lua.create_function(move |_, (id, pan): (u64, f64)| {
-            tx.send(ScriptAction::SetTrackPan(id, pan)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "set_track_pan",
+            self.lua.create_function(move |_, (id, pan): (u64, f64)| {
+                tx.send(ScriptAction::SetTrackPan(id, pan)).ok();
+                Ok(())
+            })?,
+        )?;
 
         // Clip API
         let tx = self.action_tx.clone();
-        rf.set("create_clip", self.lua.create_function(move |_, (track_id, start, length): (u64, u64, u64)| {
-            tx.send(ScriptAction::CreateClip { track_id, start, length }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "create_clip",
+            self.lua
+                .create_function(move |_, (track_id, start, length): (u64, u64, u64)| {
+                    tx.send(ScriptAction::CreateClip {
+                        track_id,
+                        start,
+                        length,
+                    })
+                    .ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("delete_clip", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::DeleteClip(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "delete_clip",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::DeleteClip(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("move_clip", self.lua.create_function(move |_, (clip_id, new_start): (u64, u64)| {
-            tx.send(ScriptAction::MoveClip { clip_id, new_start }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "move_clip",
+            self.lua
+                .create_function(move |_, (clip_id, new_start): (u64, u64)| {
+                    tx.send(ScriptAction::MoveClip { clip_id, new_start }).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("split_clip", self.lua.create_function(move |_, (clip_id, position): (u64, u64)| {
-            tx.send(ScriptAction::SplitClip { clip_id, position }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "split_clip",
+            self.lua
+                .create_function(move |_, (clip_id, position): (u64, u64)| {
+                    tx.send(ScriptAction::SplitClip { clip_id, position }).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("duplicate_clip", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::DuplicateClip(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "duplicate_clip",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::DuplicateClip(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         // Edit API
         let tx = self.action_tx.clone();
-        rf.set("cut", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Cut).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "cut",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Cut).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("copy", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Copy).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "copy",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Copy).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("paste", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Paste).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "paste",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Paste).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("delete", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Delete).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "delete",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Delete).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("undo", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Undo).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "undo",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Undo).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("redo", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Redo).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "redo",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Redo).ok();
+                Ok(())
+            })?,
+        )?;
 
         // Selection API
         let tx = self.action_tx.clone();
-        rf.set("select_track", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::SelectTrack(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "select_track",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::SelectTrack(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("select_clip", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::SelectClip(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "select_clip",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::SelectClip(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("select_all", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::SelectAll).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "select_all",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::SelectAll).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("deselect_all", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::DeselectAll).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "deselect_all",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::DeselectAll).ok();
+                Ok(())
+            })?,
+        )?;
 
         // Plugin API
         let tx = self.action_tx.clone();
-        rf.set("insert_plugin", self.lua.create_function(move |_, (track_id, slot, plugin_id): (u64, usize, String)| {
-            tx.send(ScriptAction::InsertPlugin { track_id, slot, plugin_id }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "insert_plugin",
+            self.lua.create_function(
+                move |_, (track_id, slot, plugin_id): (u64, usize, String)| {
+                    tx.send(ScriptAction::InsertPlugin {
+                        track_id,
+                        slot,
+                        plugin_id,
+                    })
+                    .ok();
+                    Ok(())
+                },
+            )?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("remove_plugin", self.lua.create_function(move |_, (track_id, slot): (u64, usize)| {
-            tx.send(ScriptAction::RemovePlugin { track_id, slot }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "remove_plugin",
+            self.lua
+                .create_function(move |_, (track_id, slot): (u64, usize)| {
+                    tx.send(ScriptAction::RemovePlugin { track_id, slot }).ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("set_plugin_param", self.lua.create_function(move |_, (track_id, slot, param_id, value): (u64, usize, u32, f64)| {
-            tx.send(ScriptAction::SetPluginParam { track_id, slot, param_id, value }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "set_plugin_param",
+            self.lua.create_function(
+                move |_, (track_id, slot, param_id, value): (u64, usize, u32, f64)| {
+                    tx.send(ScriptAction::SetPluginParam {
+                        track_id,
+                        slot,
+                        param_id,
+                        value,
+                    })
+                    .ok();
+                    Ok(())
+                },
+            )?,
+        )?;
 
         // Marker API
         let tx = self.action_tx.clone();
-        rf.set("add_marker", self.lua.create_function(move |_, (position, name, color): (u64, String, u32)| {
-            tx.send(ScriptAction::AddMarker { position, name, color }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "add_marker",
+            self.lua
+                .create_function(move |_, (position, name, color): (u64, String, u32)| {
+                    tx.send(ScriptAction::AddMarker {
+                        position,
+                        name,
+                        color,
+                    })
+                    .ok();
+                    Ok(())
+                })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("delete_marker", self.lua.create_function(move |_, id: u64| {
-            tx.send(ScriptAction::DeleteMarker(id)).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "delete_marker",
+            self.lua.create_function(move |_, id: u64| {
+                tx.send(ScriptAction::DeleteMarker(id)).ok();
+                Ok(())
+            })?,
+        )?;
 
         // Project API
         let tx = self.action_tx.clone();
-        rf.set("save", self.lua.create_function(move |_, ()| {
-            tx.send(ScriptAction::Save).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "save",
+            self.lua.create_function(move |_, ()| {
+                tx.send(ScriptAction::Save).ok();
+                Ok(())
+            })?,
+        )?;
 
         let tx = self.action_tx.clone();
-        rf.set("export", self.lua.create_function(move |_, (path, format): (String, String)| {
-            tx.send(ScriptAction::Export { path: PathBuf::from(path), format }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "export",
+            self.lua
+                .create_function(move |_, (path, format): (String, String)| {
+                    tx.send(ScriptAction::Export {
+                        path: PathBuf::from(path),
+                        format,
+                    })
+                    .ok();
+                    Ok(())
+                })?,
+        )?;
 
         // Custom action
         let tx = self.action_tx.clone();
-        rf.set("action", self.lua.create_function(move |_, (name, data): (String, String)| {
-            tx.send(ScriptAction::Custom { name, data }).ok();
-            Ok(())
-        })?)?;
+        rf.set(
+            "action",
+            self.lua
+                .create_function(move |_, (name, data): (String, String)| {
+                    tx.send(ScriptAction::Custom { name, data }).ok();
+                    Ok(())
+                })?,
+        )?;
 
         // Utility functions
-        rf.set("print", self.lua.create_function(|_, msg: String| {
-            log::info!("[Script] {}", msg);
-            Ok(())
-        })?)?;
+        rf.set(
+            "print",
+            self.lua.create_function(|_, msg: String| {
+                log::info!("[Script] {}", msg);
+                Ok(())
+            })?,
+        )?;
 
-        rf.set("samples_to_seconds", self.lua.create_function(|_, (samples, sample_rate): (u64, u32)| {
-            Ok(samples as f64 / sample_rate as f64)
-        })?)?;
+        rf.set(
+            "samples_to_seconds",
+            self.lua
+                .create_function(|_, (samples, sample_rate): (u64, u32)| {
+                    Ok(samples as f64 / sample_rate as f64)
+                })?,
+        )?;
 
-        rf.set("seconds_to_samples", self.lua.create_function(|_, (seconds, sample_rate): (f64, u32)| {
-            Ok((seconds * sample_rate as f64) as u64)
-        })?)?;
+        rf.set(
+            "seconds_to_samples",
+            self.lua
+                .create_function(|_, (seconds, sample_rate): (f64, u32)| {
+                    Ok((seconds * sample_rate as f64) as u64)
+                })?,
+        )?;
 
-        rf.set("db_to_linear", self.lua.create_function(|_, db: f64| {
-            Ok(10.0_f64.powf(db / 20.0))
-        })?)?;
+        rf.set(
+            "db_to_linear",
+            self.lua
+                .create_function(|_, db: f64| Ok(10.0_f64.powf(db / 20.0)))?,
+        )?;
 
-        rf.set("linear_to_db", self.lua.create_function(|_, linear: f64| {
-            if linear > 0.0 {
-                Ok(20.0 * linear.log10())
-            } else {
-                Ok(-120.0)
-            }
-        })?)?;
+        rf.set(
+            "linear_to_db",
+            self.lua.create_function(|_, linear: f64| {
+                if linear > 0.0 {
+                    Ok(20.0 * linear.log10())
+                } else {
+                    Ok(-120.0)
+                }
+            })?,
+        )?;
 
         globals.set("rf", rf)?;
 
@@ -462,7 +671,8 @@ impl ScriptEngine {
         let path = path.as_ref();
         let source = std::fs::read_to_string(path)?;
 
-        let name = path.file_stem()
+        let name = path
+            .file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "unnamed".into());
 
@@ -479,10 +689,13 @@ impl ScriptEngine {
 
     /// Execute a loaded script
     pub fn execute_script(&self, name: &str) -> ScriptResult<()> {
-        let script = self.scripts.get(name)
+        let script = self
+            .scripts
+            .get(name)
             .ok_or_else(|| ScriptError::NotFound(name.into()))?;
 
-        self.lua.load(&script.source)
+        self.lua
+            .load(&script.source)
             .set_name(&script.name)
             .exec()?;
 
@@ -531,9 +744,12 @@ impl ScriptEngine {
 
     /// Reload a script
     pub fn reload_script(&mut self, name: &str) -> ScriptResult<()> {
-        let path = self.scripts.get(name)
+        let path = self
+            .scripts
+            .get(name)
             .ok_or_else(|| ScriptError::NotFound(name.into()))?
-            .path.clone();
+            .path
+            .clone();
 
         self.load_script(path)?;
         Ok(())
@@ -680,7 +896,9 @@ end
 
     /// List all available scripts
     pub fn list_all_scripts(&self) -> Vec<String> {
-        let mut scripts: Vec<String> = self.engine.list_scripts()
+        let mut scripts: Vec<String> = self
+            .engine
+            .list_scripts()
             .into_iter()
             .map(|s| s.to_string())
             .collect();

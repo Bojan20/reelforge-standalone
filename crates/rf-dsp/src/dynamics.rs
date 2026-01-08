@@ -84,7 +84,7 @@ pub struct Compressor {
     makeup_gain_db: f64,
     attack_ms: f64,
     release_ms: f64,
-    mix: f64,  // Dry/wet for parallel compression
+    mix: f64, // Dry/wet for parallel compression
 
     // Compressor type
     comp_type: CompressorType,
@@ -214,10 +214,13 @@ impl Compressor {
         let level_factor = (abs_input * 10.0).min(1.0);
 
         // Attack gets faster with higher levels
-        let attack_coeff = (-1.0 / ((self.attack_ms * (1.0 - level_factor * 0.5)) * 0.001 * self.sample_rate)).exp();
+        let attack_coeff = (-1.0
+            / ((self.attack_ms * (1.0 - level_factor * 0.5)) * 0.001 * self.sample_rate))
+            .exp();
         // Release is slower for higher gain reduction (opto characteristic)
         let release_factor = 1.0 + self.gain_reduction * 0.02;
-        let release_coeff = (-1.0 / ((self.release_ms * release_factor) * 0.001 * self.sample_rate)).exp();
+        let release_coeff =
+            (-1.0 / ((self.release_ms * release_factor) * 0.001 * self.sample_rate)).exp();
 
         let coeff = if abs_input > self.opto_envelope {
             attack_coeff
@@ -325,7 +328,7 @@ impl ProcessorConfig for Compressor {
 pub struct StereoCompressor {
     left: Compressor,
     right: Compressor,
-    link: f64,  // 0.0 = independent, 1.0 = fully linked
+    link: f64, // 0.0 = independent, 1.0 = fully linked
 }
 
 impl StereoCompressor {
@@ -359,7 +362,10 @@ impl StereoCompressor {
     }
 
     pub fn gain_reduction_db(&self) -> (f64, f64) {
-        (self.left.gain_reduction_db(), self.right.gain_reduction_db())
+        (
+            self.left.gain_reduction_db(),
+            self.right.gain_reduction_db(),
+        )
     }
 }
 
@@ -380,7 +386,11 @@ impl StereoProcessor for StereoCompressor {
 
             // Use same envelope for both
             let env = self.left.envelope.current();
-            let env_db = if env > 1e-10 { 20.0 * env.log10() } else { -120.0 };
+            let env_db = if env > 1e-10 {
+                20.0 * env.log10()
+            } else {
+                -120.0
+            };
             let gr_db = self.left.calculate_gain_reduction(env_db);
             self.left.gain_reduction = gr_db;
             self.right.gain_reduction = gr_db;
@@ -391,7 +401,10 @@ impl StereoProcessor for StereoCompressor {
             (left * gain * makeup, right * gain * makeup)
         } else if self.link <= 0.01 {
             // Independent
-            (self.left.process_sample(left), self.right.process_sample(right))
+            (
+                self.left.process_sample(left),
+                self.right.process_sample(right),
+            )
         } else {
             // Partial link
             let out_l = self.left.process_sample(left);
@@ -512,7 +525,7 @@ pub struct TruePeakLimiter {
 
 impl TruePeakLimiter {
     pub fn new(sample_rate: f64) -> Self {
-        let lookahead_ms = 1.5;  // ITU recommends 1.5ms for true peak
+        let lookahead_ms = 1.5; // ITU recommends 1.5ms for true peak
         let lookahead_samples = ((lookahead_ms * 0.001 * sample_rate) as usize).max(1);
 
         Self {
@@ -982,7 +995,11 @@ mod tests {
     fn test_compressor_types() {
         let sample_rate = 48000.0;
 
-        for comp_type in [CompressorType::Vca, CompressorType::Opto, CompressorType::Fet] {
+        for comp_type in [
+            CompressorType::Vca,
+            CompressorType::Opto,
+            CompressorType::Fet,
+        ] {
             let mut comp = Compressor::new(sample_rate);
             comp.set_type(comp_type);
             comp.set_threshold(-20.0);
@@ -1019,7 +1036,7 @@ mod tests {
     fn test_gate_with_hold() {
         let mut gate = Gate::new(48000.0);
         gate.set_threshold(-20.0);
-        gate.set_hold(10.0);  // 10ms hold
+        gate.set_hold(10.0); // 10ms hold
 
         // Loud signal opens gate - need more samples for gate to fully open
         for _ in 0..1000 {
@@ -1034,7 +1051,11 @@ mod tests {
             gate.process_sample(0.001);
         }
         // Gate should still be partially open due to hold
-        assert!(gate.gain > 0.3, "Gate should still be partially open due to hold, got {}", gate.gain);
+        assert!(
+            gate.gain > 0.3,
+            "Gate should still be partially open due to hold, got {}",
+            gate.gain
+        );
     }
 
     #[test]
@@ -1044,7 +1065,7 @@ mod tests {
             c.set_threshold(-20.0);
             c.set_ratio(4.0);
         });
-        comp.set_link(1.0);  // Fully linked
+        comp.set_link(1.0); // Fully linked
 
         // Process with unbalanced signal
         for _ in 0..1000 {

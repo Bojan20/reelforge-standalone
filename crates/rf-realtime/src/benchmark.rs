@@ -7,10 +7,10 @@
 //! - SIMD utilization
 //! - GPU compute timing
 
-use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
-use std::time::{Duration, Instant};
-use std::collections::HashMap;
 use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 /// Performance target levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -205,11 +205,14 @@ impl Profiler {
 
     /// Configure for buffer size and sample rate
     pub fn configure(&self, buffer_size: usize, sample_rate: u32) {
-        self.buffer_size.store(buffer_size as u64, Ordering::Release);
-        self.sample_rate.store(sample_rate as u64, Ordering::Release);
+        self.buffer_size
+            .store(buffer_size as u64, Ordering::Release);
+        self.sample_rate
+            .store(sample_rate as u64, Ordering::Release);
 
         let available_us = (buffer_size as f64 / sample_rate as f64 * 1_000_000.0) as u64;
-        self.available_time_us.store(available_us, Ordering::Release);
+        self.available_time_us
+            .store(available_us, Ordering::Release);
     }
 
     /// Start profiling scope

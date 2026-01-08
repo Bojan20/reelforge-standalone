@@ -64,13 +64,14 @@ pub fn get_host() -> Host {
 pub fn list_output_devices() -> AudioResult<Vec<DeviceInfo>> {
     let host = get_host();
     let default_device = host.default_output_device();
-    let default_name = default_device
-        .as_ref()
-        .and_then(|d| d.name().ok());
+    let default_name = default_device.as_ref().and_then(|d| d.name().ok());
 
     let mut devices = Vec::new();
 
-    for device in host.output_devices().map_err(|e| AudioError::BackendError(e.to_string()))? {
+    for device in host
+        .output_devices()
+        .map_err(|e| AudioError::BackendError(e.to_string()))?
+    {
         if let Ok(name) = device.name() {
             let is_default = default_name.as_ref().map(|d| d == &name).unwrap_or(false);
 
@@ -93,13 +94,14 @@ pub fn list_output_devices() -> AudioResult<Vec<DeviceInfo>> {
 pub fn list_input_devices() -> AudioResult<Vec<DeviceInfo>> {
     let host = get_host();
     let default_device = host.default_input_device();
-    let default_name = default_device
-        .as_ref()
-        .and_then(|d| d.name().ok());
+    let default_name = default_device.as_ref().and_then(|d| d.name().ok());
 
     let mut devices = Vec::new();
 
-    for device in host.input_devices().map_err(|e| AudioError::BackendError(e.to_string()))? {
+    for device in host
+        .input_devices()
+        .map_err(|e| AudioError::BackendError(e.to_string()))?
+    {
         if let Ok(name) = device.name() {
             let is_default = default_name.as_ref().map(|d| d == &name).unwrap_or(false);
 
@@ -121,22 +123,23 @@ pub fn list_input_devices() -> AudioResult<Vec<DeviceInfo>> {
 /// Get default output device
 pub fn get_default_output_device() -> AudioResult<Device> {
     let host = get_host();
-    host.default_output_device()
-        .ok_or(AudioError::NoDevice)
+    host.default_output_device().ok_or(AudioError::NoDevice)
 }
 
 /// Get default input device
 pub fn get_default_input_device() -> AudioResult<Device> {
     let host = get_host();
-    host.default_input_device()
-        .ok_or(AudioError::NoDevice)
+    host.default_input_device().ok_or(AudioError::NoDevice)
 }
 
 /// Get output device by name
 pub fn get_output_device_by_name(name: &str) -> AudioResult<Device> {
     let host = get_host();
 
-    for device in host.output_devices().map_err(|e| AudioError::BackendError(e.to_string()))? {
+    for device in host
+        .output_devices()
+        .map_err(|e| AudioError::BackendError(e.to_string()))?
+    {
         if let Ok(device_name) = device.name() {
             if device_name == name {
                 return Ok(device);
@@ -151,7 +154,10 @@ pub fn get_output_device_by_name(name: &str) -> AudioResult<Device> {
 pub fn get_input_device_by_name(name: &str) -> AudioResult<Device> {
     let host = get_host();
 
-    for device in host.input_devices().map_err(|e| AudioError::BackendError(e.to_string()))? {
+    for device in host
+        .input_devices()
+        .map_err(|e| AudioError::BackendError(e.to_string()))?
+    {
         if let Ok(device_name) = device.name() {
             if device_name == name {
                 return Ok(device);
@@ -181,11 +187,7 @@ fn get_input_device_info(device: &Device) -> (u16, Vec<u32>) {
 }
 
 fn extract_device_info(configs: &[SupportedStreamConfigRange]) -> (u16, Vec<u32>) {
-    let max_channels = configs
-        .iter()
-        .map(|c| c.channels())
-        .max()
-        .unwrap_or(0);
+    let max_channels = configs.iter().map(|c| c.channels()).max().unwrap_or(0);
 
     let mut sample_rates: Vec<u32> = configs
         .iter()
@@ -312,7 +314,8 @@ impl DeviceManager {
 
     /// Get default output device name
     pub fn default_output_name(&self) -> Option<String> {
-        self.output_devices.read()
+        self.output_devices
+            .read()
             .iter()
             .find(|d| d.is_default)
             .map(|d| d.name.clone())
@@ -320,7 +323,8 @@ impl DeviceManager {
 
     /// Get default input device name
     pub fn default_input_name(&self) -> Option<String> {
-        self.input_devices.read()
+        self.input_devices
+            .read()
             .iter()
             .find(|d| d.is_default)
             .map(|d| d.name.clone())
@@ -332,13 +336,15 @@ impl DeviceManager {
         let outputs = self.output_devices.read();
 
         if let Some(ref name) = selection.output_device {
-            outputs.iter()
+            outputs
+                .iter()
                 .find(|d| &d.name == name)
                 .map(|d| d.sample_rates.clone())
                 .unwrap_or_default()
         } else {
             // Return default rates
-            outputs.iter()
+            outputs
+                .iter()
                 .find(|d| d.is_default)
                 .map(|d| d.sample_rates.clone())
                 .unwrap_or_else(|| vec![44100, 48000, 96000])

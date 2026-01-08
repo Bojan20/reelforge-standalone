@@ -97,7 +97,8 @@ impl IrMorpher {
         fft_size: usize,
         fft: &std::sync::Arc<dyn rustfft::Fft<f64>>,
     ) -> Vec<Complex64> {
-        let mut buffer: Vec<Complex64> = samples.iter()
+        let mut buffer: Vec<Complex64> = samples
+            .iter()
             .take(fft_size)
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
@@ -258,9 +259,7 @@ impl IrMorpher {
             let end = (i + half_win).min(len);
             let count = end - start;
 
-            let sum: f64 = (start..end)
-                .map(|j| spectrum[j].norm())
-                .sum();
+            let sum: f64 = (start..end).map(|j| spectrum[j].norm()).sum();
 
             envelope[i] = sum / count as f64;
         }
@@ -303,11 +302,7 @@ impl IrMorpher {
     /// Get morphed IR as ImpulseResponse
     pub fn get_morphed(&mut self) -> ImpulseResponse {
         self.update_if_dirty();
-        ImpulseResponse::new(
-            self.morphed_ir.clone(),
-            self.ir_a.sample_rate,
-            1,
-        )
+        ImpulseResponse::new(self.morphed_ir.clone(), self.ir_a.sample_rate, 1)
     }
 
     /// Replace IR A
@@ -339,7 +334,12 @@ pub struct MorphController {
 
 impl MorphController {
     /// Create with smoothing time in seconds
-    pub fn new(ir_a: ImpulseResponse, ir_b: ImpulseResponse, smooth_time_sec: f64, sample_rate: f64) -> Self {
+    pub fn new(
+        ir_a: ImpulseResponse,
+        ir_b: ImpulseResponse,
+        smooth_time_sec: f64,
+        sample_rate: f64,
+    ) -> Self {
         let morpher = IrMorpher::new(ir_a, ir_b);
 
         // Calculate smoothing coefficient
@@ -391,9 +391,13 @@ mod tests {
         let mut morpher = IrMorpher::new(ir_a, ir_b);
 
         // Test all modes
-        for mode in [MorphMode::Crossfade, MorphMode::MagnitudeOnly,
-                     MorphMode::LogMagnitude, MorphMode::Spectral,
-                     MorphMode::SpectralEnvelope] {
+        for mode in [
+            MorphMode::Crossfade,
+            MorphMode::MagnitudeOnly,
+            MorphMode::LogMagnitude,
+            MorphMode::Spectral,
+            MorphMode::SpectralEnvelope,
+        ] {
             morpher.set_mode(mode);
             morpher.set_blend(0.5);
             let _ = morpher.get_morphed_ir();

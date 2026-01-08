@@ -12,15 +12,15 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use ndarray::{Array2, Array3, Axis, s};
+use ndarray::{s, Array2, Array3, Axis};
 use num_complex::Complex32;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 
-use crate::error::{MlError, MlResult};
-use crate::inference::{InferenceEngine, InferenceConfig};
-use crate::buffer::AudioFrame;
 use super::config::EnhanceConfig;
 use super::SpeechEnhancer;
+use crate::buffer::AudioFrame;
+use crate::error::{MlError, MlResult};
+use crate::inference::{InferenceConfig, InferenceEngine};
 
 /// State-Space Model state
 #[derive(Clone)]
@@ -105,9 +105,7 @@ impl ATENNuate {
 
         // Create analysis window (Hann)
         let window: Vec<f32> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos()))
             .collect();
 
         // Create synthesis window (complementary for perfect reconstruction)
@@ -330,17 +328,19 @@ impl SpeechEnhancer for ATENNuate {
             AudioFrame::mono(output_data, input.sample_rate, self.frame_index)
         } else {
             // Duplicate to stereo
-            let stereo_data: Vec<f32> = output_data
-                .iter()
-                .flat_map(|&s| [s, s])
-                .collect();
+            let stereo_data: Vec<f32> = output_data.iter().flat_map(|&s| [s, s]).collect();
             AudioFrame::stereo(stereo_data, input.sample_rate, self.frame_index)
         };
 
         Ok(output)
     }
 
-    fn process_batch(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<f32>> {
+    fn process_batch(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<f32>> {
         // Convert to mono if needed
         let mono = if channels == 2 {
             audio
@@ -432,9 +432,7 @@ mod tests {
     #[test]
     fn test_synthesis_window() {
         let window: Vec<f32> = (0..512)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / 512.0).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / 512.0).cos()))
             .collect();
 
         let synthesis = ATENNuate::create_synthesis_window(&window, 256);

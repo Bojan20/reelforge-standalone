@@ -6,8 +6,8 @@
 //! - Loudness and DRC metadata
 //! - Interactivity support
 
-use serde::{Deserialize, Serialize};
 use crate::position::Position3D;
+use serde::{Deserialize, Serialize};
 
 /// MPEG-H audio scene
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -245,7 +245,12 @@ impl MpegHRenderer {
     /// Set personalization gain for element
     pub fn set_element_gain(&mut self, element_id: u32, gain_db: f32) {
         // Find and update or add
-        if let Some(idx) = self.config.personalization.iter().position(|(id, _)| *id == element_id) {
+        if let Some(idx) = self
+            .config
+            .personalization
+            .iter()
+            .position(|(id, _)| *id == element_id)
+        {
             self.config.personalization[idx].1 = gain_db;
         } else {
             self.config.personalization.push((element_id, gain_db));
@@ -255,7 +260,12 @@ impl MpegHRenderer {
 
     /// Select switch group member
     pub fn select_switch(&mut self, group_id: u32, element_id: u32) {
-        if let Some(idx) = self.config.switch_selections.iter().position(|(id, _)| *id == group_id) {
+        if let Some(idx) = self
+            .config
+            .switch_selections
+            .iter()
+            .position(|(id, _)| *id == group_id)
+        {
             self.config.switch_selections[idx].1 = element_id;
         } else {
             self.config.switch_selections.push((group_id, element_id));
@@ -272,7 +282,10 @@ impl MpegHRenderer {
             let mut gain_db = element.default_gain_db;
 
             // Apply personalization
-            if let Some((_, g)) = self.config.personalization.iter()
+            if let Some((_, g)) = self
+                .config
+                .personalization
+                .iter()
                 .find(|(id, _)| *id == element.id)
             {
                 if element.allow_gain_change {
@@ -285,7 +298,10 @@ impl MpegHRenderer {
             for group in &self.scene.switch_groups {
                 if group.members.contains(&element.id) {
                     // Element is in a switch group
-                    if let Some((_, selected)) = self.config.switch_selections.iter()
+                    if let Some((_, selected)) = self
+                        .config
+                        .switch_selections
+                        .iter()
                         .find(|(id, _)| *id == group.id)
                     {
                         active = *selected == element.id;
@@ -313,11 +329,7 @@ impl MpegHRenderer {
     }
 
     /// Process audio (apply gains)
-    pub fn process(
-        &self,
-        element_audio: &[(u32, &[f32])],
-        output: &mut [f32],
-    ) {
+    pub fn process(&self, element_audio: &[(u32, &[f32])], output: &mut [f32]) {
         output.fill(0.0);
 
         for (element_id, audio) in element_audio {
@@ -331,9 +343,8 @@ impl MpegHRenderer {
         }
 
         // Apply loudness normalization
-        let target_gain = 10.0_f32.powf(
-            (self.config.target_loudness - self.scene.loudness.integrated_loudness) / 20.0
-        );
+        let target_gain = 10.0_f32
+            .powf((self.config.target_loudness - self.scene.loudness.integrated_loudness) / 20.0);
 
         for s in output {
             *s *= target_gain;

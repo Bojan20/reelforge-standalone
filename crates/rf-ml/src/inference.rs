@@ -48,8 +48,7 @@ impl ExecutionProvider {
 
     #[cfg(feature = "ort-runtime")]
     fn check_cuda() -> bool {
-        std::env::var("CUDA_PATH").is_ok()
-            || std::path::Path::new("/usr/local/cuda").exists()
+        std::env::var("CUDA_PATH").is_ok() || std::path::Path::new("/usr/local/cuda").exists()
     }
 
     #[cfg(feature = "ort-runtime")]
@@ -185,10 +184,7 @@ impl InferenceEngine {
     }
 
     /// Run inference with f32 input/output
-    pub fn run_f32(
-        &self,
-        inputs: &[ndarray::ArrayD<f32>],
-    ) -> MlResult<Vec<ndarray::ArrayD<f32>>> {
+    pub fn run_f32(&self, inputs: &[ndarray::ArrayD<f32>]) -> MlResult<Vec<ndarray::ArrayD<f32>>> {
         self.run_tract_f32(&self.tract_model, inputs)
     }
 
@@ -261,7 +257,9 @@ impl InferenceEngine {
         let outputs = self.run_f32(&[input_dyn])?;
 
         if outputs.is_empty() {
-            return Err(MlError::InferenceFailed { reason: "No output from model".into() });
+            return Err(MlError::InferenceFailed {
+                reason: "No output from model".into(),
+            });
         }
 
         // Convert first output to Array4
@@ -291,7 +289,9 @@ impl InferenceEngine {
         let outputs = self.run_f32(&[input_dyn])?;
 
         if outputs.is_empty() {
-            return Err(MlError::InferenceFailed { reason: "No output from model".into() });
+            return Err(MlError::InferenceFailed {
+                reason: "No output from model".into(),
+            });
         }
 
         let output = &outputs[0];

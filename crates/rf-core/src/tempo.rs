@@ -53,17 +53,29 @@ impl Default for TimeSignature {
 
 impl TimeSignature {
     pub fn new(numerator: u8, denominator: u8) -> Self {
-        Self { numerator, denominator }
+        Self {
+            numerator,
+            denominator,
+        }
     }
 
     /// Common time (4/4)
-    pub const COMMON: Self = Self { numerator: 4, denominator: 4 };
+    pub const COMMON: Self = Self {
+        numerator: 4,
+        denominator: 4,
+    };
 
     /// Cut time (2/2)
-    pub const CUT: Self = Self { numerator: 2, denominator: 2 };
+    pub const CUT: Self = Self {
+        numerator: 2,
+        denominator: 2,
+    };
 
     /// Waltz time (3/4)
-    pub const WALTZ: Self = Self { numerator: 3, denominator: 4 };
+    pub const WALTZ: Self = Self {
+        numerator: 3,
+        denominator: 4,
+    };
 
     /// Ticks per bar at this time signature
     pub fn ticks_per_bar(&self) -> u64 {
@@ -150,7 +162,10 @@ pub struct TimeSignatureEvent {
 
 impl TimeSignatureEvent {
     pub fn new(bar: u32, time_signature: TimeSignature) -> Self {
-        Self { bar, time_signature }
+        Self {
+            bar,
+            time_signature,
+        }
     }
 }
 
@@ -256,7 +271,8 @@ impl TempoMap {
         }
 
         // Find the tempo event at or before this tick
-        let idx = self.tempo_events
+        let idx = self
+            .tempo_events
             .iter()
             .rposition(|e| e.tick <= tick)
             .unwrap_or(0);
@@ -268,9 +284,7 @@ impl TempoMap {
             if event.ramp != TempoRamp::Instant && tick < next.tick {
                 let t = (tick - event.tick) as f64 / (next.tick - event.tick) as f64;
                 return match event.ramp {
-                    TempoRamp::Linear => {
-                        event.bpm + (next.bpm - event.bpm) * t
-                    }
+                    TempoRamp::Linear => event.bpm + (next.bpm - event.bpm) * t,
                     TempoRamp::SCurve => {
                         let s = (1.0 - (t * std::f64::consts::PI).cos()) * 0.5;
                         event.bpm + (next.bpm - event.bpm) * s
@@ -297,7 +311,8 @@ impl TempoMap {
             event.bpm = bpm;
             event.ramp = ramp;
         } else {
-            self.tempo_events.push(TempoEvent::with_ramp(tick, bpm, ramp));
+            self.tempo_events
+                .push(TempoEvent::with_ramp(tick, bpm, ramp));
             self.tempo_events.sort_by_key(|e| e.tick);
         }
 
@@ -341,7 +356,8 @@ impl TempoMap {
         if let Some(event) = self.time_sig_events.iter_mut().find(|e| e.bar == bar) {
             event.time_signature = time_sig;
         } else {
-            self.time_sig_events.push(TimeSignatureEvent::new(bar, time_sig));
+            self.time_sig_events
+                .push(TimeSignatureEvent::new(bar, time_sig));
             self.time_sig_events.sort_by_key(|e| e.bar);
         }
 
@@ -374,7 +390,8 @@ impl TempoMap {
 
         // Fast path: use cached data
         // Binary search for closest cached point
-        let idx = self.tick_to_sample_cache
+        let idx = self
+            .tick_to_sample_cache
             .binary_search_by_key(&ticks, |&(t, _)| t)
             .unwrap_or_else(|i| i.saturating_sub(1));
 
@@ -392,7 +409,8 @@ impl TempoMap {
         let tempo = self.tempo_at_tick(cached_tick);
         let delta_ticks = ticks - cached_tick;
         let seconds_per_tick = 60.0 / (tempo * PPQ as f64);
-        let delta_samples = (delta_ticks as f64 * seconds_per_tick * self.sample_rate as f64) as u64;
+        let delta_samples =
+            (delta_ticks as f64 * seconds_per_tick * self.sample_rate as f64) as u64;
 
         cached_sample + delta_samples
     }
@@ -406,7 +424,8 @@ impl TempoMap {
         }
 
         // Find the cached entry where sample is closest
-        let idx = self.tick_to_sample_cache
+        let idx = self
+            .tick_to_sample_cache
             .binary_search_by_key(&samples, |&(_, s)| s)
             .unwrap_or_else(|i| i.saturating_sub(1));
 
@@ -435,7 +454,8 @@ impl TempoMap {
 
         for i in 0..self.tempo_events.len() {
             let event = &self.tempo_events[i];
-            let next_tick = self.tempo_events
+            let next_tick = self
+                .tempo_events
                 .get(i + 1)
                 .map(|e| e.tick.min(ticks))
                 .unwrap_or(ticks);
@@ -518,7 +538,8 @@ impl TempoMap {
         // Process time signature changes
         for i in 0..self.time_sig_events.len() {
             let event = &self.time_sig_events[i];
-            let next_bar = self.time_sig_events
+            let next_bar = self
+                .time_sig_events
                 .get(i + 1)
                 .map(|e| e.bar)
                 .unwrap_or(u32::MAX);
@@ -558,7 +579,8 @@ impl TempoMap {
         // Find which time signature segment the position is in
         for i in 0..self.time_sig_events.len() {
             let event = &self.time_sig_events[i];
-            let next_bar = self.time_sig_events
+            let next_bar = self
+                .time_sig_events
                 .get(i + 1)
                 .map(|e| e.bar)
                 .unwrap_or(u32::MAX);

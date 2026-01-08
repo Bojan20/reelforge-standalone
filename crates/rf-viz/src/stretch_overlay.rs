@@ -303,13 +303,31 @@ impl StretchOverlayRenderer {
 
             // Create quad (two triangles)
             // Triangle 1
-            vertices.push(StretchVertex { position: [region.start_x, 0.0], color });
-            vertices.push(StretchVertex { position: [region.end_x, 0.0], color });
-            vertices.push(StretchVertex { position: [region.end_x, 1.0], color });
+            vertices.push(StretchVertex {
+                position: [region.start_x, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [region.end_x, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [region.end_x, 1.0],
+                color,
+            });
             // Triangle 2
-            vertices.push(StretchVertex { position: [region.start_x, 0.0], color });
-            vertices.push(StretchVertex { position: [region.end_x, 1.0], color });
-            vertices.push(StretchVertex { position: [region.start_x, 1.0], color });
+            vertices.push(StretchVertex {
+                position: [region.start_x, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [region.end_x, 1.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [region.start_x, 1.0],
+                color,
+            });
         }
 
         self.region_count = vertices.len() / 6;
@@ -336,13 +354,31 @@ impl StretchOverlayRenderer {
             let x1 = marker.x + width / 2.0;
 
             // Triangle 1
-            vertices.push(StretchVertex { position: [x0, 0.0], color });
-            vertices.push(StretchVertex { position: [x1, 0.0], color });
-            vertices.push(StretchVertex { position: [x1, 1.0], color });
+            vertices.push(StretchVertex {
+                position: [x0, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [x1, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [x1, 1.0],
+                color,
+            });
             // Triangle 2
-            vertices.push(StretchVertex { position: [x0, 0.0], color });
-            vertices.push(StretchVertex { position: [x1, 1.0], color });
-            vertices.push(StretchVertex { position: [x0, 1.0], color });
+            vertices.push(StretchVertex {
+                position: [x0, 0.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [x1, 1.0],
+                color,
+            });
+            vertices.push(StretchVertex {
+                position: [x0, 1.0],
+                color,
+            });
         }
 
         self.marker_count = vertices.len() / 6;
@@ -365,11 +401,9 @@ impl StretchOverlayRenderer {
             _pad: 0.0,
         };
 
-        self.context.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[uniforms]),
-        );
+        self.context
+            .queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
     }
 
     /// Render stretch overlay
@@ -416,7 +450,12 @@ fn region_color(ratio: f32) -> [f32; 4] {
     if ratio < 0.99 {
         // Compression - cyan/teal
         let intensity = (1.0 - ratio).min(1.0);
-        [0.0, 0.5 + intensity * 0.3, 0.7 + intensity * 0.2, 0.2 + intensity * 0.1]
+        [
+            0.0,
+            0.5 + intensity * 0.3,
+            0.7 + intensity * 0.2,
+            0.2 + intensity * 0.1,
+        ]
     } else if ratio > 1.01 {
         // Expansion - orange/red
         let intensity = ((ratio - 1.0) * 2.0).min(1.0);
@@ -429,7 +468,11 @@ fn region_color(ratio: f32) -> [f32; 4] {
 
 /// Get color for marker based on type
 fn marker_color(marker_type: MarkerType, selected: bool, confidence: f32) -> [f32; 4] {
-    let alpha = if selected { 1.0 } else { 0.4 + confidence * 0.4 };
+    let alpha = if selected {
+        1.0
+    } else {
+        0.4 + confidence * 0.4
+    };
 
     match marker_type {
         MarkerType::Transient => [0.6, 0.6, 0.6, alpha], // Gray
@@ -550,8 +593,8 @@ mod tests {
         let color = region_color(0.5);
         // Should be cyan-ish
         assert!(color[1] > color[0]); // More green than red
-        assert!(color[2] > 0.0);      // Some blue
-        assert!(color[3] > 0.0);      // Some alpha
+        assert!(color[2] > 0.0); // Some blue
+        assert!(color[3] > 0.0); // Some alpha
     }
 
     #[test]
@@ -559,7 +602,7 @@ mod tests {
         let color = region_color(2.0);
         // Should be orange-ish
         assert!(color[0] > color[1]); // More red than green
-        assert!(color[3] > 0.0);      // Some alpha
+        assert!(color[3] > 0.0); // Some alpha
     }
 
     #[test]

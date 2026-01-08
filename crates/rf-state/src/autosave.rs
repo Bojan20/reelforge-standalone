@@ -95,10 +95,8 @@ impl AutosaveState {
     /// Mark save completed
     pub fn complete_save(&self) {
         self.has_changes.store(false, Ordering::Relaxed);
-        self.last_saved_change_count.store(
-            self.change_count.load(Ordering::Relaxed),
-            Ordering::Relaxed,
-        );
+        self.last_saved_change_count
+            .store(self.change_count.load(Ordering::Relaxed), Ordering::Relaxed);
         self.last_save.store(current_timestamp(), Ordering::Relaxed);
         self.is_saving.store(false, Ordering::Relaxed);
     }
@@ -293,17 +291,19 @@ impl AutosaveManager {
 
         let mut autosaves: Vec<_> = std::fs::read_dir(&config.autosave_dir)?
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with(&name_prefix)
-            })
+            .filter(|e| e.file_name().to_string_lossy().starts_with(&name_prefix))
             .collect();
 
         // Sort by modification time (newest first)
         autosaves.sort_by(|a, b| {
-            let a_time = a.metadata().and_then(|m| m.modified()).unwrap_or(UNIX_EPOCH);
-            let b_time = b.metadata().and_then(|m| m.modified()).unwrap_or(UNIX_EPOCH);
+            let a_time = a
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(UNIX_EPOCH);
+            let b_time = b
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(UNIX_EPOCH);
             b_time.cmp(&a_time)
         });
 
@@ -379,10 +379,7 @@ impl AutosaveManager {
     }
 
     /// Recover from autosave
-    pub fn recover<T: for<'de> Deserialize<'de>>(
-        &self,
-        path: &Path,
-    ) -> Result<T, AutosaveError> {
+    pub fn recover<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> Result<T, AutosaveError> {
         let json = std::fs::read_to_string(path)?;
         let data: T = serde_json::from_str(&json)?;
         Ok(data)
@@ -514,8 +511,6 @@ mod tests {
         }
 
         // Cleanup dir
-        let _ = std::fs::remove_dir_all(
-            std::env::temp_dir().join("rf_autosave_test")
-        );
+        let _ = std::fs::remove_dir_all(std::env::temp_dir().join("rf_autosave_test"));
     }
 }

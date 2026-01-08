@@ -14,10 +14,10 @@
 
 use rf_core::Sample;
 
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
-use crate::dynamics::{Compressor, CompressorType, Gate, Limiter};
-use crate::spatial::{StereoPanner, StereoWidth, PanLaw};
 use crate::analysis::PeakMeter;
+use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::dynamics::{Compressor, CompressorType, Gate, Limiter};
+use crate::spatial::{PanLaw, StereoPanner, StereoWidth};
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
 /// Simple 4-band console-style EQ
@@ -74,34 +74,74 @@ impl ConsoleEq {
     pub fn set_low(&mut self, freq: f64, gain_db: f64) {
         self.low_freq = freq.clamp(20.0, 500.0);
         self.low_gain = gain_db.clamp(-15.0, 15.0);
-        self.low.set_coeffs(BiquadCoeffs::low_shelf(self.low_freq, 0.707, self.low_gain, self.sample_rate));
+        self.low.set_coeffs(BiquadCoeffs::low_shelf(
+            self.low_freq,
+            0.707,
+            self.low_gain,
+            self.sample_rate,
+        ));
     }
 
     pub fn set_low_mid(&mut self, freq: f64, gain_db: f64, q: f64) {
         self.low_mid_freq = freq.clamp(100.0, 2000.0);
         self.low_mid_gain = gain_db.clamp(-15.0, 15.0);
         self.low_mid_q = q.clamp(0.3, 10.0);
-        self.low_mid.set_coeffs(BiquadCoeffs::peaking(self.low_mid_freq, self.low_mid_q, self.low_mid_gain, self.sample_rate));
+        self.low_mid.set_coeffs(BiquadCoeffs::peaking(
+            self.low_mid_freq,
+            self.low_mid_q,
+            self.low_mid_gain,
+            self.sample_rate,
+        ));
     }
 
     pub fn set_high_mid(&mut self, freq: f64, gain_db: f64, q: f64) {
         self.high_mid_freq = freq.clamp(500.0, 10000.0);
         self.high_mid_gain = gain_db.clamp(-15.0, 15.0);
         self.high_mid_q = q.clamp(0.3, 10.0);
-        self.high_mid.set_coeffs(BiquadCoeffs::peaking(self.high_mid_freq, self.high_mid_q, self.high_mid_gain, self.sample_rate));
+        self.high_mid.set_coeffs(BiquadCoeffs::peaking(
+            self.high_mid_freq,
+            self.high_mid_q,
+            self.high_mid_gain,
+            self.sample_rate,
+        ));
     }
 
     pub fn set_high(&mut self, freq: f64, gain_db: f64) {
         self.high_freq = freq.clamp(2000.0, 20000.0);
         self.high_gain = gain_db.clamp(-15.0, 15.0);
-        self.high.set_coeffs(BiquadCoeffs::high_shelf(self.high_freq, 0.707, self.high_gain, self.sample_rate));
+        self.high.set_coeffs(BiquadCoeffs::high_shelf(
+            self.high_freq,
+            0.707,
+            self.high_gain,
+            self.sample_rate,
+        ));
     }
 
     fn update_coeffs(&mut self) {
-        self.low.set_coeffs(BiquadCoeffs::low_shelf(self.low_freq, 0.707, self.low_gain, self.sample_rate));
-        self.low_mid.set_coeffs(BiquadCoeffs::peaking(self.low_mid_freq, self.low_mid_q, self.low_mid_gain, self.sample_rate));
-        self.high_mid.set_coeffs(BiquadCoeffs::peaking(self.high_mid_freq, self.high_mid_q, self.high_mid_gain, self.sample_rate));
-        self.high.set_coeffs(BiquadCoeffs::high_shelf(self.high_freq, 0.707, self.high_gain, self.sample_rate));
+        self.low.set_coeffs(BiquadCoeffs::low_shelf(
+            self.low_freq,
+            0.707,
+            self.low_gain,
+            self.sample_rate,
+        ));
+        self.low_mid.set_coeffs(BiquadCoeffs::peaking(
+            self.low_mid_freq,
+            self.low_mid_q,
+            self.low_mid_gain,
+            self.sample_rate,
+        ));
+        self.high_mid.set_coeffs(BiquadCoeffs::peaking(
+            self.high_mid_freq,
+            self.high_mid_q,
+            self.high_mid_gain,
+            self.sample_rate,
+        ));
+        self.high.set_coeffs(BiquadCoeffs::high_shelf(
+            self.high_freq,
+            0.707,
+            self.high_gain,
+            self.sample_rate,
+        ));
     }
 
     #[inline]
@@ -157,7 +197,7 @@ pub struct ChannelStrip {
     comp_enabled: bool,
     comp_l: Compressor,
     comp_r: Compressor,
-    comp_link: f64,  // 0.0 = independent, 1.0 = linked
+    comp_link: f64, // 0.0 = independent, 1.0 = linked
 
     // EQ
     eq_enabled: bool,
@@ -369,11 +409,17 @@ impl ChannelStrip {
 
     // Metering
     pub fn input_peak_db(&self) -> (f64, f64) {
-        (self.input_peak_l.current_db(), self.input_peak_r.current_db())
+        (
+            self.input_peak_l.current_db(),
+            self.input_peak_r.current_db(),
+        )
     }
 
     pub fn output_peak_db(&self) -> (f64, f64) {
-        (self.output_peak_l.current_db(), self.output_peak_r.current_db())
+        (
+            self.output_peak_l.current_db(),
+            self.output_peak_r.current_db(),
+        )
     }
 
     pub fn gain_reduction_db(&self) -> f64 {
@@ -411,7 +457,10 @@ impl ChannelStrip {
             let out_l = self.comp_l.process_sample(l);
             let out_r = self.comp_r.process_sample(r);
 
-            let max_gr = self.comp_l.gain_reduction_db().max(self.comp_r.gain_reduction_db());
+            let max_gr = self
+                .comp_l
+                .gain_reduction_db()
+                .max(self.comp_r.gain_reduction_db());
             let linked_gain = 10.0_f64.powf(-max_gr / 20.0);
 
             (
@@ -595,7 +644,7 @@ mod tests {
     fn test_channel_strip_gain() {
         let mut strip = ChannelStrip::new(48000.0);
         strip.set_eq_enabled(false);
-        strip.set_input_gain_db(6.0);  // ~2x
+        strip.set_input_gain_db(6.0); // ~2x
 
         // Process to warm up meters
         for _ in 0..100 {
@@ -604,7 +653,7 @@ mod tests {
 
         // Input peak should show boosted level
         let (peak_l, _) = strip.input_peak_db();
-        assert!(peak_l > -15.0);  // 0.25 * 2 = 0.5 ≈ -6dB
+        assert!(peak_l > -15.0); // 0.25 * 2 = 0.5 ≈ -6dB
     }
 
     #[test]

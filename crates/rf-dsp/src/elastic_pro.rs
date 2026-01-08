@@ -9,9 +9,9 @@
 //!
 //! Surpasses Logic Pro Flex Time and Pyramix élastique in quality.
 
-use std::f64::consts::PI;
 use rustfft::{FftPlanner, num_complex::Complex};
 use serde::{Deserialize, Serialize};
+use std::f64::consts::PI;
 
 // ============================================================================
 // CONSTANTS
@@ -89,8 +89,8 @@ pub struct StnDecomposer {
 impl StnDecomposer {
     /// Create new STN decomposer
     pub fn new(sample_rate: f64) -> Self {
-        let fft_size_long = 4096;  // Good frequency resolution
-        let fft_size_short = 256;  // Good time resolution
+        let fft_size_long = 4096; // Good frequency resolution
+        let fft_size_short = 256; // Good time resolution
 
         Self {
             fft_planner: FftPlanner::new(),
@@ -101,8 +101,8 @@ impl StnDecomposer {
             hop_long: fft_size_long / 4,
             hop_short: fft_size_short / 4,
             sample_rate,
-            h_smooth: 0.3,      // Horizontal (time) smoothing
-            v_smooth: 0.3,      // Vertical (frequency) smoothing
+            h_smooth: 0.3, // Horizontal (time) smoothing
+            v_smooth: 0.3, // Vertical (frequency) smoothing
             tonal_threshold: 0.5,
             transient_threshold: 0.5,
         }
@@ -199,17 +199,22 @@ impl StnDecomposer {
                     }
                 }
                 neighbors.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let median = if neighbors.is_empty() { 0.0 } else { neighbors[neighbors.len() / 2] };
+                let median = if neighbors.is_empty() {
+                    0.0
+                } else {
+                    neighbors[neighbors.len() / 2]
+                };
 
                 let current = mag_matrix[f][bin];
                 // If current magnitude is close to median, it's tonal
                 if median > 1e-10 {
                     let ratio = current / median;
-                    tonal_mask[f][bin] = if ratio > self.tonal_threshold && ratio < 1.0 / self.tonal_threshold {
-                        1.0 // Tonal
-                    } else {
-                        self.h_smooth // Partial
-                    };
+                    tonal_mask[f][bin] =
+                        if ratio > self.tonal_threshold && ratio < 1.0 / self.tonal_threshold {
+                            1.0 // Tonal
+                        } else {
+                            self.h_smooth // Partial
+                        };
                 }
             }
         }
@@ -222,7 +227,8 @@ impl StnDecomposer {
             let start = f * self.hop_long;
 
             // Apply mask and reconstruct
-            let mut sine_frame: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); self.fft_size_long];
+            let mut sine_frame: Vec<Complex<f64>> =
+                vec![Complex::new(0.0, 0.0); self.fft_size_long];
 
             for bin in 0..self.fft_size_long / 2 + 1 {
                 let mag = mag_matrix[f][bin] * tonal_mask[f][bin];
@@ -309,7 +315,11 @@ impl StnDecomposer {
                     }
                 }
                 neighbors.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let median = if neighbors.is_empty() { 0.0 } else { neighbors[neighbors.len() / 2] };
+                let median = if neighbors.is_empty() {
+                    0.0
+                } else {
+                    neighbors[neighbors.len() / 2]
+                };
 
                 let current = mag_matrix[f][bin];
                 // If current is much higher than vertical median, it's transient
@@ -339,8 +349,10 @@ impl StnDecomposer {
         for f in 0..num_frames {
             let start = f * self.hop_short;
 
-            let mut trans_frame: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); self.fft_size_short];
-            let mut noise_frame: Vec<Complex<f64>> = vec![Complex::new(0.0, 0.0); self.fft_size_short];
+            let mut trans_frame: Vec<Complex<f64>> =
+                vec![Complex::new(0.0, 0.0); self.fft_size_short];
+            let mut noise_frame: Vec<Complex<f64>> =
+                vec![Complex::new(0.0, 0.0); self.fft_size_short];
 
             for bin in 0..self.fft_size_short / 2 + 1 {
                 let mag = mag_matrix[f][bin];
@@ -447,11 +459,11 @@ impl PhaseVocoder {
 
         for bin in 2..num_bins - 2 {
             let mag = magnitudes[bin];
-            if mag > magnitudes[bin - 1] &&
-               mag > magnitudes[bin - 2] &&
-               mag > magnitudes[bin + 1] &&
-               mag > magnitudes[bin + 2] &&
-               mag > 1e-8
+            if mag > magnitudes[bin - 1]
+                && mag > magnitudes[bin - 2]
+                && mag > magnitudes[bin + 1]
+                && mag > magnitudes[bin + 2]
+                && mag > 1e-8
             {
                 self.peak_bins.push(bin);
             }
@@ -532,14 +544,16 @@ impl PhaseVocoder {
                         let bin = peak - offset;
                         let influence = 1.0 - (offset as f64 / (radius as f64 + 1.0));
                         if magnitudes[bin] < peak_mag * 0.5 {
-                            new_phases[bin] = peak_phase + (new_phases[bin] - peak_phase) * (1.0 - influence);
+                            new_phases[bin] =
+                                peak_phase + (new_phases[bin] - peak_phase) * (1.0 - influence);
                         }
                     }
                     if peak + offset < self.fft_size / 2 + 1 {
                         let bin = peak + offset;
                         let influence = 1.0 - (offset as f64 / (radius as f64 + 1.0));
                         if magnitudes[bin] < peak_mag * 0.5 {
-                            new_phases[bin] = peak_phase + (new_phases[bin] - peak_phase) * (1.0 - influence);
+                            new_phases[bin] =
+                                peak_phase + (new_phases[bin] - peak_phase) * (1.0 - influence);
                         }
                     }
                 }
@@ -582,8 +596,12 @@ impl PhaseVocoder {
     /// Wrap phase to [-π, π]
     fn wrap_phase(phase: f64) -> f64 {
         let mut p = phase;
-        while p > PI { p -= 2.0 * PI; }
-        while p < -PI { p += 2.0 * PI; }
+        while p > PI {
+            p -= 2.0 * PI;
+        }
+        while p < -PI {
+            p += 2.0 * PI;
+        }
         p
     }
 }
@@ -663,8 +681,8 @@ impl TransientProcessor {
                 self.find_best_offset(input, in_pos, &output, out_pos, prev_best_offset)
             };
 
-            let actual_in_pos = ((in_pos as i32 + best_offset).max(0) as usize)
-                .min(input_len - self.window_size);
+            let actual_in_pos =
+                ((in_pos as i32 + best_offset).max(0) as usize).min(input_len - self.window_size);
 
             // Overlap-add
             for i in 0..self.window_size {
@@ -682,13 +700,21 @@ impl TransientProcessor {
     }
 
     /// Find best matching offset using cross-correlation
-    fn find_best_offset(&self, input: &[f64], in_pos: usize, output: &[f64], out_pos: usize, prev_offset: i32) -> i32 {
+    fn find_best_offset(
+        &self,
+        input: &[f64],
+        in_pos: usize,
+        output: &[f64],
+        out_pos: usize,
+        prev_offset: i32,
+    ) -> i32 {
         if out_pos < self.window_size / 2 {
             return 0;
         }
 
         let search_start = (-(self.tolerance as i32)).max(-(in_pos as i32));
-        let search_end = (self.tolerance as i32).min((input.len() - in_pos - self.window_size) as i32);
+        let search_end =
+            (self.tolerance as i32).min((input.len() - in_pos - self.window_size) as i32);
 
         let mut best_offset = prev_offset.clamp(search_start, search_end);
         let mut best_corr = f64::NEG_INFINITY;
@@ -703,9 +729,11 @@ impl TransientProcessor {
 
                 let actual_in_pos = (in_pos as i32 + offset) as usize;
                 let corr = self.cross_correlation(
-                    input, actual_in_pos,
-                    output, out_pos.saturating_sub(self.window_size / 2),
-                    self.window_size / 2
+                    input,
+                    actual_in_pos,
+                    output,
+                    out_pos.saturating_sub(self.window_size / 2),
+                    self.window_size / 2,
                 );
 
                 if corr > best_corr {
@@ -719,14 +747,29 @@ impl TransientProcessor {
     }
 
     /// Compute cross-correlation
-    fn cross_correlation(&self, a: &[f64], a_start: usize, b: &[f64], b_start: usize, len: usize) -> f64 {
+    fn cross_correlation(
+        &self,
+        a: &[f64],
+        a_start: usize,
+        b: &[f64],
+        b_start: usize,
+        len: usize,
+    ) -> f64 {
         let mut sum = 0.0;
         let mut sum_a2 = 0.0;
         let mut sum_b2 = 0.0;
 
         for i in 0..len {
-            let av = if a_start + i < a.len() { a[a_start + i] } else { 0.0 };
-            let bv = if b_start + i < b.len() { b[b_start + i] } else { 0.0 };
+            let av = if a_start + i < a.len() {
+                a[a_start + i]
+            } else {
+                0.0
+            };
+            let bv = if b_start + i < b.len() {
+                b[b_start + i]
+            } else {
+                0.0
+            };
             sum += av * bv;
             sum_a2 += av * av;
             sum_b2 += bv * bv;
@@ -923,7 +966,9 @@ impl FormantPreserver {
             a = a_new;
 
             e *= 1.0 - lambda * lambda;
-            if e < 1e-10 { break; }
+            if e < 1e-10 {
+                break;
+            }
         }
 
         a
@@ -995,24 +1040,25 @@ impl MultiResolutionStretcher {
             BandConfig {
                 freq_low: 0.0,
                 freq_high: BASS_CUTOFF,
-                fft_size: 4096,  // Large window for bass
+                fft_size: 4096, // Large window for bass
                 overlap: 8,
             },
             BandConfig {
                 freq_low: BASS_CUTOFF,
                 freq_high: TREBLE_CUTOFF,
-                fft_size: 2048,  // Medium window for mids
+                fft_size: 2048, // Medium window for mids
                 overlap: 4,
             },
             BandConfig {
                 freq_low: TREBLE_CUTOFF,
                 freq_high: sample_rate / 2.0,
-                fft_size: 512,   // Small window for highs
+                fft_size: 512, // Small window for highs
                 overlap: 2,
             },
         ];
 
-        let vocoders = bands.iter()
+        let vocoders = bands
+            .iter()
             .map(|b| PhaseVocoder::new(b.fft_size))
             .collect();
 
@@ -1189,7 +1235,8 @@ impl ElasticPro {
 
     /// Set configuration
     pub fn set_config(&mut self, config: ElasticProConfig) {
-        self.stn.set_params(config.tonal_threshold, config.transient_threshold);
+        self.stn
+            .set_params(config.tonal_threshold, config.transient_threshold);
         self.config = config;
     }
 
@@ -1260,8 +1307,11 @@ impl ElasticPro {
         let stretched_sines = self.vocoder.process(&decomp.sines, stretch_ratio);
 
         // Transients: WSOLA with transient locking
-        self.transient_proc.set_transients(decomp.transient_positions.clone());
-        let stretched_transients = self.transient_proc.process(&decomp.transients, stretch_ratio);
+        self.transient_proc
+            .set_transients(decomp.transient_positions.clone());
+        let stretched_transients = self
+            .transient_proc
+            .process(&decomp.transients, stretch_ratio);
 
         // Noise: Magnitude morphing with random phase
         let stretched_noise = self.noise_morpher.process(&decomp.noise, stretch_ratio);
@@ -1271,9 +1321,21 @@ impl ElasticPro {
         let mut output = vec![0.0; output_len];
 
         for i in 0..output_len {
-            let s = if i < stretched_sines.len() { stretched_sines[i] } else { 0.0 };
-            let t = if i < stretched_transients.len() { stretched_transients[i] } else { 0.0 };
-            let n = if i < stretched_noise.len() { stretched_noise[i] } else { 0.0 };
+            let s = if i < stretched_sines.len() {
+                stretched_sines[i]
+            } else {
+                0.0
+            };
+            let t = if i < stretched_transients.len() {
+                stretched_transients[i]
+            } else {
+                0.0
+            };
+            let n = if i < stretched_noise.len() {
+                stretched_noise[i]
+            } else {
+                0.0
+            };
 
             output[i] = s + t + n;
         }
@@ -1301,14 +1363,12 @@ impl ElasticPro {
     /// Reset internal state
     pub fn reset(&mut self) {
         // Reset all internal processors
-        self.vocoder = PhaseVocoder::new(
-            match self.config.quality {
-                StretchQuality::Preview => 1024,
-                StretchQuality::Standard => 2048,
-                StretchQuality::High => 4096,
-                StretchQuality::Ultra => 8192,
-            }
-        );
+        self.vocoder = PhaseVocoder::new(match self.config.quality {
+            StretchQuality::Preview => 1024,
+            StretchQuality::Standard => 2048,
+            StretchQuality::High => 4096,
+            StretchQuality::Ultra => 8192,
+        });
     }
 }
 

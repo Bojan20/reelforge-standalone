@@ -2,8 +2,8 @@
 //!
 //! All analyzers include input validation for sample rates and FFT sizes.
 
-use rf_core::Sample;
 use realfft::{RealFftPlanner, RealToComplex};
+use rf_core::Sample;
 use rustfft::num_complex::Complex;
 use std::sync::Arc;
 
@@ -34,11 +34,12 @@ pub struct FftAnalyzer {
 impl FftAnalyzer {
     pub fn new(fft_size: usize) -> Self {
         // Validate FFT size (must be power of 2 and within range)
-        let fft_size = if fft_size >= MIN_FFT_SIZE && fft_size <= MAX_FFT_SIZE && fft_size.is_power_of_two() {
-            fft_size
-        } else {
-            DEFAULT_FFT_SIZE
-        };
+        let fft_size =
+            if fft_size >= MIN_FFT_SIZE && fft_size <= MAX_FFT_SIZE && fft_size.is_power_of_two() {
+                fft_size
+            } else {
+                DEFAULT_FFT_SIZE
+            };
 
         let mut planner = RealFftPlanner::new();
         let fft = planner.plan_fft_forward(fft_size);
@@ -106,7 +107,10 @@ impl FftAnalyzer {
 
     /// Get magnitude at a specific bin
     pub fn magnitude(&self, bin: usize) -> f64 {
-        self.magnitudes.get(bin).copied().unwrap_or(f64::NEG_INFINITY)
+        self.magnitudes
+            .get(bin)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY)
     }
 
     /// Get all magnitudes
@@ -303,9 +307,7 @@ impl TruePeakMeter {
 
         // Simple 4-tap polyphase filter for 4x oversampling
         // In production, use a proper sinc-windowed filter
-        let filter_coeffs = vec![
-            0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25,
-        ];
+        let filter_coeffs = vec![0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25];
 
         Self {
             filter_coeffs,

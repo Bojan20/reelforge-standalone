@@ -6,9 +6,9 @@
 //! - Automation lanes per parameter
 //! - Real-time recording and playback
 
-use std::collections::HashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // TrackId, ClipId defined locally in track_manager
 
@@ -204,7 +204,8 @@ impl AutomationLane {
 
     /// Add a point, maintaining sorted order
     pub fn add_point(&mut self, point: AutomationPoint) {
-        let idx = self.points
+        let idx = self
+            .points
             .binary_search_by_key(&point.time_samples, |p| p.time_samples)
             .unwrap_or_else(|i| i);
         self.points.insert(idx, point);
@@ -212,9 +213,11 @@ impl AutomationLane {
 
     /// Remove point at time (within tolerance)
     pub fn remove_point_at(&mut self, time_samples: u64, tolerance: u64) -> bool {
-        if let Some(idx) = self.points.iter().position(|p| {
-            (p.time_samples as i64 - time_samples as i64).abs() <= tolerance as i64
-        }) {
+        if let Some(idx) = self
+            .points
+            .iter()
+            .position(|p| (p.time_samples as i64 - time_samples as i64).abs() <= tolerance as i64)
+        {
             self.points.remove(idx);
             true
         } else {
@@ -239,7 +242,8 @@ impl AutomationLane {
         }
 
         // Find surrounding points
-        let idx = self.points
+        let idx = self
+            .points
             .binary_search_by_key(&time_samples, |p| p.time_samples)
             .unwrap_or_else(|i| i);
 
@@ -251,8 +255,8 @@ impl AutomationLane {
         let p2 = &self.points[idx];
 
         // Interpolation factor
-        let t = (time_samples - p1.time_samples) as f64
-            / (p2.time_samples - p1.time_samples) as f64;
+        let t =
+            (time_samples - p1.time_samples) as f64 / (p2.time_samples - p1.time_samples) as f64;
 
         self.interpolate(p1, p2, t)
     }
@@ -260,12 +264,8 @@ impl AutomationLane {
     /// Interpolate between two points
     fn interpolate(&self, p1: &AutomationPoint, p2: &AutomationPoint, t: f64) -> f64 {
         match p1.curve {
-            CurveType::Linear => {
-                p1.value + (p2.value - p1.value) * t
-            }
-            CurveType::Step => {
-                p1.value
-            }
+            CurveType::Linear => p1.value + (p2.value - p1.value) * t,
+            CurveType::Step => p1.value,
             CurveType::Exponential => {
                 let exp_t = t * t;
                 p1.value + (p2.value - p1.value) * exp_t
@@ -279,9 +279,7 @@ impl AutomationLane {
                 let s = t * t * (3.0 - 2.0 * t);
                 p1.value + (p2.value - p1.value) * s
             }
-            CurveType::Bezier => {
-                self.bezier_interpolate(p1, p2, t)
-            }
+            CurveType::Bezier => self.bezier_interpolate(p1, p2, t),
         }
     }
 
@@ -308,7 +306,8 @@ impl AutomationLane {
 
     /// Get all points in time range
     pub fn points_in_range(&self, start: u64, end: u64) -> Vec<&AutomationPoint> {
-        self.points.iter()
+        self.points
+            .iter()
             .filter(|p| p.time_samples >= start && p.time_samples <= end)
             .collect()
     }
@@ -449,7 +448,8 @@ impl AutomationEngine {
 
     /// Get mode for specific parameter (falls back to global)
     pub fn param_mode(&self, param_id: &ParamId) -> AutomationMode {
-        self.param_modes.read()
+        self.param_modes
+            .read()
             .get(param_id)
             .copied()
             .unwrap_or_else(|| *self.mode.read())
@@ -459,7 +459,10 @@ impl AutomationEngine {
     pub fn get_or_create_lane(&self, param_id: ParamId, name: &str) -> ParamId {
         let mut lanes = self.lanes.write();
         if !lanes.contains_key(&param_id) {
-            lanes.insert(param_id.clone(), AutomationLane::new(param_id.clone(), name));
+            lanes.insert(
+                param_id.clone(),
+                AutomationLane::new(param_id.clone(), name),
+            );
         }
         param_id
     }
@@ -486,7 +489,8 @@ impl AutomationEngine {
 
     /// Set playback position
     pub fn set_position(&self, samples: u64) {
-        self.position.store(samples, std::sync::atomic::Ordering::Relaxed);
+        self.position
+            .store(samples, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Get current position
@@ -496,12 +500,14 @@ impl AutomationEngine {
 
     /// Advance position by sample count
     pub fn advance(&self, samples: u64) {
-        self.position.fetch_add(samples, std::sync::atomic::Ordering::Relaxed);
+        self.position
+            .fetch_add(samples, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Set playing state
     pub fn set_playing(&self, playing: bool) {
-        self.is_playing.store(playing, std::sync::atomic::Ordering::Relaxed);
+        self.is_playing
+            .store(playing, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Is playing
@@ -511,7 +517,8 @@ impl AutomationEngine {
 
     /// Set recording state
     pub fn set_recording(&self, recording: bool) {
-        self.is_recording.store(recording, std::sync::atomic::Ordering::Relaxed);
+        self.is_recording
+            .store(recording, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Is recording
@@ -529,7 +536,10 @@ impl AutomationEngine {
         }
 
         // If parameter is touched in Touch/Latch/Write mode, don't read automation
-        if matches!(mode, AutomationMode::Touch | AutomationMode::Latch | AutomationMode::Write) {
+        if matches!(
+            mode,
+            AutomationMode::Touch | AutomationMode::Latch | AutomationMode::Write
+        ) {
             if self.touched_params.read().contains_key(param_id) {
                 return None;
             }
@@ -567,7 +577,12 @@ impl AutomationEngine {
 
     /// Get interpolated values for a block of samples
     /// Returns Vec of (sample_offset, value) pairs where value changes
-    pub fn get_block_values(&self, param_id: &ParamId, start: u64, block_size: usize) -> Vec<(usize, f64)> {
+    pub fn get_block_values(
+        &self,
+        param_id: &ParamId,
+        start: u64,
+        block_size: usize,
+    ) -> Vec<(usize, f64)> {
         let mode = self.param_mode(param_id);
 
         if mode == AutomationMode::Off {
@@ -617,23 +632,36 @@ impl AutomationEngine {
     pub fn touch_param(&self, param_id: ParamId, current_value: f64) {
         let mode = self.param_mode(&param_id);
 
-        if matches!(mode, AutomationMode::Touch | AutomationMode::Latch | AutomationMode::Write | AutomationMode::Trim) {
-            self.touched_params.write().insert(param_id.clone(), current_value);
+        if matches!(
+            mode,
+            AutomationMode::Touch
+                | AutomationMode::Latch
+                | AutomationMode::Write
+                | AutomationMode::Trim
+        ) {
+            self.touched_params
+                .write()
+                .insert(param_id.clone(), current_value);
         }
 
         // For Trim mode, also record the original automation value and position
         if mode == AutomationMode::Trim {
             let pos = self.position();
-            let original = self.lanes.read()
+            let original = self
+                .lanes
+                .read()
                 .get(&param_id)
                 .map(|l| l.value_at(pos))
                 .unwrap_or(current_value);
 
-            self.trim_info.write().insert(param_id, TrimInfo {
-                original_value: original,
-                start_pos: pos,
-                delta: 0.0,
-            });
+            self.trim_info.write().insert(
+                param_id,
+                TrimInfo {
+                    original_value: original,
+                    start_pos: pos,
+                    delta: 0.0,
+                },
+            );
         }
     }
 
@@ -711,7 +739,8 @@ impl AutomationEngine {
     /// Commit pending changes to automation lane
     fn commit_pending_changes(&self, param_id: &ParamId) {
         let mut pending = self.pending_changes.write();
-        let changes: Vec<_> = pending.drain(..)
+        let changes: Vec<_> = pending
+            .drain(..)
             .filter(|c| &c.param_id == param_id)
             .collect();
 
@@ -911,10 +940,7 @@ mod tests {
         let param_id = ParamId::track_volume(1);
         let mut lane = AutomationLane::new(param_id, "Volume");
 
-        lane.add_point(
-            AutomationPoint::new(0, 0.0)
-                .with_bezier((0.25, 0.1), (0.75, 0.9))
-        );
+        lane.add_point(AutomationPoint::new(0, 0.0).with_bezier((0.25, 0.1), (0.75, 0.9)));
         lane.add_point(AutomationPoint::new(48000, 1.0));
 
         // Value at midpoint should be influenced by bezier curve

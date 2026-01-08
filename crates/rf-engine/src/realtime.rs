@@ -4,10 +4,10 @@
 
 use std::sync::Arc;
 
-use rf_audio::{AudioConfig, AudioStream, AudioResult, get_default_output_device};
-use rf_core::{Sample, BufferSize, SampleRate};
+use rf_audio::{AudioConfig, AudioResult, AudioStream, get_default_output_device};
+use rf_core::{BufferSize, Sample, SampleRate};
 
-use crate::mixer::{Mixer, MixerHandle, MeterBridge};
+use crate::mixer::{MeterBridge, Mixer, MixerHandle};
 
 /// Real-time audio engine
 ///

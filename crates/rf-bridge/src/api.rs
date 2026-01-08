@@ -3,9 +3,9 @@
 //! These functions are exposed to Flutter via flutter_rust_bridge.
 //! All functions are async-safe and use message passing for thread safety.
 
-use crate::{ENGINE, PLAYBACK, EngineBridge, MeteringState, TransportState};
-use rf_engine::EngineConfig;
+use crate::{ENGINE, EngineBridge, MeteringState, PLAYBACK, TransportState};
 use rf_core::SampleRate;
+use rf_engine::EngineConfig;
 use std::path::Path;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25,11 +25,7 @@ pub fn engine_init() -> bool {
 
 /// Initialize with custom config
 #[flutter_rust_bridge::frb(sync)]
-pub fn engine_init_with_config(
-    sample_rate: u32,
-    block_size: usize,
-    num_buses: usize,
-) -> bool {
+pub fn engine_init_with_config(sample_rate: u32, block_size: usize, num_buses: usize) -> bool {
     let mut engine = ENGINE.write();
     if engine.is_some() {
         return false;
@@ -196,18 +192,22 @@ pub fn metering_get_state() -> Option<MeteringState> {
 #[flutter_rust_bridge::frb(sync)]
 pub fn metering_get_master_peak() -> Option<(f32, f32)> {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| (e.metering.master_peak_l, e.metering.master_peak_r))
+    engine
+        .as_ref()
+        .map(|e| (e.metering.master_peak_l, e.metering.master_peak_r))
 }
 
 /// Get master LUFS (momentary, short-term, integrated)
 #[flutter_rust_bridge::frb(sync)]
 pub fn metering_get_lufs() -> Option<(f32, f32, f32)> {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| (
-        e.metering.master_lufs_m,
-        e.metering.master_lufs_s,
-        e.metering.master_lufs_i,
-    ))
+    engine.as_ref().map(|e| {
+        (
+            e.metering.master_lufs_m,
+            e.metering.master_lufs_s,
+            e.metering.master_lufs_i,
+        )
+    })
 }
 
 /// Get CPU usage percentage
@@ -221,21 +221,30 @@ pub fn metering_get_cpu_usage() -> f32 {
 #[flutter_rust_bridge::frb(sync)]
 pub fn metering_get_master_correlation() -> f32 {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.metering.correlation).unwrap_or(1.0)
+    engine
+        .as_ref()
+        .map(|e| e.metering.correlation)
+        .unwrap_or(1.0)
 }
 
 /// Get master stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
 #[flutter_rust_bridge::frb(sync)]
 pub fn metering_get_master_balance() -> f32 {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.metering.stereo_balance).unwrap_or(0.0)
+    engine
+        .as_ref()
+        .map(|e| e.metering.stereo_balance)
+        .unwrap_or(0.0)
 }
 
 /// Get master dynamic range (peak - RMS in dB)
 #[flutter_rust_bridge::frb(sync)]
 pub fn metering_get_master_dynamic_range() -> f32 {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.metering.dynamic_range).unwrap_or(0.0)
+    engine
+        .as_ref()
+        .map(|e| e.metering.dynamic_range)
+        .unwrap_or(0.0)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -250,9 +259,10 @@ pub fn mixer_set_track_volume(track_id: u32, volume: f64) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
         // Update track in TrackManager
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.volume = volume.clamp(0.0, 2.0);
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.volume = volume.clamp(0.0, 2.0);
+            });
         log::debug!("Set track {} volume to {}", track_id, volume);
         true
     } else {
@@ -267,9 +277,10 @@ pub fn mixer_set_track_pan(track_id: u32, pan: f64) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.pan = pan.clamp(-1.0, 1.0);
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.pan = pan.clamp(-1.0, 1.0);
+            });
         log::debug!("Set track {} pan to {}", track_id, pan);
         true
     } else {
@@ -284,9 +295,10 @@ pub fn mixer_set_track_mute(track_id: u32, muted: bool) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.muted = muted;
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.muted = muted;
+            });
         log::debug!("Set track {} mute to {}", track_id, muted);
         true
     } else {
@@ -301,9 +313,10 @@ pub fn mixer_set_track_solo(track_id: u32, solo: bool) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.soloed = solo;
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.soloed = solo;
+            });
         log::debug!("Set track {} solo to {}", track_id, solo);
         true
     } else {
@@ -314,13 +327,14 @@ pub fn mixer_set_track_solo(track_id: u32, solo: bool) -> bool {
 /// Set track output bus (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux)
 #[flutter_rust_bridge::frb(sync)]
 pub fn mixer_set_track_bus(track_id: u32, bus_id: u8) -> bool {
-    use rf_engine::track_manager::{TrackId, OutputBus};
+    use rf_engine::track_manager::{OutputBus, TrackId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.output_bus = OutputBus::from(bus_id as u32);
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.output_bus = OutputBus::from(bus_id as u32);
+            });
         log::debug!("Set track {} output bus to {}", track_id, bus_id);
         true
     } else {
@@ -335,9 +349,10 @@ pub fn mixer_set_track_armed(track_id: u32, armed: bool) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_track(TrackId(track_id as u64), |track| {
-            track.armed = armed;
-        });
+        e.track_manager()
+            .update_track(TrackId(track_id as u64), |track| {
+                track.armed = armed;
+            });
         log::debug!("Set track {} armed to {}", track_id, armed);
         true
     } else {
@@ -352,16 +367,16 @@ pub fn mixer_get_track_state(track_id: u32) -> Option<TrackMixerState> {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().get_track(TrackId(track_id as u64)).map(|track| {
-            TrackMixerState {
+        e.track_manager()
+            .get_track(TrackId(track_id as u64))
+            .map(|track| TrackMixerState {
                 volume: track.volume,
                 pan: track.pan,
                 muted: track.muted,
                 soloed: track.soloed,
                 armed: track.armed,
                 bus_id: track.output_bus as u8,
-            }
-        })
+            })
     } else {
         None
     }
@@ -407,8 +422,7 @@ pub fn project_save_sync(path: String) -> Result<(), String> {
 
         let p = Path::new(&path);
         let format = rf_state::ProjectFormat::from_extension(p);
-        let result = e.project.save(p, format)
-            .map_err(|err| err.to_string());
+        let result = e.project.save(p, format).map_err(|err| err.to_string());
 
         if result.is_ok() {
             e.set_file_path(Some(path));
@@ -422,93 +436,109 @@ pub fn project_save_sync(path: String) -> Result<(), String> {
 
 /// Sync tracks from TrackManager to Project state
 fn sync_tracks_to_project(e: &mut EngineBridge) {
-    use rf_state::{TrackState, TrackType, RegionState, AssetRef, AutomationLaneState, AutomationPointState};
     use rf_engine::track_manager::OutputBus;
+    use rf_state::{
+        AssetRef, AutomationLaneState, AutomationPointState, RegionState, TrackState, TrackType,
+    };
 
     let track_manager = e.track_manager();
     let tracks = track_manager.get_all_tracks();
     let all_clips = track_manager.get_all_clips();
 
-    e.project.tracks = tracks.iter().map(|track| {
-        // Convert clips for this track
-        let regions: Vec<RegionState> = all_clips.iter()
-            .filter(|c| c.track_id == track.id)
-            .map(|clip| {
-                // Convert seconds to samples (48kHz default)
-                let sample_rate = 48000u64;
-                RegionState {
-                    id: clip.id.0.to_string(),
-                    name: clip.name.clone(),
-                    asset_ref: AssetRef::External(std::path::PathBuf::from(&clip.source_file)),
-                    position: (clip.start_time * sample_rate as f64) as u64,
-                    length: (clip.duration * sample_rate as f64) as u64,
-                    source_offset: (clip.source_offset * sample_rate as f64) as u64,
-                    gain_db: linear_to_db(clip.gain),
-                    fade_in: (clip.fade_in * sample_rate as f64) as u64,
-                    fade_out: (clip.fade_out * sample_rate as f64) as u64,
-                    locked: false,
-                }
-            })
-            .collect();
-
-        // Get automation lanes for this track
-        let automation_lanes: Vec<AutomationLaneState> = {
-            let automation = e.automation_engine.as_ref();
-            let lane_ids = automation.lane_ids();
-
-            lane_ids.iter()
-                .filter_map(|param_id| {
-                    // Only include lanes that belong to this track
-                    if param_id.target_id == track.id.0 {
-                        automation.export_lane(param_id).map(|lane| AutomationLaneState {
-                            id: format!("{}_{}", lane.param_id.target_id, lane.param_id.param_name),
-                            parameter_id: lane.param_id.target_id as u32,
-                            parameter_name: lane.name.clone(),
-                            points: lane.points.iter().map(|pt| AutomationPointState {
-                                position: pt.time_samples,
-                                value: pt.value,
-                                curve_type: match pt.curve {
-                                    rf_engine::automation::CurveType::Linear => 0,
-                                    rf_engine::automation::CurveType::Step => 2,
-                                    rf_engine::automation::CurveType::Exponential => 3,
-                                    _ => 0,
-                                },
-                                tension: 0.0,
-                            }).collect(),
-                            visible: lane.visible,
-                        })
-                    } else {
-                        None
+    e.project.tracks = tracks
+        .iter()
+        .map(|track| {
+            // Convert clips for this track
+            let regions: Vec<RegionState> = all_clips
+                .iter()
+                .filter(|c| c.track_id == track.id)
+                .map(|clip| {
+                    // Convert seconds to samples (48kHz default)
+                    let sample_rate = 48000u64;
+                    RegionState {
+                        id: clip.id.0.to_string(),
+                        name: clip.name.clone(),
+                        asset_ref: AssetRef::External(std::path::PathBuf::from(&clip.source_file)),
+                        position: (clip.start_time * sample_rate as f64) as u64,
+                        length: (clip.duration * sample_rate as f64) as u64,
+                        source_offset: (clip.source_offset * sample_rate as f64) as u64,
+                        gain_db: linear_to_db(clip.gain),
+                        fade_in: (clip.fade_in * sample_rate as f64) as u64,
+                        fade_out: (clip.fade_out * sample_rate as f64) as u64,
+                        locked: false,
                     }
                 })
-                .collect()
-        };
+                .collect();
 
-        // Convert output bus to string
-        let output_bus_str = match track.output_bus {
-            OutputBus::Master => "Master",
-            OutputBus::Music => "Music",
-            OutputBus::Sfx => "SFX",
-            OutputBus::Voice => "Voice",
-            OutputBus::Ambience => "Ambience",
-            OutputBus::Aux => "Aux",
-        };
+            // Get automation lanes for this track
+            let automation_lanes: Vec<AutomationLaneState> = {
+                let automation = e.automation_engine.as_ref();
+                let lane_ids = automation.lane_ids();
 
-        TrackState {
-            id: track.id.0.to_string(),
-            name: track.name.clone(),
-            track_type: TrackType::Audio,
-            output_bus: output_bus_str.to_string(),
-            volume_db: linear_to_db(track.volume),
-            pan: track.pan,
-            mute: track.muted,
-            solo: track.soloed,
-            armed: track.armed,
-            color: Some(track.color),
-            regions,
-            automation: automation_lanes,
-        }
-    }).collect();
+                lane_ids
+                    .iter()
+                    .filter_map(|param_id| {
+                        // Only include lanes that belong to this track
+                        if param_id.target_id == track.id.0 {
+                            automation
+                                .export_lane(param_id)
+                                .map(|lane| AutomationLaneState {
+                                    id: format!(
+                                        "{}_{}",
+                                        lane.param_id.target_id, lane.param_id.param_name
+                                    ),
+                                    parameter_id: lane.param_id.target_id as u32,
+                                    parameter_name: lane.name.clone(),
+                                    points: lane
+                                        .points
+                                        .iter()
+                                        .map(|pt| AutomationPointState {
+                                            position: pt.time_samples,
+                                            value: pt.value,
+                                            curve_type: match pt.curve {
+                                                rf_engine::automation::CurveType::Linear => 0,
+                                                rf_engine::automation::CurveType::Step => 2,
+                                                rf_engine::automation::CurveType::Exponential => 3,
+                                                _ => 0,
+                                            },
+                                            tension: 0.0,
+                                        })
+                                        .collect(),
+                                    visible: lane.visible,
+                                })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            };
+
+            // Convert output bus to string
+            let output_bus_str = match track.output_bus {
+                OutputBus::Master => "Master",
+                OutputBus::Music => "Music",
+                OutputBus::Sfx => "SFX",
+                OutputBus::Voice => "Voice",
+                OutputBus::Ambience => "Ambience",
+                OutputBus::Aux => "Aux",
+            };
+
+            TrackState {
+                id: track.id.0.to_string(),
+                name: track.name.clone(),
+                track_type: TrackType::Audio,
+                output_bus: output_bus_str.to_string(),
+                volume_db: linear_to_db(track.volume),
+                pan: track.pan,
+                mute: track.muted,
+                solo: track.soloed,
+                armed: track.armed,
+                color: Some(track.color),
+                regions,
+                automation: automation_lanes,
+            }
+        })
+        .collect();
 
     // Sync transport state
     e.project.tempo = e.transport.tempo;
@@ -525,14 +555,17 @@ fn db_to_linear(db: f64) -> f64 {
 
 /// Convert linear to dB
 fn linear_to_db(linear: f64) -> f64 {
-    if linear <= 0.0 { -120.0 } else { 20.0 * linear.log10() }
+    if linear <= 0.0 {
+        -120.0
+    } else {
+        20.0 * linear.log10()
+    }
 }
 
 /// Load project from file (sync version)
 #[flutter_rust_bridge::frb(sync)]
 pub fn project_load_sync(path: String) -> Result<(), String> {
-    let project = rf_state::Project::load(Path::new(&path))
-        .map_err(|err| err.to_string())?;
+    let project = rf_state::Project::load(Path::new(&path)).map_err(|err| err.to_string())?;
 
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
@@ -542,7 +575,7 @@ pub fn project_load_sync(path: String) -> Result<(), String> {
         // Sync transport from project
         e.transport.tempo = e.project.tempo;
         e.transport.time_sig_num = e.project.time_sig_num as u32;
-        e.transport.time_sig_denom = e.transport.time_sig_denom;
+        e.transport.time_sig_denom = e.project.time_sig_denom as u32;
         e.transport.loop_enabled = e.project.loop_enabled;
 
         // Restore tracks from project to TrackManager
@@ -560,8 +593,8 @@ pub fn project_load_sync(path: String) -> Result<(), String> {
 
 /// Sync tracks from Project state to TrackManager
 fn sync_tracks_from_project(e: &mut EngineBridge) {
-    use rf_state::AssetRef;
     use rf_engine::track_manager::{Clip, OutputBus};
+    use rf_state::AssetRef;
 
     let track_manager = e.track_manager();
 
@@ -641,11 +674,12 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
             use rf_engine::automation::{AutomationPoint, CurveType, ParamId};
 
             // Create ParamId from stored data
-            let param_id = ParamId::track_volume(track_id.0);  // Use track_volume as default
+            let param_id = ParamId::track_volume(track_id.0); // Use track_volume as default
 
             // Get or create lane
             let auto_engine = e.automation_engine.as_ref();
-            let lane_param_id = auto_engine.get_or_create_lane(param_id, &lane_state.parameter_name);
+            let lane_param_id =
+                auto_engine.get_or_create_lane(param_id, &lane_state.parameter_name);
 
             for pt in &lane_state.points {
                 let curve = match pt.curve_type {
@@ -666,9 +700,15 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
     // Set playhead position
     e.transport.position_samples = e.project.playhead;
 
-    log::info!("Loaded {} tracks with {} clips from project",
+    log::info!(
+        "Loaded {} tracks with {} clips from project",
         e.project.tracks.len(),
-        e.project.tracks.iter().map(|t| t.regions.len()).sum::<usize>());
+        e.project
+            .tracks
+            .iter()
+            .map(|t| t.regions.len())
+            .sum::<usize>()
+    );
 }
 
 /// Get project name
@@ -760,7 +800,11 @@ pub fn project_get_info() -> Option<ProjectInfo> {
 pub fn project_set_author(author: String) -> bool {
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
-        e.project.meta.author = if author.is_empty() { None } else { Some(author) };
+        e.project.meta.author = if author.is_empty() {
+            None
+        } else {
+            Some(author)
+        };
         e.project.touch();
         true
     } else {
@@ -773,7 +817,11 @@ pub fn project_set_author(author: String) -> bool {
 pub fn project_set_description(description: String) -> bool {
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
-        e.project.meta.description = if description.is_empty() { None } else { Some(description) };
+        e.project.meta.description = if description.is_empty() {
+            None
+        } else {
+            Some(description)
+        };
         e.project.touch();
         true
     } else {
@@ -1066,8 +1114,7 @@ pub fn project_export_json() -> Option<String> {
 /// Import project from JSON string
 #[flutter_rust_bridge::frb(sync)]
 pub fn project_import_json(json: String) -> Result<(), String> {
-    let project = rf_state::Project::from_json(&json)
-        .map_err(|e| e.to_string())?;
+    let project = rf_state::Project::from_json(&json).map_err(|e| e.to_string())?;
 
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
@@ -1112,28 +1159,40 @@ pub fn frb_history_redo() -> bool {
 #[flutter_rust_bridge::frb(sync)]
 pub fn frb_history_can_undo() -> bool {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.undo_manager.can_undo()).unwrap_or(false)
+    engine
+        .as_ref()
+        .map(|e| e.undo_manager.can_undo())
+        .unwrap_or(false)
 }
 
 /// Check if redo is available (FRB high-level)
 #[flutter_rust_bridge::frb(sync)]
 pub fn frb_history_can_redo() -> bool {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.undo_manager.can_redo()).unwrap_or(false)
+    engine
+        .as_ref()
+        .map(|e| e.undo_manager.can_redo())
+        .unwrap_or(false)
 }
 
 /// Get undo step count
 #[flutter_rust_bridge::frb(sync)]
 pub fn frb_history_undo_count() -> usize {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.undo_manager.undo_count()).unwrap_or(0)
+    engine
+        .as_ref()
+        .map(|e| e.undo_manager.undo_count())
+        .unwrap_or(0)
 }
 
 /// Get redo step count
 #[flutter_rust_bridge::frb(sync)]
 pub fn frb_history_redo_count() -> usize {
     let engine = ENGINE.read();
-    engine.as_ref().map(|e| e.undo_manager.redo_count()).unwrap_or(0)
+    engine
+        .as_ref()
+        .map(|e| e.undo_manager.redo_count())
+        .unwrap_or(0)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1166,14 +1225,30 @@ pub extern "C" fn history_redo() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn history_can_undo() -> i32 {
     let engine = ENGINE.read();
-    if engine.as_ref().map(|e| e.undo_manager.can_undo()).unwrap_or(false) { 1 } else { 0 }
+    if engine
+        .as_ref()
+        .map(|e| e.undo_manager.can_undo())
+        .unwrap_or(false)
+    {
+        1
+    } else {
+        0
+    }
 }
 
 /// C FFI: Check if redo is available
 #[unsafe(no_mangle)]
 pub extern "C" fn history_can_redo() -> i32 {
     let engine = ENGINE.read();
-    if engine.as_ref().map(|e| e.undo_manager.can_redo()).unwrap_or(false) { 1 } else { 0 }
+    if engine
+        .as_ref()
+        .map(|e| e.undo_manager.can_redo())
+        .unwrap_or(false)
+    {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1243,13 +1318,19 @@ pub fn playback_position() -> f64 {
 /// Get peak meters (L, R)
 #[flutter_rust_bridge::frb(sync)]
 pub fn playback_get_peaks() -> (f32, f32) {
-    (crate::PLAYBACK.meters.get_peak_l(), crate::PLAYBACK.meters.get_peak_r())
+    (
+        crate::PLAYBACK.meters.get_peak_l(),
+        crate::PLAYBACK.meters.get_peak_r(),
+    )
 }
 
 /// Get RMS meters (L, R)
 #[flutter_rust_bridge::frb(sync)]
 pub fn playback_get_rms() -> (f32, f32) {
-    (crate::PLAYBACK.meters.get_rms_l(), crate::PLAYBACK.meters.get_rms_r())
+    (
+        crate::PLAYBACK.meters.get_rms_l(),
+        crate::PLAYBACK.meters.get_rms_r(),
+    )
 }
 
 /// Load test tone clip
@@ -1276,7 +1357,7 @@ pub struct EqBandParams {
     pub frequency: f64,  // 20-20000 Hz
     pub gain: f64,       // -24 to +24 dB
     pub q: f64,          // 0.1 to 30
-    pub slope: u8,       // For cut filters: 0=6dB, 1=12dB, 2=18dB, 3=24dB, 4=36dB, 5=48dB, 6=72dB, 7=96dB
+    pub slope: u8, // For cut filters: 0=6dB, 1=12dB, 2=18dB, 3=24dB, 4=36dB, 5=48dB, 6=72dB, 7=96dB
     pub stereo_mode: u8, // 0=Stereo, 1=Left, 2=Right, 3=Mid, 4=Side
 }
 
@@ -1284,7 +1365,7 @@ pub struct EqBandParams {
 #[flutter_rust_bridge::frb(sync)]
 pub fn eq_set_band(track_id: u32, band_index: u8, params: EqBandParams) -> bool {
     use crate::command_queue::send_command;
-    use crate::dsp_commands::{DspCommand, FilterType, FilterSlope, StereoPlacement};
+    use crate::dsp_commands::{DspCommand, FilterSlope, FilterType, StereoPlacement};
 
     send_command(DspCommand::EqSetBand {
         track_id,
@@ -1420,7 +1501,7 @@ pub fn eq_set_auto_gain(track_id: u32, enabled: bool) -> bool {
 #[flutter_rust_bridge::frb(sync)]
 pub fn eq_set_analyzer_mode(track_id: u32, mode: u8) -> bool {
     use crate::command_queue::send_command;
-    use crate::dsp_commands::{DspCommand, AnalyzerMode};
+    use crate::dsp_commands::{AnalyzerMode, DspCommand};
 
     send_command(DspCommand::EqSetAnalyzerMode {
         track_id,
@@ -1791,7 +1872,10 @@ pub fn spectrum_set_smoothing(track_id: u32, smoothing: f64) -> bool {
     use crate::command_queue::send_command;
     use crate::dsp_commands::DspCommand;
 
-    send_command(DspCommand::SpectrumSetSmoothing { track_id, smoothing })
+    send_command(DspCommand::SpectrumSetSmoothing {
+        track_id,
+        smoothing,
+    })
 }
 
 /// Set spectrum peak hold
@@ -1978,7 +2062,12 @@ pub fn mixer_set_bus_volume(bus_id: u32, volume_db: f64) -> bool {
     };
 
     crate::PLAYBACK.set_bus_volume(bus_id as usize, linear);
-    log::debug!("Bus {} volume: {} dB (linear: {:.4})", bus_id, volume_db, linear);
+    log::debug!(
+        "Bus {} volume: {} dB (linear: {:.4})",
+        bus_id,
+        volume_db,
+        linear
+    );
     true
 }
 
@@ -2064,7 +2153,12 @@ pub fn clip_reverse(clip_id: u64) -> bool {
 pub fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
     let engine = ENGINE.read();
     if engine.is_some() {
-        log::debug!("Fade in clip {} for {} sec, curve {}", clip_id, duration_sec, curve_type);
+        log::debug!(
+            "Fade in clip {} for {} sec, curve {}",
+            clip_id,
+            duration_sec,
+            curve_type
+        );
         true
     } else {
         false
@@ -2076,7 +2170,12 @@ pub fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
 pub fn clip_fade_out(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
     let engine = ENGINE.read();
     if engine.is_some() {
-        log::debug!("Fade out clip {} for {} sec, curve {}", clip_id, duration_sec, curve_type);
+        log::debug!(
+            "Fade out clip {} for {} sec, curve {}",
+            clip_id,
+            duration_sec,
+            curve_type
+        );
         true
     } else {
         false
@@ -2193,10 +2292,14 @@ pub fn import_scan_folder(folder_path: String) -> Vec<AudioFileInfo> {
             if entry_path.is_file() {
                 if let Some(ext) = entry_path.extension() {
                     let ext_lower = ext.to_string_lossy().to_lowercase();
-                    if matches!(ext_lower.as_str(), "wav" | "mp3" | "flac" | "aiff" | "ogg" | "m4a") {
+                    if matches!(
+                        ext_lower.as_str(),
+                        "wav" | "mp3" | "flac" | "aiff" | "ogg" | "m4a"
+                    ) {
                         files.push(AudioFileInfo {
                             path: entry_path.to_string_lossy().to_string(),
-                            name: entry_path.file_name()
+                            name: entry_path
+                                .file_name()
                                 .map(|n| n.to_string_lossy().to_string())
                                 .unwrap_or_default(),
                             duration_sec: 0.0, // TODO: Read actual duration
@@ -2217,22 +2320,25 @@ pub fn import_scan_folder(folder_path: String) -> Vec<AudioFileInfo> {
 #[flutter_rust_bridge::frb(sync)]
 pub fn export_build(
     output_path: String,
-    format: String,         // "wav", "mp3", "flac"
+    format: String, // "wav", "mp3", "flac"
     sample_rate: u32,
-    bit_depth: u8,          // 16, 24, 32
+    bit_depth: u8, // 16, 24, 32
     normalize: bool,
     normalize_target_db: f64,
 ) -> Result<(), String> {
     use rf_file::{
-        OfflineRenderer, BounceConfig, ExportFormat, BounceRegion,
-        AudioFormat, BitDepth, DitherType, NoiseShapeType,
-        AudioData, PassthroughProcessor,
+        AudioData, AudioFormat, BitDepth, BounceConfig, BounceRegion, DitherType, ExportFormat,
+        NoiseShapeType, OfflineRenderer, PassthroughProcessor,
     };
     use std::path::PathBuf;
 
     log::info!(
         "Export to {} ({}, {}Hz, {}bit, normalize={})",
-        output_path, format, sample_rate, bit_depth, normalize
+        output_path,
+        format,
+        sample_rate,
+        bit_depth,
+        normalize
     );
 
     let engine = ENGINE.read();
@@ -2244,7 +2350,8 @@ pub fn export_build(
 
     // Calculate project duration from clips
     let all_clips = track_manager.get_all_clips();
-    let duration_secs = all_clips.iter()
+    let duration_secs = all_clips
+        .iter()
         .map(|c| c.end_time())
         .fold(0.0_f64, f64::max);
 
@@ -2277,7 +2384,11 @@ pub fn export_build(
     let export_format = ExportFormat {
         format: audio_format,
         bit_depth: bit_depth_enum,
-        sample_rate: if sample_rate > 0 { sample_rate } else { source_sample_rate },
+        sample_rate: if sample_rate > 0 {
+            sample_rate
+        } else {
+            source_sample_rate
+        },
         bitrate: 320,
         dither: DitherType::Triangular,
         noise_shape: NoiseShapeType::None,
@@ -2549,7 +2660,7 @@ pub struct RecordingStatus {
 pub struct RecordingSettings {
     pub output_dir: String,
     pub file_prefix: String,
-    pub bit_depth: u8,        // 16, 24, or 32
+    pub bit_depth: u8, // 16, 24, or 32
     pub pre_roll_secs: f32,
     pub input_monitoring: bool,
 }
@@ -2737,17 +2848,17 @@ impl From<u8> for ExportDither {
 #[derive(Debug, Clone)]
 pub struct ExportConfig {
     pub output_path: String,
-    pub format: u8,           // 0=Wav, 1=Flac, 2=Mp3, 3=Aac, 4=Ogg
+    pub format: u8, // 0=Wav, 1=Flac, 2=Mp3, 3=Aac, 4=Ogg
     pub sample_rate: u32,
-    pub bit_depth: u8,        // 16, 24, 32
-    pub channels: u8,         // 1=Mono, 2=Stereo
+    pub bit_depth: u8, // 16, 24, 32
+    pub channels: u8,  // 1=Mono, 2=Stereo
     pub normalize: bool,
     pub normalize_target_db: f64,
-    pub dither: u8,           // 0=None, 1=Rectangular, 2=Triangular, 3=NoiseShape
-    pub start_sec: f64,       // Export range start (0 = project start)
-    pub end_sec: f64,         // Export range end (0 = project end)
+    pub dither: u8,     // 0=None, 1=Rectangular, 2=Triangular, 3=NoiseShape
+    pub start_sec: f64, // Export range start (0 = project start)
+    pub end_sec: f64,   // Export range end (0 = project end)
     pub include_master_fx: bool,
-    pub real_time: bool,      // Real-time export (for external hardware)
+    pub real_time: bool, // Real-time export (for external hardware)
 }
 
 impl Default for ExportConfig {
@@ -2773,11 +2884,11 @@ impl Default for ExportConfig {
 #[derive(Debug, Clone)]
 pub struct ExportProgress {
     pub is_exporting: bool,
-    pub progress: f32,        // 0.0 - 1.0
+    pub progress: f32, // 0.0 - 1.0
     pub current_time_sec: f64,
     pub total_time_sec: f64,
     pub eta_secs: f64,
-    pub phase: String,        // "Rendering", "Normalizing", "Encoding", "Complete"
+    pub phase: String, // "Rendering", "Normalizing", "Encoding", "Complete"
     pub error: Option<String>,
 }
 
@@ -2830,8 +2941,8 @@ pub struct ExportPathValidation {
 }
 
 // Global export state
-use std::sync::atomic::{AtomicBool, Ordering};
 use parking_lot::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 static EXPORT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 static EXPORT_CANCELLED: AtomicBool = AtomicBool::new(false);
@@ -2848,7 +2959,10 @@ static EXPORT_PROGRESS: Mutex<ExportProgress> = Mutex::new(ExportProgress {
 /// Start audio export with configuration
 #[flutter_rust_bridge::frb(sync)]
 pub fn export_start(config: ExportConfig) -> bool {
-    use rf_file::{BounceConfig, BounceRegion, ExportFormat, DitherType, AudioFormat, PassthroughProcessor, OfflineRenderer};
+    use rf_file::{
+        AudioFormat, BounceConfig, BounceRegion, DitherType, ExportFormat, OfflineRenderer,
+        PassthroughProcessor,
+    };
     use std::path::PathBuf;
 
     if EXPORT_IN_PROGRESS.load(Ordering::SeqCst) {
@@ -2969,7 +3083,8 @@ pub fn export_start(config: ExportConfig) -> bool {
 
             let mut progress = EXPORT_PROGRESS.lock();
             progress.progress = bounce_progress.percent / 100.0;
-            progress.current_time_sec = bounce_progress.processed_samples as f64 / source_sample_rate as f64;
+            progress.current_time_sec =
+                bounce_progress.processed_samples as f64 / source_sample_rate as f64;
             progress.total_time_sec = total_secs;
             progress.eta_secs = bounce_progress.eta_secs as f64;
         });
@@ -3147,10 +3262,10 @@ pub fn export_get_presets() -> Vec<ExportPreset> {
 /// Export individual stems (per track)
 #[flutter_rust_bridge::frb(sync)]
 pub fn export_stems(output_dir: String, format: u8, bit_depth: u8) -> bool {
-    use rf_file::{AudioFormat, AudioData, write_wav, write_flac};
-    use rf_engine::{OfflineRenderer, InsertChain, AudioImporter, ImportedAudio};
-    use std::path::PathBuf;
+    use rf_engine::{AudioImporter, ImportedAudio, InsertChain, OfflineRenderer};
+    use rf_file::{AudioData, AudioFormat, write_flac, write_wav};
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use std::sync::Arc;
 
     if EXPORT_IN_PROGRESS.load(Ordering::SeqCst) {
@@ -3273,7 +3388,8 @@ pub fn export_stems(output_dir: String, format: u8, bit_depth: u8) -> bool {
         }
 
         // Get clips for this track
-        let track_clips: Vec<_> = all_clips.iter()
+        let track_clips: Vec<_> = all_clips
+            .iter()
             .filter(|c| c.track_id == track.id)
             .cloned()
             .collect();
@@ -3313,8 +3429,16 @@ pub fn export_stems(output_dir: String, format: u8, bit_depth: u8) -> bool {
         };
 
         // Sanitize track name for filename
-        let safe_name: String = track.name.chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        let safe_name: String = track
+            .name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
 
         let ext = match audio_format {
@@ -3334,7 +3458,11 @@ pub fn export_stems(output_dir: String, format: u8, bit_depth: u8) -> bool {
 
         match result {
             Ok(()) => {
-                log::info!("Exported stem: {} ({} samples)", output_path.display(), num_frames);
+                log::info!(
+                    "Exported stem: {} ({} samples)",
+                    output_path.display(),
+                    num_frames
+                );
             }
             Err(e) => {
                 log::error!("Failed to export stem '{}': {:?}", track.name, e);
@@ -3374,7 +3502,11 @@ pub fn export_validate_path(path: String) -> ExportPathValidation {
         }
 
         // Check write permissions
-        if parent.metadata().map(|m| m.permissions().readonly()).unwrap_or(true) {
+        if parent
+            .metadata()
+            .map(|m| m.permissions().readonly())
+            .unwrap_or(true)
+        {
             return ExportPathValidation {
                 valid: false,
                 error: Some(String::from("Directory is not writable")),
@@ -3389,9 +3521,18 @@ pub fn export_validate_path(path: String) -> ExportPathValidation {
 
     // Suggest alternative if file exists
     let suggested = if will_overwrite {
-        let stem = path_obj.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-        let ext = path_obj.extension().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-        let parent = path_obj.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+        let stem = path_obj
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let ext = path_obj
+            .extension()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let parent = path_obj
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
 
         // Find unique name
         let mut counter = 1;
@@ -3455,9 +3596,8 @@ use once_cell::sync::Lazy;
 use rf_plugin::{PluginHost, PluginInfo as RfPluginInfo, PluginType as RfPluginType};
 
 /// Global plugin host (singleton)
-static PLUGIN_HOST: Lazy<parking_lot::RwLock<PluginHost>> = Lazy::new(|| {
-    parking_lot::RwLock::new(PluginHost::new())
-});
+static PLUGIN_HOST: Lazy<parking_lot::RwLock<PluginHost>> =
+    Lazy::new(|| parking_lot::RwLock::new(PluginHost::new()));
 
 /// Plugin info for Flutter
 #[derive(Debug, Clone)]
@@ -3467,7 +3607,7 @@ pub struct PluginInfo {
     pub vendor: String,
     pub version: String,
     pub category: String,
-    pub plugin_type: String,  // "VST3", "CLAP", "AU", "Internal"
+    pub plugin_type: String, // "VST3", "CLAP", "AU", "Internal"
     pub path: String,
     pub is_instrument: bool,
     pub has_editor: bool,
@@ -3524,7 +3664,10 @@ pub fn plugin_scan() -> Vec<PluginInfo> {
 #[flutter_rust_bridge::frb(sync)]
 pub fn plugin_list() -> Vec<PluginInfo> {
     let host = PLUGIN_HOST.read();
-    host.available_plugins().iter().map(PluginInfo::from).collect()
+    host.available_plugins()
+        .iter()
+        .map(PluginInfo::from)
+        .collect()
 }
 
 /// Get internal (built-in) plugins
@@ -3843,8 +3986,14 @@ pub fn automation_create_plugin_lane(
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
         let param_id = ParamId::plugin_param(track_id, slot, &param_name);
-        e.automation_engine.get_or_create_lane(param_id, &display_name);
-        log::debug!("Created automation lane: Track {} Plugin {} {}", track_id, slot, param_name);
+        e.automation_engine
+            .get_or_create_lane(param_id, &display_name);
+        log::debug!(
+            "Created automation lane: Track {} Plugin {} {}",
+            track_id,
+            slot,
+            param_name
+        );
         true
     } else {
         false
@@ -3861,7 +4010,11 @@ pub fn automation_create_send_lane(track_id: u64, send_slot: u32) -> bool {
         let param_id = ParamId::send_level(track_id, send_slot);
         let name = format!("Send {} Level", send_slot + 1);
         e.automation_engine.get_or_create_lane(param_id, &name);
-        log::debug!("Created automation lane: Track {} Send {}", track_id, send_slot);
+        log::debug!(
+            "Created automation lane: Track {} Send {}",
+            track_id,
+            send_slot
+        );
         true
     } else {
         false
@@ -3879,7 +4032,7 @@ pub fn automation_add_point(
     value: f64,
     curve: u8,
 ) -> bool {
-    use rf_engine::automation::{ParamId, TargetType, AutomationPoint, CurveType};
+    use rf_engine::automation::{AutomationPoint, CurveType, ParamId, TargetType};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
@@ -3949,9 +4102,11 @@ pub fn automation_remove_point(
             slot,
         };
 
-        e.automation_engine.with_lane(&param_id, |lane| {
-            lane.remove_point_at(time_samples, tolerance_samples)
-        }).unwrap_or(false)
+        e.automation_engine
+            .with_lane(&param_id, |lane| {
+                lane.remove_point_at(time_samples, tolerance_samples)
+            })
+            .unwrap_or(false)
     } else {
         false
     }
@@ -4001,7 +4156,7 @@ pub fn automation_get_points(
     target_type: u8,
     slot: Option<u32>,
 ) -> Vec<AutomationPointFFI> {
-    use rf_engine::automation::{ParamId, TargetType, CurveType};
+    use rf_engine::automation::{CurveType, ParamId, TargetType};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
@@ -4023,18 +4178,21 @@ pub fn automation_get_points(
         };
 
         if let Some(lane) = e.automation_engine.lane(&param_id) {
-            lane.points.iter().map(|p| AutomationPointFFI {
-                time_samples: p.time_samples,
-                value: p.value,
-                curve: match p.curve {
-                    CurveType::Linear => 0,
-                    CurveType::Bezier => 1,
-                    CurveType::Exponential => 2,
-                    CurveType::Logarithmic => 3,
-                    CurveType::Step => 4,
-                    CurveType::SCurve => 5,
-                },
-            }).collect()
+            lane.points
+                .iter()
+                .map(|p| AutomationPointFFI {
+                    time_samples: p.time_samples,
+                    value: p.value,
+                    curve: match p.curve {
+                        CurveType::Linear => 0,
+                        CurveType::Bezier => 1,
+                        CurveType::Exponential => 2,
+                        CurveType::Logarithmic => 3,
+                        CurveType::Step => 4,
+                        CurveType::SCurve => 5,
+                    },
+                })
+                .collect()
         } else {
             Vec::new()
         }
@@ -4117,9 +4275,11 @@ pub fn automation_set_lane_enabled(
             slot,
         };
 
-        e.automation_engine.with_lane(&param_id, |lane| {
-            lane.enabled = enabled;
-        }).is_some()
+        e.automation_engine
+            .with_lane(&param_id, |lane| {
+                lane.enabled = enabled;
+            })
+            .is_some()
     } else {
         false
     }
@@ -4154,9 +4314,11 @@ pub fn automation_clear_lane(
             slot,
         };
 
-        e.automation_engine.with_lane(&param_id, |lane| {
-            lane.clear();
-        }).is_some()
+        e.automation_engine
+            .with_lane(&param_id, |lane| {
+                lane.clear();
+            })
+            .is_some()
     } else {
         false
     }
@@ -4328,12 +4490,14 @@ pub fn automation_list_lanes(track_id: u64) -> Vec<AutomationLaneInfo> {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.automation_engine.lane_ids()
+        e.automation_engine
+            .lane_ids()
             .into_iter()
             .filter(|p| p.target_id == track_id)
             .filter_map(|param_id| {
-                e.automation_engine.lane(&param_id).map(|lane| {
-                    AutomationLaneInfo {
+                e.automation_engine
+                    .lane(&param_id)
+                    .map(|lane| AutomationLaneInfo {
                         param_name: param_id.param_name.clone(),
                         target_id: param_id.target_id,
                         target_type: match param_id.target_type {
@@ -4353,8 +4517,7 @@ pub fn automation_list_lanes(track_id: u64) -> Vec<AutomationLaneInfo> {
                         max_value: lane.max_value,
                         default_value: lane.default_value,
                         unit: lane.unit.clone(),
-                    }
-                })
+                    })
             })
             .collect()
     } else {
@@ -4423,7 +4586,11 @@ pub fn vca_set_level(vca_id: u64, level: f64) -> bool {
     if let Some(ref e) = *engine {
         if let Some(vca) = e.group_manager.write().vcas.get_mut(&vca_id) {
             // Convert linear to dB if needed
-            let db = if level <= 0.0 { -144.0 } else { 20.0 * level.log10() };
+            let db = if level <= 0.0 {
+                -144.0
+            } else {
+                20.0 * level.log10()
+            };
             vca.set_level(db);
         }
         true
@@ -4488,7 +4655,9 @@ pub fn vca_remove_track(vca_id: u64, track_id: u64) -> bool {
 pub fn vca_list() -> Vec<VcaFaderInfo> {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.group_manager.read().list_vcas()
+        e.group_manager
+            .read()
+            .list_vcas()
             .into_iter()
             .map(|(id, vca)| VcaFaderInfo {
                 id,
@@ -4509,7 +4678,9 @@ pub fn vca_list() -> Vec<VcaFaderInfo> {
 pub fn vca_get_track_effective_volume(track_id: u64, base_volume: f64) -> f64 {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.group_manager.read().get_track_effective_volume(track_id, base_volume)
+        e.group_manager
+            .read()
+            .get_track_effective_volume(track_id, base_volume)
     } else {
         base_volume
     }
@@ -4559,7 +4730,9 @@ pub fn group_add_track(group_id: u64, track_id: u64) -> bool {
 pub fn group_remove_track(group_id: u64, track_id: u64) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.group_manager.write().remove_from_group(group_id, track_id);
+        e.group_manager
+            .write()
+            .remove_from_group(group_id, track_id);
         log::debug!("Removed track {} from group {}", track_id, group_id);
         true
     } else {
@@ -4582,10 +4755,18 @@ pub fn group_set_link(
     if let Some(ref e) = *engine {
         let mut gm = e.group_manager.write();
         if let Some(group) = gm.groups.get_mut(&group_id) {
-            if link_volume { group.linked_params.insert(LinkParameter::Volume); }
-            if link_pan { group.linked_params.insert(LinkParameter::Pan); }
-            if link_mute { group.linked_params.insert(LinkParameter::Mute); }
-            if link_solo { group.linked_params.insert(LinkParameter::Solo); }
+            if link_volume {
+                group.linked_params.insert(LinkParameter::Volume);
+            }
+            if link_pan {
+                group.linked_params.insert(LinkParameter::Pan);
+            }
+            if link_mute {
+                group.linked_params.insert(LinkParameter::Mute);
+            }
+            if link_solo {
+                group.linked_params.insert(LinkParameter::Solo);
+            }
         }
         true
     } else {
@@ -4598,17 +4779,27 @@ pub fn group_set_link(
 pub fn group_list() -> Vec<GroupInfo> {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.group_manager.read().list_groups()
+        e.group_manager
+            .read()
+            .list_groups()
             .into_iter()
             .map(|(id, group)| GroupInfo {
                 id,
                 name: group.name.clone(),
                 color: group.color,
                 track_ids: group.tracks.clone(),
-                linked_volume: group.linked_params.contains(&rf_engine::groups::LinkParameter::Volume),
-                linked_pan: group.linked_params.contains(&rf_engine::groups::LinkParameter::Pan),
-                linked_mute: group.linked_params.contains(&rf_engine::groups::LinkParameter::Mute),
-                linked_solo: group.linked_params.contains(&rf_engine::groups::LinkParameter::Solo),
+                linked_volume: group
+                    .linked_params
+                    .contains(&rf_engine::groups::LinkParameter::Volume),
+                linked_pan: group
+                    .linked_params
+                    .contains(&rf_engine::groups::LinkParameter::Pan),
+                linked_mute: group
+                    .linked_params
+                    .contains(&rf_engine::groups::LinkParameter::Mute),
+                linked_solo: group
+                    .linked_params
+                    .contains(&rf_engine::groups::LinkParameter::Solo),
             })
             .collect()
     } else {
@@ -4643,11 +4834,23 @@ pub fn insert_load(track_id: u32, slot_index: usize, processor_name: String) -> 
         let sample_rate = e.config.sample_rate.as_f64();
         if let Some(processor) = create_processor(&processor_name, sample_rate) {
             // Load into track's insert chain via PlaybackEngine
-            let success = e.playback_engine().load_track_insert(track_id as u64, slot_index, processor);
+            let success =
+                e.playback_engine()
+                    .load_track_insert(track_id as u64, slot_index, processor);
             if success {
-                log::debug!("Loaded {} into track {} slot {}", processor_name, track_id, slot_index);
+                log::debug!(
+                    "Loaded {} into track {} slot {}",
+                    processor_name,
+                    track_id,
+                    slot_index
+                );
             } else {
-                log::error!("Failed to load {} into track {} slot {}", processor_name, track_id, slot_index);
+                log::error!(
+                    "Failed to load {} into track {} slot {}",
+                    processor_name,
+                    track_id,
+                    slot_index
+                );
             }
             success
         } else {
@@ -4664,12 +4867,22 @@ pub fn insert_load(track_id: u32, slot_index: usize, processor_name: String) -> 
 pub fn insert_unload(track_id: u32, slot_index: usize) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        let result = e.playback_engine().unload_track_insert(track_id as u64, slot_index);
+        let result = e
+            .playback_engine()
+            .unload_track_insert(track_id as u64, slot_index);
         if result.is_some() {
-            log::debug!("Unloaded insert from track {} slot {}", track_id, slot_index);
+            log::debug!(
+                "Unloaded insert from track {} slot {}",
+                track_id,
+                slot_index
+            );
             true
         } else {
-            log::debug!("No insert to unload from track {} slot {}", track_id, slot_index);
+            log::debug!(
+                "No insert to unload from track {} slot {}",
+                track_id,
+                slot_index
+            );
             false
         }
     } else {
@@ -4682,8 +4895,14 @@ pub fn insert_unload(track_id: u32, slot_index: usize) -> bool {
 pub fn insert_set_bypass(track_id: u32, slot_index: usize, bypassed: bool) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.playback_engine().set_track_insert_bypass(track_id as u64, slot_index, bypassed);
-        log::debug!("Insert bypass track {} slot {}: {}", track_id, slot_index, bypassed);
+        e.playback_engine()
+            .set_track_insert_bypass(track_id as u64, slot_index, bypassed);
+        log::debug!(
+            "Insert bypass track {} slot {}: {}",
+            track_id,
+            slot_index,
+            bypassed
+        );
         true
     } else {
         false
@@ -4695,7 +4914,8 @@ pub fn insert_set_bypass(track_id: u32, slot_index: usize, bypassed: bool) -> bo
 pub fn insert_set_mix(track_id: u32, slot_index: usize, mix: f64) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.playback_engine().set_track_insert_mix(track_id as u64, slot_index, mix);
+        e.playback_engine()
+            .set_track_insert_mix(track_id as u64, slot_index, mix);
         log::debug!("Insert mix track {} slot {}: {}", track_id, slot_index, mix);
         true
     } else {
@@ -4709,9 +4929,15 @@ pub fn insert_set_position(track_id: u32, slot_index: usize, position: u8) -> bo
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
         let pre_fader = position == 0;
-        e.playback_engine().set_track_insert_position(track_id as u64, slot_index, pre_fader);
+        e.playback_engine()
+            .set_track_insert_position(track_id as u64, slot_index, pre_fader);
         let pos_str = if pre_fader { "PreFader" } else { "PostFader" };
-        log::debug!("Insert position track {} slot {}: {}", track_id, slot_index, pos_str);
+        log::debug!(
+            "Insert position track {} slot {}: {}",
+            track_id,
+            slot_index,
+            pos_str
+        );
         true
     } else {
         false
@@ -4727,17 +4953,19 @@ pub fn insert_list(track_id: u32) -> Vec<InsertSlotInfo> {
         e.playback_engine()
             .get_track_insert_info(track_id as u64)
             .into_iter()
-            .map(|(index, name, is_loaded, is_bypassed, is_pre_fader, mix, latency)| {
-                InsertSlotInfo {
-                    index,
-                    name,
-                    is_loaded,
-                    is_bypassed,
-                    position: if is_pre_fader { 0 } else { 1 },
-                    mix,
-                    latency_samples: latency,
-                }
-            })
+            .map(
+                |(index, name, is_loaded, is_bypassed, is_pre_fader, mix, latency)| {
+                    InsertSlotInfo {
+                        index,
+                        name,
+                        is_loaded,
+                        is_bypassed,
+                        position: if is_pre_fader { 0 } else { 1 },
+                        mix,
+                        latency_samples: latency,
+                    }
+                },
+            )
             .collect()
     } else {
         Vec::new()
@@ -4749,7 +4977,8 @@ pub fn insert_list(track_id: u32) -> Vec<InsertSlotInfo> {
 pub fn insert_get_total_latency(track_id: u32) -> usize {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.playback_engine().get_track_insert_latency(track_id as u64)
+        e.playback_engine()
+            .get_track_insert_latency(track_id as u64)
     } else {
         0
     }
@@ -4760,7 +4989,8 @@ pub fn insert_get_total_latency(track_id: u32) -> usize {
 pub fn insert_bypass_all(track_id: u32, bypass: bool) -> bool {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.playback_engine().bypass_all_track_inserts(track_id as u64, bypass);
+        e.playback_engine()
+            .bypass_all_track_inserts(track_id as u64, bypass);
         log::debug!("Bypass all inserts on track {}: {}", track_id, bypass);
         true
     } else {
@@ -4789,11 +5019,26 @@ fn fx_type_from_int(value: u8) -> rf_engine::track_manager::ClipFxType {
     use rf_engine::track_manager::ClipFxType;
     match value {
         0 => ClipFxType::Gain { db: 0.0, pan: 0.0 },
-        1 => ClipFxType::Compressor { ratio: 4.0, threshold_db: -18.0, attack_ms: 10.0, release_ms: 100.0 },
+        1 => ClipFxType::Compressor {
+            ratio: 4.0,
+            threshold_db: -18.0,
+            attack_ms: 10.0,
+            release_ms: 100.0,
+        },
         2 => ClipFxType::Limiter { ceiling_db: -0.3 },
-        3 => ClipFxType::Gate { threshold_db: -40.0, attack_ms: 1.0, release_ms: 50.0 },
-        4 => ClipFxType::Saturation { drive: 0.5, mix: 1.0 },
-        5 => ClipFxType::PitchShift { semitones: 0.0, cents: 0.0 },
+        3 => ClipFxType::Gate {
+            threshold_db: -40.0,
+            attack_ms: 1.0,
+            release_ms: 50.0,
+        },
+        4 => ClipFxType::Saturation {
+            drive: 0.5,
+            mix: 1.0,
+        },
+        5 => ClipFxType::PitchShift {
+            semitones: 0.0,
+            cents: 0.0,
+        },
         6 => ClipFxType::TimeStretch { ratio: 1.0 },
         7 => ClipFxType::ProEq { bands: 8 },
         8 => ClipFxType::UltraEq,
@@ -4802,7 +5047,10 @@ fn fx_type_from_int(value: u8) -> rf_engine::track_manager::ClipFxType {
         11 => ClipFxType::Neve1073,
         12 => ClipFxType::MorphEq,
         13 => ClipFxType::RoomCorrection,
-        14 => ClipFxType::External { plugin_id: String::new(), state: None },
+        14 => ClipFxType::External {
+            plugin_id: String::new(),
+            state: None,
+        },
         _ => ClipFxType::Gain { db: 0.0, pan: 0.0 },
     }
 }
@@ -4827,12 +5075,19 @@ pub fn clip_fx_add(clip_id: u64, fx_type: u8) -> u64 {
 /// Remove FX slot from clip
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_remove(clip_id: u64, slot_id: u64) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        let result = e.track_manager().remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id));
-        log::debug!("Removed clip FX slot {} from clip {}: {}", slot_id, clip_id, result);
+        let result = e
+            .track_manager()
+            .remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id));
+        log::debug!(
+            "Removed clip FX slot {} from clip {}: {}",
+            slot_id,
+            clip_id,
+            result
+        );
         result
     } else {
         false
@@ -4842,12 +5097,19 @@ pub fn clip_fx_remove(clip_id: u64, slot_id: u64) -> bool {
 /// Move FX slot to new position in chain
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: usize) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        let result = e.track_manager().move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index);
-        log::debug!("Moved clip FX slot {} to index {}: {}", slot_id, new_index, result);
+        let result =
+            e.track_manager()
+                .move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index);
+        log::debug!(
+            "Moved clip FX slot {} to index {}: {}",
+            slot_id,
+            new_index,
+            result
+        );
         result
     } else {
         false
@@ -4857,11 +5119,12 @@ pub fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: usize) -> bool {
 /// Set FX slot bypass state
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_set_bypass(clip_id: u64, slot_id: u64, bypass: bool) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass)
+        e.track_manager()
+            .set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass)
     } else {
         false
     }
@@ -4874,7 +5137,8 @@ pub fn clip_fx_set_chain_bypass(clip_id: u64, bypass: bool) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().set_clip_fx_chain_bypass(ClipId(clip_id), bypass)
+        e.track_manager()
+            .set_clip_fx_chain_bypass(ClipId(clip_id), bypass)
     } else {
         false
     }
@@ -4883,13 +5147,14 @@ pub fn clip_fx_set_chain_bypass(clip_id: u64, bypass: bool) -> bool {
 /// Set FX slot wet/dry mix (0.0 = dry, 1.0 = wet)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_set_wet_dry(clip_id: u64, slot_id: u64, wet_dry: f64) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.wet_dry = wet_dry.clamp(0.0, 1.0);
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.wet_dry = wet_dry.clamp(0.0, 1.0);
+            })
     } else {
         false
     }
@@ -4902,7 +5167,8 @@ pub fn clip_fx_set_input_gain(clip_id: u64, gain_db: f64) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().set_clip_fx_input_gain(ClipId(clip_id), gain_db)
+        e.track_manager()
+            .set_clip_fx_input_gain(ClipId(clip_id), gain_db)
     } else {
         false
     }
@@ -4915,7 +5181,8 @@ pub fn clip_fx_set_output_gain(clip_id: u64, gain_db: f64) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().set_clip_fx_output_gain(ClipId(clip_id), gain_db)
+        e.track_manager()
+            .set_clip_fx_output_gain(ClipId(clip_id), gain_db)
     } else {
         false
     }
@@ -4924,13 +5191,17 @@ pub fn clip_fx_set_output_gain(clip_id: u64, gain_db: f64) -> bool {
 /// Set Gain FX parameters
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_set_gain_params(clip_id: u64, slot_id: u64, db: f64, pan: f64) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipFxType, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.fx_type = ClipFxType::Gain { db, pan: pan.clamp(-1.0, 1.0) };
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.fx_type = ClipFxType::Gain {
+                    db,
+                    pan: pan.clamp(-1.0, 1.0),
+                };
+            })
     } else {
         false
     }
@@ -4946,18 +5217,19 @@ pub fn clip_fx_set_compressor_params(
     attack_ms: f64,
     release_ms: f64,
 ) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipFxType, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.fx_type = ClipFxType::Compressor {
-                ratio: ratio.clamp(1.0, 100.0),
-                threshold_db: threshold_db.clamp(-60.0, 0.0),
-                attack_ms: attack_ms.clamp(0.01, 500.0),
-                release_ms: release_ms.clamp(1.0, 5000.0),
-            };
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.fx_type = ClipFxType::Compressor {
+                    ratio: ratio.clamp(1.0, 100.0),
+                    threshold_db: threshold_db.clamp(-60.0, 0.0),
+                    attack_ms: attack_ms.clamp(0.01, 500.0),
+                    release_ms: release_ms.clamp(1.0, 5000.0),
+                };
+            })
     } else {
         false
     }
@@ -4966,15 +5238,16 @@ pub fn clip_fx_set_compressor_params(
 /// Set Limiter FX parameters
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_set_limiter_params(clip_id: u64, slot_id: u64, ceiling_db: f64) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipFxType, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.fx_type = ClipFxType::Limiter {
-                ceiling_db: ceiling_db.clamp(-30.0, 0.0),
-            };
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.fx_type = ClipFxType::Limiter {
+                    ceiling_db: ceiling_db.clamp(-30.0, 0.0),
+                };
+            })
     } else {
         false
     }
@@ -4989,17 +5262,18 @@ pub fn clip_fx_set_gate_params(
     attack_ms: f64,
     release_ms: f64,
 ) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipFxType, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.fx_type = ClipFxType::Gate {
-                threshold_db: threshold_db.clamp(-80.0, 0.0),
-                attack_ms: attack_ms.clamp(0.01, 100.0),
-                release_ms: release_ms.clamp(1.0, 2000.0),
-            };
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.fx_type = ClipFxType::Gate {
+                    threshold_db: threshold_db.clamp(-80.0, 0.0),
+                    attack_ms: attack_ms.clamp(0.01, 100.0),
+                    release_ms: release_ms.clamp(1.0, 2000.0),
+                };
+            })
     } else {
         false
     }
@@ -5008,16 +5282,17 @@ pub fn clip_fx_set_gate_params(
 /// Set Saturation FX parameters
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fx_set_saturation_params(clip_id: u64, slot_id: u64, drive: f64, mix: f64) -> bool {
-    use rf_engine::track_manager::{ClipId, ClipFxSlotId, ClipFxType};
+    use rf_engine::track_manager::{ClipFxSlotId, ClipFxType, ClipId};
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-            slot.fx_type = ClipFxType::Saturation {
-                drive: drive.clamp(0.0, 1.0),
-                mix: mix.clamp(0.0, 1.0),
-            };
-        })
+        e.track_manager()
+            .update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
+                slot.fx_type = ClipFxType::Saturation {
+                    drive: drive.clamp(0.0, 1.0),
+                    mix: mix.clamp(0.0, 1.0),
+                };
+            })
     } else {
         false
     }
@@ -5030,7 +5305,8 @@ pub fn clip_fx_copy(source_clip_id: u64, target_clip_id: u64) -> bool {
 
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
-        e.track_manager().copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id))
+        e.track_manager()
+            .copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id))
     } else {
         false
     }
@@ -5058,7 +5334,12 @@ pub fn clip_fx_get_chain_info(clip_id: u64) -> Option<(bool, f64, f64, usize)> {
     let engine = ENGINE.read();
     if let Some(ref e) = *engine {
         if let Some(chain) = e.track_manager().get_clip_fx_chain(ClipId(clip_id)) {
-            return Some((chain.bypass, chain.input_gain_db, chain.output_gain_db, chain.slots.len()));
+            return Some((
+                chain.bypass,
+                chain.input_gain_db,
+                chain.output_gain_db,
+                chain.slots.len(),
+            ));
         }
     }
     None
@@ -5513,10 +5794,7 @@ pub fn restoration_get_settings() -> RestorationSettings {
 
 /// Process file through restoration chain
 #[flutter_rust_bridge::frb(sync)]
-pub fn restoration_process_file(
-    input_path: String,
-    _output_path: String,
-) -> bool {
+pub fn restoration_process_file(input_path: String, _output_path: String) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
     }
@@ -5641,11 +5919,7 @@ pub fn ml_denoise_cancel() -> bool {
 
 /// Start stem separation
 #[flutter_rust_bridge::frb(sync)]
-pub fn ml_separate_stems(
-    input_path: String,
-    _output_dir: String,
-    stems: Vec<StemType>,
-) -> bool {
+pub fn ml_separate_stems(input_path: String, _output_dir: String, stems: Vec<StemType>) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
     }
@@ -5672,11 +5946,7 @@ pub struct MasteringPreset {
 
 /// Start AI mastering
 #[flutter_rust_bridge::frb(sync)]
-pub fn ml_master_start(
-    input_path: String,
-    _output_path: String,
-    preset: MasteringPreset,
-) -> bool {
+pub fn ml_master_start(input_path: String, _output_path: String, preset: MasteringPreset) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
     }
@@ -5709,7 +5979,8 @@ pub fn ml_eq_match(
     match_amount: f32,
 ) -> bool {
     if !std::path::Path::new(&target_path).exists()
-        || !std::path::Path::new(&reference_path).exists() {
+        || !std::path::Path::new(&reference_path).exists()
+    {
         return false;
     }
 
@@ -5788,8 +6059,13 @@ pub fn spatial_get_channel_count() -> u32 {
 #[flutter_rust_bridge::frb(sync)]
 pub fn spatial_create_object(name: String, position: SpatialPosition3D) -> u32 {
     // Would create object in rf-spatial Atmos renderer
-    log::info!("Creating spatial object: {} at ({}, {}, {})",
-        name, position.x, position.y, position.z);
+    log::info!(
+        "Creating spatial object: {} at ({}, {}, {})",
+        name,
+        position.x,
+        position.y,
+        position.z
+    );
     0 // Return object ID
 }
 
@@ -5820,7 +6096,10 @@ pub fn spatial_get_objects() -> Vec<SpatialObject> {
 /// Enable binaural rendering
 #[flutter_rust_bridge::frb(sync)]
 pub fn spatial_enable_binaural(enabled: bool) -> bool {
-    log::info!("Binaural rendering: {}", if enabled { "enabled" } else { "disabled" });
+    log::info!(
+        "Binaural rendering: {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     true
 }
 
@@ -5848,7 +6127,10 @@ pub fn spatial_set_listener_position(
 /// Enable head tracking
 #[flutter_rust_bridge::frb(sync)]
 pub fn spatial_enable_head_tracking(enabled: bool) -> bool {
-    log::info!("Head tracking: {}", if enabled { "enabled" } else { "disabled" });
+    log::info!(
+        "Head tracking: {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     true
 }
 

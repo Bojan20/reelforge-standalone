@@ -6,14 +6,14 @@ use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
-use crate::error::{MlError, MlResult};
+use super::classifier::{Genre, GenreClassifier};
 use super::config::AssistantConfig;
-use super::classifier::{GenreClassifier, Genre};
 use super::suggestions::{Suggestion, SuggestionGenerator};
 use super::{
-    AnalysisResult, AudioAssistantTrait, ComparisonResult,
-    LoudnessAnalysis, SpectralAnalysis, DynamicsAnalysis, StereoAnalysis,
+    AnalysisResult, AudioAssistantTrait, ComparisonResult, DynamicsAnalysis, LoudnessAnalysis,
+    SpectralAnalysis, StereoAnalysis,
 };
+use crate::error::{MlError, MlResult};
 
 /// Audio analyzer
 pub struct AudioAnalyzer {
@@ -44,13 +44,11 @@ impl AudioAnalyzer {
         let fft = planner.plan_fft_forward(fft_size);
 
         let window: Vec<f32> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos()))
             .collect();
 
-        let suggestion_gen = SuggestionGenerator::new()
-            .with_target_loudness(config.target_loudness_lufs);
+        let suggestion_gen =
+            SuggestionGenerator::new().with_target_loudness(config.target_loudness_lufs);
 
         Self {
             config,
@@ -69,10 +67,16 @@ impl AudioAnalyzer {
     }
 
     /// Analyze loudness
-    fn analyze_loudness(&self, audio: &[f32], channels: usize, sample_rate: u32) -> LoudnessAnalysis {
+    fn analyze_loudness(
+        &self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> LoudnessAnalysis {
         // Convert to mono for analysis
         let mono: Vec<f32> = if channels == 2 {
-            audio.chunks(2)
+            audio
+                .chunks(2)
                 .map(|c| (c[0] + c.get(1).copied().unwrap_or(0.0)) / 2.0)
                 .collect()
         } else {
@@ -125,9 +129,15 @@ impl AudioAnalyzer {
     }
 
     /// Analyze spectral content
-    fn analyze_spectral(&self, audio: &[f32], channels: usize, sample_rate: u32) -> SpectralAnalysis {
+    fn analyze_spectral(
+        &self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> SpectralAnalysis {
         let mono: Vec<f32> = if channels == 2 {
-            audio.chunks(2)
+            audio
+                .chunks(2)
                 .map(|c| (c[0] + c.get(1).copied().unwrap_or(0.0)) / 2.0)
                 .collect()
         } else {
@@ -156,7 +166,11 @@ impl AudioAnalyzer {
                 .collect();
 
             let mut spectrum = vec![Complex32::new(0.0, 0.0); n_bins];
-            if self.fft.process_with_scratch(&mut windowed, &mut spectrum, &mut scratch).is_ok() {
+            if self
+                .fft
+                .process_with_scratch(&mut windowed, &mut spectrum, &mut scratch)
+                .is_ok()
+            {
                 for (i, &c) in spectrum.iter().enumerate() {
                     avg_magnitude[i] += c.norm() as f64;
                 }
@@ -204,14 +218,24 @@ impl AudioAnalyzer {
         let high_energy: f64 = avg_magnitude[high_bin.min(n_bins)..].iter().sum();
         let mid_energy = total - low_energy - high_energy;
 
-        let low_ratio = if total > 0.0 { (low_energy / total) as f32 } else { 0.0 };
-        let mid_ratio = if total > 0.0 { (mid_energy / total) as f32 } else { 0.0 };
-        let high_ratio = if total > 0.0 { (high_energy / total) as f32 } else { 0.0 };
+        let low_ratio = if total > 0.0 {
+            (low_energy / total) as f32
+        } else {
+            0.0
+        };
+        let mid_ratio = if total > 0.0 {
+            (mid_energy / total) as f32
+        } else {
+            0.0
+        };
+        let high_ratio = if total > 0.0 {
+            (high_energy / total) as f32
+        } else {
+            0.0
+        };
 
         // Spectral flatness (geometric mean / arithmetic mean)
-        let log_sum: f64 = avg_magnitude.iter()
-            .map(|&m| (m + 1e-10).ln())
-            .sum();
+        let log_sum: f64 = avg_magnitude.iter().map(|&m| (m + 1e-10).ln()).sum();
         let geometric_mean = (log_sum / n_bins as f64).exp();
         let arithmetic_mean = total / n_bins as f64;
         let flatness = if arithmetic_mean > 0.0 {
@@ -248,9 +272,15 @@ impl AudioAnalyzer {
     }
 
     /// Analyze dynamics
-    fn analyze_dynamics(&self, audio: &[f32], channels: usize, _sample_rate: u32) -> DynamicsAnalysis {
+    fn analyze_dynamics(
+        &self,
+        audio: &[f32],
+        channels: usize,
+        _sample_rate: u32,
+    ) -> DynamicsAnalysis {
         let mono: Vec<f32> = if channels == 2 {
-            audio.chunks(2)
+            audio
+                .chunks(2)
                 .map(|c| (c[0] + c.get(1).copied().unwrap_or(0.0)) / 2.0)
                 .collect()
         } else {
@@ -424,7 +454,12 @@ impl AudioAnalyzer {
 }
 
 impl AudioAssistantTrait for AudioAnalyzer {
-    fn analyze(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<AnalysisResult> {
+    fn analyze(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<AnalysisResult> {
         let loudness = self.analyze_loudness(audio, channels, sample_rate);
         let spectral = self.analyze_spectral(audio, channels, sample_rate);
         let dynamics = self.analyze_dynamics(audio, channels, sample_rate);
@@ -433,7 +468,9 @@ impl AudioAssistantTrait for AudioAnalyzer {
         // Genre classification
         let genres = if self.config.classify_genre {
             if let Some(ref mut classifier) = self.genre_classifier {
-                classifier.classify(audio, channels, sample_rate).unwrap_or_default()
+                classifier
+                    .classify(audio, channels, sample_rate)
+                    .unwrap_or_default()
             } else {
                 Vec::new()
             }
@@ -444,7 +481,9 @@ impl AudioAssistantTrait for AudioAnalyzer {
         // Mood classification
         let moods = if self.config.classify_mood {
             if let Some(ref mut classifier) = self.genre_classifier {
-                classifier.classify_mood(audio, channels, sample_rate).unwrap_or_default()
+                classifier
+                    .classify_mood(audio, channels, sample_rate)
+                    .unwrap_or_default()
             } else {
                 Vec::new()
             }
@@ -472,7 +511,12 @@ impl AudioAssistantTrait for AudioAnalyzer {
         })
     }
 
-    fn classify_genre(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<(Genre, f32)>> {
+    fn classify_genre(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<(Genre, f32)>> {
         if let Some(ref mut classifier) = self.genre_classifier {
             classifier.classify(audio, channels, sample_rate)
         } else {
@@ -482,7 +526,12 @@ impl AudioAssistantTrait for AudioAnalyzer {
         }
     }
 
-    fn suggest(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<Suggestion>> {
+    fn suggest(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<Suggestion>> {
         let loudness = self.analyze_loudness(audio, channels, sample_rate);
         let spectral = self.analyze_spectral(audio, channels, sample_rate);
         let stereo = self.analyze_stereo(audio, channels, sample_rate);
@@ -509,20 +558,20 @@ impl AudioAssistantTrait for AudioAnalyzer {
         let loudness_diff = target_loudness.integrated_lufs - ref_loudness.integrated_lufs;
 
         // Spectral similarity (simplified)
-        let spectral_similarity = 1.0 - (
-            (target_spectral.centroid_hz - ref_spectral.centroid_hz).abs() / 5000.0
-        ).clamp(0.0, 1.0);
+        let spectral_similarity = 1.0
+            - ((target_spectral.centroid_hz - ref_spectral.centroid_hz).abs() / 5000.0)
+                .clamp(0.0, 1.0);
 
         // Dynamic similarity
-        let dynamic_similarity = 1.0 - (
-            (target_loudness.loudness_range - ref_loudness.loudness_range).abs() / 20.0
-        ).clamp(0.0, 1.0);
+        let dynamic_similarity = 1.0
+            - ((target_loudness.loudness_range - ref_loudness.loudness_range).abs() / 20.0)
+                .clamp(0.0, 1.0);
 
         // Stereo similarity
-        let stereo_similarity = 1.0 - (
-            (target_stereo.width - ref_stereo.width).abs() +
-            (target_stereo.correlation - ref_stereo.correlation).abs()
-        ) / 2.0;
+        let stereo_similarity = 1.0
+            - ((target_stereo.width - ref_stereo.width).abs()
+                + (target_stereo.correlation - ref_stereo.correlation).abs())
+                / 2.0;
 
         // Overall similarity
         let similarity = (spectral_similarity + dynamic_similarity + stereo_similarity) / 3.0;
@@ -531,15 +580,15 @@ impl AudioAssistantTrait for AudioAnalyzer {
         let mut suggestions = Vec::new();
 
         if loudness_diff.abs() > 1.0 {
-            suggestions.push(
-                Suggestion::new(
-                    super::suggestions::SuggestionType::Level,
-                    super::suggestions::SuggestionPriority::High,
-                    format!("Adjust level by {:.1} dB", -loudness_diff),
-                    format!("Target is {:.1} LUFS, reference is {:.1} LUFS",
-                        target_loudness.integrated_lufs, ref_loudness.integrated_lufs),
-                )
-            );
+            suggestions.push(Suggestion::new(
+                super::suggestions::SuggestionType::Level,
+                super::suggestions::SuggestionPriority::High,
+                format!("Adjust level by {:.1} dB", -loudness_diff),
+                format!(
+                    "Target is {:.1} LUFS, reference is {:.1} LUFS",
+                    target_loudness.integrated_lufs, ref_loudness.integrated_lufs
+                ),
+            ));
         }
 
         Ok(ComparisonResult {

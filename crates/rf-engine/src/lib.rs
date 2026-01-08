@@ -9,34 +9,34 @@
 //! - Lock-free communication
 
 // Core modules
-mod graph;
-mod node;
 mod bus;
-mod processor;
+mod graph;
 mod mixer;
+mod node;
+mod processor;
 mod realtime;
 
 // Phase 2: Enhanced engine
-mod parallel_graph;
-mod insert_chain;
-mod send_return;
+mod click;
 mod dual_path;
-mod sidechain;
 mod freeze;
 pub mod groups;
-mod click;
+mod insert_chain;
+mod parallel_graph;
 mod pdc;
+mod send_return;
+mod sidechain;
 
 // Phase 3: Advanced features
 mod anticipatory;
 mod fx_container;
 
 // Phase 4: Timeline & Track Management
-pub mod track_manager;
 pub mod audio_import;
-pub mod waveform;
-pub mod playback;
 pub mod ffi;
+pub mod playback;
+pub mod track_manager;
+pub mod waveform;
 
 // Phase 5: Dynamic Routing System
 pub mod routing;
@@ -51,228 +51,118 @@ pub mod dsp_wrappers;
 pub mod automation;
 
 // Re-exports: Core
-pub use graph::*;
-pub use node::*;
 pub use bus::*;
-pub use processor::*;
+pub use graph::*;
 pub use mixer::*;
+pub use node::*;
+pub use processor::*;
 pub use realtime::*;
 
 // Re-exports: Phase 2
-pub use parallel_graph::{
-    ParallelAudioGraph,
-    Connection,
-    ConnectionType,
-    BufferPool,
-};
+pub use parallel_graph::{BufferPool, Connection, ConnectionType, ParallelAudioGraph};
 
 pub use insert_chain::{
-    InsertSlot,
-    InsertChain,
-    InsertPosition,
-    InsertProcessor,
-    MAX_INSERT_SLOTS,
+    InsertChain, InsertPosition, InsertProcessor, InsertSlot, MAX_INSERT_SLOTS,
 };
 
 pub use send_return::{
-    Send,
-    SendBank,
-    SendTapPoint,
-    ReturnBus,
-    ReturnBusManager,
-    MAX_SENDS,
-    MAX_RETURNS,
+    MAX_RETURNS, MAX_SENDS, ReturnBus, ReturnBusManager, Send, SendBank, SendTapPoint,
 };
 
 pub use dual_path::{
-    DualPathEngine,
-    DualPathStats,
-    ProcessingMode,
-    AudioBlock,
-    GuardProcessor,
-    FnGuardProcessor,
+    AudioBlock, DualPathEngine, DualPathStats, FnGuardProcessor, GuardProcessor, ProcessingMode,
 };
 
 pub use sidechain::{
+    SidechainFilterMode, SidechainId, SidechainInput, SidechainRoute, SidechainRouter,
     SidechainSource,
-    SidechainFilterMode,
-    SidechainInput,
-    SidechainRoute,
-    SidechainRouter,
-    SidechainId,
 };
 
-pub use freeze::{
-    FreezeConfig,
-    FrozenTrackInfo,
-    FreezeManager,
-    FreezeError,
-};
+pub use freeze::{FreezeConfig, FreezeError, FreezeManager, FrozenTrackInfo};
 
 pub use groups::{
-    Group,
-    GroupId,
-    VcaFader,
-    VcaId,
-    FolderTrack,
-    GroupManager,
-    LinkParameter,
-    LinkMode,
+    FolderTrack, Group, GroupId, GroupInfo, GroupManager, LinkMode, LinkParameter, VcaFader, VcaId,
     VcaInfo,
-    GroupInfo,
 };
 
-pub use click::{
-    ClickTrack,
-    ClickSound,
-    ClickPattern,
-    CountInMode,
-    ClickTrackSettings,
-};
+pub use click::{ClickPattern, ClickSound, ClickTrack, ClickTrackSettings, CountInMode};
 
 pub use pdc::{
-    PdcManager,
-    PdcDelayLine,
-    PdcStats,
-    NodeLatencyInfo,
-    NodeType as PdcNodeType,
-    ConnectionType as PdcConnectionType,
+    ConnectionType as PdcConnectionType, DEFAULT_CONSTRAIN_THRESHOLD, MAX_PDC_SAMPLES,
+    NodeLatencyInfo, NodeType as PdcNodeType, PdcDelayLine, PdcManager, PdcStats, SendPdc,
     SidechainPdc,
-    SendPdc,
-    MAX_PDC_SAMPLES,
-    DEFAULT_CONSTRAIN_THRESHOLD,
 };
 
 pub use anticipatory::{
-    AnticipatoryScheduler,
-    SchedulerConfig,
-    ProcessingJob,
-    ProcessingResult,
-    NodeStats,
+    AnticipatoryScheduler, NodeStats, ProcessingJob, ProcessingResult, SchedulerConfig,
     SchedulerStats,
 };
 
 pub use fx_container::{
-    FxContainer,
-    ContainerPath,
-    MacroParameter,
-    MacroMapping,
-    MappingCurve,
-    BlendMode,
-    PathId,
-    MAX_PARALLEL_PATHS,
-    MAX_MACROS,
+    BlendMode, ContainerPath, FxContainer, MAX_MACROS, MAX_PARALLEL_PATHS, MacroMapping,
+    MacroParameter, MappingCurve, PathId,
 };
 
 // Re-exports: Phase 4 - Timeline
 pub use track_manager::{
-    TrackManager,
-    Track,
     Clip,
-    Crossfade,
-    CrossfadeShape,
-    CrossfadeCurve,
-    Marker,
-    LoopRegion,
-    TrackId,
-    ClipId,
-    CrossfadeId,
-    MarkerId,
-    OutputBus,
     // Clip FX
     ClipFxChain,
     ClipFxSlot,
     ClipFxSlotId,
     ClipFxType,
+    ClipId,
+    Crossfade,
+    CrossfadeCurve,
+    CrossfadeId,
+    CrossfadeShape,
+    LoopRegion,
     MAX_CLIP_FX_SLOTS,
+    Marker,
+    MarkerId,
+    OutputBus,
+    Track,
+    TrackId,
+    TrackManager,
 };
 
-pub use audio_import::{
-    AudioImporter,
-    ImportedAudio,
-    ImportError,
-};
+pub use audio_import::{AudioImporter, ImportError, ImportedAudio};
 
 pub use waveform::{
-    Peak,
-    WaveformPeaks,
-    StereoWaveformPeaks,
-    WaveformCache,
-    NUM_LOD_LEVELS,
-    SAMPLES_PER_PEAK,
+    NUM_LOD_LEVELS, Peak, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache, WaveformPeaks,
 };
 
 pub use playback::{
-    PlaybackEngine,
-    PlaybackPosition,
-    PlaybackState,
-    AudioCache,
-    BusBuffers,
-    BusState,
+    AudioCache, BusBuffers, BusState, PlaybackEngine, PlaybackPosition, PlaybackState,
 };
 
 // Re-exports: Phase 5 - Dynamic Routing
 pub use routing::{
-    RoutingGraph,
-    Channel,
-    ChannelId,
-    ChannelKind,
-    OutputDestination,
-    SendConfig,
+    Channel, ChannelId, ChannelKind, OutputDestination, RoutingError, RoutingGraph, SendConfig,
     SendTapPoint as RoutingSendTapPoint,
-    RoutingError,
 };
 
 // Re-exports: Phase 6 - DAW Integration
-pub use link::{
-    LinkSession,
-    LinkHost,
-    LinkState,
-    LinkBeat,
-    LinkConfig,
-    LinkEvent,
-};
+pub use link::{LinkBeat, LinkConfig, LinkEvent, LinkHost, LinkSession, LinkState};
 
 // Re-exports: Phase 7 - DSP Wrappers
 pub use dsp_wrappers::{
-    ProEqWrapper,
-    UltraEqWrapper,
-    PultecWrapper,
-    Api550Wrapper,
-    Neve1073Wrapper,
-    MorphEqWrapper,
-    RoomCorrectionWrapper,
-    CompressorWrapper,
-    TruePeakLimiterWrapper,
-    GateWrapper,
-    ExpanderWrapper,
-    create_processor,
-    create_processor_extended,
-    available_processors,
+    Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper, MorphEqWrapper,
+    Neve1073Wrapper, ProEqWrapper, PultecWrapper, RoomCorrectionWrapper, TruePeakLimiterWrapper,
+    UltraEqWrapper, available_processors, create_processor, create_processor_extended,
 };
 
 // Re-exports: Phase 8 - Automation
 pub use automation::{
-    AutomationEngine,
-    AutomationLane,
-    AutomationPoint,
-    AutomationMode,
-    AutomationBlock,
-    CurveType,
-    ParamId,
-    TargetType,
-    ParamChange,
+    AutomationBlock, AutomationEngine, AutomationLane, AutomationMode, AutomationPoint, CurveType,
+    ParamChange, ParamId, TargetType,
 };
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;
 
 // Re-exports: Audio Import additions
-pub use audio_import::{
-    AudioFileInfo,
-    SampleRateConverter,
-    WaveformPeaks as ImportWaveformPeaks,
-};
+pub use audio_import::{AudioFileInfo, SampleRateConverter, WaveformPeaks as ImportWaveformPeaks};
 
 use rf_core::SampleRate;
 

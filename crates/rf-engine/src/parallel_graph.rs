@@ -224,7 +224,8 @@ impl ParallelAudioGraph {
     /// Remove a node from the graph
     pub fn remove_node(&mut self, id: NodeId) -> Option<Box<dyn AudioNode>> {
         // Remove connections
-        self.connections.retain(|c| c.from_node != id && c.to_node != id);
+        self.connections
+            .retain(|c| c.from_node != id && c.to_node != id);
 
         // Remove from delay compensation
         self.delay_comp.unregister_node(id.0);
@@ -240,14 +241,18 @@ impl ParallelAudioGraph {
     /// Connect two nodes
     pub fn connect(&mut self, connection: Connection) -> bool {
         // Validate
-        let from_valid = self.nodes.get(&connection.from_node)
+        let from_valid = self
+            .nodes
+            .get(&connection.from_node)
             .map(|w| {
                 let node = w.node.read();
                 connection.from_channel < node.num_outputs()
             })
             .unwrap_or(false);
 
-        let to_valid = self.nodes.get(&connection.to_node)
+        let to_valid = self
+            .nodes
+            .get(&connection.to_node)
             .map(|w| {
                 let node = w.node.read();
                 match connection.connection_type {
@@ -269,7 +274,8 @@ impl ParallelAudioGraph {
 
     /// Disconnect nodes
     pub fn disconnect(&mut self, from: NodeId, to: NodeId) {
-        self.connections.retain(|c| c.from_node != from || c.to_node != to);
+        self.connections
+            .retain(|c| c.from_node != from || c.to_node != to);
         self.dirty = true;
     }
 
@@ -299,7 +305,8 @@ impl ParallelAudioGraph {
         }
 
         // BFS for topological sort
-        let mut queue: Vec<NodeId> = in_degree.iter()
+        let mut queue: Vec<NodeId> = in_degree
+            .iter()
             .filter(|&(_, deg)| *deg == 0)
             .map(|(&id, _)| id)
             .collect();
@@ -337,7 +344,8 @@ impl ParallelAudioGraph {
         let max_depth = depths.values().copied().max().unwrap_or(0);
         self.levels = (0..=max_depth)
             .map(|d| ProcessingLevel {
-                node_ids: depths.iter()
+                node_ids: depths
+                    .iter()
                     .filter(|&(_, depth)| *depth == d)
                     .map(|(&id, _)| id)
                     .collect(),
@@ -386,21 +394,21 @@ impl ParallelAudioGraph {
         let node_outputs = &self.node_outputs;
 
         // Collect inputs for each node in this level
-        let level_inputs: Vec<(NodeId, Vec<Vec<Sample>>, Vec<Vec<Sample>>)> = level.node_ids.iter()
+        let level_inputs: Vec<(NodeId, Vec<Vec<Sample>>, Vec<Vec<Sample>>)> = level
+            .node_ids
+            .iter()
             .map(|&node_id| {
                 let wrapper = &self.nodes[&node_id];
                 let node = wrapper.node.read();
                 let num_inputs = node.num_inputs();
 
                 // Audio inputs
-                let mut inputs: Vec<Vec<Sample>> = (0..num_inputs)
-                    .map(|_| vec![0.0; block_size])
-                    .collect();
+                let mut inputs: Vec<Vec<Sample>> =
+                    (0..num_inputs).map(|_| vec![0.0; block_size]).collect();
 
                 // Sidechain inputs
-                let mut sidechains: Vec<Vec<Sample>> = (0..num_inputs)
-                    .map(|_| vec![0.0; block_size])
-                    .collect();
+                let mut sidechains: Vec<Vec<Sample>> =
+                    (0..num_inputs).map(|_| vec![0.0; block_size]).collect();
 
                 // Sum inputs from connections
                 for conn in connections {
@@ -413,7 +421,9 @@ impl ParallelAudioGraph {
                                     ConnectionType::Modulation => &mut inputs[conn.to_channel],
                                 };
 
-                                for (i, &sample) in from_outputs[conn.from_channel].iter().enumerate() {
+                                for (i, &sample) in
+                                    from_outputs[conn.from_channel].iter().enumerate()
+                                {
                                     target[i] += sample * conn.gain;
                                 }
                             }
@@ -433,13 +443,13 @@ impl ParallelAudioGraph {
                 let mut node = wrapper.node.write();
 
                 let num_outputs = node.num_outputs();
-                let mut outputs: Vec<Vec<Sample>> = (0..num_outputs)
-                    .map(|_| vec![0.0; block_size])
-                    .collect();
+                let mut outputs: Vec<Vec<Sample>> =
+                    (0..num_outputs).map(|_| vec![0.0; block_size]).collect();
 
                 // Create slice references
                 let input_refs: Vec<&[Sample]> = inputs.iter().map(|v| v.as_slice()).collect();
-                let mut output_refs: Vec<&mut [Sample]> = outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
+                let mut output_refs: Vec<&mut [Sample]> =
+                    outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
 
                 // Process (TODO: pass sidechain to node)
                 node.process(&input_refs, &mut output_refs);
@@ -462,13 +472,17 @@ impl ParallelAudioGraph {
 
     /// Get output of a node
     pub fn get_output(&self, node_id: NodeId, channel: usize) -> Option<&[Sample]> {
-        self.node_outputs.get(&node_id)
+        self.node_outputs
+            .get(&node_id)
             .and_then(|outputs| outputs.get(channel))
             .map(|v| v.as_slice())
     }
 
     /// Get mutable access to a node
-    pub fn get_node_mut(&self, id: NodeId) -> Option<parking_lot::RwLockWriteGuard<'_, Box<dyn AudioNode>>> {
+    pub fn get_node_mut(
+        &self,
+        id: NodeId,
+    ) -> Option<parking_lot::RwLockWriteGuard<'_, Box<dyn AudioNode>>> {
         self.nodes.get(&id).map(|w| w.node.write())
     }
 
@@ -536,7 +550,7 @@ impl ParallelAudioGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::{PassthroughNode, GainNode};
+    use crate::node::{GainNode, PassthroughNode};
 
     #[test]
     fn test_parallel_graph_creation() {

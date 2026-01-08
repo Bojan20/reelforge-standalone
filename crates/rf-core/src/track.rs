@@ -529,10 +529,7 @@ impl TrackManager {
 
     /// Get VCA masters
     pub fn vca_masters(&self) -> Vec<&Track> {
-        self.tracks
-            .iter()
-            .filter(|t| t.is_vca_master)
-            .collect()
+        self.tracks.iter().filter(|t| t.is_vca_master).collect()
     }
 
     /// Calculate effective VCA gain for a track

@@ -17,15 +17,15 @@
 //! ```
 
 mod attenuate;
-mod frcrn;
 mod config;
+mod frcrn;
 
 pub use attenuate::ATENNuate;
-pub use frcrn::FRCRN;
 pub use config::{EnhanceConfig, EnhanceMode};
+pub use frcrn::FRCRN;
 
-use crate::error::MlResult;
 use crate::buffer::AudioFrame;
+use crate::error::MlResult;
 
 /// Common trait for speech enhancers
 pub trait SpeechEnhancer: Send + Sync {
@@ -33,7 +33,12 @@ pub trait SpeechEnhancer: Send + Sync {
     fn process_frame(&mut self, input: &AudioFrame) -> MlResult<AudioFrame>;
 
     /// Process entire audio buffer (batch mode)
-    fn process_batch(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<f32>>;
+    fn process_batch(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<f32>>;
 
     /// Reset internal state
     fn reset(&mut self);

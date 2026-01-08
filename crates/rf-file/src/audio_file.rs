@@ -153,9 +153,7 @@ impl AudioData {
         let num_channels = self.num_channels() as f64;
 
         (0..frames)
-            .map(|i| {
-                self.channels.iter().map(|c| c[i]).sum::<f64>() / num_channels
-            })
+            .map(|i| self.channels.iter().map(|c| c[i]).sum::<f64>() / num_channels)
             .collect()
     }
 
@@ -175,11 +173,7 @@ impl AudioData {
     }
 
     /// Create from interleaved samples
-    pub fn from_interleaved(
-        samples: &[Sample],
-        num_channels: usize,
-        sample_rate: u32,
-    ) -> Self {
+    pub fn from_interleaved(samples: &[Sample], num_channels: usize, sample_rate: u32) -> Self {
         let num_frames = samples.len() / num_channels;
         let mut channels = vec![vec![0.0; num_frames]; num_channels];
 
@@ -220,14 +214,14 @@ pub fn read_wav<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
 
     // Read all samples
     let samples: Vec<Sample> = match spec.sample_format {
-        hound::SampleFormat::Float => {
-            reader.into_samples::<f32>()
-                .map(|s| s.unwrap_or(0.0) as f64)
-                .collect()
-        }
+        hound::SampleFormat::Float => reader
+            .into_samples::<f32>()
+            .map(|s| s.unwrap_or(0.0) as f64)
+            .collect(),
         hound::SampleFormat::Int => {
             let max_value = (1 << (spec.bits_per_sample - 1)) as f64;
-            reader.into_samples::<i32>()
+            reader
+                .into_samples::<i32>()
                 .map(|s| s.unwrap_or(0) as f64 / max_value)
                 .collect()
         }
@@ -252,11 +246,7 @@ pub fn read_wav<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
 }
 
 /// Write WAV file using hound
-pub fn write_wav<P: AsRef<Path>>(
-    path: P,
-    data: &AudioData,
-    bit_depth: BitDepth,
-) -> FileResult<()> {
+pub fn write_wav<P: AsRef<Path>>(path: P, data: &AudioData, bit_depth: BitDepth) -> FileResult<()> {
     let spec = hound::WavSpec {
         channels: data.num_channels() as u16,
         sample_rate: data.sample_rate,
@@ -353,7 +343,8 @@ pub fn write_flac<P: AsRef<Path>>(
         .compression_level(5) // Good balance of speed/compression
         .total_samples_estimate(num_frames as u64);
 
-    let mut encoder = encoder.init_write(&mut write_wrapper)
+    let mut encoder = encoder
+        .init_write(&mut write_wrapper)
         .map_err(|e| FileError::WriteError(format!("FLAC encoder init failed: {:?}", e)))?;
 
     // Convert samples to i32 and process in chunks
@@ -387,15 +378,18 @@ pub fn write_flac<P: AsRef<Path>>(
         // Create slice references for process()
         let channel_refs: Vec<&[i32]> = channel_buffers.iter().map(|v| v.as_slice()).collect();
 
-        encoder.process(&channel_refs)
-            .map_err(|_| FileError::WriteError(format!(
+        encoder.process(&channel_refs).map_err(|_| {
+            FileError::WriteError(format!(
                 "FLAC encoding failed at frame {}, state: {:?}",
-                chunk_start, encoder.state()
-            )))?;
+                chunk_start,
+                encoder.state()
+            ))
+        })?;
     }
 
     // Finish encoding
-    encoder.finish()
+    encoder
+        .finish()
         .map_err(|e| FileError::WriteError(format!("FLAC finalize failed: {:?}", e.state())))?;
 
     Ok(())
@@ -416,8 +410,7 @@ pub fn read_audio<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
     }
 
     // Open file
-    let file = File::open(path)
-        .map_err(|_| FileError::NotFound(path.display().to_string()))?;
+    let file = File::open(path).map_err(|_| FileError::NotFound(path.display().to_string()))?;
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
@@ -428,7 +421,12 @@ pub fn read_audio<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .map_err(|e| FileError::DecodeError(e.to_string()))?;
 
     let mut format_reader = probed.format;
@@ -441,9 +439,7 @@ pub fn read_audio<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
         .ok_or_else(|| FileError::InvalidFile("No audio track found".to_string()))?;
 
     let track_id = track.id;
-    let num_channels = track.codec_params.channels
-        .map(|c| c.count())
-        .unwrap_or(2);
+    let num_channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(2);
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
 
     // Create decoder
@@ -548,14 +544,22 @@ fn copy_audio_buffer(buffer: &AudioBufferRef, output: &mut [Vec<Sample>]) {
         AudioBufferRef::U24(buf) => {
             for (ch, out_ch) in output.iter_mut().enumerate() {
                 if ch < buf.spec().channels.count() {
-                    out_ch.extend(buf.chan(ch).iter().map(|s| (s.0 as f64 - 8388608.0) / 8388608.0));
+                    out_ch.extend(
+                        buf.chan(ch)
+                            .iter()
+                            .map(|s| (s.0 as f64 - 8388608.0) / 8388608.0),
+                    );
                 }
             }
         }
         AudioBufferRef::U32(buf) => {
             for (ch, out_ch) in output.iter_mut().enumerate() {
                 if ch < buf.spec().channels.count() {
-                    out_ch.extend(buf.chan(ch).iter().map(|&s| (s as f64 - 2147483648.0) / 2147483648.0));
+                    out_ch.extend(
+                        buf.chan(ch)
+                            .iter()
+                            .map(|&s| (s as f64 - 2147483648.0) / 2147483648.0),
+                    );
                 }
             }
         }
@@ -578,9 +582,7 @@ pub fn get_audio_info<P: AsRef<Path>>(path: P) -> FileResult<AudioFileInfo> {
     let path = path.as_ref();
     let format = AudioFormat::from_path(path);
 
-    let file_size = std::fs::metadata(path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
     // For WAV, use hound
     if format == AudioFormat::Wav {
@@ -607,8 +609,7 @@ pub fn get_audio_info<P: AsRef<Path>>(path: P) -> FileResult<AudioFileInfo> {
     }
 
     // Use symphonia for other formats
-    let file = File::open(path)
-        .map_err(|_| FileError::NotFound(path.display().to_string()))?;
+    let file = File::open(path).map_err(|_| FileError::NotFound(path.display().to_string()))?;
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
@@ -618,16 +619,24 @@ pub fn get_audio_info<P: AsRef<Path>>(path: P) -> FileResult<AudioFileInfo> {
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .map_err(|e| FileError::DecodeError(e.to_string()))?;
 
-    let track = probed.format
+    let track = probed
+        .format
         .tracks()
         .iter()
         .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
         .ok_or_else(|| FileError::InvalidFile("No audio track found".to_string()))?;
 
-    let channels = track.codec_params.channels
+    let channels = track
+        .codec_params
+        .channels
         .map(|c| c.count() as u16)
         .unwrap_or(2);
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
@@ -689,10 +698,7 @@ mod tests {
     #[test]
     fn test_to_mono() {
         let data = AudioData {
-            channels: vec![
-                vec![1.0, 0.0],
-                vec![0.0, 1.0],
-            ],
+            channels: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
             sample_rate: 48000,
             bit_depth: BitDepth::Float64,
             format: AudioFormat::Unknown,

@@ -15,13 +15,13 @@
 //! - Audio recording with disk streaming
 
 mod audio_file;
-mod project;
-mod error;
-mod recording;
 mod bounce;
+mod error;
+mod project;
+mod recording;
 
 pub use audio_file::*;
-pub use project::*;
-pub use error::*;
-pub use recording::*;
 pub use bounce::*;
+pub use error::*;
+pub use project::*;
+pub use recording::*;

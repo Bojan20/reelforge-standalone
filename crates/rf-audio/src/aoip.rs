@@ -12,11 +12,11 @@
 //! - Redundant streams (ST 2022-7)
 //! - Up to 384kHz/32-bit
 
-use std::net::{IpAddr, SocketAddr, UdpSocket};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
 use parking_lot::RwLock;
+use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Instant;
 
 /// AoIP Protocol type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -444,8 +444,8 @@ impl AoipReceiver {
     /// Create new receiver
     pub fn new(config: AoipStreamConfig) -> Self {
         let max_packet_size = 12 + config.payload_bytes();
-        let audio_buffer_size = config.samples_per_packet() * config.channels as usize
-            * config.buffer_packets;
+        let audio_buffer_size =
+            config.samples_per_packet() * config.channels as usize * config.buffer_packets;
 
         Self {
             config,

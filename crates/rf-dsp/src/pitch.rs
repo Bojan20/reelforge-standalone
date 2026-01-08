@@ -57,7 +57,9 @@ impl Pitch {
 
     /// Get note name (C, C#, D, etc.)
     pub fn note_name(&self) -> &'static str {
-        const NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const NAMES: [&str; 12] = [
+            "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+        ];
         NAMES[(self.midi_note % 12) as usize]
     }
 
@@ -330,7 +332,8 @@ impl PitchDetector {
     /// Find best tau value (YIN step 4)
     fn find_best_tau(&self) -> Option<usize> {
         let min_tau = (self.sample_rate / self.config.max_freq) as usize;
-        let max_tau = (self.sample_rate / self.config.min_freq).min(self.cmndf.len() as f64 - 1.0) as usize;
+        let max_tau =
+            (self.sample_rate / self.config.min_freq).min(self.cmndf.len() as f64 - 1.0) as usize;
 
         // Find first minimum below threshold
         for tau in min_tau..max_tau {
@@ -460,10 +463,9 @@ impl PitchDetector {
         pitches: &[(u64, Pitch, f64)],
     ) -> PitchSegment {
         // Calculate average pitch
-        let avg_midi: f64 = pitches.iter().map(|(_, p, _)| p.as_midi()).sum::<f64>()
-            / pitches.len() as f64;
-        let avg_conf: f64 = pitches.iter().map(|(_, _, c)| c).sum::<f64>()
-            / pitches.len() as f64;
+        let avg_midi: f64 =
+            pitches.iter().map(|(_, p, _)| p.as_midi()).sum::<f64>() / pitches.len() as f64;
+        let avg_conf: f64 = pitches.iter().map(|(_, _, c)| c).sum::<f64>() / pitches.len() as f64;
 
         let avg_pitch = Pitch {
             midi_note: avg_midi.round() as u8,
@@ -471,7 +473,8 @@ impl PitchDetector {
         };
 
         // Build contour
-        let contour: Vec<(u64, Pitch)> = pitches.iter()
+        let contour: Vec<(u64, Pitch)> = pitches
+            .iter()
             .map(|(pos, pitch, _)| (*pos, *pitch))
             .collect();
 
@@ -500,10 +503,10 @@ impl PitchDetector {
         }
 
         // Calculate pitch deviations from mean
-        let mean = pitches.iter().map(|(_, p, _)| p.as_midi()).sum::<f64>()
-            / pitches.len() as f64;
+        let mean = pitches.iter().map(|(_, p, _)| p.as_midi()).sum::<f64>() / pitches.len() as f64;
 
-        let deviations: Vec<f64> = pitches.iter()
+        let deviations: Vec<f64> = pitches
+            .iter()
             .map(|(_, p, _)| (p.as_midi() - mean) * 100.0) // In cents
             .collect();
 
@@ -732,7 +735,9 @@ impl PitchEditorState {
 
     /// Get segment at position
     pub fn segment_at(&self, position: u64) -> Option<&PitchSegment> {
-        self.segments.iter().find(|s| position >= s.start && position < s.end)
+        self.segments
+            .iter()
+            .find(|s| position >= s.start && position < s.end)
     }
 
     /// Split segment at position
@@ -755,7 +760,9 @@ impl PitchEditorState {
 
         // Truncate original segment
         self.segments[idx].end = position;
-        self.segments[idx].contour.retain(|(pos, _)| *pos < position);
+        self.segments[idx]
+            .contour
+            .retain(|(pos, _)| *pos < position);
 
         // Insert new segment
         self.segments.insert(idx + 1, new_segment);
@@ -833,7 +840,10 @@ mod tests {
 
     #[test]
     fn test_pitch_to_frequency() {
-        let pitch = Pitch { midi_note: 69, cents: 0.0 };
+        let pitch = Pitch {
+            midi_note: 69,
+            cents: 0.0,
+        };
         let freq = pitch.to_frequency();
         assert!((freq - 440.0).abs() < 0.1);
     }
@@ -865,7 +875,10 @@ mod tests {
             0,
             0,
             1000,
-            Pitch { midi_note: 60, cents: 0.0 },
+            Pitch {
+                midi_note: 60,
+                cents: 0.0,
+            },
             0.9,
         );
 

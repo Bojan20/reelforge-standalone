@@ -488,18 +488,34 @@ impl KeyboardShortcut {
 
         #[cfg(target_os = "macos")]
         {
-            if self.ctrl { parts.push("⌃"); }
-            if self.alt { parts.push("⌥"); }
-            if self.shift { parts.push("⇧"); }
-            if self.meta { parts.push("⌘"); }
+            if self.ctrl {
+                parts.push("⌃");
+            }
+            if self.alt {
+                parts.push("⌥");
+            }
+            if self.shift {
+                parts.push("⇧");
+            }
+            if self.meta {
+                parts.push("⌘");
+            }
         }
 
         #[cfg(not(target_os = "macos"))]
         {
-            if self.ctrl { parts.push("Ctrl"); }
-            if self.alt { parts.push("Alt"); }
-            if self.shift { parts.push("Shift"); }
-            if self.meta { parts.push("Win"); }
+            if self.ctrl {
+                parts.push("Ctrl");
+            }
+            if self.alt {
+                parts.push("Alt");
+            }
+            if self.shift {
+                parts.push("Shift");
+            }
+            if self.meta {
+                parts.push("Win");
+            }
         }
 
         parts.push(&self.key);
@@ -511,22 +527,54 @@ impl KeyboardShortcut {
 pub mod shortcuts {
     use super::KeyboardShortcut;
 
-    pub fn play() -> KeyboardShortcut { KeyboardShortcut::key("Space") }
-    pub fn stop() -> KeyboardShortcut { KeyboardShortcut::key("Space") }
-    pub fn record() -> KeyboardShortcut { KeyboardShortcut::key("R") }
-    pub fn loop_toggle() -> KeyboardShortcut { KeyboardShortcut::key("L") }
-    pub fn undo() -> KeyboardShortcut { KeyboardShortcut::key("Z").ctrl() }
-    pub fn redo() -> KeyboardShortcut { KeyboardShortcut::key("Z").ctrl().shift() }
-    pub fn save() -> KeyboardShortcut { KeyboardShortcut::key("S").ctrl() }
-    pub fn save_as() -> KeyboardShortcut { KeyboardShortcut::key("S").ctrl().shift() }
-    pub fn cut() -> KeyboardShortcut { KeyboardShortcut::key("X").ctrl() }
-    pub fn copy() -> KeyboardShortcut { KeyboardShortcut::key("C").ctrl() }
-    pub fn paste() -> KeyboardShortcut { KeyboardShortcut::key("V").ctrl() }
-    pub fn delete() -> KeyboardShortcut { KeyboardShortcut::key("Delete") }
-    pub fn select_all() -> KeyboardShortcut { KeyboardShortcut::key("A").ctrl() }
-    pub fn zoom_in() -> KeyboardShortcut { KeyboardShortcut::key("=").ctrl() }
-    pub fn zoom_out() -> KeyboardShortcut { KeyboardShortcut::key("-").ctrl() }
-    pub fn zoom_fit() -> KeyboardShortcut { KeyboardShortcut::key("0").ctrl() }
+    pub fn play() -> KeyboardShortcut {
+        KeyboardShortcut::key("Space")
+    }
+    pub fn stop() -> KeyboardShortcut {
+        KeyboardShortcut::key("Space")
+    }
+    pub fn record() -> KeyboardShortcut {
+        KeyboardShortcut::key("R")
+    }
+    pub fn loop_toggle() -> KeyboardShortcut {
+        KeyboardShortcut::key("L")
+    }
+    pub fn undo() -> KeyboardShortcut {
+        KeyboardShortcut::key("Z").ctrl()
+    }
+    pub fn redo() -> KeyboardShortcut {
+        KeyboardShortcut::key("Z").ctrl().shift()
+    }
+    pub fn save() -> KeyboardShortcut {
+        KeyboardShortcut::key("S").ctrl()
+    }
+    pub fn save_as() -> KeyboardShortcut {
+        KeyboardShortcut::key("S").ctrl().shift()
+    }
+    pub fn cut() -> KeyboardShortcut {
+        KeyboardShortcut::key("X").ctrl()
+    }
+    pub fn copy() -> KeyboardShortcut {
+        KeyboardShortcut::key("C").ctrl()
+    }
+    pub fn paste() -> KeyboardShortcut {
+        KeyboardShortcut::key("V").ctrl()
+    }
+    pub fn delete() -> KeyboardShortcut {
+        KeyboardShortcut::key("Delete")
+    }
+    pub fn select_all() -> KeyboardShortcut {
+        KeyboardShortcut::key("A").ctrl()
+    }
+    pub fn zoom_in() -> KeyboardShortcut {
+        KeyboardShortcut::key("=").ctrl()
+    }
+    pub fn zoom_out() -> KeyboardShortcut {
+        KeyboardShortcut::key("-").ctrl()
+    }
+    pub fn zoom_fit() -> KeyboardShortcut {
+        KeyboardShortcut::key("0").ctrl()
+    }
 }
 
 /// Layout container direction

@@ -110,11 +110,7 @@ impl IrDeconvolver {
         let reference_sweep = Self::generate_sweep(&config);
 
         // Compute inverse filter
-        let inverse_filter = Self::compute_inverse_filter(
-            &reference_sweep,
-            fft_size,
-            &fft_forward,
-        );
+        let inverse_filter = Self::compute_inverse_filter(&reference_sweep, fft_size, &fft_forward);
 
         Self {
             config,
@@ -228,9 +224,7 @@ impl IrDeconvolver {
         fft: &std::sync::Arc<dyn rustfft::Fft<f64>>,
     ) -> Vec<Complex64> {
         // FFT of sweep
-        let mut spectrum: Vec<Complex64> = sweep.iter()
-            .map(|&s| Complex64::new(s, 0.0))
-            .collect();
+        let mut spectrum: Vec<Complex64> = sweep.iter().map(|&s| Complex64::new(s, 0.0)).collect();
         spectrum.resize(fft_size, Complex64::new(0.0, 0.0));
         fft.process(&mut spectrum);
 
@@ -238,7 +232,8 @@ impl IrDeconvolver {
         // With regularization to avoid division by zero
         const REGULARIZATION: f64 = 1e-10;
 
-        spectrum.iter()
+        spectrum
+            .iter()
             .map(|&h| {
                 let mag_sq = h.norm_sqr() + REGULARIZATION;
                 h.conj() / mag_sq
@@ -249,7 +244,8 @@ impl IrDeconvolver {
     /// Extract IR from recorded response
     pub fn extract_ir(&self, recording: &[Sample]) -> ImpulseResponse {
         // Zero-pad recording to FFT size
-        let mut rec_spectrum: Vec<Complex64> = recording.iter()
+        let mut rec_spectrum: Vec<Complex64> = recording
+            .iter()
             .take(self.fft_size)
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
@@ -259,7 +255,8 @@ impl IrDeconvolver {
         self.fft_forward.process(&mut rec_spectrum);
 
         // Deconvolve: IR = IFFT(Recording * InverseFilter)
-        let mut ir_spectrum: Vec<Complex64> = rec_spectrum.iter()
+        let mut ir_spectrum: Vec<Complex64> = rec_spectrum
+            .iter()
             .zip(self.inverse_filter.iter())
             .map(|(&r, &inv)| r * inv)
             .collect();
@@ -269,9 +266,7 @@ impl IrDeconvolver {
 
         // Extract real part and scale
         let scale = 1.0 / self.fft_size as f64;
-        let samples: Vec<Sample> = ir_spectrum.iter()
-            .map(|c| c.re * scale)
-            .collect();
+        let samples: Vec<Sample> = ir_spectrum.iter().map(|c| c.re * scale).collect();
 
         ImpulseResponse::new(samples, self.config.sample_rate, 1)
     }
@@ -281,7 +276,9 @@ impl IrDeconvolver {
         let mut ir = self.extract_ir(recording);
 
         // Find peak (main impulse)
-        let peak_idx = ir.samples.iter()
+        let peak_idx = ir
+            .samples
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
             .map(|(i, _)| i)
@@ -385,10 +382,10 @@ impl MlsGenerator {
         // Primitive polynomial feedback masks for Galois LFSR
         // These are proven maximal-length polynomials
         let feedback_mask: u32 = match order {
-            8 => 0b10111000,      // x^8 + x^6 + x^5 + x^4 + 1
-            10 => 0b1001000000,   // x^10 + x^7 + 1
-            12 => 0b110000101000, // x^12 + x^11 + x^10 + x^4 + 1
-            14 => 0b11100000000100, // x^14 + x^13 + x^12 + x^2 + 1
+            8 => 0b10111000,          // x^8 + x^6 + x^5 + x^4 + 1
+            10 => 0b1001000000,       // x^10 + x^7 + 1
+            12 => 0b110000101000,     // x^12 + x^11 + x^10 + x^4 + 1
+            14 => 0b11100000000100,   // x^14 + x^13 + x^12 + x^2 + 1
             16 => 0b1101000000001000, // x^16 + x^15 + x^13 + x^4 + 1
             _ => {
                 // For other orders, use simple tap at position order-1
@@ -437,14 +434,17 @@ impl MlsGenerator {
         let fft_inverse = planner.plan_fft_inverse(fft_size);
 
         // FFT of MLS
-        let mut mls_spectrum: Vec<Complex64> = self.sequence.iter()
+        let mut mls_spectrum: Vec<Complex64> = self
+            .sequence
+            .iter()
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
         mls_spectrum.resize(fft_size, Complex64::new(0.0, 0.0));
         fft_forward.process(&mut mls_spectrum);
 
         // FFT of recording
-        let mut rec_spectrum: Vec<Complex64> = recording.iter()
+        let mut rec_spectrum: Vec<Complex64> = recording
+            .iter()
             .take(fft_size)
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
@@ -452,7 +452,8 @@ impl MlsGenerator {
         fft_forward.process(&mut rec_spectrum);
 
         // Cross-correlation: IFFT(conj(MLS) * Recording)
-        let mut corr_spectrum: Vec<Complex64> = mls_spectrum.iter()
+        let mut corr_spectrum: Vec<Complex64> = mls_spectrum
+            .iter()
             .zip(rec_spectrum.iter())
             .map(|(m, r)| m.conj() * r)
             .collect();
@@ -501,7 +502,9 @@ mod tests {
         let ir = deconvolver.extract_ir(&recording);
 
         // Should have a peak near the beginning
-        let peak = ir.samples.iter()
+        let peak = ir
+            .samples
+            .iter()
             .take(100)
             .map(|s| s.abs())
             .fold(0.0, f64::max);
@@ -528,7 +531,11 @@ mod tests {
 
     #[test]
     fn test_sweep_types() {
-        for sweep_type in [SweepType::Linear, SweepType::Logarithmic, SweepType::ExponentialSine] {
+        for sweep_type in [
+            SweepType::Linear,
+            SweepType::Logarithmic,
+            SweepType::ExponentialSine,
+        ] {
             let config = SweepConfig {
                 sweep_type,
                 duration: 1.0,

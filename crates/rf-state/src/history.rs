@@ -254,10 +254,7 @@ impl HistoryBrowser {
     }
 
     /// Restore to a snapshot
-    pub fn restore_snapshot<T: for<'de> Deserialize<'de>>(
-        &self,
-        id: HistoryId,
-    ) -> Option<T> {
+    pub fn restore_snapshot<T: for<'de> Deserialize<'de>>(&self, id: HistoryId) -> Option<T> {
         self.snapshots
             .iter()
             .find(|s| s.id == id)
@@ -418,10 +415,8 @@ impl HistoryBrowser {
         if elapsed_secs >= self.auto_snapshot_interval {
             self.last_auto_snapshot = now;
 
-            let mut snapshot = HistoryEntry::snapshot(format!(
-                "Auto-snapshot {}",
-                self.snapshots.len() + 1
-            ));
+            let mut snapshot =
+                HistoryEntry::snapshot(format!("Auto-snapshot {}", self.snapshots.len() + 1));
             snapshot.entry_type = HistoryEntryType::AutoSnapshot;
 
             if let Some(current) = self.entries.back() {
@@ -431,15 +426,19 @@ impl HistoryBrowser {
             self.snapshots.push(snapshot);
 
             // Trim auto-snapshots
-            let auto_count = self.snapshots.iter()
+            let auto_count = self
+                .snapshots
+                .iter()
                 .filter(|s| s.entry_type == HistoryEntryType::AutoSnapshot)
                 .count();
 
             if auto_count > 10 {
                 // Remove oldest auto-snapshot
-                if let Some(pos) = self.snapshots.iter().position(|s| {
-                    s.entry_type == HistoryEntryType::AutoSnapshot
-                }) {
+                if let Some(pos) = self
+                    .snapshots
+                    .iter()
+                    .position(|s| s.entry_type == HistoryEntryType::AutoSnapshot)
+                {
                     self.snapshots.remove(pos);
                 }
             }

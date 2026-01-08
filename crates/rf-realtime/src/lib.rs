@@ -11,22 +11,22 @@
 
 #![allow(dead_code)]
 
-pub mod graph;
-pub mod pipeline;
-pub mod state;
-pub mod simd;
-pub mod gpu;
-pub mod latency;
-pub mod integration;
-pub mod masscore;
 pub mod benchmark;
+pub mod gpu;
+pub mod graph;
+pub mod integration;
+pub mod latency;
+pub mod masscore;
+pub mod pipeline;
+pub mod simd;
+pub mod state;
 
-pub use graph::*;
-pub use pipeline::*;
-pub use state::*;
-pub use simd::*;
-pub use gpu::*;
-pub use latency::*;
-pub use integration::*;
-pub use masscore::*;
 pub use benchmark::*;
+pub use gpu::*;
+pub use graph::*;
+pub use integration::*;
+pub use latency::*;
+pub use masscore::*;
+pub use pipeline::*;
+pub use simd::*;
+pub use state::*;

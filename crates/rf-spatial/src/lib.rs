@@ -45,7 +45,7 @@ mod error;
 mod position;
 
 pub use error::{SpatialError, SpatialResult};
-pub use position::{Position3D, Orientation, SphericalCoord, CartesianCoord};
+pub use position::{CartesianCoord, Orientation, Position3D, SphericalCoord};
 
 use serde::{Deserialize, Serialize};
 

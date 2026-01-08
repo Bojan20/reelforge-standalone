@@ -9,12 +9,12 @@
 //! - Stem export
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::RwLock;
 
-use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_wav, write_flac};
+use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_flac, write_wav};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BOUNCE CONFIGURATION
@@ -288,9 +288,7 @@ impl Ditherer {
         // Generate dither noise
         let noise = match self.dither_type {
             DitherType::None => 0.0,
-            DitherType::Rectangular => {
-                (self.next_random() - 0.5) * quantize_step
-            }
+            DitherType::Rectangular => (self.next_random() - 0.5) * quantize_step,
             DitherType::Triangular => {
                 // TPDF: sum of two rectangular distributions
                 let r1 = self.next_random() - 0.5;
@@ -314,19 +312,16 @@ impl Ditherer {
                 NoiseShapeType::None => dithered,
                 NoiseShapeType::ModifiedE => {
                     // Modified E-weighted: emphasizes high frequencies
-                    dithered + 0.5 * self.error_buffer[base]
-                        - 0.25 * self.error_buffer[base + 1]
+                    dithered + 0.5 * self.error_buffer[base] - 0.25 * self.error_buffer[base + 1]
                 }
                 NoiseShapeType::ImprovedE => {
                     // More aggressive high-frequency shaping
-                    dithered + 0.65 * self.error_buffer[base]
-                        - 0.35 * self.error_buffer[base + 1]
+                    dithered + 0.65 * self.error_buffer[base] - 0.35 * self.error_buffer[base + 1]
                         + 0.15 * self.error_buffer[base + 2]
                 }
                 NoiseShapeType::FWeighted => {
                     // Psychoacoustic curve
-                    dithered + 0.7 * self.error_buffer[base]
-                        - 0.4 * self.error_buffer[base + 1]
+                    dithered + 0.7 * self.error_buffer[base] - 0.4 * self.error_buffer[base + 1]
                         + 0.2 * self.error_buffer[base + 2]
                         - 0.1 * self.error_buffer[base + 3]
                 }
@@ -484,7 +479,9 @@ pub struct OfflineRenderer {
 impl OfflineRenderer {
     /// Create new offline renderer
     pub fn new(config: BounceConfig) -> Self {
-        let total_samples = config.region.end_samples
+        let total_samples = config
+            .region
+            .end_samples
             .saturating_sub(config.region.start_samples);
 
         Self {
@@ -525,14 +522,13 @@ impl OfflineRenderer {
         let block_size = self.config.block_size;
 
         // Calculate region
-        let start_frame = (self.config.region.start_samples as usize)
-            .min(source.num_frames());
-        let mut end_frame = (self.config.region.end_samples as usize)
-            .min(source.num_frames());
+        let start_frame = (self.config.region.start_samples as usize).min(source.num_frames());
+        let mut end_frame = (self.config.region.end_samples as usize).min(source.num_frames());
 
         // Add tail if requested
         if self.config.region.include_tail {
-            let tail_frames = (self.config.region.tail_secs * self.config.source_sample_rate as f32) as usize;
+            let tail_frames =
+                (self.config.region.tail_secs * self.config.source_sample_rate as f32) as usize;
             end_frame = (end_frame + tail_frames).min(source.num_frames());
         }
 
@@ -591,7 +587,9 @@ impl OfflineRenderer {
                 let src_frame = frame + i;
                 for ch in 0..num_channels {
                     input_block[i * num_channels + ch] = if src_frame < source.num_frames() {
-                        source.channels.get(ch)
+                        source
+                            .channels
+                            .get(ch)
                             .and_then(|c| c.get(src_frame))
                             .copied()
                             .unwrap_or(0.0)
@@ -625,11 +623,8 @@ impl OfflineRenderer {
             for i in 0..output_frames {
                 for ch in 0..num_channels {
                     let sample = processed[i * num_channels + ch];
-                    let dithered = ditherer.process(
-                        sample,
-                        ch,
-                        self.config.export_format.bit_depth.bits(),
-                    );
+                    let dithered =
+                        ditherer.process(sample, ch, self.config.export_format.bit_depth.bits());
                     output_samples[ch].push(dithered);
 
                     // Track peak
@@ -691,10 +686,18 @@ impl OfflineRenderer {
         // Write based on format
         match self.config.export_format.format {
             AudioFormat::Wav => {
-                write_wav(output_path, &output_data, self.config.export_format.bit_depth)?;
+                write_wav(
+                    output_path,
+                    &output_data,
+                    self.config.export_format.bit_depth,
+                )?;
             }
             AudioFormat::Flac => {
-                write_flac(output_path, &output_data, self.config.export_format.bit_depth)?;
+                write_flac(
+                    output_path,
+                    &output_data,
+                    self.config.export_format.bit_depth,
+                )?;
             }
             AudioFormat::Mp3 | AudioFormat::Aac | AudioFormat::Ogg => {
                 // TODO: Lossy encoding
@@ -783,10 +786,7 @@ impl StemExporter {
     }
 
     /// Export all stems
-    pub fn export_all<F>(
-        &self,
-        source_getter: F,
-    ) -> FileResult<Vec<PathBuf>>
+    pub fn export_all<F>(&self, source_getter: F) -> FileResult<Vec<PathBuf>>
     where
         F: Fn(&str) -> Option<AudioData>,
     {

@@ -1,9 +1,9 @@
 //! Ambisonic decoder - Ambisonic to speaker layout
 
-use crate::position::Position3D;
-use crate::error::{SpatialError, SpatialResult};
-use crate::{SpeakerLayout, Speaker};
 use super::{AmbisonicOrder, SphericalHarmonics};
+use crate::error::{SpatialError, SpatialResult};
+use crate::position::Position3D;
+use crate::{Speaker, SpeakerLayout};
 use ndarray::Array2;
 
 /// Decoding method
@@ -139,11 +139,8 @@ impl AmbisonicDecoder {
         for speaker in &self.layout.speakers {
             if speaker.is_lfe {
                 // Extract low frequencies from W channel
-                output[speaker.channel] = Self::lowpass(
-                    &ambisonic[0],
-                    lfe_crossover_hz,
-                    sample_rate,
-                );
+                output[speaker.channel] =
+                    Self::lowpass(&ambisonic[0], lfe_crossover_hz, sample_rate);
             } else {
                 output[speaker.channel] = speaker_output[spk_idx].clone();
                 spk_idx += 1;
@@ -241,7 +238,11 @@ impl AmbisonicDecoder {
                     for ch in 0..num_channels {
                         energy += sh.get(ch) * sh.get(ch);
                     }
-                    let norm = if energy > 0.0 { 1.0 / energy.sqrt() } else { 1.0 };
+                    let norm = if energy > 0.0 {
+                        1.0 / energy.sqrt()
+                    } else {
+                        1.0
+                    };
 
                     for ch in 0..num_channels {
                         matrix[[spk_idx, ch]] = sh.get(ch) * norm;
@@ -368,20 +369,16 @@ mod tests {
 
     #[test]
     fn test_decoder_creation() {
-        let decoder = AmbisonicDecoder::new(
-            AmbisonicOrder::First,
-            SpeakerLayout::stereo(),
-        ).unwrap();
+        let decoder =
+            AmbisonicDecoder::new(AmbisonicOrder::First, SpeakerLayout::stereo()).unwrap();
 
         assert_eq!(decoder.output_layout().total_channels(), 2);
     }
 
     #[test]
     fn test_decode_stereo() {
-        let decoder = AmbisonicDecoder::new(
-            AmbisonicOrder::First,
-            SpeakerLayout::stereo(),
-        ).unwrap();
+        let decoder =
+            AmbisonicDecoder::new(AmbisonicOrder::First, SpeakerLayout::stereo()).unwrap();
 
         // First order Ambisonic: W, Y, Z, X
         let ambisonic = vec![
@@ -400,17 +397,15 @@ mod tests {
 
     #[test]
     fn test_decode_5_1() {
-        let decoder = AmbisonicDecoder::new(
-            AmbisonicOrder::First,
-            SpeakerLayout::surround_5_1(),
-        ).unwrap();
+        let decoder =
+            AmbisonicDecoder::new(AmbisonicOrder::First, SpeakerLayout::surround_5_1()).unwrap();
 
         // Source on left (negative Y)
         let ambisonic = vec![
-            vec![1.0; 100], // W
+            vec![1.0; 100],  // W
             vec![-1.0; 100], // Y (left)
-            vec![0.0; 100], // Z
-            vec![0.0; 100], // X
+            vec![0.0; 100],  // Z
+            vec![0.0; 100],  // X
         ];
 
         let decoded = decoder.decode(&ambisonic).unwrap();

@@ -195,8 +195,10 @@ impl LowMono {
         let low_mono = (self.lp_l + self.lp_r) * 0.5;
 
         // Blend mono and stereo low
-        let low_l = self.lp_l * (1.0 - self.mono_amount as f64) + low_mono * self.mono_amount as f64;
-        let low_r = self.lp_r * (1.0 - self.mono_amount as f64) + low_mono * self.mono_amount as f64;
+        let low_l =
+            self.lp_l * (1.0 - self.mono_amount as f64) + low_mono * self.mono_amount as f64;
+        let low_r =
+            self.lp_r * (1.0 - self.mono_amount as f64) + low_mono * self.mono_amount as f64;
 
         // Combine
         ((low_l + hp_l) as f32, (low_r + hp_r) as f32)
@@ -282,7 +284,13 @@ impl StereoEnhancer {
     }
 
     /// Process buffer
-    pub fn process_buffer(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process_buffer(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),
@@ -491,7 +499,9 @@ mod tests {
         let mut output_l = vec![0.0f32; 1024];
         let mut output_r = vec![0.0f32; 1024];
 
-        enhancer.process_buffer(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        enhancer
+            .process_buffer(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         assert!(output_l.iter().all(|s| s.is_finite()));
         assert!(output_r.iter().all(|s| s.is_finite()));

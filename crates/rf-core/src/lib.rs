@@ -5,36 +5,36 @@
 #![feature(portable_simd)]
 #![allow(dead_code)]
 
-mod sample;
-mod time;
-mod params;
-mod error;
-mod midi;
-mod tempo;
-mod edit_mode;
-mod track;
-mod smart_tempo;
-mod routing;
 mod channel_strip;
 mod comping;
+mod edit_mode;
+mod error;
+mod midi;
+mod params;
 mod piano_roll;
+mod routing;
+mod sample;
+mod smart_tempo;
+mod tempo;
 mod theme;
+mod time;
+mod track;
 mod widgets;
 
-pub use sample::*;
-pub use time::*;
-pub use params::*;
-pub use error::*;
-pub use midi::*;
-pub use tempo::*;
-pub use edit_mode::*;
-pub use track::*;
-pub use smart_tempo::*;
-pub use routing::*;
 pub use channel_strip::*;
 pub use comping::*;
+pub use edit_mode::*;
+pub use error::*;
+pub use midi::*;
+pub use params::*;
 pub use piano_roll::*;
+pub use routing::*;
+pub use sample::*;
+pub use smart_tempo::*;
+pub use tempo::*;
 pub use theme::*;
+pub use time::*;
+pub use track::*;
 pub use widgets::*;
 
 /// Standard sample rate options

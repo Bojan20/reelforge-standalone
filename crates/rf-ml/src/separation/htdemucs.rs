@@ -21,14 +21,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ndarray::{Array2, Array3, Axis};
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
 use num_complex::Complex32;
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 
-use crate::error::{MlError, MlResult};
-use crate::inference::{InferenceEngine, InferenceConfig};
 use super::config::SeparationConfig;
-use super::stems::{StemType, StemOutput, StemCollection};
+use super::stems::{StemCollection, StemOutput, StemType};
 use super::SourceSeparator;
+use crate::error::{MlError, MlResult};
+use crate::inference::{InferenceConfig, InferenceEngine};
 
 /// HTDemucs model configuration
 #[derive(Debug, Clone)]
@@ -127,10 +127,7 @@ pub struct HTDemucs {
 
 impl HTDemucs {
     /// Load HTDemucs model from ONNX file
-    pub fn new<P: AsRef<Path>>(
-        model_path: P,
-        config: SeparationConfig,
-    ) -> MlResult<Self> {
+    pub fn new<P: AsRef<Path>>(model_path: P, config: SeparationConfig) -> MlResult<Self> {
         let model_path = model_path.as_ref();
 
         // Determine model variant from filename
@@ -193,9 +190,7 @@ impl HTDemucs {
     /// Create Hann window
     fn create_hann_window(size: usize) -> Vec<f32> {
         (0..size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / size as f32).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / size as f32).cos()))
             .collect()
     }
 
@@ -352,15 +347,14 @@ impl HTDemucs {
 
         for _ in 0..iterations {
             // Compute power spectrograms
-            let powers: Vec<Array3<f32>> = filtered
-                .iter()
-                .map(|s| s.map(|c| c.norm_sqr()))
-                .collect();
+            let powers: Vec<Array3<f32>> =
+                filtered.iter().map(|s| s.map(|c| c.norm_sqr())).collect();
 
             // Compute total power
-            let total_power: Array3<f32> = powers
-                .iter()
-                .fold(Array3::<f32>::zeros((shape[0], shape[1], shape[2])), |acc, p| acc + p);
+            let total_power: Array3<f32> = powers.iter().fold(
+                Array3::<f32>::zeros((shape[0], shape[1], shape[2])),
+                |acc, p| acc + p,
+            );
 
             // Apply Wiener filter
             for (stem_idx, power) in powers.iter().enumerate() {
@@ -369,8 +363,7 @@ impl HTDemucs {
                 for i in 0..shape[0] {
                     for j in 0..shape[1] {
                         for k in 0..shape[2] {
-                            filtered[stem_idx][[i, j, k]] =
-                                mix_stft[[i, j, k]] * gain[[i, j, k]];
+                            filtered[stem_idx][[i, j, k]] = mix_stft[[i, j, k]] * gain[[i, j, k]];
                         }
                     }
                 }
@@ -457,7 +450,8 @@ impl HTDemucs {
                             }
 
                             // Undo shift before accumulating
-                            let orig_pos = ((pos as i32 + shift).rem_euclid(total_samples as i32)) as usize;
+                            let orig_pos =
+                                ((pos as i32 + shift).rem_euclid(total_samples as i32)) as usize;
 
                             output[[s, ch, orig_pos]] += stems_out[[s, ch, i]] * w;
                             if s == 0 {
@@ -508,7 +502,12 @@ impl HTDemucs {
 }
 
 impl SourceSeparator for HTDemucs {
-    fn separate(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<StemCollection> {
+    fn separate(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<StemCollection> {
         // Validate input
         if audio.is_empty() {
             return Err(MlError::InvalidInputShape {
@@ -585,12 +584,8 @@ impl SourceSeparator for HTDemucs {
             }
 
             // Create stem output using proper constructor
-            let mut output = StemOutput::new(
-                *stem_type,
-                audio,
-                stem_channels,
-                self.config.sample_rate,
-            );
+            let mut output =
+                StemOutput::new(*stem_type, audio, stem_channels, self.config.sample_rate);
 
             // Set confidence metric
             output.metrics.confidence = 0.9;
@@ -614,7 +609,8 @@ impl SourceSeparator for HTDemucs {
     }
 
     fn estimated_memory_mb(&self, duration_secs: f32) -> f32 {
-        self.sep_config.estimated_memory_mb(duration_secs, self.config.sample_rate)
+        self.sep_config
+            .estimated_memory_mb(duration_secs, self.config.sample_rate)
     }
 }
 

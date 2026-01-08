@@ -9,11 +9,11 @@
 
 use std::sync::Arc;
 
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
-use rf_core::Sample;
 use crate::{Processor, ProcessorConfig, StereoProcessor};
+use rf_core::Sample;
 
 // ============ Constants ============
 
@@ -102,7 +102,10 @@ impl PartitionScheme {
 
     /// Get minimum partition size (determines latency)
     pub fn min_size(&self) -> usize {
-        self.sizes.first().copied().unwrap_or(DEFAULT_PARTITION_SIZE)
+        self.sizes
+            .first()
+            .copied()
+            .unwrap_or(DEFAULT_PARTITION_SIZE)
     }
 }
 
@@ -141,15 +144,20 @@ impl ConvolutionChannel {
         unique_sizes.dedup();
 
         // Create FFT planners for each size
-        let fft_forward: Vec<_> = unique_sizes.iter()
+        let fft_forward: Vec<_> = unique_sizes
+            .iter()
             .map(|&size| planner.plan_fft_forward(size * 2))
             .collect();
-        let fft_inverse: Vec<_> = unique_sizes.iter()
+        let fft_inverse: Vec<_> = unique_sizes
+            .iter()
             .map(|&size| planner.plan_fft_inverse(size * 2))
             .collect();
 
         // Create partitions
-        let partitions: Vec<_> = scheme.sizes.iter().zip(&scheme.offsets)
+        let partitions: Vec<_> = scheme
+            .sizes
+            .iter()
+            .zip(&scheme.offsets)
             .map(|(&size, &offset)| {
                 let end = (offset + size).min(ir.len());
                 let segment = if offset < ir.len() {
@@ -159,7 +167,9 @@ impl ConvolutionChannel {
                 };
 
                 // Find FFT for this size (guaranteed to exist since unique_sizes was built from sizes)
-                let size_idx = unique_sizes.iter().position(|&s| s == size)
+                let size_idx = unique_sizes
+                    .iter()
+                    .position(|&s| s == size)
                     .expect("partition size must exist in unique_sizes");
 
                 // Pad segment to partition size
@@ -172,7 +182,8 @@ impl ConvolutionChannel {
             .collect();
 
         // Create FDLs for each unique partition size
-        let fdls: Vec<Vec<Vec<Complex<f64>>>> = unique_sizes.iter()
+        let fdls: Vec<Vec<Vec<Complex<f64>>>> = unique_sizes
+            .iter()
             .map(|&size| {
                 // Count how many partitions of this size
                 let count = scheme.sizes.iter().filter(|&&s| s == size).count();
@@ -186,7 +197,12 @@ impl ConvolutionChannel {
         let fdl_positions = vec![0; unique_sizes.len()];
 
         // Input and overlap buffers sized for max partition
-        let max_size = scheme.sizes.iter().max().copied().unwrap_or(DEFAULT_PARTITION_SIZE);
+        let max_size = scheme
+            .sizes
+            .iter()
+            .max()
+            .copied()
+            .unwrap_or(DEFAULT_PARTITION_SIZE);
 
         Self {
             partitions,
@@ -230,20 +246,26 @@ impl ConvolutionChannel {
             // FFT the input block
             let mut input_padded = vec![0.0; fft_size];
             let copy_len = block_size.min(partition.size);
-            input_padded[..copy_len].copy_from_slice(&self.input_buffer[self.buffer_pos..self.buffer_pos + copy_len]);
+            input_padded[..copy_len]
+                .copy_from_slice(&self.input_buffer[self.buffer_pos..self.buffer_pos + copy_len]);
 
             let mut input_spectrum = vec![Complex::new(0.0, 0.0); fft_size / 2 + 1];
-            self.fft_forward[0].process(&mut input_padded, &mut input_spectrum).ok();
+            self.fft_forward[0]
+                .process(&mut input_padded, &mut input_spectrum)
+                .ok();
 
             // Complex multiply with IR spectrum
-            let mut result_spectrum: Vec<Complex<f64>> = input_spectrum.iter()
+            let mut result_spectrum: Vec<Complex<f64>> = input_spectrum
+                .iter()
                 .zip(&partition.spectrum)
                 .map(|(a, b)| a * b)
                 .collect();
 
             // IFFT
             let mut result_time = vec![0.0; fft_size];
-            self.fft_inverse[0].process(&mut result_spectrum, &mut result_time).ok();
+            self.fft_inverse[0]
+                .process(&mut result_spectrum, &mut result_time)
+                .ok();
 
             // Normalize and overlap-add
             let norm = 1.0 / fft_size as f64;
@@ -393,7 +415,10 @@ impl ProfessionalConvolution {
 
     /// Load full stereo matrix IR
     pub fn load_ir_matrix(&mut self, ll: &[f64], lr: &[f64], rl: &[f64], rr: &[f64]) {
-        let ir_len = [ll.len(), lr.len(), rl.len(), rr.len()].into_iter().max().unwrap_or(0);
+        let ir_len = [ll.len(), lr.len(), rl.len(), rr.len()]
+            .into_iter()
+            .max()
+            .unwrap_or(0);
         self.scheme = PartitionScheme::non_uniform(ir_len, MIN_PARTITION_SIZE);
         self.block_size = self.scheme.min_size();
 

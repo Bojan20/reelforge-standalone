@@ -23,24 +23,24 @@
 //! - **WSOLA**: Time-domain za transiente
 //! - **WORLD Vocoder**: Najviši kvalitet za monophonic
 
+pub mod formant;
+pub mod granular;
 pub mod nsgt;
 pub mod rtpghi;
-pub mod formant;
 pub mod stn;
-pub mod wsola;
-pub mod world;
 pub mod transient;
-pub mod granular;
+pub mod world;
+pub mod wsola;
 
 // Re-exports
+pub use formant::FormantPreserver;
+pub use granular::GranularProcessor;
 pub use nsgt::{ConstantQNsgt, NsgtConfig};
 pub use rtpghi::PhaseGradientHeap;
-pub use formant::FormantPreserver;
-pub use stn::{StnDecomposer, StnComponents};
-pub use wsola::WsolaProcessor;
-pub use world::WorldVocoder;
+pub use stn::{StnComponents, StnDecomposer};
 pub use transient::TransientDetector;
-pub use granular::GranularProcessor;
+pub use world::WorldVocoder;
+pub use wsola::WsolaProcessor;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CORE TYPES
@@ -333,18 +333,10 @@ impl UltimateTimeStretch {
             Algorithm::PhaseVocoder | Algorithm::Auto => {
                 self.process_phase_vocoder(input, time_ratio, pitch_ratio)
             }
-            Algorithm::Wsola => {
-                self.wsola.process(input, time_ratio)
-            }
-            Algorithm::World => {
-                self.world.process(input, time_ratio, pitch_ratio)
-            }
-            Algorithm::Granular => {
-                self.granular.process(input, time_ratio, pitch_ratio)
-            }
-            Algorithm::Hybrid => {
-                self.process_hybrid(input, time_ratio, pitch_ratio)
-            }
+            Algorithm::Wsola => self.wsola.process(input, time_ratio),
+            Algorithm::World => self.world.process(input, time_ratio, pitch_ratio),
+            Algorithm::Granular => self.granular.process(input, time_ratio, pitch_ratio),
+            Algorithm::Hybrid => self.process_hybrid(input, time_ratio, pitch_ratio),
             Algorithm::Psola => {
                 // Falls back to WORLD for now
                 self.world.process(input, time_ratio, pitch_ratio)
@@ -386,7 +378,8 @@ impl UltimateTimeStretch {
         if input.len() < 2 {
             return 0.0;
         }
-        let crossings = input.windows(2)
+        let crossings = input
+            .windows(2)
             .filter(|w| w[0].signum() != w[1].signum())
             .count();
         crossings as f64 / input.len() as f64
@@ -394,7 +387,8 @@ impl UltimateTimeStretch {
 
     fn energy_variance(&self, input: &[f64]) -> f64 {
         let frame_size = 1024;
-        let energies: Vec<f64> = input.chunks(frame_size)
+        let energies: Vec<f64> = input
+            .chunks(frame_size)
             .map(|chunk| chunk.iter().map(|&x| x * x).sum::<f64>() / chunk.len() as f64)
             .collect();
 
@@ -403,9 +397,8 @@ impl UltimateTimeStretch {
         }
 
         let mean = energies.iter().sum::<f64>() / energies.len() as f64;
-        let variance = energies.iter()
-            .map(|&e| (e - mean).powi(2))
-            .sum::<f64>() / energies.len() as f64;
+        let variance =
+            energies.iter().map(|&e| (e - mean).powi(2)).sum::<f64>() / energies.len() as f64;
 
         (variance / (mean + 1e-10)).min(1.0)
     }
@@ -451,19 +444,16 @@ impl UltimateTimeStretch {
     }
 
     /// Hybrid STN processing
-    fn process_hybrid(
-        &mut self,
-        input: &[f64],
-        time_ratio: f64,
-        pitch_ratio: f64,
-    ) -> Vec<f64> {
+    fn process_hybrid(&mut self, input: &[f64], time_ratio: f64, pitch_ratio: f64) -> Vec<f64> {
         // 1. STN decomposition
         let components = self.stn_decomposer.decompose(input);
 
         // 2. Process each component optimally
         let sines = self.process_phase_vocoder(&components.sines, time_ratio, pitch_ratio);
         let transients = self.wsola.process(&components.transients, time_ratio);
-        let noise = self.granular.process(&components.noise, time_ratio, pitch_ratio);
+        let noise = self
+            .granular
+            .process(&components.noise, time_ratio, pitch_ratio);
 
         // 3. Mix components back
         let output_len = sines.len().max(transients.len()).max(noise.len());
@@ -479,16 +469,13 @@ impl UltimateTimeStretch {
         output
     }
 
-    fn apply_formant_correction(
-        &self,
-        mag: &[Vec<f64>],
-        pitch_ratio: f64,
-    ) -> Vec<Vec<f64>> {
+    fn apply_formant_correction(&self, mag: &[Vec<f64>], pitch_ratio: f64) -> Vec<Vec<f64>> {
         // Apply formant correction using LPC envelope
         // This is simplified - full implementation in formant.rs
         let mut corrected = mag.to_vec();
 
-        let shift_bins = (12.0 * (pitch_ratio).log2() * (self.nsgt.config.bins_per_octave as f64) / 12.0) as i32;
+        let shift_bins =
+            (12.0 * (pitch_ratio).log2() * (self.nsgt.config.bins_per_octave as f64) / 12.0) as i32;
 
         for frame in &mut corrected {
             if shift_bins > 0 {

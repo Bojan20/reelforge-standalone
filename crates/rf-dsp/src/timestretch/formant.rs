@@ -173,7 +173,9 @@ impl FormantPreserver {
     /// Apply Hann window
     fn apply_window(&self, input: &[f64]) -> Vec<f64> {
         let n = input.len() as f64;
-        input.iter().enumerate()
+        input
+            .iter()
+            .enumerate()
             .map(|(i, &x)| {
                 let window = 0.5 * (1.0 - (2.0 * PI * i as f64 / n).cos());
                 x * window
@@ -266,10 +268,7 @@ impl FormantPreserver {
         fft.process(&mut buffer);
 
         // Return magnitude of positive frequencies
-        buffer[..n / 2 + 1]
-            .iter()
-            .map(|c| c.norm())
-            .collect()
+        buffer[..n / 2 + 1].iter().map(|c| c.norm()).collect()
     }
 
     /// Smooth envelope using low-pass filtering in cepstral domain
@@ -282,7 +281,8 @@ impl FormantPreserver {
         }
 
         // Log magnitude to cepstrum
-        let log_env: Vec<Complex64> = envelope.iter()
+        let log_env: Vec<Complex64> = envelope
+            .iter()
             .map(|&e| Complex64::new((e + 1e-10).ln(), 0.0))
             .collect();
 
@@ -304,9 +304,7 @@ impl FormantPreserver {
         fft.process(&mut cepstrum);
 
         // Exp to get envelope back
-        cepstrum.iter()
-            .map(|c| (c.re / n as f64).exp())
-            .collect()
+        cepstrum.iter().map(|c| (c.re / n as f64).exp()).collect()
     }
 
     /// Apply formant correction to spectrum
@@ -381,7 +379,7 @@ impl FormantPreserver {
 
 #[cfg(target_arch = "x86_64")]
 pub mod simd {
-    use std::simd::{f64x4, Simd, SimdFloat};
+    use std::simd::{Simd, SimdFloat, f64x4};
 
     /// SIMD-optimized autocorrelation (AVX2)
     pub fn autocorrelation_simd(input: &[f64], max_lag: usize) -> Vec<f64> {
@@ -422,9 +420,7 @@ mod tests {
         let mut solver = LevinsonDurbin::new(10);
 
         // Simple autocorrelation (exponentially decaying)
-        let autocorr: Vec<f64> = (0..11)
-            .map(|i| 0.9_f64.powi(i as i32))
-            .collect();
+        let autocorr: Vec<f64> = (0..11).map(|i| 0.9_f64.powi(i as i32)).collect();
 
         let coeffs = solver.solve(&autocorr, 4);
         assert_eq!(coeffs.len(), 5);

@@ -8,8 +8,8 @@
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use rf_core::Sample;
+use serde::{Deserialize, Serialize};
 
 use crate::insert_chain::{InsertChain, InsertProcessor};
 
@@ -240,7 +240,12 @@ pub struct FxContainer {
 
 impl FxContainer {
     /// Create new container
-    pub fn new(id: ContainerId, name: impl Into<String>, sample_rate: f64, block_size: usize) -> Self {
+    pub fn new(
+        id: ContainerId,
+        name: impl Into<String>,
+        sample_rate: f64,
+        block_size: usize,
+    ) -> Self {
         Self {
             id,
             name: name.into(),
@@ -267,10 +272,8 @@ impl FxContainer {
         self.paths.push(path);
 
         // Add buffer for this path
-        self.path_buffers.push((
-            vec![0.0; self.block_size],
-            vec![0.0; self.block_size],
-        ));
+        self.path_buffers
+            .push((vec![0.0; self.block_size], vec![0.0; self.block_size]));
 
         id
     }
@@ -331,15 +334,17 @@ impl FxContainer {
             return;
         }
 
-        self.macros[macro_index as usize].mappings.push(MacroMapping {
-            macro_index,
-            path_id,
-            fx_slot,
-            param_index,
-            min_value,
-            max_value,
-            curve: MappingCurve::Linear,
-        });
+        self.macros[macro_index as usize]
+            .mappings
+            .push(MacroMapping {
+                macro_index,
+                path_id,
+                fx_slot,
+                param_index,
+                min_value,
+                max_value,
+                curve: MappingCurve::Linear,
+            });
     }
 
     /// Check if any path is soloed
@@ -357,10 +362,8 @@ impl FxContainer {
 
         // Ensure we have enough buffers
         while self.path_buffers.len() < self.paths.len() {
-            self.path_buffers.push((
-                vec![0.0; self.block_size],
-                vec![0.0; self.block_size],
-            ));
+            self.path_buffers
+                .push((vec![0.0; self.block_size], vec![0.0; self.block_size]));
         }
 
         let any_soloed = self.any_soloed();
@@ -384,7 +387,8 @@ impl FxContainer {
             path_right[..len].copy_from_slice(&self.dry_right[..len]);
 
             // Process through path's FX chain
-            path.chain.process_all(&mut path_left[..len], &mut path_right[..len]);
+            path.chain
+                .process_all(&mut path_left[..len], &mut path_right[..len]);
 
             // Apply path gain and pan
             for j in 0..len {
@@ -554,12 +558,7 @@ mod tests {
 
     #[test]
     fn test_container_creation() {
-        let mut container = FxContainer::new(
-            ContainerId::new(1),
-            "Test Container",
-            48000.0,
-            256,
-        );
+        let mut container = FxContainer::new(ContainerId::new(1), "Test Container", 48000.0, 256);
 
         let path1 = container.add_path("Clean");
         let path2 = container.add_path("Distorted");
@@ -578,12 +577,7 @@ mod tests {
 
     #[test]
     fn test_passthrough_processing() {
-        let mut container = FxContainer::new(
-            ContainerId::new(1),
-            "Empty",
-            48000.0,
-            256,
-        );
+        let mut container = FxContainer::new(ContainerId::new(1), "Empty", 48000.0, 256);
 
         // Add empty path
         container.add_path("Pass");
@@ -602,12 +596,7 @@ mod tests {
 
     #[test]
     fn test_wet_dry_mix() {
-        let mut container = FxContainer::new(
-            ContainerId::new(1),
-            "WetDry",
-            48000.0,
-            256,
-        );
+        let mut container = FxContainer::new(ContainerId::new(1), "WetDry", 48000.0, 256);
 
         container.add_path("Effect");
         container.set_global_wet(0.5);

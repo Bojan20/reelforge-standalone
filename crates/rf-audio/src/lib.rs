@@ -20,14 +20,14 @@
 //! elevation for deterministic audio latency. Call `set_realtime_priority()`
 //! at the start of your audio callback thread.
 
-mod device;
-mod stream;
-mod error;
-mod engine;
-mod ringbuf;
-pub mod thread_priority;
 pub mod aoip;
+mod device;
 pub mod dsd_output;
+mod engine;
+mod error;
+mod ringbuf;
+mod stream;
+pub mod thread_priority;
 
 #[cfg(target_os = "macos")]
 pub mod coreaudio;
@@ -35,38 +35,26 @@ pub mod coreaudio;
 #[cfg(target_os = "windows")]
 pub mod asio;
 
-pub use device::*;
-pub use stream::*;
-pub use error::*;
-pub use engine::*;
-pub use ringbuf::*;
-pub use thread_priority::{set_realtime_priority, PriorityResult};
 pub use aoip::*;
+pub use device::*;
 pub use dsd_output::*;
+pub use engine::*;
+pub use error::*;
+pub use ringbuf::*;
+pub use stream::*;
+pub use thread_priority::{PriorityResult, set_realtime_priority};
 
 #[cfg(target_os = "macos")]
 pub use coreaudio::{
-    CoreAudioDevice,
-    CoreAudioStream,
-    ClockDriftMonitor,
-    AggregateDevice,
-    list_devices as list_coreaudio_devices,
-    list_aggregate_devices,
-    get_aggregate_sub_devices,
-    get_default_input_device_id,
-    get_default_output_device_id,
+    AggregateDevice, ClockDriftMonitor, CoreAudioDevice, CoreAudioStream,
+    get_aggregate_sub_devices, get_default_input_device_id, get_default_output_device_id,
+    list_aggregate_devices, list_devices as list_coreaudio_devices,
 };
 
 #[cfg(target_os = "windows")]
 pub use asio::{
-    AsioDriverInfo,
-    AsioSampleType,
-    AsioBufferSizes,
-    AsioChannelInfo,
-    AsioStream,
-    list_asio_drivers,
-    load_asio_driver,
-    show_control_panel as show_asio_control_panel,
+    AsioBufferSizes, AsioChannelInfo, AsioDriverInfo, AsioSampleType, AsioStream,
+    list_asio_drivers, load_asio_driver, show_control_panel as show_asio_control_panel,
 };
 
 use rf_core::{BufferSize, SampleRate};

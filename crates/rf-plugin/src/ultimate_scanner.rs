@@ -9,16 +9,16 @@
 //! - Crash detection
 //! - Performance profiling
 
+use parking_lot::RwLock;
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use parking_lot::RwLock;
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 
-use crate::scanner::{PluginCategory, PluginInfo, PluginType};
 use crate::PluginResult;
+use crate::scanner::{PluginCategory, PluginInfo, PluginType};
 
 /// Scan result for a single plugin
 #[derive(Debug, Clone)]
@@ -116,7 +116,8 @@ impl PluginCache {
     pub fn is_valid(&self, path: &Path) -> bool {
         if let Some(entry) = self.entries.get(path) {
             if let Ok(meta) = std::fs::metadata(path) {
-                let mtime = meta.modified()
+                let mtime = meta
+                    .modified()
                     .ok()
                     .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                     .map(|d| d.as_secs())
@@ -154,11 +155,12 @@ impl PluginCache {
     /// Load from file
     pub fn load(path: &Path) -> PluginResult<Self> {
         let data = std::fs::read(path)?;
-        let cache: Self = serde_json::from_slice(&data)
-            .map_err(|e| crate::PluginError::IoError(std::io::Error::new(
+        let cache: Self = serde_json::from_slice(&data).map_err(|e| {
+            crate::PluginError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 e.to_string(),
-            )))?;
+            ))
+        })?;
 
         // Invalidate if version mismatch
         if cache.version != Self::CURRENT_VERSION {
@@ -170,11 +172,12 @@ impl PluginCache {
 
     /// Save to file
     pub fn save(&self, path: &Path) -> PluginResult<()> {
-        let data = serde_json::to_vec_pretty(self)
-            .map_err(|e| crate::PluginError::IoError(std::io::Error::new(
+        let data = serde_json::to_vec_pretty(self).map_err(|e| {
+            crate::PluginError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 e.to_string(),
-            )))?;
+            ))
+        })?;
         std::fs::write(path, data)?;
         Ok(())
     }
@@ -251,7 +254,9 @@ pub struct UltimateScanner {
 impl UltimateScanner {
     pub fn new(config: ScannerConfig) -> Self {
         let cache = if config.use_cache {
-            config.cache_path.as_ref()
+            config
+                .cache_path
+                .as_ref()
                 .and_then(|p| PluginCache::load(p).ok())
                 .unwrap_or_default()
         } else {
@@ -274,28 +279,46 @@ impl UltimateScanner {
         #[cfg(target_os = "macos")]
         {
             // VST3
-            self.add_path(PluginType::Vst3, PathBuf::from("/Library/Audio/Plug-Ins/VST3"));
+            self.add_path(
+                PluginType::Vst3,
+                PathBuf::from("/Library/Audio/Plug-Ins/VST3"),
+            );
             if let Some(home) = dirs_next::home_dir() {
                 self.add_path(PluginType::Vst3, home.join("Library/Audio/Plug-Ins/VST3"));
             }
 
             // CLAP
-            self.add_path(PluginType::Clap, PathBuf::from("/Library/Audio/Plug-Ins/CLAP"));
+            self.add_path(
+                PluginType::Clap,
+                PathBuf::from("/Library/Audio/Plug-Ins/CLAP"),
+            );
             if let Some(home) = dirs_next::home_dir() {
                 self.add_path(PluginType::Clap, home.join("Library/Audio/Plug-Ins/CLAP"));
             }
 
             // AU
-            self.add_path(PluginType::AudioUnit, PathBuf::from("/Library/Audio/Plug-Ins/Components"));
+            self.add_path(
+                PluginType::AudioUnit,
+                PathBuf::from("/Library/Audio/Plug-Ins/Components"),
+            );
             if let Some(home) = dirs_next::home_dir() {
-                self.add_path(PluginType::AudioUnit, home.join("Library/Audio/Plug-Ins/Components"));
+                self.add_path(
+                    PluginType::AudioUnit,
+                    home.join("Library/Audio/Plug-Ins/Components"),
+                );
             }
         }
 
         #[cfg(target_os = "windows")]
         {
-            self.add_path(PluginType::Vst3, PathBuf::from("C:\\Program Files\\Common Files\\VST3"));
-            self.add_path(PluginType::Clap, PathBuf::from("C:\\Program Files\\Common Files\\CLAP"));
+            self.add_path(
+                PluginType::Vst3,
+                PathBuf::from("C:\\Program Files\\Common Files\\VST3"),
+            );
+            self.add_path(
+                PluginType::Clap,
+                PathBuf::from("C:\\Program Files\\Common Files\\CLAP"),
+            );
         }
 
         #[cfg(target_os = "linux")]
@@ -455,7 +478,8 @@ impl UltimateScanner {
         // Update cache
         if let Some(ref info) = result.info {
             if let Ok(meta) = std::fs::metadata(path) {
-                let mtime = meta.modified()
+                let mtime = meta
+                    .modified()
                     .ok()
                     .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                     .map(|d| d.as_secs())

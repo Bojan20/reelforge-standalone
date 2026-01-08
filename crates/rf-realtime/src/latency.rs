@@ -6,8 +6,8 @@
 //! - Real-time latency reporting
 //! - Lookahead management
 
-use std::collections::HashMap;
 use portable_atomic::{AtomicU32, Ordering};
+use std::collections::HashMap;
 
 /// Latency information for a single processor
 #[derive(Debug, Clone, Copy)]
@@ -150,7 +150,13 @@ impl LatencyManager {
     }
 
     /// Update processor latency
-    pub fn update_processor(&mut self, path_id: u32, processor_id: u32, inherent: u32, lookahead: u32) {
+    pub fn update_processor(
+        &mut self,
+        path_id: u32,
+        processor_id: u32,
+        inherent: u32,
+        lookahead: u32,
+    ) {
         if let Some(path) = self.paths.get_mut(&path_id) {
             if let Some(processor) = path.processors.iter_mut().find(|p| p.id == processor_id) {
                 processor.set_inherent(inherent);
@@ -164,7 +170,9 @@ impl LatencyManager {
     /// Recalculate all compensation values
     fn recalculate_compensation(&mut self) {
         // Find maximum latency
-        let max = self.paths.values()
+        let max = self
+            .paths
+            .values()
             .map(|p| p.total_samples)
             .max()
             .unwrap_or(0);
@@ -210,14 +218,18 @@ impl LatencyManager {
         LatencyReport {
             max_latency_samples: self.max_latency(),
             max_latency_ms: self.max_latency_ms(),
-            paths: self.paths.values().map(|p| PathLatencyInfo {
-                id: p.id,
-                name: p.name.clone(),
-                total_samples: p.total_samples,
-                total_ms: p.total_ms(self.sample_rate),
-                compensation_samples: p.compensation_samples,
-                num_processors: p.processors.len(),
-            }).collect(),
+            paths: self
+                .paths
+                .values()
+                .map(|p| PathLatencyInfo {
+                    id: p.id,
+                    name: p.name.clone(),
+                    total_samples: p.total_samples,
+                    total_ms: p.total_ms(self.sample_rate),
+                    compensation_samples: p.compensation_samples,
+                    num_processors: p.processors.len(),
+                })
+                .collect(),
             auto_compensate: self.auto_compensate,
             sample_rate: self.sample_rate,
         }
@@ -308,7 +320,9 @@ pub struct MultiChannelLookahead {
 impl MultiChannelLookahead {
     pub fn new(num_channels: usize, max_delay: usize) -> Self {
         Self {
-            channels: (0..num_channels).map(|_| LookaheadBuffer::new(max_delay)).collect(),
+            channels: (0..num_channels)
+                .map(|_| LookaheadBuffer::new(max_delay))
+                .collect(),
         }
     }
 

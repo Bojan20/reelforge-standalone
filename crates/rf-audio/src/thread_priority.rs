@@ -138,15 +138,14 @@ fn platform_set_priority() -> PriorityResult {
     };
 
     // Convert nanoseconds to mach absolute time
-    let ns_to_abs = |ns: u64| -> u32 {
-        ((ns * timebase.denom as u64) / timebase.numer as u64) as u32
-    };
+    let ns_to_abs =
+        |ns: u64| -> u32 { ((ns * timebase.denom as u64) / timebase.numer as u64) as u32 };
 
     let policy = ThreadTimeConstraintPolicy {
-        period: ns_to_abs(1_000_000),      // 1ms period
-        computation: ns_to_abs(500_000),    // 500μs computation time
-        constraint: ns_to_abs(1_000_000),   // 1ms constraint (deadline)
-        preemptible: 1,                      // Allow preemption if we exceed
+        period: ns_to_abs(1_000_000),     // 1ms period
+        computation: ns_to_abs(500_000),  // 500μs computation time
+        constraint: ns_to_abs(1_000_000), // 1ms constraint (deadline)
+        preemptible: 1,                   // Allow preemption if we exceed
     };
 
     let thread = unsafe { mach_thread_self() };
@@ -178,24 +177,26 @@ fn platform_set_priority() -> PriorityResult {
 
 #[cfg(target_os = "windows")]
 fn platform_set_priority() -> PriorityResult {
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::Threading::{
         AvSetMmThreadCharacteristicsW, GetCurrentThread, SetThreadPriority,
         THREAD_PRIORITY_TIME_CRITICAL,
     };
+    use windows::core::PCWSTR;
 
     // First, try MMCSS (Multimedia Class Scheduler Service)
     // This is the preferred method for pro audio on Windows
     let task_name: Vec<u16> = "Pro Audio\0".encode_utf16().collect();
     let mut task_index: u32 = 0;
 
-    let mmcss_handle = unsafe {
-        AvSetMmThreadCharacteristicsW(PCWSTR(task_name.as_ptr()), &mut task_index)
-    };
+    let mmcss_handle =
+        unsafe { AvSetMmThreadCharacteristicsW(PCWSTR(task_name.as_ptr()), &mut task_index) };
 
     if !mmcss_handle.is_invalid() {
-        log::debug!("MMCSS Pro Audio class registered (task index: {})", task_index);
+        log::debug!(
+            "MMCSS Pro Audio class registered (task index: {})",
+            task_index
+        );
         return PriorityResult::Success;
     }
 
@@ -219,8 +220,7 @@ fn platform_set_priority() -> PriorityResult {
 #[cfg(target_os = "linux")]
 fn platform_set_priority() -> PriorityResult {
     use libc::{
-        sched_param, sched_setscheduler, SCHED_FIFO, SCHED_RR,
-        pthread_self, pthread_setschedparam,
+        SCHED_FIFO, SCHED_RR, pthread_self, pthread_setschedparam, sched_param, sched_setscheduler,
     };
 
     // Try SCHED_FIFO first (requires CAP_SYS_NICE or root)

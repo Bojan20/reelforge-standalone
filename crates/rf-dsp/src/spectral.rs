@@ -12,11 +12,11 @@ use std::collections::VecDeque;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
-use rf_core::Sample;
 use crate::{Processor, ProcessorConfig, StereoProcessor};
+use rf_core::Sample;
 
 // ============ Constants ============
 
@@ -53,7 +53,9 @@ impl SpectralFrame {
     }
 
     fn to_complex(&self) -> Vec<Complex<f64>> {
-        self.magnitude.iter().zip(&self.phase)
+        self.magnitude
+            .iter()
+            .zip(&self.phase)
             .map(|(&mag, &phase)| Complex::from_polar(mag, phase))
             .collect()
     }
@@ -151,7 +153,9 @@ impl StftProcessor {
         }
 
         // FFT into scratch spectrum
-        self.fft_forward.process(&mut self.scratch_windowed, &mut self.scratch_spectrum).ok();
+        self.fft_forward
+            .process(&mut self.scratch_windowed, &mut self.scratch_spectrum)
+            .ok();
 
         // Convert to magnitude/phase in-place
         for (i, c) in self.scratch_spectrum.iter().enumerate() {
@@ -188,11 +192,16 @@ impl StftProcessor {
         }
 
         // IFFT into scratch_output
-        self.fft_inverse.process(&mut self.scratch_spectrum, &mut self.scratch_output).ok();
+        self.fft_inverse
+            .process(&mut self.scratch_spectrum, &mut self.scratch_output)
+            .ok();
 
         // Normalize, window, and copy to output
         let norm = 1.0 / self.fft_size as f64;
-        let out_len = output.len().min(self.scratch_output.len()).min(self.synthesis_window.len());
+        let out_len = output
+            .len()
+            .min(self.scratch_output.len())
+            .min(self.synthesis_window.len());
         for i in 0..out_len {
             output[i] = self.scratch_output[i] * norm * self.synthesis_window[i];
         }
@@ -323,9 +332,7 @@ impl SpectralGate {
 
         // Average magnitude across frames
         for i in 0..num_bins {
-            let sum: f64 = self.noise_frames.iter()
-                .map(|f| f.magnitude[i])
-                .sum();
+            let sum: f64 = self.noise_frames.iter().map(|f| f.magnitude[i]).sum();
             self.noise_floor[i] = sum / self.noise_frames.len() as f64;
         }
     }
@@ -336,8 +343,10 @@ impl SpectralGate {
         let reduction_linear = 10.0_f64.powf(self.reduction_db / 20.0);
 
         // Time constants
-        let attack_coef = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
-        let release_coef = (-1.0 / (self.release_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
+        let attack_coef =
+            (-1.0 / (self.attack_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
+        let release_coef =
+            (-1.0 / (self.release_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
 
         for i in 0..num_bins {
             let mag = frame.magnitude[i];
@@ -353,7 +362,11 @@ impl SpectralGate {
             };
 
             // Smooth gain
-            let coef = if target_gain < self.bin_gains[i] { attack_coef } else { release_coef };
+            let coef = if target_gain < self.bin_gains[i] {
+                attack_coef
+            } else {
+                release_coef
+            };
             self.bin_gains[i] = target_gain + coef * (self.bin_gains[i] - target_gain);
 
             frame.magnitude[i] *= self.bin_gains[i];
@@ -401,7 +414,8 @@ impl StereoProcessor for SpectralGate {
             self.input_copy.copy_from_slice(&self.stft.input_buffer);
 
             // Analyze into pre-allocated frame (ZERO ALLOCATION)
-            self.stft.analyze_into(&self.input_copy, &mut self.scratch_frame);
+            self.stft
+                .analyze_into(&self.input_copy, &mut self.scratch_frame);
 
             // Learn noise if active (only allocation when learning)
             if self.learning_noise {
@@ -417,8 +431,12 @@ impl StereoProcessor for SpectralGate {
                 let threshold_linear = 10.0_f64.powf(self.threshold_db / 20.0);
                 let reduction_linear = 10.0_f64.powf(self.reduction_db / 20.0);
 
-                let attack_coef = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
-                let release_coef = (-1.0 / (self.release_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64)).exp();
+                let attack_coef = (-1.0
+                    / (self.attack_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64))
+                    .exp();
+                let release_coef = (-1.0
+                    / (self.release_ms * 0.001 * self.sample_rate / self.stft.hop_size as f64))
+                    .exp();
 
                 for i in 0..num_bins {
                     let mag = self.scratch_frame.magnitude[i];
@@ -432,7 +450,11 @@ impl StereoProcessor for SpectralGate {
                         reduction_linear
                     };
 
-                    let coef = if target_gain < self.bin_gains[i] { attack_coef } else { release_coef };
+                    let coef = if target_gain < self.bin_gains[i] {
+                        attack_coef
+                    } else {
+                        release_coef
+                    };
                     self.bin_gains[i] = target_gain + coef * (self.bin_gains[i] - target_gain);
 
                     self.scratch_frame.magnitude[i] *= self.bin_gains[i];
@@ -440,7 +462,8 @@ impl StereoProcessor for SpectralGate {
             }
 
             // Synthesize into pre-allocated output (ZERO ALLOCATION)
-            self.stft.synthesize_into(&self.scratch_frame, &mut self.synth_output);
+            self.stft
+                .synthesize_into(&self.scratch_frame, &mut self.synth_output);
 
             // Overlap-add to output ring
             for (i, &sample) in self.synth_output.iter().enumerate() {
@@ -449,7 +472,8 @@ impl StereoProcessor for SpectralGate {
             }
 
             // Advance write position
-            self.output_write_pos = (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
+            self.output_write_pos =
+                (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
 
             // Shift input accumulator
             self.input_accum_pos = 0;
@@ -598,7 +622,8 @@ impl StereoProcessor for SpectralFreeze {
             self.input_copy.copy_from_slice(&self.stft.input_buffer);
 
             // Analyze into pre-allocated frame (ZERO ALLOCATION)
-            self.stft.analyze_into(&self.input_copy, &mut self.current_frame);
+            self.stft
+                .analyze_into(&self.input_copy, &mut self.current_frame);
 
             // Capture frame if starting freeze (only allocation when freezing)
             if self.frozen && self.frozen_frame.is_none() {
@@ -618,19 +643,30 @@ impl StereoProcessor for SpectralFreeze {
                     }
                 } else {
                     // Copy current to mixed
-                    let len = self.current_frame.magnitude.len().min(self.mixed_frame.magnitude.len());
-                    self.mixed_frame.magnitude[..len].copy_from_slice(&self.current_frame.magnitude[..len]);
+                    let len = self
+                        .current_frame
+                        .magnitude
+                        .len()
+                        .min(self.mixed_frame.magnitude.len());
+                    self.mixed_frame.magnitude[..len]
+                        .copy_from_slice(&self.current_frame.magnitude[..len]);
                     self.mixed_frame.phase[..len].copy_from_slice(&self.current_frame.phase[..len]);
                 }
             } else {
                 // Copy current to mixed
-                let len = self.current_frame.magnitude.len().min(self.mixed_frame.magnitude.len());
-                self.mixed_frame.magnitude[..len].copy_from_slice(&self.current_frame.magnitude[..len]);
+                let len = self
+                    .current_frame
+                    .magnitude
+                    .len()
+                    .min(self.mixed_frame.magnitude.len());
+                self.mixed_frame.magnitude[..len]
+                    .copy_from_slice(&self.current_frame.magnitude[..len]);
                 self.mixed_frame.phase[..len].copy_from_slice(&self.current_frame.phase[..len]);
             }
 
             // Synthesize into pre-allocated output (ZERO ALLOCATION)
-            self.stft.synthesize_into(&self.mixed_frame, &mut self.synth_output);
+            self.stft
+                .synthesize_into(&self.mixed_frame, &mut self.synth_output);
 
             // Overlap-add
             for (i, &sample) in self.synth_output.iter().enumerate() {
@@ -638,7 +674,8 @@ impl StereoProcessor for SpectralFreeze {
                 self.output_ring[pos] += sample;
             }
 
-            self.output_write_pos = (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
+            self.output_write_pos =
+                (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
             self.input_accum_pos = 0;
         }
 
@@ -794,7 +831,8 @@ impl StereoProcessor for SpectralCompressor {
                 self.output_ring[pos] += sample;
             }
 
-            self.output_write_pos = (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
+            self.output_write_pos =
+                (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
             self.input_accum_pos = 0;
         }
 
@@ -839,8 +877,10 @@ impl SpectralSelection {
 
     /// Check if a time/frequency point is in selection
     pub fn contains(&self, time: u64, freq: f64) -> bool {
-        time >= self.start_time && time <= self.end_time &&
-        freq >= self.start_freq && freq <= self.end_freq
+        time >= self.start_time
+            && time <= self.end_time
+            && freq >= self.start_freq
+            && freq <= self.end_freq
     }
 }
 
@@ -949,7 +989,10 @@ impl SpectralRepair {
             let freq = self.bin_to_freq(bin);
 
             // Check if bin is in any selection
-            let in_selection = self.selections.iter().any(|s| s.contains(self.current_pos, freq));
+            let in_selection = self
+                .selections
+                .iter()
+                .any(|s| s.contains(self.current_pos, freq));
 
             if in_selection {
                 match self.mode {
@@ -971,9 +1014,7 @@ impl SpectralRepair {
                     }
                     RepairMode::PatternReplace => {
                         // Use average from history
-                        let sum: f64 = self.history.iter()
-                            .map(|h| h.magnitude[bin])
-                            .sum();
+                        let sum: f64 = self.history.iter().map(|h| h.magnitude[bin]).sum();
                         frame.magnitude[bin] = sum / self.history_len as f64;
                     }
                     RepairMode::HarmonicFill => {
@@ -1037,7 +1078,8 @@ impl StereoProcessor for SpectralRepair {
                 self.output_ring[pos] += sample;
             }
 
-            self.output_write_pos = (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
+            self.output_write_pos =
+                (self.output_write_pos + self.stft.hop_size) % self.output_ring.len();
             self.input_accum_pos = 0;
         }
 
@@ -1178,7 +1220,8 @@ impl StereoProcessor for DeClick {
         }
 
         // Read from delayed position
-        let read_pos = (self.buffer_pos + self.buffer.len() - self.latency_samples) % self.buffer.len();
+        let read_pos =
+            (self.buffer_pos + self.buffer.len() - self.latency_samples) % self.buffer.len();
         let out = self.buffer[read_pos];
 
         self.buffer_pos = (self.buffer_pos + 1) % self.buffer.len();

@@ -10,8 +10,8 @@
 //! Uses atomic operations for lock-free communication.
 //! Smoothing happens in audio thread using pre-computed coefficients.
 
-use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
 use rf_core::Sample;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 // ============ Smoothing Algorithms ============
 
@@ -95,7 +95,12 @@ impl SmoothedParam {
         min: f64,
         max: f64,
     ) -> Self {
-        let mut param = Self::new(initial_value, smoothing_time_ms, sample_rate, smoothing_type);
+        let mut param = Self::new(
+            initial_value,
+            smoothing_time_ms,
+            sample_rate,
+            smoothing_type,
+        );
         param.min_value = min;
         param.max_value = max;
         param
@@ -204,8 +209,12 @@ impl SmoothedParam {
             SmoothingType::Logarithmic => {
                 // Fast start, slow end
                 let t = self.coeff * 2.0;
-                self.current += t * (target - self.current).signum()
-                    * (target - self.current).abs().sqrt().copysign(target - self.current);
+                self.current += t
+                    * (target - self.current).signum()
+                    * (target - self.current)
+                        .abs()
+                        .sqrt()
+                        .copysign(target - self.current);
             }
             SmoothingType::SCurve => {
                 // Use exponential with variable speed
@@ -225,9 +234,7 @@ impl SmoothedParam {
 
         match self.smoothing_type {
             SmoothingType::None => target,
-            SmoothingType::Exponential => {
-                self.current + self.coeff * (target - self.current)
-            }
+            SmoothingType::Exponential => self.current + self.coeff * (target - self.current),
             SmoothingType::Linear => {
                 if self.linear_remaining > 0 {
                     self.current + self.linear_step
@@ -331,7 +338,11 @@ pub struct ParameterBank {
 
 impl ParameterBank {
     /// Create new parameter bank
-    pub fn new(sample_rate: f64, default_smoothing_ms: f64, default_smoothing_type: SmoothingType) -> Self {
+    pub fn new(
+        sample_rate: f64,
+        default_smoothing_ms: f64,
+        default_smoothing_type: SmoothingType,
+    ) -> Self {
         Self {
             params: Vec::new(),
             sample_rate,
@@ -472,9 +483,8 @@ mod tests {
 
     #[test]
     fn test_value_clamping() {
-        let param = SmoothedParam::with_range(
-            0.5, 10.0, 48000.0, SmoothingType::Exponential, 0.0, 1.0
-        );
+        let param =
+            SmoothedParam::with_range(0.5, 10.0, 48000.0, SmoothingType::Exponential, 0.0, 1.0);
 
         param.set_target(2.0);
         assert!((param.target() - 1.0).abs() < 1e-10);
@@ -485,9 +495,8 @@ mod tests {
 
     #[test]
     fn test_stereo_pan() {
-        let mut param = SmoothedStereoParam::from_pan(
-            0.0, 10.0, 48000.0, SmoothingType::Exponential
-        );
+        let mut param =
+            SmoothedStereoParam::from_pan(0.0, 10.0, 48000.0, SmoothingType::Exponential);
 
         // Center pan should have equal gains
         param.set_pan(0.0);

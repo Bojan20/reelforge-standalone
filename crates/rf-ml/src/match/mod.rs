@@ -20,13 +20,13 @@
 //! let eq_curve = matcher.compute_match(&target_audio)?;
 //! ```
 
-mod spectral;
 mod config;
 mod curve;
+mod spectral;
 
-pub use spectral::SpectralMatcher;
 pub use config::{MatchConfig, MatchMode, MatchWeighting};
 pub use curve::{EqCurve, FrequencyBand};
+pub use spectral::SpectralMatcher;
 
 use crate::error::MlResult;
 
@@ -52,7 +52,12 @@ pub trait EqMatcher: Send + Sync {
     fn set_reference(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<()>;
 
     /// Compute EQ curve to match target to reference
-    fn compute_match(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<MatchResult>;
+    fn compute_match(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<MatchResult>;
 
     /// Get current reference spectrum
     fn reference_spectrum(&self) -> Option<&[f32]>;

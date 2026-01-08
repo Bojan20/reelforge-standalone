@@ -19,9 +19,9 @@
 //! - VCA: Level control only (no audio routing)
 //! - Master: Final output stage
 
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use serde::{Deserialize, Serialize};
 
 use rf_core::Sample;
 
@@ -242,7 +242,11 @@ impl Channel {
             kind,
             name: name.to_string(),
             color: kind.default_color(),
-            output: if id.is_master() { OutputDestination::HardwareOutput(0) } else { OutputDestination::Master },
+            output: if id.is_master() {
+                OutputDestination::HardwareOutput(0)
+            } else {
+                OutputDestination::Master
+            },
             sends: Vec::new(),
             fader_db: 0.0,
             pan: 0.0,
@@ -389,7 +393,11 @@ pub enum RoutingError {
     /// Cannot route to self
     SelfReference(ChannelId),
     /// Invalid connection (e.g., routing audio track to VCA)
-    InvalidConnection { from: ChannelId, to: ChannelId, reason: &'static str },
+    InvalidConnection {
+        from: ChannelId,
+        to: ChannelId,
+        reason: &'static str,
+    },
 }
 
 /// Dynamic routing graph with feedback prevention
@@ -430,9 +438,9 @@ impl RoutingGraph {
     /// Create new channel
     pub fn create_channel(&mut self, kind: ChannelKind, name: Option<&str>) -> ChannelId {
         let id = ChannelId(self.next_id.fetch_add(1, Ordering::Relaxed));
-        let auto_name = name.map(String::from).unwrap_or_else(|| {
-            format!("{} {}", kind.prefix(), id.0)
-        });
+        let auto_name = name
+            .map(String::from)
+            .unwrap_or_else(|| format!("{} {}", kind.prefix(), id.0));
 
         let channel = Channel::new(id, kind, &auto_name, self.block_size);
         self.channels.insert(id, channel);
@@ -485,16 +493,24 @@ impl RoutingGraph {
 
     /// Get master channel
     pub fn master(&self) -> &Channel {
-        self.channels.get(&ChannelId::MASTER).expect("Master channel must exist")
+        self.channels
+            .get(&ChannelId::MASTER)
+            .expect("Master channel must exist")
     }
 
     /// Get mutable master channel
     pub fn master_mut(&mut self) -> &mut Channel {
-        self.channels.get_mut(&ChannelId::MASTER).expect("Master channel must exist")
+        self.channels
+            .get_mut(&ChannelId::MASTER)
+            .expect("Master channel must exist")
     }
 
     /// Set channel output destination with validation
-    pub fn set_output(&mut self, id: ChannelId, destination: OutputDestination) -> Result<(), RoutingError> {
+    pub fn set_output(
+        &mut self,
+        id: ChannelId,
+        destination: OutputDestination,
+    ) -> Result<(), RoutingError> {
         // Validate
         if id.is_master() {
             return Err(RoutingError::InvalidConnection {
@@ -515,7 +531,10 @@ impl RoutingGraph {
 
             // Check for cycle
             if self.would_create_cycle(id, to_id) {
-                return Err(RoutingError::WouldCreateCycle { from: id, to: to_id });
+                return Err(RoutingError::WouldCreateCycle {
+                    from: id,
+                    to: to_id,
+                });
             }
         }
 
@@ -529,7 +548,12 @@ impl RoutingGraph {
     }
 
     /// Add send with validation
-    pub fn add_send(&mut self, from: ChannelId, to: ChannelId, pre_fader: bool) -> Result<(), RoutingError> {
+    pub fn add_send(
+        &mut self,
+        from: ChannelId,
+        to: ChannelId,
+        pre_fader: bool,
+    ) -> Result<(), RoutingError> {
         if from == to {
             return Err(RoutingError::SelfReference(from));
         }
@@ -658,7 +682,8 @@ impl RoutingGraph {
 
         // Update global solo state
         let solo_active = self.channels.values().any(|c| c.is_soloed());
-        self.global_solo_active.store(solo_active, Ordering::Release);
+        self.global_solo_active
+            .store(solo_active, Ordering::Release);
 
         // Clear all inputs
         for channel in self.channels.values_mut() {
@@ -685,7 +710,9 @@ impl RoutingGraph {
                 let out_r = out_r.to_vec();
 
                 let target = channel.output.target_channel();
-                let sends: Vec<(ChannelId, f64)> = channel.sends.iter()
+                let sends: Vec<(ChannelId, f64)> = channel
+                    .sends
+                    .iter()
                     .filter(|s| s.enabled)
                     .map(|s| (s.destination, s.gain()))
                     .collect();
@@ -774,7 +801,9 @@ mod tests {
         let kick_track = graph.create_channel(ChannelKind::Audio, Some("Kick"));
 
         // Route kick to drums bus
-        graph.set_output(kick_track, OutputDestination::Channel(drums_bus)).unwrap();
+        graph
+            .set_output(kick_track, OutputDestination::Channel(drums_bus))
+            .unwrap();
 
         assert_eq!(
             graph.get(kick_track).unwrap().output,
@@ -790,7 +819,9 @@ mod tests {
         let bus_b = graph.create_bus("Bus B");
 
         // A -> B (OK)
-        graph.set_output(bus_a, OutputDestination::Channel(bus_b)).unwrap();
+        graph
+            .set_output(bus_a, OutputDestination::Channel(bus_b))
+            .unwrap();
 
         // B -> A (would create cycle)
         let result = graph.set_output(bus_b, OutputDestination::Channel(bus_a));
@@ -830,8 +861,12 @@ mod tests {
         let snare = graph.create_channel(ChannelKind::Audio, Some("Snare"));
 
         // Route kick, snare -> drums bus -> master
-        graph.set_output(kick, OutputDestination::Channel(drums_bus)).unwrap();
-        graph.set_output(snare, OutputDestination::Channel(drums_bus)).unwrap();
+        graph
+            .set_output(kick, OutputDestination::Channel(drums_bus))
+            .unwrap();
+        graph
+            .set_output(snare, OutputDestination::Channel(drums_bus))
+            .unwrap();
 
         graph.update_processing_order();
 

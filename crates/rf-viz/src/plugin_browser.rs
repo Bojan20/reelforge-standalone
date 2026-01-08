@@ -197,7 +197,8 @@ impl PluginBrowserState {
     pub fn apply_filter(&mut self, config: &PluginBrowserConfig) {
         let query = config.search_query.to_lowercase();
 
-        self.filtered_plugins = self.plugins
+        self.filtered_plugins = self
+            .plugins
             .iter()
             .enumerate()
             .filter(|(_, p)| {
@@ -248,7 +249,9 @@ impl PluginBrowserState {
                 SortCriteria::Name => pa.name.cmp(&pb.name),
                 SortCriteria::Vendor => pa.vendor.cmp(&pb.vendor),
                 SortCriteria::Format => format!("{:?}", pa.format).cmp(&format!("{:?}", pb.format)),
-                SortCriteria::Category => format!("{:?}", pa.category).cmp(&format!("{:?}", pb.category)),
+                SortCriteria::Category => {
+                    format!("{:?}", pa.category).cmp(&format!("{:?}", pb.category))
+                }
                 SortCriteria::RecentlyUsed => pb.last_used.cmp(&pa.last_used),
             };
 
@@ -332,12 +335,16 @@ pub struct LayoutRect {
 
 impl LayoutRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn contains(&self, px: f32, py: f32) -> bool {
-        px >= self.x && px < self.x + self.width &&
-        py >= self.y && py < self.y + self.height
+        px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
 }
 
@@ -354,7 +361,9 @@ impl BrowserLayout {
         let content_height = height - header_height - padding * 2.0;
 
         let grid_columns = if config.view_mode == BrowserViewMode::Grid {
-            ((content_width - padding) / (config.grid_cell_size + padding)).floor().max(1.0) as usize
+            ((content_width - padding) / (config.grid_cell_size + padding))
+                .floor()
+                .max(1.0) as usize
         } else {
             1
         };
@@ -373,7 +382,12 @@ impl BrowserLayout {
             sidebar_width,
             header_height,
             content_rect: LayoutRect::new(content_x, content_y, content_width, content_height),
-            sidebar_rect: LayoutRect::new(0.0, header_height, sidebar_width, height - header_height),
+            sidebar_rect: LayoutRect::new(
+                0.0,
+                header_height,
+                sidebar_width,
+                height - header_height,
+            ),
             search_rect: LayoutRect::new(sidebar_width, 0.0, content_width, header_height),
             grid_columns,
             visible_items,
@@ -381,7 +395,12 @@ impl BrowserLayout {
     }
 
     /// Get item rect at index
-    pub fn get_item_rect(&self, index: usize, config: &PluginBrowserConfig, scroll_offset: f32) -> LayoutRect {
+    pub fn get_item_rect(
+        &self,
+        index: usize,
+        config: &PluginBrowserConfig,
+        scroll_offset: f32,
+    ) -> LayoutRect {
         let padding = 8.0;
 
         if config.view_mode == BrowserViewMode::Grid {
@@ -389,7 +408,8 @@ impl BrowserLayout {
             let row = index / self.grid_columns;
 
             let x = self.content_rect.x + col as f32 * (config.grid_cell_size + padding);
-            let y = self.content_rect.y + row as f32 * (config.grid_cell_size + padding) - scroll_offset;
+            let y = self.content_rect.y + row as f32 * (config.grid_cell_size + padding)
+                - scroll_offset;
 
             LayoutRect::new(x, y, config.grid_cell_size, config.grid_cell_size)
         } else {
@@ -450,19 +470,43 @@ pub struct BrowserVertex {
 /// Generate grid cell mesh
 pub fn generate_grid_cell(rect: &LayoutRect, color: [f32; 4]) -> Vec<BrowserVertex> {
     vec![
-        BrowserVertex { position: [rect.x, rect.y], uv: [0.0, 0.0], color },
-        BrowserVertex { position: [rect.x + rect.width, rect.y], uv: [1.0, 0.0], color },
-        BrowserVertex { position: [rect.x + rect.width, rect.y + rect.height], uv: [1.0, 1.0], color },
-        BrowserVertex { position: [rect.x, rect.y], uv: [0.0, 0.0], color },
-        BrowserVertex { position: [rect.x + rect.width, rect.y + rect.height], uv: [1.0, 1.0], color },
-        BrowserVertex { position: [rect.x, rect.y + rect.height], uv: [0.0, 1.0], color },
+        BrowserVertex {
+            position: [rect.x, rect.y],
+            uv: [0.0, 0.0],
+            color,
+        },
+        BrowserVertex {
+            position: [rect.x + rect.width, rect.y],
+            uv: [1.0, 0.0],
+            color,
+        },
+        BrowserVertex {
+            position: [rect.x + rect.width, rect.y + rect.height],
+            uv: [1.0, 1.0],
+            color,
+        },
+        BrowserVertex {
+            position: [rect.x, rect.y],
+            uv: [0.0, 0.0],
+            color,
+        },
+        BrowserVertex {
+            position: [rect.x + rect.width, rect.y + rect.height],
+            uv: [1.0, 1.0],
+            color,
+        },
+        BrowserVertex {
+            position: [rect.x, rect.y + rect.height],
+            uv: [0.0, 1.0],
+            color,
+        },
     ]
 }
 
 /// Plugin format color
 pub fn format_color(format: PluginFormat) -> [f32; 4] {
     match format {
-        PluginFormat::Internal => [0.29, 0.62, 1.0, 1.0],  // Blue
+        PluginFormat::Internal => [0.29, 0.62, 1.0, 1.0], // Blue
         PluginFormat::Vst3 => [1.0, 0.56, 0.25, 1.0],     // Orange
         PluginFormat::Clap => [0.25, 1.0, 0.56, 1.0],     // Green
         PluginFormat::AudioUnit => [0.75, 0.56, 1.0, 1.0], // Purple

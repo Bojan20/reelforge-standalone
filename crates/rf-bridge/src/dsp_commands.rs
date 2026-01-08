@@ -220,7 +220,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // PRO EQ (64-band)
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set complete band parameters
     EqSetBand {
         track_id: u32,
@@ -309,7 +308,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // DYNAMIC EQ (per-band dynamics)
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Enable dynamic mode for band
     EqSetDynamicEnabled {
         track_id: u32,
@@ -338,28 +336,27 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // ANALOG EQ - PULTEC EQP-1A
     // ═══════════════════════════════════════════════════════════════════════
-
     PultecSetLowBoost {
         track_id: u32,
-        boost_db: f64,      // 0-10
+        boost_db: f64, // 0-10
         freq: PultecLowFreq,
     },
 
     PultecSetLowAtten {
         track_id: u32,
-        atten_db: f64,      // 0-10
+        atten_db: f64, // 0-10
     },
 
     PultecSetHighBoost {
         track_id: u32,
-        boost_db: f64,      // 0-10
-        bandwidth: f64,     // 0=Sharp, 1=Broad
+        boost_db: f64,  // 0-10
+        bandwidth: f64, // 0=Sharp, 1=Broad
         freq: PultecHighBoostFreq,
     },
 
     PultecSetHighAtten {
         track_id: u32,
-        atten_db: f64,      // 0-10
+        atten_db: f64, // 0-10
         freq: PultecHighAttenFreq,
     },
 
@@ -371,17 +368,16 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // ANALOG EQ - API 550
     // ═══════════════════════════════════════════════════════════════════════
-
     Api550SetLow {
         track_id: u32,
         gain_db: f64,
-        freq_index: u8,     // 0-4 (different frequencies)
+        freq_index: u8, // 0-4 (different frequencies)
     },
 
     Api550SetMid {
         track_id: u32,
         gain_db: f64,
-        freq_hz: f64,       // Continuous 200-3200
+        freq_hz: f64, // Continuous 200-3200
     },
 
     Api550SetHigh {
@@ -398,11 +394,10 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // ANALOG EQ - NEVE 1073
     // ═══════════════════════════════════════════════════════════════════════
-
     Neve1073SetHighpass {
         track_id: u32,
         enabled: bool,
-        freq_index: u8,     // 0=Off, 1=50Hz, 2=80Hz, 3=160Hz, 4=300Hz
+        freq_index: u8, // 0=Off, 1=50Hz, 2=80Hz, 3=160Hz, 4=300Hz
     },
 
     Neve1073SetLow {
@@ -431,7 +426,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // STEREO EQ
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set bass mono crossover frequency
     StereoEqSetBassMonoFreq {
         track_id: u32,
@@ -441,14 +435,14 @@ pub enum DspCommand {
     /// Set bass mono blend
     StereoEqSetBassMonoBlend {
         track_id: u32,
-        blend: f64,         // 0=Stereo, 1=Mono
+        blend: f64, // 0=Stereo, 1=Mono
     },
 
     /// Set per-band stereo width
     StereoEqSetBandWidth {
         track_id: u32,
         band_index: u8,
-        width: f64,         // 0=Mono, 1=Normal, 2=Wide
+        width: f64, // 0=Mono, 1=Normal, 2=Wide
     },
 
     /// Set per-band M/S mode
@@ -461,7 +455,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // ROOM CORRECTION
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set target curve
     RoomEqSetTargetCurve {
         track_id: u32,
@@ -483,18 +476,17 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // MORPHING EQ
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set morph position (XY pad)
     MorphEqSetPosition {
         track_id: u32,
-        x: f64,             // 0-1
-        y: f64,             // 0-1
+        x: f64, // 0-1
+        y: f64, // 0-1
     },
 
     /// Store current EQ as preset A/B/C/D
     MorphEqStorePreset {
         track_id: u32,
-        slot: u8,           // 0=A, 1=B, 2=C, 3=D
+        slot: u8, // 0=A, 1=B, 2=C, 3=D
     },
 
     /// Set morph time (for animated transitions)
@@ -506,17 +498,16 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // SPECTRUM ANALYZER
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set FFT size
     SpectrumSetFftSize {
         track_id: u32,
-        size: u16,          // 1024, 2048, 4096, 8192, 16384, 32768
+        size: u16, // 1024, 2048, 4096, 8192, 16384, 32768
     },
 
     /// Set analyzer smoothing
     SpectrumSetSmoothing {
         track_id: u32,
-        smoothing: f64,     // 0-1
+        smoothing: f64, // 0-1
     },
 
     /// Set peak hold time
@@ -535,7 +526,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // EQ MATCH
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Start learning source spectrum
     EqMatchStartLearnSource {
         track_id: u32,
@@ -554,14 +544,13 @@ pub enum DspCommand {
     /// Apply learned match
     EqMatchApply {
         track_id: u32,
-        amount: f64,        // 0-100%
-        smoothing: f64,     // 0-100%
+        amount: f64,    // 0-100%
+        smoothing: f64, // 0-100%
     },
 
     // ═══════════════════════════════════════════════════════════════════════
     // METERING REQUESTS
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Request spectrum data (triggers analysis update)
     RequestSpectrum {
         track_id: u32,
@@ -586,7 +575,6 @@ pub enum DspCommand {
     // ═══════════════════════════════════════════════════════════════════════
     // MIXER / TRACK CONTROLS
     // ═══════════════════════════════════════════════════════════════════════
-
     /// Set track volume (linear, 0.0-2.0, 1.0 = unity)
     TrackSetVolume {
         track_id: u32,

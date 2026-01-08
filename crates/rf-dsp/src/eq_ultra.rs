@@ -13,8 +13,8 @@
 
 use std::f64::consts::PI;
 
-use rf_core::Sample;
 use crate::{Processor, ProcessorConfig, StereoProcessor};
+use rf_core::Sample;
 
 // ============================================================================
 // CONSTANTS
@@ -50,7 +50,7 @@ impl MztCoeffs {
     /// Create bell/peaking filter using Matched Z-Transform
     /// This avoids frequency cramping near Nyquist
     pub fn bell_mzt(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
-        let omega_0 = 2.0 * PI * freq;  // Analog center frequency (rad/s)
+        let omega_0 = 2.0 * PI * freq; // Analog center frequency (rad/s)
         let t = 1.0 / sample_rate;
 
         // Analog prototype poles/zeros
@@ -96,7 +96,11 @@ impl MztCoeffs {
         // Normalize for unity gain at DC
         let dc_num = b0 + b1 + b2;
         let dc_den = 1.0 + a1 + a2;
-        let norm = if dc_num.abs() > 1e-10 { dc_den / dc_num } else { 1.0 };
+        let norm = if dc_num.abs() > 1e-10 {
+            dc_den / dc_num
+        } else {
+            1.0
+        };
 
         Self {
             b0: b0 * norm,
@@ -303,11 +307,16 @@ impl MztFilter {
             // Smooth interpolation (use cosine for extra smoothness)
             let smooth_t = 0.5 - 0.5 * (PI * t).cos();
 
-            self.coeffs.b0 = self.start_coeffs.b0 + smooth_t * (self.target_coeffs.b0 - self.start_coeffs.b0);
-            self.coeffs.b1 = self.start_coeffs.b1 + smooth_t * (self.target_coeffs.b1 - self.start_coeffs.b1);
-            self.coeffs.b2 = self.start_coeffs.b2 + smooth_t * (self.target_coeffs.b2 - self.start_coeffs.b2);
-            self.coeffs.a1 = self.start_coeffs.a1 + smooth_t * (self.target_coeffs.a1 - self.start_coeffs.a1);
-            self.coeffs.a2 = self.start_coeffs.a2 + smooth_t * (self.target_coeffs.a2 - self.start_coeffs.a2);
+            self.coeffs.b0 =
+                self.start_coeffs.b0 + smooth_t * (self.target_coeffs.b0 - self.start_coeffs.b0);
+            self.coeffs.b1 =
+                self.start_coeffs.b1 + smooth_t * (self.target_coeffs.b1 - self.start_coeffs.b1);
+            self.coeffs.b2 =
+                self.start_coeffs.b2 + smooth_t * (self.target_coeffs.b2 - self.start_coeffs.b2);
+            self.coeffs.a1 =
+                self.start_coeffs.a1 + smooth_t * (self.target_coeffs.a1 - self.start_coeffs.a1);
+            self.coeffs.a2 =
+                self.start_coeffs.a2 + smooth_t * (self.target_coeffs.a2 - self.start_coeffs.a2);
 
             self.interp_counter -= 1;
         }
@@ -320,8 +329,12 @@ impl MztFilter {
         self.z2 = self.coeffs.b2 * input_safe - self.coeffs.a2 * output;
 
         // Flush denormals in state
-        if self.z1.abs() < DENORMAL_PREVENTION { self.z1 = 0.0; }
-        if self.z2.abs() < DENORMAL_PREVENTION { self.z2 = 0.0; }
+        if self.z1.abs() < DENORMAL_PREVENTION {
+            self.z1 = 0.0;
+        }
+        if self.z2.abs() < DENORMAL_PREVENTION {
+            self.z2 = 0.0;
+        }
 
         output - DENORMAL_PREVENTION
     }
@@ -371,13 +384,10 @@ impl HalfbandFilter {
     pub fn new() -> Self {
         // Kaiser window FIR, optimized for 2x oversampling
         let coeffs = vec![
-            0.0, -0.000452, 0.0, 0.001234, 0.0, -0.002789,
-            0.0, 0.005432, 0.0, -0.009765, 0.0, 0.016543,
-            0.0, -0.027654, 0.0, 0.048765, 0.0, -0.096543,
-            0.0, 0.315432, 0.5, 0.315432, 0.0, -0.096543,
-            0.0, 0.048765, 0.0, -0.027654, 0.0, 0.016543,
-            0.0, -0.009765, 0.0, 0.005432, 0.0, -0.002789,
-            0.0, 0.001234, 0.0, -0.000452, 0.0,
+            0.0, -0.000452, 0.0, 0.001234, 0.0, -0.002789, 0.0, 0.005432, 0.0, -0.009765, 0.0,
+            0.016543, 0.0, -0.027654, 0.0, 0.048765, 0.0, -0.096543, 0.0, 0.315432, 0.5, 0.315432,
+            0.0, -0.096543, 0.0, 0.048765, 0.0, -0.027654, 0.0, 0.016543, 0.0, -0.009765, 0.0,
+            0.005432, 0.0, -0.002789, 0.0, 0.001234, 0.0, -0.000452, 0.0,
         ];
 
         let len = coeffs.len();
@@ -572,7 +582,7 @@ impl Oversampler {
     pub fn latency(&self) -> usize {
         match self.mode {
             OversampleMode::Off => 0,
-            OversampleMode::X2 => 23,  // Half of 47-tap FIR
+            OversampleMode::X2 => 23, // Half of 47-tap FIR
             OversampleMode::X4 => 46,
             OversampleMode::X8 => 69,
             OversampleMode::Adaptive => 23,
@@ -616,11 +626,11 @@ impl TransientDetector {
         Self {
             env_fast: 0.0,
             env_slow: 0.0,
-            attack_fast: (-1.0 / (0.001 * sample_rate)).exp(),   // 1ms
-            attack_slow: (-1.0 / (0.050 * sample_rate)).exp(),   // 50ms
-            release_fast: (-1.0 / (0.010 * sample_rate)).exp(),  // 10ms
-            release_slow: (-1.0 / (0.200 * sample_rate)).exp(),  // 200ms
-            threshold: 2.0, // Fast/slow ratio threshold
+            attack_fast: (-1.0 / (0.001 * sample_rate)).exp(), // 1ms
+            attack_slow: (-1.0 / (0.050 * sample_rate)).exp(), // 50ms
+            release_fast: (-1.0 / (0.010 * sample_rate)).exp(), // 10ms
+            release_slow: (-1.0 / (0.200 * sample_rate)).exp(), // 200ms
+            threshold: 2.0,                                    // Fast/slow ratio threshold
             transient_amount: 0.0,
             transient_decay: (-1.0 / (0.020 * sample_rate)).exp(), // 20ms decay
         }
@@ -765,23 +775,22 @@ pub struct EqualLoudness;
 impl EqualLoudness {
     /// Reference frequencies for ISO 226
     const FREQS: [f64; 29] = [
-        20.0, 25.0, 31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0,
-        200.0, 250.0, 315.0, 400.0, 500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0,
-        2000.0, 2500.0, 3150.0, 4000.0, 5000.0, 6300.0, 8000.0, 10000.0, 12500.0,
+        20.0, 25.0, 31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0, 400.0,
+        500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0, 5000.0,
+        6300.0, 8000.0, 10000.0, 12500.0,
     ];
 
     /// Threshold of hearing (phon = 0)
     const THRESHOLD: [f64; 29] = [
-        78.5, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1, 17.9,
-        14.4, 11.4, 8.6, 6.2, 4.4, 3.0, 2.2, 2.4, 3.5, 1.7,
-        -1.3, -4.2, -6.0, -5.4, -1.5, 6.0, 12.6, 13.9, 12.3,
+        78.5, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1, 17.9, 14.4, 11.4, 8.6, 6.2, 4.4, 3.0,
+        2.2, 2.4, 3.5, 1.7, -1.3, -4.2, -6.0, -5.4, -1.5, 6.0, 12.6, 13.9, 12.3,
     ];
 
     /// Exponent for loudness calculation
     const ALPHA: [f64; 29] = [
-        0.532, 0.506, 0.480, 0.455, 0.432, 0.409, 0.387, 0.367, 0.349, 0.330,
-        0.315, 0.301, 0.288, 0.276, 0.267, 0.259, 0.253, 0.250, 0.246, 0.244,
-        0.243, 0.243, 0.243, 0.242, 0.242, 0.245, 0.254, 0.271, 0.301,
+        0.532, 0.506, 0.480, 0.455, 0.432, 0.409, 0.387, 0.367, 0.349, 0.330, 0.315, 0.301, 0.288,
+        0.276, 0.267, 0.259, 0.253, 0.250, 0.246, 0.244, 0.243, 0.243, 0.243, 0.242, 0.242, 0.245,
+        0.254, 0.271, 0.301,
     ];
 
     /// Get compensation in dB at frequency for target loudness (phons)
@@ -798,8 +807,8 @@ impl EqualLoudness {
 
         // Interpolate
         let t = if Self::FREQS[upper_idx] > Self::FREQS[lower_idx] {
-            (freq.log10() - Self::FREQS[lower_idx].log10()) /
-            (Self::FREQS[upper_idx].log10() - Self::FREQS[lower_idx].log10())
+            (freq.log10() - Self::FREQS[lower_idx].log10())
+                / (Self::FREQS[upper_idx].log10() - Self::FREQS[lower_idx].log10())
         } else {
             0.0
         };
@@ -823,11 +832,13 @@ impl EqualLoudness {
 
     /// Generate compensation curve for EQ (num_points from 20Hz to 20kHz)
     pub fn generate_curve(target_phon: f64, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
-            Self::compensation_db(freq, target_phon)
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
+                Self::compensation_db(freq, target_phon)
+            })
+            .collect()
     }
 }
 
@@ -1072,7 +1083,9 @@ impl FrequencyAnalyzer {
         }
 
         // Average spectrum
-        let avg: Vec<f64> = self.spectrum_sum.iter()
+        let avg: Vec<f64> = self
+            .spectrum_sum
+            .iter()
             .map(|&s| s / self.accumulation_count as f64)
             .collect();
 
@@ -1081,7 +1094,7 @@ impl FrequencyAnalyzer {
 
         self.peaks.clear();
         for i in 1..avg.len() - 1 {
-            if avg[i] > avg[i-1] && avg[i] > avg[i+1] && avg[i] > overall_avg + 6.0 {
+            if avg[i] > avg[i - 1] && avg[i] > avg[i + 1] && avg[i] > overall_avg + 6.0 {
                 let freq = i as f64 * self.sample_rate / self.fft_size as f64;
                 self.peaks.push((freq, avg[i]));
             }
@@ -1334,7 +1347,14 @@ impl UltraEq {
     }
 
     /// Set band parameters
-    pub fn set_band(&mut self, index: usize, freq: f64, gain_db: f64, q: f64, filter_type: UltraFilterType) {
+    pub fn set_band(
+        &mut self,
+        index: usize,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+        filter_type: UltraFilterType,
+    ) {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = true;
             band.set_params(freq, gain_db, q, filter_type);
@@ -1494,8 +1514,13 @@ mod tests {
         // Input is smooth sine wave, so output should also be smooth
         let max_expected_diff = 0.5; // Allow for normal filter response changes
         for i in 1..outputs.len() {
-            let diff = (outputs[i] - outputs[i-1]).abs();
-            assert!(diff < max_expected_diff, "Zipper detected at sample {}: diff = {}", i, diff);
+            let diff = (outputs[i] - outputs[i - 1]).abs();
+            assert!(
+                diff < max_expected_diff,
+                "Zipper detected at sample {}: diff = {}",
+                i,
+                diff
+            );
         }
 
         // Verify filter processes finite values throughout
@@ -1519,12 +1544,19 @@ mod tests {
             td.process(0.01);
         }
         // With stable envelopes at equal levels, transient_amount should decay
-        assert!(td.transient_amount < 0.5, "Expected transient_amount < 0.5 for steady signal, got {}", td.transient_amount);
+        assert!(
+            td.transient_amount < 0.5,
+            "Expected transient_amount < 0.5 for steady signal, got {}",
+            td.transient_amount
+        );
 
         // Sudden loud signal (transient) - ratio should exceed threshold
         td.process(1.0);
         // After a big jump, transient should be detected
-        assert!(td.transient_amount > 0.0, "Expected transient detection after loud signal");
+        assert!(
+            td.transient_amount > 0.0,
+            "Expected transient detection after loud signal"
+        );
     }
 
     #[test]
@@ -1558,7 +1590,11 @@ mod tests {
             let val = (i as f64 * 0.01).sin();
             meter.process(val, val);
         }
-        assert!(meter.correlation > 0.9, "Expected correlation > 0.9, got {}", meter.correlation);
+        assert!(
+            meter.correlation > 0.9,
+            "Expected correlation > 0.9, got {}",
+            meter.correlation
+        );
 
         // Out of phase (L = -R) should give correlation = -1
         meter.reset();
@@ -1566,7 +1602,11 @@ mod tests {
             let val = (i as f64 * 0.01).sin();
             meter.process(val, -val);
         }
-        assert!(meter.correlation < -0.9, "Expected correlation < -0.9, got {}", meter.correlation);
+        assert!(
+            meter.correlation < -0.9,
+            "Expected correlation < -0.9, got {}",
+            meter.correlation
+        );
     }
 
     #[test]

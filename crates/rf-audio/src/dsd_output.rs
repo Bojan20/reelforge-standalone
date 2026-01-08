@@ -8,7 +8,6 @@
 //! - Automatic capability detection
 //! - DSD64/128/256/512 rate selection
 
-
 /// DSD output mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DsdOutputMode {
@@ -42,10 +41,10 @@ impl DsdRate {
     pub fn dop_pcm_rate(&self) -> u32 {
         // DoP requires specific PCM rates
         match self {
-            DsdRate::Dsd64 => 176_400,   // DSD64 → 176.4kHz PCM
-            DsdRate::Dsd128 => 352_800,  // DSD128 → 352.8kHz PCM
-            DsdRate::Dsd256 => 705_600,  // DSD256 → 705.6kHz PCM (rare)
-            DsdRate::Dsd512 => 705_600,  // DSD512 → requires native or special handling
+            DsdRate::Dsd64 => 176_400,  // DSD64 → 176.4kHz PCM
+            DsdRate::Dsd128 => 352_800, // DSD128 → 352.8kHz PCM
+            DsdRate::Dsd256 => 705_600, // DSD256 → 705.6kHz PCM (rare)
+            DsdRate::Dsd512 => 705_600, // DSD512 → requires native or special handling
         }
     }
 
@@ -118,7 +117,11 @@ impl DoPEncoder {
         let mut out_idx = 0;
 
         while dsd_idx + 1 < dsd_data.len() && out_idx < output.len() {
-            let marker = if self.marker_state { DOP_MARKER_B } else { DOP_MARKER_A };
+            let marker = if self.marker_state {
+                DOP_MARKER_B
+            } else {
+                DOP_MARKER_A
+            };
             self.marker_state = !self.marker_state;
 
             // Pack two DSD bytes into one 24-bit DoP sample
@@ -399,7 +402,10 @@ impl DsdToPcmConverter {
 
         // Design low-pass filter
         let filter_order = 128;
-        let coefficients = Self::design_lowpass(filter_order, pcm_rate as f64 / dsd_rate.sample_rate() as f64);
+        let coefficients = Self::design_lowpass(
+            filter_order,
+            pcm_rate as f64 / dsd_rate.sample_rate() as f64,
+        );
 
         Self {
             output_rate: pcm_rate,
@@ -586,7 +592,10 @@ mod tests {
         // After warmup, output should be in reasonable range (filter may overshoot slightly)
         // All-1s DSD (constant +1) should produce positive PCM after settling
         let last_samples = &pcm_output[8..]; // Check after warmup
-        assert!(last_samples.iter().all(|&s| s > 0.0), "All-1s DSD should produce positive PCM");
+        assert!(
+            last_samples.iter().all(|&s| s > 0.0),
+            "All-1s DSD should produce positive PCM"
+        );
         // Check values are finite and reasonable (filter transients can exceed ±1 briefly)
         assert!(pcm_output.iter().all(|&s| s.is_finite() && s.abs() < 2.0));
     }

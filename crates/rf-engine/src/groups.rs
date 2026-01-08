@@ -14,9 +14,9 @@
 //! - Absolute: All linked channels move to same value
 //! - Relative: Channels maintain offset, move together
 
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -365,20 +365,12 @@ impl GroupManager {
     pub fn groups_for_track(&self, track_id: TrackId) -> Vec<&Group> {
         self.track_groups
             .get(&track_id)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.groups.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.groups.get(id)).collect())
             .unwrap_or_default()
     }
 
     /// Get linked tracks for a parameter change
-    pub fn get_linked_tracks(
-        &self,
-        source_track: TrackId,
-        param: LinkParameter,
-    ) -> Vec<TrackId> {
+    pub fn get_linked_tracks(&self, source_track: TrackId, param: LinkParameter) -> Vec<TrackId> {
         let mut linked = Vec::new();
 
         if let Some(group_ids) = self.track_groups.get(&source_track) {
@@ -425,10 +417,7 @@ impl GroupManager {
     pub fn add_to_vca(&mut self, vca_id: VcaId, track_id: TrackId) {
         if let Some(vca) = self.vcas.get_mut(&vca_id) {
             vca.add_member(track_id);
-            self.track_vcas
-                .entry(track_id)
-                .or_default()
-                .insert(vca_id);
+            self.track_vcas.entry(track_id).or_default().insert(vca_id);
         }
     }
 
@@ -497,27 +486,39 @@ impl GroupManager {
 
     /// List all VCAs with their info
     pub fn list_vcas(&self) -> Vec<(VcaId, VcaInfo)> {
-        self.vcas.iter().map(|(&id, vca)| {
-            (id, VcaInfo {
-                name: vca.name.clone(),
-                level: db_to_linear(vca.level_db),
-                is_muted: vca.muted,
-                color: vca.color,
-                assigned_tracks: vca.members.iter().copied().collect(),
+        self.vcas
+            .iter()
+            .map(|(&id, vca)| {
+                (
+                    id,
+                    VcaInfo {
+                        name: vca.name.clone(),
+                        level: db_to_linear(vca.level_db),
+                        is_muted: vca.muted,
+                        color: vca.color,
+                        assigned_tracks: vca.members.iter().copied().collect(),
+                    },
+                )
             })
-        }).collect()
+            .collect()
     }
 
     /// List all groups with their info
     pub fn list_groups(&self) -> Vec<(GroupId, GroupInfo)> {
-        self.groups.iter().map(|(&id, group)| {
-            (id, GroupInfo {
-                name: group.name.clone(),
-                color: group.color,
-                tracks: group.members.iter().copied().collect(),
-                linked_params: group.linked_params.clone(),
+        self.groups
+            .iter()
+            .map(|(&id, group)| {
+                (
+                    id,
+                    GroupInfo {
+                        name: group.name.clone(),
+                        color: group.color,
+                        tracks: group.members.iter().copied().collect(),
+                        linked_params: group.linked_params.clone(),
+                    },
+                )
             })
-        }).collect()
+            .collect()
     }
 
     /// Get VCA level (linear)

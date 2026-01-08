@@ -25,9 +25,9 @@ pub struct CacheConfig {
 impl Default for CacheConfig {
     fn default() -> Self {
         Self {
-            max_frames: 120, // ~4 seconds at 30fps
+            max_frames: 120,   // ~4 seconds at 30fps
             preload_ahead: 30, // ~1 second ahead
-            keep_behind: 30, // ~1 second behind
+            keep_behind: 30,   // ~1 second behind
         }
     }
 }
@@ -121,10 +121,13 @@ impl FrameCache {
         inner.access_counter += 1;
         let access = inner.access_counter;
 
-        inner.frames.insert(frame_number, CacheEntry {
-            frame,
-            last_access: access,
-        });
+        inner.frames.insert(
+            frame_number,
+            CacheEntry {
+                frame,
+                last_access: access,
+            },
+        );
 
         inner.memory_used += frame_size;
     }
@@ -148,7 +151,9 @@ impl FrameCache {
 
         // Evict frames that are too far behind
         let keep_from = playhead.saturating_sub(inner.config.keep_behind as u64);
-        let keys_to_remove: Vec<u64> = inner.frames.keys()
+        let keys_to_remove: Vec<u64> = inner
+            .frames
+            .keys()
             .filter(|&&k| k < keep_from)
             .copied()
             .collect();
@@ -185,7 +190,9 @@ impl FrameCache {
 
 impl FrameCacheInner {
     fn evict_lru(&mut self) {
-        if let Some((&oldest_key, _)) = self.frames.iter()
+        if let Some((&oldest_key, _)) = self
+            .frames
+            .iter()
             .min_by_key(|(_, entry)| entry.last_access)
         {
             if let Some(entry) = self.frames.remove(&oldest_key) {

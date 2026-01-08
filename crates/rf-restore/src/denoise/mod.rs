@@ -561,7 +561,11 @@ mod tests {
 
         // Profile should have accumulated enough frames
         let profile = denoise.get_profile();
-        assert!(profile.frame_count >= 5, "Should have at least 5 frames, got {}", profile.frame_count);
+        assert!(
+            profile.frame_count >= 5,
+            "Should have at least 5 frames, got {}",
+            profile.frame_count
+        );
     }
 
     #[test]

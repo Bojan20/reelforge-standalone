@@ -91,7 +91,7 @@ impl GranularProcessor {
         Self {
             sample_rate,
             grain_size: (sample_rate * 0.05) as usize, // 50ms default
-            density: 20.0, // 20 grains per second
+            density: 20.0,                             // 20 grains per second
             jitter: 0.1,
             grains: Vec::new(),
             time_since_spawn: 0.0,
@@ -100,12 +100,7 @@ impl GranularProcessor {
     }
 
     /// Create with custom parameters
-    pub fn with_params(
-        sample_rate: f64,
-        grain_size_ms: f64,
-        density: f64,
-        jitter: f64,
-    ) -> Self {
+    pub fn with_params(sample_rate: f64, grain_size_ms: f64, density: f64, jitter: f64) -> Self {
         Self {
             sample_rate,
             grain_size: (sample_rate * grain_size_ms / 1000.0) as usize,
@@ -118,12 +113,7 @@ impl GranularProcessor {
     }
 
     /// Process audio with time stretch and pitch shift
-    pub fn process(
-        &mut self,
-        input: &[f64],
-        time_ratio: f64,
-        pitch_ratio: f64,
-    ) -> Vec<f64> {
+    pub fn process(&mut self, input: &[f64], time_ratio: f64, pitch_ratio: f64) -> Vec<f64> {
         if input.is_empty() || time_ratio <= 0.0 {
             return vec![];
         }
@@ -209,9 +199,7 @@ impl GranularProcessor {
 
     /// Normalize output to prevent clipping
     fn normalize(&self, output: &mut [f64]) {
-        let max_abs = output.iter()
-            .map(|&x| x.abs())
-            .fold(0.0, f64::max);
+        let max_abs = output.iter().map(|&x| x.abs()).fold(0.0, f64::max);
 
         if max_abs > 1.0 {
             let scale = 0.95 / max_abs;

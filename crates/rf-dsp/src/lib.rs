@@ -31,45 +31,45 @@
 #![allow(unexpected_cfgs)]
 
 // Core infrastructure
-pub mod simd;
 pub mod automation;
 pub mod delay_compensation;
+pub mod simd;
 pub mod smoothing;
 
 // DSP processors
+pub mod analysis;
 pub mod biquad;
-pub mod eq;
-pub mod dynamics;
-pub mod reverb;
+pub mod channel;
 pub mod delay;
+pub mod dynamics;
+pub mod eq;
+pub mod reverb;
+pub mod saturation;
 pub mod spatial;
 pub mod surround;
-pub mod saturation;
-pub mod channel;
-pub mod analysis;
 
 // Advanced DSP
 pub mod convolution;
 pub mod linear_phase;
-pub mod spectral;
-pub mod multiband;
+pub mod loudness_advanced; // Psychoacoustic loudness (Zwicker, sharpness, roughness)
 pub mod metering;
-pub mod metering_simd;      // SIMD-optimized metering (AVX2/AVX-512, 8x True Peak)
-pub mod loudness_advanced;  // Psychoacoustic loudness (Zwicker, sharpness, roughness)
-pub mod signal_integrity;   // Signal integrity chain (DC block, auto-gain, ISP limiter, dither)
-pub mod oversampling;       // Global oversampling + SIMD biquad batch processing
+pub mod metering_simd; // SIMD-optimized metering (AVX2/AVX-512, 8x True Peak)
+pub mod multiband;
+pub mod oversampling;
+pub mod signal_integrity; // Signal integrity chain (DC block, auto-gain, ISP limiter, dither)
+pub mod spectral; // Global oversampling + SIMD biquad batch processing
 
 // DSD Ultimate (Phase 2)
-pub mod dsd;                // DSD64/128/256/512, DoP, SACD, SDM
+pub mod dsd; // DSD64/128/256/512, DoP, SACD, SDM
 
 // Convolution Ultimate (Phase 2)
-pub mod convolution_ultra;  // True Stereo, Non-uniform, Zero-latency, Morphing, Deconvolution
+pub mod convolution_ultra; // True Stereo, Non-uniform, Zero-latency, Morphing, Deconvolution
 
 // GPU DSP (Phase 2)
-pub mod gpu;                // Hybrid GPU/CPU scheduler, compute shaders
+pub mod gpu; // Hybrid GPU/CPU scheduler, compute shaders
 
 // Advanced Formats (Phase 2)
-pub mod formats;            // MQA decode, TrueHD passthrough
+pub mod formats; // MQA decode, TrueHD passthrough
 
 // Professional EQ (Pro-Q 4 competitor)
 pub mod eq_pro;
@@ -78,219 +78,112 @@ pub mod eq_pro;
 pub mod eq_ultra;
 
 // Advanced EQ modules
-pub mod eq_analog;       // Pultec, API, Neve emulations
+pub mod eq_analog; // Pultec, API, Neve emulations
 pub mod eq_minimum_phase; // Hilbert transform, zero-latency
-pub mod eq_stereo;       // Bass mono, M/S, per-band stereo
-pub mod eq_room;         // Room correction, target curves
-pub mod eq_morph;        // Preset interpolation
+pub mod eq_morph;
+pub mod eq_room; // Room correction, target curves
+pub mod eq_stereo; // Bass mono, M/S, per-band stereo // Preset interpolation
 
 // Audio analysis & manipulation
-pub mod transient;
 pub mod elastic;
-pub mod elastic_pro;  // Ultimate time-stretching (STN + Phase Vocoder + Formant)
+pub mod elastic_pro; // Ultimate time-stretching (STN + Phase Vocoder + Formant)
 pub mod pitch;
-pub mod wavelet;      // Multi-resolution analysis (DWT, CWT, CQT)
-pub mod timestretch;  // ULTIMATIVNI Time Stretch Engine (NSGT + RTPGHI + STN + Formant)
+pub mod timestretch;
+pub mod transient;
+pub mod wavelet; // Multi-resolution analysis (DWT, CWT, CQT) // ULTIMATIVNI Time Stretch Engine (NSGT + RTPGHI + STN + Formant)
 
 // Re-export transient shaper
 pub use transient::{
-    TransientShaper,
-    MultibandTransientShaper,
-    TransientDetector,
-    TransientMarker,
-    TransientType,
-    DetectionAlgorithm,
-    DetectionSettings,
-    SliceGenerator,
+    DetectionAlgorithm, DetectionSettings, MultibandTransientShaper, SliceGenerator,
+    TransientDetector, TransientMarker, TransientShaper, TransientType,
 };
 
 // Re-export pitch editor
 pub use pitch::{
-    Pitch,
-    PitchSegment,
-    PitchDetector,
-    PitchDetectorConfig,
-    PitchCorrector,
-    PitchEditorState,
+    Pitch, PitchCorrector, PitchDetector, PitchDetectorConfig, PitchEditorState, PitchSegment,
     Scale,
 };
 
 // Re-export spectral processors
 pub use spectral::{
-    SpectralGate,
-    SpectralFreeze,
-    SpectralCompressor,
-    SpectralRepair,
+    DeClick, RepairMode, SpectralCompressor, SpectralFreeze, SpectralGate, SpectralRepair,
     SpectralSelection,
-    RepairMode,
-    DeClick,
 };
 
 // Re-export Professional EQ
 pub use eq_pro::{
-    ProEq,
-    EqBand as ProEqBand,
-    FilterShape,
-    Slope as FilterSlope2,
-    PhaseMode as ProPhaseMode,
-    StereoPlacement,
-    AnalyzerMode,
-    DynamicParams as ProDynamicParams,
-    SpectrumAnalyzer,
-    EqMatch,
-    CollisionDetector,
-    AutoGain,
-    SvfCore,
-    SvfCoeffs,
-    MAX_BANDS as PRO_EQ_MAX_BANDS,
+    AnalyzerMode, AutoGain, CollisionDetector, DynamicParams as ProDynamicParams,
+    EqBand as ProEqBand, EqMatch, FilterShape, MAX_BANDS as PRO_EQ_MAX_BANDS,
+    PhaseMode as ProPhaseMode, ProEq, Slope as FilterSlope2, SpectrumAnalyzer, StereoPlacement,
+    SvfCoeffs, SvfCore,
 };
 
 // Re-export Ultimate EQ
 pub use eq_ultra::{
-    UltraEq,
-    UltraBand,
-    MztCoeffs,
-    MztFilter,
-    Oversampler,
-    OversampleMode,
-    TransientDetector as UltraTransientDetector,
-    HarmonicSaturator,
-    SaturationType,
-    EqualLoudness,
-    CorrelationMeter,
-    FrequencyAnalyzer,
-    FrequencySuggestion,
+    CorrelationMeter, EqualLoudness, FrequencyAnalyzer, FrequencySuggestion, HarmonicSaturator,
+    MztCoeffs, MztFilter, OversampleMode, Oversampler, SaturationType,
+    TransientDetector as UltraTransientDetector, ULTRA_MAX_BANDS, UltraBand, UltraEq,
     UltraFilterType,
-    ULTRA_MAX_BANDS,
 };
 
 // Re-export Analog EQ models
 pub use eq_analog::{
-    PultecEqp1a,
-    PultecLowFreq,
-    PultecHighBoostFreq,
-    PultecHighAttenFreq,
-    Api550,
-    Api550LowFreq,
-    Api550MidFreq,
-    Api550HighFreq,
-    Neve1073,
-    Neve1073HpFreq,
-    Neve1073LowFreq,
-    Neve1073HighFreq,
-    TubeSaturation,
-    OutputTransformer,
-    DiscreteSaturation,
-    NeveTransformer,
-    StereoPultec,
-    StereoApi550,
-    StereoNeve1073,
-    ANALOG_MAX_BANDS,
+    ANALOG_MAX_BANDS, Api550, Api550HighFreq, Api550LowFreq, Api550MidFreq, DiscreteSaturation,
+    Neve1073, Neve1073HighFreq, Neve1073HpFreq, Neve1073LowFreq, NeveTransformer,
+    OutputTransformer, PultecEqp1a, PultecHighAttenFreq, PultecHighBoostFreq, PultecLowFreq,
+    StereoApi550, StereoNeve1073, StereoPultec, TubeSaturation,
 };
 
 // Re-export Minimum Phase EQ
 pub use eq_minimum_phase::{
-    HilbertTransform,
-    MinimumPhaseReconstructor,
-    MinPhaseEq,
-    MinPhaseEqBand,
-    MinPhaseFilterType,
-    LinearToMinPhase,
-    MIN_PHASE_MAX_BANDS,
+    HilbertTransform, LinearToMinPhase, MIN_PHASE_MAX_BANDS, MinPhaseEq, MinPhaseEqBand,
+    MinPhaseFilterType, MinimumPhaseReconstructor,
 };
 
 // Re-export Stereo EQ
 pub use eq_stereo::{
-    BassMono,
-    CrossoverSlope,
-    StereoMode,
-    StereoEqBand,
-    WidthBand,
-    StereoEq,
-    StereoImageAnalyzer,
-    StereoCorrector,
-    STEREO_EQ_MAX_BANDS,
+    BassMono, CrossoverSlope, STEREO_EQ_MAX_BANDS, StereoCorrector, StereoEq, StereoEqBand,
+    StereoImageAnalyzer, StereoMode, WidthBand,
 };
 
 // Re-export Room Correction
-pub use eq_room::{
-    TargetCurve,
-    RoomMeasurement,
-    RoomMode,
-    RoomModeType,
-    RoomCorrectionEq,
-};
+pub use eq_room::{RoomCorrectionEq, RoomMeasurement, RoomMode, RoomModeType, TargetCurve};
 
 // Re-export Morphing EQ
-pub use eq_morph::{
-    BandSnapshot,
-    MorphFilterType,
-    EqPreset,
-    MorphingEq,
-    PRESET_MAX_BANDS,
-};
+pub use eq_morph::{BandSnapshot, EqPreset, MorphFilterType, MorphingEq, PRESET_MAX_BANDS};
 
 // Re-export Wavelet/CQT analysis
 pub use wavelet::{
-    WaveletType,
-    WaveletFilter,
-    DWT,
-    WaveletDecomposition,
-    CWT,
-    CWTResult,
-    CQT,
-    CQTResult,
-    MultiResolutionAnalyzer,
-    MultiResolutionResult,
+    CQT, CQTResult, CWT, CWTResult, DWT, MultiResolutionAnalyzer, MultiResolutionResult,
+    WaveletDecomposition, WaveletFilter, WaveletType,
 };
 
 // Re-export Elastic Pro (Ultimate Time Stretching)
 pub use elastic_pro::{
-    StnComponent,
-    StnDecomposition,
-    StnDecomposer,
-    PhaseVocoder,
+    ElasticPro, ElasticProConfig, FormantPreserver, MultiResolutionStretcher, NoiseMorpher,
+    PhaseVocoder, StnComponent, StnDecomposer, StnDecomposition, StretchMode, StretchQuality,
     TransientProcessor,
-    NoiseMorpher,
-    FormantPreserver,
-    MultiResolutionStretcher,
-    StretchQuality,
-    StretchMode,
-    ElasticProConfig,
-    ElasticPro,
 };
 
 // Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)
 pub use metering::{
-    LufsMeter,
-    TruePeakMeter,
-    BroadcastMeter,
-    CorrelationMeter as StereoCorrelationMeter,
-    BalanceMeter,
-    KSystem,
-    KMeter,
-    VuMeter,
-    PpmMeter,
-    PpmType,
-    StereoPpmMeter,
-    DynamicRangeMeter,
-    PhaseScope,
-    PhasePoint,
-    StereoMeter,
+    BalanceMeter, BroadcastMeter, CorrelationMeter as StereoCorrelationMeter, DynamicRangeMeter,
+    KMeter, KSystem, LufsMeter, PhasePoint, PhaseScope, PpmMeter, PpmType, StereoMeter,
+    StereoPpmMeter, TruePeakMeter, VuMeter,
 };
 
 // Re-exports for convenience
-pub use simd::{SimdLevel, DspDispatch, detect_simd_level, simd_level};
-pub use simd::{apply_gain, process_biquad, mix_add, apply_stereo_gain};
 pub use simd::{BiquadCoeffsSimd, BiquadStateSimd};
+pub use simd::{DspDispatch, SimdLevel, detect_simd_level, simd_level};
+pub use simd::{apply_gain, apply_stereo_gain, mix_add, process_biquad};
 
-pub use automation::{CurveType, AutomationPoint, AutomationLane, AutomationManager};
 pub use automation::AtomicAutomationValue;
+pub use automation::{AutomationLane, AutomationManager, AutomationPoint, CurveType};
 
-pub use delay_compensation::{DelayLine, StereoDelayLine, DelayCompensationManager};
 pub use delay_compensation::TrackDelayCompensation;
+pub use delay_compensation::{DelayCompensationManager, DelayLine, StereoDelayLine};
 
-pub use smoothing::{SmoothingType, SmoothedParam, SmoothedStereoParam, ParameterBank};
+pub use smoothing::{ParameterBank, SmoothedParam, SmoothedStereoParam, SmoothingType};
 
 use rf_core::Sample;
 

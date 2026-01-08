@@ -257,11 +257,7 @@ impl ClickTrack {
     }
 
     /// Check if click should trigger at this tick position
-    pub fn should_trigger(
-        &self,
-        tick: u64,
-        beats_per_bar: u8,
-    ) -> Option<(bool, bool)> {
+    pub fn should_trigger(&self, tick: u64, beats_per_bar: u8) -> Option<(bool, bool)> {
         // is_downbeat, is_subdivision
         let ticks_per_beat = self.ppq as u64;
         let ticks_per_bar = ticks_per_beat * beats_per_bar as u64;
@@ -324,16 +320,8 @@ impl ClickTrack {
         }
 
         // Calculate pan gains
-        let left_gain = if self.pan <= 0.0 {
-            1.0
-        } else {
-            1.0 - self.pan
-        };
-        let right_gain = if self.pan >= 0.0 {
-            1.0
-        } else {
-            1.0 + self.pan
-        };
+        let left_gain = if self.pan <= 0.0 { 1.0 } else { 1.0 - self.pan };
+        let right_gain = if self.pan >= 0.0 { 1.0 } else { 1.0 + self.pan };
 
         let to_process = samples_left.min(left.len());
 

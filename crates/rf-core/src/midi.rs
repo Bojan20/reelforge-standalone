@@ -99,7 +99,18 @@ pub type ControllerValue = u16;
 /// Note name helper
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoteName {
-    C, Cs, D, Ds, E, F, Fs, G, Gs, A, As, B,
+    C,
+    Cs,
+    D,
+    Ds,
+    E,
+    F,
+    Fs,
+    G,
+    Gs,
+    A,
+    As,
+    B,
 }
 
 impl NoteName {
@@ -173,27 +184,18 @@ pub enum MidiEventData {
         velocity: Velocity,
     },
     /// Polyphonic Key Pressure (aftertouch per note)
-    PolyPressure {
-        note: NoteNumber,
-        pressure: u16,
-    },
+    PolyPressure { note: NoteNumber, pressure: u16 },
     /// Control Change
     ControlChange {
         controller: ControllerNumber,
         value: ControllerValue,
     },
     /// Program Change
-    ProgramChange {
-        program: u8,
-    },
+    ProgramChange { program: u8 },
     /// Channel Pressure (aftertouch for whole channel)
-    ChannelPressure {
-        pressure: u16,
-    },
+    ChannelPressure { pressure: u16 },
     /// Pitch Bend (-8192 to +8191, center = 0)
-    PitchBend {
-        value: i16,
-    },
+    PitchBend { value: i16 },
     /// System Exclusive (reference to data buffer)
     SysEx {
         length: u32,
@@ -201,17 +203,11 @@ pub enum MidiEventData {
         offset: u32,
     },
     /// MIDI Time Code Quarter Frame
-    MtcQuarterFrame {
-        data: u8,
-    },
+    MtcQuarterFrame { data: u8 },
     /// Song Position Pointer
-    SongPosition {
-        position: u16,
-    },
+    SongPosition { position: u16 },
     /// Song Select
-    SongSelect {
-        song: u8,
-    },
+    SongSelect { song: u8 },
     /// Tune Request
     TuneRequest,
     /// Timing Clock
@@ -241,7 +237,12 @@ pub struct MidiEvent {
 
 impl MidiEvent {
     /// Create a Note On event
-    pub fn note_on(sample_offset: u32, channel: MidiChannel, note: NoteNumber, velocity: Velocity) -> Self {
+    pub fn note_on(
+        sample_offset: u32,
+        channel: MidiChannel,
+        note: NoteNumber,
+        velocity: Velocity,
+    ) -> Self {
         Self {
             sample_offset,
             channel,
@@ -250,7 +251,12 @@ impl MidiEvent {
     }
 
     /// Create a Note Off event
-    pub fn note_off(sample_offset: u32, channel: MidiChannel, note: NoteNumber, velocity: Velocity) -> Self {
+    pub fn note_off(
+        sample_offset: u32,
+        channel: MidiChannel,
+        note: NoteNumber,
+        velocity: Velocity,
+    ) -> Self {
         Self {
             sample_offset,
             channel,
@@ -468,7 +474,10 @@ impl MidiEvent {
 
     /// Check if this is a note event
     pub fn is_note(&self) -> bool {
-        matches!(self.data, MidiEventData::NoteOn { .. } | MidiEventData::NoteOff { .. })
+        matches!(
+            self.data,
+            MidiEventData::NoteOn { .. } | MidiEventData::NoteOff { .. }
+        )
     }
 
     /// Check if this is a note on with velocity > 0
@@ -809,9 +818,9 @@ impl MidiClip {
 
     /// Get notes in tick range
     pub fn notes_in_range(&self, start: u64, end: u64) -> impl Iterator<Item = &MidiNote> {
-        self.notes.iter().filter(move |n| {
-            n.start_tick < end && n.end_tick() > start
-        })
+        self.notes
+            .iter()
+            .filter(move |n| n.start_tick < end && n.end_tick() > start)
     }
 
     /// Quantize notes to grid
@@ -852,7 +861,8 @@ impl MidiClip {
         for note in &self.notes {
             // Note on
             if note.start_tick >= start_tick && note.start_tick < end_tick {
-                let sample_offset = ((note.start_tick - start_tick) as f64 / ticks_per_sample) as u32;
+                let sample_offset =
+                    ((note.start_tick - start_tick) as f64 / ticks_per_sample) as u32;
                 events.push(MidiEvent::note_on(
                     sample_offset,
                     note.channel,
@@ -930,7 +940,13 @@ mod tests {
         let bytes = [0x91, 60, 100];
         let event = MidiEvent::from_bytes(0, &bytes).unwrap();
         assert_eq!(event.channel, 1);
-        assert!(matches!(event.data, MidiEventData::NoteOn { note: 60, velocity: 100 }));
+        assert!(matches!(
+            event.data,
+            MidiEventData::NoteOn {
+                note: 60,
+                velocity: 100
+            }
+        ));
 
         // Note On with velocity 0 = Note Off
         let bytes = [0x90, 64, 0];

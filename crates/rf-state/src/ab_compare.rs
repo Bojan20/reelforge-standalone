@@ -7,8 +7,8 @@
 //! - Delta view (difference between states)
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -62,8 +62,14 @@ impl CompareSlot {
 
     pub fn all() -> &'static [CompareSlot] {
         &[
-            Self::A, Self::B, Self::C, Self::D,
-            Self::E, Self::F, Self::G, Self::H,
+            Self::A,
+            Self::B,
+            Self::C,
+            Self::D,
+            Self::E,
+            Self::F,
+            Self::G,
+            Self::H,
         ]
     }
 }
@@ -228,8 +234,7 @@ impl ABCompare {
 
     /// Get active slot
     pub fn active_slot(&self) -> CompareSlot {
-        CompareSlot::from_index(self.active_slot.load(Ordering::Relaxed))
-            .unwrap_or(CompareSlot::A)
+        CompareSlot::from_index(self.active_slot.load(Ordering::Relaxed)).unwrap_or(CompareSlot::A)
     }
 
     /// Set active slot (instant switch)
@@ -468,7 +473,10 @@ mod tests {
         ab.store_to_slot(CompareSlot::A, &[(0, 0.5), (1, 0.7)]);
         ab.copy_slot(CompareSlot::A, CompareSlot::B);
 
-        assert!(ab.get_slot(CompareSlot::A).is_equal(ab.get_slot(CompareSlot::B)));
+        assert!(
+            ab.get_slot(CompareSlot::A)
+                .is_equal(ab.get_slot(CompareSlot::B))
+        );
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Ambisonic encoder - point source to Ambisonic
 
-use crate::position::Position3D;
 use super::{AmbisonicOrder, SphericalHarmonics};
+use crate::position::Position3D;
 
 /// Ambisonic encoder for point sources
 pub struct AmbisonicEncoder {
@@ -119,10 +119,7 @@ impl AmbisonicEncoder {
     }
 
     /// Encode multiple sources
-    pub fn encode_multiple(
-        &mut self,
-        sources: &[(&[f32], Position3D)],
-    ) -> Vec<Vec<f32>> {
+    pub fn encode_multiple(&mut self, sources: &[(&[f32], Position3D)]) -> Vec<Vec<f32>> {
         if sources.is_empty() {
             return vec![vec![]; self.num_channels];
         }
@@ -155,7 +152,8 @@ impl AmbisonicEncoder {
 
         if needs_update {
             let spherical = position.to_spherical();
-            self.cached_sh.compute_for_direction(spherical.azimuth, spherical.elevation);
+            self.cached_sh
+                .compute_for_direction(spherical.azimuth, spherical.elevation);
             self.last_position = Some(*position);
         }
     }

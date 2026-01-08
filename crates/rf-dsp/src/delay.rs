@@ -9,8 +9,8 @@
 use rf_core::Sample;
 use std::f64::consts::PI;
 
-use crate::{Processor, ProcessorConfig, StereoProcessor, MonoProcessor};
 use crate::biquad::BiquadTDF2;
+use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
 /// Simple mono delay with feedback and filtering
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ impl Delay {
         let mut delay = Self {
             buffer: vec![0.0; max_delay_samples],
             write_pos: 0,
-            delay_samples: (500.0 * 0.001 * sample_rate) as usize,  // Default 500ms
+            delay_samples: (500.0 * 0.001 * sample_rate) as usize, // Default 500ms
             max_delay_samples,
             feedback: 0.5,
             dry_wet: 0.5,
@@ -83,8 +83,8 @@ impl Delay {
     }
 
     fn read_delayed(&self) -> Sample {
-        let read_pos = (self.write_pos + self.max_delay_samples - self.delay_samples)
-            % self.max_delay_samples;
+        let read_pos =
+            (self.write_pos + self.max_delay_samples - self.delay_samples) % self.max_delay_samples;
         self.buffer[read_pos]
     }
 }
@@ -141,7 +141,7 @@ pub struct PingPongDelay {
     max_delay_samples: usize,
     feedback: f64,
     dry_wet: f64,
-    ping_pong: f64,  // 0.0 = normal stereo, 1.0 = full ping-pong
+    ping_pong: f64, // 0.0 = normal stereo, 1.0 = full ping-pong
 
     // Feedback filtering
     highpass_l: BiquadTDF2,
@@ -212,19 +212,19 @@ impl Processor for PingPongDelay {
 
 impl StereoProcessor for PingPongDelay {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
-        let read_pos = (self.write_pos + self.max_delay_samples - self.delay_samples)
-            % self.max_delay_samples;
+        let read_pos =
+            (self.write_pos + self.max_delay_samples - self.delay_samples) % self.max_delay_samples;
 
         let delayed_l = self.buffer_l[read_pos];
         let delayed_r = self.buffer_r[read_pos];
 
         // Filter feedback
-        let filtered_l = self.lowpass_l.process_sample(
-            self.highpass_l.process_sample(delayed_l)
-        );
-        let filtered_r = self.lowpass_r.process_sample(
-            self.highpass_r.process_sample(delayed_r)
-        );
+        let filtered_l = self
+            .lowpass_l
+            .process_sample(self.highpass_l.process_sample(delayed_l));
+        let filtered_r = self
+            .lowpass_r
+            .process_sample(self.highpass_r.process_sample(delayed_r));
 
         // Ping-pong crossfeed
         let fb_l = filtered_l * (1.0 - self.ping_pong) + filtered_r * self.ping_pong;
@@ -278,8 +278,8 @@ impl MultiTapDelay {
         let taps: Vec<_> = (0..num_taps)
             .map(|i| {
                 let delay = (i + 1) * max_delay_samples / (num_taps + 1);
-                let level = 1.0 / (i + 1) as f64;  // Decreasing level
-                let pan = if i % 2 == 0 { -0.3 } else { 0.3 };  // Alternating pan
+                let level = 1.0 / (i + 1) as f64; // Decreasing level
+                let pan = if i % 2 == 0 { -0.3 } else { 0.3 }; // Alternating pan
                 (delay, level, pan)
             })
             .collect();
@@ -331,8 +331,8 @@ impl StereoProcessor for MultiTapDelay {
         let mut wet_r = 0.0;
 
         for &(delay_samples, level, pan) in &self.taps {
-            let read_pos = (self.write_pos + self.max_delay_samples - delay_samples)
-                % self.max_delay_samples;
+            let read_pos =
+                (self.write_pos + self.max_delay_samples - delay_samples) % self.max_delay_samples;
             let delayed = self.buffer[read_pos] * level;
 
             // Pan law (constant power)
@@ -343,8 +343,8 @@ impl StereoProcessor for MultiTapDelay {
 
         // Feedback from last tap
         let last_tap_delay = self.taps.last().map(|t| t.0).unwrap_or(0);
-        let last_read_pos = (self.write_pos + self.max_delay_samples - last_tap_delay)
-            % self.max_delay_samples;
+        let last_read_pos =
+            (self.write_pos + self.max_delay_samples - last_tap_delay) % self.max_delay_samples;
         let fb = self.buffer[last_read_pos] * self.feedback;
 
         // Write to buffer
@@ -385,10 +385,10 @@ pub struct ModulatedDelay {
     base_delay_samples: f64,
 
     // Modulation
-    mod_depth: f64,   // In samples
-    mod_rate: f64,    // Hz
+    mod_depth: f64, // In samples
+    mod_rate: f64,  // Hz
     mod_phase: f64,
-    mod_stereo_offset: f64,  // Phase offset between L/R
+    mod_stereo_offset: f64, // Phase offset between L/R
 
     feedback: f64,
     dry_wet: f64,
@@ -398,18 +398,18 @@ pub struct ModulatedDelay {
 
 impl ModulatedDelay {
     pub fn new(sample_rate: f64) -> Self {
-        let max_delay_samples = (50.0 * 0.001 * sample_rate) as usize;  // 50ms max
+        let max_delay_samples = (50.0 * 0.001 * sample_rate) as usize; // 50ms max
 
         Self {
             buffer_l: vec![0.0; max_delay_samples],
             buffer_r: vec![0.0; max_delay_samples],
             write_pos: 0,
             max_delay_samples,
-            base_delay_samples: 10.0 * 0.001 * sample_rate,  // 10ms default
-            mod_depth: 2.0 * 0.001 * sample_rate,  // 2ms
-            mod_rate: 0.5,  // 0.5 Hz
+            base_delay_samples: 10.0 * 0.001 * sample_rate, // 10ms default
+            mod_depth: 2.0 * 0.001 * sample_rate,           // 2ms
+            mod_rate: 0.5,                                  // 0.5 Hz
             mod_phase: 0.0,
-            mod_stereo_offset: PI * 0.5,  // 90 degree offset
+            mod_stereo_offset: PI * 0.5, // 90 degree offset
             feedback: 0.0,
             dry_wet: 0.5,
             sample_rate,

@@ -85,12 +85,12 @@ impl ZeroLatencyConvolver {
 
         // Create partitioned convolver for remainder if IR is long enough
         let partitioned = if ir_len > direct_len {
-            let remaining_ir = ImpulseResponse::new(
-                ir.samples[direct_len..].to_vec(),
-                ir.sample_rate,
-                1,
-            );
-            Some(PartitionedConvolver::new(&remaining_ir, config.partition_size))
+            let remaining_ir =
+                ImpulseResponse::new(ir.samples[direct_len..].to_vec(), ir.sample_rate, 1);
+            Some(PartitionedConvolver::new(
+                &remaining_ir,
+                config.partition_size,
+            ))
         } else {
             None
         };
@@ -229,12 +229,14 @@ impl StereoZeroLatencyConvolver {
         let wet_r = self.right.process(input_right);
 
         // Apply mix
-        let out_l: Vec<Sample> = input_left.iter()
+        let out_l: Vec<Sample> = input_left
+            .iter()
             .zip(wet_l.iter())
             .map(|(&dry, &wet)| dry * (1.0 - self.mix) + wet * self.mix)
             .collect();
 
-        let out_r: Vec<Sample> = input_right.iter()
+        let out_r: Vec<Sample> = input_right
+            .iter()
             .zip(wet_r.iter())
             .map(|(&dry, &wet)| dry * (1.0 - self.mix) + wet * self.mix)
             .collect();
@@ -253,12 +255,14 @@ impl StereoZeroLatencyConvolver {
         let wet_l = self.left.process(input_left);
         let wet_r = self.right.process(input_right);
 
-        let out_l: Vec<Sample> = input_left.iter()
+        let out_l: Vec<Sample> = input_left
+            .iter()
             .zip(wet_l.iter())
             .map(|(&dry, &wet)| dry * dry_level + wet * wet_level)
             .collect();
 
-        let out_r: Vec<Sample> = input_right.iter()
+        let out_r: Vec<Sample> = input_right
+            .iter()
             .zip(wet_r.iter())
             .map(|(&dry, &wet)| dry * dry_level + wet * wet_level)
             .collect();

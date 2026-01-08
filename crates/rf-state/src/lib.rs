@@ -10,26 +10,26 @@
 //! - Project serialization
 //! - App preferences
 
-mod undo;
-mod commands;
-mod preset;
-mod project;
-mod automation;
 mod ab_compare;
-mod history;
+mod automation;
 mod autosave;
 mod clip;
+mod commands;
+mod history;
 mod markers;
 mod preferences;
+mod preset;
+mod project;
+mod undo;
 
-pub use undo::*;
-pub use commands::*;
-pub use preset::*;
-pub use project::*;
-pub use automation::*;
 pub use ab_compare::*;
-pub use history::*;
+pub use automation::*;
 pub use autosave::*;
 pub use clip::*;
+pub use commands::*;
+pub use history::*;
 pub use markers::*;
 pub use preferences::*;
+pub use preset::*;
+pub use project::*;
+pub use undo::*;

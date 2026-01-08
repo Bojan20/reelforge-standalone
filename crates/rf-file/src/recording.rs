@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::{BitDepth, FileResult, FileError};
+use crate::{BitDepth, FileError, FileResult};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RECORDING CONFIGURATION
@@ -59,7 +59,7 @@ impl Default for RecordingConfig {
             pre_roll_secs: 2.0,
             capture_pre_roll: true,
             min_disk_space: 100 * 1024 * 1024, // 100MB
-            disk_buffer_size: 64 * 1024, // 64KB
+            disk_buffer_size: 64 * 1024,       // 64KB
             auto_increment: true,
         }
     }
@@ -232,7 +232,9 @@ impl DiskWriter {
     }
 
     fn write_samples(&mut self, samples: &[f32]) -> FileResult<()> {
-        let writer = self.writer.as_mut()
+        let writer = self
+            .writer
+            .as_mut()
             .ok_or_else(|| FileError::WriteError("Writer closed".to_string()))?;
 
         match self.spec.sample_format {
@@ -243,37 +245,35 @@ impl DiskWriter {
                     self.bytes_written += 4;
                 }
             }
-            hound::SampleFormat::Int => {
-                match self.spec.bits_per_sample {
-                    16 => {
-                        for &sample in samples {
-                            let int_sample = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
-                            let bytes = int_sample.to_le_bytes();
-                            writer.write_all(&bytes)?;
-                            self.bytes_written += 2;
-                        }
-                    }
-                    24 => {
-                        for &sample in samples {
-                            let int_sample = (sample.clamp(-1.0, 1.0) * 8388607.0) as i32;
-                            let bytes = int_sample.to_le_bytes();
-                            writer.write_all(&bytes[0..3])?;
-                            self.bytes_written += 3;
-                        }
-                    }
-                    32 => {
-                        for &sample in samples {
-                            let int_sample = (sample.clamp(-1.0, 1.0) * 2147483647.0) as i32;
-                            let bytes = int_sample.to_le_bytes();
-                            writer.write_all(&bytes)?;
-                            self.bytes_written += 4;
-                        }
-                    }
-                    _ => {
-                        return Err(FileError::WriteError("Unsupported bit depth".to_string()));
+            hound::SampleFormat::Int => match self.spec.bits_per_sample {
+                16 => {
+                    for &sample in samples {
+                        let int_sample = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+                        let bytes = int_sample.to_le_bytes();
+                        writer.write_all(&bytes)?;
+                        self.bytes_written += 2;
                     }
                 }
-            }
+                24 => {
+                    for &sample in samples {
+                        let int_sample = (sample.clamp(-1.0, 1.0) * 8388607.0) as i32;
+                        let bytes = int_sample.to_le_bytes();
+                        writer.write_all(&bytes[0..3])?;
+                        self.bytes_written += 3;
+                    }
+                }
+                32 => {
+                    for &sample in samples {
+                        let int_sample = (sample.clamp(-1.0, 1.0) * 2147483647.0) as i32;
+                        let bytes = int_sample.to_le_bytes();
+                        writer.write_all(&bytes)?;
+                        self.bytes_written += 4;
+                    }
+                }
+                _ => {
+                    return Err(FileError::WriteError("Unsupported bit depth".to_string()));
+                }
+            },
         }
 
         self.samples_written += samples.len() as u64 / self.spec.channels as u64;
@@ -340,7 +340,8 @@ impl DiskWriter {
                     32 => {
                         for chunk in raw_data.chunks(4) {
                             if chunk.len() == 4 {
-                                let sample = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                                let sample =
+                                    i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
                                 wav_writer.write_sample(sample)?;
                             }
                         }
@@ -477,7 +478,9 @@ impl AudioRecorder {
 
         // Only start from armed or stopped
         if *state != RecordingState::Armed && *state != RecordingState::Stopped {
-            return Err(FileError::WriteError("Invalid state for recording".to_string()));
+            return Err(FileError::WriteError(
+                "Invalid state for recording".to_string(),
+            ));
         }
 
         let config = self.config.read();
@@ -662,7 +665,8 @@ impl AudioRecorder {
                             let mut stats = self.stats.write();
                             let frames = data.len() / config.num_channels as usize;
                             stats.samples_recorded += frames as u64;
-                            stats.duration_secs = stats.samples_recorded as f64 / config.sample_rate as f64;
+                            stats.duration_secs =
+                                stats.samples_recorded as f64 / config.sample_rate as f64;
                             stats.bytes_written = writer.bytes_written;
                         }
                         None => break,
@@ -682,7 +686,8 @@ impl AudioRecorder {
 
     /// Update peak level
     fn update_peak(&self, samples: &[f32]) {
-        let max = samples.iter()
+        let max = samples
+            .iter()
             .map(|s| s.abs())
             .fold(0.0f32, |a, b| a.max(b));
 

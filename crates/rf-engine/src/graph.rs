@@ -60,7 +60,8 @@ impl AudioGraph {
     /// Remove a node from the graph
     pub fn remove_node(&mut self, id: NodeId) -> Option<Box<dyn AudioNode>> {
         // Remove connections involving this node
-        self.connections.retain(|c| c.from_node != id && c.to_node != id);
+        self.connections
+            .retain(|c| c.from_node != id && c.to_node != id);
 
         self.buffers.remove(&id);
         self.dirty = true;
@@ -94,7 +95,8 @@ impl AudioGraph {
 
     /// Disconnect two nodes
     pub fn disconnect(&mut self, from_node: NodeId, to_node: NodeId) {
-        self.connections.retain(|c| c.from_node != from_node || c.to_node != to_node);
+        self.connections
+            .retain(|c| c.from_node != from_node || c.to_node != to_node);
         self.dirty = true;
     }
 

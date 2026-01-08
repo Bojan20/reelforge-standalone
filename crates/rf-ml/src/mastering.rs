@@ -102,8 +102,8 @@ impl MusicGenre {
     pub fn typical_eq_hints(&self) -> Vec<EqHint> {
         match self {
             Self::Pop => vec![
-                EqHint::boost(100.0, 2.0),  // Low end warmth
-                EqHint::boost(3000.0, 1.5), // Presence
+                EqHint::boost(100.0, 2.0),   // Low end warmth
+                EqHint::boost(3000.0, 1.5),  // Presence
                 EqHint::boost(10000.0, 1.0), // Air
             ],
             Self::HipHop => vec![
@@ -112,8 +112,8 @@ impl MusicGenre {
                 EqHint::boost(8000.0, 2.0), // Crisp
             ],
             Self::Electronic => vec![
-                EqHint::boost(50.0, 2.5),   // Sub
-                EqHint::boost(5000.0, 1.5), // Presence
+                EqHint::boost(50.0, 2.5),    // Sub
+                EqHint::boost(5000.0, 1.5),  // Presence
                 EqHint::boost(12000.0, 1.0), // Shimmer
             ],
             Self::Rock | Self::Metal => vec![
@@ -122,8 +122,8 @@ impl MusicGenre {
                 EqHint::cut(400.0, 1.0),    // Clean up
             ],
             Self::Classical | Self::Orchestral => vec![
-                EqHint::cut(40.0, 1.5),     // Rumble cut
-                EqHint::boost(2000.0, 0.5), // Slight presence
+                EqHint::cut(40.0, 1.5),      // Rumble cut
+                EqHint::boost(2000.0, 0.5),  // Slight presence
                 EqHint::boost(14000.0, 1.0), // Air
             ],
             Self::Jazz => vec![
@@ -131,8 +131,8 @@ impl MusicGenre {
                 EqHint::boost(5000.0, 1.0), // Clarity
             ],
             Self::Acoustic => vec![
-                EqHint::boost(200.0, 1.0),  // Body
-                EqHint::boost(3000.0, 1.5), // Presence
+                EqHint::boost(200.0, 1.0),   // Body
+                EqHint::boost(3000.0, 1.5),  // Presence
                 EqHint::boost(12000.0, 1.0), // Sparkle
             ],
             Self::Ambient => vec![
@@ -140,8 +140,8 @@ impl MusicGenre {
                 EqHint::boost(8000.0, 1.0), // Atmosphere
             ],
             Self::RnB => vec![
-                EqHint::boost(80.0, 2.0),   // Bass
-                EqHint::boost(3500.0, 1.5), // Vocals forward
+                EqHint::boost(80.0, 2.0),    // Bass
+                EqHint::boost(3500.0, 1.5),  // Vocals forward
                 EqHint::boost(10000.0, 1.0), // Air
             ],
             Self::Country => vec![
@@ -348,10 +348,10 @@ impl MasteringRecommendations {
 
     /// Is this a "no processing needed" result?
     pub fn is_minimal(&self) -> bool {
-        self.gain_adjustment.abs() < 0.5 &&
-        self.eq_adjustments.is_empty() &&
-        self.compression_ratio.is_none() &&
-        (self.stereo_width_mult - 1.0).abs() < 0.05
+        self.gain_adjustment.abs() < 0.5
+            && self.eq_adjustments.is_empty()
+            && self.compression_ratio.is_none()
+            && (self.stereo_width_mult - 1.0).abs() < 0.05
     }
 }
 
@@ -382,11 +382,11 @@ impl ReferenceMatch {
         let width_diff = reference.stereo_width - source.stereo_width;
 
         // Simple match score based on spectral similarity
-        let spectral_match = 1.0 - (
-            (reference.bass_ratio - source.bass_ratio).abs() +
-            (reference.mid_ratio - source.mid_ratio).abs() +
-            (reference.high_ratio - source.high_ratio).abs()
-        ) / 3.0;
+        let spectral_match = 1.0
+            - ((reference.bass_ratio - source.bass_ratio).abs()
+                + (reference.mid_ratio - source.mid_ratio).abs()
+                + (reference.high_ratio - source.high_ratio).abs())
+                / 3.0;
 
         Self {
             reference,
@@ -458,7 +458,8 @@ impl MasteringSession {
 
     /// Add reference track
     pub fn add_reference(&mut self, samples: &[f32], sample_rate: u32) {
-        self.references.push(AudioAnalysis::analyze(samples, sample_rate));
+        self.references
+            .push(AudioAnalysis::analyze(samples, sample_rate));
         self.update_recommendations();
     }
 
@@ -480,9 +481,8 @@ impl MasteringSession {
                 self.recommendations = Some(match_result.generate_processing());
             } else {
                 // Generate recommendations based on target only
-                self.recommendations = Some(
-                    MasteringRecommendations::from_analysis(source, self.target)
-                );
+                self.recommendations =
+                    Some(MasteringRecommendations::from_analysis(source, self.target));
             }
         }
     }

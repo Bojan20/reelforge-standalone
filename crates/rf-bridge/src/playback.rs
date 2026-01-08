@@ -23,16 +23,16 @@
 //! └─────────────────────────────────────────────────────────────────┘
 //! ```
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::collections::HashMap;
-use parking_lot::{Mutex, RwLock};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use parking_lot::{Mutex, RwLock};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::command_queue::audio_command_handle;
 use crate::dsp_commands::DspCommand;
 
-use rf_engine::playback::{PlaybackEngine as EnginePlayback, BusState};
+use rf_engine::playback::{BusState, PlaybackEngine as EnginePlayback};
 // Re-export BusState for external use
 
 use rf_file::{AudioRecorder, RecordingConfig, RecordingState};
@@ -174,11 +174,11 @@ impl PlaybackMeters {
 // DSP PROCESSOR STORAGE (per-track EQ instances)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-use rf_engine::{
-    ProEqWrapper, UltraEqWrapper, PultecWrapper, Api550Wrapper,
-    Neve1073Wrapper, MorphEqWrapper, RoomCorrectionWrapper,
-};
 use rf_engine::InsertProcessor;
+use rf_engine::{
+    Api550Wrapper, MorphEqWrapper, Neve1073Wrapper, ProEqWrapper, PultecWrapper,
+    RoomCorrectionWrapper, UltraEqWrapper,
+};
 
 /// Per-track DSP processor collection
 pub struct TrackDsp {
@@ -202,11 +202,11 @@ impl TrackDsp {
     pub fn new(sample_rate: f64) -> Self {
         Self {
             pro_eq: Some(ProEqWrapper::new(sample_rate)),
-            ultra_eq: None, // On-demand
-            pultec: None,   // On-demand
-            api550: None,   // On-demand
-            neve1073: None, // On-demand
-            morph_eq: None, // On-demand
+            ultra_eq: None,        // On-demand
+            pultec: None,          // On-demand
+            api550: None,          // On-demand
+            neve1073: None,        // On-demand
+            morph_eq: None,        // On-demand
             room_correction: None, // On-demand
         }
     }
@@ -239,24 +239,52 @@ impl TrackDsp {
 
     /// Reset all processors
     pub fn reset(&mut self) {
-        if let Some(ref mut eq) = self.pro_eq { eq.reset(); }
-        if let Some(ref mut eq) = self.ultra_eq { eq.reset(); }
-        if let Some(ref mut eq) = self.pultec { eq.reset(); }
-        if let Some(ref mut eq) = self.api550 { eq.reset(); }
-        if let Some(ref mut eq) = self.neve1073 { eq.reset(); }
-        if let Some(ref mut eq) = self.morph_eq { eq.reset(); }
-        if let Some(ref mut eq) = self.room_correction { eq.reset(); }
+        if let Some(ref mut eq) = self.pro_eq {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.ultra_eq {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.pultec {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.api550 {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.neve1073 {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.morph_eq {
+            eq.reset();
+        }
+        if let Some(ref mut eq) = self.room_correction {
+            eq.reset();
+        }
     }
 
     /// Set sample rate for all processors
     pub fn set_sample_rate(&mut self, sample_rate: f64) {
-        if let Some(ref mut eq) = self.pro_eq { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.ultra_eq { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.pultec { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.api550 { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.neve1073 { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.morph_eq { eq.set_sample_rate(sample_rate); }
-        if let Some(ref mut eq) = self.room_correction { eq.set_sample_rate(sample_rate); }
+        if let Some(ref mut eq) = self.pro_eq {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.ultra_eq {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.pultec {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.api550 {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.neve1073 {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.morph_eq {
+            eq.set_sample_rate(sample_rate);
+        }
+        if let Some(ref mut eq) = self.room_correction {
+            eq.set_sample_rate(sample_rate);
+        }
     }
 }
 
@@ -279,7 +307,9 @@ impl DspStorage {
 
     /// Get or create track DSP
     pub fn get_or_create(&mut self, track_id: u32) -> &mut TrackDsp {
-        self.tracks.entry(track_id).or_insert_with(|| TrackDsp::new(self.sample_rate))
+        self.tracks
+            .entry(track_id)
+            .or_insert_with(|| TrackDsp::new(self.sample_rate))
     }
 
     /// Get track DSP if exists
@@ -307,8 +337,15 @@ impl DspStorage {
 
         match cmd {
             // Pro EQ commands
-            DspCommand::EqSetGain { track_id, band_index, gain_db } => {
-                println!("[DSP] EqSetGain track={} band={} gain={}dB", track_id, band_index, gain_db);
+            DspCommand::EqSetGain {
+                track_id,
+                band_index,
+                gain_db,
+            } => {
+                println!(
+                    "[DSP] EqSetGain track={} band={} gain={}dB",
+                    track_id, band_index, gain_db
+                );
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     // Get current params and update gain
@@ -317,22 +354,37 @@ impl DspStorage {
                     println!("[DSP] -> Applied gain to band {}", band_index);
                 }
             }
-            DspCommand::EqSetFrequency { track_id, band_index, freq } => {
+            DspCommand::EqSetFrequency {
+                track_id,
+                band_index,
+                freq,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     let idx = band_index as usize;
                     eq.set_param(idx * 5, freq); // Param 0 = frequency
                 }
             }
-            DspCommand::EqSetQ { track_id, band_index, q } => {
+            DspCommand::EqSetQ {
+                track_id,
+                band_index,
+                q,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     let idx = band_index as usize;
                     eq.set_param(idx * 5 + 2, q); // Param 2 = Q
                 }
             }
-            DspCommand::EqEnableBand { track_id, band_index, enabled } => {
-                println!("[DSP] EqEnableBand track={} band={} enabled={}", track_id, band_index, enabled);
+            DspCommand::EqEnableBand {
+                track_id,
+                band_index,
+                enabled,
+            } => {
+                println!(
+                    "[DSP] EqEnableBand track={} band={} enabled={}",
+                    track_id, band_index, enabled
+                );
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     eq.set_band_enabled(band_index as usize, enabled);
@@ -347,7 +399,11 @@ impl DspStorage {
             }
 
             // Pultec commands
-            DspCommand::PultecSetLowBoost { track_id, boost_db, freq: _ } => {
+            DspCommand::PultecSetLowBoost {
+                track_id,
+                boost_db,
+                freq: _,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if dsp.pultec.is_none() {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
@@ -365,7 +421,12 @@ impl DspStorage {
                     eq.set_low_atten(atten_db);
                 }
             }
-            DspCommand::PultecSetHighBoost { track_id, boost_db, bandwidth: _, freq: _ } => {
+            DspCommand::PultecSetHighBoost {
+                track_id,
+                boost_db,
+                bandwidth: _,
+                freq: _,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if dsp.pultec.is_none() {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
@@ -374,7 +435,11 @@ impl DspStorage {
                     eq.set_high_boost(boost_db);
                 }
             }
-            DspCommand::PultecSetHighAtten { track_id, atten_db, freq: _ } => {
+            DspCommand::PultecSetHighAtten {
+                track_id,
+                atten_db,
+                freq: _,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if dsp.pultec.is_none() {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
@@ -385,7 +450,11 @@ impl DspStorage {
             }
 
             // Neve commands
-            DspCommand::Neve1073SetLow { track_id, gain_db, freq_index: _ } => {
+            DspCommand::Neve1073SetLow {
+                track_id,
+                gain_db,
+                freq_index: _,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if dsp.neve1073.is_none() {
                     dsp.neve1073 = Some(Neve1073Wrapper::new(sample_rate));
@@ -394,7 +463,11 @@ impl DspStorage {
                     eq.set_low_gain(gain_db);
                 }
             }
-            DspCommand::Neve1073SetHigh { track_id, gain_db, freq_index: _ } => {
+            DspCommand::Neve1073SetHigh {
+                track_id,
+                gain_db,
+                freq_index: _,
+            } => {
                 let dsp = self.get_or_create(track_id);
                 if dsp.neve1073.is_none() {
                     dsp.neve1073 = Some(Neve1073Wrapper::new(sample_rate));
@@ -552,7 +625,8 @@ impl PlaybackEngine {
 
     /// Set master volume (linear) - used in simple mode
     pub fn set_master_volume_simple(&self, volume: f64) {
-        self.master_volume.store(volume.to_bits(), Ordering::Relaxed);
+        self.master_volume
+            .store(volume.to_bits(), Ordering::Relaxed);
     }
 
     /// Get bus volume (linear)
@@ -591,17 +665,22 @@ impl PlaybackEngine {
         }
 
         let host = cpal::default_host();
-        let device = host.default_output_device()
+        let device = host
+            .default_output_device()
             .ok_or_else(|| "No output device found".to_string())?;
 
-        let config = device.default_output_config()
+        let config = device
+            .default_output_config()
             .map_err(|e| format!("Failed to get config: {}", e))?;
 
         let sample_rate = config.sample_rate().0 as f64;
         self.state.set_sample_rate(sample_rate);
 
-        log::info!("Starting unified audio playback: {} Hz, {} channels",
-            config.sample_rate().0, config.channels());
+        log::info!(
+            "Starting unified audio playback: {} Hz, {} channels",
+            config.sample_rate().0,
+            config.channels()
+        );
 
         // Clone what we need for the callback
         let state = Arc::clone(&self.state);
@@ -703,9 +782,12 @@ impl PlaybackEngine {
                 )
             }
             _ => return Err("Unsupported sample format".to_string()),
-        }.map_err(|e| format!("Failed to build stream: {}", e))?;
+        }
+        .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start stream: {}", e))?;
 
         self.stream.lock().0 = Some(stream);
         self.running.store(true, Ordering::Release);
@@ -768,8 +850,12 @@ impl PlaybackEngine {
     pub fn set_loop(&self, enabled: bool, start_sec: f64, end_sec: f64) {
         let sr = self.state.sample_rate();
         self.state.loop_enabled.store(enabled, Ordering::Relaxed);
-        self.state.loop_start_samples.store((start_sec * sr) as u64, Ordering::Relaxed);
-        self.state.loop_end_samples.store((end_sec * sr) as u64, Ordering::Relaxed);
+        self.state
+            .loop_start_samples
+            .store((start_sec * sr) as u64, Ordering::Relaxed);
+        self.state
+            .loop_end_samples
+            .store((end_sec * sr) as u64, Ordering::Relaxed);
 
         if let Some(ref engine) = *self.engine_playback.read() {
             engine.position.set_loop(start_sec, end_sec, enabled);
@@ -850,7 +936,8 @@ impl PlaybackEngine {
     /// Start recording
     pub fn recording_start(&self) -> Result<String, String> {
         self.state.recording.store(true, Ordering::Relaxed);
-        self.recorder.start()
+        self.recorder
+            .start()
             .map(|path| path.to_string_lossy().to_string())
             .map_err(|e| e.to_string())
     }
@@ -858,7 +945,8 @@ impl PlaybackEngine {
     /// Stop recording
     pub fn recording_stop(&self) -> Option<String> {
         self.state.recording.store(false, Ordering::Relaxed);
-        self.recorder.stop()
+        self.recorder
+            .stop()
             .ok()
             .flatten()
             .map(|path| path.to_string_lossy().to_string())
@@ -991,8 +1079,7 @@ impl PlaybackEngine {
     pub fn current_output_device(&self) -> Option<String> {
         // TODO: Store this when setting device
         let host = cpal::default_host();
-        host.default_output_device()
-            .and_then(|d| d.name().ok())
+        host.default_output_device().and_then(|d| d.name().ok())
     }
 
     /// Start with specific device
@@ -1004,19 +1091,25 @@ impl PlaybackEngine {
         let host = cpal::default_host();
 
         // Find device by name
-        let device = host.output_devices()
+        let device = host
+            .output_devices()
             .map_err(|e| format!("Failed to enumerate devices: {}", e))?
             .find(|d| d.name().ok().as_deref() == Some(device_name))
             .ok_or_else(|| format!("Device not found: {}", device_name))?;
 
-        let config = device.default_output_config()
+        let config = device
+            .default_output_config()
             .map_err(|e| format!("Failed to get config: {}", e))?;
 
         let sample_rate = config.sample_rate().0 as f64;
         self.state.set_sample_rate(sample_rate);
 
-        log::info!("Starting audio on device '{}': {} Hz, {} channels",
-            device_name, config.sample_rate().0, config.channels());
+        log::info!(
+            "Starting audio on device '{}': {} Hz, {} channels",
+            device_name,
+            config.sample_rate().0,
+            config.channels()
+        );
 
         // Clone what we need for the callback
         let state = Arc::clone(&self.state);
@@ -1053,10 +1146,19 @@ impl PlaybackEngine {
                             engine_output_r.resize(frames, 0.0);
                         }
                         process_audio_unified(
-                            data, channels, frames, &state, &meters,
-                            &engine_playback, &simple_clips, use_engine, decay,
-                            &mut engine_output_l, &mut engine_output_r,
-                            &mut dsp_storage, &master_volume,
+                            data,
+                            channels,
+                            frames,
+                            &state,
+                            &meters,
+                            &engine_playback,
+                            &simple_clips,
+                            use_engine,
+                            decay,
+                            &mut engine_output_l,
+                            &mut engine_output_r,
+                            &mut dsp_storage,
+                            &master_volume,
                         );
                     },
                     |err| log::error!("Audio stream error: {}", err),
@@ -1064,9 +1166,12 @@ impl PlaybackEngine {
                 )
             }
             _ => return Err("Unsupported sample format".to_string()),
-        }.map_err(|e| format!("Failed to build stream: {}", e))?;
+        }
+        .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start stream: {}", e))?;
 
         self.stream.lock().0 = Some(stream);
         self.running.store(true, Ordering::Release);
@@ -1123,7 +1228,8 @@ impl PlaybackEngine {
 
     /// Set requested sample rate (will be applied on next start/restart)
     pub fn set_requested_sample_rate(&self, sample_rate: u32) {
-        self.requested_sample_rate.store(sample_rate as u64, Ordering::Relaxed);
+        self.requested_sample_rate
+            .store(sample_rate as u64, Ordering::Relaxed);
     }
 
     /// Get requested sample rate (0 = device default)
@@ -1133,7 +1239,8 @@ impl PlaybackEngine {
 
     /// Set requested buffer size (will be applied on next start/restart)
     pub fn set_requested_buffer_size(&self, buffer_size: u32) {
-        self.requested_buffer_size.store(buffer_size as u64, Ordering::Relaxed);
+        self.requested_buffer_size
+            .store(buffer_size as u64, Ordering::Relaxed);
     }
 
     /// Get requested buffer size (0 = device default)
@@ -1150,7 +1257,11 @@ impl PlaybackEngine {
     }
 
     /// Restart audio with new settings
-    pub fn restart_with_settings(&self, sample_rate: Option<u32>, buffer_size: Option<u32>) -> Result<(), String> {
+    pub fn restart_with_settings(
+        &self,
+        sample_rate: Option<u32>,
+        buffer_size: Option<u32>,
+    ) -> Result<(), String> {
         // Store new settings
         if let Some(sr) = sample_rate {
             self.set_requested_sample_rate(sr);
@@ -1180,7 +1291,8 @@ impl PlaybackEngine {
         };
 
         // Get supported configs
-        let supported = device.supported_output_configs()
+        let supported = device
+            .supported_output_configs()
             .map_err(|e| format!("Failed to get supported configs: {}", e))?;
 
         // Find best matching config
@@ -1198,8 +1310,12 @@ impl PlaybackEngine {
         let actual_sample_rate = config.sample_rate().0 as f64;
         self.state.set_sample_rate(actual_sample_rate);
 
-        log::info!("Restarting audio: {} Hz, {} channels (requested: {} Hz)",
-            config.sample_rate().0, config.channels(), target_sr);
+        log::info!(
+            "Restarting audio: {} Hz, {} channels (requested: {} Hz)",
+            config.sample_rate().0,
+            config.channels(),
+            target_sr
+        );
 
         // Clone what we need for the callback
         let state = Arc::clone(&self.state);
@@ -1219,33 +1335,43 @@ impl PlaybackEngine {
         let priority_set = std::sync::atomic::AtomicBool::new(false);
 
         let stream = match config.sample_format() {
-            cpal::SampleFormat::F32 => {
-                device.build_output_stream(
-                    &config.into(),
-                    move |data: &mut [f32], _| {
-                        if !priority_set.swap(true, Ordering::Relaxed) {
-                            rf_audio::set_realtime_priority();
-                        }
-                        let frames = data.len() / channels;
-                        if engine_output_l.len() < frames {
-                            engine_output_l.resize(frames, 0.0);
-                            engine_output_r.resize(frames, 0.0);
-                        }
-                        process_audio_unified(
-                            data, channels, frames, &state, &meters,
-                            &engine_playback, &simple_clips, use_engine, decay,
-                            &mut engine_output_l, &mut engine_output_r,
-                            &mut dsp_storage, &master_volume,
-                        );
-                    },
-                    |err| log::error!("Audio stream error: {}", err),
-                    None,
-                )
-            }
+            cpal::SampleFormat::F32 => device.build_output_stream(
+                &config.into(),
+                move |data: &mut [f32], _| {
+                    if !priority_set.swap(true, Ordering::Relaxed) {
+                        rf_audio::set_realtime_priority();
+                    }
+                    let frames = data.len() / channels;
+                    if engine_output_l.len() < frames {
+                        engine_output_l.resize(frames, 0.0);
+                        engine_output_r.resize(frames, 0.0);
+                    }
+                    process_audio_unified(
+                        data,
+                        channels,
+                        frames,
+                        &state,
+                        &meters,
+                        &engine_playback,
+                        &simple_clips,
+                        use_engine,
+                        decay,
+                        &mut engine_output_l,
+                        &mut engine_output_r,
+                        &mut dsp_storage,
+                        &master_volume,
+                    );
+                },
+                |err| log::error!("Audio stream error: {}", err),
+                None,
+            ),
             _ => return Err("Unsupported sample format".to_string()),
-        }.map_err(|e| format!("Failed to build stream: {}", e))?;
+        }
+        .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start stream: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start stream: {}", e))?;
 
         self.stream.lock().0 = Some(stream);
         self.running.store(true, Ordering::Release);
@@ -1340,11 +1466,17 @@ fn process_audio_unified(
     if use_engine {
         // Full DAW mode - use rf-engine PlaybackEngine
         if let Some(engine) = engine {
-            engine.process(&mut engine_output_l[..frames], &mut engine_output_r[..frames]);
+            engine.process(
+                &mut engine_output_l[..frames],
+                &mut engine_output_r[..frames],
+            );
         }
     } else {
         // Simple mode - direct clip playback
-        let has_clips = simple_clips.try_read().map(|c| !c.is_empty()).unwrap_or(false);
+        let has_clips = simple_clips
+            .try_read()
+            .map(|c| !c.is_empty())
+            .unwrap_or(false);
 
         if has_clips {
             if let Some(clips_guard) = simple_clips.try_read() {
@@ -1352,11 +1484,12 @@ fn process_audio_unified(
                     let current_pos = pos + i as u64;
 
                     // Handle loop
-                    let actual_pos = if loop_enabled && loop_end > loop_start && current_pos >= loop_end {
-                        loop_start + ((current_pos - loop_start) % (loop_end - loop_start))
-                    } else {
-                        current_pos
-                    };
+                    let actual_pos =
+                        if loop_enabled && loop_end > loop_start && current_pos >= loop_end {
+                            loop_start + ((current_pos - loop_start) % (loop_end - loop_start))
+                        } else {
+                            current_pos
+                        };
 
                     for clip in clips_guard.iter() {
                         if clip.muted {
@@ -1366,8 +1499,10 @@ fn process_audio_unified(
                         if actual_pos >= clip.start_sample {
                             let clip_pos = (actual_pos - clip.start_sample) as usize;
                             if clip_pos < clip.samples_l.len() {
-                                engine_output_l[i] += clip.samples_l[clip_pos] as f64 * clip.gain as f64;
-                                engine_output_r[i] += clip.samples_r[clip_pos] as f64 * clip.gain as f64;
+                                engine_output_l[i] +=
+                                    clip.samples_l[clip_pos] as f64 * clip.gain as f64;
+                                engine_output_r[i] +=
+                                    clip.samples_r[clip_pos] as f64 * clip.gain as f64;
                             }
                         }
                     }
@@ -1388,7 +1523,10 @@ fn process_audio_unified(
 
     // Apply master track DSP processing (track_id = 0 is master)
     if let Some(master_dsp) = dsp_storage.get(0) {
-        master_dsp.process(&mut engine_output_l[..frames], &mut engine_output_r[..frames]);
+        master_dsp.process(
+            &mut engine_output_l[..frames],
+            &mut engine_output_r[..frames],
+        );
     }
 
     // Get master volume (atomic read, linear)

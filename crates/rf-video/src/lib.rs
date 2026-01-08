@@ -25,10 +25,10 @@ pub mod frame_cache;
 pub mod thumbnail;
 pub mod timecode;
 
-pub use decoder::{VideoDecoder, VideoFrame, PixelFormat};
-pub use frame_cache::{FrameCache, CacheConfig};
+pub use decoder::{PixelFormat, VideoDecoder, VideoFrame};
+pub use frame_cache::{CacheConfig, FrameCache};
 pub use thumbnail::{ThumbnailGenerator, ThumbnailStrip};
-pub use timecode::{Timecode, TimecodeFormat, FrameRate};
+pub use timecode::{FrameRate, Timecode, TimecodeFormat};
 
 // ============ Error Types ============
 
@@ -327,9 +327,9 @@ impl VideoPlayer {
 
     /// Get current timecode
     pub fn current_timecode(&self) -> Option<Timecode> {
-        self.info.as_ref().map(|info| {
-            Timecode::from_frame_number(self.current_frame, &info.frame_rate)
-        })
+        self.info
+            .as_ref()
+            .map(|info| Timecode::from_frame_number(self.current_frame, &info.frame_rate))
     }
 
     /// Get playback state
@@ -435,7 +435,12 @@ impl VideoEngine {
     }
 
     /// Import video to track
-    pub fn import_video(&mut self, track_id: u64, path: impl AsRef<Path>, timeline_start: u64) -> VideoResult<u64> {
+    pub fn import_video(
+        &mut self,
+        track_id: u64,
+        path: impl AsRef<Path>,
+        timeline_start: u64,
+    ) -> VideoResult<u64> {
         // Create player for this source
         let mut player = VideoPlayer::new(self.sample_rate);
         let info = player.open(&path)?;
@@ -453,7 +458,9 @@ impl VideoEngine {
             timeline_end: timeline_start + clip_duration_samples,
             source_in: 0,
             source_out: info.duration_frames,
-            name: path.as_ref().file_name()
+            name: path
+                .as_ref()
+                .file_name()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "Video".into()),
             opacity: 1.0,
@@ -505,14 +512,17 @@ impl VideoEngine {
     }
 
     /// Generate thumbnails for clip
-    pub fn generate_thumbnails(&mut self, clip_id: u64, width: u32, interval_frames: u64) -> VideoResult<ThumbnailStrip> {
+    pub fn generate_thumbnails(
+        &mut self,
+        clip_id: u64,
+        width: u32,
+        interval_frames: u64,
+    ) -> VideoResult<ThumbnailStrip> {
         if let Some(player) = self.players.get_mut(&clip_id) {
             if let Some(info) = player.info() {
-                return self.thumbnails.generate_strip(
-                    &info.path,
-                    width,
-                    interval_frames,
-                );
+                return self
+                    .thumbnails
+                    .generate_strip(&info.path, width, interval_frames);
             }
         }
         Err(VideoError::OpenFailed("Clip not found".into()))

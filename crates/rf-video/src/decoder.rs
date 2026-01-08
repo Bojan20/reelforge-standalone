@@ -4,12 +4,12 @@
 //! Default: Pure Rust MP4 container parsing (metadata + placeholder frames)
 //! With "ffmpeg" feature: Full codec support via FFmpeg
 
-use std::path::Path;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 
-use crate::{VideoError, VideoInfo, VideoResult};
 use crate::timecode::FrameRate;
+use crate::{VideoError, VideoInfo, VideoResult};
 
 // ============ Pixel Format ============
 
@@ -37,7 +37,10 @@ impl PixelFormat {
 
     /// Is planar format
     pub fn is_planar(&self) -> bool {
-        matches!(self, PixelFormat::Yuv420p | PixelFormat::Yuv422p | PixelFormat::Yuv444p)
+        matches!(
+            self,
+            PixelFormat::Yuv420p | PixelFormat::Yuv422p | PixelFormat::Yuv444p
+        )
     }
 }
 
@@ -109,7 +112,11 @@ impl VideoFrame {
 
         let offset = (y as usize * self.stride) + (x as usize * 3);
         if offset + 2 < self.data.len() {
-            (self.data[offset], self.data[offset + 1], self.data[offset + 2])
+            (
+                self.data[offset],
+                self.data[offset + 1],
+                self.data[offset + 2],
+            )
         } else {
             (0, 0, 0)
         }
@@ -171,8 +178,7 @@ pub struct VideoDecoder {
 
 impl VideoDecoder {
     pub fn open(path: &Path) -> VideoResult<Self> {
-        let file = File::open(path)
-            .map_err(|e| VideoError::OpenFailed(e.to_string()))?;
+        let file = File::open(path).map_err(|e| VideoError::OpenFailed(e.to_string()))?;
 
         let size = file.metadata()?.len();
         let reader = BufReader::new(file);
@@ -180,8 +186,14 @@ impl VideoDecoder {
             .map_err(|e| VideoError::OpenFailed(e.to_string()))?;
 
         // Find video track
-        let video_track = mp4.tracks().values()
-            .find(|t| t.track_type().map(|tt| tt == mp4::TrackType::Video).unwrap_or(false))
+        let video_track = mp4
+            .tracks()
+            .values()
+            .find(|t| {
+                t.track_type()
+                    .map(|tt| tt == mp4::TrackType::Video)
+                    .unwrap_or(false)
+            })
             .ok_or(VideoError::NoVideoStream)?;
 
         let width = video_track.width() as u32;
@@ -216,13 +228,20 @@ impl VideoDecoder {
         };
 
         // Check for audio
-        let has_audio = mp4.tracks().values()
-            .any(|t| t.track_type().map(|tt| tt == mp4::TrackType::Audio).unwrap_or(false));
+        let has_audio = mp4.tracks().values().any(|t| {
+            t.track_type()
+                .map(|tt| tt == mp4::TrackType::Audio)
+                .unwrap_or(false)
+        });
 
-        let (audio_sample_rate, audio_channels) = if let Some(audio_track) = mp4.tracks().values()
-            .find(|t| t.track_type().map(|tt| tt == mp4::TrackType::Audio).unwrap_or(false))
-        {
-            let sample_rate = audio_track.sample_freq_index()
+        let (audio_sample_rate, audio_channels) = if let Some(audio_track) =
+            mp4.tracks().values().find(|t| {
+                t.track_type()
+                    .map(|tt| tt == mp4::TrackType::Audio)
+                    .unwrap_or(false)
+            }) {
+            let sample_rate = audio_track
+                .sample_freq_index()
                 .map(|idx| match idx {
                     mp4::SampleFreqIndex::Freq96000 => 96000,
                     mp4::SampleFreqIndex::Freq88200 => 88200,
@@ -239,7 +258,8 @@ impl VideoDecoder {
                     mp4::SampleFreqIndex::Freq7350 => 7350,
                 })
                 .unwrap_or(48000);
-            let channels = audio_track.channel_config()
+            let channels = audio_track
+                .channel_config()
                 .map(|c| match c {
                     mp4::ChannelConfig::Mono => 1,
                     mp4::ChannelConfig::Stereo => 2,
@@ -255,7 +275,8 @@ impl VideoDecoder {
             (None, None)
         };
 
-        let codec = video_track.media_type()
+        let codec = video_track
+            .media_type()
             .map(|mt| format!("{:?}", mt))
             .unwrap_or_else(|_| "Unknown".into());
 
@@ -295,7 +316,11 @@ impl VideoDecoder {
     pub fn decode_frame(&mut self, frame: u64) -> VideoResult<Option<VideoFrame>> {
         self.current_frame = frame;
         // Return placeholder frame - actual decoding requires FFmpeg
-        Ok(Some(VideoFrame::placeholder(frame, self.info.width, self.info.height)))
+        Ok(Some(VideoFrame::placeholder(
+            frame,
+            self.info.width,
+            self.info.height,
+        )))
     }
 
     pub fn frame_count(&self) -> u64 {
@@ -331,7 +356,9 @@ pub mod ffmpeg_backend {
             let input = ffmpeg_next::format::input(path)
                 .map_err(|e| VideoError::OpenFailed(e.to_string()))?;
 
-            let stream = input.streams().best(ffmpeg_next::media::Type::Video)
+            let stream = input
+                .streams()
+                .best(ffmpeg_next::media::Type::Video)
                 .ok_or(VideoError::NoVideoStream)?;
 
             let stream_index = stream.index();
@@ -341,7 +368,9 @@ pub mod ffmpeg_backend {
             let codec = ffmpeg_next::codec::Context::from_parameters(codec_params)
                 .map_err(|e| VideoError::FfmpegError(e.to_string()))?;
 
-            let decoder = codec.decoder().video()
+            let decoder = codec
+                .decoder()
+                .video()
                 .map_err(|e| VideoError::FfmpegError(e.to_string()))?;
 
             let width = decoder.width();
@@ -356,7 +385,8 @@ pub mod ffmpeg_backend {
                 width,
                 height,
                 ffmpeg_next::software::scaling::Flags::BILINEAR,
-            ).map_err(|e| VideoError::FfmpegError(e.to_string()))?;
+            )
+            .map_err(|e| VideoError::FfmpegError(e.to_string()))?;
 
             let frame_rate = stream.rate();
             let fps = frame_rate.0 as f64 / frame_rate.1 as f64;
@@ -378,9 +408,13 @@ pub mod ffmpeg_backend {
             let duration_secs = input.duration() as f64 / ffmpeg_next::ffi::AV_TIME_BASE as f64;
             let duration_frames = (duration_secs * fps) as u64;
 
-            let has_audio = input.streams().best(ffmpeg_next::media::Type::Audio).is_some();
+            let has_audio = input
+                .streams()
+                .best(ffmpeg_next::media::Type::Audio)
+                .is_some();
 
-            let codec_name = decoder.codec()
+            let codec_name = decoder
+                .codec()
                 .map(|c| c.name().to_string())
                 .unwrap_or_else(|| "unknown".into());
 
@@ -427,7 +461,8 @@ pub mod ffmpeg_backend {
             let time_secs = frame as f64 / fps;
             let timestamp = (time_secs * ffmpeg_next::ffi::AV_TIME_BASE as f64) as i64;
 
-            self.input.seek(timestamp, timestamp..)
+            self.input
+                .seek(timestamp, timestamp..)
                 .map_err(|e| VideoError::SeekFailed(e.to_string()))?;
 
             self.decoder.flush();
@@ -448,11 +483,13 @@ pub mod ffmpeg_backend {
                     continue;
                 }
 
-                self.decoder.send_packet(&packet)
+                self.decoder
+                    .send_packet(&packet)
                     .map_err(|e| VideoError::DecodeFailed(e.to_string()))?;
 
                 if self.decoder.receive_frame(&mut decoded).is_ok() {
-                    self.scaler.run(&decoded, &mut rgb_frame)
+                    self.scaler
+                        .run(&decoded, &mut rgb_frame)
                         .map_err(|e| VideoError::DecodeFailed(e.to_string()))?;
 
                     let video_frame = VideoFrame {

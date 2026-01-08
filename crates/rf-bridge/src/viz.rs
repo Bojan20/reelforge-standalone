@@ -2,14 +2,13 @@
 //!
 //! Provides FFT data and spectrum analysis for GPU rendering in Flutter.
 
-use std::sync::Arc;
-use parking_lot::RwLock;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// Shared FFT data buffer for spectrum visualization
-static FFT_DATA: Lazy<Arc<RwLock<FftData>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(FftData::default()))
-});
+static FFT_DATA: Lazy<Arc<RwLock<FftData>>> =
+    Lazy::new(|| Arc::new(RwLock::new(FftData::default())));
 
 /// FFT magnitude data for spectrum analyzer
 #[derive(Debug, Clone)]
@@ -52,7 +51,7 @@ pub fn update_fft_data(magnitudes: &[f32], sample_rate: f32, timestamp: f64) {
     }
 
     // Update magnitudes with smoothing
-    const ATTACK: f32 = 0.8;  // Fast attack
+    const ATTACK: f32 = 0.8; // Fast attack
     const RELEASE: f32 = 0.95; // Slow release
 
     for (i, &mag) in magnitudes.iter().enumerate() {
@@ -118,9 +117,8 @@ pub struct WaveformData {
     pub samples_per_pixel: f64,
 }
 
-static WAVEFORM_DATA: Lazy<Arc<RwLock<WaveformData>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(WaveformData::default()))
-});
+static WAVEFORM_DATA: Lazy<Arc<RwLock<WaveformData>>> =
+    Lazy::new(|| Arc::new(RwLock::new(WaveformData::default())));
 
 /// Update waveform display data
 pub fn update_waveform_data(
@@ -172,9 +170,8 @@ pub struct MeterData {
     pub clipping: Vec<bool>,
 }
 
-static METER_DATA: Lazy<Arc<RwLock<MeterData>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(MeterData::default()))
-});
+static METER_DATA: Lazy<Arc<RwLock<MeterData>>> =
+    Lazy::new(|| Arc::new(RwLock::new(MeterData::default())));
 
 /// Update meter data
 pub fn update_meter_data(

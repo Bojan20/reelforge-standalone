@@ -20,13 +20,15 @@
 //! let karaoke = stems.karaoke(); // Drums + Bass + Other
 //! ```
 
-mod htdemucs;
 mod config;
+mod htdemucs;
 mod stems;
 
-pub use htdemucs::{HTDemucs, HTDemucsConfig, create_htdemucs_4stem, create_htdemucs_6stem, create_htdemucs_ultra};
 pub use config::{SeparationConfig, SeparationQuality};
-pub use stems::{StemType, StemOutput, StemCollection};
+pub use htdemucs::{
+    create_htdemucs_4stem, create_htdemucs_6stem, create_htdemucs_ultra, HTDemucs, HTDemucsConfig,
+};
+pub use stems::{StemCollection, StemOutput, StemType};
 
 use crate::error::MlResult;
 
@@ -41,7 +43,12 @@ pub trait SourceSeparator: Send + Sync {
     ///
     /// # Returns
     /// Collection of separated stems
-    fn separate(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<StemCollection>;
+    fn separate(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<StemCollection>;
 
     /// Get available stem types for this separator
     fn available_stems(&self) -> &[StemType];

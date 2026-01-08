@@ -164,7 +164,9 @@ impl Declick {
                         // Check if we've returned to normal
                         let mut stable = true;
                         for j in end..(end + 3).min(audio.len()) {
-                            if (audio[j] - audio[j.saturating_sub(1)]).abs() as f64 > threshold * 0.3 {
+                            if (audio[j] - audio[j.saturating_sub(1)]).abs() as f64
+                                > threshold * 0.3
+                            {
                                 stable = false;
                                 break;
                             }
@@ -515,10 +517,12 @@ mod tests {
         let mut declick = Declick::new(config, 48000);
 
         // Create quiet signal with obvious click
-        let mut signal: Vec<f32> = (0..2000).map(|i| {
-            let t = i as f32 / 48000.0;
-            (2.0 * std::f32::consts::PI * 100.0 * t).sin() * 0.1
-        }).collect();
+        let mut signal: Vec<f32> = (0..2000)
+            .map(|i| {
+                let t = i as f32 / 48000.0;
+                (2.0 * std::f32::consts::PI * 100.0 * t).sin() * 0.1
+            })
+            .collect();
 
         // Add very obvious click in the middle
         signal[1000] = 0.9;

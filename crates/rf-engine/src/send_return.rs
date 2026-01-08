@@ -6,9 +6,9 @@
 //! - Return channels with full processing
 //! - Stereo and mono sends
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use rf_core::Sample;
 use rf_dsp::smoothing::{SmoothedParam, SmoothingType};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::insert_chain::InsertChain;
 
@@ -54,8 +54,22 @@ impl Send {
     pub fn new(destination: usize, sample_rate: f64) -> Self {
         Self {
             destination,
-            level: SmoothedParam::with_range(0.0, 5.0, sample_rate, SmoothingType::Exponential, 0.0, 1.0),
-            pan: SmoothedParam::with_range(0.0, 5.0, sample_rate, SmoothingType::Exponential, -1.0, 1.0),
+            level: SmoothedParam::with_range(
+                0.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                0.0,
+                1.0,
+            ),
+            pan: SmoothedParam::with_range(
+                0.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                -1.0,
+                1.0,
+            ),
             tap_point: SendTapPoint::PostFader,
             muted: AtomicBool::new(false),
             enabled: AtomicBool::new(true),
@@ -195,10 +209,9 @@ impl SendBank {
                 // Get source signal based on tap point
                 let (left, right) = match send.tap_point {
                     SendTapPoint::PreFader => (source_left[i], source_right[i]),
-                    SendTapPoint::PostFader => (
-                        source_left[i] * fader_gain,
-                        source_right[i] * fader_gain,
-                    ),
+                    SendTapPoint::PostFader => {
+                        (source_left[i] * fader_gain, source_right[i] * fader_gain)
+                    }
                     SendTapPoint::PostPan => (
                         source_left[i] * fader_gain * pan_left,
                         source_right[i] * fader_gain * pan_right,
@@ -284,8 +297,22 @@ impl ReturnBus {
             output_left: vec![0.0; block_size],
             output_right: vec![0.0; block_size],
             inserts: InsertChain::new(sample_rate),
-            level: SmoothedParam::with_range(1.0, 5.0, sample_rate, SmoothingType::Exponential, 0.0, 2.0),
-            pan: SmoothedParam::with_range(0.0, 5.0, sample_rate, SmoothingType::Exponential, -1.0, 1.0),
+            level: SmoothedParam::with_range(
+                1.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                0.0,
+                2.0,
+            ),
+            pan: SmoothedParam::with_range(
+                0.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                -1.0,
+                1.0,
+            ),
             muted: AtomicBool::new(false),
             solo: AtomicBool::new(false),
             name: format!("Return {}", index + 1),
@@ -320,7 +347,8 @@ impl ReturnBus {
         self.output_right.copy_from_slice(&self.input_right);
 
         // Process through insert chain
-        self.inserts.process_all(&mut self.output_left, &mut self.output_right);
+        self.inserts
+            .process_all(&mut self.output_left, &mut self.output_right);
 
         // Apply level and pan
         let len = self.output_left.len();

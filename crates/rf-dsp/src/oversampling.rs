@@ -372,13 +372,20 @@ impl GlobalOversampler {
         }
 
         // Process at oversampled rate
-        processor(&mut self.os_buffer_l[..os_len], &mut self.os_buffer_r[..os_len]);
+        processor(
+            &mut self.os_buffer_l[..os_len],
+            &mut self.os_buffer_r[..os_len],
+        );
 
         // Downsample
         for i in 0..len {
             let start = i * factor;
-            left[i] = self.downsample_l.downsample(&self.os_buffer_l[start..start + factor]);
-            right[i] = self.downsample_r.downsample(&self.os_buffer_r[start..start + factor]);
+            left[i] = self
+                .downsample_l
+                .downsample(&self.os_buffer_l[start..start + factor]);
+            right[i] = self
+                .downsample_r
+                .downsample(&self.os_buffer_r[start..start + factor]);
         }
     }
 
@@ -579,14 +586,20 @@ fn bessel_i0(x: f64) -> f64 {
     let ax = x.abs();
     if ax < 3.75 {
         let y = (x / 3.75).powi(2);
-        1.0 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492
-            + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
+        1.0 + y
+            * (3.5156229
+                + y * (3.0899424
+                    + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
     } else {
         let y = 3.75 / ax;
-        (ax.exp() / ax.sqrt()) * (0.39894228 + y * (0.01328592
-            + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281
-            + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633
-            + y * 0.00392377))))))))
+        (ax.exp() / ax.sqrt())
+            * (0.39894228
+                + y * (0.01328592
+                    + y * (0.00225319
+                        + y * (-0.00157565
+                            + y * (0.00916281
+                                + y * (-0.02057706
+                                    + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))))
     }
 }
 

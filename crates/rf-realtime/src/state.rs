@@ -6,9 +6,9 @@
 //! - Atomic snapshot for undo/redo
 //! - Zero-allocation state updates
 
-use std::cell::UnsafeCell;
 use portable_atomic::{AtomicU32, AtomicU64, Ordering};
 use rtrb::{Consumer, Producer, RingBuffer};
+use std::cell::UnsafeCell;
 
 /// Triple buffer for lock-free read/write
 pub struct TripleBuffer<T> {
@@ -53,12 +53,11 @@ impl<T: Clone + Default> TripleBuffer<T> {
             // Swap write and ready
             let new_state = ready_idx | (write_idx << 2) | (read_idx << 4);
 
-            if self.state.compare_exchange_weak(
-                state,
-                new_state,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ).is_ok() {
+            if self
+                .state
+                .compare_exchange_weak(state, new_state, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
                 break;
             }
         }
@@ -76,12 +75,11 @@ impl<T: Clone + Default> TripleBuffer<T> {
             // Swap ready and read
             let new_state = write_idx | (read_idx << 2) | (ready_idx << 4);
 
-            if self.state.compare_exchange_weak(
-                state,
-                new_state,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ).is_ok() {
+            if self
+                .state
+                .compare_exchange_weak(state, new_state, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
                 break;
             }
         }
@@ -129,8 +127,12 @@ impl ParamQueue {
     /// Split into producer and consumer
     pub fn split(self) -> (ParamQueueProducer, ParamQueueConsumer) {
         (
-            ParamQueueProducer { producer: self.producer },
-            ParamQueueConsumer { consumer: self.consumer },
+            ParamQueueProducer {
+                producer: self.producer,
+            },
+            ParamQueueConsumer {
+                consumer: self.consumer,
+            },
         )
     }
 }
@@ -230,7 +232,11 @@ impl AtomicSnapshot {
         let id = self.snapshot_id.fetch_add(1, Ordering::Relaxed) + 1;
         let idx = self.write_idx.fetch_add(1, Ordering::Relaxed) as usize % self.max_snapshots;
 
-        let snapshot = StateSnapshot { id, timestamp, params };
+        let snapshot = StateSnapshot {
+            id,
+            timestamp,
+            params,
+        };
         unsafe {
             *self.snapshots[idx].get() = snapshot;
         }
@@ -272,12 +278,15 @@ pub struct StateUpdateBuffer {
 impl StateUpdateBuffer {
     pub fn new(capacity: usize) -> Self {
         Self {
-            changes: vec![ParamChange {
-                id: 0,
-                value: 0.0,
-                sample_offset: 0,
-                smoothing_samples: 0,
-            }; capacity],
+            changes: vec![
+                ParamChange {
+                    id: 0,
+                    value: 0.0,
+                    sample_offset: 0,
+                    smoothing_samples: 0,
+                };
+                capacity
+            ],
             count: 0,
             capacity,
         }
@@ -339,10 +348,12 @@ pub struct ProcessorState {
 impl StateSyncSystem {
     pub fn new(num_processors: usize, max_params: usize) -> Self {
         let processor_states = (0..num_processors)
-            .map(|_| TripleBuffer::new(ProcessorState {
-                enabled: true,
-                params: vec![0.0; max_params],
-            }))
+            .map(|_| {
+                TripleBuffer::new(ProcessorState {
+                    enabled: true,
+                    params: vec![0.0; max_params],
+                })
+            })
             .collect();
 
         Self {

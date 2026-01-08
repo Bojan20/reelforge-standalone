@@ -1,9 +1,9 @@
 //! Atmos renderer
 
-use crate::error::SpatialResult;
-use crate::position::{Position3D, Orientation};
-use crate::{AudioObject, SpeakerLayout, SpatialRenderer};
 use super::AtmosObject;
+use crate::error::SpatialResult;
+use crate::position::{Orientation, Position3D};
+use crate::{AudioObject, SpatialRenderer, SpeakerLayout};
 
 /// Atmos rendering configuration
 #[derive(Debug, Clone)]
@@ -209,8 +209,7 @@ impl AtmosRenderer {
             // Smooth gain transitions
             let smooth_factor = 0.99;
             for (idx, g) in gains.iter_mut().enumerate() {
-                *g = self.prev_gains[obj_idx][idx] * smooth_factor
-                    + *g * (1.0 - smooth_factor);
+                *g = self.prev_gains[obj_idx][idx] * smooth_factor + *g * (1.0 - smooth_factor);
                 self.prev_gains[obj_idx][idx] = *g;
             }
 
@@ -226,9 +225,7 @@ impl AtmosRenderer {
 
                 // LFE management
                 if self.config.lfe_management {
-                    if let Some(lfe_idx) = self.config.layout.speakers
-                        .iter()
-                        .position(|s| s.is_lfe)
+                    if let Some(lfe_idx) = self.config.layout.speakers.iter().position(|s| s.is_lfe)
                     {
                         let lfe_sample = self.process_lfe(sample);
                         if lfe_idx < output.len() && s < output[lfe_idx].len() {

@@ -8,9 +8,9 @@
 //! - Průša, Z., & Holighaus, N. (2022): "Phase Vocoder Done Right"
 //! - Ltfat.org phaseret toolbox
 
-use std::f64::consts::PI;
-use std::collections::BinaryHeap;
 use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::f64::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -44,7 +44,9 @@ impl PartialOrd for HeapEntry {
 impl Ord for HeapEntry {
     fn cmp(&self, other: &Self) -> Ordering {
         // Max-heap: higher magnitude = higher priority
-        self.magnitude.partial_cmp(&other.magnitude).unwrap_or(Ordering::Equal)
+        self.magnitude
+            .partial_cmp(&other.magnitude)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -111,7 +113,8 @@ impl PhaseGradientHeap {
         let mut visited = vec![vec![false; num_bins]; num_frames];
 
         // Compute log-magnitude (with small offset for stability)
-        let log_mag: Vec<Vec<f64>> = magnitude.iter()
+        let log_mag: Vec<Vec<f64>> = magnitude
+            .iter()
             .map(|frame| frame.iter().map(|&m| (m + self.tolerance).ln()).collect())
             .collect();
 
@@ -173,26 +176,26 @@ impl PhaseGradientHeap {
             for bin in 0..num_bins {
                 // Time gradient (horizontal): difference between frames
                 if frame > 0 && frame < num_frames - 1 {
-                    grad_time[frame][bin] = sigma_sq *
-                        (log_mag[frame + 1][bin] - log_mag[frame - 1][bin]) / 2.0;
+                    grad_time[frame][bin] =
+                        sigma_sq * (log_mag[frame + 1][bin] - log_mag[frame - 1][bin]) / 2.0;
                 } else if frame == 0 && num_frames > 1 {
-                    grad_time[frame][bin] = sigma_sq *
-                        (log_mag[frame + 1][bin] - log_mag[frame][bin]);
+                    grad_time[frame][bin] =
+                        sigma_sq * (log_mag[frame + 1][bin] - log_mag[frame][bin]);
                 } else if frame == num_frames - 1 && num_frames > 1 {
-                    grad_time[frame][bin] = sigma_sq *
-                        (log_mag[frame][bin] - log_mag[frame - 1][bin]);
+                    grad_time[frame][bin] =
+                        sigma_sq * (log_mag[frame][bin] - log_mag[frame - 1][bin]);
                 }
 
                 // Frequency gradient (vertical): difference between bins
                 if bin > 0 && bin < num_bins - 1 {
-                    grad_freq[frame][bin] = -sigma_sq *
-                        (log_mag[frame][bin + 1] - log_mag[frame][bin - 1]) / 2.0;
+                    grad_freq[frame][bin] =
+                        -sigma_sq * (log_mag[frame][bin + 1] - log_mag[frame][bin - 1]) / 2.0;
                 } else if bin == 0 && num_bins > 1 {
-                    grad_freq[frame][bin] = -sigma_sq *
-                        (log_mag[frame][bin + 1] - log_mag[frame][bin]);
+                    grad_freq[frame][bin] =
+                        -sigma_sq * (log_mag[frame][bin + 1] - log_mag[frame][bin]);
                 } else if bin == num_bins - 1 && num_bins > 1 {
-                    grad_freq[frame][bin] = -sigma_sq *
-                        (log_mag[frame][bin] - log_mag[frame][bin - 1]);
+                    grad_freq[frame][bin] =
+                        -sigma_sq * (log_mag[frame][bin] - log_mag[frame][bin - 1]);
                 }
             }
         }
@@ -302,7 +305,8 @@ impl PhaseGradientHeap {
         }
 
         let mut phase = vec![0.0; num_bins];
-        let log_mag: Vec<f64> = magnitude.iter()
+        let log_mag: Vec<f64> = magnitude
+            .iter()
             .map(|&m| (m + self.tolerance).ln())
             .collect();
 

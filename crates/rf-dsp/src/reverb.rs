@@ -19,7 +19,7 @@ const PARTITION_SIZE: usize = 256;
 #[derive(Debug, Clone)]
 pub struct ConvolutionReverb {
     // Impulse response partitions (frequency domain)
-    ir_partitions_l: Vec<Vec<(f64, f64)>>,  // Real, Imag pairs
+    ir_partitions_l: Vec<Vec<(f64, f64)>>, // Real, Imag pairs
     ir_partitions_r: Vec<Vec<(f64, f64)>>,
 
     // Input buffer history
@@ -66,7 +66,7 @@ impl ConvolutionReverb {
             partition_index: 0,
             dry_wet: 0.5,
             predelay_samples: 0,
-            predelay_buffer_l: vec![0.0; (sample_rate * 0.5) as usize],  // Max 500ms predelay
+            predelay_buffer_l: vec![0.0; (sample_rate * 0.5) as usize], // Max 500ms predelay
             predelay_buffer_r: vec![0.0; (sample_rate * 0.5) as usize],
             predelay_pos: 0,
             sample_rate,
@@ -194,8 +194,10 @@ impl ConvolutionReverb {
 
             if partition_idx < self.ir_partitions_l.len() {
                 for i in 0..fft_size {
-                    let mul_l = Self::complex_mul(input_fft_l[i], self.ir_partitions_l[partition_idx][i]);
-                    let mul_r = Self::complex_mul(input_fft_r[i], self.ir_partitions_r[partition_idx][i]);
+                    let mul_l =
+                        Self::complex_mul(input_fft_l[i], self.ir_partitions_l[partition_idx][i]);
+                    let mul_r =
+                        Self::complex_mul(input_fft_r[i], self.ir_partitions_r[partition_idx][i]);
 
                     self.accum_l[i].0 += mul_l.0;
                     self.accum_l[i].1 += mul_l.1;
@@ -428,23 +430,33 @@ impl AlgorithmicReverb {
     pub fn new(sample_rate: f64) -> Self {
         let scale = sample_rate / 44100.0;
 
-        let combs_l: Vec<_> = Self::COMB_TUNINGS.iter()
+        let combs_l: Vec<_> = Self::COMB_TUNINGS
+            .iter()
             .map(|&t| CombFilter::new((t as f64 * scale) as usize, 0.84, 0.2))
             .collect();
 
-        let combs_r: Vec<_> = Self::COMB_TUNINGS.iter()
-            .map(|&t| CombFilter::new(((t + Self::STEREO_SPREAD) as f64 * scale) as usize, 0.84, 0.2))
+        let combs_r: Vec<_> = Self::COMB_TUNINGS
+            .iter()
+            .map(|&t| {
+                CombFilter::new(
+                    ((t + Self::STEREO_SPREAD) as f64 * scale) as usize,
+                    0.84,
+                    0.2,
+                )
+            })
             .collect();
 
-        let allpasses_l: Vec<_> = Self::ALLPASS_TUNINGS.iter()
+        let allpasses_l: Vec<_> = Self::ALLPASS_TUNINGS
+            .iter()
             .map(|&t| AllpassFilter::new((t as f64 * scale) as usize, 0.5))
             .collect();
 
-        let allpasses_r: Vec<_> = Self::ALLPASS_TUNINGS.iter()
+        let allpasses_r: Vec<_> = Self::ALLPASS_TUNINGS
+            .iter()
             .map(|&t| AllpassFilter::new(((t + Self::STEREO_SPREAD) as f64 * scale) as usize, 0.5))
             .collect();
 
-        let max_predelay = (sample_rate * 0.2) as usize;  // Max 200ms predelay
+        let max_predelay = (sample_rate * 0.2) as usize; // Max 200ms predelay
 
         Self {
             reverb_type: ReverbType::Room,
@@ -528,8 +540,8 @@ impl AlgorithmicReverb {
 
     pub fn set_predelay(&mut self, ms: f64) {
         self.predelay_ms = ms.clamp(0.0, 200.0);
-        self.predelay_samples = ((ms * 0.001 * self.sample_rate) as usize)
-            .min(self.predelay_buffer_l.len() - 1);
+        self.predelay_samples =
+            ((ms * 0.001 * self.sample_rate) as usize).min(self.predelay_buffer_l.len() - 1);
     }
 }
 
@@ -560,7 +572,8 @@ impl Processor for AlgorithmicReverb {
 impl StereoProcessor for AlgorithmicReverb {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
         // Apply predelay
-        let predelay_read_pos = (self.predelay_pos + self.predelay_buffer_l.len() - self.predelay_samples)
+        let predelay_read_pos = (self.predelay_pos + self.predelay_buffer_l.len()
+            - self.predelay_samples)
             % self.predelay_buffer_l.len();
 
         let delayed_l = self.predelay_buffer_l[predelay_read_pos];

@@ -16,13 +16,13 @@ pub enum DsdRate {
 }
 
 /// DSD rate constants
-pub const DSD64_RATE: u32 = 2_822_400;    // 64 × 44100
-pub const DSD128_RATE: u32 = 5_644_800;   // 128 × 44100
-pub const DSD256_RATE: u32 = 11_289_600;  // 256 × 44100
-pub const DSD512_RATE: u32 = 22_579_200;  // 512 × 44100
+pub const DSD64_RATE: u32 = 2_822_400; // 64 × 44100
+pub const DSD128_RATE: u32 = 5_644_800; // 128 × 44100
+pub const DSD256_RATE: u32 = 11_289_600; // 256 × 44100
+pub const DSD512_RATE: u32 = 22_579_200; // 512 × 44100
 
 /// DXD (Digital eXtreme Definition) rate for intermediate editing
-pub const DXD_RATE: u32 = 352_800;        // 8 × 44100
+pub const DXD_RATE: u32 = 352_800; // 8 × 44100
 
 /// Common PCM rates for reference
 pub const PCM_44100: u32 = 44_100;
@@ -31,7 +31,7 @@ pub const PCM_88200: u32 = 88_200;
 pub const PCM_96000: u32 = 96_000;
 pub const PCM_176400: u32 = 176_400;
 pub const PCM_192000: u32 = 192_000;
-pub const PCM_352800: u32 = 352_800;      // DXD
+pub const PCM_352800: u32 = 352_800; // DXD
 pub const PCM_384000: u32 = 384_000;
 
 impl DsdRate {
@@ -58,10 +58,10 @@ impl DsdRate {
     /// Get decimation ratio to convert to DXD (352.8kHz)
     pub const fn decimation_to_dxd(self) -> u32 {
         match self {
-            DsdRate::Dsd64 => 8,     // 2.8MHz → 352.8kHz
-            DsdRate::Dsd128 => 16,   // 5.6MHz → 352.8kHz
-            DsdRate::Dsd256 => 32,   // 11.2MHz → 352.8kHz
-            DsdRate::Dsd512 => 64,   // 22.5MHz → 352.8kHz
+            DsdRate::Dsd64 => 8,   // 2.8MHz → 352.8kHz
+            DsdRate::Dsd128 => 16, // 5.6MHz → 352.8kHz
+            DsdRate::Dsd256 => 32, // 11.2MHz → 352.8kHz
+            DsdRate::Dsd512 => 64, // 22.5MHz → 352.8kHz
         }
     }
 
@@ -135,13 +135,13 @@ impl DsdRate {
         // Use multi-stage decimation for better quality
         // Prefer factors of 2, 4, 8
         match total_factor {
-            64 => vec![8, 8],           // 64 = 8 × 8
-            128 => vec![8, 8, 2],       // 128 = 8 × 8 × 2
-            256 => vec![8, 8, 4],       // 256 = 8 × 8 × 4
-            512 => vec![8, 8, 8],       // 512 = 8 × 8 × 8
-            8 => vec![8],               // To DXD
-            16 => vec![8, 2],           // DSD128 → DXD
-            32 => vec![8, 4],           // DSD256 → DXD
+            64 => vec![8, 8],     // 64 = 8 × 8
+            128 => vec![8, 8, 2], // 128 = 8 × 8 × 2
+            256 => vec![8, 8, 4], // 256 = 8 × 8 × 4
+            512 => vec![8, 8, 8], // 512 = 8 × 8 × 8
+            8 => vec![8],         // To DXD
+            16 => vec![8, 2],     // DSD128 → DXD
+            32 => vec![8, 4],     // DSD256 → DXD
             _ => {
                 // Generic factorization
                 let mut factors = Vec::new();
@@ -170,7 +170,12 @@ impl DsdRate {
 
     /// All DSD rates
     pub const fn all() -> [DsdRate; 4] {
-        [DsdRate::Dsd64, DsdRate::Dsd128, DsdRate::Dsd256, DsdRate::Dsd512]
+        [
+            DsdRate::Dsd64,
+            DsdRate::Dsd128,
+            DsdRate::Dsd256,
+            DsdRate::Dsd512,
+        ]
     }
 }
 

@@ -23,13 +23,13 @@ use std::f64::consts::PI;
 pub enum ChannelLayout {
     #[default]
     Stereo,
-    Surround51,      // L R C LFE Ls Rs
-    Surround71,      // L R C LFE Ls Rs Lrs Rrs
-    Surround714,     // 7.1.4 Atmos base (adds 4 ceiling)
-    Surround916,     // 9.1.6 Atmos extended
-    AmbisonicsFOA,   // 1st order (4 channels: W, X, Y, Z)
-    AmbisonicsSOA,   // 2nd order (9 channels)
-    AmbisonicsTOA,   // 3rd order (16 channels)
+    Surround51,    // L R C LFE Ls Rs
+    Surround71,    // L R C LFE Ls Rs Lrs Rrs
+    Surround714,   // 7.1.4 Atmos base (adds 4 ceiling)
+    Surround916,   // 9.1.6 Atmos extended
+    AmbisonicsFOA, // 1st order (4 channels: W, X, Y, Z)
+    AmbisonicsSOA, // 2nd order (9 channels)
+    AmbisonicsTOA, // 3rd order (16 channels)
 }
 
 impl ChannelLayout {
@@ -52,38 +52,58 @@ impl ChannelLayout {
         match self {
             Self::Stereo => vec![(-30.0, 0.0), (30.0, 0.0)],
             Self::Surround51 => vec![
-                (-30.0, 0.0),   // L
-                (30.0, 0.0),    // R
-                (0.0, 0.0),     // C
-                (0.0, -90.0),   // LFE (below, virtual position)
-                (-110.0, 0.0),  // Ls
-                (110.0, 0.0),   // Rs
+                (-30.0, 0.0),  // L
+                (30.0, 0.0),   // R
+                (0.0, 0.0),    // C
+                (0.0, -90.0),  // LFE (below, virtual position)
+                (-110.0, 0.0), // Ls
+                (110.0, 0.0),  // Rs
             ],
             Self::Surround71 => vec![
-                (-30.0, 0.0),   // L
-                (30.0, 0.0),    // R
-                (0.0, 0.0),     // C
-                (0.0, -90.0),   // LFE
-                (-90.0, 0.0),   // Lss (side surround)
-                (90.0, 0.0),    // Rss
-                (-150.0, 0.0),  // Lrs (rear surround)
-                (150.0, 0.0),   // Rrs
+                (-30.0, 0.0),  // L
+                (30.0, 0.0),   // R
+                (0.0, 0.0),    // C
+                (0.0, -90.0),  // LFE
+                (-90.0, 0.0),  // Lss (side surround)
+                (90.0, 0.0),   // Rss
+                (-150.0, 0.0), // Lrs (rear surround)
+                (150.0, 0.0),  // Rrs
             ],
             Self::Surround714 => vec![
                 // Bed layer (7.1)
-                (-30.0, 0.0), (30.0, 0.0), (0.0, 0.0), (0.0, -90.0),
-                (-90.0, 0.0), (90.0, 0.0), (-150.0, 0.0), (150.0, 0.0),
+                (-30.0, 0.0),
+                (30.0, 0.0),
+                (0.0, 0.0),
+                (0.0, -90.0),
+                (-90.0, 0.0),
+                (90.0, 0.0),
+                (-150.0, 0.0),
+                (150.0, 0.0),
                 // Height layer (4 ceiling)
-                (-45.0, 45.0), (45.0, 45.0), (-135.0, 45.0), (135.0, 45.0),
+                (-45.0, 45.0),
+                (45.0, 45.0),
+                (-135.0, 45.0),
+                (135.0, 45.0),
             ],
             Self::Surround916 => vec![
                 // Bed layer
-                (-30.0, 0.0), (30.0, 0.0), (0.0, 0.0), (0.0, -90.0),
-                (-60.0, 0.0), (60.0, 0.0), (-90.0, 0.0), (90.0, 0.0),
-                (-150.0, 0.0), (150.0, 0.0),
+                (-30.0, 0.0),
+                (30.0, 0.0),
+                (0.0, 0.0),
+                (0.0, -90.0),
+                (-60.0, 0.0),
+                (60.0, 0.0),
+                (-90.0, 0.0),
+                (90.0, 0.0),
+                (-150.0, 0.0),
+                (150.0, 0.0),
                 // Height layer (6 ceiling)
-                (-30.0, 45.0), (30.0, 45.0), (-90.0, 45.0), (90.0, 45.0),
-                (-150.0, 45.0), (150.0, 45.0),
+                (-30.0, 45.0),
+                (30.0, 45.0),
+                (-90.0, 45.0),
+                (90.0, 45.0),
+                (-150.0, 45.0),
+                (150.0, 45.0),
             ],
             _ => vec![], // Ambisonics uses virtual speakers
         }
@@ -158,10 +178,10 @@ impl Position3D {
 pub struct SurroundPanner {
     layout: ChannelLayout,
     position: Position3D,
-    spread: f64,           // 0.0 = point source, 1.0 = omnidirectional
-    lfe_level: f64,        // 0.0-1.0, how much goes to LFE
-    distance: f64,         // 0.0-1.0, affects attenuation
-    gains: Vec<f64>,       // Per-speaker gains
+    spread: f64,                        // 0.0 = point source, 1.0 = omnidirectional
+    lfe_level: f64,                     // 0.0-1.0, how much goes to LFE
+    distance: f64,                      // 0.0-1.0, affects attenuation
+    gains: Vec<f64>,                    // Per-speaker gains
     speaker_positions: Vec<Position3D>, // Normalized speaker positions
 }
 
@@ -232,11 +252,10 @@ impl SurroundPanner {
         }
 
         // Calculate dot products (cosine of angle between source and each speaker)
-        let mut dots: Vec<f64> = self.speaker_positions
+        let mut dots: Vec<f64> = self
+            .speaker_positions
             .iter()
-            .map(|spk| {
-                self.position.x * spk.x + self.position.y * spk.y + self.position.z * spk.z
-            })
+            .map(|spk| self.position.x * spk.x + self.position.y * spk.y + self.position.z * spk.z)
             .collect();
 
         // Apply spread: blend between focused (VBAP) and diffuse (equal power)
@@ -280,8 +299,13 @@ impl SurroundPanner {
         }
 
         // Handle LFE channel specially (index 3 in 5.1/7.1)
-        if matches!(self.layout, ChannelLayout::Surround51 | ChannelLayout::Surround71 |
-                    ChannelLayout::Surround714 | ChannelLayout::Surround916) {
+        if matches!(
+            self.layout,
+            ChannelLayout::Surround51
+                | ChannelLayout::Surround71
+                | ChannelLayout::Surround714
+                | ChannelLayout::Surround916
+        ) {
             // LFE gets a bass-managed send, not VBAP
             self.gains[3] = self.lfe_level;
         }
@@ -326,8 +350,8 @@ impl SurroundPanner {
 
 /// First-order Ambisonics encoder
 pub struct AmbisonicsEncoder {
-    azimuth: f64,    // Radians
-    elevation: f64,  // Radians
+    azimuth: f64,   // Radians
+    elevation: f64, // Radians
     gain: f64,
 }
 
@@ -361,10 +385,10 @@ impl AmbisonicsEncoder {
         let s = input * self.gain;
 
         [
-            s * 0.707,                    // W (omnidirectional)
-            s * cos_el * cos_az,          // X (front-back)
-            s * cos_el * sin_az,          // Y (left-right)
-            s * sin_el,                   // Z (up-down)
+            s * 0.707,           // W (omnidirectional)
+            s * cos_el * cos_az, // X (front-back)
+            s * cos_el * sin_az, // Y (left-right)
+            s * sin_el,          // Z (up-down)
         ]
     }
 
@@ -382,17 +406,17 @@ impl AmbisonicsEncoder {
 
         [
             // 0th order
-            s * 0.707,                                    // W
+            s * 0.707, // W
             // 1st order
-            s * cos_el * cos_az,                          // X
-            s * cos_el * sin_az,                          // Y
-            s * sin_el,                                   // Z
+            s * cos_el * cos_az, // X
+            s * cos_el * sin_az, // Y
+            s * sin_el,          // Z
             // 2nd order
-            s * cos_el_sq * cos_2az,                      // R
-            s * cos_el * sin_el * cos_az,                 // S
-            s * cos_el * sin_el * sin_az,                 // T
-            s * cos_el_sq * sin_2az,                      // U
-            s * (3.0 * sin_el * sin_el - 1.0) * 0.5,      // V
+            s * cos_el_sq * cos_2az,                 // R
+            s * cos_el * sin_el * cos_az,            // S
+            s * cos_el * sin_el * sin_az,            // T
+            s * cos_el_sq * sin_2az,                 // U
+            s * (3.0 * sin_el * sin_el - 1.0) * 0.5, // V
         ]
     }
 }
@@ -429,33 +453,35 @@ impl AmbisonicsDecoder {
         let _num_speakers = positions.len();
 
         // For each speaker, calculate its B-format coefficients
-        positions.iter().map(|&(az, el)| {
-            let az_rad = az * PI / 180.0;
-            let el_rad = el * PI / 180.0;
-            let cos_el = el_rad.cos();
-            let sin_el = el_rad.sin();
-            let cos_az = az_rad.cos();
-            let sin_az = az_rad.sin();
+        positions
+            .iter()
+            .map(|&(az, el)| {
+                let az_rad = az * PI / 180.0;
+                let el_rad = el * PI / 180.0;
+                let cos_el = el_rad.cos();
+                let sin_el = el_rad.sin();
+                let cos_az = az_rad.cos();
+                let sin_az = az_rad.sin();
 
-            // FOA decode coefficients
-            vec![
-                1.0,                        // W
-                cos_el * cos_az,            // X
-                cos_el * sin_az,            // Y
-                sin_el,                     // Z
-            ]
-        }).collect()
+                // FOA decode coefficients
+                vec![
+                    1.0,             // W
+                    cos_el * cos_az, // X
+                    cos_el * sin_az, // Y
+                    sin_el,          // Z
+                ]
+            })
+            .collect()
     }
 
     /// Decode B-format to speaker feeds
     pub fn decode_foa(&self, w: Sample, x: Sample, y: Sample, z: Sample) -> Vec<Sample> {
         let b_format = [w, x, y, z];
 
-        self.decode_matrix.iter().map(|coeffs| {
-            coeffs.iter().zip(&b_format)
-                .map(|(&c, &b)| c * b)
-                .sum()
-        }).collect()
+        self.decode_matrix
+            .iter()
+            .map(|coeffs| coeffs.iter().zip(&b_format).map(|(&c, &b)| c * b).sum())
+            .collect()
     }
 }
 
@@ -502,11 +528,7 @@ impl AtmosObject {
 
     /// Set position from XYZ (-1 to 1)
     pub fn set_position(&mut self, x: f64, y: f64, z: f64) {
-        self.position = Position3D::new(
-            x.clamp(-1.0, 1.0),
-            y.clamp(-1.0, 1.0),
-            z.clamp(-1.0, 1.0),
-        );
+        self.position = Position3D::new(x.clamp(-1.0, 1.0), y.clamp(-1.0, 1.0), z.clamp(-1.0, 1.0));
     }
 }
 
@@ -568,7 +590,11 @@ impl AtmosRenderer {
 
         // Render each object
         for (object_id, input) in object_inputs {
-            if let Some(idx) = self.objects.iter().position(|o| o.id == *object_id && o.enabled) {
+            if let Some(idx) = self
+                .objects
+                .iter()
+                .position(|o| o.id == *object_id && o.enabled)
+            {
                 let object = &self.objects[idx];
                 let panner = &self.panners[idx];
                 let gain = object.gain();

@@ -6,8 +6,8 @@
 //! - Material absorption coefficients
 //! - Room mode simulation
 
-use serde::{Deserialize, Serialize};
 use crate::position::Position3D;
+use serde::{Deserialize, Serialize};
 
 /// Room definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,12 +173,32 @@ impl RoomSimulator {
         // Image source method for first-order reflections
         let walls = [
             // (normal, distance from origin, material)
-            (Position3D::new(-1.0, 0.0, 0.0), width / 2.0, self.room.walls.left),
-            (Position3D::new(1.0, 0.0, 0.0), width / 2.0, self.room.walls.right),
-            (Position3D::new(0.0, -1.0, 0.0), depth / 2.0, self.room.walls.back),
-            (Position3D::new(0.0, 1.0, 0.0), depth / 2.0, self.room.walls.front),
+            (
+                Position3D::new(-1.0, 0.0, 0.0),
+                width / 2.0,
+                self.room.walls.left,
+            ),
+            (
+                Position3D::new(1.0, 0.0, 0.0),
+                width / 2.0,
+                self.room.walls.right,
+            ),
+            (
+                Position3D::new(0.0, -1.0, 0.0),
+                depth / 2.0,
+                self.room.walls.back,
+            ),
+            (
+                Position3D::new(0.0, 1.0, 0.0),
+                depth / 2.0,
+                self.room.walls.front,
+            ),
             (Position3D::new(0.0, 0.0, -1.0), 0.0, self.room.walls.floor),
-            (Position3D::new(0.0, 0.0, 1.0), height, self.room.walls.ceiling),
+            (
+                Position3D::new(0.0, 0.0, 1.0),
+                height,
+                self.room.walls.ceiling,
+            ),
         ];
 
         // First-order reflections
@@ -201,11 +221,7 @@ impl RoomSimulator {
             let total_gain = distance_gain * reflection_gain;
 
             // Reflection direction (simplified)
-            let direction = Position3D::new(
-                -normal.x,
-                -normal.y,
-                -normal.z,
-            );
+            let direction = Position3D::new(-normal.x, -normal.y, -normal.z);
 
             self.early_reflections.push(EarlyReflection {
                 delay_samples,
@@ -290,14 +306,13 @@ impl LateReverb {
         let surface_area = 2.0 * (w * d + w * h + d * h);
 
         // Average absorption
-        let avg_absorption = (
-            room.walls.left.average_absorption()
+        let avg_absorption = (room.walls.left.average_absorption()
             + room.walls.right.average_absorption()
             + room.walls.front.average_absorption()
             + room.walls.back.average_absorption()
             + room.walls.floor.average_absorption()
-            + room.walls.ceiling.average_absorption()
-        ) / 6.0;
+            + room.walls.ceiling.average_absorption())
+            / 6.0;
 
         // Sabine equation: RT60 = 0.161 * V / (S * a)
         let rt60 = 0.161 * volume / (surface_area * avg_absorption.max(0.01));
@@ -332,7 +347,11 @@ impl LateReverb {
         let mut feedback_matrix = vec![vec![0.0f32; n]; n];
         for i in 0..n {
             for j in 0..n {
-                let sign = if (i & j).count_ones() % 2 == 0 { 1.0 } else { -1.0 };
+                let sign = if (i & j).count_ones() % 2 == 0 {
+                    1.0
+                } else {
+                    -1.0
+                };
                 feedback_matrix[i][j] = sign * scale;
             }
         }
@@ -383,10 +402,7 @@ impl LateReverb {
             let diffused = self.input_diffuser.process(predelayed);
 
             // Read delay outputs
-            let delay_outputs: Vec<f32> = self.delay_lines
-                .iter()
-                .map(|d| d.read())
-                .collect();
+            let delay_outputs: Vec<f32> = self.delay_lines.iter().map(|d| d.read()).collect();
 
             // Compute feedback
             let mut feedback_inputs = vec![0.0f32; n];

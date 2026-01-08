@@ -100,11 +100,7 @@ impl WsolaProcessor {
             let target_analysis = (frame_idx as f64 * hop_analysis as f64 / ratio) as i64;
 
             // Find optimal position within search range
-            let optimal_pos = self.find_optimal_position(
-                input,
-                target_analysis,
-                &self.prev_frame,
-            );
+            let optimal_pos = self.find_optimal_position(input, target_analysis, &self.prev_frame);
 
             // Extract frame at optimal position
             let frame = self.extract_frame(input, optimal_pos as usize);
@@ -131,16 +127,11 @@ impl WsolaProcessor {
     }
 
     /// Find optimal analysis position using cross-correlation
-    fn find_optimal_position(
-        &self,
-        input: &[f64],
-        target: i64,
-        prev_frame: &[f64],
-    ) -> i64 {
+    fn find_optimal_position(&self, input: &[f64], target: i64, prev_frame: &[f64]) -> i64 {
         let input_len = input.len() as i64;
         let search_start = (target - self.search_range as i64).max(0);
-        let search_end = (target + self.search_range as i64)
-            .min(input_len - self.window_size as i64);
+        let search_end =
+            (target + self.search_range as i64).min(input_len - self.window_size as i64);
 
         if search_start >= search_end {
             return target.clamp(0, input_len - self.window_size as i64);
@@ -294,7 +285,11 @@ mod tests {
         let length_ratio = output.len() as f64 / input.len() as f64;
 
         // Output should be approximately 2x length (wider tolerance for frame-based processing)
-        assert!(length_ratio > 1.2 && length_ratio < 3.0, "ratio was {}", length_ratio);
+        assert!(
+            length_ratio > 1.2 && length_ratio < 3.0,
+            "ratio was {}",
+            length_ratio
+        );
     }
 
     #[test]
@@ -312,7 +307,11 @@ mod tests {
         let length_ratio = output.len() as f64 / input.len() as f64;
 
         // Output should be approximately 0.5x length (wider tolerance)
-        assert!(length_ratio > 0.2 && length_ratio < 0.9, "ratio was {}", length_ratio);
+        assert!(
+            length_ratio > 0.2 && length_ratio < 0.9,
+            "ratio was {}",
+            length_ratio
+        );
     }
 
     #[test]

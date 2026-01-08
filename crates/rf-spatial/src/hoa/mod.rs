@@ -22,15 +22,15 @@
 //! let speakers = decoder.decode(&ambisonic);
 //! ```
 
-mod encoder;
 mod decoder;
-mod transform;
+mod encoder;
 mod format;
+mod transform;
 
-pub use encoder::AmbisonicEncoder;
 pub use decoder::AmbisonicDecoder;
+pub use encoder::AmbisonicEncoder;
+pub use format::{AmbisonicFormat, ChannelOrdering, Normalization};
 pub use transform::AmbisonicTransform;
-pub use format::{AmbisonicFormat, Normalization, ChannelOrdering};
 
 use crate::error::{SpatialError, SpatialResult};
 
@@ -121,9 +121,9 @@ impl SphericalHarmonics {
 
         if n >= 1 {
             // Order 1 (figure-8 patterns)
-            self.coeffs[1] = cos_el * az.sin();  // Y
-            self.coeffs[2] = sin_el;              // Z
-            self.coeffs[3] = cos_el * az.cos();  // X
+            self.coeffs[1] = cos_el * az.sin(); // Y
+            self.coeffs[2] = sin_el; // Z
+            self.coeffs[3] = cos_el * az.cos(); // X
         }
 
         if n >= 2 {
@@ -132,11 +132,11 @@ impl SphericalHarmonics {
             let sin2_az = (2.0 * az).sin();
             let cos2_el = cos_el * cos_el;
 
-            self.coeffs[4] = 1.732051 * cos2_el * sin2_az;                          // V
-            self.coeffs[5] = 1.732051 * sin_el * cos_el * az.sin();                 // T
-            self.coeffs[6] = 0.5 * (3.0 * sin_el * sin_el - 1.0);                   // R
-            self.coeffs[7] = 1.732051 * sin_el * cos_el * az.cos();                 // S
-            self.coeffs[8] = 0.866025 * cos2_el * cos2_az;                          // U
+            self.coeffs[4] = 1.732051 * cos2_el * sin2_az; // V
+            self.coeffs[5] = 1.732051 * sin_el * cos_el * az.sin(); // T
+            self.coeffs[6] = 0.5 * (3.0 * sin_el * sin_el - 1.0); // R
+            self.coeffs[7] = 1.732051 * sin_el * cos_el * az.cos(); // S
+            self.coeffs[8] = 0.866025 * cos2_el * cos2_az; // U
         }
 
         if n >= 3 {
@@ -214,10 +214,10 @@ mod tests {
 
     #[test]
     fn test_acn_index() {
-        assert_eq!(acn_index(0, 0), 0);  // W
+        assert_eq!(acn_index(0, 0), 0); // W
         assert_eq!(acn_index(1, -1), 1); // Y
-        assert_eq!(acn_index(1, 0), 2);  // Z
-        assert_eq!(acn_index(1, 1), 3);  // X
+        assert_eq!(acn_index(1, 0), 2); // Z
+        assert_eq!(acn_index(1, 1), 3); // X
     }
 
     #[test]
@@ -225,9 +225,9 @@ mod tests {
         let sh = SphericalHarmonics::from_direction(0.0, 0.0, AmbisonicOrder::First);
 
         // Front center should have positive X, zero Y
-        assert!((sh.get(0) - 1.0).abs() < 0.001);  // W
-        assert!(sh.get(1).abs() < 0.001);          // Y (no left/right)
-        assert!(sh.get(2).abs() < 0.001);          // Z (no up/down)
-        assert!((sh.get(3) - 1.0).abs() < 0.001);  // X (front)
+        assert!((sh.get(0) - 1.0).abs() < 0.001); // W
+        assert!(sh.get(1).abs() < 0.001); // Y (no left/right)
+        assert!(sh.get(2).abs() < 0.001); // Z (no up/down)
+        assert!((sh.get(3) - 1.0).abs() < 0.001); // X (front)
     }
 }

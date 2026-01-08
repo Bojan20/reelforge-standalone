@@ -12,8 +12,8 @@
 //! 2. Vertical median → sines
 //! 3. Residual → noise
 
-use std::f64::consts::PI;
 use rustfft::{FftPlanner, num_complex::Complex64};
+use std::f64::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STN COMPONENTS
@@ -59,7 +59,7 @@ impl StnDecomposer {
             sample_rate,
             fft_size: 4096,
             hop_size: 1024,
-            harmonic_filter_size: 17,  // Frequency median filter (odd number)
+            harmonic_filter_size: 17, // Frequency median filter (odd number)
             percussive_filter_size: 17, // Time median filter (odd number)
             separation_strength: 1.0,
             fft_planner: FftPlanner::new(),
@@ -142,12 +142,7 @@ impl StnDecomposer {
     }
 
     /// Inverse STFT with mask
-    fn istft(
-        &mut self,
-        magnitude: &[Vec<f64>],
-        phase: &[Vec<f64>],
-        mask: &[Vec<f64>],
-    ) -> Vec<f64> {
+    fn istft(&mut self, magnitude: &[Vec<f64>], phase: &[Vec<f64>], mask: &[Vec<f64>]) -> Vec<f64> {
         if magnitude.is_empty() || magnitude[0].is_empty() {
             return vec![];
         }
@@ -201,7 +196,11 @@ impl StnDecomposer {
     /// Compute harmonic and percussive masks using median filtering
     fn compute_masks(&self, magnitude: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
         let num_frames = magnitude.len();
-        let num_bins = if num_frames > 0 { magnitude[0].len() } else { 0 };
+        let num_bins = if num_frames > 0 {
+            magnitude[0].len()
+        } else {
+            0
+        };
 
         // Harmonic mask: median filter along frequency axis
         let harmonic_enhanced = self.median_filter_freq(magnitude);
@@ -236,7 +235,11 @@ impl StnDecomposer {
         percussive_mask: &[Vec<f64>],
     ) -> Vec<Vec<f64>> {
         let num_frames = harmonic_mask.len();
-        let num_bins = if num_frames > 0 { harmonic_mask[0].len() } else { 0 };
+        let num_bins = if num_frames > 0 {
+            harmonic_mask[0].len()
+        } else {
+            0
+        };
 
         let mut noise_mask = vec![vec![0.0; num_bins]; num_frames];
 
@@ -255,7 +258,11 @@ impl StnDecomposer {
     /// Median filter along frequency axis (enhances harmonics)
     fn median_filter_freq(&self, magnitude: &[Vec<f64>]) -> Vec<Vec<f64>> {
         let num_frames = magnitude.len();
-        let num_bins = if num_frames > 0 { magnitude[0].len() } else { 0 };
+        let num_bins = if num_frames > 0 {
+            magnitude[0].len()
+        } else {
+            0
+        };
         let half = self.harmonic_filter_size / 2;
 
         let mut filtered = vec![vec![0.0; num_bins]; num_frames];
@@ -282,7 +289,11 @@ impl StnDecomposer {
     /// Median filter along time axis (enhances percussive)
     fn median_filter_time(&self, magnitude: &[Vec<f64>]) -> Vec<Vec<f64>> {
         let num_frames = magnitude.len();
-        let num_bins = if num_frames > 0 { magnitude[0].len() } else { 0 };
+        let num_bins = if num_frames > 0 {
+            magnitude[0].len()
+        } else {
+            0
+        };
         let half = self.percussive_filter_size / 2;
 
         let mut filtered = vec![vec![0.0; num_bins]; num_frames];

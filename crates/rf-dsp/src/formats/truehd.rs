@@ -154,8 +154,7 @@ impl TrueHdHandler {
             ((self.buffer[pos + 11] as u16) << 8) | (self.buffer[pos + 12] as u16);
 
         // Peak bitrate at offset +14-15
-        sync.peak_bitrate =
-            ((self.buffer[pos + 14] as u16) << 8) | (self.buffer[pos + 15] as u16);
+        sync.peak_bitrate = ((self.buffer[pos + 14] as u16) << 8) | (self.buffer[pos + 15] as u16);
 
         // Substream info at offset +18
         sync.substream_info = self.buffer[pos + 18];

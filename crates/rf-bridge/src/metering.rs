@@ -23,12 +23,18 @@ impl MeteringState {
 
     /// Get master peak in dB (L, R)
     pub fn master_peak_db(&self) -> (f32, f32) {
-        (Self::peak_to_db(self.master_peak_l), Self::peak_to_db(self.master_peak_r))
+        (
+            Self::peak_to_db(self.master_peak_l),
+            Self::peak_to_db(self.master_peak_r),
+        )
     }
 
     /// Get master RMS in dB (L, R)
     pub fn master_rms_db(&self) -> (f32, f32) {
-        (Self::peak_to_db(self.master_rms_l), Self::peak_to_db(self.master_rms_r))
+        (
+            Self::peak_to_db(self.master_rms_l),
+            Self::peak_to_db(self.master_rms_r),
+        )
     }
 
     /// Check if clipping

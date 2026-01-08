@@ -101,7 +101,9 @@ impl<R: Read + Seek> DsdiffReader<R> {
         reader.read_exact(&mut header)?;
 
         if header != dsdiff_chunks::FRM8 {
-            return Err(DsdError::InvalidFormat("Not a DSDIFF file (missing FRM8)".into()));
+            return Err(DsdError::InvalidFormat(
+                "Not a DSDIFF file (missing FRM8)".into(),
+            ));
         }
 
         // Read file size (big-endian 64-bit)
@@ -114,7 +116,9 @@ impl<R: Read + Seek> DsdiffReader<R> {
         reader.read_exact(&mut form_type)?;
 
         if form_type != dsdiff_chunks::DSD_ {
-            return Err(DsdError::InvalidFormat("Not a DSD file (wrong form type)".into()));
+            return Err(DsdError::InvalidFormat(
+                "Not a DSD file (wrong form type)".into(),
+            ));
         }
 
         let mut dsdiff = Self {
@@ -241,8 +245,9 @@ impl<R: Read + Seek> DsdiffReader<R> {
 
     /// Read DSD data to stream
     pub fn read_stream(&mut self) -> DsdResult<DsdStream> {
-        let rate = DsdRate::from_sample_rate(self.sample_rate)
-            .ok_or_else(|| DsdError::Unsupported(format!("Unknown DSD rate: {}", self.sample_rate)))?;
+        let rate = DsdRate::from_sample_rate(self.sample_rate).ok_or_else(|| {
+            DsdError::Unsupported(format!("Unknown DSD rate: {}", self.sample_rate))
+        })?;
 
         // Seek to data
         self.reader.seek(SeekFrom::Start(self.data_offset))?;
@@ -305,7 +310,9 @@ impl<R: Read + Seek> DsfReader<R> {
         reader.read_exact(&mut header)?;
 
         if header != dsf_chunks::DSD_ {
-            return Err(DsdError::InvalidFormat("Not a DSF file (missing DSD header)".into()));
+            return Err(DsdError::InvalidFormat(
+                "Not a DSF file (missing DSD header)".into(),
+            ));
         }
 
         // Read DSD chunk size (should be 28)
@@ -314,7 +321,10 @@ impl<R: Read + Seek> DsfReader<R> {
         let dsd_chunk_size = u64::from_le_bytes(size_buf);
 
         if dsd_chunk_size != 28 {
-            return Err(DsdError::InvalidFormat(format!("Invalid DSD chunk size: {}", dsd_chunk_size)));
+            return Err(DsdError::InvalidFormat(format!(
+                "Invalid DSD chunk size: {}",
+                dsd_chunk_size
+            )));
         }
 
         // Read total file size
@@ -408,8 +418,9 @@ impl<R: Read + Seek> DsfReader<R> {
 
     /// Read DSD data to stream
     pub fn read_stream(&mut self) -> DsdResult<DsdStream> {
-        let rate = DsdRate::from_sample_rate(self.sample_rate)
-            .ok_or_else(|| DsdError::Unsupported(format!("Unknown DSD rate: {}", self.sample_rate)))?;
+        let rate = DsdRate::from_sample_rate(self.sample_rate).ok_or_else(|| {
+            DsdError::Unsupported(format!("Unknown DSD rate: {}", self.sample_rate))
+        })?;
 
         // Seek to data
         self.reader.seek(SeekFrom::Start(self.data_offset))?;
@@ -539,7 +550,8 @@ impl<R: Read + Seek> SacdExtractor<R> {
         const SECTOR_SIZE: u64 = 2048;
         const MASTER_TOC_SECTOR: u64 = 510;
 
-        self.reader.seek(SeekFrom::Start(MASTER_TOC_SECTOR * SECTOR_SIZE))?;
+        self.reader
+            .seek(SeekFrom::Start(MASTER_TOC_SECTOR * SECTOR_SIZE))?;
 
         // Read Master TOC header
         let mut header = [0u8; 8];
@@ -547,7 +559,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
 
         // Check SACD signature "SACDMTOC"
         if &header != b"SACDMTOC" {
-            return Err(DsdError::InvalidFormat("Not a valid SACD ISO (missing MTOC)".into()));
+            return Err(DsdError::InvalidFormat(
+                "Not a valid SACD ISO (missing MTOC)".into(),
+            ));
         }
 
         // Parse Master TOC structure
@@ -577,13 +591,16 @@ impl<R: Read + Seek> SacdExtractor<R> {
 
         let toc = self.toc.as_ref().unwrap();
 
-        let track = toc.tracks.iter()
+        let track = toc
+            .tracks
+            .iter()
             .find(|t| t.number == track_number)
             .ok_or_else(|| DsdError::InvalidChunk(format!("Track {} not found", track_number)))?;
 
         // Seek to track data
         const SECTOR_SIZE: u64 = 2048;
-        self.reader.seek(SeekFrom::Start(track.start_sector as u64 * SECTOR_SIZE))?;
+        self.reader
+            .seek(SeekFrom::Start(track.start_sector as u64 * SECTOR_SIZE))?;
 
         // Read track data
         let data_size = track.length_sectors as usize * SECTOR_SIZE as usize;

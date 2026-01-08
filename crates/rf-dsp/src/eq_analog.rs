@@ -13,9 +13,9 @@
 //! - Component tolerances (vintage variation)
 //! - Transformer coloration
 
-use std::f64::consts::PI;
-use rf_core::Sample;
 use crate::{Processor, StereoProcessor};
+use rf_core::Sample;
+use std::f64::consts::PI;
 
 // ============================================================================
 // PULTEC EQP-1A
@@ -30,15 +30,15 @@ pub struct PultecEqp1a {
     sample_rate: f64,
 
     // Low frequency section
-    low_boost: f64,      // 0-10 (represents dB boost)
-    low_atten: f64,      // 0-10 (represents dB cut)
+    low_boost: f64, // 0-10 (represents dB boost)
+    low_atten: f64, // 0-10 (represents dB cut)
     low_freq: PultecLowFreq,
 
     // High frequency section
     high_boost: f64,     // 0-10
     high_bandwidth: f64, // Sharp to Broad
     high_boost_freq: PultecHighBoostFreq,
-    high_atten: f64,     // 0-10
+    high_atten: f64, // 0-10
     high_atten_freq: PultecHighAttenFreq,
 
     // Internal filter states
@@ -405,22 +405,16 @@ impl PultecEqp1a {
     pub fn set_low_boost(&mut self, amount: f64) {
         self.low_boost = amount.clamp(0.0, 10.0);
         let gain_db = self.low_boost * 1.2; // ~12dB max
-        self.low_boost_filter.set_low_boost(
-            self.low_freq.hz(),
-            gain_db,
-            self.sample_rate
-        );
+        self.low_boost_filter
+            .set_low_boost(self.low_freq.hz(), gain_db, self.sample_rate);
     }
 
     /// Set low frequency attenuation (0-10)
     pub fn set_low_atten(&mut self, amount: f64) {
         self.low_atten = amount.clamp(0.0, 10.0);
         let gain_db = self.low_atten * 1.5; // Slightly more range for cut
-        self.low_atten_filter.set_low_atten(
-            self.low_freq.hz(),
-            gain_db,
-            self.sample_rate
-        );
+        self.low_atten_filter
+            .set_low_atten(self.low_freq.hz(), gain_db, self.sample_rate);
     }
 
     /// Set low frequency selection
@@ -439,7 +433,7 @@ impl PultecEqp1a {
             self.high_boost_freq.hz(),
             gain_db,
             self.high_bandwidth,
-            self.sample_rate
+            self.sample_rate,
         );
     }
 
@@ -459,11 +453,8 @@ impl PultecEqp1a {
     pub fn set_high_atten(&mut self, amount: f64) {
         self.high_atten = amount.clamp(0.0, 10.0);
         let gain_db = self.high_atten * 1.5;
-        self.high_atten_filter.set_high_atten(
-            self.high_atten_freq.hz(),
-            gain_db,
-            self.sample_rate
-        );
+        self.high_atten_filter
+            .set_high_atten(self.high_atten_freq.hz(), gain_db, self.sample_rate);
     }
 
     /// Set high atten frequency
@@ -707,13 +698,19 @@ pub struct DiscreteSaturation {
 
 impl Default for DiscreteSaturation {
     fn default() -> Self {
-        Self { drive: 0.2, prev: 0.0 }
+        Self {
+            drive: 0.2,
+            prev: 0.0,
+        }
     }
 }
 
 impl DiscreteSaturation {
     pub fn new(drive: f64) -> Self {
-        Self { drive: drive.clamp(0.0, 1.0), prev: 0.0 }
+        Self {
+            drive: drive.clamp(0.0, 1.0),
+            prev: 0.0,
+        }
     }
 
     #[inline(always)]
@@ -755,19 +752,22 @@ impl Api550 {
     pub fn set_low(&mut self, gain_db: f64, freq: Api550LowFreq) {
         self.low_gain = gain_db.clamp(-12.0, 12.0);
         self.low_freq = freq;
-        self.low_filter.set_shelf(freq.hz(), self.low_gain, false, self.sample_rate);
+        self.low_filter
+            .set_shelf(freq.hz(), self.low_gain, false, self.sample_rate);
     }
 
     pub fn set_mid(&mut self, gain_db: f64, freq: Api550MidFreq) {
         self.mid_gain = gain_db.clamp(-12.0, 12.0);
         self.mid_freq = freq;
-        self.mid_filter.set_peak(freq.hz(), self.mid_gain, self.sample_rate);
+        self.mid_filter
+            .set_peak(freq.hz(), self.mid_gain, self.sample_rate);
     }
 
     pub fn set_high(&mut self, gain_db: f64, freq: Api550HighFreq) {
         self.high_gain = gain_db.clamp(-12.0, 12.0);
         self.high_freq = freq;
-        self.high_filter.set_shelf(freq.hz(), self.high_gain, true, self.sample_rate);
+        self.high_filter
+            .set_shelf(freq.hz(), self.high_gain, true, self.sample_rate);
     }
 
     #[inline(always)]
@@ -1073,13 +1073,15 @@ impl Neve1073 {
     pub fn set_low(&mut self, gain_db: f64, freq: Neve1073LowFreq) {
         self.low_gain = gain_db.clamp(-16.0, 16.0);
         self.low_freq = freq;
-        self.low_filter.set_low_shelf(freq.hz(), self.low_gain, self.sample_rate);
+        self.low_filter
+            .set_low_shelf(freq.hz(), self.low_gain, self.sample_rate);
     }
 
     pub fn set_high(&mut self, gain_db: f64, freq: Neve1073HighFreq) {
         self.high_gain = gain_db.clamp(-16.0, 16.0);
         self.high_freq = freq;
-        self.high_filter.set_high_shelf(freq.hz(), self.high_gain, self.sample_rate);
+        self.high_filter
+            .set_high_shelf(freq.hz(), self.high_gain, self.sample_rate);
     }
 
     #[inline(always)]

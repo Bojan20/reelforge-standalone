@@ -329,8 +329,12 @@ impl LinearPhaseEq {
         }
 
         // Forward FFT
-        self.fft_forward.process(&mut fft_scratch_l, &mut spectrum_l).ok();
-        self.fft_forward.process(&mut fft_scratch_r, &mut spectrum_r).ok();
+        self.fft_forward
+            .process(&mut fft_scratch_l, &mut spectrum_l)
+            .ok();
+        self.fft_forward
+            .process(&mut fft_scratch_r, &mut spectrum_r)
+            .ok();
 
         // Apply EQ curve
         for i in 0..bins {
@@ -339,8 +343,12 @@ impl LinearPhaseEq {
         }
 
         // Inverse FFT
-        self.fft_inverse.process(&mut spectrum_l, &mut ifft_scratch_l).ok();
-        self.fft_inverse.process(&mut spectrum_r, &mut ifft_scratch_r).ok();
+        self.fft_inverse
+            .process(&mut spectrum_l, &mut ifft_scratch_l)
+            .ok();
+        self.fft_inverse
+            .process(&mut spectrum_r, &mut ifft_scratch_r)
+            .ok();
 
         // Normalize and apply synthesis window, overlap-add
         let norm = 1.0 / fft_size as f32;
@@ -351,7 +359,13 @@ impl LinearPhaseEq {
     }
 
     /// Process buffer
-    pub fn process(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),
@@ -475,7 +489,13 @@ impl MatchingEq {
     }
 
     /// Process buffer
-    pub fn process(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         self.eq.process(input_l, input_r, output_l, output_r)
     }
 
@@ -517,7 +537,8 @@ mod tests {
         let mut output_l = vec![0.0f32; 4096];
         let mut output_r = vec![0.0f32; 4096];
 
-        eq.process(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        eq.process(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         assert!(output_l.iter().all(|s| s.is_finite()));
     }
@@ -566,7 +587,9 @@ mod tests {
         let mut output_l = vec![0.0f32; 4096];
         let mut output_r = vec![0.0f32; 4096];
 
-        matching.process(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        matching
+            .process(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         assert!(output_l.iter().all(|s| s.is_finite()));
     }

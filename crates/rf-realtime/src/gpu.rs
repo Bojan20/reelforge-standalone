@@ -6,9 +6,9 @@
 //! - GPU convolution for large IRs
 //! - Async CPU↔GPU data transfer
 
-use std::sync::Arc;
-use wgpu::{Device, Queue, Buffer, ComputePipeline, BindGroup, ShaderModule};
 use bytemuck::{Pod, Zeroable};
+use std::sync::Arc;
+use wgpu::{BindGroup, Buffer, ComputePipeline, Device, Queue, ShaderModule};
 
 /// GPU compute context
 pub struct GpuContext {
@@ -53,10 +53,11 @@ impl GpuContext {
 
     /// Create compute shader module
     pub fn create_shader(&self, source: &str) -> ShaderModule {
-        self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Compute Shader"),
-            source: wgpu::ShaderSource::Wgsl(source.into()),
-        })
+        self.device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Compute Shader"),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            })
     }
 
     /// Create buffer
@@ -98,56 +99,64 @@ impl GpuFft {
         let shader = context.create_shader(shader_source);
 
         // Create pipeline layout
-        let bind_group_layout = context.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("FFT Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("FFT Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
 
-        let pipeline_layout = context.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("FFT Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("FFT Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
-        let pipeline = context.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("FFT Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("fft_radix2"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let pipeline = context
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("FFT Pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some("fft_radix2"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         // Create buffers (complex f32: 2 * 4 bytes per sample)
         let buffer_size = (fft_size * 2 * 4) as u64;
@@ -167,24 +176,26 @@ impl GpuFft {
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         );
 
-        let bind_group = context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("FFT Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: input_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: output_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: params_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("FFT Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: input_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: output_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: params_buffer.as_entire_binding(),
+                    },
+                ],
+            });
 
         Self {
             context,
@@ -209,7 +220,9 @@ impl GpuFft {
 
     fn compute(&self, input: &[f32], inverse: bool) -> Vec<f32> {
         // Upload input data
-        self.context.queue.write_buffer(&self.input_buffer, 0, bytemuck::cast_slice(input));
+        self.context
+            .queue
+            .write_buffer(&self.input_buffer, 0, bytemuck::cast_slice(input));
 
         // Upload parameters
         let log2_n = (self.fft_size as f32).log2() as u32;
@@ -219,12 +232,17 @@ impl GpuFft {
             inverse: if inverse { 1 } else { 0 },
             _padding: 0,
         };
-        self.context.queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+        self.context
+            .queue
+            .write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
 
         // Create command encoder
-        let mut encoder = self.context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("FFT Encoder"),
-        });
+        let mut encoder =
+            self.context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("FFT Encoder"),
+                });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -290,66 +308,74 @@ impl GpuConvolution {
         let shader_source = include_str!("shaders/convolution.wgsl");
         let shader = context.create_shader(shader_source);
 
-        let bind_group_layout = context.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Convolution Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Convolution Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
 
-        let pipeline_layout = context.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Convolution Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Convolution Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
-        let pipeline = context.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Convolution Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("convolve"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let pipeline = context
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Convolution Pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some("convolve"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         let audio_buffer = context.create_buffer(
             (max_audio_length * 4) as u64,
@@ -371,28 +397,30 @@ impl GpuConvolution {
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         );
 
-        let bind_group = context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Convolution Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: audio_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: ir_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: output_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: params_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Convolution Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: audio_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: ir_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: output_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: params_buffer.as_entire_binding(),
+                    },
+                ],
+            });
 
         Self {
             context,
@@ -408,13 +436,17 @@ impl GpuConvolution {
 
     /// Set impulse response
     pub fn set_ir(&self, ir: &[f32]) {
-        self.context.queue.write_buffer(&self.ir_buffer, 0, bytemuck::cast_slice(ir));
+        self.context
+            .queue
+            .write_buffer(&self.ir_buffer, 0, bytemuck::cast_slice(ir));
     }
 
     /// Convolve audio with IR
     pub fn convolve(&self, audio: &[f32]) -> Vec<f32> {
         // Upload audio
-        self.context.queue.write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(audio));
+        self.context
+            .queue
+            .write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(audio));
 
         // Upload parameters
         let params = ConvParams {
@@ -422,12 +454,17 @@ impl GpuConvolution {
             audio_length: audio.len() as u32,
             _padding: [0; 2],
         };
-        self.context.queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+        self.context
+            .queue
+            .write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
 
         // Dispatch
-        let mut encoder = self.context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Convolution Encoder"),
-        });
+        let mut encoder =
+            self.context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Convolution Encoder"),
+                });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -496,60 +533,70 @@ impl GpuEq {
         let shader_source = include_str!("shaders/eq.wgsl");
         let shader = context.create_shader(shader_source);
 
-        let bind_group_layout = context.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("EQ Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("EQ Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
 
-        let pipeline_layout = context.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("EQ Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("EQ Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
-        let pipeline = context.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("EQ Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("process_eq"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let pipeline = context
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("EQ Pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some("process_eq"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         let audio_buffer = context.create_buffer(
             (block_size * 4) as u64,
-            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
         );
 
         let coeffs_buffer = context.create_buffer(
@@ -562,24 +609,26 @@ impl GpuEq {
             wgpu::BufferUsages::STORAGE,
         );
 
-        let bind_group = context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("EQ Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: audio_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: coeffs_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: states_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("EQ Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: audio_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: coeffs_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: states_buffer.as_entire_binding(),
+                    },
+                ],
+            });
 
         Self {
             context,
@@ -594,18 +643,25 @@ impl GpuEq {
 
     /// Update EQ coefficients
     pub fn set_coefficients(&self, coeffs: &[GpuBiquadCoeffs]) {
-        self.context.queue.write_buffer(&self.coeffs_buffer, 0, bytemuck::cast_slice(coeffs));
+        self.context
+            .queue
+            .write_buffer(&self.coeffs_buffer, 0, bytemuck::cast_slice(coeffs));
     }
 
     /// Process audio through EQ
     pub fn process(&self, audio: &mut [f32]) {
         // Upload audio
-        self.context.queue.write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(audio));
+        self.context
+            .queue
+            .write_buffer(&self.audio_buffer, 0, bytemuck::cast_slice(audio));
 
         // Dispatch
-        let mut encoder = self.context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("EQ Encoder"),
-        });
+        let mut encoder =
+            self.context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("EQ Encoder"),
+                });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -673,7 +729,12 @@ impl AsyncTransfer {
     }
 
     /// Queue async copy from GPU buffer to staging
-    pub fn queue_copy(&mut self, encoder: &mut wgpu::CommandEncoder, src: &Buffer, size: u64) -> usize {
+    pub fn queue_copy(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        src: &Buffer,
+        size: u64,
+    ) -> usize {
         let staging = self.next_buffer();
         encoder.copy_buffer_to_buffer(src, 0, staging, 0, size);
         (self.buffer_idx + self.staging_buffers.len() - 1) % self.staging_buffers.len()

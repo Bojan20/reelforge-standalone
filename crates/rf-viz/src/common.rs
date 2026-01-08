@@ -1,8 +1,8 @@
 //! Common GPU utilities for visualization
 
+use std::sync::Arc;
 use thiserror::Error;
 use wgpu;
-use std::sync::Arc;
 
 /// Visualization errors
 #[derive(Error, Debug)]
@@ -44,7 +44,11 @@ impl GpuContext {
             .ok_or_else(|| VizError::GpuInit("No suitable GPU adapter found".into()))?;
 
         let adapter_info = adapter.get_info();
-        log::info!("Using GPU: {} ({:?})", adapter_info.name, adapter_info.backend);
+        log::info!(
+            "Using GPU: {} ({:?})",
+            adapter_info.name,
+            adapter_info.backend
+        );
 
         let (device, queue) = adapter
             .request_device(
@@ -100,11 +104,11 @@ impl Color {
     }
 
     // ReelForge theme colors
-    pub const BLUE: Self = Self::new(0.290, 0.620, 1.0, 1.0);      // #4A9EFF
-    pub const ORANGE: Self = Self::new(1.0, 0.565, 0.251, 1.0);    // #FF9040
-    pub const GREEN: Self = Self::new(0.251, 1.0, 0.565, 1.0);     // #40FF90
-    pub const RED: Self = Self::new(1.0, 0.251, 0.376, 1.0);       // #FF4060
-    pub const CYAN: Self = Self::new(0.251, 0.784, 1.0, 1.0);      // #40C8FF
+    pub const BLUE: Self = Self::new(0.290, 0.620, 1.0, 1.0); // #4A9EFF
+    pub const ORANGE: Self = Self::new(1.0, 0.565, 0.251, 1.0); // #FF9040
+    pub const GREEN: Self = Self::new(0.251, 1.0, 0.565, 1.0); // #40FF90
+    pub const RED: Self = Self::new(1.0, 0.251, 0.376, 1.0); // #FF4060
+    pub const CYAN: Self = Self::new(0.251, 0.784, 1.0, 1.0); // #40C8FF
 }
 
 /// Viewport for rendering

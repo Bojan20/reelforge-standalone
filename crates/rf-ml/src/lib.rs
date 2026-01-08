@@ -27,20 +27,20 @@
 // ONNX Runtime feature detection
 #![allow(unexpected_cfgs)]
 
-pub mod denoise;
-pub mod separation;
-pub mod enhance;
-pub mod r#match;
 pub mod assistant;
+pub mod denoise;
+pub mod enhance;
 pub mod mastering;
+pub mod r#match;
+pub mod separation;
 
-mod inference;
 mod buffer;
 mod error;
+mod inference;
 
-pub use error::{MlError, MlResult};
-pub use inference::{InferenceEngine, InferenceConfig, ExecutionProvider};
 pub use buffer::{AudioFrame, FrameBuffer};
+pub use error::{MlError, MlResult};
+pub use inference::{ExecutionProvider, InferenceConfig, InferenceEngine};
 
 /// ML model registry paths
 pub mod models {

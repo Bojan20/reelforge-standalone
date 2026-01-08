@@ -1,7 +1,7 @@
 //! Ambisonic transformations - rotation, zoom, focus
 
-use crate::position::Orientation;
 use super::AmbisonicOrder;
+use crate::position::Orientation;
 
 /// Ambisonic transformation processor
 pub struct AmbisonicTransform {
@@ -239,7 +239,8 @@ impl RotationInterpolator {
                 (self.interp_pos + s) as f32 / self.interp_samples as f32
             } else {
                 1.0
-            }.min(1.0);
+            }
+            .min(1.0);
 
             // Interpolate orientation
             let interp_orient = Orientation::new(
@@ -325,10 +326,10 @@ mod tests {
         let transform = AmbisonicTransform::new(AmbisonicOrder::First);
 
         let input = vec![
-            vec![1.0; 10],  // W
-            vec![0.5; 10],  // Y (left)
-            vec![0.0; 10],  // Z
-            vec![1.0; 10],  // X
+            vec![1.0; 10], // W
+            vec![0.5; 10], // Y (left)
+            vec![0.0; 10], // Z
+            vec![1.0; 10], // X
         ];
 
         let mirrored = transform.mirror_lr(&input);

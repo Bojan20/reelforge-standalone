@@ -300,7 +300,7 @@ impl CompRegion {
             take_id,
             start_time,
             end_time,
-            crossfade_in: 0.01,  // 10ms default
+            crossfade_in: 0.01, // 10ms default
             crossfade_out: 0.01,
             crossfade_type: CompCrossfadeType::EqualPower,
         }
@@ -571,15 +571,7 @@ mod tests {
         let lane_id = LaneId(1);
         let take_id = TakeId(1);
 
-        let take = Take::new(
-            take_id,
-            lane_id,
-            track_id,
-            1,
-            "/audio/take1.wav",
-            0.0,
-            5.0,
-        );
+        let take = Take::new(take_id, lane_id, track_id, 1, "/audio/take1.wav", 0.0, 5.0);
 
         assert_eq!(take.take_number, 1);
         assert_eq!(take.duration, 5.0);

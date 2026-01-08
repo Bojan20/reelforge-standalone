@@ -116,9 +116,9 @@ impl SuggestionPriority {
     /// Get color hex
     pub fn color(&self) -> &'static str {
         match self {
-            SuggestionPriority::Low => "#40c8ff",    // Cyan
-            SuggestionPriority::Medium => "#ffff40", // Yellow
-            SuggestionPriority::High => "#ff9040",   // Orange
+            SuggestionPriority::Low => "#40c8ff",      // Cyan
+            SuggestionPriority::Medium => "#ffff40",   // Yellow
+            SuggestionPriority::High => "#ff9040",     // Orange
             SuggestionPriority::Critical => "#ff4040", // Red
         }
     }
@@ -267,7 +267,11 @@ impl SuggestionGenerator {
         // Check loudness target
         let loudness_diff = integrated_lufs - self.target_loudness;
         if loudness_diff.abs() > 1.0 {
-            let direction = if loudness_diff > 0.0 { "reduce" } else { "increase" };
+            let direction = if loudness_diff > 0.0 {
+                "reduce"
+            } else {
+                "increase"
+            };
             suggestions.push(
                 Suggestion::new(
                     SuggestionType::Level,
@@ -279,7 +283,10 @@ impl SuggestionGenerator {
                     format!("Adjust loudness ({:.1} dB)", -loudness_diff),
                     format!(
                         "Current loudness is {:.1} LUFS. Target is {:.1} LUFS. {} by {:.1} dB.",
-                        integrated_lufs, self.target_loudness, direction, loudness_diff.abs()
+                        integrated_lufs,
+                        self.target_loudness,
+                        direction,
+                        loudness_diff.abs()
                     ),
                 )
                 .with_reasoning("Loudness should match streaming platform standards.")
@@ -302,7 +309,9 @@ impl SuggestionGenerator {
                         true_peak_db, self.target_true_peak
                     ),
                 )
-                .with_reasoning("Peaks above -1 dBTP may cause distortion on some playback systems.")
+                .with_reasoning(
+                    "Peaks above -1 dBTP may cause distortion on some playback systems.",
+                )
                 .with_parameter("Ceiling", true_peak_db, self.target_true_peak, "dBTP")
                 .with_confidence(0.98)
                 .with_impact(0.7),
@@ -336,7 +345,9 @@ impl SuggestionGenerator {
                         loudness_range
                     ),
                 )
-                .with_reasoning("High dynamic range may not translate well to all listening environments.")
+                .with_reasoning(
+                    "High dynamic range may not translate well to all listening environments.",
+                )
                 .with_parameter("Ratio", 1.0, 2.0, ":1")
                 .with_confidence(0.6)
                 .with_impact(0.5),
@@ -412,12 +423,7 @@ impl SuggestionGenerator {
     }
 
     /// Generate suggestions from stereo analysis
-    pub fn from_stereo(
-        &self,
-        width: f32,
-        correlation: f32,
-        balance: f32,
-    ) -> Vec<Suggestion> {
+    pub fn from_stereo(&self, width: f32, correlation: f32, balance: f32) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
 
         // Check correlation (phase issues)
@@ -432,7 +438,9 @@ impl SuggestionGenerator {
                         correlation
                     ),
                 )
-                .with_reasoning("Negative correlation indicates out-of-phase content that will cancel in mono.")
+                .with_reasoning(
+                    "Negative correlation indicates out-of-phase content that will cancel in mono.",
+                )
                 .with_confidence(0.95)
                 .with_impact(0.9),
             );
@@ -463,7 +471,8 @@ impl SuggestionGenerator {
                     format!("Mix leans {}", direction),
                     format!(
                         "Stereo balance is {:.0}% {}. Consider centering.",
-                        balance.abs() * 100.0, direction
+                        balance.abs() * 100.0,
+                        direction
                     ),
                 )
                 .with_reasoning("Unbalanced mixes can sound unprofessional.")
@@ -513,12 +522,21 @@ mod tests {
         // Too loud
         let suggestions = gen.from_loudness(-10.0, -0.5, 8.0);
         assert!(!suggestions.is_empty());
-        assert!(suggestions.iter().any(|s| s.suggestion_type == SuggestionType::Level));
-        assert!(suggestions.iter().any(|s| s.suggestion_type == SuggestionType::Limiting));
+        assert!(suggestions
+            .iter()
+            .any(|s| s.suggestion_type == SuggestionType::Level));
+        assert!(suggestions
+            .iter()
+            .any(|s| s.suggestion_type == SuggestionType::Limiting));
 
         // On target
         let suggestions = gen.from_loudness(-14.0, -1.5, 8.0);
-        assert!(suggestions.is_empty() || suggestions.iter().all(|s| s.priority < SuggestionPriority::High));
+        assert!(
+            suggestions.is_empty()
+                || suggestions
+                    .iter()
+                    .all(|s| s.priority < SuggestionPriority::High)
+        );
     }
 
     #[test]
@@ -527,6 +545,8 @@ mod tests {
 
         // Phase issues
         let suggestions = gen.from_stereo(0.5, -0.2, 0.0);
-        assert!(suggestions.iter().any(|s| s.priority == SuggestionPriority::Critical));
+        assert!(suggestions
+            .iter()
+            .any(|s| s.priority == SuggestionPriority::Critical));
     }
 }

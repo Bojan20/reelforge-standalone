@@ -95,12 +95,20 @@ impl LRCrossover {
 
     fn process(&mut self, left: f32, right: f32) -> ((f32, f32), (f32, f32)) {
         // Lowpass
-        let low_l = self.low_l.process(left as f64, self.b0, self.b1, self.b2, self.a1, self.a2);
-        let low_r = self.low_r.process(right as f64, self.b0, self.b1, self.b2, self.a1, self.a2);
+        let low_l = self
+            .low_l
+            .process(left as f64, self.b0, self.b1, self.b2, self.a1, self.a2);
+        let low_r = self
+            .low_r
+            .process(right as f64, self.b0, self.b1, self.b2, self.a1, self.a2);
 
         // Second stage for LR4
-        let low_l = self.low_l.process(low_l, self.b0, self.b1, self.b2, self.a1, self.a2);
-        let low_r = self.low_r.process(low_r, self.b0, self.b1, self.b2, self.a1, self.a2);
+        let low_l = self
+            .low_l
+            .process(low_l, self.b0, self.b1, self.b2, self.a1, self.a2);
+        let low_r = self
+            .low_r
+            .process(low_r, self.b0, self.b1, self.b2, self.a1, self.a2);
 
         // Highpass = original - lowpass (allpass subtraction)
         let high_l = left as f64 - low_l;
@@ -162,7 +170,14 @@ struct BandCompressor {
 }
 
 impl BandCompressor {
-    fn new(threshold: f32, ratio: f32, attack_ms: f32, release_ms: f32, knee_db: f32, sample_rate: u32) -> Self {
+    fn new(
+        threshold: f32,
+        ratio: f32,
+        attack_ms: f32,
+        release_ms: f32,
+        knee_db: f32,
+        sample_rate: u32,
+    ) -> Self {
         let attack_coeff = (-1.0 / (attack_ms * sample_rate as f32 / 1000.0)).exp() as f64;
         let release_coeff = (-1.0 / (release_ms * sample_rate as f32 / 1000.0)).exp() as f64;
 
@@ -209,9 +224,11 @@ impl BandCompressor {
         // Smooth envelope
         let target_env = (-target_gr / 20.0f32).exp() as f64;
         if target_env < self.envelope {
-            self.envelope = self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_env;
+            self.envelope =
+                self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_env;
         } else {
-            self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_env;
+            self.envelope =
+                self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_env;
         }
 
         // Apply gain
@@ -335,7 +352,13 @@ impl MultibandDynamics {
     }
 
     /// Process buffer
-    pub fn process(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() || input_r.len() != output_r.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),
@@ -497,9 +520,11 @@ impl MasteringCompressor {
         // Envelope following
         let target_env = 10.0f64.powf(-target_gr as f64 / 20.0);
         if target_env < self.envelope {
-            self.envelope = self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_env;
+            self.envelope =
+                self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_env;
         } else {
-            self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_env;
+            self.envelope =
+                self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_env;
         }
 
         self.gain_reduction = -20.0 * (self.envelope as f32).log10();
@@ -541,7 +566,9 @@ mod tests {
         let mut output_l = vec![0.0f32; 1024];
         let mut output_r = vec![0.0f32; 1024];
 
-        dynamics.process(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        dynamics
+            .process(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         // Output should be finite
         assert!(output_l.iter().all(|s| s.is_finite()));

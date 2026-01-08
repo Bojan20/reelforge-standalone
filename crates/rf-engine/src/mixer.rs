@@ -6,13 +6,13 @@
 //! - Master bus with limiter
 
 use rf_core::Sample;
+use rf_dsp::analysis::{LufsMeter, PeakMeter};
 use rf_dsp::channel::ChannelStrip;
-use rf_dsp::dynamics::{TruePeakLimiter, StereoCompressor, CompressorType};
-use rf_dsp::analysis::{PeakMeter, LufsMeter};
+use rf_dsp::dynamics::{CompressorType, StereoCompressor, TruePeakLimiter};
 use rf_dsp::{Processor, ProcessorConfig, StereoProcessor};
 use rtrb::{Consumer, Producer, RingBuffer};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Number of mixer channels
 pub const NUM_CHANNELS: usize = 6;
@@ -200,7 +200,8 @@ impl MixerChannel {
         self.output_l.copy_from_slice(&self.input_l);
         self.output_r.copy_from_slice(&self.input_r);
 
-        self.strip.process_block(&mut self.output_l, &mut self.output_r);
+        self.strip
+            .process_block(&mut self.output_l, &mut self.output_r);
     }
 }
 
@@ -272,12 +273,14 @@ impl MasterChannel {
 
         // Apply compressor if enabled
         if self.compressor_enabled {
-            self.compressor.process_block(&mut self.output_l, &mut self.output_r);
+            self.compressor
+                .process_block(&mut self.output_l, &mut self.output_r);
         }
 
         // Apply limiter if enabled
         if self.limiter_enabled {
-            self.limiter.process_block(&mut self.output_l, &mut self.output_r);
+            self.limiter
+                .process_block(&mut self.output_l, &mut self.output_r);
         }
 
         // Update metering
@@ -307,7 +310,10 @@ pub struct Mixer {
 }
 
 impl Mixer {
-    pub fn new(sample_rate: f64, block_size: usize) -> (Self, Producer<MixerCommand>, Arc<MeterBridge>) {
+    pub fn new(
+        sample_rate: f64,
+        block_size: usize,
+    ) -> (Self, Producer<MixerCommand>, Arc<MeterBridge>) {
         let (command_tx, command_rx) = RingBuffer::new(1024);
         let meters = Arc::new(MeterBridge::new());
 
@@ -420,7 +426,8 @@ impl Mixer {
                 channel.process();
 
                 // Add to master
-                self.master.add_from_channel(&channel.output_l, &channel.output_r);
+                self.master
+                    .add_from_channel(&channel.output_l, &channel.output_r);
             }
 
             // Update channel meters
@@ -439,12 +446,25 @@ impl Mixer {
         self.master.process();
 
         // Update master meters
-        self.meters.master.peak_l.store(self.master.peak_l.current_db());
-        self.meters.master.peak_r.store(self.master.peak_r.current_db());
-        self.meters.master.gain_reduction.store(self.master.limiter.gain_reduction_db());
+        self.meters
+            .master
+            .peak_l
+            .store(self.master.peak_l.current_db());
+        self.meters
+            .master
+            .peak_r
+            .store(self.master.peak_r.current_db());
+        self.meters
+            .master
+            .gain_reduction
+            .store(self.master.limiter.gain_reduction_db());
         self.meters.lufs_short.store(self.master.lufs.short_term());
-        self.meters.lufs_integrated.store(self.master.lufs.integrated());
-        self.meters.true_peak.store(self.master.limiter.true_peak_db());
+        self.meters
+            .lufs_integrated
+            .store(self.master.lufs.integrated());
+        self.meters
+            .true_peak
+            .store(self.master.limiter.true_peak_db());
 
         // Interleave output
         let left = &self.master.output_l;
@@ -532,27 +552,45 @@ impl MixerHandle {
 
     // Channel strip DSP
     pub fn set_channel_hpf(&mut self, id: ChannelId, enabled: bool, freq: f64) {
-        let _ = self.command_tx.push(MixerCommand::SetChannelHpfEnabled(id, enabled));
-        let _ = self.command_tx.push(MixerCommand::SetChannelHpfFreq(id, freq));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelHpfEnabled(id, enabled));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelHpfFreq(id, freq));
     }
 
     pub fn set_channel_gate(&mut self, id: ChannelId, enabled: bool, threshold: f64) {
-        let _ = self.command_tx.push(MixerCommand::SetChannelGateEnabled(id, enabled));
-        let _ = self.command_tx.push(MixerCommand::SetChannelGateThreshold(id, threshold));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelGateEnabled(id, enabled));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelGateThreshold(id, threshold));
     }
 
     pub fn set_channel_comp(&mut self, id: ChannelId, enabled: bool, threshold: f64, ratio: f64) {
-        let _ = self.command_tx.push(MixerCommand::SetChannelCompEnabled(id, enabled));
-        let _ = self.command_tx.push(MixerCommand::SetChannelCompThreshold(id, threshold));
-        let _ = self.command_tx.push(MixerCommand::SetChannelCompRatio(id, ratio));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelCompEnabled(id, enabled));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelCompThreshold(id, threshold));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelCompRatio(id, ratio));
     }
 
     pub fn set_channel_eq(&mut self, id: ChannelId, enabled: bool) {
-        let _ = self.command_tx.push(MixerCommand::SetChannelEqEnabled(id, enabled));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelEqEnabled(id, enabled));
     }
 
     pub fn set_channel_width(&mut self, id: ChannelId, width: f64) {
-        let _ = self.command_tx.push(MixerCommand::SetChannelWidth(id, width));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetChannelWidth(id, width));
     }
 
     // Master controls
@@ -561,8 +599,12 @@ impl MixerHandle {
     }
 
     pub fn set_master_limiter(&mut self, enabled: bool, ceiling: f64) {
-        let _ = self.command_tx.push(MixerCommand::SetMasterLimiterEnabled(enabled));
-        let _ = self.command_tx.push(MixerCommand::SetMasterLimiterCeiling(ceiling));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetMasterLimiterEnabled(enabled));
+        let _ = self
+            .command_tx
+            .push(MixerCommand::SetMasterLimiterCeiling(ceiling));
     }
 
     // Metering
@@ -576,7 +618,10 @@ impl MixerHandle {
     }
 
     pub fn master_peak(&self) -> (f64, f64) {
-        (self.meters.master.peak_l.load(), self.meters.master.peak_r.load())
+        (
+            self.meters.master.peak_l.load(),
+            self.meters.master.peak_r.load(),
+        )
     }
 
     pub fn master_gain_reduction(&self) -> f64 {
@@ -584,7 +629,10 @@ impl MixerHandle {
     }
 
     pub fn lufs(&self) -> (f64, f64) {
-        (self.meters.lufs_short.load(), self.meters.lufs_integrated.load())
+        (
+            self.meters.lufs_short.load(),
+            self.meters.lufs_integrated.load(),
+        )
     }
 
     pub fn true_peak(&self) -> f64 {

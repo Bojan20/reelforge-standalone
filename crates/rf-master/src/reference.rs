@@ -2,9 +2,9 @@
 //!
 //! Analyze and match spectral/dynamic characteristics of reference tracks
 
-use crate::{DynamicsProfile, ReferenceProfile, StereoProfile, LoudnessMeasurement};
 use crate::analysis::MasteringAnalyzer;
 use crate::error::{MasterError, MasterResult};
+use crate::{DynamicsProfile, LoudnessMeasurement, ReferenceProfile, StereoProfile};
 
 /// Reference matcher for comparing and matching tracks
 pub struct ReferenceMatcher {
@@ -115,15 +115,19 @@ impl ReferenceMatcher {
 
     /// Analyze and compare to reference
     pub fn analyze(&self, left: &[f32], right: &[f32]) -> MasterResult<MatchResult> {
-        let reference = self.reference.as_ref()
+        let reference = self
+            .reference
+            .as_ref()
             .ok_or(MasterError::ReferenceError("No reference set".to_string()))?;
 
         // Analyze input
         let input_profile = self.analyzer.create_reference_profile("input", left, right);
 
         // Calculate differences
-        let spectral_diff = self.calculate_spectral_diff(&input_profile.spectrum, &reference.spectrum);
-        let dynamics_diff = self.calculate_dynamics_diff(&input_profile.dynamics, &reference.dynamics);
+        let spectral_diff =
+            self.calculate_spectral_diff(&input_profile.spectrum, &reference.spectrum);
+        let dynamics_diff =
+            self.calculate_dynamics_diff(&input_profile.dynamics, &reference.dynamics);
         let stereo_diff = self.calculate_stereo_diff(&input_profile.stereo, &reference.stereo);
         let loudness_diff = reference.loudness.integrated - input_profile.loudness.integrated;
 
@@ -131,13 +135,15 @@ impl ReferenceMatcher {
         let eq_curve = self.generate_eq_curve(&input_profile.spectrum, &reference.spectrum);
 
         // Generate compression recommendation
-        let compression = self.generate_compression_rec(&input_profile.dynamics, &reference.dynamics);
+        let compression =
+            self.generate_compression_rec(&input_profile.dynamics, &reference.dynamics);
 
         // Generate stereo recommendation
         let stereo = self.generate_stereo_rec(&input_profile.stereo, &reference.stereo);
 
         // Calculate match score
-        let match_score = self.calculate_match_score(spectral_diff, dynamics_diff, stereo_diff, loudness_diff);
+        let match_score =
+            self.calculate_match_score(spectral_diff, dynamics_diff, stereo_diff, loudness_diff);
 
         Ok(MatchResult {
             spectral_diff_db: spectral_diff,
@@ -160,8 +166,16 @@ impl ReferenceMatcher {
         let mut sum_sq_diff = 0.0f32;
 
         for i in 0..len {
-            let in_db = if input[i] > 1e-10 { 20.0 * input[i].log10() } else { -60.0 };
-            let ref_db = if reference[i] > 1e-10 { 20.0 * reference[i].log10() } else { -60.0 };
+            let in_db = if input[i] > 1e-10 {
+                20.0 * input[i].log10()
+            } else {
+                -60.0
+            };
+            let ref_db = if reference[i] > 1e-10 {
+                20.0 * reference[i].log10()
+            } else {
+                -60.0
+            };
             let diff = in_db - ref_db;
             sum_sq_diff += diff * diff;
         }
@@ -225,7 +239,11 @@ impl ReferenceMatcher {
         curve
     }
 
-    fn generate_compression_rec(&self, input: &DynamicsProfile, reference: &DynamicsProfile) -> CompressionRecommendation {
+    fn generate_compression_rec(
+        &self,
+        input: &DynamicsProfile,
+        reference: &DynamicsProfile,
+    ) -> CompressionRecommendation {
         let crest_diff = reference.crest_factor - input.crest_factor;
         let dr_diff = reference.dynamic_range - input.dynamic_range;
 
@@ -256,7 +274,11 @@ impl ReferenceMatcher {
         }
     }
 
-    fn generate_stereo_rec(&self, input: &StereoProfile, reference: &StereoProfile) -> StereoRecommendation {
+    fn generate_stereo_rec(
+        &self,
+        input: &StereoProfile,
+        reference: &StereoProfile,
+    ) -> StereoRecommendation {
         let width_diff = reference.width - input.width;
         let balance_diff = reference.balance - input.balance;
 
@@ -280,7 +302,13 @@ impl ReferenceMatcher {
         }
     }
 
-    fn calculate_match_score(&self, spectral: f32, dynamics: f32, stereo: f32, loudness: f32) -> f32 {
+    fn calculate_match_score(
+        &self,
+        spectral: f32,
+        dynamics: f32,
+        stereo: f32,
+        loudness: f32,
+    ) -> f32 {
         // Weight factors
         let spectral_weight = 0.4;
         let dynamics_weight = 0.25;

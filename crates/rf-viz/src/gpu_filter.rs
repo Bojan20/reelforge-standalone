@@ -8,9 +8,9 @@
 //! - Saturation/waveshaping
 //! - Stereo M/S processing
 
+use bytemuck::{Pod, Zeroable};
 use std::sync::Arc;
 use wgpu::{self};
-use bytemuck::{Pod, Zeroable};
 
 use crate::common::{GpuContext, VizError, VizResult};
 
@@ -337,7 +337,14 @@ impl GpuDynamicBand {
         }
     }
 
-    pub fn with_dynamics(mut self, threshold: f32, ratio: f32, attack_ms: f32, release_ms: f32, sample_rate: f32) -> Self {
+    pub fn with_dynamics(
+        mut self,
+        threshold: f32,
+        ratio: f32,
+        attack_ms: f32,
+        release_ms: f32,
+        sample_rate: f32,
+    ) -> Self {
         self.threshold = threshold;
         self.ratio = ratio;
         self.attack_coeff = (-2.2 / (attack_ms * 0.001 * sample_rate)).exp();
@@ -390,7 +397,11 @@ pub struct GpuFilterProcessor {
 }
 
 impl GpuFilterProcessor {
-    pub async fn new(ctx: Arc<GpuContext>, max_samples: usize, sample_rate: f32) -> VizResult<Self> {
+    pub async fn new(
+        ctx: Arc<GpuContext>,
+        max_samples: usize,
+        sample_rate: f32,
+    ) -> VizResult<Self> {
         let device = &ctx.device;
 
         // Load shader
@@ -504,145 +515,148 @@ impl GpuFilterProcessor {
         });
 
         // Create bind group layouts
-        let biquad_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Biquad Bind Group Layout"),
-            entries: &[
-                // Input buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+        let biquad_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Biquad Bind Group Layout"),
+                entries: &[
+                    // Input buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Output buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Output buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Filter params
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Filter params
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Filter states
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Filter states
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Config
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Config
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
-        });
+                ],
+            });
 
-        let stereo_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Stereo Bind Group Layout"),
-            entries: &[
-                // Stereo config (binding 0 in group 5)
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+        let stereo_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Stereo Bind Group Layout"),
+                entries: &[
+                    // Stereo config (binding 0 in group 5)
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Input left
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Input left
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Input right
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Input right
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Output left
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Output left
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Output right
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Output right
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // Saturation config
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    // Saturation config
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
-        });
+                ],
+            });
 
         // Create pipelines
-        let biquad_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Biquad Pipeline Layout"),
-            bind_group_layouts: &[&biquad_bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let biquad_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Biquad Pipeline Layout"),
+                bind_group_layouts: &[&biquad_bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
         let biquad_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Biquad Filter Pipeline"),
@@ -653,20 +667,22 @@ impl GpuFilterProcessor {
             cache: None,
         });
 
-        let saturation_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Saturation Pipeline"),
-            layout: Some(&biquad_pipeline_layout),
-            module: &shader,
-            entry_point: Some("saturate"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let saturation_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Saturation Pipeline"),
+                layout: Some(&biquad_pipeline_layout),
+                module: &shader,
+                entry_point: Some("saturate"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
-        let stereo_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Stereo Pipeline Layout"),
-            bind_group_layouts: &[&biquad_bind_group_layout, &stereo_bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let stereo_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Stereo Pipeline Layout"),
+                bind_group_layouts: &[&biquad_bind_group_layout, &stereo_bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
         let stereo_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Stereo Process Pipeline"),
@@ -791,7 +807,11 @@ impl GpuFilterProcessor {
     }
 
     /// Create with blocking initialization
-    pub fn new_blocking(ctx: Arc<GpuContext>, max_samples: usize, sample_rate: f32) -> VizResult<Self> {
+    pub fn new_blocking(
+        ctx: Arc<GpuContext>,
+        max_samples: usize,
+        sample_rate: f32,
+    ) -> VizResult<Self> {
         pollster::block_on(Self::new(ctx, max_samples, sample_rate))
     }
 
@@ -808,11 +828,9 @@ impl GpuFilterProcessor {
     /// Reset filter states
     pub fn reset_states(&self) {
         let states = vec![GpuFilterState::default(); MAX_GPU_BANDS];
-        self.ctx.queue.write_buffer(
-            &self.filter_states_buffer,
-            0,
-            bytemuck::cast_slice(&states),
-        );
+        self.ctx
+            .queue
+            .write_buffer(&self.filter_states_buffer, 0, bytemuck::cast_slice(&states));
     }
 
     /// Process mono audio through filter chain
@@ -820,7 +838,11 @@ impl GpuFilterProcessor {
         let num_samples = input.len().min(self.max_samples);
 
         // Upload input
-        self.ctx.queue.write_buffer(&self.input_buffer, 0, bytemuck::cast_slice(&input[..num_samples]));
+        self.ctx.queue.write_buffer(
+            &self.input_buffer,
+            0,
+            bytemuck::cast_slice(&input[..num_samples]),
+        );
 
         // Update config
         let config = GpuProcessConfig {
@@ -829,12 +851,17 @@ impl GpuFilterProcessor {
             sample_rate: self.sample_rate,
             block_size: 256,
         };
-        self.ctx.queue.write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&config));
+        self.ctx
+            .queue
+            .write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&config));
 
         // Dispatch compute
-        let mut encoder = self.ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("GPU Filter Encoder"),
-        });
+        let mut encoder = self
+            .ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("GPU Filter Encoder"),
+            });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -866,12 +893,15 @@ impl GpuFilterProcessor {
 
         self.ctx.device.poll(wgpu::Maintain::Wait);
 
-        receiver.recv_async().await
+        receiver
+            .recv_async()
+            .await
             .map_err(|e| VizError::Render(e.to_string()))?
             .map_err(|e| VizError::Render(e.to_string()))?;
 
         let data = buffer_slice.get_mapped_range();
-        let result: Vec<f32> = bytemuck::cast_slice(&data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
+        let result: Vec<f32> =
+            bytemuck::cast_slice(&data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
         drop(data);
         self.staging_buffer.unmap();
 
@@ -888,9 +918,19 @@ impl GpuFilterProcessor {
         let num_samples = left.len().min(right.len()).min(self.max_samples);
 
         // Upload input
-        self.ctx.queue.write_buffer(&self.input_left_buffer, 0, bytemuck::cast_slice(&left[..num_samples]));
-        self.ctx.queue.write_buffer(&self.input_right_buffer, 0, bytemuck::cast_slice(&right[..num_samples]));
-        self.ctx.queue.write_buffer(&self.stereo_config_buffer, 0, bytemuck::bytes_of(&config));
+        self.ctx.queue.write_buffer(
+            &self.input_left_buffer,
+            0,
+            bytemuck::cast_slice(&left[..num_samples]),
+        );
+        self.ctx.queue.write_buffer(
+            &self.input_right_buffer,
+            0,
+            bytemuck::cast_slice(&right[..num_samples]),
+        );
+        self.ctx
+            .queue
+            .write_buffer(&self.stereo_config_buffer, 0, bytemuck::bytes_of(&config));
 
         // Update config
         let process_config = GpuProcessConfig {
@@ -899,12 +939,17 @@ impl GpuFilterProcessor {
             sample_rate: self.sample_rate,
             block_size: 256,
         };
-        self.ctx.queue.write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&process_config));
+        self.ctx
+            .queue
+            .write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&process_config));
 
         // Dispatch compute
-        let mut encoder = self.ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("GPU Stereo Encoder"),
-        });
+        let mut encoder = self
+            .ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("GPU Stereo Encoder"),
+            });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -919,8 +964,20 @@ impl GpuFilterProcessor {
 
         // Copy output to staging
         let copy_size = (num_samples * std::mem::size_of::<f32>()) as u64;
-        encoder.copy_buffer_to_buffer(&self.output_left_buffer, 0, &self.staging_left_buffer, 0, copy_size);
-        encoder.copy_buffer_to_buffer(&self.output_right_buffer, 0, &self.staging_right_buffer, 0, copy_size);
+        encoder.copy_buffer_to_buffer(
+            &self.output_left_buffer,
+            0,
+            &self.staging_left_buffer,
+            0,
+            copy_size,
+        );
+        encoder.copy_buffer_to_buffer(
+            &self.output_right_buffer,
+            0,
+            &self.staging_right_buffer,
+            0,
+            copy_size,
+        );
 
         self.ctx.queue.submit(std::iter::once(encoder.finish()));
 
@@ -940,18 +997,24 @@ impl GpuFilterProcessor {
 
         self.ctx.device.poll(wgpu::Maintain::Wait);
 
-        receiver_l.recv_async().await
+        receiver_l
+            .recv_async()
+            .await
             .map_err(|e| VizError::Render(e.to_string()))?
             .map_err(|e| VizError::Render(e.to_string()))?;
-        receiver_r.recv_async().await
+        receiver_r
+            .recv_async()
+            .await
             .map_err(|e| VizError::Render(e.to_string()))?
             .map_err(|e| VizError::Render(e.to_string()))?;
 
         let left_data = left_slice.get_mapped_range();
         let right_data = right_slice.get_mapped_range();
 
-        let left_result: Vec<f32> = bytemuck::cast_slice(&left_data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
-        let right_result: Vec<f32> = bytemuck::cast_slice(&right_data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
+        let left_result: Vec<f32> =
+            bytemuck::cast_slice(&left_data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
+        let right_result: Vec<f32> =
+            bytemuck::cast_slice(&right_data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
 
         drop(left_data);
         drop(right_data);
@@ -962,12 +1025,24 @@ impl GpuFilterProcessor {
     }
 
     /// Process with saturation
-    pub async fn process_saturation(&self, input: &[f32], config: GpuSaturationConfig) -> VizResult<Vec<f32>> {
+    pub async fn process_saturation(
+        &self,
+        input: &[f32],
+        config: GpuSaturationConfig,
+    ) -> VizResult<Vec<f32>> {
         let num_samples = input.len().min(self.max_samples);
 
         // Upload input
-        self.ctx.queue.write_buffer(&self.input_buffer, 0, bytemuck::cast_slice(&input[..num_samples]));
-        self.ctx.queue.write_buffer(&self.saturation_config_buffer, 0, bytemuck::bytes_of(&config));
+        self.ctx.queue.write_buffer(
+            &self.input_buffer,
+            0,
+            bytemuck::cast_slice(&input[..num_samples]),
+        );
+        self.ctx.queue.write_buffer(
+            &self.saturation_config_buffer,
+            0,
+            bytemuck::bytes_of(&config),
+        );
 
         // Update config
         let process_config = GpuProcessConfig {
@@ -976,12 +1051,17 @@ impl GpuFilterProcessor {
             sample_rate: self.sample_rate,
             block_size: 256,
         };
-        self.ctx.queue.write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&process_config));
+        self.ctx
+            .queue
+            .write_buffer(&self.config_buffer, 0, bytemuck::bytes_of(&process_config));
 
         // Dispatch compute
-        let mut encoder = self.ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("GPU Saturation Encoder"),
-        });
+        let mut encoder = self
+            .ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("GPU Saturation Encoder"),
+            });
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -1013,12 +1093,15 @@ impl GpuFilterProcessor {
 
         self.ctx.device.poll(wgpu::Maintain::Wait);
 
-        receiver.recv_async().await
+        receiver
+            .recv_async()
+            .await
             .map_err(|e| VizError::Render(e.to_string()))?
             .map_err(|e| VizError::Render(e.to_string()))?;
 
         let data = buffer_slice.get_mapped_range();
-        let result: Vec<f32> = bytemuck::cast_slice(&data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
+        let result: Vec<f32> =
+            bytemuck::cast_slice(&data[..num_samples * std::mem::size_of::<f32>()]).to_vec();
         drop(data);
         self.staging_buffer.unmap();
 
@@ -1046,31 +1129,44 @@ impl GpuEqBuilder {
 
     /// Add peaking EQ band
     pub fn add_peak(&mut self, freq: f32, gain_db: f32, q: f32) -> &mut Self {
-        self.filters.push(GpuFilterParams::peaking(freq, gain_db, q, self.sample_rate));
+        self.filters
+            .push(GpuFilterParams::peaking(freq, gain_db, q, self.sample_rate));
         self
     }
 
     /// Add low shelf
     pub fn add_low_shelf(&mut self, freq: f32, gain_db: f32, q: f32) -> &mut Self {
-        self.filters.push(GpuFilterParams::low_shelf(freq, gain_db, q, self.sample_rate));
+        self.filters.push(GpuFilterParams::low_shelf(
+            freq,
+            gain_db,
+            q,
+            self.sample_rate,
+        ));
         self
     }
 
     /// Add high shelf
     pub fn add_high_shelf(&mut self, freq: f32, gain_db: f32, q: f32) -> &mut Self {
-        self.filters.push(GpuFilterParams::high_shelf(freq, gain_db, q, self.sample_rate));
+        self.filters.push(GpuFilterParams::high_shelf(
+            freq,
+            gain_db,
+            q,
+            self.sample_rate,
+        ));
         self
     }
 
     /// Add low-pass filter
     pub fn add_lowpass(&mut self, freq: f32, q: f32) -> &mut Self {
-        self.filters.push(GpuFilterParams::lowpass(freq, q, self.sample_rate));
+        self.filters
+            .push(GpuFilterParams::lowpass(freq, q, self.sample_rate));
         self
     }
 
     /// Add high-pass filter
     pub fn add_highpass(&mut self, freq: f32, q: f32) -> &mut Self {
-        self.filters.push(GpuFilterParams::highpass(freq, q, self.sample_rate));
+        self.filters
+            .push(GpuFilterParams::highpass(freq, q, self.sample_rate));
         self
     }
 

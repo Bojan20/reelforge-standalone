@@ -6,8 +6,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::{AudioBuffer, ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext};
 use crate::scanner::{PluginCategory, PluginInfo, PluginType};
+use crate::{
+    AudioBuffer, ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext,
+};
 
 /// CLAP plugin descriptor
 #[derive(Debug, Clone)]
@@ -94,7 +96,9 @@ impl ClapHost {
 
     /// Load a CLAP plugin instance
     pub fn load(&mut self, plugin_id: &str) -> PluginResult<ClapPluginInstance> {
-        let path = self.plugin_paths.get(plugin_id)
+        let path = self
+            .plugin_paths
+            .get(plugin_id)
             .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?
             .clone();
 

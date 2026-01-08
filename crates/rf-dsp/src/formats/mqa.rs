@@ -198,7 +198,8 @@ impl MqaCoreDecoder {
             // Kaiser window (beta = 8)
             let beta = 8.0;
             let alpha = (i as f64 / (length - 1) as f64) * 2.0 - 1.0;
-            let window = Self::bessel_i0(beta * (1.0 - alpha * alpha).sqrt()) / Self::bessel_i0(beta);
+            let window =
+                Self::bessel_i0(beta * (1.0 - alpha * alpha).sqrt()) / Self::bessel_i0(beta);
 
             coeffs[i] = sinc * window;
         }

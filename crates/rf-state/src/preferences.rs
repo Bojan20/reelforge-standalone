@@ -8,8 +8,8 @@
 //! - Keyboard shortcuts customization
 
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Maximum number of recent projects to track
 const MAX_RECENT_PROJECTS: usize = 20;
@@ -213,9 +213,7 @@ impl AppPreferences {
     /// Load preferences from specified path
     pub fn load_from<P: AsRef<Path>>(path: P) -> Self {
         match fs::read_to_string(path) {
-            Ok(content) => {
-                serde_json::from_str(&content).unwrap_or_default()
-            }
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
             Err(_) => Self::default(),
         }
     }
@@ -315,6 +313,9 @@ mod tests {
         let prefs = AppPreferences::default();
         let json = serde_json::to_string(&prefs).unwrap();
         let loaded: AppPreferences = serde_json::from_str(&json).unwrap();
-        assert_eq!(loaded.audio.default_sample_rate, prefs.audio.default_sample_rate);
+        assert_eq!(
+            loaded.audio.default_sample_rate,
+            prefs.audio.default_sample_rate
+        );
     }
 }

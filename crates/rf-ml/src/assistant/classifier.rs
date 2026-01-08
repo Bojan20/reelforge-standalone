@@ -5,7 +5,7 @@ use std::path::Path;
 use ndarray::Array2;
 
 use crate::error::MlResult;
-use crate::inference::{InferenceEngine, InferenceConfig};
+use crate::inference::{InferenceConfig, InferenceEngine};
 
 /// Music genre
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,14 +47,36 @@ impl Genre {
     /// Get all genres
     pub fn all() -> &'static [Genre] {
         &[
-            Genre::Pop, Genre::Rock, Genre::HipHop, Genre::RnB,
-            Genre::Electronic, Genre::House, Genre::Techno,
-            Genre::DrumAndBass, Genre::Dubstep, Genre::Trance,
-            Genre::Ambient, Genre::Jazz, Genre::Blues, Genre::Classical,
-            Genre::Country, Genre::Folk, Genre::Metal, Genre::Punk,
-            Genre::Reggae, Genre::Latin, Genre::World, Genre::Soundtrack,
-            Genre::Indie, Genre::Alternative, Genre::Soul, Genre::Funk,
-            Genre::Disco, Genre::Gospel, Genre::NewAge, Genre::Experimental,
+            Genre::Pop,
+            Genre::Rock,
+            Genre::HipHop,
+            Genre::RnB,
+            Genre::Electronic,
+            Genre::House,
+            Genre::Techno,
+            Genre::DrumAndBass,
+            Genre::Dubstep,
+            Genre::Trance,
+            Genre::Ambient,
+            Genre::Jazz,
+            Genre::Blues,
+            Genre::Classical,
+            Genre::Country,
+            Genre::Folk,
+            Genre::Metal,
+            Genre::Punk,
+            Genre::Reggae,
+            Genre::Latin,
+            Genre::World,
+            Genre::Soundtrack,
+            Genre::Indie,
+            Genre::Alternative,
+            Genre::Soul,
+            Genre::Funk,
+            Genre::Disco,
+            Genre::Gospel,
+            Genre::NewAge,
+            Genre::Experimental,
             Genre::Other,
         ]
     }
@@ -129,11 +151,24 @@ impl Mood {
     /// Get all moods
     pub fn all() -> &'static [Mood] {
         &[
-            Mood::Happy, Mood::Sad, Mood::Energetic, Mood::Calm,
-            Mood::Aggressive, Mood::Romantic, Mood::Melancholic,
-            Mood::Uplifting, Mood::Dark, Mood::Dreamy, Mood::Intense,
-            Mood::Peaceful, Mood::Nostalgic, Mood::Powerful,
-            Mood::Playful, Mood::Serious, Mood::Mysterious, Mood::Triumphant,
+            Mood::Happy,
+            Mood::Sad,
+            Mood::Energetic,
+            Mood::Calm,
+            Mood::Aggressive,
+            Mood::Romantic,
+            Mood::Melancholic,
+            Mood::Uplifting,
+            Mood::Dark,
+            Mood::Dreamy,
+            Mood::Intense,
+            Mood::Peaceful,
+            Mood::Nostalgic,
+            Mood::Powerful,
+            Mood::Playful,
+            Mood::Serious,
+            Mood::Mysterious,
+            Mood::Triumphant,
         ]
     }
 
@@ -194,17 +229,23 @@ impl GenreClassifier {
 
         Ok(Self {
             model,
-            sample_rate: 22050, // Common for music classification
+            sample_rate: 22050,        // Common for music classification
             segment_length: 22050 * 3, // 3 seconds
             n_mels: 128,
         })
     }
 
     /// Classify genre from audio
-    pub fn classify(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<(Genre, f32)>> {
+    pub fn classify(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<(Genre, f32)>> {
         // Convert to mono
         let mono: Vec<f32> = if channels == 2 {
-            audio.chunks(2)
+            audio
+                .chunks(2)
                 .map(|c| (c[0] + c.get(1).copied().unwrap_or(0.0)) / 2.0)
                 .collect()
         } else {
@@ -264,12 +305,18 @@ impl GenreClassifier {
     }
 
     /// Classify mood from audio
-    pub fn classify_mood(&mut self, audio: &[f32], channels: usize, _sample_rate: u32) -> MlResult<Vec<(Mood, f32)>> {
+    pub fn classify_mood(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        _sample_rate: u32,
+    ) -> MlResult<Vec<(Mood, f32)>> {
         // Similar to genre but with mood model
         // For now, return heuristic-based moods from audio features
 
         let mono: Vec<f32> = if channels == 2 {
-            audio.chunks(2)
+            audio
+                .chunks(2)
                 .map(|c| (c[0] + c.get(1).copied().unwrap_or(0.0)) / 2.0)
                 .collect()
         } else {

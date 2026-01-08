@@ -7,10 +7,10 @@
 //! - A/B comparison with crossfade
 //! - Preset snapshots
 
-use std::f64::consts::PI;
+use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::{MonoProcessor, Processor, StereoProcessor};
 use rf_core::Sample;
-use crate::{Processor, StereoProcessor, MonoProcessor};
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
+use std::f64::consts::PI;
 
 // ============================================================================
 // EQ PRESET
@@ -129,11 +129,13 @@ impl EqPreset {
 
     /// Generate magnitude curve
     pub fn generate_curve(&self, num_points: usize, sample_rate: f64) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
-            self.magnitude_at(freq, sample_rate)
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
+                self.magnitude_at(freq, sample_rate)
+            })
+            .collect()
     }
 }
 
@@ -211,12 +213,11 @@ impl MorphableBand {
 
     fn update(&mut self) {
         // Smooth interpolation toward target
-        self.current_freq = self.current_freq * self.freq_smooth
-            + self.target_freq * (1.0 - self.freq_smooth);
-        self.current_gain = self.current_gain * self.gain_smooth
-            + self.target_gain * (1.0 - self.gain_smooth);
-        self.current_q = self.current_q * self.q_smooth
-            + self.target_q * (1.0 - self.q_smooth);
+        self.current_freq =
+            self.current_freq * self.freq_smooth + self.target_freq * (1.0 - self.freq_smooth);
+        self.current_gain =
+            self.current_gain * self.gain_smooth + self.target_gain * (1.0 - self.gain_smooth);
+        self.current_q = self.current_q * self.q_smooth + self.target_q * (1.0 - self.q_smooth);
 
         // Update filter if parameters changed significantly
         let freq_diff = (self.current_freq - self.target_freq).abs() / self.target_freq;
@@ -230,15 +231,24 @@ impl MorphableBand {
 
     fn update_coefficients(&mut self) {
         let coeffs = match self.current_type {
-            MorphFilterType::Bell => {
-                BiquadCoeffs::peaking(self.current_freq, self.current_q, self.current_gain, self.sample_rate)
-            }
-            MorphFilterType::LowShelf => {
-                BiquadCoeffs::low_shelf(self.current_freq, self.current_q, self.current_gain, self.sample_rate)
-            }
-            MorphFilterType::HighShelf => {
-                BiquadCoeffs::high_shelf(self.current_freq, self.current_q, self.current_gain, self.sample_rate)
-            }
+            MorphFilterType::Bell => BiquadCoeffs::peaking(
+                self.current_freq,
+                self.current_q,
+                self.current_gain,
+                self.sample_rate,
+            ),
+            MorphFilterType::LowShelf => BiquadCoeffs::low_shelf(
+                self.current_freq,
+                self.current_q,
+                self.current_gain,
+                self.sample_rate,
+            ),
+            MorphFilterType::HighShelf => BiquadCoeffs::high_shelf(
+                self.current_freq,
+                self.current_q,
+                self.current_gain,
+                self.sample_rate,
+            ),
             MorphFilterType::LowCut => {
                 BiquadCoeffs::highpass(self.current_freq, self.current_q, self.sample_rate)
             }
@@ -256,7 +266,10 @@ impl MorphableBand {
         if !self.enabled || self.current_gain.abs() < 0.01 {
             return (left, right);
         }
-        (self.filter_l.process_sample(left), self.filter_r.process_sample(right))
+        (
+            self.filter_l.process_sample(left),
+            self.filter_r.process_sample(right),
+        )
     }
 
     fn reset(&mut self) {
@@ -293,7 +306,11 @@ impl PresetMatcher {
 
             for (ti, tb) in target.bands.iter().enumerate() {
                 // Same filter type preferred
-                let type_penalty = if sb.filter_type == tb.filter_type { 1.0 } else { 0.5 };
+                let type_penalty = if sb.filter_type == tb.filter_type {
+                    1.0
+                } else {
+                    0.5
+                };
 
                 // Frequency distance in octaves
                 let freq_distance = (sb.freq / tb.freq).log2().abs();
@@ -336,7 +353,11 @@ impl PresetMatcher {
                     freq,
                     gain_db: gain,
                     q,
-                    filter_type: if t < 0.5 { sb.filter_type } else { tb.filter_type },
+                    filter_type: if t < 0.5 {
+                        sb.filter_type
+                    } else {
+                        tb.filter_type
+                    },
                     enabled: sb.enabled || tb.enabled,
                 });
             }
@@ -517,11 +538,9 @@ impl MorphingEq {
             self.morph_position += diff * self.morph_speed;
 
             // Get interpolated state
-            let interpolated = self.matcher.interpolate(
-                &self.preset_a,
-                &self.preset_b,
-                self.morph_position
-            );
+            let interpolated =
+                self.matcher
+                    .interpolate(&self.preset_a, &self.preset_b, self.morph_position);
 
             // Apply to bands
             for (i, snapshot) in interpolated.iter().enumerate() {
@@ -555,44 +574,46 @@ impl MorphingEq {
 
     /// Get magnitude curve for current state
     pub fn get_magnitude_curve(&self, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
 
-            let mut total_db = 0.0;
+                let mut total_db = 0.0;
 
-            for band in &self.bands {
-                if !band.enabled || band.current_gain.abs() < 0.01 {
-                    continue;
+                for band in &self.bands {
+                    if !band.enabled || band.current_gain.abs() < 0.01 {
+                        continue;
+                    }
+
+                    // Approximate band contribution
+                    let ratio = freq / band.current_freq;
+                    let q = band.current_q;
+
+                    match band.current_type {
+                        MorphFilterType::Bell => {
+                            let denom = (1.0 - ratio * ratio).powi(2) + (ratio / q).powi(2);
+                            total_db += band.current_gain / denom.sqrt();
+                        }
+                        MorphFilterType::LowShelf => {
+                            if freq < band.current_freq {
+                                let t = (freq / band.current_freq).log2() / 2.0;
+                                total_db += band.current_gain * (1.0 + t.max(-1.0));
+                            }
+                        }
+                        MorphFilterType::HighShelf => {
+                            if freq > band.current_freq {
+                                let t = (band.current_freq / freq).log2() / 2.0;
+                                total_db += band.current_gain * (1.0 + t.max(-1.0));
+                            }
+                        }
+                        _ => {}
+                    }
                 }
 
-                // Approximate band contribution
-                let ratio = freq / band.current_freq;
-                let q = band.current_q;
-
-                match band.current_type {
-                    MorphFilterType::Bell => {
-                        let denom = (1.0 - ratio * ratio).powi(2) + (ratio / q).powi(2);
-                        total_db += band.current_gain / denom.sqrt();
-                    }
-                    MorphFilterType::LowShelf => {
-                        if freq < band.current_freq {
-                            let t = (freq / band.current_freq).log2() / 2.0;
-                            total_db += band.current_gain * (1.0 + t.max(-1.0));
-                        }
-                    }
-                    MorphFilterType::HighShelf => {
-                        if freq > band.current_freq {
-                            let t = (band.current_freq / freq).log2() / 2.0;
-                            total_db += band.current_gain * (1.0 + t.max(-1.0));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            total_db
-        }).collect()
+                total_db
+            })
+            .collect()
     }
 
     /// Number of active bands

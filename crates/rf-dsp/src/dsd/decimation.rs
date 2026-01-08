@@ -122,7 +122,8 @@ impl DsdDecimator {
     /// Process DSD bits directly
     pub fn process_bits(&mut self, bits: &[u8]) -> Vec<Sample> {
         // Convert bits to +1/-1
-        let samples: Vec<Sample> = bits.iter()
+        let samples: Vec<Sample> = bits
+            .iter()
             .map(|&b| if b == 1 { 1.0 } else { -1.0 })
             .collect();
 
@@ -260,7 +261,8 @@ impl DecimationStage {
                 // Compute FIR output
                 let mut sum = 0.0;
                 for (i, &coeff) in self.coefficients.iter().enumerate() {
-                    let idx = (self.position + self.delay_line.len() - 1 - i) % self.delay_line.len();
+                    let idx =
+                        (self.position + self.delay_line.len() - 1 - i) % self.delay_line.len();
                     sum += coeff * self.delay_line[idx];
                 }
 
@@ -295,11 +297,7 @@ impl StereoDsdDecimator {
     }
 
     /// Process stereo DSD to PCM
-    pub fn process(
-        &mut self,
-        left: &[Sample],
-        right: &[Sample],
-    ) -> (Vec<Sample>, Vec<Sample>) {
+    pub fn process(&mut self, left: &[Sample], right: &[Sample]) -> (Vec<Sample>, Vec<Sample>) {
         let l = self.left.process(left);
         let r = self.right.process(right);
         (l, r)
@@ -360,9 +358,7 @@ impl FastDecimator {
 
     /// Process block
     pub fn process_block(&mut self, input: &[Sample]) -> Vec<Sample> {
-        input.iter()
-            .filter_map(|&s| self.process(s))
-            .collect()
+        input.iter().filter_map(|&s| self.process(s)).collect()
     }
 
     /// Reset state
@@ -445,14 +441,15 @@ mod tests {
 
     #[test]
     fn test_stereo_decimator() {
-        let mut decimator = StereoDsdDecimator::new(
-            2_822_400.0,
-            44100.0,
-            DecimationQuality::Standard,
-        );
+        let mut decimator =
+            StereoDsdDecimator::new(2_822_400.0, 44100.0, DecimationQuality::Standard);
 
-        let left: Vec<Sample> = (0..640).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
-        let right: Vec<Sample> = (0..640).map(|i| if i % 2 == 1 { 1.0 } else { -1.0 }).collect();
+        let left: Vec<Sample> = (0..640)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
+        let right: Vec<Sample> = (0..640)
+            .map(|i| if i % 2 == 1 { 1.0 } else { -1.0 })
+            .collect();
 
         let (l, r) = decimator.process(&left, &right);
 
@@ -461,8 +458,14 @@ mod tests {
 
     #[test]
     fn test_quality_levels() {
-        assert!(DecimationQuality::Ultimate.filter_order() > DecimationQuality::High.filter_order());
-        assert!(DecimationQuality::High.filter_order() > DecimationQuality::Standard.filter_order());
-        assert!(DecimationQuality::Standard.filter_order() > DecimationQuality::Fast.filter_order());
+        assert!(
+            DecimationQuality::Ultimate.filter_order() > DecimationQuality::High.filter_order()
+        );
+        assert!(
+            DecimationQuality::High.filter_order() > DecimationQuality::Standard.filter_order()
+        );
+        assert!(
+            DecimationQuality::Standard.filter_order() > DecimationQuality::Fast.filter_order()
+        );
     }
 }

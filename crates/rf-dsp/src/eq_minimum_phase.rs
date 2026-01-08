@@ -9,11 +9,11 @@
 use std::f64::consts::PI;
 use std::sync::Arc;
 
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
-use rf_core::Sample;
 use crate::{Processor, StereoProcessor};
+use rf_core::Sample;
 
 // ============================================================================
 // CONSTANTS
@@ -64,7 +64,9 @@ impl HilbertTransform {
         self.input_buffer[n..].fill(0.0);
 
         // Forward FFT
-        self.fft_forward.process(&mut self.input_buffer, &mut self.spectrum).unwrap();
+        self.fft_forward
+            .process(&mut self.input_buffer, &mut self.spectrum)
+            .unwrap();
 
         // Apply Hilbert filter in frequency domain
         // H(f) = -j*sign(f)
@@ -76,11 +78,14 @@ impl HilbertTransform {
         // DC and Nyquist stay the same
 
         // Inverse FFT gives analytic signal
-        self.fft_inverse.process(&mut self.spectrum, &mut self.output_buffer).unwrap();
+        self.fft_inverse
+            .process(&mut self.spectrum, &mut self.output_buffer)
+            .unwrap();
 
         // Normalize
         let norm = 1.0 / self.fft_size as f64;
-        self.output_buffer.iter()
+        self.output_buffer
+            .iter()
             .take(n)
             .map(|&x| Complex::new(x * norm, 0.0))
             .collect()
@@ -95,7 +100,10 @@ impl HilbertTransform {
     /// Get instantaneous amplitude (envelope)
     pub fn envelope(&mut self, input: &[f64]) -> Vec<f64> {
         let analytic = self.analytic_signal(input);
-        analytic.iter().map(|c| (c.re * c.re + c.im * c.im).sqrt()).collect()
+        analytic
+            .iter()
+            .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+            .collect()
     }
 }
 
@@ -157,7 +165,9 @@ impl MinimumPhaseReconstructor {
         }
 
         // IFFT to get cepstrum
-        self.fft_inverse.process(&mut self.cepstrum, &mut self.temp_buffer).unwrap();
+        self.fft_inverse
+            .process(&mut self.cepstrum, &mut self.temp_buffer)
+            .unwrap();
 
         // Fold cepstrum: keep n=0, double n=1..N/2-1, zero n=N/2..N-1
         let norm = 1.0 / self.fft_size as f64;
@@ -173,7 +183,9 @@ impl MinimumPhaseReconstructor {
         }
 
         // FFT back to get minimum phase spectrum
-        self.fft_forward.process(&mut self.temp_buffer, &mut self.cepstrum).unwrap();
+        self.fft_forward
+            .process(&mut self.temp_buffer, &mut self.cepstrum)
+            .unwrap();
 
         // Convert from log domain and apply phase
         let mut result = Vec::with_capacity(n);
@@ -236,7 +248,13 @@ pub enum MinPhaseFilterType {
 }
 
 impl MinPhaseEqBand {
-    pub fn new(freq: f64, gain_db: f64, q: f64, filter_type: MinPhaseFilterType, sample_rate: f64) -> Self {
+    pub fn new(
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+        filter_type: MinPhaseFilterType,
+        sample_rate: f64,
+    ) -> Self {
         let mut band = Self {
             freq,
             gain_db,
@@ -336,11 +354,15 @@ impl MinPhaseEqBand {
         let cos_w = omega.cos();
         let cos_2w = (2.0 * omega).cos();
 
-        let num = self.b0 * self.b0 + self.b1 * self.b1 + self.b2 * self.b2
+        let num = self.b0 * self.b0
+            + self.b1 * self.b1
+            + self.b2 * self.b2
             + 2.0 * (self.b0 * self.b1 + self.b1 * self.b2) * cos_w
             + 2.0 * self.b0 * self.b2 * cos_2w;
 
-        let den = 1.0 + self.a1 * self.a1 + self.a2 * self.a2
+        let den = 1.0
+            + self.a1 * self.a1
+            + self.a2 * self.a2
             + 2.0 * (self.a1 + self.a1 * self.a2) * cos_w
             + 2.0 * self.a2 * cos_2w;
 
@@ -357,8 +379,12 @@ impl MinPhaseEqBand {
         let z = Complex::new(omega.cos(), omega.sin());
         let z2 = z * z;
 
-        let num = Complex::new(self.b0, 0.0) + Complex::new(self.b1, 0.0) * z + Complex::new(self.b2, 0.0) * z2;
-        let den = Complex::new(1.0, 0.0) + Complex::new(self.a1, 0.0) * z + Complex::new(self.a2, 0.0) * z2;
+        let num = Complex::new(self.b0, 0.0)
+            + Complex::new(self.b1, 0.0) * z
+            + Complex::new(self.b2, 0.0) * z2;
+        let den = Complex::new(1.0, 0.0)
+            + Complex::new(self.a1, 0.0) * z
+            + Complex::new(self.a2, 0.0) * z2;
 
         let h = num / den;
         h.im.atan2(h.re)
@@ -411,7 +437,13 @@ impl MinPhaseEq {
     }
 
     /// Add a band
-    pub fn add_band(&mut self, freq: f64, gain_db: f64, q: f64, filter_type: MinPhaseFilterType) -> usize {
+    pub fn add_band(
+        &mut self,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+        filter_type: MinPhaseFilterType,
+    ) -> usize {
         let band_l = MinPhaseEqBand::new(freq, gain_db, q, filter_type, self.sample_rate);
         let band_r = MinPhaseEqBand::new(freq, gain_db, q, filter_type, self.sample_rate);
         self.bands_l.push(band_l);
@@ -445,16 +477,12 @@ impl MinPhaseEq {
 
     /// Get total magnitude at frequency
     pub fn magnitude_at(&self, freq: f64) -> f64 {
-        self.bands_l.iter()
-            .map(|b| b.magnitude_at(freq))
-            .product()
+        self.bands_l.iter().map(|b| b.magnitude_at(freq)).product()
     }
 
     /// Get total phase at frequency
     pub fn phase_at(&self, freq: f64) -> f64 {
-        self.bands_l.iter()
-            .map(|b| b.phase_at(freq))
-            .sum()
+        self.bands_l.iter().map(|b| b.phase_at(freq)).sum()
     }
 
     /// Get group delay at frequency (derivative of phase)
@@ -478,30 +506,36 @@ impl MinPhaseEq {
 
     /// Get magnitude curve for visualization
     pub fn get_magnitude_curve(&self, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
-            let mag = self.magnitude_at(freq);
-            20.0 * mag.log10()
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
+                let mag = self.magnitude_at(freq);
+                20.0 * mag.log10()
+            })
+            .collect()
     }
 
     /// Get phase curve for visualization
     pub fn get_phase_curve(&self, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
-            self.phase_at(freq) * 180.0 / PI
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
+                self.phase_at(freq) * 180.0 / PI
+            })
+            .collect()
     }
 
     /// Get group delay curve for visualization
     pub fn get_group_delay_curve(&self, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
-            self.group_delay_at(freq) * 1000.0 // ms
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
+                self.group_delay_at(freq) * 1000.0 // ms
+            })
+            .collect()
     }
 
     /// Number of bands
@@ -579,7 +613,8 @@ impl LinearToMinPhase {
         self.fft_forward.process(&mut input, &mut spectrum).unwrap();
 
         // Get magnitude
-        let magnitude: Vec<f64> = spectrum.iter()
+        let magnitude: Vec<f64> = spectrum
+            .iter()
             .map(|c| (c.re * c.re + c.im * c.im).sqrt())
             .collect();
 
@@ -595,7 +630,9 @@ impl LinearToMinPhase {
         }
 
         let mut output = vec![0.0; self.fft_size];
-        self.fft_inverse.process(&mut full_spectrum, &mut output).unwrap();
+        self.fft_inverse
+            .process(&mut full_spectrum, &mut output)
+            .unwrap();
 
         // Normalize and truncate
         let norm = 1.0 / self.fft_size as f64;
@@ -636,7 +673,9 @@ mod tests {
     #[test]
     fn test_hilbert() {
         let mut hilbert = HilbertTransform::new(1024);
-        let input: Vec<f64> = (0..512).map(|i| (2.0 * PI * i as f64 / 64.0).sin()).collect();
+        let input: Vec<f64> = (0..512)
+            .map(|i| (2.0 * PI * i as f64 / 64.0).sin())
+            .collect();
         let envelope = hilbert.envelope(&input);
         assert!(!envelope.is_empty());
     }

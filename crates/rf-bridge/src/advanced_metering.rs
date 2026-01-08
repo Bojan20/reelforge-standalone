@@ -9,8 +9,8 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use rf_dsp::metering_simd::{TruePeak8x, PsrMeter, CrestFactorMeter};
 use rf_dsp::loudness_advanced::PsychoacousticMeter;
+use rf_dsp::metering_simd::{CrestFactorMeter, PsrMeter, TruePeak8x};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL ADVANCED METERS
@@ -141,12 +141,7 @@ pub fn process_advanced_meters(left: &[f64], right: &[f64]) {
 }
 
 /// Process PSR meter (needs K-weighted AND raw signal)
-pub fn process_psr_meter(
-    k_left: &[f64],
-    k_right: &[f64],
-    raw_left: &[f64],
-    raw_right: &[f64]
-) {
+pub fn process_psr_meter(k_left: &[f64], k_right: &[f64], raw_left: &[f64], raw_right: &[f64]) {
     if let Some(meter) = PSR_METER.write().as_mut() {
         for i in 0..k_left.len().min(raw_left.len()) {
             meter.process(k_left[i], k_right[i], raw_left[i], raw_right[i]);

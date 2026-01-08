@@ -8,15 +8,17 @@
 //! - Phase coherence
 //! - Latency compensation
 
-use rf_dsp::biquad::{BiquadTDF2, BiquadCoeffs};
-use rf_dsp::eq::{ParametricEq, EqFilterType};
-use rf_dsp::dynamics::{Compressor, CompressorType, TruePeakLimiter, StereoCompressor, Oversampling};
-use rf_dsp::spatial::{StereoPanner, StereoWidth, MsProcessor};
-use rf_dsp::delay::Delay;
-use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
-use rf_dsp::analysis::{PeakMeter, RmsMeter, LufsMeter};
+use rf_dsp::analysis::{LufsMeter, PeakMeter, RmsMeter};
+use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::channel::ChannelStrip;
-use rf_dsp::{MonoProcessor, StereoProcessor, Processor};
+use rf_dsp::delay::Delay;
+use rf_dsp::dynamics::{
+    Compressor, CompressorType, Oversampling, StereoCompressor, TruePeakLimiter,
+};
+use rf_dsp::eq::{EqFilterType, ParametricEq};
+use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
+use rf_dsp::spatial::{MsProcessor, StereoPanner, StereoWidth};
+use rf_dsp::{MonoProcessor, Processor, StereoProcessor};
 
 const SAMPLE_RATE: f64 = 48000.0;
 const BLOCK_SIZE: usize = 256;
@@ -119,7 +121,10 @@ fn test_compressor_signal_integrity() {
         output.push(comp.process_sample(sample));
     }
 
-    assert!(is_valid_signal(&output), "Compressor produced invalid signal");
+    assert!(
+        is_valid_signal(&output),
+        "Compressor produced invalid signal"
+    );
 
     // Compressed signal should be lower than input
     let input_peak = input.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
@@ -148,13 +153,23 @@ fn test_limiter_signal_integrity() {
         output_r.push(r);
     }
 
-    assert!(is_valid_signal(&output_l), "Limiter produced invalid left signal");
-    assert!(is_valid_signal(&output_r), "Limiter produced invalid right signal");
+    assert!(
+        is_valid_signal(&output_l),
+        "Limiter produced invalid left signal"
+    );
+    assert!(
+        is_valid_signal(&output_r),
+        "Limiter produced invalid right signal"
+    );
 
     // Limited signal should never exceed threshold
     let max_out = output_l.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
     // Allow small overshoot due to true peak reconstruction
-    assert!(max_out < 1.2, "Limiter should limit signal, got {}", max_out);
+    assert!(
+        max_out < 1.2,
+        "Limiter should limit signal, got {}",
+        max_out
+    );
 }
 
 #[test]
@@ -174,8 +189,14 @@ fn test_reverb_signal_integrity() {
         output_r.push(r);
     }
 
-    assert!(is_valid_signal(&output_l), "Reverb produced invalid left signal");
-    assert!(is_valid_signal(&output_r), "Reverb produced invalid right signal");
+    assert!(
+        is_valid_signal(&output_l),
+        "Reverb produced invalid left signal"
+    );
+    assert!(
+        is_valid_signal(&output_r),
+        "Reverb produced invalid right signal"
+    );
 }
 
 #[test]
@@ -228,8 +249,14 @@ fn test_full_channel_strip() {
         channel.process_block(&mut left[i..end], &mut right[i..end]);
     }
 
-    assert!(is_valid_signal(&left), "Channel strip produced invalid left signal");
-    assert!(is_valid_signal(&right), "Channel strip produced invalid right signal");
+    assert!(
+        is_valid_signal(&left),
+        "Channel strip produced invalid left signal"
+    );
+    assert!(
+        is_valid_signal(&right),
+        "Channel strip produced invalid right signal"
+    );
 }
 
 #[test]
@@ -251,8 +278,12 @@ fn test_chain_eq_comp_limiter() {
     let mut right = generate_sine(BLOCK_SIZE * 100, 440.0);
 
     // Scale up
-    for s in &mut left { *s *= 2.0; }
-    for s in &mut right { *s *= 2.0; }
+    for s in &mut left {
+        *s *= 2.0;
+    }
+    for s in &mut right {
+        *s *= 2.0;
+    }
 
     // Process chain
     eq.process_block(&mut left, &mut right);
@@ -265,7 +296,10 @@ fn test_chain_eq_comp_limiter() {
     }
 
     assert!(is_valid_signal(&left), "Chain produced invalid left signal");
-    assert!(is_valid_signal(&right), "Chain produced invalid right signal");
+    assert!(
+        is_valid_signal(&right),
+        "Chain produced invalid right signal"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -383,8 +417,16 @@ fn test_panner_hard_left() {
 
     let (l, r) = panner.process_sample(1.0, 1.0);
 
-    assert!(l.abs() > 0.9, "Hard left pan should have signal on left: {}", l);
-    assert!(r.abs() < 0.1, "Hard left pan should have minimal right: {}", r);
+    assert!(
+        l.abs() > 0.9,
+        "Hard left pan should have signal on left: {}",
+        l
+    );
+    assert!(
+        r.abs() < 0.1,
+        "Hard left pan should have minimal right: {}",
+        r
+    );
 }
 
 #[test]
@@ -394,8 +436,16 @@ fn test_panner_hard_right() {
 
     let (l, r) = panner.process_sample(1.0, 1.0);
 
-    assert!(l.abs() < 0.1, "Hard right pan should have minimal left: {}", l);
-    assert!(r.abs() > 0.9, "Hard right pan should have signal on right: {}", r);
+    assert!(
+        l.abs() < 0.1,
+        "Hard right pan should have minimal left: {}",
+        l
+    );
+    assert!(
+        r.abs() > 0.9,
+        "Hard right pan should have signal on right: {}",
+        r
+    );
 }
 
 #[test]
@@ -405,10 +455,10 @@ fn test_ms_roundtrip() {
     ms.set_side_gain(1.0);
 
     let test_pairs = vec![
-        (1.0, 1.0),   // Mono
-        (1.0, -1.0),  // Pure side
-        (0.5, 0.8),   // Mixed
-        (0.0, 0.0),   // Silence
+        (1.0, 1.0),  // Mono
+        (1.0, -1.0), // Pure side
+        (0.5, 0.8),  // Mixed
+        (0.0, 0.0),  // Silence
     ];
 
     for (left, right) in test_pairs {
@@ -418,7 +468,10 @@ fn test_ms_roundtrip() {
         assert!(
             (l - left).abs() < 0.001 && (r - right).abs() < 0.001,
             "M/S unity should passthrough: in=({}, {}), out=({}, {})",
-            left, right, l, r
+            left,
+            right,
+            l,
+            r
         );
     }
 }
@@ -476,7 +529,11 @@ fn test_lufs_meter_silence() {
     lufs.process_block(&input);
 
     let measured = lufs.integrated();
-    assert!(measured < -70.0, "Silence should be very quiet: {} LUFS", measured);
+    assert!(
+        measured < -70.0,
+        "Silence should be very quiet: {} LUFS",
+        measured
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -524,7 +581,10 @@ fn test_near_nyquist_stability() {
         output.push(filter.process_sample(sample));
     }
 
-    assert!(is_valid_signal(&output), "Near-Nyquist filter should be stable");
+    assert!(
+        is_valid_signal(&output),
+        "Near-Nyquist filter should be stable"
+    );
 }
 
 #[test]
@@ -559,7 +619,10 @@ fn test_very_small_signals() {
         output.push(comp.process_sample(sample));
     }
 
-    assert!(is_valid_signal(&output), "Small signals should not produce NaN");
+    assert!(
+        is_valid_signal(&output),
+        "Small signals should not produce NaN"
+    );
 }
 
 #[test]
@@ -582,10 +645,17 @@ fn test_clipping_protection() {
         output_r.push(r);
     }
 
-    assert!(is_valid_signal(&output_l), "Limiter should handle hot signals");
+    assert!(
+        is_valid_signal(&output_l),
+        "Limiter should handle hot signals"
+    );
 
     let max = output_l.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
-    assert!(max < 10.0, "Limiter should prevent extreme clipping: {}", max);
+    assert!(
+        max < 10.0,
+        "Limiter should prevent extreme clipping: {}",
+        max
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -667,6 +737,12 @@ fn test_noise_through_chain() {
         right[i] = r;
     }
 
-    assert!(is_valid_signal(&left), "Noise chain should produce valid signal");
-    assert!(is_valid_signal(&right), "Noise chain should produce valid signal");
+    assert!(
+        is_valid_signal(&left),
+        "Noise chain should produce valid signal"
+    );
+    assert!(
+        is_valid_signal(&right),
+        "Noise chain should produce valid signal"
+    );
 }

@@ -1,6 +1,6 @@
 //! Project management utilities
 
-use crate::{EngineBridge, ENGINE};
+use crate::{ENGINE, EngineBridge};
 use rf_state::{Project, ProjectFormat};
 use std::path::Path;
 
@@ -17,7 +17,8 @@ impl EngineBridge {
     /// Save project to file (auto-detects format from extension)
     pub fn project_save(&mut self, path: &Path) -> Result<(), String> {
         let format = ProjectFormat::from_extension(path);
-        self.project.save(path, format)
+        self.project
+            .save(path, format)
             .map_err(|e| format!("Save error: {}", e))?;
         self.project.touch();
         Ok(())
@@ -25,20 +26,21 @@ impl EngineBridge {
 
     /// Load project from file
     pub fn project_load(&mut self, path: &Path) -> Result<(), String> {
-        self.project = Project::load(path)
-            .map_err(|e| format!("Load error: {}", e))?;
+        self.project = Project::load(path).map_err(|e| format!("Load error: {}", e))?;
 
         // Sync transport from project
         self.transport.tempo = self.project.tempo;
         self.transport.time_sig_num = self.project.time_sig_num as u32;
         self.transport.time_sig_denom = self.project.time_sig_denom as u32;
         self.transport.loop_enabled = self.project.loop_enabled;
-        self.transport.loop_start = self.project.loop_start as f64 / self.config.sample_rate.as_f64();
+        self.transport.loop_start =
+            self.project.loop_start as f64 / self.config.sample_rate.as_f64();
         self.transport.loop_end = self.project.loop_end as f64 / self.config.sample_rate.as_f64();
 
         // Reset playhead
         self.transport.position_samples = self.project.playhead;
-        self.transport.position_seconds = self.project.playhead as f64 / self.config.sample_rate.as_f64();
+        self.transport.position_seconds =
+            self.project.playhead as f64 / self.config.sample_rate.as_f64();
         self.transport.is_playing = false;
         self.transport.is_recording = false;
 

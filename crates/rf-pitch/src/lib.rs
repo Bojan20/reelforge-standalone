@@ -32,10 +32,10 @@
 #![allow(dead_code)]
 
 pub mod analysis;
-pub mod detection;
 pub mod correction;
-pub mod synthesis;
+pub mod detection;
 pub mod scale;
+pub mod synthesis;
 
 mod error;
 

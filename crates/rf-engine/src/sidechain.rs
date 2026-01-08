@@ -13,11 +13,11 @@
 //! - Pumping: Rhythmic sidechain from synth pattern
 //! - M/S Sidechain: Compress based on mid or side only
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use rf_core::Sample;
-use rf_dsp::biquad::{BiquadTDF2, BiquadCoeffs};
+use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::smoothing::{SmoothedParam, SmoothingType};
 use rf_dsp::{MonoProcessor, Processor};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SIDECHAIN SOURCE
@@ -97,14 +97,42 @@ impl SidechainInput {
             external_left: vec![0.0; block_size],
             external_right: vec![0.0; block_size],
             filter_mode: SidechainFilterMode::Off,
-            filter_freq: SmoothedParam::with_range(150.0, 10.0, sample_rate, SmoothingType::Exponential, 20.0, 20000.0),
-            filter_q: SmoothedParam::with_range(0.707, 10.0, sample_rate, SmoothingType::Exponential, 0.1, 10.0),
+            filter_freq: SmoothedParam::with_range(
+                150.0,
+                10.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                20.0,
+                20000.0,
+            ),
+            filter_q: SmoothedParam::with_range(
+                0.707,
+                10.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                0.1,
+                10.0,
+            ),
             hpf_left: BiquadTDF2::new(sample_rate),
             hpf_right: BiquadTDF2::new(sample_rate),
             lpf_left: BiquadTDF2::new(sample_rate),
             lpf_right: BiquadTDF2::new(sample_rate),
-            mix: SmoothedParam::with_range(0.0, 5.0, sample_rate, SmoothingType::Exponential, 0.0, 1.0),
-            gain: SmoothedParam::with_range(1.0, 5.0, sample_rate, SmoothingType::Exponential, 0.0, 4.0),
+            mix: SmoothedParam::with_range(
+                0.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                0.0,
+                1.0,
+            ),
+            gain: SmoothedParam::with_range(
+                1.0,
+                5.0,
+                sample_rate,
+                SmoothingType::Exponential,
+                0.0,
+                4.0,
+            ),
             monitor: AtomicBool::new(false),
             active: AtomicBool::new(false),
             sample_rate,
@@ -190,7 +218,8 @@ impl SidechainInput {
         output_left: &mut [Sample],
         output_right: &mut [Sample],
     ) {
-        let len = internal_left.len()
+        let len = internal_left
+            .len()
             .min(internal_right.len())
             .min(output_left.len())
             .min(output_right.len())
@@ -204,9 +233,7 @@ impl SidechainInput {
         for i in 0..len {
             // Get base signal based on source
             let (base_left, base_right) = match self.source {
-                SidechainSource::Internal => {
-                    (internal_left[i], internal_right[i])
-                }
+                SidechainSource::Internal => (internal_left[i], internal_right[i]),
                 SidechainSource::External(_) => {
                     // Mix internal and external based on mix parameter
                     let mix = self.mix.next();
@@ -274,7 +301,10 @@ impl SidechainInput {
         internal_left: &[Sample],
         internal_right: &[Sample],
     ) -> Vec<Sample> {
-        let len = internal_left.len().min(internal_right.len()).min(self.block_size);
+        let len = internal_left
+            .len()
+            .min(internal_right.len())
+            .min(self.block_size);
         let mut left = vec![0.0; len];
         let mut right = vec![0.0; len];
 
@@ -472,7 +502,11 @@ impl SidechainRouter {
     /// Store source signal for this processing block
     /// Call this during the source track's processing
     pub fn store_source_signal(&mut self, source_id: u32, left: &[Sample], right: &[Sample]) {
-        if let Some(buffer) = self.source_buffers.iter_mut().find(|b| b.source_id == source_id) {
+        if let Some(buffer) = self
+            .source_buffers
+            .iter_mut()
+            .find(|b| b.source_id == source_id)
+        {
             let len = left.len().min(right.len()).min(self.block_size);
             buffer.left[..len].copy_from_slice(&left[..len]);
             buffer.right[..len].copy_from_slice(&right[..len]);
@@ -534,7 +568,12 @@ mod tests {
         let mut output_left = vec![0.0; 256];
         let mut output_right = vec![0.0; 256];
 
-        sc.process(&input_left, &input_right, &mut output_left, &mut output_right);
+        sc.process(
+            &input_left,
+            &input_right,
+            &mut output_left,
+            &mut output_right,
+        );
 
         // Output should match input (no filtering, internal source)
         for i in 0..256 {

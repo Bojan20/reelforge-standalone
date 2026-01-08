@@ -10,7 +10,7 @@ use crate::denoise::{DenoiseConfig, Denoiser, NoiseProfile};
 use crate::error::{MlError, MlResult};
 
 use num_complex::Complex32;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
 /// Spectral noise gate
@@ -99,9 +99,7 @@ impl SpectralGate {
 
         // Hann window
         let analysis_window: Vec<f32> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos()))
             .collect();
 
         // Synthesis window (same as analysis for 50% overlap)
@@ -210,8 +208,7 @@ impl SpectralGate {
                 // Adapt only when signal is likely noise (low magnitude)
                 let threshold = self.running_noise[i] * 2.0;
                 if mag < threshold || self.running_noise[i] == 0.0 {
-                    self.running_noise[i] =
-                        (1.0 - self.noise_adapt_rate) * self.running_noise[i]
+                    self.running_noise[i] = (1.0 - self.noise_adapt_rate) * self.running_noise[i]
                         + self.noise_adapt_rate * mag;
                 }
             }

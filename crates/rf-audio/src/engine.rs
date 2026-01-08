@@ -6,16 +6,15 @@
 //! - Transport control (play/pause/stop)
 //! - Integration with DualPathEngine
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
 
 use rf_core::{BufferSize, Sample, SampleRate};
 
 use crate::{
-    AudioConfig, AudioResult, AudioStream,
-    get_default_output_device, get_output_device_by_name,
+    AudioConfig, AudioResult, AudioStream, get_default_output_device, get_output_device_by_name,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -407,10 +406,9 @@ impl AudioEngine {
         stream.start()?;
 
         // Update transport sample rate
-        self.transport.sample_rate.store(
-            settings.sample_rate.as_u32() as u64,
-            Ordering::Relaxed,
-        );
+        self.transport
+            .sample_rate
+            .store(settings.sample_rate.as_u32() as u64, Ordering::Relaxed);
 
         *self.stream.lock() = Some(stream);
         self.running.store(true, Ordering::Release);

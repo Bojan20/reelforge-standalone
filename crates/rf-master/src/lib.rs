@@ -26,17 +26,16 @@
 //! ```
 
 #![warn(missing_docs)]
-
 #![allow(dead_code)]
 
 pub mod analysis;
+pub mod chain;
 pub mod dynamics;
 pub mod eq;
 pub mod limiter;
 pub mod loudness;
 pub mod reference;
 pub mod stereo;
-pub mod chain;
 
 mod error;
 
@@ -143,15 +142,15 @@ impl Genre {
     /// Get spectral tilt preference (bass emphasis)
     pub fn spectral_tilt(&self) -> f32 {
         match self {
-            Genre::Electronic => 3.0,  // Bass heavy
-            Genre::HipHop => 4.0,      // Very bass heavy
-            Genre::Rock => 1.0,        // Balanced
-            Genre::Pop => 2.0,         // Slight bass boost
-            Genre::Classical => -1.0,  // Flat/natural
-            Genre::Jazz => 0.0,        // Natural
-            Genre::Acoustic => -0.5,   // Slight treble
-            Genre::RnB => 3.5,         // Bass emphasis
-            Genre::Speech => -2.0,     // Presence boost
+            Genre::Electronic => 3.0, // Bass heavy
+            Genre::HipHop => 4.0,     // Very bass heavy
+            Genre::Rock => 1.0,       // Balanced
+            Genre::Pop => 2.0,        // Slight bass boost
+            Genre::Classical => -1.0, // Flat/natural
+            Genre::Jazz => 0.0,       // Natural
+            Genre::Acoustic => -0.5,  // Slight treble
+            Genre::RnB => 3.5,        // Bass emphasis
+            Genre::Speech => -2.0,    // Presence boost
             Genre::Unknown => 0.0,
         }
     }
@@ -175,15 +174,15 @@ impl Genre {
     /// Get stereo width preference
     pub fn stereo_width(&self) -> f32 {
         match self {
-            Genre::Electronic => 1.3,  // Wide
+            Genre::Electronic => 1.3, // Wide
             Genre::HipHop => 1.1,
             Genre::Rock => 1.2,
             Genre::Pop => 1.15,
-            Genre::Classical => 1.0,   // Natural
+            Genre::Classical => 1.0, // Natural
             Genre::Jazz => 1.05,
             Genre::Acoustic => 1.0,
             Genre::RnB => 1.1,
-            Genre::Speech => 0.9,      // Narrow/center
+            Genre::Speech => 0.9, // Narrow/center
             Genre::Unknown => 1.0,
         }
     }

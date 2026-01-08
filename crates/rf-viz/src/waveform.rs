@@ -130,7 +130,11 @@ impl WaveformData {
     }
 
     /// Create from min/max/rms blocks (for large files)
-    pub fn from_blocks(blocks: Vec<WaveformPoint>, sample_rate: f32, samples_per_block: usize) -> Self {
+    pub fn from_blocks(
+        blocks: Vec<WaveformPoint>,
+        sample_rate: f32,
+        samples_per_block: usize,
+    ) -> Self {
         let duration = (blocks.len() * samples_per_block) as f32 / sample_rate;
         Self {
             full: blocks,
@@ -335,14 +339,17 @@ impl WaveformRenderer {
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
-        let bind_group = self.ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Waveform Data Bind Group"),
-            layout: &self.data_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
+        let bind_group = self
+            .ctx
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Waveform Data Bind Group"),
+                layout: &self.data_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
 
         self.data_buffer = Some(buffer);
         self.data_bind_group = Some(bind_group);
@@ -553,9 +560,7 @@ mod tests {
 
     #[test]
     fn test_waveform_data_from_samples() {
-        let samples: Vec<f32> = (0..4800)
-            .map(|i| (i as f32 * 0.1).sin())
-            .collect();
+        let samples: Vec<f32> = (0..4800).map(|i| (i as f32 * 0.1).sin()).collect();
 
         let data = WaveformData::from_samples(&samples, 48000.0);
 
@@ -573,9 +578,7 @@ mod tests {
 
     #[test]
     fn test_waveform_lod() {
-        let samples: Vec<f32> = (0..48000)
-            .map(|i| (i as f32 * 0.01).sin())
-            .collect();
+        let samples: Vec<f32> = (0..48000).map(|i| (i as f32 * 0.01).sin()).collect();
 
         let data = WaveformData::from_samples(&samples, 48000.0);
 

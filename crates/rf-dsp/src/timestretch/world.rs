@@ -13,8 +13,8 @@
 //! - Morise, M. (2016). "WORLD: a vocoder-based high-quality speech synthesis system"
 //! - https://github.com/mmorise/World
 
-use std::f64::consts::PI;
 use rustfft::{FftPlanner, num_complex::Complex64};
+use std::f64::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORLD ANALYSIS
@@ -62,7 +62,7 @@ impl WorldVocoder {
             sample_rate,
             frame_period_ms: 5.0, // 5ms default
             fft_size: 2048,
-            f0_floor: 71.0,   // Typical male low
+            f0_floor: 71.0,    // Typical male low
             f0_ceiling: 800.0, // Typical female high
             fft_planner: FftPlanner::new(),
         }
@@ -121,7 +121,8 @@ impl WorldVocoder {
                     let excitation = periodic * (1.0 - avg_ap) + aperiodic * avg_ap;
 
                     // Apply spectral envelope (simplified)
-                    let filtered = excitation * envelope.iter().sum::<f64>() / envelope.len() as f64;
+                    let filtered =
+                        excitation * envelope.iter().sum::<f64>() / envelope.len() as f64;
 
                     output[frame_start + i] = filtered * 0.1; // Gain control
 
@@ -146,12 +147,7 @@ impl WorldVocoder {
     }
 
     /// Process with time stretch and pitch shift
-    pub fn process(
-        &mut self,
-        input: &[f64],
-        time_ratio: f64,
-        pitch_ratio: f64,
-    ) -> Vec<f64> {
+    pub fn process(&mut self, input: &[f64], time_ratio: f64, pitch_ratio: f64) -> Vec<f64> {
         // 1. Analyze
         let analysis = self.analyze(input);
 
@@ -193,7 +189,11 @@ impl WorldVocoder {
         }
 
         // Interpolate spectral envelope
-        let num_bins = analysis.spectral_envelope.get(0).map(|v| v.len()).unwrap_or(0);
+        let num_bins = analysis
+            .spectral_envelope
+            .get(0)
+            .map(|v| v.len())
+            .unwrap_or(0);
         let mut new_envelope = vec![vec![0.0; num_bins]; new_len];
 
         for (i, frame) in new_envelope.iter_mut().enumerate() {
@@ -203,8 +203,12 @@ impl WorldVocoder {
 
             if src_idx < analysis.spectral_envelope.len() {
                 for (k, bin) in frame.iter_mut().enumerate() {
-                    let low = analysis.spectral_envelope[src_idx].get(k).copied().unwrap_or(0.0);
-                    let high = analysis.spectral_envelope
+                    let low = analysis.spectral_envelope[src_idx]
+                        .get(k)
+                        .copied()
+                        .unwrap_or(0.0);
+                    let high = analysis
+                        .spectral_envelope
                         .get(src_idx + 1)
                         .and_then(|v| v.get(k))
                         .copied()
@@ -225,8 +229,12 @@ impl WorldVocoder {
 
             if src_idx < analysis.aperiodicity.len() {
                 for (k, bin) in frame.iter_mut().enumerate() {
-                    let low = analysis.aperiodicity[src_idx].get(k).copied().unwrap_or(0.0);
-                    let high = analysis.aperiodicity
+                    let low = analysis.aperiodicity[src_idx]
+                        .get(k)
+                        .copied()
+                        .unwrap_or(0.0);
+                    let high = analysis
+                        .aperiodicity
                         .get(src_idx + 1)
                         .and_then(|v| v.get(k))
                         .copied()
@@ -309,11 +317,7 @@ impl WorldVocoder {
     }
 
     /// Estimate spectral envelope (simplified CheapTrick)
-    fn estimate_spectral_envelope(
-        &mut self,
-        input: &[f64],
-        f0: &[f64],
-    ) -> Vec<Vec<f64>> {
+    fn estimate_spectral_envelope(&mut self, input: &[f64], f0: &[f64]) -> Vec<Vec<f64>> {
         let frame_samples = (self.frame_period_ms / 1000.0 * self.sample_rate) as usize;
         let num_bins = self.fft_size / 2 + 1;
 
@@ -350,11 +354,7 @@ impl WorldVocoder {
     }
 
     /// Estimate aperiodicity (simplified D4C)
-    fn estimate_aperiodicity(
-        &self,
-        _input: &[f64],
-        f0: &[f64],
-    ) -> Vec<Vec<f64>> {
+    fn estimate_aperiodicity(&self, _input: &[f64], f0: &[f64]) -> Vec<Vec<f64>> {
         // Simplified: use fixed aperiodicity based on voicing
         // Real D4C is much more complex
         let num_bands = 5; // Simplified band-based aperiodicity
@@ -375,11 +375,7 @@ impl WorldVocoder {
     /// Generate pulse for voiced excitation
     fn generate_pulse(&self, phase: f64) -> f64 {
         // Simple impulse train approximation
-        if phase < 0.1 {
-            1.0 - phase * 10.0
-        } else {
-            0.0
-        }
+        if phase < 0.1 { 1.0 - phase * 10.0 } else { 0.0 }
     }
 
     /// Generate white noise for aperiodic excitation

@@ -6,8 +6,8 @@
 //! - Plugin Delay Compensation (PDC)
 //! - Per-path latency reporting
 
-use std::collections::HashMap;
 use portable_atomic::{AtomicU32, Ordering};
+use std::collections::HashMap;
 
 /// Pipeline processing mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,10 +29,12 @@ impl PipelineMode {
     pub fn max_latency(&self, sample_rate: f64) -> u32 {
         match self {
             Self::ZeroLatency => 0,
-            Self::LowLatency => (sample_rate * 0.001) as u32,    // 1ms
-            Self::Normal => (sample_rate * 0.005) as u32,        // 5ms
-            Self::HighQuality => (sample_rate * 0.020) as u32,   // 20ms
-            Self::Custom { max_latency_samples } => *max_latency_samples,
+            Self::LowLatency => (sample_rate * 0.001) as u32, // 1ms
+            Self::Normal => (sample_rate * 0.005) as u32,     // 5ms
+            Self::HighQuality => (sample_rate * 0.020) as u32, // 20ms
+            Self::Custom {
+                max_latency_samples,
+            } => *max_latency_samples,
         }
     }
 }
@@ -66,7 +68,8 @@ impl LatencySlot {
             return input;
         }
 
-        let read_pos = (self.write_pos + self.buffer.len() - self.delay_samples) % self.buffer.len();
+        let read_pos =
+            (self.write_pos + self.buffer.len() - self.delay_samples) % self.buffer.len();
         let output = self.buffer[read_pos];
         self.buffer[self.write_pos] = input;
         self.write_pos = (self.write_pos + 1) % self.buffer.len();
@@ -130,14 +133,17 @@ impl PdcManager {
     /// Add a processing path
     pub fn add_path(&mut self, id: u32, name: String) {
         let max_delay = self.mode.max_latency(self.sample_rate) as usize;
-        self.paths.insert(id, ProcessingPath {
+        self.paths.insert(
             id,
-            name,
-            processors: Vec::new(),
-            total_latency: 0,
-            compensation_delay: 0,
-            compensation: LatencySlot::new(max_delay.max(8192), 2),
-        });
+            ProcessingPath {
+                id,
+                name,
+                processors: Vec::new(),
+                total_latency: 0,
+                compensation_delay: 0,
+                compensation: LatencySlot::new(max_delay.max(8192), 2),
+            },
+        );
     }
 
     /// Add a processor to a path
@@ -176,7 +182,9 @@ impl PdcManager {
     /// Recalculate compensation for all paths
     fn recalculate_compensation(&mut self) {
         // Find maximum latency
-        let max = self.paths.values()
+        let max = self
+            .paths
+            .values()
             .map(|p| p.total_latency)
             .max()
             .unwrap_or(0);
@@ -186,7 +194,8 @@ impl PdcManager {
         // Set compensation for each path
         for path in self.paths.values_mut() {
             path.compensation_delay = max.saturating_sub(path.total_latency);
-            path.compensation.set_delay(path.compensation_delay as usize);
+            path.compensation
+                .set_delay(path.compensation_delay as usize);
         }
     }
 
@@ -271,16 +280,21 @@ impl ZeroLatencyPipeline {
 
     /// Add processor to path
     pub fn add_processor(&mut self, path_id: u32, name: &str, latency: u32) -> u32 {
-        let processor_id = self.pdc.get_path(path_id)
+        let processor_id = self
+            .pdc
+            .get_path(path_id)
             .map(|p| p.processors.len() as u32)
             .unwrap_or(0);
 
-        self.pdc.add_processor(path_id, ProcessorSlot {
-            id: processor_id,
-            name: name.to_string(),
-            latency_samples: latency,
-            enabled: true,
-        });
+        self.pdc.add_processor(
+            path_id,
+            ProcessorSlot {
+                id: processor_id,
+                name: name.to_string(),
+                latency_samples: latency,
+                enabled: true,
+            },
+        );
 
         processor_id
     }
@@ -349,8 +363,8 @@ mod tests {
         let sample_rate = 48000.0;
 
         assert_eq!(PipelineMode::ZeroLatency.max_latency(sample_rate), 0);
-        assert_eq!(PipelineMode::LowLatency.max_latency(sample_rate), 48);   // 1ms
-        assert_eq!(PipelineMode::Normal.max_latency(sample_rate), 240);      // 5ms
+        assert_eq!(PipelineMode::LowLatency.max_latency(sample_rate), 48); // 1ms
+        assert_eq!(PipelineMode::Normal.max_latency(sample_rate), 240); // 5ms
         assert_eq!(PipelineMode::HighQuality.max_latency(sample_rate), 960); // 20ms
     }
 
@@ -360,10 +374,10 @@ mod tests {
         slot.set_delay(3);
 
         // Feed samples
-        assert_eq!(slot.process(1.0), 0.0);  // Output delayed zeros initially
+        assert_eq!(slot.process(1.0), 0.0); // Output delayed zeros initially
         assert_eq!(slot.process(2.0), 0.0);
         assert_eq!(slot.process(3.0), 0.0);
-        assert_eq!(slot.process(4.0), 1.0);  // Now we get the delayed sample
+        assert_eq!(slot.process(4.0), 1.0); // Now we get the delayed sample
         assert_eq!(slot.process(5.0), 2.0);
     }
 
@@ -374,19 +388,25 @@ mod tests {
         pdc.add_path(0, "Path A".to_string());
         pdc.add_path(1, "Path B".to_string());
 
-        pdc.add_processor(0, ProcessorSlot {
-            id: 0,
-            name: "Comp".to_string(),
-            latency_samples: 64,
-            enabled: true,
-        });
+        pdc.add_processor(
+            0,
+            ProcessorSlot {
+                id: 0,
+                name: "Comp".to_string(),
+                latency_samples: 64,
+                enabled: true,
+            },
+        );
 
-        pdc.add_processor(1, ProcessorSlot {
-            id: 0,
-            name: "Limiter".to_string(),
-            latency_samples: 128,
-            enabled: true,
-        });
+        pdc.add_processor(
+            1,
+            ProcessorSlot {
+                id: 0,
+                name: "Limiter".to_string(),
+                latency_samples: 128,
+                enabled: true,
+            },
+        );
 
         // Max latency should be 128
         assert_eq!(pdc.total_latency(), 128);

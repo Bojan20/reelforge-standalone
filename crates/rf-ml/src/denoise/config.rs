@@ -64,8 +64,8 @@ impl Default for DenoiseConfig {
             sensitivity: 0.5,
             preserve_transients: true,
             post_filter: true,
-            frame_size: 480,    // 10ms @ 48kHz
-            hop_size: 480,      // No overlap for real-time
+            frame_size: 480, // 10ms @ 48kHz
+            hop_size: 480,   // No overlap for real-time
             lookahead_frames: 2,
             use_gpu: true,
         }

@@ -65,9 +65,9 @@ impl StemType {
     /// Get default color (RGB)
     pub fn color(&self) -> (u8, u8, u8) {
         match self {
-            StemType::Drums => (255, 100, 100),   // Red
+            StemType::Drums => (255, 100, 100),  // Red
             StemType::Bass => (100, 100, 255),   // Blue
-            StemType::Vocals => (100, 255, 100),  // Green
+            StemType::Vocals => (100, 255, 100), // Green
             StemType::Other => (255, 200, 100),  // Orange
             StemType::Piano => (200, 100, 255),  // Purple
             StemType::Guitar => (255, 255, 100), // Yellow
@@ -77,7 +77,12 @@ impl StemType {
 
     /// Standard 4-stem set
     pub fn standard_4() -> Vec<StemType> {
-        vec![StemType::Drums, StemType::Bass, StemType::Vocals, StemType::Other]
+        vec![
+            StemType::Drums,
+            StemType::Bass,
+            StemType::Vocals,
+            StemType::Other,
+        ]
     }
 
     /// Extended 6-stem set
@@ -114,12 +119,7 @@ pub struct StemOutput {
 
 impl StemOutput {
     /// Create new stem output
-    pub fn new(
-        stem_type: StemType,
-        audio: Vec<f32>,
-        channels: usize,
-        sample_rate: u32,
-    ) -> Self {
+    pub fn new(stem_type: StemType, audio: Vec<f32>, channels: usize, sample_rate: u32) -> Self {
         Self {
             stem_type,
             audio,
@@ -182,10 +182,7 @@ impl StemOutput {
 
     /// Compute peak level
     pub fn peak(&self) -> f32 {
-        self.audio
-            .iter()
-            .map(|&s| s.abs())
-            .fold(0.0f32, f32::max)
+        self.audio.iter().map(|&s| s.abs()).fold(0.0f32, f32::max)
     }
 
     /// Normalize to target peak
@@ -395,18 +392,8 @@ mod tests {
     fn test_stem_collection_remix() {
         let mut collection = StemCollection::new(44100, "test".into());
 
-        collection.add(StemOutput::new(
-            StemType::Vocals,
-            vec![1.0; 100],
-            1,
-            44100,
-        ));
-        collection.add(StemOutput::new(
-            StemType::Drums,
-            vec![0.5; 100],
-            1,
-            44100,
-        ));
+        collection.add(StemOutput::new(StemType::Vocals, vec![1.0; 100], 1, 44100));
+        collection.add(StemOutput::new(StemType::Drums, vec![0.5; 100], 1, 44100));
 
         let mut gains = HashMap::new();
         gains.insert(StemType::Vocals, 0.5);

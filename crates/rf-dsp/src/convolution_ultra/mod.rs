@@ -7,17 +7,17 @@
 //! - IR Morphing (spectral crossfade)
 //! - IR Deconvolution (sweep → IR extraction)
 
-pub mod true_stereo;
-pub mod non_uniform;
-pub mod zero_latency;
-pub mod morph;
 pub mod deconvolve;
+pub mod morph;
+pub mod non_uniform;
+pub mod true_stereo;
+pub mod zero_latency;
 
-pub use true_stereo::*;
-pub use non_uniform::*;
-pub use zero_latency::*;
-pub use morph::*;
 pub use deconvolve::*;
+pub use morph::*;
+pub use non_uniform::*;
+pub use true_stereo::*;
+pub use zero_latency::*;
 
 use rf_core::Sample;
 use rustfft::{FftPlanner, num_complex::Complex64};
@@ -91,7 +91,9 @@ impl ImpulseResponse {
         let fft = planner.plan_fft_forward(fft_size);
 
         // Pad to FFT size
-        let mut buffer: Vec<Complex64> = self.samples.iter()
+        let mut buffer: Vec<Complex64> = self
+            .samples
+            .iter()
             .take(fft_size)
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
@@ -103,9 +105,7 @@ impl ImpulseResponse {
 
     /// Normalize IR to unit peak
     pub fn normalize(&mut self) {
-        let peak = self.samples.iter()
-            .map(|s| s.abs())
-            .fold(0.0, f64::max);
+        let peak = self.samples.iter().map(|s| s.abs()).fold(0.0, f64::max);
 
         if peak > 0.0 {
             for s in &mut self.samples {
@@ -227,7 +227,9 @@ impl PartitionedConvolver {
         let partition_size = self.fft_size / 2;
 
         // FFT input block (with zero padding)
-        let mut input_spectrum: Vec<Complex64> = self.input_buffer.iter()
+        let mut input_spectrum: Vec<Complex64> = self
+            .input_buffer
+            .iter()
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
         input_spectrum.resize(self.fft_size, Complex64::new(0.0, 0.0));
@@ -303,11 +305,7 @@ impl StereoPartitionedConvolver {
     }
 
     /// Process stereo
-    pub fn process(
-        &mut self,
-        left: &[Sample],
-        right: &[Sample],
-    ) -> (Vec<Sample>, Vec<Sample>) {
+    pub fn process(&mut self, left: &[Sample], right: &[Sample]) -> (Vec<Sample>, Vec<Sample>) {
         let l = self.left.process(left);
         let r = self.right.process(right);
         (l, r)

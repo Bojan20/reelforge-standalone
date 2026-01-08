@@ -192,7 +192,8 @@ impl TruePeak8x {
             if n.abs() < 1e-10 {
                 coeffs[i] = 2.0 * fc;
             } else {
-                coeffs[i] = (2.0 * std::f64::consts::PI * fc * n).sin() / (std::f64::consts::PI * n);
+                coeffs[i] =
+                    (2.0 * std::f64::consts::PI * fc * n).sin() / (std::f64::consts::PI * n);
             }
             // Kaiser window
             let alpha = m as f64 / 2.0;
@@ -329,14 +330,20 @@ fn bessel_i0(x: f64) -> f64 {
     let ax = x.abs();
     if ax < 3.75 {
         let y = (x / 3.75).powi(2);
-        1.0 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492
-            + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
+        1.0 + y
+            * (3.5156229
+                + y * (3.0899424
+                    + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
     } else {
         let y = 3.75 / ax;
-        (ax.exp() / ax.sqrt()) * (0.39894228 + y * (0.01328592
-            + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281
-            + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633
-            + y * 0.00392377))))))))
+        (ax.exp() / ax.sqrt())
+            * (0.39894228
+                + y * (0.01328592
+                    + y * (0.00225319
+                        + y * (-0.00157565
+                            + y * (0.00916281
+                                + y * (-0.02057706
+                                    + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))))
     }
 }
 
@@ -416,7 +423,13 @@ impl PsrMeter {
     }
 
     /// Process K-weighted stereo samples
-    pub fn process(&mut self, k_left: Sample, k_right: Sample, raw_left: Sample, raw_right: Sample) {
+    pub fn process(
+        &mut self,
+        k_left: Sample,
+        k_right: Sample,
+        raw_left: Sample,
+        raw_right: Sample,
+    ) {
         // True peak from raw signal
         self.true_peak.process(raw_left, raw_right);
 
@@ -545,11 +558,7 @@ impl CrestFactorMeter {
     /// Get crest factor as ratio
     pub fn crest_factor_ratio(&self) -> f64 {
         let rms = (self.rms_sum / self.rms_buffer.len() as f64).sqrt();
-        if rms > 1e-10 {
-            self.peak / rms
-        } else {
-            1.0
-        }
+        if rms > 1e-10 { self.peak / rms } else { 1.0 }
     }
 
     pub fn reset(&mut self) {

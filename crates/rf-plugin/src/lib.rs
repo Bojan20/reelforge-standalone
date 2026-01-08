@@ -46,46 +46,36 @@ use std::sync::Arc;
 use thiserror::Error;
 
 // Core modules
-pub mod scanner;
-pub mod vst3;
+pub mod ara2;
 pub mod internal;
 pub mod sandbox;
-pub mod ara2;
+pub mod scanner;
+pub mod vst3;
 
 // Phase 5.1 - Ultimate Plugin Ecosystem
+pub mod chain;
 pub mod clap;
 pub mod lv2;
 pub mod ultimate_scanner;
-pub mod chain;
 
 // Re-exports - Core
-pub use scanner::{PluginInfo, PluginScanner, PluginType, PluginCategory};
-pub use vst3::Vst3Host;
-pub use sandbox::{SandboxManager, SandboxedPlugin, SandboxConfig, SandboxError};
 pub use ara2::{
-    AraManager,
-    AraDocument,
-    AraDocumentId,
-    AraMusicalContextId,
-    AraAudioSourceId,
-    AraAudioModificationId,
-    AraRegionSequenceId,
-    AraPlaybackRegionId,
-    AraPluginExtension,
-    AraPluginType,
-    AraContentTypes,
-    AraTransformationFlags,
-    AraPlaybackTransformation,
-    AraAnalysisState,
-    AraNote,
-    AraContentAnalysis,
+    AraAnalysisState, AraAudioModificationId, AraAudioSourceId, AraContentAnalysis,
+    AraContentTypes, AraDocument, AraDocumentId, AraManager, AraMusicalContextId, AraNote,
+    AraPlaybackRegionId, AraPlaybackTransformation, AraPluginExtension, AraPluginType,
+    AraRegionSequenceId, AraTransformationFlags,
 };
+pub use sandbox::{SandboxConfig, SandboxError, SandboxManager, SandboxedPlugin};
+pub use scanner::{PluginCategory, PluginInfo, PluginScanner, PluginType};
+pub use vst3::Vst3Host;
 
 // Re-exports - Phase 5.1
-pub use clap::{ClapHost, ClapPluginInstance, ClapFeature};
-pub use lv2::{Lv2Host, Lv2PluginInstance, Lv2Class};
-pub use ultimate_scanner::{UltimateScanner, ScannerConfig, ScanStats, ValidationStatus, PluginCache};
-pub use chain::{ZeroCopyChain, ChainSlot, BufferPool, PdcManager};
+pub use chain::{BufferPool, ChainSlot, PdcManager, ZeroCopyChain};
+pub use clap::{ClapFeature, ClapHost, ClapPluginInstance};
+pub use lv2::{Lv2Class, Lv2Host, Lv2PluginInstance};
+pub use ultimate_scanner::{
+    PluginCache, ScanStats, ScannerConfig, UltimateScanner, ValidationStatus,
+};
 
 /// Plugin hosting errors
 #[derive(Debug, Error)]
@@ -132,9 +122,7 @@ pub struct AudioBuffer {
 impl AudioBuffer {
     /// Create a new audio buffer
     pub fn new(channels: usize, samples: usize) -> Self {
-        let data = (0..channels)
-            .map(|_| vec![0.0f32; samples])
-            .collect();
+        let data = (0..channels).map(|_| vec![0.0f32; samples]).collect();
         Self {
             data,
             channels,
@@ -351,7 +339,12 @@ impl PluginHost {
                 let host = internal::InternalPlugin::load(&info.path)?;
                 Box::new(host)
             }
-            _ => return Err(PluginError::UnsupportedFormat(format!("{:?}", info.plugin_type))),
+            _ => {
+                return Err(PluginError::UnsupportedFormat(format!(
+                    "{:?}",
+                    info.plugin_type
+                )));
+            }
         };
 
         let instance_id = format!("{}_{}", plugin_id, uuid_simple());
@@ -363,10 +356,7 @@ impl PluginHost {
     }
 
     /// Get plugin instance
-    pub fn get_instance(
-        &self,
-        instance_id: &str,
-    ) -> Option<Arc<RwLock<Box<dyn PluginInstance>>>> {
+    pub fn get_instance(&self, instance_id: &str) -> Option<Arc<RwLock<Box<dyn PluginInstance>>>> {
         self.instances.read().get(instance_id).cloned()
     }
 

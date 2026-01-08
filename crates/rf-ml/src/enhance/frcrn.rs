@@ -14,13 +14,13 @@ use std::sync::Arc;
 
 use ndarray::Array2;
 use num_complex::Complex32;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 
-use crate::error::{MlError, MlResult};
-use crate::inference::{InferenceEngine, InferenceConfig};
-use crate::buffer::AudioFrame;
 use super::config::EnhanceConfig;
 use super::SpeechEnhancer;
+use crate::buffer::AudioFrame;
+use crate::error::{MlError, MlResult};
+use crate::inference::{InferenceConfig, InferenceEngine};
 
 /// FRCRN configuration
 #[derive(Debug, Clone)]
@@ -155,7 +155,9 @@ impl FRCRN {
         // Create windows
         let window: Vec<f32> = (0..frcrn_config.fullband_fft)
             .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / frcrn_config.fullband_fft as f32).cos())
+                0.5 * (1.0
+                    - (2.0 * std::f32::consts::PI * i as f32 / frcrn_config.fullband_fft as f32)
+                        .cos())
             })
             .collect();
 
@@ -226,7 +228,8 @@ impl FRCRN {
         windowed.resize(fft_size, 0.0);
 
         let mut spectrum = vec![Complex32::new(0.0, 0.0); n_bins];
-        let mut scratch = vec![Complex32::new(0.0, 0.0); self.fullband_fft_forward.get_scratch_len()];
+        let mut scratch =
+            vec![Complex32::new(0.0, 0.0); self.fullband_fft_forward.get_scratch_len()];
 
         self.fullband_fft_forward
             .process_with_scratch(&mut windowed, &mut spectrum, &mut scratch)
@@ -242,7 +245,8 @@ impl FRCRN {
 
         let mut spectrum_copy = spectrum.to_vec();
         let mut output = vec![0.0f32; fft_size];
-        let mut scratch = vec![Complex32::new(0.0, 0.0); self.fullband_fft_inverse.get_scratch_len()];
+        let mut scratch =
+            vec![Complex32::new(0.0, 0.0); self.fullband_fft_inverse.get_scratch_len()];
 
         self.fullband_fft_inverse
             .process_with_scratch(&mut spectrum_copy, &mut output, &mut scratch)
@@ -277,7 +281,10 @@ impl FRCRN {
 
     /// Merge sub-bands
     fn merge_subbands(&self, subbands: &[Vec<Complex32>]) -> Vec<Complex32> {
-        subbands.iter().flat_map(|band| band.iter().copied()).collect()
+        subbands
+            .iter()
+            .flat_map(|band| band.iter().copied())
+            .collect()
     }
 
     /// Process through full-band model
@@ -331,11 +338,7 @@ impl FRCRN {
     }
 
     /// Fuse full-band and sub-band estimates
-    fn fuse_estimates(
-        &self,
-        fullband: &[Complex32],
-        subband: &[Complex32],
-    ) -> Vec<Complex32> {
+    fn fuse_estimates(&self, fullband: &[Complex32], subband: &[Complex32]) -> Vec<Complex32> {
         // Attention-based fusion (simplified)
         // Weight based on magnitude confidence
         fullband
@@ -422,14 +425,27 @@ impl SpeechEnhancer for FRCRN {
 
         // Return frame
         if input.channels == 1 {
-            Ok(AudioFrame::mono(output_data, input.sample_rate, self.frame_index))
+            Ok(AudioFrame::mono(
+                output_data,
+                input.sample_rate,
+                self.frame_index,
+            ))
         } else {
             let stereo: Vec<f32> = output_data.iter().flat_map(|&s| [s, s]).collect();
-            Ok(AudioFrame::stereo(stereo, input.sample_rate, self.frame_index))
+            Ok(AudioFrame::stereo(
+                stereo,
+                input.sample_rate,
+                self.frame_index,
+            ))
         }
     }
 
-    fn process_batch(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<f32>> {
+    fn process_batch(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<f32>> {
         // Convert to mono
         let mono = if channels == 2 {
             audio

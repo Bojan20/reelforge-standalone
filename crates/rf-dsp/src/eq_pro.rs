@@ -20,8 +20,8 @@ use std::sync::Arc;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
-use rf_core::Sample;
 use crate::{Processor, ProcessorConfig, StereoProcessor};
+use rf_core::Sample;
 
 // ============================================================================
 // CONSTANTS
@@ -169,7 +169,16 @@ impl SvfCore {
 
     /// Process with precomputed coefficients
     #[inline(always)]
-    pub fn process(&mut self, v0: f64, a1: f64, a2: f64, a3: f64, m0: f64, m1: f64, m2: f64) -> f64 {
+    pub fn process(
+        &mut self,
+        v0: f64,
+        a1: f64,
+        a2: f64,
+        a3: f64,
+        m0: f64,
+        m1: f64,
+        m2: f64,
+    ) -> f64 {
         let v3 = v0 - self.ic2eq;
         let v1 = a1 * self.ic1eq + a2 * v3;
         let v2 = self.ic2eq + a2 * self.ic1eq + a3 * v3;
@@ -210,7 +219,14 @@ impl SvfCoeffs {
         let m1 = k * (a * a - 1.0);
         let m2 = 0.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Low shelf
@@ -227,7 +243,14 @@ impl SvfCoeffs {
         let m1 = k * (a - 1.0);
         let m2 = a * a - 1.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// High shelf
@@ -244,7 +267,14 @@ impl SvfCoeffs {
         let m1 = k * (1.0 - a) * a;
         let m2 = 1.0 - a * a;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Highpass (lowcut)
@@ -260,7 +290,14 @@ impl SvfCoeffs {
         let m1 = -k;
         let m2 = -1.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Lowpass (highcut)
@@ -276,7 +313,14 @@ impl SvfCoeffs {
         let m1 = 0.0;
         let m2 = 1.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Notch
@@ -292,7 +336,14 @@ impl SvfCoeffs {
         let m1 = -k;
         let m2 = 0.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Bandpass
@@ -308,7 +359,14 @@ impl SvfCoeffs {
         let m1 = 1.0;
         let m2 = 0.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Allpass
@@ -324,7 +382,14 @@ impl SvfCoeffs {
         let m1 = -2.0 * k;
         let m2 = 0.0;
 
-        Self { a1, a2, a3, m0, m1, m2 }
+        Self {
+            a1,
+            a2,
+            a3,
+            m0,
+            m1,
+            m2,
+        }
     }
 
     /// Tilt shelf (combined low + high shelf)
@@ -702,9 +767,7 @@ impl EqBand {
                     let stage_q = self.butterworth_q(num_stages);
                     SvfCoeffs::lowpass(self.frequency, stage_q, self.sample_rate)
                 }
-                FilterShape::Notch => {
-                    SvfCoeffs::notch(self.frequency, self.q, self.sample_rate)
-                }
+                FilterShape::Notch => SvfCoeffs::notch(self.frequency, self.q, self.sample_rate),
                 FilterShape::Bandpass => {
                     SvfCoeffs::bandpass(self.frequency, self.q, self.sample_rate)
                 }
@@ -723,8 +786,10 @@ impl EqBand {
         }
 
         // Update dynamic EQ envelope
-        self.envelope_l.set_times(self.dynamic.attack_ms, self.dynamic.release_ms);
-        self.envelope_r.set_times(self.dynamic.attack_ms, self.dynamic.release_ms);
+        self.envelope_l
+            .set_times(self.dynamic.attack_ms, self.dynamic.release_ms);
+        self.envelope_r
+            .set_times(self.dynamic.attack_ms, self.dynamic.release_ms);
 
         // Update sidechain filter if needed
         if let Some(sc_freq) = self.dynamic.sidechain_filter_freq {
@@ -776,10 +841,10 @@ impl EqBand {
 
                 for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
                     out_l = self.svf_stages_l[i].process(
-                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                     out_r = self.svf_stages_r[i].process(
-                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                 }
 
@@ -790,7 +855,7 @@ impl EqBand {
                 let mut out_l = left;
                 for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
                     out_l = self.svf_stages_l[i].process(
-                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_l, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                 }
                 (out_l * dyn_gain_l, right)
@@ -799,7 +864,7 @@ impl EqBand {
                 let mut out_r = right;
                 for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
                     out_r = self.svf_stages_r[i].process(
-                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_r, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                 }
                 (left, out_r * dyn_gain_r)
@@ -810,7 +875,7 @@ impl EqBand {
                 let mut out_mid = mid;
                 for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
                     out_mid = self.svf_stages_l[i].process(
-                        out_mid, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_mid, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                 }
                 out_mid *= dyn_gain_l;
@@ -822,7 +887,7 @@ impl EqBand {
                 let mut out_side = side;
                 for (i, coeffs) in self.svf_coeffs.iter().enumerate() {
                     out_side = self.svf_stages_l[i].process(
-                        out_side, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2
+                        out_side, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
                     );
                 }
                 out_side *= dyn_gain_l;
@@ -928,7 +993,11 @@ fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
 
     // Simpler approach: reconstruct g from coefficients
     // g = a2/a1 when a1 != 0
-    let g = if coeffs.a1.abs() > 1e-10 { coeffs.a2 / coeffs.a1 } else { 0.0 };
+    let g = if coeffs.a1.abs() > 1e-10 {
+        coeffs.a2 / coeffs.a1
+    } else {
+        0.0
+    };
 
     // k can be found from: a1 = 1/(1 + g*(g+k)), so:
     // 1/a1 = 1 + g*g + g*k
@@ -1078,9 +1147,7 @@ impl SpectrumAnalyzer {
         let window: Vec<f64> = (0..fft_size)
             .map(|i| {
                 let t = i as f64 / (fft_size - 1) as f64;
-                0.35875
-                    - 0.48829 * (2.0 * PI * t).cos()
-                    + 0.14128 * (4.0 * PI * t).cos()
+                0.35875 - 0.48829 * (2.0 * PI * t).cos() + 0.14128 * (4.0 * PI * t).cos()
                     - 0.01168 * (6.0 * PI * t).cos()
             })
             .collect();
@@ -1121,7 +1188,9 @@ impl SpectrumAnalyzer {
         }
 
         // Compute FFT
-        self.fft_forward.process(&mut windowed, &mut self.spectrum).ok();
+        self.fft_forward
+            .process(&mut windowed, &mut self.spectrum)
+            .ok();
 
         // Update magnitude with smoothing
         let norm = 2.0 / self.fft_size as f64;
@@ -1134,7 +1203,8 @@ impl SpectrumAnalyzer {
             };
 
             // Smooth
-            self.magnitude_db[i] = self.smoothing * self.magnitude_db[i] + (1.0 - self.smoothing) * db;
+            self.magnitude_db[i] =
+                self.smoothing * self.magnitude_db[i] + (1.0 - self.smoothing) * db;
 
             // Peak hold
             if db > self.peak_hold_db[i] {
@@ -1260,7 +1330,9 @@ impl EqMatch {
                 }
 
                 // FFT
-                self.fft_forward.process(&mut self.fft_buffer, &mut self.spectrum_buffer).ok();
+                self.fft_forward
+                    .process(&mut self.fft_buffer, &mut self.spectrum_buffer)
+                    .ok();
 
                 // Accumulate magnitude
                 for (i, c) in self.spectrum_buffer.iter().enumerate() {
@@ -1415,9 +1487,11 @@ impl CollisionDetector {
             } else if is_collision && in_collision {
                 max_severity = max_severity.max(severity);
             } else if !is_collision && in_collision {
-                let start_freq = collision_start as f64 * self.sample_rate / SPECTRUM_FFT_SIZE as f64;
+                let start_freq =
+                    collision_start as f64 * self.sample_rate / SPECTRUM_FFT_SIZE as f64;
                 let end_freq = bin as f64 * self.sample_rate / SPECTRUM_FFT_SIZE as f64;
-                self.collision_zones.push((start_freq, end_freq, max_severity));
+                self.collision_zones
+                    .push((start_freq, end_freq, max_severity));
                 in_collision = false;
             }
         }
@@ -1571,9 +1645,7 @@ struct EqBandState {
 
 impl ProEq {
     pub fn new(sample_rate: f64) -> Self {
-        let bands = (0..MAX_BANDS)
-            .map(|_| EqBand::new(sample_rate))
-            .collect();
+        let bands = (0..MAX_BANDS).map(|_| EqBand::new(sample_rate)).collect();
 
         Self {
             bands,
@@ -1750,16 +1822,19 @@ impl ProEq {
     }
 
     fn capture_state(&self) -> Vec<EqBandState> {
-        self.bands.iter().map(|b| EqBandState {
-            enabled: b.enabled,
-            shape: b.shape,
-            frequency: b.frequency,
-            gain_db: b.gain_db,
-            q: b.q,
-            slope: b.slope,
-            placement: b.placement,
-            dynamic: b.dynamic,
-        }).collect()
+        self.bands
+            .iter()
+            .map(|b| EqBandState {
+                enabled: b.enabled,
+                shape: b.shape,
+                frequency: b.frequency,
+                gain_db: b.gain_db,
+                q: b.q,
+                slope: b.slope,
+                placement: b.placement,
+                dynamic: b.dynamic,
+            })
+            .collect()
     }
 
     fn restore_state(&mut self, state: Vec<EqBandState>) {
@@ -1910,7 +1985,9 @@ mod tests {
 
         // Process some samples
         for _ in 0..1000 {
-            let _ = svf.process(0.5, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2);
+            let _ = svf.process(
+                0.5, coeffs.a1, coeffs.a2, coeffs.a3, coeffs.m0, coeffs.m1, coeffs.m2,
+            );
         }
     }
 

@@ -7,14 +7,14 @@
 //! - Real-time flex marker visualization
 //! - Clip-based stretch regions
 
-use rf_dsp::timestretch::{
-    UltimateTimeStretch, TimeStretchConfig, Algorithm, Quality, TransientMode,
-    FlexMarker, FlexMarkerType, StretchRegion,
-};
-use parking_lot::RwLock;
-use std::sync::Arc;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use rf_dsp::timestretch::{
+    Algorithm, FlexMarker, FlexMarkerType, Quality, StretchRegion, TimeStretchConfig,
+    TransientMode, UltimateTimeStretch,
+};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
@@ -343,7 +343,11 @@ pub fn timestretch_destroy(clip_id: u64) -> bool {
 
 /// Analyze clip for optimal stretch settings
 #[flutter_rust_bridge::frb]
-pub async fn timestretch_analyze(clip_id: u64, audio_data: Vec<f64>, sample_rate: f64) -> Option<ClipAnalysisDto> {
+pub async fn timestretch_analyze(
+    clip_id: u64,
+    audio_data: Vec<f64>,
+    sample_rate: f64,
+) -> Option<ClipAnalysisDto> {
     let processors = STRETCH_PROCESSORS.read();
     let processor = processors.get(&clip_id)?;
 
@@ -351,9 +355,7 @@ pub async fn timestretch_analyze(clip_id: u64, audio_data: Vec<f64>, sample_rate
     let markers = proc.analyze(&audio_data);
 
     // Cache flex markers for visualization
-    let markers_dto: Vec<FlexMarkerDto> = markers.iter()
-        .map(FlexMarkerDto::from)
-        .collect();
+    let markers_dto: Vec<FlexMarkerDto> = markers.iter().map(FlexMarkerDto::from).collect();
 
     let transient_count = markers.len();
     let duration_secs = audio_data.len() as f64 / sample_rate;
@@ -419,7 +421,8 @@ pub async fn timestretch_process(
     let output = proc.process_with_pitch(&audio_data, time_ratio, pitch_ratio);
 
     // Cache stretch regions for visualization
-    let regions_dto: Vec<StretchRegionDto> = proc.get_regions()
+    let regions_dto: Vec<StretchRegionDto> = proc
+        .get_regions()
         .iter()
         .map(StretchRegionDto::from)
         .collect();
@@ -464,7 +467,8 @@ pub async fn timestretch_process_stereo(
     let out_r = proc.process_with_pitch(&right, time_ratio, pitch_ratio);
 
     // Cache regions
-    let regions_dto: Vec<StretchRegionDto> = proc.get_regions()
+    let regions_dto: Vec<StretchRegionDto> = proc
+        .get_regions()
         .iter()
         .map(StretchRegionDto::from)
         .collect();
@@ -494,21 +498,15 @@ pub fn timestretch_get_regions(clip_id: u64) -> Vec<StretchRegionDto> {
 
 /// Add or move a warp marker
 #[flutter_rust_bridge::frb(sync)]
-pub fn timestretch_add_warp_marker(
-    clip_id: u64,
-    original_pos: u64,
-    warped_pos: u64,
-) -> bool {
+pub fn timestretch_add_warp_marker(clip_id: u64, original_pos: u64, warped_pos: u64) -> bool {
     let processors = STRETCH_PROCESSORS.read();
     if let Some(processor) = processors.get(&clip_id) {
         let mut proc = processor.write();
         proc.add_marker(original_pos, warped_pos);
 
         // Update cache
-        let markers_dto: Vec<FlexMarkerDto> = proc.get_markers()
-            .iter()
-            .map(FlexMarkerDto::from)
-            .collect();
+        let markers_dto: Vec<FlexMarkerDto> =
+            proc.get_markers().iter().map(FlexMarkerDto::from).collect();
 
         drop(proc);
         drop(processors);
@@ -581,9 +579,7 @@ pub struct BatchStretchJob {
 
 /// Process multiple clips in parallel (offline bounce)
 #[flutter_rust_bridge::frb]
-pub async fn timestretch_batch_process(
-    jobs: Vec<BatchStretchJob>,
-) -> Vec<Option<Vec<f64>>> {
+pub async fn timestretch_batch_process(jobs: Vec<BatchStretchJob>) -> Vec<Option<Vec<f64>>> {
     use rayon::prelude::*;
 
     jobs.into_par_iter()
@@ -678,7 +674,10 @@ pub struct FlexMarkerVisual {
 
 /// Get visualization data for a clip
 #[flutter_rust_bridge::frb(sync)]
-pub fn timestretch_get_visualization(clip_id: u64, total_samples: u64) -> Option<StretchVisualizationData> {
+pub fn timestretch_get_visualization(
+    clip_id: u64,
+    total_samples: u64,
+) -> Option<StretchVisualizationData> {
     let regions = STRETCH_REGIONS.read();
     let markers = FLEX_MARKERS.read();
 
@@ -687,7 +686,8 @@ pub fn timestretch_get_visualization(clip_id: u64, total_samples: u64) -> Option
 
     let total = total_samples as f64;
 
-    let region_visuals: Vec<StretchRegionVisual> = clip_regions.iter()
+    let region_visuals: Vec<StretchRegionVisual> = clip_regions
+        .iter()
         .map(|r| {
             let color_hint = if r.ratio > 1.01 {
                 (r.ratio - 1.0).min(1.0) // Expand = positive
@@ -706,7 +706,8 @@ pub fn timestretch_get_visualization(clip_id: u64, total_samples: u64) -> Option
         })
         .collect();
 
-    let marker_visuals: Vec<FlexMarkerVisual> = clip_markers.iter()
+    let marker_visuals: Vec<FlexMarkerVisual> = clip_markers
+        .iter()
         .map(|m| FlexMarkerVisual {
             original_x: m.original_pos as f64 / total,
             warped_x: m.warped_pos as f64 / total,
@@ -717,12 +718,11 @@ pub fn timestretch_get_visualization(clip_id: u64, total_samples: u64) -> Option
 
     // Calculate overall ratio
     let overall_ratio = if !clip_regions.is_empty() {
-        let total_source: u64 = clip_regions.iter()
+        let total_source: u64 = clip_regions
+            .iter()
             .map(|r| r.source_end - r.source_start)
             .sum();
-        let total_dest: u64 = clip_regions.iter()
-            .map(|r| r.dest_end - r.dest_start)
-            .sum();
+        let total_dest: u64 = clip_regions.iter().map(|r| r.dest_end - r.dest_start).sum();
         if total_source > 0 {
             total_dest as f64 / total_source as f64
         } else {

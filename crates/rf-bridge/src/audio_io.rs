@@ -46,8 +46,7 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
     // Get output devices
     if let Ok(output_devices) = host.output_devices() {
-        let default_output = host.default_output_device()
-            .and_then(|d| d.name().ok());
+        let default_output = host.default_output_device().and_then(|d| d.name().ok());
 
         for device in output_devices {
             if let Ok(name) = device.name() {
@@ -82,8 +81,7 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
     // Get input devices
     if let Ok(input_devices) = host.input_devices() {
-        let default_input = host.default_input_device()
-            .and_then(|d| d.name().ok());
+        let default_input = host.default_input_device().and_then(|d| d.name().ok());
 
         for device in input_devices {
             if let Ok(name) = device.name() {
@@ -91,10 +89,9 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
                 // Check if we already have this device (as output)
                 if let Some(existing) = devices.iter_mut().find(|d| d.name == name) {
-                    if let Ok(configs) = device.supported_input_configs() {
-                        for config in configs {
+                    if let Ok(mut configs) = device.supported_input_configs() {
+                        if let Some(config) = configs.next() {
                             existing.input_channels = config.channels() as u32;
-                            break;
                         }
                     }
                 } else {
@@ -133,11 +130,13 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 pub fn get_default_config() -> AudioConfig {
     let devices = get_audio_devices();
 
-    let output_device = devices.iter()
+    let output_device = devices
+        .iter()
         .find(|d| d.is_default && d.output_channels > 0)
         .map(|d| d.id.clone());
 
-    let input_device = devices.iter()
+    let input_device = devices
+        .iter()
         .find(|d| d.is_default && d.input_channels > 0)
         .map(|d| d.id.clone());
 

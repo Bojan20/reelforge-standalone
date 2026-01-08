@@ -153,7 +153,9 @@ impl PhaseVocoder {
         }
 
         // FFT
-        let _ = self.fft_forward.process(&mut self.fft_input, &mut self.fft_output);
+        let _ = self
+            .fft_forward
+            .process(&mut self.fft_input, &mut self.fft_output);
     }
 
     /// Shift pitch in frequency domain
@@ -204,11 +206,18 @@ impl PhaseVocoder {
     /// Synthesize a frame
     fn synthesize_frame(&mut self, output: &mut [f32]) {
         // IFFT
-        let _ = self.fft_inverse.process(&mut self.ifft_input, &mut self.ifft_output);
+        let _ = self
+            .fft_inverse
+            .process(&mut self.ifft_input, &mut self.ifft_output);
 
         // Apply synthesis window and overlap-add
         let scale = 1.0 / self.synthesis_size as f32;
-        for (i, sample) in self.ifft_output.iter().take(self.synthesis_size).enumerate() {
+        for (i, sample) in self
+            .ifft_output
+            .iter()
+            .take(self.synthesis_size)
+            .enumerate()
+        {
             if i < output.len() {
                 output[i] += sample * self.synthesis_window[i] * scale;
             }
@@ -466,7 +475,8 @@ impl PsolaProcessor {
                 if in_pos < audio.len() && out_pos < output.len() {
                     // Hann window
                     let w = 0.5
-                        * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / window_size as f32).cos());
+                        * (1.0
+                            - (2.0 * std::f32::consts::PI * i as f32 / window_size as f32).cos());
                     output[out_pos] += audio[in_pos] * w;
                 }
             }
@@ -533,7 +543,9 @@ mod tests {
 
         // Generate test signal
         let samples: Vec<f32> = (0..config.sample_rate as usize)
-            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / config.sample_rate as f32).sin())
+            .map(|i| {
+                (2.0 * std::f32::consts::PI * 440.0 * i as f32 / config.sample_rate as f32).sin()
+            })
             .collect();
 
         let shifted = vocoder.process(&samples, 0.0); // No shift
@@ -582,7 +594,9 @@ mod tests {
         let mut shifter = PitchShifter::new(&config);
 
         let samples: Vec<f32> = (0..config.sample_rate as usize)
-            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / config.sample_rate as f32).sin())
+            .map(|i| {
+                (2.0 * std::f32::consts::PI * 440.0 * i as f32 / config.sample_rate as f32).sin()
+            })
             .collect();
 
         // Shift up one octave
@@ -594,9 +608,9 @@ mod tests {
     #[test]
     fn test_synthesize_from_notes() {
         let notes = vec![
-            NoteEvent::new(60.0, 0, 24000),      // C4
-            NoteEvent::new(64.0, 24000, 24000),  // E4
-            NoteEvent::new(67.0, 48000, 24000),  // G4
+            NoteEvent::new(60.0, 0, 24000),     // C4
+            NoteEvent::new(64.0, 24000, 24000), // E4
+            NoteEvent::new(67.0, 48000, 24000), // G4
         ];
 
         let output = synthesize_from_notes(&notes, 48000, 72000);

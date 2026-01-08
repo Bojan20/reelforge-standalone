@@ -5,11 +5,11 @@
 
 use std::path::Path;
 
+use crate::scanner::{PluginCategory, PluginType};
 use crate::{
     AudioBuffer, ParameterInfo, PluginError, PluginInfo, PluginInstance, PluginResult,
     ProcessContext,
 };
-use crate::scanner::{PluginCategory, PluginType};
 
 /// Internal plugin wrapper
 pub struct InternalPlugin {
@@ -677,10 +677,14 @@ impl PluginInstance for InternalPlugin {
         match self.processor_type {
             InternalProcessorType::Gain => {
                 // Get gain in dB and convert to linear
-                let gain_db = self.parameters.get(0).map(|p| {
-                    let normalized = p.value;
-                    p.info.min + normalized * (p.info.max - p.info.min)
-                }).unwrap_or(0.0);
+                let gain_db = self
+                    .parameters
+                    .get(0)
+                    .map(|p| {
+                        let normalized = p.value;
+                        p.info.min + normalized * (p.info.max - p.info.min)
+                    })
+                    .unwrap_or(0.0);
                 let gain_linear = 10.0_f64.powf(gain_db / 20.0) as f32;
 
                 for ch in 0..output.channels.min(input.channels) {
@@ -735,10 +739,9 @@ impl PluginInstance for InternalPlugin {
     fn get_state(&self) -> PluginResult<Vec<u8>> {
         // Serialize parameter values as JSON
         let values: Vec<f64> = self.parameters.iter().map(|p| p.value).collect();
-        serde_json::to_vec(&values).map_err(|e| PluginError::IoError(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            e,
-        )))
+        serde_json::to_vec(&values).map_err(|e| {
+            PluginError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        })
     }
 
     fn set_state(&mut self, state: &[u8]) -> PluginResult<()> {

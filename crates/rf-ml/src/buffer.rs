@@ -51,7 +51,12 @@ impl AudioFrame {
     /// Get right channel (for stereo, returns copy of left for mono)
     pub fn right(&self) -> Vec<f32> {
         if self.channels >= 2 {
-            self.data.iter().skip(1).step_by(self.channels).copied().collect()
+            self.data
+                .iter()
+                .skip(1)
+                .step_by(self.channels)
+                .copied()
+                .collect()
         } else {
             // Mono: return left channel
             self.data.iter().copied().collect()
@@ -344,9 +349,7 @@ impl StftBuffer {
 
         // Create Hann window
         let window: Vec<f32> = (0..fft_size)
-            .map(|i| {
-                0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos())
-            })
+            .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / fft_size as f32).cos()))
             .collect();
 
         let mut planner = RealFftPlanner::new();

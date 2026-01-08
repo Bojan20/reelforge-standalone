@@ -4,8 +4,8 @@
 
 use std::path::Path;
 
-use crate::{VideoError, VideoResult};
 use crate::decoder::{VideoDecoder, VideoFrame};
+use crate::{VideoError, VideoResult};
 
 // ============ Thumbnail ============
 
@@ -58,7 +58,11 @@ impl Thumbnail {
 
         let offset = ((y * self.width + x) * 3) as usize;
         if offset + 2 < self.data.len() {
-            (self.data[offset], self.data[offset + 1], self.data[offset + 2])
+            (
+                self.data[offset],
+                self.data[offset + 1],
+                self.data[offset + 2],
+            )
         } else {
             (0, 0, 0)
         }
@@ -186,18 +190,16 @@ impl ThumbnailGenerator {
     }
 
     /// Generate single thumbnail at specific frame
-    pub fn generate_single(
-        &self,
-        path: &Path,
-        frame: u64,
-        width: u32,
-    ) -> VideoResult<Thumbnail> {
+    pub fn generate_single(&self, path: &Path, frame: u64, width: u32) -> VideoResult<Thumbnail> {
         let mut decoder = VideoDecoder::open(path)?;
 
         if let Some(video_frame) = decoder.decode_frame(frame)? {
             Ok(Thumbnail::from_frame(&video_frame, width))
         } else {
-            Err(VideoError::DecodeFailed(format!("Could not decode frame {}", frame)))
+            Err(VideoError::DecodeFailed(format!(
+                "Could not decode frame {}",
+                frame
+            )))
         }
     }
 }

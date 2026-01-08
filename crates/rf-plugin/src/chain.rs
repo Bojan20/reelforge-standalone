@@ -6,12 +6,12 @@
 //! - Zero buffer copies
 //! - PDC (Plugin Delay Compensation)
 
+use parking_lot::RwLock;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use parking_lot::RwLock;
 
-use crate::{AudioBuffer, PluginError, PluginInstance, PluginResult, ProcessContext};
 use crate::scanner::PluginInfo;
+use crate::{AudioBuffer, PluginError, PluginInstance, PluginResult, ProcessContext};
 
 /// Pre-allocated buffer pool for zero-copy processing
 pub struct BufferPool {
@@ -116,7 +116,8 @@ impl ChainSlot {
     }
 
     pub fn set_mix(&self, mix: f32) {
-        self.mix.store((mix.clamp(0.0, 1.0) * 100.0) as u32, Ordering::Relaxed);
+        self.mix
+            .store((mix.clamp(0.0, 1.0) * 100.0) as u32, Ordering::Relaxed);
     }
 
     pub fn latency(&self) -> u32 {
@@ -166,7 +167,8 @@ impl PdcManager {
     /// Recalculate delays based on plugin latencies
     pub fn recalculate(&mut self, slots: &[ChainSlot]) {
         // Find maximum latency
-        let max_latency: u32 = slots.iter()
+        let max_latency: u32 = slots
+            .iter()
             .filter(|s| s.is_enabled() && !s.is_bypassed())
             .map(|s| s.latency())
             .max()
@@ -213,9 +215,7 @@ pub struct DelayLine {
 
 impl DelayLine {
     pub fn new(max_delay: usize, channels: usize) -> Self {
-        let buffers = (0..channels)
-            .map(|_| vec![0.0f32; max_delay])
-            .collect();
+        let buffers = (0..channels).map(|_| vec![0.0f32; max_delay]).collect();
 
         Self {
             buffers,
@@ -291,9 +291,13 @@ impl ZeroCopyChain {
 
     /// Add a plugin to the chain
     pub fn add(&mut self, plugin: Box<dyn PluginInstance>) -> PluginResult<usize> {
-        let input_buffer = self.buffer_pool.acquire()
+        let input_buffer = self
+            .buffer_pool
+            .acquire()
             .ok_or_else(|| PluginError::ProcessingError("No buffers available".to_string()))?;
-        let output_buffer = self.buffer_pool.acquire()
+        let output_buffer = self
+            .buffer_pool
+            .acquire()
             .ok_or_else(|| PluginError::ProcessingError("No buffers available".to_string()))?;
 
         let slot = ChainSlot::new(plugin, input_buffer, output_buffer);
@@ -321,9 +325,7 @@ impl ZeroCopyChain {
         self.pdc.recalculate(&self.slots);
 
         // Extract plugin
-        Arc::try_unwrap(slot.plugin)
-            .ok()
-            .map(|rw| rw.into_inner())
+        Arc::try_unwrap(slot.plugin).ok().map(|rw| rw.into_inner())
     }
 
     /// Get slot at index
@@ -376,18 +378,28 @@ impl ZeroCopyChain {
         self.processing.store(true, Ordering::Release);
 
         // Collect slot info first to avoid borrow issues
-        let slot_info: Vec<(usize, usize, bool, bool, f32, Arc<RwLock<Box<dyn PluginInstance>>>)> = self.slots
+        let slot_info: Vec<(
+            usize,
+            usize,
+            bool,
+            bool,
+            f32,
+            Arc<RwLock<Box<dyn PluginInstance>>>,
+        )> = self
+            .slots
             .iter()
             .enumerate()
             .filter(|(_, slot)| slot.is_enabled())
-            .map(|(i, slot)| (
-                i,
-                slot.output_buffer,
-                slot.is_bypassed(),
-                slot.is_enabled(),
-                slot.mix(),
-                Arc::clone(&slot.plugin),
-            ))
+            .map(|(i, slot)| {
+                (
+                    i,
+                    slot.output_buffer,
+                    slot.is_bypassed(),
+                    slot.is_enabled(),
+                    slot.mix(),
+                    Arc::clone(&slot.plugin),
+                )
+            })
             .collect();
 
         // Copy input to first buffer for initial processing
@@ -408,7 +420,8 @@ impl ZeroCopyChain {
         // Process through chain using indices
         let mut prev_output_idx = first_input_idx;
 
-        for (i, (slot_i, out_idx, bypassed, _enabled, mix, plugin)) in slot_info.iter().enumerate() {
+        for (i, (slot_i, out_idx, bypassed, _enabled, mix, plugin)) in slot_info.iter().enumerate()
+        {
             // Determine input: first slot uses external input, others use previous output
             let use_external_input = i == 0;
 
@@ -417,9 +430,8 @@ impl ZeroCopyChain {
                 let data_to_copy: Option<Vec<Vec<f32>>> = if use_external_input {
                     Some(input.data.clone())
                 } else {
-                    prev_output_idx.and_then(|prev_idx|
-                        self.buffer_pool.get(prev_idx).map(|b| b.data.clone())
-                    )
+                    prev_output_idx
+                        .and_then(|prev_idx| self.buffer_pool.get(prev_idx).map(|b| b.data.clone()))
                 };
 
                 // Now copy to output buffer
@@ -437,7 +449,8 @@ impl ZeroCopyChain {
                 let input_data: Vec<Vec<f32>> = if use_external_input {
                     input.data.clone()
                 } else if let Some(prev_idx) = prev_output_idx {
-                    self.buffer_pool.get(prev_idx)
+                    self.buffer_pool
+                        .get(prev_idx)
                         .map(|b| b.data.clone())
                         .unwrap_or_default()
                 } else {

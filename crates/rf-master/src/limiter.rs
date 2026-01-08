@@ -228,8 +228,7 @@ pub struct TruePeakLimiter {
 impl TruePeakLimiter {
     /// Create new true peak limiter
     pub fn new(config: LimiterConfig) -> Self {
-        let lookahead_size =
-            (config.lookahead_ms * config.sample_rate as f32 / 1000.0) as usize;
+        let lookahead_size = (config.lookahead_ms * config.sample_rate as f32 / 1000.0) as usize;
         let lookahead_size = lookahead_size.max(1);
 
         let ceiling_linear = 10.0f32.powf(config.ceiling / 20.0);
@@ -295,7 +294,9 @@ impl TruePeakLimiter {
 
         let mut true_peak = 0.0f32;
         for i in 0..self.config.oversampling {
-            true_peak = true_peak.max(upsampled_l[i].abs()).max(upsampled_r[i].abs());
+            true_peak = true_peak
+                .max(upsampled_l[i].abs())
+                .max(upsampled_r[i].abs());
         }
 
         // Compute required gain
@@ -310,7 +311,8 @@ impl TruePeakLimiter {
         if target < self.envelope {
             self.envelope = self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target;
         } else {
-            self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target;
+            self.envelope =
+                self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target;
         }
 
         // Store gain for lookahead
@@ -331,7 +333,13 @@ impl TruePeakLimiter {
     }
 
     /// Process buffer
-    pub fn process(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),
@@ -400,7 +408,8 @@ impl BrickwallLimiter {
         if target < self.envelope {
             self.envelope = target; // Instant attack
         } else {
-            self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target;
+            self.envelope =
+                self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target;
         }
 
         let gain = self.envelope as f32;
@@ -438,7 +447,9 @@ mod tests {
         let mut output_l = vec![0.0f32; 1024];
         let mut output_r = vec![0.0f32; 1024];
 
-        limiter.process(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        limiter
+            .process(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         // After lookahead delay, output should be similar to input
         let late_out: Vec<f32> = output_l.iter().skip(limiter.latency()).copied().collect();
@@ -462,11 +473,14 @@ mod tests {
         let mut output_l = vec![0.0f32; 1024];
         let mut output_r = vec![0.0f32; 1024];
 
-        limiter.process(&input_l, &input_r, &mut output_l, &mut output_r).unwrap();
+        limiter
+            .process(&input_l, &input_r, &mut output_l, &mut output_r)
+            .unwrap();
 
         // After lookahead delay, output peaks should be limited
         // Skip initial samples (lookahead latency)
-        let late_samples: Vec<f32> = output_l.iter()
+        let late_samples: Vec<f32> = output_l
+            .iter()
             .skip(limiter.latency() + 100)
             .copied()
             .collect();

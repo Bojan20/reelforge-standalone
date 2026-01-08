@@ -247,12 +247,8 @@ impl WindowFunction {
                 let x = i as f32 / n;
                 match self {
                     WindowFunction::Rectangular => 1.0,
-                    WindowFunction::Hann => {
-                        0.5 * (1.0 - (2.0 * std::f32::consts::PI * x).cos())
-                    }
-                    WindowFunction::Hamming => {
-                        0.54 - 0.46 * (2.0 * std::f32::consts::PI * x).cos()
-                    }
+                    WindowFunction::Hann => 0.5 * (1.0 - (2.0 * std::f32::consts::PI * x).cos()),
+                    WindowFunction::Hamming => 0.54 - 0.46 * (2.0 * std::f32::consts::PI * x).cos(),
                     WindowFunction::Blackman => {
                         0.42 - 0.5 * (2.0 * std::f32::consts::PI * x).cos()
                             + 0.08 * (4.0 * std::f32::consts::PI * x).cos()
@@ -436,8 +432,7 @@ impl SpectrogramData {
 
     /// Get bin index for frequency
     pub fn frequency_to_bin(&self, freq: f32) -> usize {
-        ((freq * self.config.fft_size as f32 / self.sample_rate) as usize)
-            .min(self.num_bins - 1)
+        ((freq * self.config.fft_size as f32 / self.sample_rate) as usize).min(self.num_bins - 1)
     }
 
     /// Map frequency to display position (0.0-1.0) based on scale
@@ -447,9 +442,7 @@ impl SpectrogramData {
 
         match self.config.frequency_scale {
             FrequencyScale::Linear => (freq - min) / (max - min),
-            FrequencyScale::Logarithmic => {
-                (freq.ln() - min.ln()) / (max.ln() - min.ln())
-            }
+            FrequencyScale::Logarithmic => (freq.ln() - min.ln()) / (max.ln() - min.ln()),
             FrequencyScale::Mel => {
                 let to_mel = |f: f32| 2595.0 * (1.0 + f / 700.0).log10();
                 (to_mel(freq) - to_mel(min)) / (to_mel(max) - to_mel(min))

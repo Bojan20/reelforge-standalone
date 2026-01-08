@@ -3,11 +3,11 @@
 //! Uses rtrb (real-time ring buffer) for zero-allocation, lock-free
 //! communication between UI thread and audio thread.
 
-use std::sync::Arc;
-use rtrb::{Consumer, Producer, RingBuffer};
 use parking_lot::RwLock;
+use rtrb::{Consumer, Producer, RingBuffer};
+use std::sync::Arc;
 
-use crate::dsp_commands::{DspCommand, AnalysisData, SpectrumData, StereoMeterData, LoudnessData};
+use crate::dsp_commands::{AnalysisData, DspCommand, LoudnessData, SpectrumData, StereoMeterData};
 
 /// Command queue capacity (power of 2 for efficiency)
 pub const COMMAND_QUEUE_SIZE: usize = 4096;
@@ -439,7 +439,10 @@ mod tests {
         // Fill queue
         let mut sent = 0;
         for _ in 0..COMMAND_QUEUE_SIZE + 100 {
-            let cmd = DspCommand::EqBypass { track_id: 0, bypass: false };
+            let cmd = DspCommand::EqBypass {
+                track_id: 0,
+                bypass: false,
+            };
             if ui.send(cmd) {
                 sent += 1;
             }

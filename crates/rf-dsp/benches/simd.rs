@@ -1,7 +1,7 @@
 //! SIMD dispatch benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use rf_dsp::simd::{apply_gain, mix_add, apply_stereo_gain, simd_level};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rf_dsp::simd::{apply_gain, apply_stereo_gain, mix_add, simd_level};
 
 fn bench_apply_gain(c: &mut Criterion) {
     let mut group = c.benchmark_group("apply_gain");
@@ -10,15 +10,11 @@ fn bench_apply_gain(c: &mut Criterion) {
         let mut buffer: Vec<f64> = (0..size).map(|i| (i as f64 * 0.001).sin()).collect();
 
         group.throughput(Throughput::Elements(size as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    apply_gain(black_box(&mut buffer), black_box(0.5));
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                apply_gain(black_box(&mut buffer), black_box(0.5));
+            })
+        });
     }
 
     group.finish();
@@ -32,15 +28,11 @@ fn bench_mix_add(c: &mut Criterion) {
         let mut dest: Vec<f64> = (0..size).map(|i| (i as f64 * 0.002).cos()).collect();
 
         group.throughput(Throughput::Elements(size as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    mix_add(black_box(&mut dest), black_box(&source), black_box(0.5));
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                mix_add(black_box(&mut dest), black_box(&source), black_box(0.5));
+            })
+        });
     }
 
     group.finish();
@@ -54,19 +46,11 @@ fn bench_stereo_gain(c: &mut Criterion) {
         let mut right: Vec<f64> = (0..size).map(|i| (i as f64 * 0.001).cos()).collect();
 
         group.throughput(Throughput::Elements((size * 2) as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    apply_stereo_gain(
-                        black_box(&mut left),
-                        black_box(&mut right),
-                        black_box(0.8),
-                    );
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| {
+                apply_stereo_gain(black_box(&mut left), black_box(&mut right), black_box(0.8));
+            })
+        });
     }
 
     group.finish();
@@ -75,13 +59,13 @@ fn bench_stereo_gain(c: &mut Criterion) {
 fn bench_simd_report(c: &mut Criterion) {
     // Just report the detected SIMD level
     let level = simd_level();
-    println!("\n=== SIMD Level: {} (width: {}) ===\n", level.name(), level.width());
+    println!(
+        "\n=== SIMD Level: {} (width: {}) ===\n",
+        level.name(),
+        level.width()
+    );
 
-    c.bench_function("simd_level_check", |b| {
-        b.iter(|| {
-            black_box(simd_level())
-        })
-    });
+    c.bench_function("simd_level_check", |b| b.iter(|| black_box(simd_level())));
 }
 
 criterion_group!(

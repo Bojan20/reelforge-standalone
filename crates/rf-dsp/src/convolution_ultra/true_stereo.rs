@@ -83,7 +83,8 @@ impl TrueStereoIR {
 
     /// Max length across all IRs
     pub fn max_len(&self) -> usize {
-        self.ll.len()
+        self.ll
+            .len()
             .max(self.lr.len())
             .max(self.rl.len())
             .max(self.rr.len())
@@ -154,7 +155,11 @@ impl TrueStereoConvolver {
         let rl_out = self.rl.process(input_right);
         let rr_out = self.rr.process(input_right);
 
-        let len = ll_out.len().min(lr_out.len()).min(rl_out.len()).min(rr_out.len());
+        let len = ll_out
+            .len()
+            .min(lr_out.len())
+            .min(rl_out.len())
+            .min(rr_out.len());
 
         let mut output_left = Vec::with_capacity(len);
         let mut output_right = Vec::with_capacity(len);
@@ -187,23 +192,27 @@ impl TrueStereoConvolver {
         // Convert to M/S
         let ms_amount = ms_amount.clamp(0.0, 1.0);
 
-        let mid: Vec<Sample> = input_left.iter()
+        let mid: Vec<Sample> = input_left
+            .iter()
             .zip(input_right.iter())
             .map(|(&l, &r)| (l + r) * 0.5)
             .collect();
 
-        let side: Vec<Sample> = input_left.iter()
+        let side: Vec<Sample> = input_left
+            .iter()
             .zip(input_right.iter())
             .map(|(&l, &r)| (l - r) * 0.5)
             .collect();
 
         // Blend L/R with M/S
-        let proc_left: Vec<Sample> = input_left.iter()
+        let proc_left: Vec<Sample> = input_left
+            .iter()
             .zip(mid.iter())
             .map(|(&lr, &ms)| lr * (1.0 - ms_amount) + ms * ms_amount)
             .collect();
 
-        let proc_right: Vec<Sample> = input_right.iter()
+        let proc_right: Vec<Sample> = input_right
+            .iter()
             .zip(side.iter())
             .map(|(&lr, &ms)| lr * (1.0 - ms_amount) + ms * ms_amount)
             .collect();
@@ -284,9 +293,9 @@ impl AdaptiveTrueStereoConvolver {
         }
 
         let n = len as f64;
-        let correlation = (n * sum_lr - sum_ll * sum_rr) /
-            ((n * sum_ll_sq - sum_ll * sum_ll).sqrt() *
-             (n * sum_rr_sq - sum_rr * sum_rr).sqrt() + 1e-10);
+        let correlation = (n * sum_lr - sum_ll * sum_rr)
+            / ((n * sum_ll_sq - sum_ll * sum_ll).sqrt() * (n * sum_rr_sq - sum_rr * sum_rr).sqrt()
+                + 1e-10);
 
         // Estimate RT60 from energy decay
         let rt60 = Self::estimate_rt60(&ir.ll.samples, ir.sample_rate);
@@ -310,9 +319,7 @@ impl AdaptiveTrueStereoConvolver {
     /// Estimate RT60 from energy decay curve
     fn estimate_rt60(samples: &[Sample], sample_rate: f64) -> f64 {
         // Schroeder integration (backward)
-        let mut energy: Vec<f64> = samples.iter()
-            .map(|s| s * s)
-            .collect();
+        let mut energy: Vec<f64> = samples.iter().map(|s| s * s).collect();
 
         // Cumulative sum from end
         for i in (0..energy.len() - 1).rev() {
@@ -338,15 +345,13 @@ impl AdaptiveTrueStereoConvolver {
         let early_samples = (0.08 * sample_rate) as usize;
         let early = &samples[..early_samples.min(samples.len())];
 
-        let threshold = early.iter()
-            .map(|s| s.abs())
-            .fold(0.0, f64::max) * 0.1;
+        let threshold = early.iter().map(|s| s.abs()).fold(0.0, f64::max) * 0.1;
 
         let mut peaks = 0;
         for i in 1..early.len() - 1 {
-            if early[i].abs() > threshold &&
-               early[i].abs() > early[i-1].abs() &&
-               early[i].abs() > early[i+1].abs()
+            if early[i].abs() > threshold
+                && early[i].abs() > early[i - 1].abs()
+                && early[i].abs() > early[i + 1].abs()
             {
                 peaks += 1;
             }
@@ -359,7 +364,8 @@ impl AdaptiveTrueStereoConvolver {
     pub fn set_auto_width(&mut self, enable: bool) {
         self.auto_width = enable;
         if enable {
-            self.convolver.set_width(self.characteristics.suggested_width);
+            self.convolver
+                .set_width(self.characteristics.suggested_width);
         }
     }
 
@@ -421,8 +427,12 @@ mod tests {
 
         // With partition_size=2 and 4 input samples, we should get 2 output samples
         // (one per completed partition)
-        assert!(out_l.len() >= 2 || out_r.len() >= 2,
-            "Expected output, got out_l.len()={}, out_r.len()={}", out_l.len(), out_r.len());
+        assert!(
+            out_l.len() >= 2 || out_r.len() >= 2,
+            "Expected output, got out_l.len()={}, out_r.len()={}",
+            out_l.len(),
+            out_r.len()
+        );
 
         // Verify output is finite
         assert!(out_l.iter().all(|x| x.is_finite()));

@@ -7,11 +7,11 @@
 //! - Achieves 95%+ CPU utilization on 8+ cores
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::Instant;
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, bounded};
 use parking_lot::{Mutex, RwLock};
 // rayon used for parallel iteration when work-stealing is enabled
 use rf_core::Sample;
@@ -238,7 +238,11 @@ impl AnticipatoryScheduler {
     }
 
     /// Process jobs directly (synchronous, for when scheduler isn't running)
-    pub fn process_sync<F>(&self, jobs: Vec<ProcessingJob>, mut processor: F) -> Vec<ProcessingResult>
+    pub fn process_sync<F>(
+        &self,
+        jobs: Vec<ProcessingJob>,
+        mut processor: F,
+    ) -> Vec<ProcessingResult>
     where
         F: FnMut(NodeId, &[Vec<Sample>]) -> Vec<Vec<Sample>>,
     {

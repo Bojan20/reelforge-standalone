@@ -6,9 +6,9 @@
 //! - User-friendly error messages
 //! - Crash recovery support
 
-use thiserror::Error;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use thiserror::Error;
 
 /// Core error type
 #[derive(Error, Debug)]
@@ -204,14 +204,10 @@ impl AppError {
 
     /// Audio device error
     pub fn audio_device_error(message: &str) -> Self {
-        Self::new(
-            "AUDIO_DEVICE_ERROR",
-            "Audio Device Error",
-            message,
-        )
-        .with_severity(ErrorSeverity::Error)
-        .with_category(ErrorCategory::Audio)
-        .with_action(ErrorAction::retry("Retry"))
+        Self::new("AUDIO_DEVICE_ERROR", "Audio Device Error", message)
+            .with_severity(ErrorSeverity::Error)
+            .with_category(ErrorCategory::Audio)
+            .with_action(ErrorAction::retry("Retry"))
     }
 
     /// Buffer underrun
@@ -359,8 +355,7 @@ impl AppError {
             RfError::State(_) => ("STATE_ERROR", ErrorCategory::System),
         };
 
-        Self::new(code, "Error", error.to_string())
-            .with_category(category)
+        Self::new(code, "Error", error.to_string()).with_category(category)
     }
 }
 

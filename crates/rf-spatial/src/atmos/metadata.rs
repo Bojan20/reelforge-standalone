@@ -1,7 +1,7 @@
 //! ADM (Audio Definition Model) metadata for Atmos
 
-use serde::{Deserialize, Serialize};
 use crate::position::Position3D;
+use serde::{Deserialize, Serialize};
 
 /// ADM metadata container
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -8,17 +8,17 @@
 //! - High-quality decimation (DSD→PCM)
 //! - Native DSD playback (ASIO DSD)
 
+pub mod decimation;
+pub mod dop;
+pub mod file_reader;
 pub mod rates;
 pub mod sdm;
-pub mod dop;
-pub mod decimation;
-pub mod file_reader;
 
+pub use decimation::*;
+pub use dop::*;
+pub use file_reader::*;
 pub use rates::*;
 pub use sdm::*;
-pub use dop::*;
-pub use decimation::*;
-pub use file_reader::*;
 
 use rf_core::Sample;
 
@@ -151,11 +151,12 @@ impl DsdConverter {
             let block = &dsd.data[offset..end];
 
             // Expand bits to samples (+1/-1)
-            let expanded: Vec<Sample> = block.iter()
+            let expanded: Vec<Sample> = block
+                .iter()
                 .flat_map(|byte| {
-                    (0..8).rev().map(move |bit| {
-                        if (byte >> bit) & 1 == 1 { 1.0 } else { -1.0 }
-                    })
+                    (0..8)
+                        .rev()
+                        .map(move |bit| if (byte >> bit) & 1 == 1 { 1.0 } else { -1.0 })
                 })
                 .collect();
 
@@ -260,9 +261,7 @@ mod tests {
         let mut converter = DsdConverter::new(config, 44100.0);
 
         // Create simple PCM signal
-        let pcm: Vec<Sample> = (0..1000)
-            .map(|i| (i as f64 * 0.01).sin())
-            .collect();
+        let pcm: Vec<Sample> = (0..1000).map(|i| (i as f64 * 0.01).sin()).collect();
 
         // Convert to DSD and back
         let dsd = converter.pcm_to_dsd(&pcm, DsdRate::Dsd64);

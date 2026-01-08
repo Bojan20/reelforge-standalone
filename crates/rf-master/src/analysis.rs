@@ -7,9 +7,7 @@
 //! - Stereo field analysis
 //! - Problem detection (clipping, DC offset, phase issues)
 
-use crate::{
-    DynamicsProfile, Genre, LoudnessMeasurement, ReferenceProfile, StereoProfile,
-};
+use crate::{DynamicsProfile, Genre, LoudnessMeasurement, ReferenceProfile, StereoProfile};
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 use std::sync::Arc;
@@ -170,7 +168,9 @@ impl MasteringAnalyzer {
             }
 
             // FFT
-            self.fft_forward.process(&mut fft_scratch, &mut spectrum).ok();
+            self.fft_forward
+                .process(&mut fft_scratch, &mut spectrum)
+                .ok();
 
             // Accumulate magnitude
             for (i, c) in spectrum.iter().enumerate() {
@@ -265,7 +265,9 @@ impl MasteringAnalyzer {
                 fft_scratch[i] = audio[start + i] * self.window[i];
             }
 
-            self.fft_forward.process(&mut fft_scratch, &mut spectrum).ok();
+            self.fft_forward
+                .process(&mut fft_scratch, &mut spectrum)
+                .ok();
 
             let current: Vec<f32> = spectrum.iter().map(|c| c.norm()).collect();
 

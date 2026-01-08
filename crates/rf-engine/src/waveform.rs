@@ -260,9 +260,9 @@ impl StereoWaveformPeaks {
 // WAVEFORM CACHE
 // ═══════════════════════════════════════════════════════════════════════════
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// Cache for computed waveform peaks
 pub struct WaveformCache {
@@ -289,7 +289,9 @@ impl WaveformCache {
 
         // Compute and cache
         let peaks = Arc::new(compute());
-        self.cache.write().insert(key.to_string(), Arc::clone(&peaks));
+        self.cache
+            .write()
+            .insert(key.to_string(), Arc::clone(&peaks));
         peaks
     }
 
@@ -314,14 +316,21 @@ impl WaveformCache {
 
     /// Get memory usage in bytes (approximate)
     pub fn memory_usage(&self) -> usize {
-        self.cache.read()
+        self.cache
+            .read()
             .values()
             .map(|peaks| {
                 // Each level has Vec<Peak> where Peak is 8 bytes (2 x f32)
-                let left_size: usize = peaks.left.levels.iter()
+                let left_size: usize = peaks
+                    .left
+                    .levels
+                    .iter()
                     .map(|v| v.len() * std::mem::size_of::<Peak>())
                     .sum();
-                let right_size: usize = peaks.right.levels.iter()
+                let right_size: usize = peaks
+                    .right
+                    .levels
+                    .iter()
                     .map(|v| v.len() * std::mem::size_of::<Peak>())
                     .sum();
                 left_size + right_size
@@ -390,11 +399,19 @@ mod tests {
 
         // Very high zoom (many pixels per second) should select fine level
         let lod_high_zoom = peaks.select_lod_level(10000.0);
-        assert!(lod_high_zoom <= 2, "High zoom should select fine LOD, got {}", lod_high_zoom);
+        assert!(
+            lod_high_zoom <= 2,
+            "High zoom should select fine LOD, got {}",
+            lod_high_zoom
+        );
 
         // Low zoom (few pixels per second) should select coarser level
         let lod_low_zoom = peaks.select_lod_level(10.0);
-        assert!(lod_low_zoom >= 2, "Low zoom should select coarse LOD, got {}", lod_low_zoom);
+        assert!(
+            lod_low_zoom >= 2,
+            "Low zoom should select coarse LOD, got {}",
+            lod_low_zoom
+        );
 
         // Verify ordering: higher zoom = finer LOD (lower level)
         assert!(lod_high_zoom <= lod_low_zoom);
@@ -406,7 +423,9 @@ mod tests {
         let right: Vec<f32> = (0..1000).map(|i| (i as f32 / 1000.0).cos()).collect();
 
         // Interleave
-        let stereo: Vec<f32> = left.iter().zip(right.iter())
+        let stereo: Vec<f32> = left
+            .iter()
+            .zip(right.iter())
             .flat_map(|(&l, &r)| [l, r])
             .collect();
 

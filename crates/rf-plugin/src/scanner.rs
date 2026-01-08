@@ -7,9 +7,9 @@
 //!
 //! Caches plugin metadata for fast startup.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 
 use crate::PluginResult;
 
@@ -168,14 +168,10 @@ impl PluginScanner {
 
             // User-specific
             if let Some(home) = dirs_next::home_dir() {
-                self.scan_paths.push((
-                    PluginType::Vst3,
-                    home.join("Library/Audio/Plug-Ins/VST3"),
-                ));
-                self.scan_paths.push((
-                    PluginType::Clap,
-                    home.join("Library/Audio/Plug-Ins/CLAP"),
-                ));
+                self.scan_paths
+                    .push((PluginType::Vst3, home.join("Library/Audio/Plug-Ins/VST3")));
+                self.scan_paths
+                    .push((PluginType::Clap, home.join("Library/Audio/Plug-Ins/CLAP")));
                 self.scan_paths.push((
                     PluginType::AudioUnit,
                     home.join("Library/Audio/Plug-Ins/Components"),
@@ -199,24 +195,14 @@ impl PluginScanner {
         #[cfg(target_os = "linux")]
         {
             // Standard Linux paths
-            self.scan_paths.push((
-                PluginType::Vst3,
-                PathBuf::from("/usr/lib/vst3"),
-            ));
-            self.scan_paths.push((
-                PluginType::Clap,
-                PathBuf::from("/usr/lib/clap"),
-            ));
+            self.scan_paths
+                .push((PluginType::Vst3, PathBuf::from("/usr/lib/vst3")));
+            self.scan_paths
+                .push((PluginType::Clap, PathBuf::from("/usr/lib/clap")));
 
             if let Some(home) = dirs_next::home_dir() {
-                self.scan_paths.push((
-                    PluginType::Vst3,
-                    home.join(".vst3"),
-                ));
-                self.scan_paths.push((
-                    PluginType::Clap,
-                    home.join(".clap"),
-                ));
+                self.scan_paths.push((PluginType::Vst3, home.join(".vst3")));
+                self.scan_paths.push((PluginType::Clap, home.join(".clap")));
             }
         }
     }
@@ -227,29 +213,52 @@ impl PluginScanner {
             // EQ
             PluginInfo::internal("rf.eq.parametric", "Parametric EQ", PluginCategory::Effect),
             PluginInfo::internal("rf.eq.graphic", "Graphic EQ", PluginCategory::Effect),
-
             // Dynamics
-            PluginInfo::internal("rf.dynamics.compressor", "Compressor", PluginCategory::Effect),
+            PluginInfo::internal(
+                "rf.dynamics.compressor",
+                "Compressor",
+                PluginCategory::Effect,
+            ),
             PluginInfo::internal("rf.dynamics.limiter", "Limiter", PluginCategory::Effect),
             PluginInfo::internal("rf.dynamics.gate", "Gate", PluginCategory::Effect),
             PluginInfo::internal("rf.dynamics.expander", "Expander", PluginCategory::Effect),
-            PluginInfo::internal("rf.dynamics.multiband", "Multiband Dynamics", PluginCategory::Effect),
-
+            PluginInfo::internal(
+                "rf.dynamics.multiband",
+                "Multiband Dynamics",
+                PluginCategory::Effect,
+            ),
             // Time-based
             PluginInfo::internal("rf.delay.stereo", "Stereo Delay", PluginCategory::Effect),
-            PluginInfo::internal("rf.reverb.algorithmic", "Algorithmic Reverb", PluginCategory::Effect),
-            PluginInfo::internal("rf.reverb.convolution", "Convolution Reverb", PluginCategory::Effect),
-
+            PluginInfo::internal(
+                "rf.reverb.algorithmic",
+                "Algorithmic Reverb",
+                PluginCategory::Effect,
+            ),
+            PluginInfo::internal(
+                "rf.reverb.convolution",
+                "Convolution Reverb",
+                PluginCategory::Effect,
+            ),
             // Spatial
             PluginInfo::internal("rf.spatial.panner", "Stereo Panner", PluginCategory::Effect),
             PluginInfo::internal("rf.spatial.width", "Stereo Width", PluginCategory::Effect),
             PluginInfo::internal("rf.spatial.ms", "M/S Processor", PluginCategory::Effect),
-
             // Analysis
-            PluginInfo::internal("rf.analysis.spectrum", "Spectrum Analyzer", PluginCategory::Analyzer),
-            PluginInfo::internal("rf.analysis.loudness", "Loudness Meter", PluginCategory::Analyzer),
-            PluginInfo::internal("rf.analysis.correlation", "Correlation Meter", PluginCategory::Analyzer),
-
+            PluginInfo::internal(
+                "rf.analysis.spectrum",
+                "Spectrum Analyzer",
+                PluginCategory::Analyzer,
+            ),
+            PluginInfo::internal(
+                "rf.analysis.loudness",
+                "Loudness Meter",
+                PluginCategory::Analyzer,
+            ),
+            PluginInfo::internal(
+                "rf.analysis.correlation",
+                "Correlation Meter",
+                PluginCategory::Analyzer,
+            ),
             // Utility
             PluginInfo::internal("rf.utility.gain", "Gain", PluginCategory::Utility),
             PluginInfo::internal("rf.utility.phase", "Phase Invert", PluginCategory::Utility),

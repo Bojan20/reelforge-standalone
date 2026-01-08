@@ -23,7 +23,6 @@ use std::ffi::c_void;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-
 use crate::{AudioError, AudioResult};
 use rf_core::{BufferSize, Sample, SampleRate};
 
@@ -54,7 +53,8 @@ const K_AUDIO_DEVICE_PROPERTY_DEVICE_NAME_CFSTRING: AudioObjectPropertySelector 
 const K_AUDIO_DEVICE_PROPERTY_BUFFER_FRAME_SIZE: AudioObjectPropertySelector = 0x6673697a; // 'fsiz'
 const K_AUDIO_DEVICE_PROPERTY_BUFFER_FRAME_SIZE_RANGE: AudioObjectPropertySelector = 0x66737a23; // 'fsz#'
 const K_AUDIO_DEVICE_PROPERTY_NOMINAL_SAMPLE_RATE: AudioObjectPropertySelector = 0x6e737274; // 'nsrt'
-const K_AUDIO_DEVICE_PROPERTY_AVAILABLE_NOMINAL_SAMPLE_RATES: AudioObjectPropertySelector = 0x6e737223; // 'nsr#'
+const K_AUDIO_DEVICE_PROPERTY_AVAILABLE_NOMINAL_SAMPLE_RATES: AudioObjectPropertySelector =
+    0x6e737223; // 'nsr#'
 const K_AUDIO_DEVICE_PROPERTY_STREAM_CONFIGURATION: AudioObjectPropertySelector = 0x73636667; // 'scfg'
 const K_AUDIO_DEVICE_PROPERTY_DEVICE_IS_ALIVE: AudioObjectPropertySelector = 0x6c697665; // 'live'
 const K_AUDIO_DEVICE_PROPERTY_DEVICE_IS_RUNNING: AudioObjectPropertySelector = 0x676f696e; // 'goin'
@@ -244,9 +244,8 @@ fn get_property_size(
     address: &AudioObjectPropertyAddress,
 ) -> AudioResult<u32> {
     let mut size: u32 = 0;
-    let status = unsafe {
-        AudioObjectGetPropertyDataSize(object, address, 0, ptr::null(), &mut size)
-    };
+    let status =
+        unsafe { AudioObjectGetPropertyDataSize(object, address, 0, ptr::null(), &mut size) };
     if status != 0 {
         return Err(AudioError::BackendError(format!(
             "AudioObjectGetPropertyDataSize failed: {}",
@@ -326,7 +325,12 @@ fn get_device_name(device_id: AudioDeviceID) -> String {
 
     let mut buffer = [0i8; 256];
     let success = unsafe {
-        CFStringGetCString(cf_string, buffer.as_mut_ptr(), 256, K_CFSTRING_ENCODING_UTF8)
+        CFStringGetCString(
+            cf_string,
+            buffer.as_mut_ptr(),
+            256,
+            K_CFSTRING_ENCODING_UTF8,
+        )
     };
     unsafe { CFRelease(cf_string) };
 
@@ -410,7 +414,13 @@ fn get_sample_rates(device_id: AudioDeviceID) -> Vec<f64> {
     };
 
     let count = size as usize / std::mem::size_of::<AudioValueRange>();
-    let mut ranges = vec![AudioValueRange { minimum: 0.0, maximum: 0.0 }; count];
+    let mut ranges = vec![
+        AudioValueRange {
+            minimum: 0.0,
+            maximum: 0.0
+        };
+        count
+    ];
     let mut actual_size = size;
 
     let status = unsafe {
@@ -436,7 +446,9 @@ fn get_sample_rates(device_id: AudioDeviceID) -> Vec<f64> {
     let mut rates: Vec<f64> = standard_rates
         .iter()
         .filter(|&&rate| {
-            ranges.iter().any(|r| rate >= r.minimum && rate <= r.maximum)
+            ranges
+                .iter()
+                .any(|r| rate >= r.minimum && rate <= r.maximum)
         })
         .copied()
         .collect();
@@ -585,9 +597,7 @@ impl CoreAudioStream {
         F: FnMut(&[Sample], &mut [Sample]) + Send + 'static,
     {
         // Get device ID (default output if not specified)
-        let device_id = device_id.unwrap_or_else(|| {
-            get_default_output_device_id().unwrap_or(0)
-        });
+        let device_id = device_id.unwrap_or_else(|| get_default_output_device_id().unwrap_or(0));
 
         if device_id == 0 {
             return Err(AudioError::NoDevice);
@@ -678,7 +688,9 @@ impl CoreAudioStream {
 
         if status != 0 {
             unsafe {
-                (*self.callback_data).running.store(false, Ordering::Release);
+                (*self.callback_data)
+                    .running
+                    .store(false, Ordering::Release);
             }
             return Err(AudioError::StreamError(format!(
                 "AudioDeviceStart failed: {}",
@@ -693,7 +705,9 @@ impl CoreAudioStream {
     /// Stop the audio stream
     pub fn stop(&self) -> AudioResult<()> {
         unsafe {
-            (*self.callback_data).running.store(false, Ordering::Release);
+            (*self.callback_data)
+                .running
+                .store(false, Ordering::Release);
         }
 
         let status = unsafe { AudioDeviceStop(self.device_id, self.io_proc_id) };
@@ -773,90 +787,92 @@ unsafe extern "C" fn audio_io_proc(
     output_data: *mut AudioBufferList,
     _output_time: *const AudioTimeStamp,
     client_data: *mut c_void,
-) -> OSStatus { unsafe {
-    let data = &mut *(client_data as *mut CallbackData);
+) -> OSStatus {
+    unsafe {
+        let data = &mut *(client_data as *mut CallbackData);
 
-    // Check if we should be running
-    if !data.running.load(Ordering::Acquire) {
-        // Zero output and return
+        // Check if we should be running
+        if !data.running.load(Ordering::Acquire) {
+            // Zero output and return
+            if !output_data.is_null() {
+                let num_buffers = (*output_data).number_buffers;
+                for i in 0..num_buffers {
+                    let buffer = &mut *((output_data as *mut u8)
+                        .add(std::mem::size_of::<u32>())
+                        .add(i as usize * std::mem::size_of::<AudioBuffer>())
+                        as *mut AudioBuffer);
+                    if !buffer.data.is_null() {
+                        ptr::write_bytes(
+                            buffer.data as *mut f32,
+                            0,
+                            buffer.data_byte_size as usize / std::mem::size_of::<f32>(),
+                        );
+                    }
+                }
+            }
+            return 0;
+        }
+
+        // Increment callback counter
+        data.callback_count.fetch_add(1, Ordering::Relaxed);
+
+        // Prepare input buffer (interleaved f64)
+        let frames = data.buffer_size as usize;
+        let mut input_interleaved = [0.0f64; 8192]; // Stack-allocated max buffer
+        let input_slice = &mut input_interleaved[..frames * 2];
+
+        // Read input (if available)
+        if !input_data.is_null() && data.input_channels > 0 {
+            let num_buffers = (*input_data).number_buffers;
+            if num_buffers > 0 {
+                // Get first buffer (assuming interleaved stereo or mono)
+                let buffer = &*((input_data as *const u8).add(std::mem::size_of::<u32>())
+                    as *const AudioBuffer);
+
+                if !buffer.data.is_null() {
+                    let input_samples = buffer.data as *const f32;
+                    let sample_count = (buffer.data_byte_size as usize
+                        / std::mem::size_of::<f32>())
+                    .min(frames * 2);
+
+                    for i in 0..sample_count {
+                        input_slice[i] = *input_samples.add(i) as f64;
+                    }
+                }
+            }
+        }
+
+        // Prepare output buffer
+        let mut output_interleaved = [0.0f64; 8192]; // Stack-allocated max buffer
+        let output_slice = &mut output_interleaved[..frames * 2];
+
+        // Call user callback
+        (data.callback)(input_slice, output_slice);
+
+        // Write output
         if !output_data.is_null() {
             let num_buffers = (*output_data).number_buffers;
-            for i in 0..num_buffers {
-                let buffer = &mut *((output_data as *mut u8)
-                    .add(std::mem::size_of::<u32>())
-                    .add(i as usize * std::mem::size_of::<AudioBuffer>())
+            if num_buffers > 0 {
+                // Get first buffer
+                let buffer = &mut *((output_data as *mut u8).add(std::mem::size_of::<u32>())
                     as *mut AudioBuffer);
+
                 if !buffer.data.is_null() {
-                    ptr::write_bytes(
-                        buffer.data as *mut f32,
-                        0,
-                        buffer.data_byte_size as usize / std::mem::size_of::<f32>(),
-                    );
-                }
-            }
-        }
-        return 0;
-    }
-
-    // Increment callback counter
-    data.callback_count.fetch_add(1, Ordering::Relaxed);
-
-    // Prepare input buffer (interleaved f64)
-    let frames = data.buffer_size as usize;
-    let mut input_interleaved = [0.0f64; 8192]; // Stack-allocated max buffer
-    let input_slice = &mut input_interleaved[..frames * 2];
-
-    // Read input (if available)
-    if !input_data.is_null() && data.input_channels > 0 {
-        let num_buffers = (*input_data).number_buffers;
-        if num_buffers > 0 {
-            // Get first buffer (assuming interleaved stereo or mono)
-            let buffer = &*((input_data as *const u8)
-                .add(std::mem::size_of::<u32>())
-                as *const AudioBuffer);
-
-            if !buffer.data.is_null() {
-                let input_samples = buffer.data as *const f32;
-                let sample_count = (buffer.data_byte_size as usize / std::mem::size_of::<f32>())
+                    let output_samples = buffer.data as *mut f32;
+                    let sample_count = (buffer.data_byte_size as usize
+                        / std::mem::size_of::<f32>())
                     .min(frames * 2);
 
-                for i in 0..sample_count {
-                    input_slice[i] = *input_samples.add(i) as f64;
+                    for i in 0..sample_count {
+                        *output_samples.add(i) = output_slice[i] as f32;
+                    }
                 }
             }
         }
+
+        0 // noErr
     }
-
-    // Prepare output buffer
-    let mut output_interleaved = [0.0f64; 8192]; // Stack-allocated max buffer
-    let output_slice = &mut output_interleaved[..frames * 2];
-
-    // Call user callback
-    (data.callback)(input_slice, output_slice);
-
-    // Write output
-    if !output_data.is_null() {
-        let num_buffers = (*output_data).number_buffers;
-        if num_buffers > 0 {
-            // Get first buffer
-            let buffer = &mut *((output_data as *mut u8)
-                .add(std::mem::size_of::<u32>())
-                as *mut AudioBuffer);
-
-            if !buffer.data.is_null() {
-                let output_samples = buffer.data as *mut f32;
-                let sample_count = (buffer.data_byte_size as usize / std::mem::size_of::<f32>())
-                    .min(frames * 2);
-
-                for i in 0..sample_count {
-                    *output_samples.add(i) = output_slice[i] as f32;
-                }
-            }
-        }
-    }
-
-    0 // noErr
-}}
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AGGREGATE DEVICE SUPPORT
@@ -878,7 +894,8 @@ pub struct AggregateDevice {
 const K_AUDIO_HARDWARE_PROPERTY_PLUG_IN_FOR_BUNDLE_ID: AudioObjectPropertySelector = 0x70694249; // 'piBi'
 const K_AUDIO_PLUG_IN_PROPERTY_BUNDLE_ID: AudioObjectPropertySelector = 0x70694249; // 'piBi'
 const K_AUDIO_PLUG_IN_CREATE_AGGREGATE_DEVICE: AudioObjectPropertySelector = 0x63616764; // 'cagd'
-const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_FULL_SUB_DEVICE_LIST: AudioObjectPropertySelector = 0x67726f75; // 'grou'
+const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_FULL_SUB_DEVICE_LIST: AudioObjectPropertySelector =
+    0x67726f75; // 'grou'
 const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_MASTER_SUB_DEVICE: AudioObjectPropertySelector = 0x616d7372; // 'amsr'
 const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_CLOCK_DEVICE: AudioObjectPropertySelector = 0x63616364; // 'cacd'
 
@@ -907,7 +924,9 @@ impl AggregateDevice {
 
         log::info!(
             "Creating aggregate device '{}' with input={} output={}",
-            name, input_device, output_device
+            name,
+            input_device,
+            output_device
         );
 
         // Get UIDs for the sub-devices
@@ -1030,7 +1049,12 @@ fn cfstring_to_string(cf_string: *const c_void) -> Option<String> {
         let buffer_size = (length * 4 + 1) as usize; // UTF-8 worst case
         let mut buffer: Vec<i8> = vec![0; buffer_size];
 
-        if CFStringGetCString(cf_string, buffer.as_mut_ptr(), buffer_size as isize, K_CFSTRING_ENCODING_UTF8) {
+        if CFStringGetCString(
+            cf_string,
+            buffer.as_mut_ptr(),
+            buffer_size as isize,
+            K_CFSTRING_ENCODING_UTF8,
+        ) {
             let c_str = std::ffi::CStr::from_ptr(buffer.as_ptr());
             c_str.to_str().ok().map(|s| s.to_string())
         } else {
@@ -1089,7 +1113,8 @@ pub fn get_aggregate_sub_devices(device_id: AudioDeviceID) -> Vec<AudioDeviceID>
     }
 
     // kAudioAggregateDevicePropertyActiveSubDeviceList = 0x6165646c ('aedl')
-    const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_ACTIVE_SUB_DEVICE_LIST: AudioObjectPropertySelector = 0x6165646c;
+    const K_AUDIO_AGGREGATE_DEVICE_PROPERTY_ACTIVE_SUB_DEVICE_LIST: AudioObjectPropertySelector =
+        0x6165646c;
 
     let address = AudioObjectPropertyAddress {
         selector: K_AUDIO_AGGREGATE_DEVICE_PROPERTY_ACTIVE_SUB_DEVICE_LIST,
@@ -1100,9 +1125,8 @@ pub fn get_aggregate_sub_devices(device_id: AudioDeviceID) -> Vec<AudioDeviceID>
     let mut size: u32 = 0;
 
     // Get size first
-    let status = unsafe {
-        AudioObjectGetPropertyDataSize(device_id, &address, 0, ptr::null(), &mut size)
-    };
+    let status =
+        unsafe { AudioObjectGetPropertyDataSize(device_id, &address, 0, ptr::null(), &mut size) };
 
     if status != 0 || size == 0 {
         return Vec::new();
@@ -1122,11 +1146,7 @@ pub fn get_aggregate_sub_devices(device_id: AudioDeviceID) -> Vec<AudioDeviceID>
         )
     };
 
-    if status == 0 {
-        sub_devices
-    } else {
-        Vec::new()
-    }
+    if status == 0 { sub_devices } else { Vec::new() }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1167,7 +1187,8 @@ impl ClockDriftMonitor {
         let start = self.start_time.load(Ordering::Relaxed);
         let elapsed_ns = host_time.saturating_sub(start);
 
-        if elapsed_ns > 1_000_000_000 { // After 1 second
+        if elapsed_ns > 1_000_000_000 {
+            // After 1 second
             let total_samples = self.sample_count.load(Ordering::Relaxed);
             let expected = (elapsed_ns as f64 / 1_000_000_000.0) * self.expected_rate;
             let actual = total_samples as f64;
@@ -1207,10 +1228,7 @@ mod tests {
                 "  {} (ID: {}) - {} in / {} out",
                 device.name, device.id, device.input_channels, device.output_channels
             );
-            println!(
-                "    Sample rates: {:?}",
-                device.sample_rates
-            );
+            println!("    Sample rates: {:?}", device.sample_rates);
             println!(
                 "    Buffer range: {} - {} samples",
                 device.buffer_range.0, device.buffer_range.1

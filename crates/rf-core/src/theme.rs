@@ -163,21 +163,21 @@ pub struct Theme {
     pub text_disabled: Color,
 
     // Accent colors
-    pub accent_primary: Color,    // Focus, selection
-    pub accent_secondary: Color,  // Active elements
-    pub accent_tertiary: Color,   // Highlights
+    pub accent_primary: Color,   // Focus, selection
+    pub accent_secondary: Color, // Active elements
+    pub accent_tertiary: Color,  // Highlights
 
     // Semantic colors
-    pub success: Color,           // Green - OK, positive
-    pub warning: Color,           // Yellow/Orange - caution
-    pub error: Color,             // Red - clip, error
-    pub info: Color,              // Blue - information
+    pub success: Color, // Green - OK, positive
+    pub warning: Color, // Yellow/Orange - caution
+    pub error: Color,   // Red - clip, error
+    pub info: Color,    // Blue - information
 
     // Metering colors
-    pub meter_low: Color,         // Green
-    pub meter_mid: Color,         // Yellow
-    pub meter_high: Color,        // Orange
-    pub meter_clip: Color,        // Red
+    pub meter_low: Color,  // Green
+    pub meter_mid: Color,  // Yellow
+    pub meter_high: Color, // Orange
+    pub meter_clip: Color, // Red
 
     // EQ/Spectrum colors
     pub spectrum_bg: Color,
@@ -243,15 +243,15 @@ impl Theme {
             text_disabled: Color::from_srgb_hex(0x505060),
 
             // Accents
-            accent_primary: Color::from_srgb_hex(0x4a9eff),    // Blue
-            accent_secondary: Color::from_srgb_hex(0xff9040),  // Orange
-            accent_tertiary: Color::from_srgb_hex(0x40c8ff),   // Cyan
+            accent_primary: Color::from_srgb_hex(0x4a9eff), // Blue
+            accent_secondary: Color::from_srgb_hex(0xff9040), // Orange
+            accent_tertiary: Color::from_srgb_hex(0x40c8ff), // Cyan
 
             // Semantic
-            success: Color::from_srgb_hex(0x40ff90),           // Green
-            warning: Color::from_srgb_hex(0xffff40),           // Yellow
-            error: Color::from_srgb_hex(0xff4060),             // Red
-            info: Color::from_srgb_hex(0x4a9eff),              // Blue
+            success: Color::from_srgb_hex(0x40ff90), // Green
+            warning: Color::from_srgb_hex(0xffff40), // Yellow
+            error: Color::from_srgb_hex(0xff4060),   // Red
+            info: Color::from_srgb_hex(0x4a9eff),    // Blue
 
             // Metering
             meter_low: Color::from_srgb_hex(0x40c8ff),
@@ -334,8 +334,8 @@ impl Theme {
             ColorBlindMode::None => {}
             ColorBlindMode::Deuteranopia | ColorBlindMode::Protanopia => {
                 // Use blue/yellow instead of red/green
-                self.success = Color::from_srgb_hex(0x40c8ff);   // Blue instead of green
-                self.error = Color::from_srgb_hex(0xffaa00);     // Orange instead of red
+                self.success = Color::from_srgb_hex(0x40c8ff); // Blue instead of green
+                self.error = Color::from_srgb_hex(0xffaa00); // Orange instead of red
                 self.meter_low = Color::from_srgb_hex(0x4080ff);
                 self.meter_mid = Color::from_srgb_hex(0x40c0ff);
                 self.meter_high = Color::from_srgb_hex(0xffaa00);
@@ -394,12 +394,12 @@ impl Default for FontConfig {
 /// Font size scale
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FontScale {
-    pub tiny: f32,    // labels
-    pub small: f32,   // secondary text
-    pub normal: f32,  // body text
-    pub medium: f32,  // headings
-    pub large: f32,   // titles
-    pub xlarge: f32,  // big displays
+    pub tiny: f32,   // labels
+    pub small: f32,  // secondary text
+    pub normal: f32, // body text
+    pub medium: f32, // headings
+    pub large: f32,  // titles
+    pub xlarge: f32, // big displays
 }
 
 impl Default for FontScale {

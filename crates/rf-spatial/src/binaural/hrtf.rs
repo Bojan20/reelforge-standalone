@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::position::{Position3D, SphericalCoord};
 use super::HrirPair;
+use crate::position::{Position3D, SphericalCoord};
 
 /// HRTF interpolation method
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,7 +126,8 @@ impl HrtfDatabase {
         // Find three nearest HRIRs and blend
         let target = Position3D::from_spherical(azimuth, elevation, 1.0);
 
-        let mut nearest: Vec<((i32, i32), f32)> = self.hrirs
+        let mut nearest: Vec<((i32, i32), f32)> = self
+            .hrirs
             .keys()
             .map(|&(az_idx, el_idx)| {
                 let pos = Position3D::from_spherical(
@@ -152,7 +153,11 @@ impl HrtfDatabase {
         let mut result_right = vec![0.0f32; self.filter_length];
 
         for &(key, dist) in nearest.iter().take(count) {
-            let weight = if dist > 0.0 { 1.0 / (dist + 0.001) } else { 1000.0 };
+            let weight = if dist > 0.0 {
+                1.0 / (dist + 0.001)
+            } else {
+                1000.0
+            };
             total_weight += weight;
 
             if let Some(hrir) = self.hrirs.get(&key) {
@@ -301,13 +306,14 @@ pub struct Hrtf {
 impl Hrtf {
     /// Create from HRIR pair
     pub fn from_hrir(hrir: &HrirPair, position: SphericalCoord, fft_size: usize) -> Self {
-        use rustfft::{FftPlanner, num_complex::Complex32};
+        use rustfft::{num_complex::Complex32, FftPlanner};
 
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(fft_size);
 
         // Prepare left channel
-        let mut left_time: Vec<Complex32> = hrir.left
+        let mut left_time: Vec<Complex32> = hrir
+            .left
             .iter()
             .map(|&x| Complex32::new(x, 0.0))
             .chain(std::iter::repeat(Complex32::new(0.0, 0.0)))
@@ -315,7 +321,8 @@ impl Hrtf {
             .collect();
 
         // Prepare right channel
-        let mut right_time: Vec<Complex32> = hrir.right
+        let mut right_time: Vec<Complex32> = hrir
+            .right
             .iter()
             .map(|&x| Complex32::new(x, 0.0))
             .chain(std::iter::repeat(Complex32::new(0.0, 0.0)))
@@ -369,7 +376,9 @@ mod tests {
         let right_90 = db.get_hrir(90.0, 0.0).unwrap();
 
         // Left ear for left source should be similar to right ear for right source
-        let diff: f32 = left_90.left.iter()
+        let diff: f32 = left_90
+            .left
+            .iter()
             .zip(right_90.right.iter())
             .map(|(a, b)| (a - b).abs())
             .sum();

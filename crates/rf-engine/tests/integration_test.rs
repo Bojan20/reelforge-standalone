@@ -7,11 +7,8 @@
 
 use std::sync::atomic::Ordering;
 
-use rf_engine::{
-    DualPathEngine, ProcessingMode, EngineConfig,
-    AudioBlock, FnGuardProcessor,
-};
 use rf_core::SampleRate;
+use rf_engine::{AudioBlock, DualPathEngine, EngineConfig, FnGuardProcessor, ProcessingMode};
 
 const SAMPLE_RATE: f64 = 48000.0;
 const BLOCK_SIZE: usize = 256;
@@ -37,12 +34,7 @@ fn test_dual_path_engine_creation() {
 
 #[test]
 fn test_dual_path_realtime_mode() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        8,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 8);
 
     // Set a passthrough processor
     let processor = FnGuardProcessor::new(|_block: &mut AudioBlock| {}, 0);
@@ -71,12 +63,7 @@ fn test_dual_path_realtime_mode() {
 
 #[test]
 fn test_dual_path_with_gain_processor() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Set a gain processor (-6dB)
     let gain = 0.5;
@@ -106,12 +93,7 @@ fn test_dual_path_with_gain_processor() {
 
 #[test]
 fn test_dual_path_hybrid_mode() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::Hybrid,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::Hybrid, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     let mut input_l = vec![0.5f64; BLOCK_SIZE];
     let mut input_r = vec![0.5f64; BLOCK_SIZE];
@@ -189,12 +171,7 @@ fn test_engine_config_high_quality() {
 
 #[test]
 fn test_signal_passthrough() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // No processor set - signal should pass through unchanged
     let mut input_l = vec![0.5f64; BLOCK_SIZE];
@@ -209,12 +186,7 @@ fn test_signal_passthrough() {
 
 #[test]
 fn test_silence_passthrough() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Silent input
     let mut input_l = vec![0.0f64; BLOCK_SIZE];
@@ -232,12 +204,7 @@ fn test_silence_passthrough() {
 
 #[test]
 fn test_impulse_response() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Single impulse
     let mut input_l = vec![0.0f64; BLOCK_SIZE];
@@ -258,12 +225,7 @@ fn test_impulse_response() {
 
 #[test]
 fn test_guard_thread_lifecycle() {
-    let mut engine = DualPathEngine::new(
-        ProcessingMode::Guard,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let mut engine = DualPathEngine::new(ProcessingMode::Guard, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     assert!(!engine.is_guard_running());
 
@@ -282,12 +244,7 @@ fn test_guard_thread_lifecycle() {
 
 #[test]
 fn test_guard_with_processor() {
-    let mut engine = DualPathEngine::new(
-        ProcessingMode::Guard,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        8,
-    );
+    let mut engine = DualPathEngine::new(ProcessingMode::Guard, BLOCK_SIZE, SAMPLE_RATE, 8);
 
     // Start guard thread with a simple processor
     let processor = FnGuardProcessor::new(
@@ -327,12 +284,7 @@ fn test_guard_with_processor() {
 
 #[test]
 fn test_continuous_processing() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        8,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 8);
 
     // Set a simple processor
     let processor = FnGuardProcessor::new(|_block: &mut AudioBlock| {}, 0);
@@ -353,12 +305,7 @@ fn test_continuous_processing() {
 
 #[test]
 fn test_varying_signal_levels() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Test various signal levels
     for level in &[0.0, 0.001, 0.01, 0.1, 0.5, 1.0] {
@@ -375,12 +322,7 @@ fn test_varying_signal_levels() {
 
 #[test]
 fn test_extreme_values() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Near-zero values
     let mut input_small = vec![1e-30f64; BLOCK_SIZE];
@@ -399,12 +341,7 @@ fn test_extreme_values() {
 
 #[test]
 fn test_reset() {
-    let engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     // Process some blocks
     let mut input_l = vec![0.5f64; BLOCK_SIZE];
@@ -424,12 +361,7 @@ fn test_reset() {
 
 #[test]
 fn test_mode_switching() {
-    let mut engine = DualPathEngine::new(
-        ProcessingMode::RealTime,
-        BLOCK_SIZE,
-        SAMPLE_RATE,
-        4,
-    );
+    let mut engine = DualPathEngine::new(ProcessingMode::RealTime, BLOCK_SIZE, SAMPLE_RATE, 4);
 
     assert_eq!(engine.mode(), ProcessingMode::RealTime);
 

@@ -182,14 +182,16 @@ impl PluginChainState {
 
     /// Recalculate total latency and CPU
     pub fn recalculate_totals(&mut self) {
-        self.total_latency = self.slots
+        self.total_latency = self
+            .slots
             .iter()
             .filter(|s| !s.bypassed)
             .map(|s| s.latency_samples)
             .max()
             .unwrap_or(0);
 
-        self.total_cpu = self.slots
+        self.total_cpu = self
+            .slots
             .iter()
             .filter(|s| !s.bypassed)
             .map(|s| s.cpu_usage)
@@ -249,12 +251,16 @@ pub struct LayoutRect {
 
 impl LayoutRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn contains(&self, px: f32, py: f32) -> bool {
-        px >= self.x && px < self.x + self.width &&
-        py >= self.y && py < self.y + self.height
+        px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
 
     pub fn center(&self) -> (f32, f32) {
@@ -271,8 +277,16 @@ impl ChainLayout {
         config: &PluginChainConfig,
     ) -> Self {
         let header_height = if config.compact { 24.0 } else { 36.0 };
-        let slot_width = if config.compact { config.slot_width * 0.75 } else { config.slot_width };
-        let slot_height = if config.compact { config.slot_height * 0.75 } else { config.slot_height };
+        let slot_width = if config.compact {
+            config.slot_width * 0.75
+        } else {
+            config.slot_width
+        };
+        let slot_height = if config.compact {
+            config.slot_height * 0.75
+        } else {
+            config.slot_height
+        };
         let gap = config.slot_gap;
         let padding = 8.0;
 
@@ -331,13 +345,16 @@ impl ChainLayout {
 
     /// Find slot at position
     pub fn slot_at_position(&self, x: f32, y: f32) -> Option<usize> {
-        self.slot_rects
-            .iter()
-            .position(|r| r.contains(x, y))
+        self.slot_rects.iter().position(|r| r.contains(x, y))
     }
 
     /// Find drop target between slots
-    pub fn drop_target_at_position(&self, x: f32, y: f32, config: &PluginChainConfig) -> Option<usize> {
+    pub fn drop_target_at_position(
+        &self,
+        x: f32,
+        y: f32,
+        config: &PluginChainConfig,
+    ) -> Option<usize> {
         if self.slot_rects.is_empty() {
             return Some(0);
         }
@@ -370,16 +387,44 @@ pub struct ChainVertex {
 }
 
 /// Generate slot background mesh
-pub fn generate_slot_mesh(rect: &LayoutRect, color: [f32; 4], _corner_radius: f32) -> Vec<ChainVertex> {
+pub fn generate_slot_mesh(
+    rect: &LayoutRect,
+    color: [f32; 4],
+    _corner_radius: f32,
+) -> Vec<ChainVertex> {
     // For simplicity, generate a basic rectangle
     // A proper implementation would generate rounded corners
     vec![
-        ChainVertex { position: [rect.x, rect.y], uv: [0.0, 0.0], color },
-        ChainVertex { position: [rect.x + rect.width, rect.y], uv: [1.0, 0.0], color },
-        ChainVertex { position: [rect.x + rect.width, rect.y + rect.height], uv: [1.0, 1.0], color },
-        ChainVertex { position: [rect.x, rect.y], uv: [0.0, 0.0], color },
-        ChainVertex { position: [rect.x + rect.width, rect.y + rect.height], uv: [1.0, 1.0], color },
-        ChainVertex { position: [rect.x, rect.y + rect.height], uv: [0.0, 1.0], color },
+        ChainVertex {
+            position: [rect.x, rect.y],
+            uv: [0.0, 0.0],
+            color,
+        },
+        ChainVertex {
+            position: [rect.x + rect.width, rect.y],
+            uv: [1.0, 0.0],
+            color,
+        },
+        ChainVertex {
+            position: [rect.x + rect.width, rect.y + rect.height],
+            uv: [1.0, 1.0],
+            color,
+        },
+        ChainVertex {
+            position: [rect.x, rect.y],
+            uv: [0.0, 0.0],
+            color,
+        },
+        ChainVertex {
+            position: [rect.x + rect.width, rect.y + rect.height],
+            uv: [1.0, 1.0],
+            color,
+        },
+        ChainVertex {
+            position: [rect.x, rect.y + rect.height],
+            uv: [0.0, 1.0],
+            color,
+        },
     ]
 }
 
@@ -407,21 +452,69 @@ pub fn generate_connection_line(
 
     if horizontal {
         vec![
-            ChainVertex { position: [x1, y1 - half], uv: [0.0, 0.0], color },
-            ChainVertex { position: [x2, y2 - half], uv: [1.0, 0.0], color },
-            ChainVertex { position: [x2, y2 + half], uv: [1.0, 1.0], color },
-            ChainVertex { position: [x1, y1 - half], uv: [0.0, 0.0], color },
-            ChainVertex { position: [x2, y2 + half], uv: [1.0, 1.0], color },
-            ChainVertex { position: [x1, y1 + half], uv: [0.0, 1.0], color },
+            ChainVertex {
+                position: [x1, y1 - half],
+                uv: [0.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2, y2 - half],
+                uv: [1.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2, y2 + half],
+                uv: [1.0, 1.0],
+                color,
+            },
+            ChainVertex {
+                position: [x1, y1 - half],
+                uv: [0.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2, y2 + half],
+                uv: [1.0, 1.0],
+                color,
+            },
+            ChainVertex {
+                position: [x1, y1 + half],
+                uv: [0.0, 1.0],
+                color,
+            },
         ]
     } else {
         vec![
-            ChainVertex { position: [x1 - half, y1], uv: [0.0, 0.0], color },
-            ChainVertex { position: [x1 + half, y1], uv: [1.0, 0.0], color },
-            ChainVertex { position: [x2 + half, y2], uv: [1.0, 1.0], color },
-            ChainVertex { position: [x1 - half, y1], uv: [0.0, 0.0], color },
-            ChainVertex { position: [x2 + half, y2], uv: [1.0, 1.0], color },
-            ChainVertex { position: [x2 - half, y2], uv: [0.0, 1.0], color },
+            ChainVertex {
+                position: [x1 - half, y1],
+                uv: [0.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x1 + half, y1],
+                uv: [1.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2 + half, y2],
+                uv: [1.0, 1.0],
+                color,
+            },
+            ChainVertex {
+                position: [x1 - half, y1],
+                uv: [0.0, 0.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2 + half, y2],
+                uv: [1.0, 1.0],
+                color,
+            },
+            ChainVertex {
+                position: [x2 - half, y2],
+                uv: [0.0, 1.0],
+                color,
+            },
         ]
     }
 }
@@ -429,11 +522,11 @@ pub fn generate_connection_line(
 /// Slot state colors
 pub fn slot_color(state: &ChainSlotState, is_selected: bool, is_hovered: bool) -> [f32; 4] {
     let base = if state.bypassed {
-        [0.15, 0.15, 0.18, 1.0]  // Dark gray for bypassed
+        [0.15, 0.15, 0.18, 1.0] // Dark gray for bypassed
     } else if state.soloed {
-        [0.2, 0.25, 0.15, 1.0]  // Greenish for soloed
+        [0.2, 0.25, 0.15, 1.0] // Greenish for soloed
     } else {
-        [0.1, 0.1, 0.12, 1.0]  // Default dark
+        [0.1, 0.1, 0.12, 1.0] // Default dark
     };
 
     if is_selected {
@@ -450,26 +543,26 @@ pub fn latency_color(latency_samples: u32, sample_rate: u32) -> [f32; 4] {
     let latency_ms = latency_samples as f32 / sample_rate as f32 * 1000.0;
 
     if latency_ms < 1.0 {
-        [0.25, 1.0, 0.56, 1.0]  // Green - negligible
+        [0.25, 1.0, 0.56, 1.0] // Green - negligible
     } else if latency_ms < 5.0 {
-        [1.0, 0.78, 0.25, 1.0]  // Yellow - noticeable
+        [1.0, 0.78, 0.25, 1.0] // Yellow - noticeable
     } else if latency_ms < 20.0 {
-        [1.0, 0.56, 0.25, 1.0]  // Orange - significant
+        [1.0, 0.56, 0.25, 1.0] // Orange - significant
     } else {
-        [1.0, 0.25, 0.38, 1.0]  // Red - problematic
+        [1.0, 0.25, 0.38, 1.0] // Red - problematic
     }
 }
 
 /// CPU usage color
 pub fn cpu_color(cpu_percent: f32) -> [f32; 4] {
     if cpu_percent < 10.0 {
-        [0.25, 1.0, 0.56, 1.0]  // Green - low
+        [0.25, 1.0, 0.56, 1.0] // Green - low
     } else if cpu_percent < 30.0 {
-        [1.0, 0.78, 0.25, 1.0]  // Yellow - moderate
+        [1.0, 0.78, 0.25, 1.0] // Yellow - moderate
     } else if cpu_percent < 60.0 {
-        [1.0, 0.56, 0.25, 1.0]  // Orange - high
+        [1.0, 0.56, 0.25, 1.0] // Orange - high
     } else {
-        [1.0, 0.25, 0.38, 1.0]  // Red - critical
+        [1.0, 0.25, 0.38, 1.0] // Red - critical
     }
 }
 

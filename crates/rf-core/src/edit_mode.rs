@@ -93,7 +93,7 @@ impl GridResolution {
     /// Get subdivision factor relative to beat
     pub fn beat_factor(&self) -> f64 {
         match self {
-            Self::Bar => 4.0,           // Assumes 4/4
+            Self::Bar => 4.0, // Assumes 4/4
             Self::HalfBar => 2.0,
             Self::Beat => 1.0,
             Self::Eighth => 0.5,
@@ -102,8 +102,8 @@ impl GridResolution {
             Self::SixtyFourth => 0.0625,
             Self::Triplet => 1.0 / 3.0,
             Self::Dotted => 1.5,
-            Self::Frames => 0.0,        // Handled separately
-            Self::Samples => 0.0,       // Handled separately
+            Self::Frames => 0.0,  // Handled separately
+            Self::Samples => 0.0, // Handled separately
         }
     }
 }
@@ -137,12 +137,7 @@ impl Default for GridSettings {
 
 impl GridSettings {
     /// Calculate nearest grid position in samples
-    pub fn snap_to_grid(
-        &self,
-        position_samples: u64,
-        sample_rate: f64,
-        tempo_bpm: f64,
-    ) -> u64 {
+    pub fn snap_to_grid(&self, position_samples: u64, sample_rate: f64, tempo_bpm: f64) -> u64 {
         if !self.enabled || self.strength == 0.0 {
             return position_samples;
         }
@@ -159,8 +154,8 @@ impl GridSettings {
 
         // Apply strength (blend between original and snapped)
         if self.strength < 1.0 {
-            let blend = position_samples as f64 * (1.0 - self.strength)
-                + snapped as f64 * self.strength;
+            let blend =
+                position_samples as f64 * (1.0 - self.strength) + snapped as f64 * self.strength;
             blend as u64
         } else {
             snapped
@@ -214,7 +209,9 @@ impl EditContext {
     pub fn apply_to_position(&self, position: u64) -> u64 {
         match self.mode {
             EditMode::Slip => position,
-            EditMode::Grid => self.grid.snap_to_grid(position, self.sample_rate, self.tempo),
+            EditMode::Grid => self
+                .grid
+                .snap_to_grid(position, self.sample_rate, self.tempo),
             EditMode::Shuffle => position, // Shuffle is handled at operation level
             EditMode::Spot => position,    // Spot uses dialog, not automatic
         }

@@ -7,11 +7,11 @@
 //! - Deterministic latency
 //! - Priority-based scheduling
 
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use parking_lot::Mutex;
 
 /// MassCore configuration
 #[derive(Debug, Clone)]
@@ -116,7 +116,8 @@ impl AtomicStats {
     /// Record a processing cycle
     pub fn record_cycle(&self, process_time_us: u64) {
         self.buffers_processed.fetch_add(1, Ordering::Relaxed);
-        self.total_process_time_us.fetch_add(process_time_us, Ordering::Relaxed);
+        self.total_process_time_us
+            .fetch_add(process_time_us, Ordering::Relaxed);
 
         // Update max
         let mut current = self.max_process_time_us.load(Ordering::Relaxed);
@@ -166,9 +167,17 @@ impl AtomicStats {
 
         ProcessingStats {
             buffers_processed: buffers,
-            avg_process_time_us: if buffers > 0 { total_time as f64 / buffers as f64 } else { 0.0 },
+            avg_process_time_us: if buffers > 0 {
+                total_time as f64 / buffers as f64
+            } else {
+                0.0
+            },
             max_process_time_us: max_time as f64,
-            min_process_time_us: if min_time == u64::MAX { 0.0 } else { min_time as f64 },
+            min_process_time_us: if min_time == u64::MAX {
+                0.0
+            } else {
+                min_time as f64
+            },
             underruns: self.underruns.load(Ordering::Relaxed),
             overruns: self.overruns.load(Ordering::Relaxed),
             ..Default::default()
@@ -225,9 +234,7 @@ pub struct BufferPool {
 impl BufferPool {
     /// Create new buffer pool
     pub fn new(pool_size: usize, buffer_size: usize) -> Self {
-        let buffers = (0..pool_size)
-            .map(|_| vec![0.0f32; buffer_size])
-            .collect();
+        let buffers = (0..pool_size).map(|_| vec![0.0f32; buffer_size]).collect();
 
         Self {
             buffers,
@@ -335,7 +342,8 @@ impl MassCoreEngine {
             return Err("Engine not in stopped state");
         }
 
-        self.state.store(EngineState::Starting as usize, Ordering::Release);
+        self.state
+            .store(EngineState::Starting as usize, Ordering::Release);
         self.running.store(true, Ordering::Release);
 
         // Start audio processing thread
@@ -370,7 +378,8 @@ impl MassCoreEngine {
             self.thread_handles.push(handle);
         }
 
-        self.state.store(EngineState::Running as usize, Ordering::Release);
+        self.state
+            .store(EngineState::Running as usize, Ordering::Release);
         Ok(())
     }
 
@@ -380,7 +389,8 @@ impl MassCoreEngine {
             return;
         }
 
-        self.state.store(EngineState::Stopping as usize, Ordering::Release);
+        self.state
+            .store(EngineState::Stopping as usize, Ordering::Release);
         self.running.store(false, Ordering::Release);
 
         // Wait for threads to finish
@@ -388,7 +398,8 @@ impl MassCoreEngine {
             let _ = handle.join();
         }
 
-        self.state.store(EngineState::Stopped as usize, Ordering::Release);
+        self.state
+            .store(EngineState::Stopped as usize, Ordering::Release);
     }
 
     /// Audio processing thread
@@ -410,9 +421,8 @@ impl MassCoreEngine {
             Self::set_realtime_priority_linux();
         }
 
-        let buffer_duration = Duration::from_secs_f64(
-            config.buffer_size as f64 / config.sample_rate as f64
-        );
+        let buffer_duration =
+            Duration::from_secs_f64(config.buffer_size as f64 / config.sample_rate as f64);
 
         let input_buffer = vec![0.0f32; config.buffer_size * 2]; // stereo
         let mut output_buffer = vec![0.0f32; config.buffer_size * 2];
@@ -421,10 +431,7 @@ impl MassCoreEngine {
             let start = Instant::now();
 
             // Update watchdog
-            watchdog_tick.store(
-                start.elapsed().as_micros() as u64,
-                Ordering::Release
-            );
+            watchdog_tick.store(start.elapsed().as_micros() as u64, Ordering::Release);
 
             // Process audio
             if let Some(ref mut proc) = *processor.lock() {
@@ -447,11 +454,7 @@ impl MassCoreEngine {
     }
 
     /// Watchdog thread
-    fn watchdog_thread(
-        running: Arc<AtomicBool>,
-        watchdog_tick: Arc<AtomicU64>,
-        timeout_ms: u64,
-    ) {
+    fn watchdog_thread(running: Arc<AtomicBool>, watchdog_tick: Arc<AtomicU64>, timeout_ms: u64) {
         let check_interval = Duration::from_millis(timeout_ms / 2);
 
         while running.load(Ordering::Acquire) {

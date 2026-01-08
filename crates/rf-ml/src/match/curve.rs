@@ -213,7 +213,12 @@ impl EqCurve {
     }
 
     /// Create high-resolution frequency response
-    pub fn to_frequency_response(&self, num_points: usize, min_freq: f32, max_freq: f32) -> Vec<(f32, f32)> {
+    pub fn to_frequency_response(
+        &self,
+        num_points: usize,
+        min_freq: f32,
+        max_freq: f32,
+    ) -> Vec<(f32, f32)> {
         let log_min = min_freq.ln();
         let log_max = max_freq.ln();
 

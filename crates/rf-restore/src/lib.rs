@@ -30,14 +30,14 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-pub mod declip;
 pub mod declick;
+pub mod declip;
 pub mod dehum;
 pub mod denoise;
 pub mod dereverb;
 
-mod error;
 mod analysis;
+mod error;
 
 pub use error::{RestoreError, RestoreResult};
 

@@ -6,10 +6,10 @@
 //! NOTE: Full ARA2 requires the Celemony SDK. This module provides
 //! the host-side infrastructure that can be connected to the SDK.
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 // ============ ARA2 Types ============
 
@@ -377,7 +377,10 @@ impl AraDocument {
         if !self.region_sequences.contains_key(&region_sequence_id) {
             return None;
         }
-        if !self.audio_modifications.contains_key(&audio_modification_id) {
+        if !self
+            .audio_modifications
+            .contains_key(&audio_modification_id)
+        {
             return None;
         }
 
@@ -619,21 +622,13 @@ mod tests {
         assert!(doc.musical_contexts.contains_key(&ctx_id));
 
         // Create audio source
-        let source_id = doc.create_audio_source(
-            "Vocal",
-            "vocal-001",
-            48000.0,
-            1,
-            480000,
-        );
+        let source_id = doc.create_audio_source("Vocal", "vocal-001", 48000.0, 1, 480000);
         assert!(doc.audio_sources.contains_key(&source_id));
 
         // Create modification
-        let mod_id = doc.create_audio_modification(
-            "Vocal Mod",
-            "vocal-mod-001",
-            source_id,
-        ).unwrap();
+        let mod_id = doc
+            .create_audio_modification("Vocal Mod", "vocal-mod-001", source_id)
+            .unwrap();
         assert!(doc.audio_modifications.contains_key(&mod_id));
 
         // Create region sequence
@@ -641,13 +636,9 @@ mod tests {
         assert!(doc.region_sequences.contains_key(&seq_id));
 
         // Create playback region
-        let region_id = doc.create_playback_region(
-            "Verse 1",
-            seq_id,
-            mod_id,
-            0,
-            480000,
-        ).unwrap();
+        let region_id = doc
+            .create_playback_region("Verse 1", seq_id, mod_id, 0, 480000)
+            .unwrap();
         assert!(doc.playback_regions.contains_key(&region_id));
     }
 

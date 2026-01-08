@@ -80,12 +80,7 @@ pub struct MusicalTime {
 impl MusicalTime {
     pub const TICKS_PER_BEAT: u32 = 960; // Standard MIDI resolution
 
-    pub fn from_samples(
-        samples: u64,
-        sample_rate: f64,
-        tempo: f64,
-        time_sig_num: u32,
-    ) -> Self {
+    pub fn from_samples(samples: u64, sample_rate: f64, tempo: f64, time_sig_num: u32) -> Self {
         let seconds = samples as f64 / sample_rate;
         let beats_total = seconds * (tempo / 60.0);
         let total_ticks = (beats_total * Self::TICKS_PER_BEAT as f64) as u64;

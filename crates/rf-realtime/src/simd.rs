@@ -250,7 +250,14 @@ impl SimdMixer {
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "sse4.2")]
-    unsafe fn mix_sse42_impl(&self, a: &[f64], b: &[f64], output: &mut [f64], gain_a: f64, gain_b: f64) {
+    unsafe fn mix_sse42_impl(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        output: &mut [f64],
+        gain_a: f64,
+        gain_b: f64,
+    ) {
         let gain_a_vec = _mm_set1_pd(gain_a);
         let gain_b_vec = _mm_set1_pd(gain_b);
         let chunks = output.len() / 2;
@@ -274,7 +281,14 @@ impl SimdMixer {
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
-    unsafe fn mix_avx2_impl(&self, a: &[f64], b: &[f64], output: &mut [f64], gain_a: f64, gain_b: f64) {
+    unsafe fn mix_avx2_impl(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        output: &mut [f64],
+        gain_a: f64,
+        gain_b: f64,
+    ) {
         let gain_a_vec = _mm256_set1_pd(gain_a);
         let gain_b_vec = _mm256_set1_pd(gain_b);
         let chunks = output.len() / 4;
@@ -298,7 +312,14 @@ impl SimdMixer {
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx512f")]
-    unsafe fn mix_avx512_impl(&self, a: &[f64], b: &[f64], output: &mut [f64], gain_a: f64, gain_b: f64) {
+    unsafe fn mix_avx512_impl(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        output: &mut [f64],
+        gain_a: f64,
+        gain_b: f64,
+    ) {
         let gain_a_vec = _mm512_set1_pd(gain_a);
         let gain_b_vec = _mm512_set1_pd(gain_b);
         let chunks = output.len() / 8;
@@ -525,7 +546,8 @@ impl BatchProcessor {
         for (i, sample_idx) in (0..self.block_size).enumerate() {
             for (ch, channel) in channels.iter().enumerate() {
                 if sample_idx < channel.len() {
-                    self.interleaved.as_mut_slice()[i * self.num_channels + ch] = channel[sample_idx];
+                    self.interleaved.as_mut_slice()[i * self.num_channels + ch] =
+                        channel[sample_idx];
                 }
             }
         }
@@ -536,7 +558,8 @@ impl BatchProcessor {
         for sample_idx in 0..self.block_size {
             for (ch, channel) in channels.iter_mut().enumerate() {
                 if sample_idx < channel.len() {
-                    channel[sample_idx] = self.interleaved.as_slice()[sample_idx * self.num_channels + ch];
+                    channel[sample_idx] =
+                        self.interleaved.as_slice()[sample_idx * self.num_channels + ch];
                 }
             }
         }

@@ -23,13 +23,13 @@
 
 mod analyzer;
 mod classifier;
-mod suggestions;
 mod config;
+mod suggestions;
 
 pub use analyzer::AudioAnalyzer;
-pub use classifier::{GenreClassifier, Genre, Mood};
-pub use suggestions::{Suggestion, SuggestionType, SuggestionPriority};
+pub use classifier::{Genre, GenreClassifier, Mood};
 pub use config::AssistantConfig;
+pub use suggestions::{Suggestion, SuggestionPriority, SuggestionType};
 
 use crate::error::MlResult;
 
@@ -81,17 +81,27 @@ pub struct MusicKey {
 impl MusicKey {
     /// Get key name (e.g., "C major", "A minor")
     pub fn name(&self) -> String {
-        let note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        let note_names = [
+            "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+        ];
         let mode = if self.is_minor { "minor" } else { "major" };
         format!("{} {}", note_names[self.root as usize % 12], mode)
     }
 
     /// Get Camelot notation
     pub fn camelot(&self) -> String {
-        let camelot_major = ["8B", "3B", "10B", "5B", "12B", "7B", "2B", "9B", "4B", "11B", "6B", "1B"];
-        let camelot_minor = ["5A", "12A", "7A", "2A", "9A", "4A", "11A", "6A", "1A", "8A", "3A", "10A"];
+        let camelot_major = [
+            "8B", "3B", "10B", "5B", "12B", "7B", "2B", "9B", "4B", "11B", "6B", "1B",
+        ];
+        let camelot_minor = [
+            "5A", "12A", "7A", "2A", "9A", "4A", "11A", "6A", "1A", "8A", "3A", "10A",
+        ];
 
-        let table = if self.is_minor { &camelot_minor } else { &camelot_major };
+        let table = if self.is_minor {
+            &camelot_minor
+        } else {
+            &camelot_major
+        };
         table[self.root as usize % 12].to_string()
     }
 }
@@ -169,13 +179,28 @@ pub struct StereoAnalysis {
 /// Common trait for audio assistants
 pub trait AudioAssistantTrait: Send + Sync {
     /// Analyze audio and get suggestions
-    fn analyze(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<AnalysisResult>;
+    fn analyze(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<AnalysisResult>;
 
     /// Classify genre only
-    fn classify_genre(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<(Genre, f32)>>;
+    fn classify_genre(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<(Genre, f32)>>;
 
     /// Get processing suggestions
-    fn suggest(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<Suggestion>>;
+    fn suggest(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<Vec<Suggestion>>;
 
     /// Compare with reference track
     fn compare_with_reference(

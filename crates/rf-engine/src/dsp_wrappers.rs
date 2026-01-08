@@ -3,18 +3,15 @@
 //! InsertProcessor implementations for all rf-dsp modules.
 //! Provides lock-free parameter updates and command queue integration.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use rf_core::Sample;
-use rf_dsp::{
-    ProEq, FilterShape,
-    UltraEq, UltraFilterType, OversampleMode,
-    StereoPultec, StereoApi550, StereoNeve1073,
-    MorphingEq, EqPreset,
-    StereoProcessor, Processor, ProcessorConfig,
-};
-use rf_dsp::eq_room::RoomCorrectionEq;
-use rf_dsp::delay_compensation::LatencySamples;
 use crate::insert_chain::InsertProcessor;
+use rf_core::Sample;
+use rf_dsp::delay_compensation::LatencySamples;
+use rf_dsp::eq_room::RoomCorrectionEq;
+use rf_dsp::{
+    EqPreset, FilterShape, MorphingEq, OversampleMode, ProEq, Processor, ProcessorConfig,
+    StereoApi550, StereoNeve1073, StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
+};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 // ============ Atomic Parameter Helpers ============
 
@@ -158,7 +155,13 @@ impl InsertProcessor for ProEqWrapper {
                     0 => band.frequency,
                     1 => band.gain_db,
                     2 => band.q,
-                    3 => if band.enabled { 1.0 } else { 0.0 },
+                    3 => {
+                        if band.enabled {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
                     4 => band.shape as u8 as f64,
                     _ => 0.0,
                 }
@@ -230,7 +233,13 @@ impl UltraEqWrapper {
         }
     }
 
-    pub fn add_band(&mut self, freq: f64, gain: f64, q: f64, filter_type: UltraFilterType) -> Option<usize> {
+    pub fn add_band(
+        &mut self,
+        freq: f64,
+        gain: f64,
+        q: f64,
+        filter_type: UltraFilterType,
+    ) -> Option<usize> {
         // Find free band
         for i in 0..rf_dsp::ULTRA_MAX_BANDS {
             if let Some(band) = self.eq.band(i) {
@@ -248,7 +257,14 @@ impl UltraEqWrapper {
         true
     }
 
-    pub fn update_band(&mut self, index: usize, freq: f64, gain: f64, q: f64, filter_type: UltraFilterType) {
+    pub fn update_band(
+        &mut self,
+        index: usize,
+        freq: f64,
+        gain: f64,
+        q: f64,
+        filter_type: UltraFilterType,
+    ) {
         self.eq.set_band(index, freq, gain, q, filter_type);
     }
 
@@ -511,12 +527,18 @@ impl InsertProcessor for Neve1073Wrapper {
     }
 
     fn num_params(&self) -> usize {
-        3  // HP enabled, Low gain, High gain
+        3 // HP enabled, Low gain, High gain
     }
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0 => if self.hp_enabled { 1.0 } else { 0.0 },
+            0 => {
+                if self.hp_enabled {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             1 => self.low_gain,
             2 => self.high_gain,
             _ => 0.0,
@@ -615,7 +637,7 @@ impl InsertProcessor for MorphEqWrapper {
     }
 
     fn num_params(&self) -> usize {
-        1  // Morph position
+        1 // Morph position
     }
 
     fn get_param(&self, index: usize) -> f64 {
@@ -708,12 +730,18 @@ impl InsertProcessor for RoomCorrectionWrapper {
     }
 
     fn num_params(&self) -> usize {
-        1  // Enabled
+        1 // Enabled
     }
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0 => if self.eq.enabled { 1.0 } else { 0.0 },
+            0 => {
+                if self.eq.enabled {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         }
     }
@@ -744,18 +772,19 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
         "api550" | "API550" | "api-550" => Some(Box::new(Api550Wrapper::new(sample_rate))),
         "neve1073" | "Neve1073" | "neve-1073" => Some(Box::new(Neve1073Wrapper::new(sample_rate))),
         "morph-eq" | "MorphEQ" | "morph_eq" => Some(Box::new(MorphEqWrapper::new(sample_rate))),
-        "room-correction" | "RoomCorrection" => Some(Box::new(RoomCorrectionWrapper::new(sample_rate))),
+        "room-correction" | "RoomCorrection" => {
+            Some(Box::new(RoomCorrectionWrapper::new(sample_rate)))
+        }
         _ => None,
     }
 }
 
 // ============ Dynamics Wrappers ============
 
-use rf_dsp::dynamics::{
-    StereoCompressor, CompressorType,
-    TruePeakLimiter, Gate, Expander, Oversampling,
-};
 use rf_dsp::MonoProcessor;
+use rf_dsp::dynamics::{
+    CompressorType, Expander, Gate, Oversampling, StereoCompressor, TruePeakLimiter,
+};
 
 /// Compressor wrapper for insert chain
 pub struct CompressorWrapper {
@@ -1160,7 +1189,9 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
     // Extended processors
     match name.to_lowercase().as_str() {
         "compressor" | "comp" => Some(Box::new(CompressorWrapper::new(sample_rate))),
-        "limiter" | "true-peak" | "truepeak" => Some(Box::new(TruePeakLimiterWrapper::new(sample_rate))),
+        "limiter" | "true-peak" | "truepeak" => {
+            Some(Box::new(TruePeakLimiterWrapper::new(sample_rate)))
+        }
         "gate" | "noise-gate" => Some(Box::new(GateWrapper::new(sample_rate))),
         "expander" | "exp" => Some(Box::new(ExpanderWrapper::new(sample_rate))),
         _ => None,

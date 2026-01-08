@@ -4,7 +4,13 @@ use crate::EngineBridge;
 
 impl EngineBridge {
     /// Process a single audio block (called from audio thread)
-    pub fn process_block(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) {
+    pub fn process_block(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) {
         // Update position
         if self.transport.is_playing {
             let samples_per_block = output_l.len() as u64;

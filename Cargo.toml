@@ -115,3 +115,7 @@ incremental = true
 inherits = "release"
 debug = true
 strip = false
+
+[workspace.lints.clippy]
+derivable_impls = "allow"
+approx_constant = "allow"

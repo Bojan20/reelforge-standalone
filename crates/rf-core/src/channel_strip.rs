@@ -488,10 +488,7 @@ impl ChannelStripLibrary {
 
     /// Get all categories
     pub fn categories(&self) -> Vec<String> {
-        let mut cats: Vec<_> = self
-            .all()
-            .filter_map(|p| p.category.clone())
-            .collect();
+        let mut cats: Vec<_> = self.all().filter_map(|p| p.category.clone()).collect();
         cats.sort();
         cats.dedup();
         cats

@@ -3,14 +3,16 @@
 //! Measures processing performance for all DSP components.
 //! Target: < 20% CPU @ 48kHz stereo on modern hardware
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use rf_dsp::biquad::{BiquadTDF2, BiquadCoeffs};
-use rf_dsp::eq::{ParametricEq, EqFilterType};
-use rf_dsp::dynamics::{Compressor, CompressorType, TruePeakLimiter, Gate, StereoCompressor, Oversampling};
-use rf_dsp::analysis::{PeakMeter, RmsMeter, TruePeakMeter, LufsMeter, FftAnalyzer};
-use rf_dsp::spatial::{StereoPanner, StereoWidth, CorrelationMeter};
-use rf_dsp::delay::{Delay, PingPongDelay, ModulatedDelay};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use rf_dsp::analysis::{FftAnalyzer, LufsMeter, PeakMeter, RmsMeter, TruePeakMeter};
+use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
+use rf_dsp::delay::{Delay, ModulatedDelay, PingPongDelay};
+use rf_dsp::dynamics::{
+    Compressor, CompressorType, Gate, Oversampling, StereoCompressor, TruePeakLimiter,
+};
+use rf_dsp::eq::{EqFilterType, ParametricEq};
 use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
+use rf_dsp::spatial::{CorrelationMeter, StereoPanner, StereoWidth};
 use rf_dsp::{MonoProcessor, StereoProcessor};
 
 const SAMPLE_RATE: f64 = 48000.0;
@@ -279,20 +281,16 @@ fn bench_fft(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT Analysis");
 
     for fft_size in [256, 512, 1024, 2048, 4096, 8192] {
-        group.bench_with_input(
-            BenchmarkId::new("FFT", fft_size),
-            &fft_size,
-            |b, &size| {
-                let input = generate_test_audio(size);
-                let mut analyzer = FftAnalyzer::new(size);
+        group.bench_with_input(BenchmarkId::new("FFT", fft_size), &fft_size, |b, &size| {
+            let input = generate_test_audio(size);
+            let mut analyzer = FftAnalyzer::new(size);
 
-                b.iter(|| {
-                    analyzer.push_samples(black_box(&input));
-                    analyzer.analyze();
-                    black_box(analyzer.magnitudes().len())
-                });
-            },
-        );
+            b.iter(|| {
+                analyzer.push_samples(black_box(&input));
+                analyzer.analyze();
+                black_box(analyzer.magnitudes().len())
+            });
+        });
     }
 
     group.finish();
@@ -411,7 +409,8 @@ fn bench_delay(c: &mut Criterion) {
                 b.iter(|| {
                     let mut sum = 0.0;
                     for i in 0..left.len() {
-                        let (l, r) = pingpong.process_sample(black_box(left[i]), black_box(right[i]));
+                        let (l, r) =
+                            pingpong.process_sample(black_box(left[i]), black_box(right[i]));
                         sum += l + r;
                     }
                     black_box(sum)
@@ -465,7 +464,8 @@ fn bench_reverb(c: &mut Criterion) {
                 b.iter(|| {
                     let mut sum = 0.0;
                     for i in 0..left.len() {
-                        let (l, r) = reverb_hall.process_sample(black_box(left[i]), black_box(right[i]));
+                        let (l, r) =
+                            reverb_hall.process_sample(black_box(left[i]), black_box(right[i]));
                         sum += l + r;
                     }
                     black_box(sum)
@@ -486,7 +486,8 @@ fn bench_reverb(c: &mut Criterion) {
                 b.iter(|| {
                     let mut sum = 0.0;
                     for i in 0..left.len() {
-                        let (l, r) = reverb_plate.process_sample(black_box(left[i]), black_box(right[i]));
+                        let (l, r) =
+                            reverb_plate.process_sample(black_box(left[i]), black_box(right[i]));
                         sum += l + r;
                     }
                     black_box(sum)

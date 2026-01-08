@@ -157,7 +157,11 @@ impl Timecode {
     /// Convert from frame number with drop frame
     fn from_frame_drop_frame(frame: u64, frame_rate: &FrameRate) -> Self {
         let fps = frame_rate.frames_per_second() as u64;
-        let drop_frames = if *frame_rate == FrameRate::Fps29_97 { 2 } else { 4 };
+        let drop_frames = if *frame_rate == FrameRate::Fps29_97 {
+            2
+        } else {
+            4
+        };
 
         // Drop frame calculation (SMPTE 12M)
         let frames_per_minute = fps * 60 - drop_frames;
@@ -198,20 +202,22 @@ impl Timecode {
 
         match self.format {
             TimecodeFormat::NonDropFrame => {
-                let total_seconds = self.hours as u64 * 3600
-                    + self.minutes as u64 * 60
-                    + self.seconds as u64;
+                let total_seconds =
+                    self.hours as u64 * 3600 + self.minutes as u64 * 60 + self.seconds as u64;
                 total_seconds * fps + self.frames as u64
             }
             TimecodeFormat::DropFrame => {
-                let drop_frames = if *frame_rate == FrameRate::Fps29_97 { 2 } else { 4 };
+                let drop_frames = if *frame_rate == FrameRate::Fps29_97 {
+                    2
+                } else {
+                    4
+                };
 
                 let total_minutes = self.hours as u64 * 60 + self.minutes as u64;
                 let total_dropped = drop_frames * (total_minutes - total_minutes / 10);
 
-                let total_seconds = self.hours as u64 * 3600
-                    + self.minutes as u64 * 60
-                    + self.seconds as u64;
+                let total_seconds =
+                    self.hours as u64 * 3600 + self.minutes as u64 * 60 + self.seconds as u64;
 
                 total_seconds * fps + self.frames as u64 - total_dropped
             }
@@ -230,24 +236,30 @@ impl Timecode {
         let parts: Vec<&str> = s.split(|c| c == ':' || c == ';').collect();
 
         if parts.len() != 4 {
-            return Err(VideoError::InvalidTimecode(
-                format!("Expected HH:MM:SS{}FF format, got: {}", separator, s)
-            ));
+            return Err(VideoError::InvalidTimecode(format!(
+                "Expected HH:MM:SS{}FF format, got: {}",
+                separator, s
+            )));
         }
 
-        let hours: u8 = parts[0].parse()
+        let hours: u8 = parts[0]
+            .parse()
             .map_err(|_| VideoError::InvalidTimecode(format!("Invalid hours: {}", parts[0])))?;
-        let minutes: u8 = parts[1].parse()
+        let minutes: u8 = parts[1]
+            .parse()
             .map_err(|_| VideoError::InvalidTimecode(format!("Invalid minutes: {}", parts[1])))?;
-        let seconds: u8 = parts[2].parse()
+        let seconds: u8 = parts[2]
+            .parse()
             .map_err(|_| VideoError::InvalidTimecode(format!("Invalid seconds: {}", parts[2])))?;
-        let frames: u8 = parts[3].parse()
+        let frames: u8 = parts[3]
+            .parse()
             .map_err(|_| VideoError::InvalidTimecode(format!("Invalid frames: {}", parts[3])))?;
 
         if minutes > 59 || seconds > 59 {
-            return Err(VideoError::InvalidTimecode(
-                format!("Minutes and seconds must be < 60: {}", s)
-            ));
+            return Err(VideoError::InvalidTimecode(format!(
+                "Minutes and seconds must be < 60: {}",
+                s
+            )));
         }
 
         Ok(Self {

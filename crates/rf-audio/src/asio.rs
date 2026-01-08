@@ -22,8 +22,8 @@
 #![cfg(target_os = "windows")]
 
 use std::ffi::CStr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::Mutex;
 
@@ -166,7 +166,7 @@ impl AsioStream {
         // 4. Register callbacks (bufferSwitch, sampleRateDidChange, etc.)
 
         Err(AudioError::BackendError(
-            "ASIO stream creation requires asio-sys crate".to_string()
+            "ASIO stream creation requires asio-sys crate".to_string(),
         ))
     }
 
@@ -234,8 +234,12 @@ pub fn asio_to_f64(data: &[u8], sample_type: AsioSampleType) -> f64 {
             value as f64 / 32768.0
         }
         AsioSampleType::Int24LSB => {
-            let value = i32::from_le_bytes([data[0], data[1], data[2],
-                if data[2] & 0x80 != 0 { 0xFF } else { 0x00 }]);
+            let value = i32::from_le_bytes([
+                data[0],
+                data[1],
+                data[2],
+                if data[2] & 0x80 != 0 { 0xFF } else { 0x00 },
+            ]);
             value as f64 / 8388608.0
         }
         AsioSampleType::Int32LSB => {
@@ -246,12 +250,9 @@ pub fn asio_to_f64(data: &[u8], sample_type: AsioSampleType) -> f64 {
             let value = f32::from_le_bytes([data[0], data[1], data[2], data[3]]);
             value as f64
         }
-        AsioSampleType::Float64LSB => {
-            f64::from_le_bytes([
-                data[0], data[1], data[2], data[3],
-                data[4], data[5], data[6], data[7],
-            ])
-        }
+        AsioSampleType::Float64LSB => f64::from_le_bytes([
+            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+        ]),
         _ => 0.0, // Handle other types as needed
     }
 }
@@ -298,10 +299,14 @@ pub fn sample_size(sample_type: AsioSampleType) -> usize {
     match sample_type {
         AsioSampleType::Int16LSB | AsioSampleType::Int16MSB => 2,
         AsioSampleType::Int24LSB | AsioSampleType::Int24MSB => 3,
-        AsioSampleType::Int32LSB | AsioSampleType::Int32MSB |
-        AsioSampleType::Int32LSB16 | AsioSampleType::Int32LSB18 |
-        AsioSampleType::Int32LSB20 | AsioSampleType::Int32LSB24 |
-        AsioSampleType::Float32LSB | AsioSampleType::Float32MSB => 4,
+        AsioSampleType::Int32LSB
+        | AsioSampleType::Int32MSB
+        | AsioSampleType::Int32LSB16
+        | AsioSampleType::Int32LSB18
+        | AsioSampleType::Int32LSB20
+        | AsioSampleType::Int32LSB24
+        | AsioSampleType::Float32LSB
+        | AsioSampleType::Float32MSB => 4,
         AsioSampleType::Float64LSB | AsioSampleType::Float64MSB => 8,
     }
 }
@@ -317,7 +322,7 @@ pub fn sample_size(sample_type: AsioSampleType) -> usize {
 pub fn show_control_panel(_driver_name: &str) -> AudioResult<()> {
     // ASIOControlPanel()
     Err(AudioError::BackendError(
-        "ASIO control panel requires asio-sys crate".to_string()
+        "ASIO control panel requires asio-sys crate".to_string(),
     ))
 }
 

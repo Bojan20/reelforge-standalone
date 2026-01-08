@@ -9,9 +9,9 @@
 //! - Inverse transforms for resynthesis
 //! - Multi-resolution spectrogram
 
-use std::f64::consts::PI;
 use realfft::RealFftPlanner;
 use rustfft::num_complex::Complex;
+use std::f64::consts::PI;
 
 /// Wavelet family types
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -58,91 +58,139 @@ impl WaveletFilter {
             }
             WaveletType::Daubechies(2) => {
                 vec![
-                    0.4829629131445341, 0.8365163037378079,
-                    0.2241438680420134, -0.1294095225512604,
+                    0.4829629131445341,
+                    0.8365163037378079,
+                    0.2241438680420134,
+                    -0.1294095225512604,
                 ]
             }
             WaveletType::Daubechies(3) => {
                 vec![
-                    0.3326705529500826, 0.8068915093110925,
-                    0.4598775021184915, -0.1350110200102546,
-                    -0.0854412738820267, 0.0352262918857095,
+                    0.3326705529500826,
+                    0.8068915093110925,
+                    0.4598775021184915,
+                    -0.1350110200102546,
+                    -0.0854412738820267,
+                    0.0352262918857095,
                 ]
             }
             WaveletType::Daubechies(4) => {
                 vec![
-                    0.2303778133088965, 0.7148465705529156,
-                    0.6308807679298589, -0.0279837694168599,
-                    -0.1870348117190930, 0.0308413818355607,
-                    0.0328830116668852, -0.0105974017850690,
+                    0.2303778133088965,
+                    0.7148465705529156,
+                    0.6308807679298589,
+                    -0.0279837694168599,
+                    -0.1870348117190930,
+                    0.0308413818355607,
+                    0.0328830116668852,
+                    -0.0105974017850690,
                 ]
             }
             WaveletType::Daubechies(6) => {
                 vec![
-                    0.1115407433501095, 0.4946238903984533,
-                    0.7511339080210959, 0.3152503517091982,
-                    -0.2262646939654400, -0.1297668675672625,
-                    0.0975016055873225, 0.0275228655303053,
-                    -0.0315820393174862, 0.0005538422011614,
-                    0.0047772575109455, -0.0010773010853085,
+                    0.1115407433501095,
+                    0.4946238903984533,
+                    0.7511339080210959,
+                    0.3152503517091982,
+                    -0.2262646939654400,
+                    -0.1297668675672625,
+                    0.0975016055873225,
+                    0.0275228655303053,
+                    -0.0315820393174862,
+                    0.0005538422011614,
+                    0.0047772575109455,
+                    -0.0010773010853085,
                 ]
             }
             WaveletType::Daubechies(8) => {
                 vec![
-                    0.0544158422431049, 0.3128715909143031,
-                    0.6756307362972904, 0.5853546836541907,
-                    -0.0158291052563816, -0.2840155429615702,
-                    0.0004724845739124, 0.1287474266204837,
-                    -0.0173693010018083, -0.0440882539307952,
-                    0.0139810279173995, 0.0087460940474061,
-                    -0.0048703529934518, -0.0003917403733770,
-                    0.0006754494064506, -0.0001174767841248,
+                    0.0544158422431049,
+                    0.3128715909143031,
+                    0.6756307362972904,
+                    0.5853546836541907,
+                    -0.0158291052563816,
+                    -0.2840155429615702,
+                    0.0004724845739124,
+                    0.1287474266204837,
+                    -0.0173693010018083,
+                    -0.0440882539307952,
+                    0.0139810279173995,
+                    0.0087460940474061,
+                    -0.0048703529934518,
+                    -0.0003917403733770,
+                    0.0006754494064506,
+                    -0.0001174767841248,
                 ]
             }
             WaveletType::Symlet(4) => {
                 vec![
-                    -0.0757657147893407, -0.0296355276459541,
-                    0.4976186676324578, 0.8037387518052163,
-                    0.2978577956055422, -0.0992195435769354,
-                    -0.0126039672622612, 0.0322231006040713,
+                    -0.0757657147893407,
+                    -0.0296355276459541,
+                    0.4976186676324578,
+                    0.8037387518052163,
+                    0.2978577956055422,
+                    -0.0992195435769354,
+                    -0.0126039672622612,
+                    0.0322231006040713,
                 ]
             }
             WaveletType::Symlet(8) => {
                 vec![
-                    -0.0033824159513594, -0.0005421323316355,
-                    0.0316950878103452, 0.0076074873252848,
-                    -0.1432942383510542, -0.0612733590679088,
-                    0.4813596512592012, 0.7771857516997478,
-                    0.3644418948359564, -0.0519458381078751,
-                    -0.0272190299168137, 0.0491371796734768,
-                    0.0038087520140601, -0.0149522583367926,
-                    -0.0003029205145516, 0.0018899503329007,
+                    -0.0033824159513594,
+                    -0.0005421323316355,
+                    0.0316950878103452,
+                    0.0076074873252848,
+                    -0.1432942383510542,
+                    -0.0612733590679088,
+                    0.4813596512592012,
+                    0.7771857516997478,
+                    0.3644418948359564,
+                    -0.0519458381078751,
+                    -0.0272190299168137,
+                    0.0491371796734768,
+                    0.0038087520140601,
+                    -0.0149522583367926,
+                    -0.0003029205145516,
+                    0.0018899503329007,
                 ]
             }
             WaveletType::Coiflet(1) => {
                 vec![
-                    -0.0156557285289848, -0.0727326213410511,
-                    0.3848648565381134, 0.8525720416423900,
-                    0.3378976709511590, -0.0727322757411889,
+                    -0.0156557285289848,
+                    -0.0727326213410511,
+                    0.3848648565381134,
+                    0.8525720416423900,
+                    0.3378976709511590,
+                    -0.0727322757411889,
                 ]
             }
             WaveletType::Coiflet(2) => {
                 vec![
-                    0.0011945726958388, -0.0016290733601404,
-                    -0.0189155298252868, 0.0211018340249299,
-                    0.0997835515523118, -0.0975016055873225,
-                    -0.2262646939654400, 0.3152503517091982,
-                    0.7511339080210959, 0.4946238903984533,
-                    0.1115407433501095, -0.0315820393174862,
+                    0.0011945726958388,
+                    -0.0016290733601404,
+                    -0.0189155298252868,
+                    0.0211018340249299,
+                    0.0997835515523118,
+                    -0.0975016055873225,
+                    -0.2262646939654400,
+                    0.3152503517091982,
+                    0.7511339080210959,
+                    0.4946238903984533,
+                    0.1115407433501095,
+                    -0.0315820393174862,
                 ]
             }
             _ => {
                 // Default to db4
                 vec![
-                    0.2303778133088965, 0.7148465705529156,
-                    0.6308807679298589, -0.0279837694168599,
-                    -0.1870348117190930, 0.0308413818355607,
-                    0.0328830116668852, -0.0105974017850690,
+                    0.2303778133088965,
+                    0.7148465705529156,
+                    0.6308807679298589,
+                    -0.0279837694168599,
+                    -0.1870348117190930,
+                    0.0308413818355607,
+                    0.0328830116668852,
+                    -0.0105974017850690,
                 ]
             }
         };
@@ -151,7 +199,9 @@ impl WaveletFilter {
         let _n = lo_d.len();
 
         // Hi_d: QMF of lo_d
-        let hi_d: Vec<f64> = lo_d.iter().enumerate()
+        let hi_d: Vec<f64> = lo_d
+            .iter()
+            .enumerate()
             .map(|(i, &x)| if i % 2 == 0 { -x } else { x })
             .rev()
             .collect();
@@ -162,7 +212,12 @@ impl WaveletFilter {
         // Hi_r: time-reversed hi_d
         let hi_r: Vec<f64> = hi_d.iter().rev().copied().collect();
 
-        Self { lo_d, hi_d, lo_r, hi_r }
+        Self {
+            lo_d,
+            hi_d,
+            lo_r,
+            hi_r,
+        }
     }
 }
 
@@ -249,8 +304,16 @@ impl DWT {
         (0..out_len)
             .map(|i| {
                 let idx = i + offset;
-                let a = if idx < rec_approx.len() { rec_approx[idx] } else { 0.0 };
-                let d = if idx < rec_detail.len() { rec_detail[idx] } else { 0.0 };
+                let a = if idx < rec_approx.len() {
+                    rec_approx[idx]
+                } else {
+                    0.0
+                };
+                let d = if idx < rec_detail.len() {
+                    rec_detail[idx]
+                } else {
+                    0.0
+                };
                 a + d
             })
             .collect()
@@ -286,7 +349,9 @@ impl DWT {
         (0..out_len)
             .map(|i| {
                 let start = i * 2;
-                filter.iter().enumerate()
+                filter
+                    .iter()
+                    .enumerate()
                     .map(|(j, &f)| signal[start + j] * f)
                     .sum()
             })
@@ -340,9 +405,7 @@ impl WaveletDecomposition {
         let mut energies = Vec::with_capacity(self.details.len() + 1);
 
         // Approximation energy
-        let approx_energy: f64 = self.approximation.iter()
-            .map(|x| x * x)
-            .sum();
+        let approx_energy: f64 = self.approximation.iter().map(|x| x * x).sum();
         energies.push(approx_energy);
 
         // Detail energies
@@ -435,7 +498,8 @@ impl CWT {
             let wavelet_fft = self.wavelet_fft(scale, fft_size);
 
             // Multiply in frequency domain
-            let mut product: Vec<Complex<f64>> = signal_fft.iter()
+            let mut product: Vec<Complex<f64>> = signal_fft
+                .iter()
                 .zip(wavelet_fft.iter())
                 .map(|(&s, &w)| s * w)
                 .collect();
@@ -446,7 +510,8 @@ impl CWT {
 
             // Normalize and extract
             let norm = 1.0 / (fft_size as f64);
-            let coeffs: Vec<Complex<f64>> = result[..n].iter()
+            let coeffs: Vec<Complex<f64>> = result[..n]
+                .iter()
                 .map(|&r| Complex::new(r * norm, 0.0))
                 .collect();
 
@@ -482,9 +547,9 @@ impl CWT {
                         let omega_scaled = scale * omega;
 
                         // Morlet wavelet FT
-                        let val = (PI.powf(0.25)) *
-                            (-0.5 * (omega_scaled - omega0).powi(2)).exp() *
-                            scale.sqrt();
+                        let val = (PI.powf(0.25))
+                            * (-0.5 * (omega_scaled - omega0).powi(2)).exp()
+                            * scale.sqrt();
 
                         Complex::new(val, 0.0)
                     })
@@ -498,10 +563,10 @@ impl CWT {
                         let omega_scaled = scale * omega;
 
                         // Mexican hat FT
-                        let val = (2.0 / 3.0_f64.sqrt() * PI.powf(0.25)) *
-                            omega_scaled.powi(2) *
-                            (-0.5 * omega_scaled.powi(2)).exp() *
-                            scale.sqrt();
+                        let val = (2.0 / 3.0_f64.sqrt() * PI.powf(0.25))
+                            * omega_scaled.powi(2)
+                            * (-0.5 * omega_scaled.powi(2)).exp()
+                            * scale.sqrt();
 
                         Complex::new(val, 0.0)
                     })
@@ -515,9 +580,9 @@ impl CWT {
                         let f = k as f64 * df;
                         let omega = 2.0 * PI * f;
                         let omega_scaled = scale * omega;
-                        let val = (PI.powf(0.25)) *
-                            (-0.5 * (omega_scaled - omega0).powi(2)).exp() *
-                            scale.sqrt();
+                        let val = (PI.powf(0.25))
+                            * (-0.5 * (omega_scaled - omega0).powi(2)).exp()
+                            * scale.sqrt();
                         Complex::new(val, 0.0)
                     })
                     .collect()
@@ -542,21 +607,24 @@ pub struct CWTResult {
 impl CWTResult {
     /// Get magnitude scalogram
     pub fn magnitude(&self) -> Vec<Vec<f64>> {
-        self.scalogram.iter()
+        self.scalogram
+            .iter()
             .map(|row| row.iter().map(|c| c.norm()).collect())
             .collect()
     }
 
     /// Get power scalogram
     pub fn power(&self) -> Vec<Vec<f64>> {
-        self.scalogram.iter()
+        self.scalogram
+            .iter()
             .map(|row| row.iter().map(|c| c.norm_sqr()).collect())
             .collect()
     }
 
     /// Get phase scalogram
     pub fn phase(&self) -> Vec<Vec<f64>> {
-        self.scalogram.iter()
+        self.scalogram
+            .iter()
             .map(|row| row.iter().map(|c| c.arg()).collect())
             .collect()
     }
@@ -634,7 +702,8 @@ impl CQT {
 
             // Create sparse kernel (only significant values)
             let threshold = 1e-6;
-            let sparse_kernel: Vec<(usize, Complex<f64>)> = kernel.iter()
+            let sparse_kernel: Vec<(usize, Complex<f64>)> = kernel
+                .iter()
                 .enumerate()
                 .filter(|(_, c)| c.norm() > threshold)
                 .map(|(i, &c)| (i, c))
@@ -703,7 +772,8 @@ impl CQT {
 
     /// Get MIDI note numbers for each bin
     pub fn midi_notes(&self) -> Vec<f64> {
-        self.kernels.iter()
+        self.kernels
+            .iter()
             .map(|k| 69.0 + 12.0 * (k.freq / 440.0).log2())
             .collect()
     }
@@ -725,14 +795,16 @@ pub struct CQTResult {
 impl CQTResult {
     /// Get magnitude spectrogram
     pub fn magnitude(&self) -> Vec<Vec<f64>> {
-        self.coefficients.iter()
+        self.coefficients
+            .iter()
             .map(|row| row.iter().map(|c| c.norm()).collect())
             .collect()
     }
 
     /// Get power spectrogram (dB)
     pub fn power_db(&self) -> Vec<Vec<f64>> {
-        self.coefficients.iter()
+        self.coefficients
+            .iter()
             .map(|row| {
                 row.iter()
                     .map(|c| {
@@ -825,9 +897,7 @@ impl MultiResolutionAnalyzer {
             // High frequencies: use DWT for better time resolution
             let decomp = self.dwt.decompose(signal, 6);
             // Return detail levels as "spectrogram"
-            decomp.details.iter()
-                .map(|d| d.clone())
-                .collect()
+            decomp.details.iter().map(|d| d.clone()).collect()
         } else {
             // Mid frequencies: use CQT for musical analysis
             self.cqt.transform(signal).magnitude()
@@ -855,12 +925,21 @@ mod tests {
         let reconstructed = dwt.reconstruct(&decomp);
 
         // Verify decomposition produces valid results
-        assert!(!decomp.approximation.is_empty(), "Decomposition should produce approximation");
+        assert!(
+            !decomp.approximation.is_empty(),
+            "Decomposition should produce approximation"
+        );
         assert_eq!(decomp.details.len(), 4, "Should have 4 levels of detail");
 
         // Verify reconstruction produces finite values of similar length
-        assert!(reconstructed.len() >= signal.len() / 2, "Reconstruction length should be reasonable");
-        assert!(reconstructed.iter().all(|x| x.is_finite()), "All values should be finite");
+        assert!(
+            reconstructed.len() >= signal.len() / 2,
+            "Reconstruction length should be reasonable"
+        );
+        assert!(
+            reconstructed.iter().all(|x| x.is_finite()),
+            "All values should be finite"
+        );
 
         // Note: Perfect reconstruction requires careful filter design
         // This is a smoke test that the decompose/reconstruct pipeline works
@@ -884,9 +963,9 @@ mod tests {
         cwt.set_scales(1.0, 100.0, 32);
 
         // Generate test signal: 10 Hz sine
-        let signal: Vec<f64> = (0..1000).map(|i| {
-            (2.0 * PI * 10.0 * i as f64 / 1000.0).sin()
-        }).collect();
+        let signal: Vec<f64> = (0..1000)
+            .map(|i| (2.0 * PI * 10.0 * i as f64 / 1000.0).sin())
+            .collect();
 
         let result = cwt.transform(&signal);
         let mag = result.magnitude();

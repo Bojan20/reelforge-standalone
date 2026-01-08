@@ -10,7 +10,6 @@
 
 use std::f32::consts::PI;
 
-
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
@@ -290,13 +289,15 @@ pub fn generate_curve_mesh(
         vertices.push(SpectrumVertex::new(
             x + nx * half_width,
             y + ny * half_width,
-            t, 0.0,
+            t,
+            0.0,
             config.curve_color,
         ));
         vertices.push(SpectrumVertex::new(
             x - nx * half_width,
             y - ny * half_width,
-            t, 1.0,
+            t,
+            1.0,
             config.curve_color,
         ));
 
@@ -397,7 +398,9 @@ pub fn generate_grid(
     let line_width = 1.0;
 
     // Frequency grid lines (20, 50, 100, 200, 500, 1k, 2k, 5k, 10k, 20k)
-    let freq_lines = [20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0, 20000.0];
+    let freq_lines = [
+        20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0, 20000.0,
+    ];
 
     for &freq in &freq_lines {
         if freq < config.min_freq || freq > config.max_freq {
@@ -408,10 +411,34 @@ pub fn generate_grid(
         let x = width * (log_freq - log_min) / (log_max - log_min);
 
         let base = vertices.len() as u32;
-        vertices.push(SpectrumVertex::new(x - line_width * 0.5, 0.0, 0.0, 0.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(x + line_width * 0.5, 0.0, 1.0, 0.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(x + line_width * 0.5, height, 1.0, 1.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(x - line_width * 0.5, height, 0.0, 1.0, config.grid_color));
+        vertices.push(SpectrumVertex::new(
+            x - line_width * 0.5,
+            0.0,
+            0.0,
+            0.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            x + line_width * 0.5,
+            0.0,
+            1.0,
+            0.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            x + line_width * 0.5,
+            height,
+            1.0,
+            1.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            x - line_width * 0.5,
+            height,
+            0.0,
+            1.0,
+            config.grid_color,
+        ));
 
         indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
     }
@@ -422,10 +449,34 @@ pub fn generate_grid(
         let y = height * (1.0 - (db - config.min_db) / db_range);
 
         let base = vertices.len() as u32;
-        vertices.push(SpectrumVertex::new(0.0, y - line_width * 0.5, 0.0, 0.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(width, y - line_width * 0.5, 1.0, 0.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(width, y + line_width * 0.5, 1.0, 1.0, config.grid_color));
-        vertices.push(SpectrumVertex::new(0.0, y + line_width * 0.5, 0.0, 1.0, config.grid_color));
+        vertices.push(SpectrumVertex::new(
+            0.0,
+            y - line_width * 0.5,
+            0.0,
+            0.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            width,
+            y - line_width * 0.5,
+            1.0,
+            0.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            width,
+            y + line_width * 0.5,
+            1.0,
+            1.0,
+            config.grid_color,
+        ));
+        vertices.push(SpectrumVertex::new(
+            0.0,
+            y + line_width * 0.5,
+            0.0,
+            1.0,
+            config.grid_color,
+        ));
 
         indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
 
@@ -479,7 +530,11 @@ pub fn generate_piano_roll(
             [0.9, 0.9, 0.9, 0.8]
         };
 
-        let key_height = if is_black { piano_height * 0.6 } else { piano_height };
+        let key_height = if is_black {
+            piano_height * 0.6
+        } else {
+            piano_height
+        };
         let y_bottom = y_top + key_height;
 
         let base = vertices.len() as u32;

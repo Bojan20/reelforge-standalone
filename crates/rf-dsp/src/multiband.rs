@@ -7,9 +7,9 @@
 //! - Linear phase crossovers
 //! - Linkwitz-Riley filters (12/24/48 dB/oct)
 
+use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 use rf_core::Sample;
-use crate::{Processor, ProcessorConfig, StereoProcessor, MonoProcessor};
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
 
 // ============ Constants ============
 
@@ -67,7 +67,11 @@ impl LRFilter {
             let q = match crossover_type {
                 CrossoverType::Butterworth12 => 0.7071,
                 CrossoverType::LinkwitzRiley24 => {
-                    if i == 0 { 0.7071 } else { 0.7071 }
+                    if i == 0 {
+                        0.7071
+                    } else {
+                        0.7071
+                    }
                 }
                 CrossoverType::LinkwitzRiley48 => {
                     // LR48 uses 4 cascaded Butterworth 2nd order
@@ -255,8 +259,16 @@ impl BandCompressor {
         let input_l = left.abs();
         let input_r = right.abs();
 
-        let coef_l = if input_l > self.envelope_l { self.attack_coef } else { self.release_coef };
-        let coef_r = if input_r > self.envelope_r { self.attack_coef } else { self.release_coef };
+        let coef_l = if input_l > self.envelope_l {
+            self.attack_coef
+        } else {
+            self.release_coef
+        };
+        let coef_r = if input_r > self.envelope_r {
+            self.attack_coef
+        } else {
+            self.release_coef
+        };
 
         self.envelope_l = input_l + coef_l * (self.envelope_l - input_l);
         self.envelope_r = input_r + coef_r * (self.envelope_r - input_r);
@@ -353,13 +365,13 @@ impl MultibandCompressor {
         let crossover_freqs: Vec<f64> = DEFAULT_CROSSOVERS[..num_crossovers].to_vec();
         let crossover_type = CrossoverType::LinkwitzRiley24;
 
-        let crossovers: Vec<Crossover> = crossover_freqs.iter()
+        let crossovers: Vec<Crossover> = crossover_freqs
+            .iter()
             .map(|&freq| Crossover::new(freq, sample_rate, crossover_type))
             .collect();
 
-        let mut bands: Vec<BandCompressor> = (0..num_bands)
-            .map(|_| BandCompressor::default())
-            .collect();
+        let mut bands: Vec<BandCompressor> =
+            (0..num_bands).map(|_| BandCompressor::default()).collect();
 
         // Initialize coefficients
         for band in &mut bands {
@@ -390,7 +402,9 @@ impl MultibandCompressor {
 
         // Recreate crossovers
         self.crossover_freqs = DEFAULT_CROSSOVERS[..num_crossovers].to_vec();
-        self.crossovers = self.crossover_freqs.iter()
+        self.crossovers = self
+            .crossover_freqs
+            .iter()
             .map(|&freq| Crossover::new(freq, self.sample_rate, self.crossover_type))
             .collect();
 
@@ -432,16 +446,16 @@ impl MultibandCompressor {
         self.crossover_type = crossover_type;
 
         // Recreate crossovers
-        self.crossovers = self.crossover_freqs.iter()
+        self.crossovers = self
+            .crossover_freqs
+            .iter()
             .map(|&freq| Crossover::new(freq, self.sample_rate, crossover_type))
             .collect();
     }
 
     /// Get per-band gain reduction for metering
     pub fn get_gain_reduction(&self) -> Vec<(f64, f64)> {
-        self.bands.iter()
-            .map(|b| b.gain_reduction_db())
-            .collect()
+        self.bands.iter().map(|b| b.gain_reduction_db()).collect()
     }
 
     /// Split signal into bands

@@ -245,7 +245,8 @@ impl Dereverb {
             if self.prev_power[bin] > 1e-10 && current_power[bin] > 1e-10 {
                 let observed_decay = (current_power[bin] / self.prev_power[bin]).sqrt();
                 // Smooth update
-                self.decay_rate[bin] = 0.99 * self.decay_rate[bin] + 0.01 * observed_decay.clamp(0.5, 0.999);
+                self.decay_rate[bin] =
+                    0.99 * self.decay_rate[bin] + 0.01 * observed_decay.clamp(0.5, 0.999);
             }
 
             self.prev_power[bin] = current_power[bin];
@@ -292,10 +293,7 @@ impl Dereverb {
         let mut energies: Vec<f32> = Vec::new();
 
         for start in (0..audio.len() - fft_size).step_by(hop) {
-            let energy: f32 = audio[start..start + fft_size]
-                .iter()
-                .map(|s| s * s)
-                .sum();
+            let energy: f32 = audio[start..start + fft_size].iter().map(|s| s * s).sum();
             energies.push(energy);
         }
 
@@ -460,7 +458,10 @@ impl WpeDereverb {
             prediction_length,
             prediction_delay,
             filters: vec![vec![Complex::new(0.0, 0.0); prediction_length]; bins],
-            frame_buffer: vec![vec![Complex::new(0.0, 0.0); bins]; prediction_length + prediction_delay],
+            frame_buffer: vec![
+                vec![Complex::new(0.0, 0.0); bins];
+                prediction_length + prediction_delay
+            ],
             buffer_pos: 0,
             fft_forward,
             fft_inverse,
@@ -545,13 +546,17 @@ impl Restorer for WpeDereverb {
                 }
 
                 // FFT
-                self.fft_forward.process(&mut fft_scratch, &mut spectrum).ok();
+                self.fft_forward
+                    .process(&mut fft_scratch, &mut spectrum)
+                    .ok();
 
                 // Process with WPE
                 self.process_frame(&mut spectrum);
 
                 // IFFT
-                self.fft_inverse.process(&mut spectrum, &mut ifft_scratch).ok();
+                self.fft_inverse
+                    .process(&mut spectrum, &mut ifft_scratch)
+                    .ok();
 
                 // Normalize and overlap-add
                 let norm = 1.0 / fft_size as f32;

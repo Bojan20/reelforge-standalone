@@ -9,19 +9,18 @@
 //! - Crossfade management
 //! - Marker management
 
-use std::ffi::{c_char, CStr, CString};
+use parking_lot::RwLock;
+use std::ffi::{CStr, CString, c_char};
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
-use crate::track_manager::{
-    TrackManager, TrackId, ClipId, CrossfadeId, MarkerId,
-    OutputBus, CrossfadeCurve, Clip,
-};
 use crate::audio_import::{AudioImporter, ImportedAudio};
-use crate::waveform::{StereoWaveformPeaks, WaveformCache, NUM_LOD_LEVELS, SAMPLES_PER_PEAK};
 use crate::playback::PlaybackEngine;
+use crate::track_manager::{
+    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, TrackId, TrackManager,
+};
+use crate::waveform::{NUM_LOD_LEVELS, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache};
 use rf_state::UndoManager;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -60,20 +59,20 @@ impl ProjectState {
     fn is_modified(&self) -> bool {
         use std::sync::atomic::Ordering;
         self.is_dirty.load(Ordering::Relaxed)
-            || UNDO_MANAGER.read().undo_count() != self.last_saved_undo_count.load(Ordering::Relaxed)
+            || UNDO_MANAGER.read().undo_count()
+                != self.last_saved_undo_count.load(Ordering::Relaxed)
     }
 
     fn mark_dirty(&self) {
-        self.is_dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.is_dirty
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn mark_clean(&self) {
         use std::sync::atomic::Ordering;
         self.is_dirty.store(false, Ordering::Relaxed);
-        self.last_saved_undo_count.store(
-            UNDO_MANAGER.read().undo_count(),
-            Ordering::Relaxed
-        );
+        self.last_saved_undo_count
+            .store(UNDO_MANAGER.read().undo_count(), Ordering::Relaxed);
     }
 
     fn set_file_path(&self, path: Option<String>) {
@@ -99,7 +98,9 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
 
 /// Convert Rust string to C string (caller must free)
 fn string_to_cstr(s: &str) -> *mut c_char {
-    CString::new(s).map(|cs| cs.into_raw()).unwrap_or(ptr::null_mut())
+    CString::new(s)
+        .map(|cs| cs.into_raw())
+        .unwrap_or(ptr::null_mut())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -110,11 +111,7 @@ fn string_to_cstr(s: &str) -> *mut c_char {
 ///
 /// Returns track ID (u64) or 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_create_track(
-    name: *const c_char,
-    color: u32,
-    bus_id: u32,
-) -> u64 {
+pub extern "C" fn engine_create_track(name: *const c_char, color: u32, bus_id: u32) -> u64 {
     let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Track".to_string());
     let output_bus = OutputBus::from(bus_id);
 
@@ -252,7 +249,11 @@ pub extern "C" fn engine_get_track_peak(track_id: u64) -> f64 {
 /// Writes pairs of (track_id, peak) to out buffer
 /// Returns number of tracks written
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_get_all_track_peaks(out_ids: *mut u64, out_peaks: *mut f64, max_count: usize) -> usize {
+pub extern "C" fn engine_get_all_track_peaks(
+    out_ids: *mut u64,
+    out_peaks: *mut f64,
+    max_count: usize,
+) -> usize {
     if out_ids.is_null() || out_peaks.is_null() {
         return 0;
     }
@@ -297,11 +298,7 @@ pub extern "C" fn engine_get_track_ids(out_ids: *mut u64, max_count: usize) -> u
 ///
 /// Returns clip ID or 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_import_audio(
-    path: *const c_char,
-    track_id: u64,
-    start_time: f64,
-) -> u64 {
+pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_time: f64) -> u64 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
         None => {
@@ -310,17 +307,28 @@ pub extern "C" fn engine_import_audio(
         }
     };
 
-    eprintln!("[FFI Import] Importing: {} to track {} at {:.2}s", path_str, track_id, start_time);
+    eprintln!(
+        "[FFI Import] Importing: {} to track {} at {:.2}s",
+        path_str, track_id, start_time
+    );
 
     // Import audio file
     let imported = match AudioImporter::import(Path::new(&path_str)) {
         Ok(audio) => {
-            eprintln!("[FFI Import] SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
-                audio.samples.len(), audio.sample_rate, audio.channels, audio.duration_secs);
+            eprintln!(
+                "[FFI Import] SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
+                audio.samples.len(),
+                audio.sample_rate,
+                audio.channels,
+                audio.duration_secs
+            );
             Arc::new(audio)
-        },
+        }
         Err(e) => {
-            eprintln!("[FFI Import] ERROR: Failed to import '{}': {:?}", path_str, e);
+            eprintln!(
+                "[FFI Import] ERROR: Failed to import '{}': {:?}",
+                path_str, e
+            );
             return 0;
         }
     };
@@ -348,13 +356,24 @@ pub extern "C" fn engine_import_audio(
     // Store in caches
     let key = format!("clip_{}", clip_id.0);
     WAVEFORM_CACHE.get_or_compute(&key, || peaks);
-    IMPORTED_AUDIO.write().insert(clip_id, Arc::clone(&imported));
+    IMPORTED_AUDIO
+        .write()
+        .insert(clip_id, Arc::clone(&imported));
 
     // Also add to PlaybackEngine cache for real-time playback
     // (uses source_file path as key, matching how clips reference audio)
-    log::info!("[Import] Caching audio for path: '{}' (clip_id: {}, duration: {:.2}s, samples: {})",
-        path_str, clip_id.0, duration, imported.samples.len());
-    PLAYBACK_ENGINE.cache.files.write().insert(path_str.clone(), imported);
+    log::info!(
+        "[Import] Caching audio for path: '{}' (clip_id: {}, duration: {:.2}s, samples: {})",
+        path_str,
+        clip_id.0,
+        duration,
+        imported.samples.len()
+    );
+    PLAYBACK_ENGINE
+        .cache
+        .files
+        .write()
+        .insert(path_str.clone(), imported);
 
     // Debug: verify cache contents
     let cache_size = PLAYBACK_ENGINE.cache.files.read().len();
@@ -396,11 +415,7 @@ pub extern "C" fn engine_add_clip(
 
 /// Move a clip to a new position (possibly on a different track)
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_move_clip(
-    clip_id: u64,
-    target_track_id: u64,
-    start_time: f64,
-) -> i32 {
+pub extern "C" fn engine_move_clip(clip_id: u64, target_track_id: u64, start_time: f64) -> i32 {
     TRACK_MANAGER.move_clip(ClipId(clip_id), TrackId(target_track_id), start_time);
     1
 }
@@ -493,7 +508,8 @@ pub extern "C" fn engine_get_clip_info(
 /// Returns -1.0 if clip not found
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_clip_duration(clip_id: u64) -> f64 {
-    TRACK_MANAGER.get_clip(ClipId(clip_id))
+    TRACK_MANAGER
+        .get_clip(ClipId(clip_id))
         .map(|c| c.duration)
         .unwrap_or(-1.0)
 }
@@ -502,7 +518,8 @@ pub extern "C" fn engine_get_clip_duration(clip_id: u64) -> f64 {
 /// Returns -1.0 if clip not found
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_clip_source_duration(clip_id: u64) -> f64 {
-    TRACK_MANAGER.get_clip(ClipId(clip_id))
+    TRACK_MANAGER
+        .get_clip(ClipId(clip_id))
         .map(|c| c.source_duration)
         .unwrap_or(-1.0)
 }
@@ -517,7 +534,11 @@ pub extern "C" fn engine_get_audio_file_duration(path: *const c_char) -> f64 {
     };
 
     // Try to get from cache first
-    if let Some(audio) = IMPORTED_AUDIO.read().values().find(|a| a.source_path == path_str) {
+    if let Some(audio) = IMPORTED_AUDIO
+        .read()
+        .values()
+        .find(|a| a.source_path == path_str)
+    {
         return audio.sample_count as f64 / audio.sample_rate as f64;
     }
 
@@ -628,7 +649,9 @@ pub extern "C" fn engine_get_waveform_peaks_in_range(
     let key = format!("clip_{}", clip_id);
 
     if let Some(stereo_peaks) = WAVEFORM_CACHE.cache.read().get(&key) {
-        let peaks = stereo_peaks.left.get_peaks_in_range(start_time, end_time, pixels_per_second);
+        let peaks = stereo_peaks
+            .left
+            .get_peaks_in_range(start_time, end_time, pixels_per_second);
         let count = peaks.len().min(max_peaks);
 
         unsafe {
@@ -724,7 +747,11 @@ pub extern "C" fn engine_set_loop_enabled(enabled: i32) {
 
 /// Get loop region
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_get_loop_region(out_start: *mut f64, out_end: *mut f64, out_enabled: *mut i32) {
+pub extern "C" fn engine_get_loop_region(
+    out_start: *mut f64,
+    out_end: *mut f64,
+    out_enabled: *mut i32,
+) {
     let region = TRACK_MANAGER.get_loop_region();
 
     unsafe {
@@ -748,11 +775,7 @@ pub extern "C" fn engine_get_loop_region(out_start: *mut f64, out_end: *mut f64,
 ///
 /// Returns marker ID
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_add_marker(
-    name: *const c_char,
-    time: f64,
-    color: u32,
-) -> u64 {
+pub extern "C" fn engine_add_marker(name: *const c_char, time: f64, color: u32) -> u64 {
     let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Marker".to_string());
     let marker_id = TRACK_MANAGER.add_marker(time, &name, color);
     marker_id.0
@@ -899,11 +922,7 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
 /// This should be called from the audio thread callback.
 /// output_l and output_r should be arrays of `frames` f64 values.
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_process_audio(
-    output_l: *mut f64,
-    output_r: *mut f64,
-    frames: usize,
-) {
+pub extern "C" fn engine_process_audio(output_l: *mut f64, output_r: *mut f64, frames: usize) {
     if output_l.is_null() || output_r.is_null() || frames == 0 {
         return;
     }
@@ -924,7 +943,9 @@ pub extern "C" fn engine_get_sample_rate() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_sync_loop_from_region() {
     let region = TRACK_MANAGER.get_loop_region();
-    PLAYBACK_ENGINE.position.set_loop(region.start, region.end, region.enabled);
+    PLAYBACK_ENGINE
+        .position
+        .set_loop(region.start, region.end, region.enabled);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -967,7 +988,8 @@ pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_volume(bus_idx: i32) -> f64 {
     if bus_idx >= 0 && bus_idx < 6 {
-        PLAYBACK_ENGINE.get_bus_state(bus_idx as usize)
+        PLAYBACK_ENGINE
+            .get_bus_state(bus_idx as usize)
             .map(|s| s.volume)
             .unwrap_or(1.0)
     } else {
@@ -979,7 +1001,11 @@ pub extern "C" fn engine_get_bus_volume(bus_idx: i32) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_mute(bus_idx: i32) -> i32 {
     if bus_idx >= 0 && bus_idx < 6 {
-        if PLAYBACK_ENGINE.get_bus_state(bus_idx as usize).map(|s| s.muted).unwrap_or(false) {
+        if PLAYBACK_ENGINE
+            .get_bus_state(bus_idx as usize)
+            .map(|s| s.muted)
+            .unwrap_or(false)
+        {
             1
         } else {
             0
@@ -993,7 +1019,11 @@ pub extern "C" fn engine_get_bus_mute(bus_idx: i32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_solo(bus_idx: i32) -> i32 {
     if bus_idx >= 0 && bus_idx < 6 {
-        if PLAYBACK_ENGINE.get_bus_state(bus_idx as usize).map(|s| s.soloed).unwrap_or(false) {
+        if PLAYBACK_ENGINE
+            .get_bus_state(bus_idx as usize)
+            .map(|s| s.soloed)
+            .unwrap_or(false)
+        {
             1
         } else {
             0
@@ -1013,10 +1043,14 @@ pub extern "C" fn engine_get_bus_solo(bus_idx: i32) -> i32 {
 pub extern "C" fn engine_get_peak_meters(out_left: *mut f64, out_right: *mut f64) {
     let (peak_l, peak_r) = PLAYBACK_ENGINE.get_peaks();
     if !out_left.is_null() {
-        unsafe { *out_left = peak_l; }
+        unsafe {
+            *out_left = peak_l;
+        }
     }
     if !out_right.is_null() {
-        unsafe { *out_right = peak_r; }
+        unsafe {
+            *out_right = peak_r;
+        }
     }
 }
 
@@ -1026,10 +1060,14 @@ pub extern "C" fn engine_get_peak_meters(out_left: *mut f64, out_right: *mut f64
 pub extern "C" fn engine_get_rms_meters(out_left: *mut f64, out_right: *mut f64) {
     let (rms_l, rms_r) = PLAYBACK_ENGINE.get_rms();
     if !out_left.is_null() {
-        unsafe { *out_left = rms_l; }
+        unsafe {
+            *out_left = rms_l;
+        }
     }
     if !out_right.is_null() {
-        unsafe { *out_right = rms_r; }
+        unsafe {
+            *out_right = rms_r;
+        }
     }
 }
 
@@ -1044,13 +1082,19 @@ pub extern "C" fn engine_get_lufs_meters(
     let (momentary, short, integrated) = PLAYBACK_ENGINE.get_lufs();
 
     if !out_momentary.is_null() {
-        unsafe { *out_momentary = momentary; }
+        unsafe {
+            *out_momentary = momentary;
+        }
     }
     if !out_short.is_null() {
-        unsafe { *out_short = short; }
+        unsafe {
+            *out_short = short;
+        }
     }
     if !out_integrated.is_null() {
-        unsafe { *out_integrated = integrated; }
+        unsafe {
+            *out_integrated = integrated;
+        }
     }
 }
 
@@ -1061,10 +1105,14 @@ pub extern "C" fn engine_get_true_peak_meters(out_left: *mut f64, out_right: *mu
     let (db_l, db_r) = PLAYBACK_ENGINE.get_true_peak();
 
     if !out_left.is_null() {
-        unsafe { *out_left = db_l; }
+        unsafe {
+            *out_left = db_l;
+        }
     }
     if !out_right.is_null() {
-        unsafe { *out_right = db_r; }
+        unsafe {
+            *out_right = db_r;
+        }
     }
 }
 
@@ -1087,8 +1135,20 @@ pub extern "C" fn metering_get_master_dynamic_range() -> f32 {
     let (peak_l, peak_r) = PLAYBACK_ENGINE.get_peaks();
     let (rms_l, rms_r) = PLAYBACK_ENGINE.get_rms();
 
-    let peak_db = |p: f64| if p <= 0.000001 { -60.0 } else { 20.0 * p.log10() };
-    let rms_db = |r: f64| if r <= 0.000001 { -60.0 } else { 20.0 * r.log10() };
+    let peak_db = |p: f64| {
+        if p <= 0.000001 {
+            -60.0
+        } else {
+            20.0 * p.log10()
+        }
+    };
+    let rms_db = |r: f64| {
+        if r <= 0.000001 {
+            -60.0
+        } else {
+            20.0 * r.log10()
+        }
+    };
 
     let peak_max = peak_db(peak_l).max(peak_db(peak_r));
     let rms_avg = (rms_db(rms_l) + rms_db(rms_r)) / 2.0;
@@ -1126,11 +1186,26 @@ use crate::track_manager::{ClipFxSlotId, ClipFxType};
 fn fx_type_from_int(value: u8) -> ClipFxType {
     match value {
         0 => ClipFxType::Gain { db: 0.0, pan: 0.0 },
-        1 => ClipFxType::Compressor { ratio: 4.0, threshold_db: -18.0, attack_ms: 10.0, release_ms: 100.0 },
+        1 => ClipFxType::Compressor {
+            ratio: 4.0,
+            threshold_db: -18.0,
+            attack_ms: 10.0,
+            release_ms: 100.0,
+        },
         2 => ClipFxType::Limiter { ceiling_db: -0.3 },
-        3 => ClipFxType::Gate { threshold_db: -40.0, attack_ms: 1.0, release_ms: 50.0 },
-        4 => ClipFxType::Saturation { drive: 0.5, mix: 1.0 },
-        5 => ClipFxType::PitchShift { semitones: 0.0, cents: 0.0 },
+        3 => ClipFxType::Gate {
+            threshold_db: -40.0,
+            attack_ms: 1.0,
+            release_ms: 50.0,
+        },
+        4 => ClipFxType::Saturation {
+            drive: 0.5,
+            mix: 1.0,
+        },
+        5 => ClipFxType::PitchShift {
+            semitones: 0.0,
+            cents: 0.0,
+        },
         6 => ClipFxType::TimeStretch { ratio: 1.0 },
         7 => ClipFxType::ProEq { bands: 8 },
         8 => ClipFxType::UltraEq,
@@ -1139,7 +1214,10 @@ fn fx_type_from_int(value: u8) -> ClipFxType {
         11 => ClipFxType::Neve1073,
         12 => ClipFxType::MorphEq,
         13 => ClipFxType::RoomCorrection,
-        14 => ClipFxType::External { plugin_id: String::new(), state: None },
+        14 => ClipFxType::External {
+            plugin_id: String::new(),
+            state: None,
+        },
         _ => ClipFxType::Gain { db: 0.0, pan: 0.0 },
     }
 }
@@ -1148,7 +1226,8 @@ fn fx_type_from_int(value: u8) -> ClipFxType {
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_add(clip_id: u64, fx_type: u8) -> u64 {
     let fx = fx_type_from_int(fx_type);
-    TRACK_MANAGER.add_clip_fx(ClipId(clip_id), fx)
+    TRACK_MANAGER
+        .add_clip_fx(ClipId(clip_id), fx)
         .map(|id| id.0)
         .unwrap_or(0)
 }
@@ -1156,25 +1235,41 @@ pub extern "C" fn clip_fx_add(clip_id: u64, fx_type: u8) -> u64 {
 /// Remove FX slot from clip
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_remove(clip_id: u64, slot_id: u64) -> i32 {
-    if TRACK_MANAGER.remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id)) { 1 } else { 0 }
+    if TRACK_MANAGER.remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Move FX slot to new position
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: u64) -> i32 {
-    if TRACK_MANAGER.move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index as usize) { 1 } else { 0 }
+    if TRACK_MANAGER.move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index as usize) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set FX slot bypass
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_bypass(clip_id: u64, slot_id: u64, bypass: i32) -> i32 {
-    if TRACK_MANAGER.set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass != 0) { 1 } else { 0 }
+    if TRACK_MANAGER.set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass != 0) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set entire FX chain bypass
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_chain_bypass(clip_id: u64, bypass: i32) -> i32 {
-    if TRACK_MANAGER.set_clip_fx_chain_bypass(ClipId(clip_id), bypass != 0) { 1 } else { 0 }
+    if TRACK_MANAGER.set_clip_fx_chain_bypass(ClipId(clip_id), bypass != 0) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set FX slot wet/dry mix
@@ -1182,27 +1277,46 @@ pub extern "C" fn clip_fx_set_chain_bypass(clip_id: u64, bypass: i32) -> i32 {
 pub extern "C" fn clip_fx_set_wet_dry(clip_id: u64, slot_id: u64, wet_dry: f64) -> i32 {
     if TRACK_MANAGER.update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
         slot.wet_dry = wet_dry.clamp(0.0, 1.0);
-    }) { 1 } else { 0 }
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set clip FX chain input gain
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_input_gain(clip_id: u64, gain_db: f64) -> i32 {
-    if TRACK_MANAGER.set_clip_fx_input_gain(ClipId(clip_id), gain_db) { 1 } else { 0 }
+    if TRACK_MANAGER.set_clip_fx_input_gain(ClipId(clip_id), gain_db) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set clip FX chain output gain
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_output_gain(clip_id: u64, gain_db: f64) -> i32 {
-    if TRACK_MANAGER.set_clip_fx_output_gain(ClipId(clip_id), gain_db) { 1 } else { 0 }
+    if TRACK_MANAGER.set_clip_fx_output_gain(ClipId(clip_id), gain_db) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Gain FX parameters
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_gain_params(clip_id: u64, slot_id: u64, db: f64, pan: f64) -> i32 {
     if TRACK_MANAGER.update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-        slot.fx_type = ClipFxType::Gain { db, pan: pan.clamp(-1.0, 1.0) };
-    }) { 1 } else { 0 }
+        slot.fx_type = ClipFxType::Gain {
+            db,
+            pan: pan.clamp(-1.0, 1.0),
+        };
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Compressor FX parameters
@@ -1222,15 +1336,25 @@ pub extern "C" fn clip_fx_set_compressor_params(
             attack_ms: attack_ms.clamp(0.01, 500.0),
             release_ms: release_ms.clamp(1.0, 5000.0),
         };
-    }) { 1 } else { 0 }
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Limiter FX parameters
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_limiter_params(clip_id: u64, slot_id: u64, ceiling_db: f64) -> i32 {
     if TRACK_MANAGER.update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
-        slot.fx_type = ClipFxType::Limiter { ceiling_db: ceiling_db.clamp(-30.0, 0.0) };
-    }) { 1 } else { 0 }
+        slot.fx_type = ClipFxType::Limiter {
+            ceiling_db: ceiling_db.clamp(-30.0, 0.0),
+        };
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Gate FX parameters
@@ -1248,30 +1372,51 @@ pub extern "C" fn clip_fx_set_gate_params(
             attack_ms: attack_ms.clamp(0.01, 100.0),
             release_ms: release_ms.clamp(1.0, 2000.0),
         };
-    }) { 1 } else { 0 }
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Saturation FX parameters
 #[unsafe(no_mangle)]
-pub extern "C" fn clip_fx_set_saturation_params(clip_id: u64, slot_id: u64, drive: f64, mix: f64) -> i32 {
+pub extern "C" fn clip_fx_set_saturation_params(
+    clip_id: u64,
+    slot_id: u64,
+    drive: f64,
+    mix: f64,
+) -> i32 {
     if TRACK_MANAGER.update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
         slot.fx_type = ClipFxType::Saturation {
             drive: drive.clamp(0.0, 1.0),
             mix: mix.clamp(0.0, 1.0),
         };
-    }) { 1 } else { 0 }
+    }) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Copy FX chain from one clip to another
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_copy(source_clip_id: u64, target_clip_id: u64) -> i32 {
-    if TRACK_MANAGER.copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id)) { 1 } else { 0 }
+    if TRACK_MANAGER.copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Clear all FX from clip
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_clear(clip_id: u64) -> i32 {
-    if TRACK_MANAGER.clear_clip_fx(ClipId(clip_id)) { 1 } else { 0 }
+    if TRACK_MANAGER.clear_clip_fx(ClipId(clip_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1287,7 +1432,11 @@ pub extern "C" fn click_set_enabled(enabled: i32) {
 /// Check if click track is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn click_is_enabled() -> i32 {
-    if CLICK_TRACK.read().is_enabled() { 1 } else { 0 }
+    if CLICK_TRACK.read().is_enabled() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set click volume (0.0 - 1.0)
@@ -1511,7 +1660,11 @@ lazy_static::lazy_static! {
 /// Add a sidechain route
 /// Returns route ID (non-zero) or 0 on failure
 #[unsafe(no_mangle)]
-pub extern "C" fn sidechain_add_route(source_id: u32, dest_processor_id: u32, pre_fader: i32) -> u32 {
+pub extern "C" fn sidechain_add_route(
+    source_id: u32,
+    dest_processor_id: u32,
+    pre_fader: i32,
+) -> u32 {
     let mut router = SIDECHAIN_ROUTER.write();
     router.add_route(source_id, dest_processor_id, pre_fader != 0)
 }
@@ -1529,7 +1682,10 @@ pub extern "C" fn sidechain_remove_route(route_id: u32) -> i32 {
 pub extern "C" fn sidechain_create_input(processor_id: u32) {
     let mut inputs = SIDECHAIN_INPUTS.write();
     if !inputs.contains_key(&processor_id) {
-        inputs.insert(processor_id, crate::sidechain::SidechainInput::new(48000.0, 512));
+        inputs.insert(
+            processor_id,
+            crate::sidechain::SidechainInput::new(48000.0, 512),
+        );
     }
 }
 
@@ -1682,7 +1838,11 @@ pub extern "C" fn automation_set_recording(enabled: i32) {
 /// Check if automation recording is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn automation_is_recording() -> i32 {
-    if AUTOMATION_ENGINE.is_recording() { 1 } else { 0 }
+    if AUTOMATION_ENGINE.is_recording() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Touch parameter (start recording for touch/latch modes)
@@ -1747,8 +1907,14 @@ pub extern "C" fn automation_record_change(track_id: u64, param_name: *const c_c
 
 /// Add automation point directly
 #[unsafe(no_mangle)]
-pub extern "C" fn automation_add_point(track_id: u64, param_name: *const c_char, time_samples: u64, value: f64, curve_type: u8) {
-    use crate::automation::{ParamId, TargetType, AutomationPoint, CurveType};
+pub extern "C" fn automation_add_point(
+    track_id: u64,
+    param_name: *const c_char,
+    time_samples: u64,
+    value: f64,
+    curve_type: u8,
+) {
+    use crate::automation::{AutomationPoint, CurveType, ParamId, TargetType};
     let name = if param_name.is_null() {
         "volume".to_string()
     } else {
@@ -1782,7 +1948,11 @@ pub extern "C" fn automation_add_point(track_id: u64, param_name: *const c_char,
 
 /// Get automation value at position
 #[unsafe(no_mangle)]
-pub extern "C" fn automation_get_value(track_id: u64, param_name: *const c_char, time_samples: u64) -> f64 {
+pub extern "C" fn automation_get_value(
+    track_id: u64,
+    param_name: *const c_char,
+    time_samples: u64,
+) -> f64 {
     use crate::automation::{ParamId, TargetType};
     let name = if param_name.is_null() {
         "volume".to_string()
@@ -1909,7 +2079,7 @@ pub extern "C" fn transient_detect(
     out_positions: *mut u64,
     out_max_count: u32,
 ) -> u32 {
-    use rf_dsp::transient::{TransientDetector, DetectionAlgorithm};
+    use rf_dsp::transient::{DetectionAlgorithm, TransientDetector};
 
     if samples.is_null() || out_positions.is_null() || length == 0 {
         return 0;
@@ -1948,11 +2118,7 @@ pub extern "C" fn transient_detect(
 /// Detect pitch at position
 /// Returns frequency in Hz (0.0 if no pitch detected)
 #[unsafe(no_mangle)]
-pub extern "C" fn pitch_detect(
-    samples: *const f64,
-    length: u32,
-    sample_rate: f64,
-) -> f64 {
+pub extern "C" fn pitch_detect(samples: *const f64, length: u32, sample_rate: f64) -> f64 {
     use rf_dsp::pitch::PitchDetector;
 
     if samples.is_null() || length == 0 {
@@ -1972,11 +2138,7 @@ pub extern "C" fn pitch_detect(
 /// Detect pitch and return MIDI note number
 /// Returns -1 if no pitch detected
 #[unsafe(no_mangle)]
-pub extern "C" fn pitch_detect_midi(
-    samples: *const f64,
-    length: u32,
-    sample_rate: f64,
-) -> i32 {
+pub extern "C" fn pitch_detect_midi(samples: *const f64, length: u32, sample_rate: f64) -> i32 {
     use rf_dsp::pitch::PitchDetector;
 
     if samples.is_null() || length == 0 {
@@ -2026,8 +2188,8 @@ pub extern "C" fn engine_clear_all() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
 use std::sync::mpsc;
+use std::thread;
 
 static AUDIO_STREAM_RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -2070,8 +2232,11 @@ pub extern "C" fn engine_start_playback() -> i32 {
 
         let channels = config.channels() as usize;
 
-        log::info!("Starting audio stream: {} Hz, {} channels",
-                   config.sample_rate().0, channels);
+        log::info!(
+            "Starting audio stream: {} Hz, {} channels",
+            config.sample_rate().0,
+            channels
+        );
 
         // Pre-allocate processing buffers
         let mut output_l = vec![0.0f64; 4096];
@@ -2133,7 +2298,11 @@ pub extern "C" fn engine_start_playback() -> i32 {
     // Wait a bit for thread to start
     std::thread::sleep(std::time::Duration::from_millis(50));
 
-    if AUDIO_STREAM_RUNNING.load(Ordering::Acquire) { 1 } else { 0 }
+    if AUDIO_STREAM_RUNNING.load(Ordering::Acquire) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Stop the audio output stream
@@ -2158,7 +2327,11 @@ pub extern "C" fn engine_stop_playback() {
 /// Check if audio stream is running
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_is_playback_running() -> i32 {
-    if AUDIO_STREAM_RUNNING.load(Ordering::Relaxed) { 1 } else { 0 }
+    if AUDIO_STREAM_RUNNING.load(Ordering::Relaxed) {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2267,8 +2440,7 @@ pub extern "C" fn engine_project_mark_clean() {
 /// Set project file path (empty string = None)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_project_set_file_path(path: *const c_char) {
-    let path_opt = unsafe { cstr_to_string(path) }
-        .filter(|s| !s.is_empty());
+    let path_opt = unsafe { cstr_to_string(path) }.filter(|s| !s.is_empty());
     PROJECT_STATE.set_file_path(path_opt);
 }
 
@@ -2303,7 +2475,8 @@ pub extern "C" fn engine_get_memory_usage() -> f32 {
     // Approximate memory usage from caches
     let audio_cache_bytes = PLAYBACK_ENGINE.cache().memory_usage();
     let waveform_cache_bytes = WAVEFORM_CACHE.memory_usage();
-    let imported_audio_bytes: usize = IMPORTED_AUDIO.read()
+    let imported_audio_bytes: usize = IMPORTED_AUDIO
+        .read()
         .values()
         .map(|a| a.samples.len() * std::mem::size_of::<f32>())
         .sum();
@@ -2323,7 +2496,12 @@ lazy_static::lazy_static! {
 }
 
 /// Get or create EQ processor for track
-fn get_or_create_eq(track_id: u32) -> parking_lot::RwLockWriteGuard<'static, std::collections::HashMap<u32, crate::dsp_wrappers::ProEqWrapper>> {
+fn get_or_create_eq(
+    track_id: u32,
+) -> parking_lot::RwLockWriteGuard<
+    'static,
+    std::collections::HashMap<u32, crate::dsp_wrappers::ProEqWrapper>,
+> {
     let mut eqs = EQ_PROCESSORS.write();
     if !eqs.contains_key(&track_id) {
         eqs.insert(track_id, crate::dsp_wrappers::ProEqWrapper::new(48000.0));
@@ -2337,7 +2515,12 @@ pub extern "C" fn eq_set_band_enabled(track_id: u32, band_index: u8, enabled: i3
     let mut eqs = get_or_create_eq(track_id);
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band_enabled(band_index as usize, enabled != 0);
-        log::debug!("EQ track {} band {} enabled: {}", track_id, band_index, enabled != 0);
+        log::debug!(
+            "EQ track {} band {} enabled: {}",
+            track_id,
+            band_index,
+            enabled != 0
+        );
         1
     } else {
         0
@@ -2350,7 +2533,12 @@ pub extern "C" fn eq_set_band_frequency(track_id: u32, band_index: u8, frequency
     let mut eqs = get_or_create_eq(track_id);
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band_frequency(band_index as usize, frequency);
-        log::debug!("EQ track {} band {} freq: {} Hz", track_id, band_index, frequency);
+        log::debug!(
+            "EQ track {} band {} freq: {} Hz",
+            track_id,
+            band_index,
+            frequency
+        );
         1
     } else {
         0
@@ -2363,7 +2551,12 @@ pub extern "C" fn eq_set_band_gain(track_id: u32, band_index: u8, gain: f64) -> 
     let mut eqs = get_or_create_eq(track_id);
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band_gain(band_index as usize, gain);
-        log::debug!("EQ track {} band {} gain: {} dB", track_id, band_index, gain);
+        log::debug!(
+            "EQ track {} band {} gain: {} dB",
+            track_id,
+            band_index,
+            gain
+        );
         1
     } else {
         0
@@ -2465,7 +2658,8 @@ pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
     };
 
     // Load or get cached audio
-    let audio = IMPORTED_AUDIO.read()
+    let audio = IMPORTED_AUDIO
+        .read()
         .get(&ClipId(clip_id))
         .cloned()
         .or_else(|| {
@@ -2473,7 +2667,9 @@ pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
             match AudioImporter::import(std::path::Path::new(&clip.source_file)) {
                 Ok(audio) => {
                     let arc = Arc::new(audio);
-                    IMPORTED_AUDIO.write().insert(ClipId(clip_id), Arc::clone(&arc));
+                    IMPORTED_AUDIO
+                        .write()
+                        .insert(ClipId(clip_id), Arc::clone(&arc));
                     Some(arc)
                 }
                 Err(e) => {
@@ -2510,7 +2706,10 @@ pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
     }
 
     if peak < 1e-6 {
-        log::warn!("Clip {} has near-zero peak level, skipping normalization", clip_id);
+        log::warn!(
+            "Clip {} has near-zero peak level, skipping normalization",
+            clip_id
+        );
         return 1;
     }
 
@@ -2521,7 +2720,9 @@ pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
 
     log::info!(
         "Normalizing clip {}: peak={:.2} dB, applying {:.2} dB gain",
-        clip_id, peak_db, gain_db
+        clip_id,
+        peak_db,
+        gain_db
     );
 
     // Apply gain to clip
@@ -2561,7 +2762,12 @@ pub extern "C" fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) 
     TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
         clip.fade_in = duration_sec;
     });
-    log::debug!("Fade in clip {} for {} sec, curve {}", clip_id, duration_sec, curve_type);
+    log::debug!(
+        "Fade in clip {} for {} sec, curve {}",
+        clip_id,
+        duration_sec,
+        curve_type
+    );
     1
 }
 
@@ -2571,7 +2777,12 @@ pub extern "C" fn clip_fade_out(clip_id: u64, duration_sec: f64, curve_type: u8)
     TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
         clip.fade_out = duration_sec;
     });
-    log::debug!("Fade out clip {} for {} sec, curve {}", clip_id, duration_sec, curve_type);
+    log::debug!(
+        "Fade out clip {} for {} sec, curve {}",
+        clip_id,
+        duration_sec,
+        curve_type
+    );
     1
 }
 
@@ -2648,7 +2859,7 @@ pub extern "C" fn track_set_color(track_id: u64, color: u32) -> i32 {
 // DYNAMIC ROUTING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use crate::routing::{RoutingGraph, ChannelKind, OutputDestination, ChannelId};
+use crate::routing::{ChannelId, ChannelKind, OutputDestination, RoutingGraph};
 
 lazy_static::lazy_static! {
     static ref ROUTING_GRAPH: RwLock<RoutingGraph> = RwLock::new(RoutingGraph::new(256));
@@ -2675,20 +2886,30 @@ pub extern "C" fn routing_create_aux(name: *const c_char) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_create_audio(name: *const c_char) -> u32 {
     let name = unsafe { cstr_to_string(name) };
-    ROUTING_GRAPH.write().create_channel(ChannelKind::Audio, name.as_deref()).0
+    ROUTING_GRAPH
+        .write()
+        .create_channel(ChannelKind::Audio, name.as_deref())
+        .0
 }
 
 /// Delete a channel
 /// Returns 1 on success, 0 if channel not found or is master
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_delete_channel(channel_id: u32) -> i32 {
-    if ROUTING_GRAPH.write().delete_channel(ChannelId(channel_id)) { 1 } else { 0 }
+    if ROUTING_GRAPH.write().delete_channel(ChannelId(channel_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set channel output to master
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_set_output_master(channel_id: u32) -> i32 {
-    match ROUTING_GRAPH.write().set_output(ChannelId(channel_id), OutputDestination::Master) {
+    match ROUTING_GRAPH
+        .write()
+        .set_output(ChannelId(channel_id), OutputDestination::Master)
+    {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -2700,7 +2921,7 @@ pub extern "C" fn routing_set_output_master(channel_id: u32) -> i32 {
 pub extern "C" fn routing_set_output_channel(from_id: u32, to_id: u32) -> i32 {
     match ROUTING_GRAPH.write().set_output(
         ChannelId(from_id),
-        OutputDestination::Channel(ChannelId(to_id))
+        OutputDestination::Channel(ChannelId(to_id)),
     ) {
         Ok(_) => 1,
         Err(_) => 0,
@@ -2711,11 +2932,10 @@ pub extern "C" fn routing_set_output_channel(from_id: u32, to_id: u32) -> i32 {
 /// Returns 1 on success, 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_add_send(from_id: u32, to_id: u32, pre_fader: i32) -> i32 {
-    match ROUTING_GRAPH.write().add_send(
-        ChannelId(from_id),
-        ChannelId(to_id),
-        pre_fader != 0
-    ) {
+    match ROUTING_GRAPH
+        .write()
+        .add_send(ChannelId(from_id), ChannelId(to_id), pre_fader != 0)
+    {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -2746,7 +2966,8 @@ pub extern "C" fn routing_set_fader(channel_id: u32, db: f64) -> i32 {
 /// Get channel fader level in dB
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_get_fader(channel_id: u32) -> f64 {
-    ROUTING_GRAPH.read()
+    ROUTING_GRAPH
+        .read()
         .get(ChannelId(channel_id))
         .map(|c| c.fader_db())
         .unwrap_or(0.0)
@@ -2814,7 +3035,8 @@ pub extern "C" fn routing_get_all_channels(out_ids: *mut u32, max_count: usize) 
 /// Get channel kind (0=Audio, 1=Bus, 2=Aux, 3=VCA, 4=Master)
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_get_channel_kind(channel_id: u32) -> u8 {
-    ROUTING_GRAPH.read()
+    ROUTING_GRAPH
+        .read()
         .get(ChannelId(channel_id))
         .map(|c| match c.kind {
             ChannelKind::Audio => 0,
@@ -2862,7 +3084,11 @@ pub extern "C" fn routing_process() {
 /// Get master channel output (fills stereo buffers)
 /// Returns number of samples written
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_get_output(out_left: *mut f64, out_right: *mut f64, max_samples: usize) -> usize {
+pub extern "C" fn routing_get_output(
+    out_left: *mut f64,
+    out_right: *mut f64,
+    max_samples: usize,
+) -> usize {
     if out_left.is_null() || out_right.is_null() {
         return 0;
     }
@@ -2882,7 +3108,7 @@ pub extern "C" fn routing_get_output(out_left: *mut f64, out_right: *mut f64, ma
 // VCA FADER FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use crate::groups::{GroupManager, LinkParameter, LinkMode};
+use crate::groups::{GroupManager, LinkMode, LinkParameter};
 
 lazy_static::lazy_static! {
     static ref GROUP_MANAGER: RwLock<GroupManager> = RwLock::new(GroupManager::new());
@@ -2932,8 +3158,10 @@ pub extern "C" fn vca_set_level(vca_id: u64, level_db: f64) -> i32 {
 /// Get VCA level (dB)
 #[unsafe(no_mangle)]
 pub extern "C" fn vca_get_level(vca_id: u64) -> f64 {
-    GROUP_MANAGER.read()
-        .vcas.get(&vca_id)
+    GROUP_MANAGER
+        .read()
+        .vcas
+        .get(&vca_id)
         .map(|v| v.level_db)
         .unwrap_or(0.0)
 }
@@ -2971,7 +3199,11 @@ pub extern "C" fn vca_get_track_contribution(track_id: u64) -> f64 {
 /// Check if track is muted by any VCA
 #[unsafe(no_mangle)]
 pub extern "C" fn vca_is_track_muted(track_id: u64) -> i32 {
-    if GROUP_MANAGER.read().is_vca_muted(track_id) { 1 } else { 0 }
+    if GROUP_MANAGER.read().is_vca_muted(track_id) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set VCA color
@@ -3001,8 +3233,10 @@ pub extern "C" fn vca_set_trim(vca_id: u64, track_id: u64, trim_db: f64) -> i32 
 /// Get VCA member count
 #[unsafe(no_mangle)]
 pub extern "C" fn vca_get_member_count(vca_id: u64) -> usize {
-    GROUP_MANAGER.read()
-        .vcas.get(&vca_id)
+    GROUP_MANAGER
+        .read()
+        .vcas
+        .get(&vca_id)
         .map(|v| v.members.len())
         .unwrap_or(0)
 }
@@ -3099,7 +3333,11 @@ pub extern "C" fn group_set_active(group_id: u64, active: i32) -> i32 {
 pub extern "C" fn group_set_link_mode(group_id: u64, mode: u8) -> i32 {
     let mut mgr = GROUP_MANAGER.write();
     if let Some(group) = mgr.groups.get_mut(&group_id) {
-        group.link_mode = if mode == 0 { LinkMode::Absolute } else { LinkMode::Relative };
+        group.link_mode = if mode == 0 {
+            LinkMode::Absolute
+        } else {
+            LinkMode::Relative
+        };
         1
     } else {
         0
@@ -3148,8 +3386,10 @@ pub extern "C" fn group_is_param_linked(group_id: u64, param: u8) -> i32 {
         _ => return 0,
     };
 
-    GROUP_MANAGER.read()
-        .groups.get(&group_id)
+    GROUP_MANAGER
+        .read()
+        .groups
+        .get(&group_id)
         .map(|g| if g.is_linked(link_param) { 1 } else { 0 })
         .unwrap_or(0)
 }
@@ -3257,8 +3497,10 @@ pub extern "C" fn folder_toggle(folder_id: u64) -> i32 {
 /// Check if folder is expanded
 #[unsafe(no_mangle)]
 pub extern "C" fn folder_is_expanded(folder_id: u64) -> i32 {
-    GROUP_MANAGER.read()
-        .folders.get(&folder_id)
+    GROUP_MANAGER
+        .read()
+        .folders
+        .get(&folder_id)
         .map(|f| if f.expanded { 1 } else { 0 })
         .unwrap_or(0)
 }
@@ -3266,7 +3508,11 @@ pub extern "C" fn folder_is_expanded(folder_id: u64) -> i32 {
 /// Get folder children (fills buffer)
 /// Returns actual count written
 #[unsafe(no_mangle)]
-pub extern "C" fn folder_get_children(folder_id: u64, out_track_ids: *mut u64, max_count: usize) -> usize {
+pub extern "C" fn folder_get_children(
+    folder_id: u64,
+    out_track_ids: *mut u64,
+    max_count: usize,
+) -> usize {
     if out_track_ids.is_null() {
         return 0;
     }
@@ -3288,7 +3534,8 @@ pub extern "C" fn folder_get_children(folder_id: u64, out_track_ids: *mut u64, m
 /// Get parent folder for track (returns folder ID or 0 if none)
 #[unsafe(no_mangle)]
 pub extern "C" fn folder_get_parent(track_id: u64) -> u64 {
-    GROUP_MANAGER.read()
+    GROUP_MANAGER
+        .read()
         .parent_folder(track_id)
         .map(|f| f.id)
         .unwrap_or(0)
@@ -3327,7 +3574,11 @@ pub extern "C" fn elastic_create(clip_id: u32, sample_rate: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_remove(clip_id: u32) -> i32 {
     let mut procs = ELASTIC_PROCESSORS.write();
-    if procs.remove(&clip_id).is_some() { 1 } else { 0 }
+    if procs.remove(&clip_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set stretch ratio (0.1 to 10.0)
@@ -3337,7 +3588,9 @@ pub extern "C" fn elastic_set_ratio(clip_id: u32, ratio: f64) -> i32 {
     if let Some(proc) = procs.get_mut(&clip_id) {
         proc.set_stretch_ratio(ratio);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set pitch shift in semitones (-24 to +24)
@@ -3347,7 +3600,9 @@ pub extern "C" fn elastic_set_pitch(clip_id: u32, semitones: f64) -> i32 {
     if let Some(proc) = procs.get_mut(&clip_id) {
         proc.set_pitch_shift(semitones);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set quality preset (0=Preview, 1=Standard, 2=High, 3=Ultra)
@@ -3363,7 +3618,9 @@ pub extern "C" fn elastic_set_quality(clip_id: u32, quality: u8) -> i32 {
         };
         proc.set_quality(q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set algorithm mode (0=Auto, 1=Polyphonic, 2=Monophonic, 3=Rhythmic, 4=Speech, 5=Creative)
@@ -3381,7 +3638,9 @@ pub extern "C" fn elastic_set_mode(clip_id: u32, mode: u8) -> i32 {
         };
         proc.set_mode(m);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable STN decomposition
@@ -3393,7 +3652,9 @@ pub extern "C" fn elastic_set_stn_enabled(clip_id: u32, enabled: i32) -> i32 {
         config.use_stn = enabled != 0;
         proc.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable transient preservation
@@ -3405,7 +3666,9 @@ pub extern "C" fn elastic_set_preserve_transients(clip_id: u32, enabled: i32) ->
         config.preserve_transients = enabled != 0;
         proc.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable formant preservation
@@ -3417,7 +3680,9 @@ pub extern "C" fn elastic_set_preserve_formants(clip_id: u32, enabled: i32) -> i
         config.preserve_formants = enabled != 0;
         proc.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set tonal threshold (0.0-1.0)
@@ -3429,7 +3694,9 @@ pub extern "C" fn elastic_set_tonal_threshold(clip_id: u32, threshold: f64) -> i
         config.tonal_threshold = threshold.clamp(0.0, 1.0);
         proc.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set transient threshold (0.0-1.0)
@@ -3441,7 +3708,9 @@ pub extern "C" fn elastic_set_transient_threshold(clip_id: u32, threshold: f64) 
         config.transient_threshold = threshold.clamp(0.0, 1.0);
         proc.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Process audio with time stretching
@@ -3486,7 +3755,12 @@ pub extern "C" fn elastic_process_stereo(
     output_r: *mut f64,
     output_max_len: u32,
 ) -> u32 {
-    if input_l.is_null() || input_r.is_null() || output_l.is_null() || output_r.is_null() || input_len == 0 {
+    if input_l.is_null()
+        || input_r.is_null()
+        || output_l.is_null()
+        || output_r.is_null()
+        || input_len == 0
+    {
         return 0;
     }
 
@@ -3501,7 +3775,10 @@ pub extern "C" fn elastic_process_stereo(
 
     let (left_out, right_out) = proc.process_stereo(left_in, right_in);
 
-    let copy_len = left_out.len().min(right_out.len()).min(output_max_len as usize);
+    let copy_len = left_out
+        .len()
+        .min(right_out.len())
+        .min(output_max_len as usize);
 
     let left_slice = unsafe { std::slice::from_raw_parts_mut(output_l, copy_len) };
     let right_slice = unsafe { std::slice::from_raw_parts_mut(output_r, copy_len) };
@@ -3552,7 +3829,9 @@ pub extern "C" fn elastic_reset(clip_id: u32) -> i32 {
     if let Some(proc) = procs.get_mut(&clip_id) {
         proc.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3604,7 +3883,11 @@ pub extern "C" fn piano_roll_add_note(
 pub extern "C" fn piano_roll_remove_note(clip_id: u32, note_id: u64) -> i32 {
     let mut states = PIANO_ROLL_STATES.write();
     if let Some(state) = states.get_mut(&clip_id) {
-        if state.remove_note(note_id).is_some() { 1 } else { 0 }
+        if state.remove_note(note_id).is_some() {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -3679,7 +3962,11 @@ pub extern "C" fn piano_roll_move_selected(clip_id: u32, delta_tick: i64, delta_
 
 /// Resize selected notes
 #[unsafe(no_mangle)]
-pub extern "C" fn piano_roll_resize_selected(clip_id: u32, delta_duration: i64, from_start: i32) -> i32 {
+pub extern "C" fn piano_roll_resize_selected(
+    clip_id: u32,
+    delta_duration: i64,
+    from_start: i32,
+) -> i32 {
     let mut states = PIANO_ROLL_STATES.write();
     if let Some(state) = states.get_mut(&clip_id) {
         state.resize_selected(delta_duration, from_start != 0);
@@ -3914,13 +4201,27 @@ pub extern "C" fn piano_roll_get_note(
     if let Some(state) = states.get(&clip_id) {
         if let Some(note) = state.notes.get(index as usize) {
             unsafe {
-                if !out_id.is_null() { *out_id = note.id; }
-                if !out_note.is_null() { *out_note = note.note.note; }
-                if !out_start_tick.is_null() { *out_start_tick = note.note.start_tick; }
-                if !out_duration.is_null() { *out_duration = note.note.duration_ticks; }
-                if !out_velocity.is_null() { *out_velocity = note.note.velocity; }
-                if !out_selected.is_null() { *out_selected = if note.selected { 1 } else { 0 }; }
-                if !out_muted.is_null() { *out_muted = if note.muted { 1 } else { 0 }; }
+                if !out_id.is_null() {
+                    *out_id = note.id;
+                }
+                if !out_note.is_null() {
+                    *out_note = note.note.note;
+                }
+                if !out_start_tick.is_null() {
+                    *out_start_tick = note.note.start_tick;
+                }
+                if !out_duration.is_null() {
+                    *out_duration = note.note.duration_ticks;
+                }
+                if !out_velocity.is_null() {
+                    *out_velocity = note.note.velocity;
+                }
+                if !out_selected.is_null() {
+                    *out_selected = if note.selected { 1 } else { 0 };
+                }
+                if !out_muted.is_null() {
+                    *out_muted = if note.muted { 1 } else { 0 };
+                }
             }
             1
         } else {
@@ -3944,7 +4245,11 @@ pub extern "C" fn piano_roll_note_at(clip_id: u32, tick: u64, note: u8) -> u64 {
 
 /// Set view zoom
 #[unsafe(no_mangle)]
-pub extern "C" fn piano_roll_set_zoom(clip_id: u32, pixels_per_beat: f64, pixels_per_note: f64) -> i32 {
+pub extern "C" fn piano_roll_set_zoom(
+    clip_id: u32,
+    pixels_per_beat: f64,
+    pixels_per_note: f64,
+) -> i32 {
     let mut states = PIANO_ROLL_STATES.write();
     if let Some(state) = states.get_mut(&clip_id) {
         state.view.pixels_per_beat = pixels_per_beat.clamp(20.0, 500.0);
@@ -4007,7 +4312,10 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn convolution_reverb_create(track_id: u32, sample_rate: f64) -> i32 {
     let mut reverbs = CONVOLUTION_REVERBS.write();
-    reverbs.insert(track_id, rf_dsp::reverb::ConvolutionReverb::new(sample_rate));
+    reverbs.insert(
+        track_id,
+        rf_dsp::reverb::ConvolutionReverb::new(sample_rate),
+    );
     1
 }
 
@@ -4035,9 +4343,8 @@ pub extern "C" fn convolution_reverb_load_ir(
 
     let mut reverbs = CONVOLUTION_REVERBS.write();
     if let Some(reverb) = reverbs.get_mut(&track_id) {
-        let samples = unsafe {
-            std::slice::from_raw_parts(ir_samples, (length * channel_count) as usize)
-        };
+        let samples =
+            unsafe { std::slice::from_raw_parts(ir_samples, (length * channel_count) as usize) };
 
         if channel_count == 1 {
             reverb.load_ir_mono(samples);
@@ -4137,7 +4444,10 @@ pub extern "C" fn convolution_reverb_get_latency(track_id: u32) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_create(track_id: u32, sample_rate: f64) -> i32 {
     let mut reverbs = ALGORITHMIC_REVERBS.write();
-    reverbs.insert(track_id, rf_dsp::reverb::AlgorithmicReverb::new(sample_rate));
+    reverbs.insert(
+        track_id,
+        rf_dsp::reverb::AlgorithmicReverb::new(sample_rate),
+    );
     1
 }
 
@@ -4299,7 +4609,10 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn simple_delay_create(track_id: u32, sample_rate: f64, max_delay_ms: f64) -> i32 {
     let mut delays = SIMPLE_DELAYS.write();
-    delays.insert(track_id, rf_dsp::delay::Delay::new(sample_rate, max_delay_ms));
+    delays.insert(
+        track_id,
+        rf_dsp::delay::Delay::new(sample_rate, max_delay_ms),
+    );
     1
 }
 
@@ -4399,9 +4712,16 @@ pub extern "C" fn simple_delay_reset(track_id: u32) -> i32 {
 
 /// Create ping-pong delay
 #[unsafe(no_mangle)]
-pub extern "C" fn ping_pong_delay_create(track_id: u32, sample_rate: f64, max_delay_ms: f64) -> i32 {
+pub extern "C" fn ping_pong_delay_create(
+    track_id: u32,
+    sample_rate: f64,
+    max_delay_ms: f64,
+) -> i32 {
     let mut delays = PING_PONG_DELAYS.write();
-    delays.insert(track_id, rf_dsp::delay::PingPongDelay::new(sample_rate, max_delay_ms));
+    delays.insert(
+        track_id,
+        rf_dsp::delay::PingPongDelay::new(sample_rate, max_delay_ms),
+    );
     1
 }
 
@@ -4477,9 +4797,17 @@ pub extern "C" fn ping_pong_delay_reset(track_id: u32) -> i32 {
 
 /// Create multi-tap delay
 #[unsafe(no_mangle)]
-pub extern "C" fn multi_tap_delay_create(track_id: u32, sample_rate: f64, max_delay_ms: f64, num_taps: u32) -> i32 {
+pub extern "C" fn multi_tap_delay_create(
+    track_id: u32,
+    sample_rate: f64,
+    max_delay_ms: f64,
+    num_taps: u32,
+) -> i32 {
     let mut delays = MULTI_TAP_DELAYS.write();
-    delays.insert(track_id, rf_dsp::delay::MultiTapDelay::new(sample_rate, max_delay_ms, num_taps as usize));
+    delays.insert(
+        track_id,
+        rf_dsp::delay::MultiTapDelay::new(sample_rate, max_delay_ms, num_taps as usize),
+    );
     1
 }
 
@@ -4492,7 +4820,13 @@ pub extern "C" fn multi_tap_delay_remove(track_id: u32) -> i32 {
 
 /// Set a specific tap
 #[unsafe(no_mangle)]
-pub extern "C" fn multi_tap_delay_set_tap(track_id: u32, tap_index: u32, delay_ms: f64, level: f64, pan: f64) -> i32 {
+pub extern "C" fn multi_tap_delay_set_tap(
+    track_id: u32,
+    tap_index: u32,
+    delay_ms: f64,
+    level: f64,
+    pan: f64,
+) -> i32 {
     let mut delays = MULTI_TAP_DELAYS.write();
     if let Some(delay) = delays.get_mut(&track_id) {
         delay.set_tap(tap_index as usize, delay_ms, level, pan);
@@ -4561,7 +4895,10 @@ pub extern "C" fn modulated_delay_create_chorus(track_id: u32, sample_rate: f64)
 #[unsafe(no_mangle)]
 pub extern "C" fn modulated_delay_create_flanger(track_id: u32, sample_rate: f64) -> i32 {
     let mut delays = MODULATED_DELAYS.write();
-    delays.insert(track_id, rf_dsp::delay::ModulatedDelay::flanger(sample_rate));
+    delays.insert(
+        track_id,
+        rf_dsp::delay::ModulatedDelay::flanger(sample_rate),
+    );
     1
 }
 
@@ -4666,7 +5003,10 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn compressor_create(track_id: u32, sample_rate: f64) -> i32 {
     let mut comps = COMPRESSORS.write();
-    comps.insert(track_id, rf_dsp::dynamics::StereoCompressor::new(sample_rate));
+    comps.insert(
+        track_id,
+        rf_dsp::dynamics::StereoCompressor::new(sample_rate),
+    );
     1
 }
 
@@ -4823,7 +5163,10 @@ pub extern "C" fn compressor_reset(track_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn limiter_create(track_id: u32, sample_rate: f64) -> i32 {
     let mut limiters = LIMITERS.write();
-    limiters.insert(track_id, rf_dsp::dynamics::TruePeakLimiter::new(sample_rate));
+    limiters.insert(
+        track_id,
+        rf_dsp::dynamics::TruePeakLimiter::new(sample_rate),
+    );
     1
 }
 
@@ -5101,7 +5444,11 @@ pub extern "C" fn stereo_imager_create(track_id: u32, sample_rate: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_remove(track_id: u32) -> i32 {
     let mut imagers = STEREO_IMAGERS.write();
-    if imagers.remove(&track_id).is_some() { 1 } else { 0 }
+    if imagers.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5278,7 +5625,11 @@ pub extern "C" fn panner_create(track_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn panner_remove(track_id: u32) -> i32 {
     let mut panners = STEREO_PANNERS.write();
-    if panners.remove(&track_id).is_some() { 1 } else { 0 }
+    if panners.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5333,7 +5684,11 @@ pub extern "C" fn width_create(track_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn width_remove(track_id: u32) -> i32 {
     let mut widths = STEREO_WIDTHS.write();
-    if widths.remove(&track_id).is_some() { 1 } else { 0 }
+    if widths.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5370,7 +5725,11 @@ pub extern "C" fn ms_processor_create(track_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn ms_processor_remove(track_id: u32) -> i32 {
     let mut processors = MS_PROCESSORS.write();
-    if processors.remove(&track_id).is_some() { 1 } else { 0 }
+    if processors.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5432,7 +5791,11 @@ pub extern "C" fn multiband_comp_create(track_id: u32, sample_rate: f64, num_ban
 #[unsafe(no_mangle)]
 pub extern "C" fn multiband_comp_remove(track_id: u32) -> i32 {
     let mut comps = MULTIBAND_COMPRESSORS.write();
-    if comps.remove(&track_id).is_some() { 1 } else { 0 }
+    if comps.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5661,7 +6024,11 @@ pub extern "C" fn multiband_lim_create(track_id: u32, sample_rate: f64, num_band
 #[unsafe(no_mangle)]
 pub extern "C" fn multiband_lim_remove(track_id: u32) -> i32 {
     let mut lims = MULTIBAND_LIMITERS.write();
-    if lims.remove(&track_id).is_some() { 1 } else { 0 }
+    if lims.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5752,7 +6119,11 @@ pub extern "C" fn transient_shaper_create(track_id: u32, sample_rate: f64) -> i3
 #[unsafe(no_mangle)]
 pub extern "C" fn transient_shaper_remove(track_id: u32) -> i32 {
     let mut shapers = TRANSIENT_SHAPERS.write();
-    if shapers.remove(&track_id).is_some() { 1 } else { 0 }
+    if shapers.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5865,7 +6236,11 @@ pub extern "C" fn multiband_transient_create(track_id: u32, sample_rate: f64) ->
 #[unsafe(no_mangle)]
 pub extern "C" fn multiband_transient_remove(track_id: u32) -> i32 {
     let mut shapers = MULTIBAND_TRANSIENT_SHAPERS.write();
-    if shapers.remove(&track_id).is_some() { 1 } else { 0 }
+    if shapers.remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -5880,7 +6255,11 @@ pub extern "C" fn multiband_transient_set_crossovers(track_id: u32, low: f64, hi
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn multiband_transient_set_band_attack(track_id: u32, band: u32, percent: f64) -> i32 {
+pub extern "C" fn multiband_transient_set_band_attack(
+    track_id: u32,
+    band: u32,
+    percent: f64,
+) -> i32 {
     let mut shapers = MULTIBAND_TRANSIENT_SHAPERS.write();
     if let Some(shaper) = shapers.get_mut(&track_id) {
         let band_shaper = match band {
@@ -5897,7 +6276,11 @@ pub extern "C" fn multiband_transient_set_band_attack(track_id: u32, band: u32, 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn multiband_transient_set_band_sustain(track_id: u32, band: u32, percent: f64) -> i32 {
+pub extern "C" fn multiband_transient_set_band_sustain(
+    track_id: u32,
+    band: u32,
+    percent: f64,
+) -> i32 {
     let mut shapers = MULTIBAND_TRANSIENT_SHAPERS.write();
     if let Some(shaper) = shapers.get_mut(&track_id) {
         let band_shaper = match band {
@@ -6249,11 +6632,7 @@ pub extern "C" fn pro_eq_recall_state_b(track_id: u32) -> i32 {
 
 /// Get spectrum data for display (256 float values, log-scaled 20Hz-20kHz)
 #[unsafe(no_mangle)]
-pub extern "C" fn pro_eq_get_spectrum(
-    track_id: u32,
-    out_data: *mut f32,
-    out_len: u32,
-) -> i32 {
+pub extern "C" fn pro_eq_get_spectrum(track_id: u32, out_data: *mut f32, out_len: u32) -> i32 {
     if out_data.is_null() || out_len < 256 {
         return 0;
     }
@@ -6373,7 +6752,11 @@ pub extern "C" fn pultec_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy Pultec EQ instance
 #[unsafe(no_mangle)]
 pub extern "C" fn pultec_destroy(track_id: u32) -> i32 {
-    if PULTEC_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if PULTEC_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Pultec low boost (0-10)
@@ -6541,7 +6924,11 @@ pub extern "C" fn api550_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy API 550 instance
 #[unsafe(no_mangle)]
 pub extern "C" fn api550_destroy(track_id: u32) -> i32 {
-    if API550_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if API550_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set API 550 low band
@@ -6632,7 +7019,11 @@ pub extern "C" fn neve1073_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy Neve 1073 instance
 #[unsafe(no_mangle)]
 pub extern "C" fn neve1073_destroy(track_id: u32) -> i32 {
-    if NEVE1073_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if NEVE1073_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set Neve 1073 high-pass
@@ -6725,7 +7116,11 @@ pub extern "C" fn pitch_corrector_create(track_id: u32) -> i32 {
 /// Destroy pitch corrector instance
 #[unsafe(no_mangle)]
 pub extern "C" fn pitch_corrector_destroy(track_id: u32) -> i32 {
-    if PITCH_CORRECTORS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if PITCH_CORRECTORS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set pitch correction scale
@@ -6840,7 +7235,11 @@ pub extern "C" fn spectral_gate_create(track_id: u32, sample_rate: f64) -> i32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn spectral_gate_destroy(track_id: u32) -> i32 {
-    if SPECTRAL_GATES.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if SPECTRAL_GATES.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6849,7 +7248,9 @@ pub extern "C" fn spectral_gate_set_threshold(track_id: u32, db: f64) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.set_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6858,7 +7259,9 @@ pub extern "C" fn spectral_gate_set_reduction(track_id: u32, db: f64) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.set_reduction(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6867,7 +7270,9 @@ pub extern "C" fn spectral_gate_set_attack(track_id: u32, ms: f64) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.set_attack(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6876,7 +7281,9 @@ pub extern "C" fn spectral_gate_set_release(track_id: u32, ms: f64) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.set_release(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6885,7 +7292,9 @@ pub extern "C" fn spectral_gate_learn_noise_start(track_id: u32) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.learn_noise_start();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6894,7 +7303,9 @@ pub extern "C" fn spectral_gate_learn_noise_stop(track_id: u32) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.learn_noise_stop();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6904,7 +7315,9 @@ pub extern "C" fn spectral_gate_reset(track_id: u32) -> i32 {
     if let Some(gate) = gates.get_mut(&track_id) {
         gate.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6920,7 +7333,11 @@ pub extern "C" fn spectral_freeze_create(track_id: u32, sample_rate: f64) -> i32
 
 #[unsafe(no_mangle)]
 pub extern "C" fn spectral_freeze_destroy(track_id: u32) -> i32 {
-    if SPECTRAL_FREEZES.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if SPECTRAL_FREEZES.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6929,7 +7346,9 @@ pub extern "C" fn spectral_freeze_toggle(track_id: u32) -> i32 {
     if let Some(freeze) = freezes.get_mut(&track_id) {
         freeze.toggle_freeze();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6938,7 +7357,9 @@ pub extern "C" fn spectral_freeze_set_mix(track_id: u32, mix: f64) -> i32 {
     if let Some(freeze) = freezes.get_mut(&track_id) {
         freeze.set_mix(mix);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6948,7 +7369,9 @@ pub extern "C" fn spectral_freeze_reset(track_id: u32) -> i32 {
     if let Some(freeze) = freezes.get_mut(&track_id) {
         freeze.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6964,7 +7387,11 @@ pub extern "C" fn spectral_compressor_create(track_id: u32, sample_rate: f64) ->
 
 #[unsafe(no_mangle)]
 pub extern "C" fn spectral_compressor_destroy(track_id: u32) -> i32 {
-    if SPECTRAL_COMPRESSORS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if SPECTRAL_COMPRESSORS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6973,7 +7400,9 @@ pub extern "C" fn spectral_compressor_set_threshold(track_id: u32, db: f64) -> i
     if let Some(comp) = comps.get_mut(&track_id) {
         comp.set_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6982,7 +7411,9 @@ pub extern "C" fn spectral_compressor_set_ratio(track_id: u32, ratio: f64) -> i3
     if let Some(comp) = comps.get_mut(&track_id) {
         comp.set_ratio(ratio);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6991,7 +7422,9 @@ pub extern "C" fn spectral_compressor_set_attack(track_id: u32, ms: f64) -> i32 
     if let Some(comp) = comps.get_mut(&track_id) {
         comp.set_attack(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -7000,7 +7433,9 @@ pub extern "C" fn spectral_compressor_set_release(track_id: u32, ms: f64) -> i32
     if let Some(comp) = comps.get_mut(&track_id) {
         comp.set_release(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -7010,7 +7445,9 @@ pub extern "C" fn spectral_compressor_reset(track_id: u32) -> i32 {
     if let Some(comp) = comps.get_mut(&track_id) {
         comp.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7026,7 +7463,11 @@ pub extern "C" fn declick_create(track_id: u32, sample_rate: f64) -> i32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn declick_destroy(track_id: u32) -> i32 {
-    if DE_CLICKS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if DE_CLICKS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -7035,7 +7476,9 @@ pub extern "C" fn declick_set_threshold(track_id: u32, db: f64) -> i32 {
     if let Some(declick) = declicks.get_mut(&track_id) {
         declick.set_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -7044,7 +7487,9 @@ pub extern "C" fn declick_set_interp_length(track_id: u32, samples: u32) -> i32 
     if let Some(declick) = declicks.get_mut(&track_id) {
         declick.set_interp_length(samples as usize);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -7054,7 +7499,9 @@ pub extern "C" fn declick_reset(track_id: u32) -> i32 {
     if let Some(declick) = declicks.get_mut(&track_id) {
         declick.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7077,7 +7524,11 @@ pub extern "C" fn ultra_eq_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy UltraEq instance
 #[unsafe(no_mangle)]
 pub extern "C" fn ultra_eq_destroy(track_id: u32) -> i32 {
-    if ULTRA_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if ULTRA_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Enable/disable band
@@ -7087,13 +7538,22 @@ pub extern "C" fn ultra_eq_enable_band(track_id: u32, band_index: u32, enabled: 
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.enable_band(band_index as usize, enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set band parameters
 /// filter_type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut
 #[unsafe(no_mangle)]
-pub extern "C" fn ultra_eq_set_band(track_id: u32, band_index: u32, freq: f64, gain_db: f64, q: f64, filter_type: u32) -> i32 {
+pub extern "C" fn ultra_eq_set_band(
+    track_id: u32,
+    band_index: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+    filter_type: u32,
+) -> i32 {
     use rf_dsp::eq_ultra::UltraFilterType;
     let mut eqs = ULTRA_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
@@ -7107,7 +7567,9 @@ pub extern "C" fn ultra_eq_set_band(track_id: u32, band_index: u32, freq: f64, g
         };
         eq.set_band(band_index as usize, freq, gain_db, q, ft);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set oversampling mode: 0=Off, 1=2x, 2=4x, 3=8x, 4=Adaptive
@@ -7126,17 +7588,25 @@ pub extern "C" fn ultra_eq_set_oversample(track_id: u32, mode: u32) -> i32 {
         };
         eq.set_oversample(m);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set loudness compensation (ISO 226)
 #[unsafe(no_mangle)]
-pub extern "C" fn ultra_eq_set_loudness_compensation(track_id: u32, enabled: i32, target_phon: f64) -> i32 {
+pub extern "C" fn ultra_eq_set_loudness_compensation(
+    track_id: u32,
+    enabled: i32,
+    target_phon: f64,
+) -> i32 {
     let mut eqs = ULTRA_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_loudness_compensation(enabled != 0, target_phon);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set output gain
@@ -7146,7 +7616,9 @@ pub extern "C" fn ultra_eq_set_output_gain(track_id: u32, gain_db: f64) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.output_gain_db = gain_db;
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get stereo correlation
@@ -7155,13 +7627,21 @@ pub extern "C" fn ultra_eq_get_correlation(track_id: u32) -> f64 {
     let eqs = ULTRA_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.correlation.get_correlation()
-    } else { 1.0 }
+    } else {
+        1.0
+    }
 }
 
 /// Set band saturation (per-band analog warmth)
 /// sat_type: 0=Tube, 1=Tape, 2=Transistor, 3=Soft
 #[unsafe(no_mangle)]
-pub extern "C" fn ultra_eq_set_band_saturation(track_id: u32, band_index: u32, drive: f64, mix: f64, sat_type: u32) -> i32 {
+pub extern "C" fn ultra_eq_set_band_saturation(
+    track_id: u32,
+    band_index: u32,
+    drive: f64,
+    mix: f64,
+    sat_type: u32,
+) -> i32 {
     use rf_dsp::eq_ultra::SaturationType;
     let mut eqs = ULTRA_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
@@ -7176,21 +7656,34 @@ pub extern "C" fn ultra_eq_set_band_saturation(track_id: u32, band_index: u32, d
                 _ => SaturationType::Tube,
             };
             1
-        } else { 0 }
-    } else { 0 }
+        } else {
+            0
+        }
+    } else {
+        0
+    }
 }
 
 /// Set band transient-aware mode
 #[unsafe(no_mangle)]
-pub extern "C" fn ultra_eq_set_band_transient_aware(track_id: u32, band_index: u32, enabled: i32, q_reduction: f64) -> i32 {
+pub extern "C" fn ultra_eq_set_band_transient_aware(
+    track_id: u32,
+    band_index: u32,
+    enabled: i32,
+    q_reduction: f64,
+) -> i32 {
     let mut eqs = ULTRA_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         if let Some(band) = eq.band_mut(band_index as usize) {
             band.transient_aware = enabled != 0;
             band.transient_q_reduction = q_reduction.clamp(0.0, 1.0);
             1
-        } else { 0 }
-    } else { 0 }
+        } else {
+            0
+        }
+    } else {
+        0
+    }
 }
 
 /// Reset UltraEq
@@ -7201,7 +7694,9 @@ pub extern "C" fn ultra_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7224,7 +7719,11 @@ pub extern "C" fn elastic_pro_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy ElasticPro instance
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_pro_destroy(track_id: u32) -> i32 {
-    if ELASTIC_PROS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if ELASTIC_PROS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set stretch ratio (0.1 to 10.0, 1.0 = no change)
@@ -7234,7 +7733,9 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_stretch_ratio(ratio);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set pitch shift in semitones (-24 to +24)
@@ -7244,7 +7745,9 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_pitch_shift(semitones);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set quality: 0=Preview, 1=Standard, 2=High, 3=Ultra
@@ -7262,7 +7765,9 @@ pub extern "C" fn elastic_pro_set_quality(track_id: u32, quality: u32) -> i32 {
         };
         elastic.set_quality(q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set mode: 0=Auto, 1=Polyphonic, 2=Monophonic, 3=Rhythmic, 4=Speech, 5=Creative
@@ -7282,7 +7787,9 @@ pub extern "C" fn elastic_pro_set_mode(track_id: u32, mode: u32) -> i32 {
         };
         elastic.set_mode(m);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable transient preservation
@@ -7294,7 +7801,9 @@ pub extern "C" fn elastic_pro_set_preserve_transients(track_id: u32, enabled: i3
         config.preserve_transients = enabled != 0;
         elastic.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable formant preservation
@@ -7306,7 +7815,9 @@ pub extern "C" fn elastic_pro_set_preserve_formants(track_id: u32, enabled: i32)
         config.preserve_formants = enabled != 0;
         elastic.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable STN decomposition
@@ -7318,7 +7829,9 @@ pub extern "C" fn elastic_pro_set_use_stn(track_id: u32, enabled: i32) -> i32 {
         config.use_stn = enabled != 0;
         elastic.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set STN thresholds
@@ -7331,7 +7844,9 @@ pub extern "C" fn elastic_pro_set_stn_thresholds(track_id: u32, tonal: f64, tran
         config.transient_threshold = transient.clamp(0.0, 1.0);
         elastic.set_config(config);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset ElasticPro
@@ -7341,7 +7856,9 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7364,7 +7881,11 @@ pub extern "C" fn morph_eq_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy MorphingEq instance
 #[unsafe(no_mangle)]
 pub extern "C" fn morph_eq_destroy(track_id: u32) -> i32 {
-    if MORPH_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if MORPH_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set morph position (0.0 = Preset A, 1.0 = Preset B)
@@ -7374,7 +7895,9 @@ pub extern "C" fn morph_eq_set_position(track_id: u32, position: f64) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_morph(position);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Morph to preset A
@@ -7384,7 +7907,9 @@ pub extern "C" fn morph_eq_to_a(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.morph_to_a();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Morph to preset B
@@ -7394,7 +7919,9 @@ pub extern "C" fn morph_eq_to_b(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.morph_to_b();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Toggle A/B instantly
@@ -7404,7 +7931,9 @@ pub extern "C" fn morph_eq_toggle_ab(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.toggle_ab();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set morph speed (time in seconds)
@@ -7415,7 +7944,9 @@ pub extern "C" fn morph_eq_set_speed(track_id: u32, speed_seconds: f64) -> i32 {
         // Convert to per-sample rate (assuming 48kHz)
         eq.morph_speed = 1.0 / (speed_seconds * 48000.0).max(1.0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get current morph position
@@ -7424,7 +7955,9 @@ pub extern "C" fn morph_eq_get_position(track_id: u32) -> f64 {
     let eqs = MORPH_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.morph_position
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 /// Reset MorphingEq
@@ -7435,7 +7968,9 @@ pub extern "C" fn morph_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7458,7 +7993,11 @@ pub extern "C" fn room_eq_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy RoomCorrectionEq instance
 #[unsafe(no_mangle)]
 pub extern "C" fn room_eq_destroy(track_id: u32) -> i32 {
-    if ROOM_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if ROOM_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set target curve: 0=Flat, 1=Harman, 2=B&K, 3=BBC, 4=X-Curve, 5=Custom
@@ -7477,7 +8016,9 @@ pub extern "C" fn room_eq_set_target_curve(track_id: u32, curve: u32) -> i32 {
             _ => TargetCurve::Flat,
         };
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set max correction amount (dB, e.g. 12.0)
@@ -7487,7 +8028,9 @@ pub extern "C" fn room_eq_set_max_correction(track_id: u32, max_db: f64) -> i32 
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.max_correction = max_db.clamp(0.0, 24.0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable cut-only mode (safer, no boosts)
@@ -7497,7 +8040,9 @@ pub extern "C" fn room_eq_set_cut_only(track_id: u32, enabled: i32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.cut_only = enabled != 0;
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable room correction
@@ -7507,7 +8052,9 @@ pub extern "C" fn room_eq_set_enabled(track_id: u32, enabled: i32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.enabled = enabled != 0;
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get number of detected room modes
@@ -7516,7 +8063,9 @@ pub extern "C" fn room_eq_get_room_mode_count(track_id: u32) -> u32 {
     let eqs = ROOM_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.measurement.room_modes.len() as u32
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset RoomCorrectionEq
@@ -7527,7 +8076,9 @@ pub extern "C" fn room_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7566,7 +8117,11 @@ pub extern "C" fn wavelet_dwt_create(track_id: u32, wavelet_type: u32) -> i32 {
 /// Destroy DWT instance
 #[unsafe(no_mangle)]
 pub extern "C" fn wavelet_dwt_destroy(track_id: u32) -> i32 {
-    if WAVELETS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if WAVELETS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set maximum decomposition level
@@ -7576,13 +8131,21 @@ pub extern "C" fn wavelet_dwt_set_max_level(track_id: u32, level: u32) -> i32 {
     if let Some(dwt) = wavelets.get_mut(&track_id) {
         dwt.set_max_level(level as usize);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Create CQT (Constant-Q Transform) instance
 /// min_freq/max_freq in Hz, bins_per_octave typically 12 or 24
 #[unsafe(no_mangle)]
-pub extern "C" fn wavelet_cqt_create(track_id: u32, sample_rate: f64, min_freq: f64, max_freq: f64, bins_per_octave: u32) -> i32 {
+pub extern "C" fn wavelet_cqt_create(
+    track_id: u32,
+    sample_rate: f64,
+    min_freq: f64,
+    max_freq: f64,
+    bins_per_octave: u32,
+) -> i32 {
     let cqt = rf_dsp::wavelet::CQT::new(sample_rate, min_freq, max_freq, bins_per_octave as usize);
     CQTS.write().insert(track_id, cqt);
     1
@@ -7599,7 +8162,11 @@ pub extern "C" fn wavelet_cqt_create_musical(track_id: u32, sample_rate: f64) ->
 /// Destroy CQT instance
 #[unsafe(no_mangle)]
 pub extern "C" fn wavelet_cqt_destroy(track_id: u32) -> i32 {
-    if CQTS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if CQTS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7622,14 +8189,24 @@ pub extern "C" fn min_phase_eq_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Remove minimum phase EQ
 #[unsafe(no_mangle)]
 pub extern "C" fn min_phase_eq_remove(track_id: u32) -> i32 {
-    if MIN_PHASE_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if MIN_PHASE_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Add band to minimum phase EQ
 /// filter_type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch
 /// Returns band index
 #[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_add_band(track_id: u32, freq: f64, gain_db: f64, q: f64, filter_type: u32) -> i32 {
+pub extern "C" fn min_phase_eq_add_band(
+    track_id: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+    filter_type: u32,
+) -> i32 {
     let ft = match filter_type {
         0 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::Bell,
         1 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::LowShelf,
@@ -7641,27 +8218,43 @@ pub extern "C" fn min_phase_eq_add_band(track_id: u32, freq: f64, gain_db: f64, 
     let mut eqs = MIN_PHASE_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.add_band(freq, gain_db, q, ft) as i32
-    } else { -1 }
+    } else {
+        -1
+    }
 }
 
 /// Set band parameters
 #[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_set_band(track_id: u32, band_index: u32, freq: f64, gain_db: f64, q: f64) -> i32 {
+pub extern "C" fn min_phase_eq_set_band(
+    track_id: u32,
+    band_index: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+) -> i32 {
     let mut eqs = MIN_PHASE_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band(band_index as usize, freq, gain_db, q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable band
 #[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_set_band_enabled(track_id: u32, band_index: u32, enabled: i32) -> i32 {
+pub extern "C" fn min_phase_eq_set_band_enabled(
+    track_id: u32,
+    band_index: u32,
+    enabled: i32,
+) -> i32 {
     let mut eqs = MIN_PHASE_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band_enabled(band_index as usize, enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Remove band
@@ -7671,7 +8264,9 @@ pub extern "C" fn min_phase_eq_remove_band(track_id: u32, band_index: u32) -> i3
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.remove_band(band_index as usize);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get magnitude at frequency in dB
@@ -7681,7 +8276,9 @@ pub extern "C" fn min_phase_eq_get_magnitude_at(track_id: u32, freq: f64) -> f64
     if let Some(eq) = eqs.get(&track_id) {
         let mag = eq.magnitude_at(freq);
         20.0 * mag.log10()
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 /// Get group delay at frequency in ms
@@ -7690,7 +8287,9 @@ pub extern "C" fn min_phase_eq_get_group_delay_at(track_id: u32, freq: f64) -> f
     let eqs = MIN_PHASE_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.group_delay_at(freq) * 1000.0
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 /// Get number of bands
@@ -7699,7 +8298,9 @@ pub extern "C" fn min_phase_eq_get_num_bands(track_id: u32) -> u32 {
     let eqs = MIN_PHASE_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.num_bands() as u32
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset minimum phase EQ
@@ -7710,7 +8311,9 @@ pub extern "C" fn min_phase_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7735,13 +8338,23 @@ pub extern "C" fn stereo_eq_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Remove stereo EQ
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_eq_remove(track_id: u32) -> i32 {
-    if STEREO_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if STEREO_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Add band to stereo EQ
 /// mode: 0=Stereo, 1=Left, 2=Right, 3=Mid, 4=Side
 #[unsafe(no_mangle)]
-pub extern "C" fn stereo_eq_add_band(track_id: u32, freq: f64, gain_db: f64, q: f64, mode: u32) -> i32 {
+pub extern "C" fn stereo_eq_add_band(
+    track_id: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+    mode: u32,
+) -> i32 {
     let stereo_mode = match mode {
         0 => rf_dsp::eq_stereo::StereoMode::Stereo,
         1 => rf_dsp::eq_stereo::StereoMode::Left,
@@ -7752,17 +8365,27 @@ pub extern "C" fn stereo_eq_add_band(track_id: u32, freq: f64, gain_db: f64, q: 
     let mut eqs = STEREO_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.add_band(freq, gain_db, q, stereo_mode) as i32
-    } else { -1 }
+    } else {
+        -1
+    }
 }
 
 /// Set band parameters
 #[unsafe(no_mangle)]
-pub extern "C" fn stereo_eq_set_band(track_id: u32, band_index: u32, freq: f64, gain_db: f64, q: f64) -> i32 {
+pub extern "C" fn stereo_eq_set_band(
+    track_id: u32,
+    band_index: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+) -> i32 {
     let mut eqs = STEREO_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band(band_index as usize, freq, gain_db, q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set band mode
@@ -7779,26 +8402,43 @@ pub extern "C" fn stereo_eq_set_band_mode(track_id: u32, band_index: u32, mode: 
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_band_mode(band_index as usize, stereo_mode);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Add width band (stereo width per frequency)
 #[unsafe(no_mangle)]
-pub extern "C" fn stereo_eq_add_width_band(track_id: u32, freq: f64, bandwidth: f64, width: f64) -> i32 {
+pub extern "C" fn stereo_eq_add_width_band(
+    track_id: u32,
+    freq: f64,
+    bandwidth: f64,
+    width: f64,
+) -> i32 {
     let mut eqs = STEREO_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.add_width_band(freq, bandwidth, width) as i32
-    } else { -1 }
+    } else {
+        -1
+    }
 }
 
 /// Set width band parameters
 #[unsafe(no_mangle)]
-pub extern "C" fn stereo_eq_set_width_band(track_id: u32, band_index: u32, freq: f64, bandwidth: f64, width: f64) -> i32 {
+pub extern "C" fn stereo_eq_set_width_band(
+    track_id: u32,
+    band_index: u32,
+    freq: f64,
+    bandwidth: f64,
+    width: f64,
+) -> i32 {
     let mut eqs = STEREO_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_width_band(band_index as usize, freq, bandwidth, width);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable bass mono
@@ -7808,7 +8448,9 @@ pub extern "C" fn stereo_eq_set_bass_mono_enabled(track_id: u32, enabled: i32) -
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.bass_mono_enabled = enabled != 0;
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set bass mono crossover frequency
@@ -7818,7 +8460,9 @@ pub extern "C" fn stereo_eq_set_bass_mono_freq(track_id: u32, freq: f64) -> i32 
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.bass_mono.set_crossover(freq);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable global M/S mode
@@ -7828,7 +8472,9 @@ pub extern "C" fn stereo_eq_set_global_ms(track_id: u32, enabled: i32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.global_ms_mode = enabled != 0;
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset stereo EQ
@@ -7839,7 +8485,9 @@ pub extern "C" fn stereo_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Create standalone bass mono processor
@@ -7853,7 +8501,11 @@ pub extern "C" fn bass_mono_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Remove bass mono processor
 #[unsafe(no_mangle)]
 pub extern "C" fn bass_mono_remove(track_id: u32) -> i32 {
-    if BASS_MONOS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if BASS_MONOS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set bass mono crossover
@@ -7863,7 +8515,9 @@ pub extern "C" fn bass_mono_set_crossover(track_id: u32, freq: f64) -> i32 {
     if let Some(bm) = bms.get_mut(&track_id) {
         bm.set_crossover(freq);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set bass mono blend (0=stereo, 1=full mono)
@@ -7873,7 +8527,9 @@ pub extern "C" fn bass_mono_set_blend(track_id: u32, blend: f64) -> i32 {
     if let Some(bm) = bms.get_mut(&track_id) {
         bm.blend = blend.clamp(0.0, 1.0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7896,13 +8552,24 @@ pub extern "C" fn linear_phase_eq_create(track_id: u32, sample_rate: f64) -> i32
 /// Remove linear phase EQ
 #[unsafe(no_mangle)]
 pub extern "C" fn linear_phase_eq_remove(track_id: u32) -> i32 {
-    if LINEAR_PHASE_EQS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if LINEAR_PHASE_EQS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Add band to linear phase EQ
 /// filter_type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=BandPass, 7=Tilt
 #[unsafe(no_mangle)]
-pub extern "C" fn linear_phase_eq_add_band(track_id: u32, filter_type: u32, freq: f64, gain_db: f64, q: f64, slope: f64) -> i32 {
+pub extern "C" fn linear_phase_eq_add_band(
+    track_id: u32,
+    filter_type: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+    slope: f64,
+) -> i32 {
     let ft = match filter_type {
         0 => rf_dsp::linear_phase::LinearPhaseFilterType::Bell,
         1 => rf_dsp::linear_phase::LinearPhaseFilterType::LowShelf,
@@ -7924,12 +8591,23 @@ pub extern "C" fn linear_phase_eq_add_band(track_id: u32, filter_type: u32, freq
     let mut eqs = LINEAR_PHASE_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.add_band(band) as i32
-    } else { -1 }
+    } else {
+        -1
+    }
 }
 
 /// Update band parameters
 #[unsafe(no_mangle)]
-pub extern "C" fn linear_phase_eq_update_band(track_id: u32, band_index: u32, filter_type: u32, freq: f64, gain_db: f64, q: f64, slope: f64, enabled: i32) -> i32 {
+pub extern "C" fn linear_phase_eq_update_band(
+    track_id: u32,
+    band_index: u32,
+    filter_type: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+    slope: f64,
+    enabled: i32,
+) -> i32 {
     let ft = match filter_type {
         0 => rf_dsp::linear_phase::LinearPhaseFilterType::Bell,
         1 => rf_dsp::linear_phase::LinearPhaseFilterType::LowShelf,
@@ -7952,7 +8630,9 @@ pub extern "C" fn linear_phase_eq_update_band(track_id: u32, band_index: u32, fi
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.update_band(band_index as usize, band);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Remove band
@@ -7962,7 +8642,9 @@ pub extern "C" fn linear_phase_eq_remove_band(track_id: u32, band_index: u32) ->
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.remove_band(band_index as usize);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get band count
@@ -7971,7 +8653,9 @@ pub extern "C" fn linear_phase_eq_get_band_count(track_id: u32) -> u32 {
     let eqs = LINEAR_PHASE_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.band_count() as u32
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set bypass
@@ -7981,7 +8665,9 @@ pub extern "C" fn linear_phase_eq_set_bypass(track_id: u32, bypass: i32) -> i32 
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.set_bypass(bypass != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get latency in samples
@@ -7991,7 +8677,9 @@ pub extern "C" fn linear_phase_eq_get_latency(track_id: u32) -> u32 {
     let eqs = LINEAR_PHASE_EQS.read();
     if let Some(eq) = eqs.get(&track_id) {
         eq.latency() as u32
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset linear phase EQ
@@ -8002,7 +8690,9 @@ pub extern "C" fn linear_phase_eq_reset(track_id: u32) -> i32 {
     if let Some(eq) = eqs.get_mut(&track_id) {
         eq.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8025,7 +8715,11 @@ pub extern "C" fn channel_strip_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Remove channel strip
 #[unsafe(no_mangle)]
 pub extern "C" fn channel_strip_remove(track_id: u32) -> i32 {
-    if CHANNEL_STRIPS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if CHANNEL_STRIPS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set input gain in dB
@@ -8035,7 +8729,9 @@ pub extern "C" fn channel_strip_set_input_gain(track_id: u32, db: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_input_gain_db(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set output gain in dB
@@ -8045,7 +8741,9 @@ pub extern "C" fn channel_strip_set_output_gain(track_id: u32, db: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_output_gain_db(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable HPF
@@ -8055,7 +8753,9 @@ pub extern "C" fn channel_strip_set_hpf_enabled(track_id: u32, enabled: i32) -> 
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_hpf_enabled(enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set HPF frequency
@@ -8065,7 +8765,9 @@ pub extern "C" fn channel_strip_set_hpf_freq(track_id: u32, freq: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_hpf_freq(freq);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable gate
@@ -8075,7 +8777,9 @@ pub extern "C" fn channel_strip_set_gate_enabled(track_id: u32, enabled: i32) ->
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_gate_enabled(enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set gate threshold in dB
@@ -8085,7 +8789,9 @@ pub extern "C" fn channel_strip_set_gate_threshold(track_id: u32, db: f64) -> i3
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_gate_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable compressor
@@ -8095,7 +8801,9 @@ pub extern "C" fn channel_strip_set_comp_enabled(track_id: u32, enabled: i32) ->
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_enabled(enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor threshold in dB
@@ -8105,7 +8813,9 @@ pub extern "C" fn channel_strip_set_comp_threshold(track_id: u32, db: f64) -> i3
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor ratio
@@ -8115,7 +8825,9 @@ pub extern "C" fn channel_strip_set_comp_ratio(track_id: u32, ratio: f64) -> i32
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_ratio(ratio);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor attack in ms
@@ -8125,7 +8837,9 @@ pub extern "C" fn channel_strip_set_comp_attack(track_id: u32, ms: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_attack(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor release in ms
@@ -8135,7 +8849,9 @@ pub extern "C" fn channel_strip_set_comp_release(track_id: u32, ms: f64) -> i32 
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_release(ms);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor makeup gain in dB
@@ -8145,7 +8861,9 @@ pub extern "C" fn channel_strip_set_comp_makeup(track_id: u32, db: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_makeup(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set compressor link (0=independent, 1=linked)
@@ -8155,7 +8873,9 @@ pub extern "C" fn channel_strip_set_comp_link(track_id: u32, link: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_comp_link(link);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable EQ
@@ -8165,7 +8885,9 @@ pub extern "C" fn channel_strip_set_eq_enabled(track_id: u32, enabled: i32) -> i
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_eq_enabled(enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set EQ low shelf (freq, gain_db)
@@ -8175,27 +8897,43 @@ pub extern "C" fn channel_strip_set_eq_low(track_id: u32, freq: f64, gain_db: f6
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_eq_low(freq, gain_db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set EQ low-mid parametric (freq, gain_db, q)
 #[unsafe(no_mangle)]
-pub extern "C" fn channel_strip_set_eq_low_mid(track_id: u32, freq: f64, gain_db: f64, q: f64) -> i32 {
+pub extern "C" fn channel_strip_set_eq_low_mid(
+    track_id: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+) -> i32 {
     let mut strips = CHANNEL_STRIPS.write();
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_eq_low_mid(freq, gain_db, q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set EQ high-mid parametric (freq, gain_db, q)
 #[unsafe(no_mangle)]
-pub extern "C" fn channel_strip_set_eq_high_mid(track_id: u32, freq: f64, gain_db: f64, q: f64) -> i32 {
+pub extern "C" fn channel_strip_set_eq_high_mid(
+    track_id: u32,
+    freq: f64,
+    gain_db: f64,
+    q: f64,
+) -> i32 {
     let mut strips = CHANNEL_STRIPS.write();
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_eq_high_mid(freq, gain_db, q);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set EQ high shelf (freq, gain_db)
@@ -8205,7 +8943,9 @@ pub extern "C" fn channel_strip_set_eq_high(track_id: u32, freq: f64, gain_db: f
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_eq_high(freq, gain_db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Enable/disable limiter
@@ -8215,7 +8955,9 @@ pub extern "C" fn channel_strip_set_limiter_enabled(track_id: u32, enabled: i32)
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_limiter_enabled(enabled != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set limiter threshold in dB
@@ -8225,7 +8967,9 @@ pub extern "C" fn channel_strip_set_limiter_threshold(track_id: u32, db: f64) ->
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_limiter_threshold(db);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set pan (-1=left, 0=center, 1=right)
@@ -8235,7 +8979,9 @@ pub extern "C" fn channel_strip_set_pan(track_id: u32, pan: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_pan(pan);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set width (0=mono, 1=normal, 2=wide)
@@ -8245,7 +8991,9 @@ pub extern "C" fn channel_strip_set_width(track_id: u32, width: f64) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_width(width);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set mute
@@ -8255,7 +9003,9 @@ pub extern "C" fn channel_strip_set_mute(track_id: u32, mute: i32) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_mute(mute != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set solo
@@ -8265,7 +9015,9 @@ pub extern "C" fn channel_strip_set_solo(track_id: u32, solo: i32) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_solo(solo != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set processing order
@@ -8282,31 +9034,61 @@ pub extern "C" fn channel_strip_set_processing_order(track_id: u32, order: u32) 
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.set_processing_order(po);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get input peak levels in dB
 #[unsafe(no_mangle)]
-pub extern "C" fn channel_strip_get_input_peak(track_id: u32, out_l: *mut f64, out_r: *mut f64) -> i32 {
+pub extern "C" fn channel_strip_get_input_peak(
+    track_id: u32,
+    out_l: *mut f64,
+    out_r: *mut f64,
+) -> i32 {
     let strips = CHANNEL_STRIPS.read();
     if let Some(strip) = strips.get(&track_id) {
         let (l, r) = strip.input_peak_db();
-        if !out_l.is_null() { unsafe { *out_l = l; } }
-        if !out_r.is_null() { unsafe { *out_r = r; } }
+        if !out_l.is_null() {
+            unsafe {
+                *out_l = l;
+            }
+        }
+        if !out_r.is_null() {
+            unsafe {
+                *out_r = r;
+            }
+        }
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get output peak levels in dB
 #[unsafe(no_mangle)]
-pub extern "C" fn channel_strip_get_output_peak(track_id: u32, out_l: *mut f64, out_r: *mut f64) -> i32 {
+pub extern "C" fn channel_strip_get_output_peak(
+    track_id: u32,
+    out_l: *mut f64,
+    out_r: *mut f64,
+) -> i32 {
     let strips = CHANNEL_STRIPS.read();
     if let Some(strip) = strips.get(&track_id) {
         let (l, r) = strip.output_peak_db();
-        if !out_l.is_null() { unsafe { *out_l = l; } }
-        if !out_r.is_null() { unsafe { *out_r = r; } }
+        if !out_l.is_null() {
+            unsafe {
+                *out_l = l;
+            }
+        }
+        if !out_r.is_null() {
+            unsafe {
+                *out_r = r;
+            }
+        }
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get compressor gain reduction in dB
@@ -8315,7 +9097,9 @@ pub extern "C" fn channel_strip_get_gain_reduction(track_id: u32) -> f64 {
     let strips = CHANNEL_STRIPS.read();
     if let Some(strip) = strips.get(&track_id) {
         strip.gain_reduction_db()
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 /// Reset channel strip
@@ -8326,7 +9110,9 @@ pub extern "C" fn channel_strip_reset(track_id: u32) -> i32 {
     if let Some(strip) = strips.get_mut(&track_id) {
         strip.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8360,7 +9146,11 @@ pub extern "C" fn surround_panner_create(track_id: u32, layout: u32) -> i32 {
 /// Remove surround panner
 #[unsafe(no_mangle)]
 pub extern "C" fn surround_panner_remove(track_id: u32) -> i32 {
-    if SURROUND_PANNERS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if SURROUND_PANNERS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set position XYZ (-1 to 1)
@@ -8370,17 +9160,25 @@ pub extern "C" fn surround_panner_set_position(track_id: u32, x: f64, y: f64, z:
     if let Some(panner) = panners.get_mut(&track_id) {
         panner.set_position(rf_dsp::surround::Position3D::new(x, y, z));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set position from azimuth/elevation in degrees
 #[unsafe(no_mangle)]
-pub extern "C" fn surround_panner_set_position_spherical(track_id: u32, azimuth: f64, elevation: f64) -> i32 {
+pub extern "C" fn surround_panner_set_position_spherical(
+    track_id: u32,
+    azimuth: f64,
+    elevation: f64,
+) -> i32 {
     let mut panners = SURROUND_PANNERS.write();
     if let Some(panner) = panners.get_mut(&track_id) {
         panner.set_position_spherical(azimuth, elevation);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set spread (0=point, 1=omnidirectional)
@@ -8390,7 +9188,9 @@ pub extern "C" fn surround_panner_set_spread(track_id: u32, spread: f64) -> i32 
     if let Some(panner) = panners.get_mut(&track_id) {
         panner.set_spread(spread);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set LFE level (0-1)
@@ -8400,7 +9200,9 @@ pub extern "C" fn surround_panner_set_lfe_level(track_id: u32, level: f64) -> i3
     if let Some(panner) = panners.get_mut(&track_id) {
         panner.set_lfe_level(level);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set distance (0-2, affects attenuation)
@@ -8410,25 +9212,35 @@ pub extern "C" fn surround_panner_set_distance(track_id: u32, distance: f64) -> 
     if let Some(panner) = panners.get_mut(&track_id) {
         panner.set_distance(distance);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Get speaker gains
 /// out_gains must have enough space for all speakers in the layout
 /// Returns number of speakers
 #[unsafe(no_mangle)]
-pub extern "C" fn surround_panner_get_gains(track_id: u32, out_gains: *mut f64, max_count: usize) -> usize {
+pub extern "C" fn surround_panner_get_gains(
+    track_id: u32,
+    out_gains: *mut f64,
+    max_count: usize,
+) -> usize {
     let panners = SURROUND_PANNERS.read();
     if let Some(panner) = panners.get(&track_id) {
         let gains = panner.gains();
         let count = gains.len().min(max_count);
         if !out_gains.is_null() {
             for (i, &gain) in gains.iter().take(count).enumerate() {
-                unsafe { *out_gains.add(i) = gain; }
+                unsafe {
+                    *out_gains.add(i) = gain;
+                }
             }
         }
         count
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Create ambisonics encoder
@@ -8442,17 +9254,27 @@ pub extern "C" fn ambisonics_encoder_create(track_id: u32) -> i32 {
 /// Remove ambisonics encoder
 #[unsafe(no_mangle)]
 pub extern "C" fn ambisonics_encoder_remove(track_id: u32) -> i32 {
-    if AMBISONICS_ENCODERS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if AMBISONICS_ENCODERS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set ambisonics position in degrees
 #[unsafe(no_mangle)]
-pub extern "C" fn ambisonics_encoder_set_position(track_id: u32, azimuth: f64, elevation: f64) -> i32 {
+pub extern "C" fn ambisonics_encoder_set_position(
+    track_id: u32,
+    azimuth: f64,
+    elevation: f64,
+) -> i32 {
     let mut encoders = AMBISONICS_ENCODERS.write();
     if let Some(enc) = encoders.get_mut(&track_id) {
         enc.set_position(azimuth, elevation);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set ambisonics gain
@@ -8462,7 +9284,9 @@ pub extern "C" fn ambisonics_encoder_set_gain(track_id: u32, gain: f64) -> i32 {
     if let Some(enc) = encoders.get_mut(&track_id) {
         enc.set_gain(gain);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8544,7 +9368,11 @@ pub extern "C" fn saturation_create(track_id: u32, sample_rate: f64) -> i32 {
 /// Destroy saturation processor
 #[unsafe(no_mangle)]
 pub extern "C" fn saturation_destroy(track_id: u32) -> i32 {
-    if SATURATORS.write().remove(&track_id).is_some() { 1 } else { 0 }
+    if SATURATORS.write().remove(&track_id).is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set saturation type
@@ -8565,7 +9393,9 @@ pub extern "C" fn saturation_set_type(track_id: u32, sat_type: u8) -> i32 {
         };
         sat.set_both(|s| s.set_type(t));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set drive amount (0.0-1.0, maps to 0-40dB internally)
@@ -8576,7 +9406,9 @@ pub extern "C" fn saturation_set_drive(track_id: u32, drive: f64) -> i32 {
         let drive_db = drive.clamp(0.0, 1.0) * 40.0;
         sat.set_both(|s| s.set_drive_db(drive_db));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set drive in dB directly (-20 to +40)
@@ -8586,7 +9418,9 @@ pub extern "C" fn saturation_set_drive_db(track_id: u32, drive_db: f64) -> i32 {
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.set_both(|s| s.set_drive_db(drive_db));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set dry/wet mix (0.0 = dry, 1.0 = wet)
@@ -8596,7 +9430,9 @@ pub extern "C" fn saturation_set_mix(track_id: u32, mix: f64) -> i32 {
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.set_both(|s| s.set_mix(mix));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set output level in dB (-24 to +12)
@@ -8606,7 +9442,9 @@ pub extern "C" fn saturation_set_output_db(track_id: u32, output_db: f64) -> i32
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.set_both(|s| s.set_output_db(output_db));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set tape bias (0.0-1.0, only affects Tape mode)
@@ -8616,7 +9454,9 @@ pub extern "C" fn saturation_set_tape_bias(track_id: u32, bias: f64) -> i32 {
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.set_both(|s| s.set_tape_bias(bias));
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Reset saturation processor state
@@ -8627,7 +9467,9 @@ pub extern "C" fn saturation_reset(track_id: u32) -> i32 {
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.reset();
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Set stereo link mode
@@ -8637,11 +9479,17 @@ pub extern "C" fn saturation_set_link(track_id: u32, linked: i32) -> i32 {
     if let Some(sat) = sats.get_mut(&track_id) {
         sat.set_link(linked != 0);
         1
-    } else { 0 }
+    } else {
+        0
+    }
 }
 
 /// Check if saturation processor exists
 #[unsafe(no_mangle)]
 pub extern "C" fn saturation_exists(track_id: u32) -> i32 {
-    if SATURATORS.read().contains_key(&track_id) { 1 } else { 0 }
+    if SATURATORS.read().contains_key(&track_id) {
+        1
+    } else {
+        0
+    }
 }

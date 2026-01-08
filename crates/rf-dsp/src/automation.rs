@@ -44,7 +44,13 @@ impl CurveType {
             CurveType::Exponential => t * t,
             CurveType::Logarithmic => t.sqrt(),
             CurveType::SCurve => t * t * (3.0 - 2.0 * t), // Smoothstep
-            CurveType::Step => if t >= 0.5 { 1.0 } else { 0.0 },
+            CurveType::Step => {
+                if t >= 0.5 {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             CurveType::Hold => 0.0, // Always use start value
             CurveType::Bezier => t * t * (3.0 - 2.0 * t), // Default to smoothstep
         };
@@ -243,7 +249,9 @@ impl AutomationLane {
         let duration = (p2.sample_position - p1.sample_position) as f64;
         let t = (sample_position - p1.sample_position) as f64 / duration;
 
-        let value = p1.curve.interpolate_with_tension(p1.value, p2.value, t, p1.tension);
+        let value = p1
+            .curve
+            .interpolate_with_tension(p1.value, p2.value, t, p1.tension);
         value.clamp(self.min_value, self.max_value)
     }
 
@@ -270,8 +278,7 @@ impl AutomationLane {
         }
 
         // Walk backward if needed (seeking backward)
-        while self.current_index > 0
-            && sample_position < points[self.current_index].sample_position
+        while self.current_index > 0 && sample_position < points[self.current_index].sample_position
         {
             self.current_index -= 1;
         }
@@ -293,7 +300,9 @@ impl AutomationLane {
         let duration = (p2.sample_position - p1.sample_position) as f64;
         let t = (sample_position - p1.sample_position) as f64 / duration;
 
-        let value = p1.curve.interpolate_with_tension(p1.value, p2.value, t, p1.tension);
+        let value = p1
+            .curve
+            .interpolate_with_tension(p1.value, p2.value, t, p1.tension);
         value.clamp(self.min_value, self.max_value)
     }
 
@@ -341,7 +350,8 @@ impl AutomationManager {
     /// Add new automation lane
     pub fn add_lane(&mut self, param_id: u32, default_value: f64, min: f64, max: f64) -> usize {
         let index = self.lanes.len();
-        self.lanes.push(AutomationLane::new(param_id, default_value, min, max));
+        self.lanes
+            .push(AutomationLane::new(param_id, default_value, min, max));
         index
     }
 

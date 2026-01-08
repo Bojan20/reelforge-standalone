@@ -1,13 +1,13 @@
 //! Binaural renderer with HRTF convolution
 
 use num_complex::Complex32;
-use rustfft::{FftPlanner, Fft};
+use rustfft::{Fft, FftPlanner};
 use std::sync::Arc;
 
+use super::{Crossfeed, HrirPair, Hrtf, HrtfDatabase};
 use crate::error::{SpatialError, SpatialResult};
-use crate::position::{Position3D, Orientation};
+use crate::position::{Orientation, Position3D};
 use crate::{AudioObject, SpatialRenderer, SpeakerLayout};
-use super::{HrtfDatabase, HrirPair, Hrtf, Crossfeed};
 
 /// Binaural rendering configuration
 #[derive(Debug, Clone)]
@@ -185,7 +185,10 @@ impl BinauralRenderer {
         let spherical = relative_pos.to_spherical();
 
         // Get HRTF for this direction
-        let hrir = match self.hrtf_db.get_hrir(spherical.azimuth, spherical.elevation) {
+        let hrir = match self
+            .hrtf_db
+            .get_hrir(spherical.azimuth, spherical.elevation)
+        {
             Some(h) => h,
             None => return,
         };
@@ -237,7 +240,8 @@ impl BinauralRenderer {
         let fft_size = self.config.fft_size;
 
         // FFT input
-        let mut input_freq: Vec<Complex32> = state.input_buffer
+        let mut input_freq: Vec<Complex32> = state
+            .input_buffer
             .iter()
             .map(|&x| Complex32::new(x, 0.0))
             .collect();
@@ -315,7 +319,10 @@ impl BinauralRenderer {
             }
 
             // Get HRTF for this speaker position
-            if let Some(hrir) = self.hrtf_db.get_hrir(spherical.azimuth, spherical.elevation) {
+            if let Some(hrir) = self
+                .hrtf_db
+                .get_hrir(spherical.azimuth, spherical.elevation)
+            {
                 // Simple convolution (time-domain for clarity)
                 self.convolve_hrir(&speaker_signal, &hrir, output_left, output_right);
             }
@@ -403,7 +410,10 @@ impl SpatialRenderer for BinauralRenderer {
             let spherical = relative_pos.to_spherical();
 
             // Get HRTF for this direction
-            let hrir = match self.hrtf_db.get_hrir(spherical.azimuth, spherical.elevation) {
+            let hrir = match self
+                .hrtf_db
+                .get_hrir(spherical.azimuth, spherical.elevation)
+            {
                 Some(h) => h,
                 None => continue,
             };
@@ -504,18 +514,16 @@ mod tests {
         let config = BinauralConfig::default();
         let mut renderer = BinauralRenderer::new(config, 48000);
 
-        let objects = vec![
-            AudioObject {
-                id: 1,
-                name: "Test".into(),
-                position: Position3D::from_spherical(45.0, 0.0, 2.0),
-                size: 0.0,
-                gain: 1.0,
-                audio: vec![0.5; 512],
-                sample_rate: 48000,
-                automation: None,
-            },
-        ];
+        let objects = vec![AudioObject {
+            id: 1,
+            name: "Test".into(),
+            position: Position3D::from_spherical(45.0, 0.0, 2.0),
+            size: 0.0,
+            gain: 1.0,
+            audio: vec![0.5; 512],
+            sample_rate: 48000,
+            automation: None,
+        }];
 
         let mut output = vec![0.0f32; 1024]; // 512 samples stereo
         let result = renderer.render(&objects, &mut output, 2);

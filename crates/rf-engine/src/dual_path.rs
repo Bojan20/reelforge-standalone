@@ -8,11 +8,11 @@
 //! This enables running expensive processors (linear phase EQ, convolution reverb)
 //! without affecting real-time performance.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 
-use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
 use parking_lot::{Mutex, RwLock};
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
@@ -192,7 +192,9 @@ impl DualPathEngine {
                             processor.process(&mut block);
 
                             let elapsed = start.elapsed().as_micros() as u64;
-                            stats.guard_process_time_us.store(elapsed, Ordering::Relaxed);
+                            stats
+                                .guard_process_time_us
+                                .store(elapsed, Ordering::Relaxed);
                             stats.guard_blocks.fetch_add(1, Ordering::Relaxed);
 
                             if let Err(_) = guard_output_tx.try_send(block) {
@@ -239,7 +241,9 @@ impl DualPathEngine {
     /// 3. If no processed block, use fallback or pass through
     pub fn process(&self, left: &mut [Sample], right: &mut [Sample]) {
         let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
-        let pos = self.sample_position.fetch_add(left.len() as u64, Ordering::Relaxed);
+        let pos = self
+            .sample_position
+            .fetch_add(left.len() as u64, Ordering::Relaxed);
 
         match self.mode {
             ProcessingMode::RealTime => {
@@ -362,7 +366,9 @@ struct LookaheadBuffer {
 impl LookaheadBuffer {
     fn new(block_size: usize, num_blocks: usize) -> Self {
         Self {
-            blocks: (0..num_blocks).map(|_| AudioBlock::new(block_size)).collect(),
+            blocks: (0..num_blocks)
+                .map(|_| AudioBlock::new(block_size))
+                .collect(),
             write_pos: 0,
             read_pos: 0,
             count: 0,

@@ -89,7 +89,8 @@ impl AudioRingBuffer {
         }
 
         // Update write position with release semantics
-        self.write_pos.store(write.wrapping_add(to_write), Ordering::Release);
+        self.write_pos
+            .store(write.wrapping_add(to_write), Ordering::Release);
 
         to_write
     }
@@ -115,7 +116,8 @@ impl AudioRingBuffer {
         }
 
         // Update read position with release semantics
-        self.read_pos.store(read.wrapping_add(to_read), Ordering::Release);
+        self.read_pos
+            .store(read.wrapping_add(to_read), Ordering::Release);
 
         to_read
     }
@@ -194,7 +196,10 @@ impl StereoRingBuffer {
     /// Push interleaved stereo samples
     pub fn push_interleaved(&self, samples: &[Sample]) -> usize {
         let frames = samples.len() / 2;
-        let available = self.left.available_write().min(self.right.available_write());
+        let available = self
+            .left
+            .available_write()
+            .min(self.right.available_write());
         let to_write = frames.min(available);
 
         if to_write == 0 {
@@ -253,7 +258,9 @@ impl StereoRingBuffer {
     }
 
     pub fn available_write(&self) -> usize {
-        self.left.available_write().min(self.right.available_write())
+        self.left
+            .available_write()
+            .min(self.right.available_write())
     }
 
     pub fn clear(&self) {
@@ -334,7 +341,8 @@ impl CommandRingBuffer {
             ptr.add(idx).write(Some(command));
         }
 
-        self.write_pos.store(write.wrapping_add(1), Ordering::Release);
+        self.write_pos
+            .store(write.wrapping_add(1), Ordering::Release);
         true
     }
 
@@ -421,7 +429,8 @@ impl MeterRingBuffer {
             ptr.add(idx).write(snapshot);
         }
 
-        self.write_pos.store(write.wrapping_add(1), Ordering::Release);
+        self.write_pos
+            .store(write.wrapping_add(1), Ordering::Release);
         true
     }
 

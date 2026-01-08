@@ -6,8 +6,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::{AudioBuffer, ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext};
 use crate::scanner::{PluginCategory, PluginInfo, PluginType};
+use crate::{
+    AudioBuffer, ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext,
+};
 
 /// LV2 plugin descriptor
 #[derive(Debug, Clone)]
@@ -287,7 +289,9 @@ impl Lv2Host {
 
     /// Load a plugin instance
     pub fn load(&self, uri: &str) -> PluginResult<Lv2PluginInstance> {
-        let descriptor = self.plugins.get(uri)
+        let descriptor = self
+            .plugins
+            .get(uri)
             .ok_or_else(|| PluginError::NotFound(uri.to_string()))?;
 
         Lv2PluginInstance::new(descriptor.clone())
@@ -400,11 +404,16 @@ impl PluginInstance for Lv2PluginInstance {
     }
 
     fn parameter_count(&self) -> usize {
-        self.ports.iter().filter(|p| matches!(p.port_type, Lv2PortType::ControlInput)).count()
+        self.ports
+            .iter()
+            .filter(|p| matches!(p.port_type, Lv2PortType::ControlInput))
+            .count()
     }
 
     fn parameter_info(&self, index: usize) -> Option<ParameterInfo> {
-        let control_ports: Vec<_> = self.ports.iter()
+        let control_ports: Vec<_> = self
+            .ports
+            .iter()
             .filter(|p| matches!(p.port_type, Lv2PortType::ControlInput))
             .collect();
 
@@ -416,7 +425,11 @@ impl PluginInstance for Lv2PluginInstance {
             max: port.maximum as f64,
             default: port.default as f64,
             normalized: 0.5,
-            steps: if port.integer { (port.maximum - port.minimum) as u32 } else { 0 },
+            steps: if port.integer {
+                (port.maximum - port.minimum) as u32
+            } else {
+                0
+            },
             automatable: true,
             read_only: false,
         })
@@ -451,7 +464,9 @@ impl PluginInstance for Lv2PluginInstance {
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     fn open_editor(&mut self, _parent: *mut std::ffi::c_void) -> PluginResult<()> {
-        Err(PluginError::UnsupportedFormat("LV2 UI not implemented".to_string()))
+        Err(PluginError::UnsupportedFormat(
+            "LV2 UI not implemented".to_string(),
+        ))
     }
 
     fn close_editor(&mut self) -> PluginResult<()> {
@@ -471,8 +486,15 @@ mod tests {
 
     #[test]
     fn test_lv2_class() {
-        assert!(Lv2Class::CompressorPlugin.as_uri().contains("CompressorPlugin"));
-        assert_eq!(Lv2Class::AnalyserPlugin.to_category(), PluginCategory::Analyzer);
+        assert!(
+            Lv2Class::CompressorPlugin
+                .as_uri()
+                .contains("CompressorPlugin")
+        );
+        assert_eq!(
+            Lv2Class::AnalyserPlugin.to_category(),
+            PluginCategory::Analyzer
+        );
     }
 
     #[test]

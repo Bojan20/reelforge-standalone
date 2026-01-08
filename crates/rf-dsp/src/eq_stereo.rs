@@ -8,9 +8,9 @@
 //! - Stereo image correction
 //! - Phase alignment between channels
 
+use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 use rf_core::Sample;
-use crate::{Processor, ProcessorConfig, StereoProcessor, MonoProcessor};
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
 
 // ============================================================================
 // BASS MONO
@@ -156,7 +156,10 @@ impl StereoProcessor for BassMono {
         let low_r_out = low_r * (1.0 - self.blend) + low_mono * self.blend;
 
         let (high_l_out, high_r_out) = if self.phase_align {
-            (self.ap_l.process_sample(high_l), self.ap_r.process_sample(high_r))
+            (
+                self.ap_l.process_sample(high_l),
+                self.ap_r.process_sample(high_r),
+            )
         } else {
             (high_l, high_r)
         };

@@ -7,13 +7,13 @@
 //! - Height channel rendering
 //! - Binaural Atmos rendering
 
-mod renderer;
 mod bed;
 mod metadata;
+mod renderer;
 
-pub use renderer::{AtmosRenderer, AtmosConfig};
 pub use bed::AtmosBed;
 pub use metadata::{AdmMetadata, ObjectMetadata};
+pub use renderer::{AtmosConfig, AtmosRenderer};
 
 use crate::Position3D;
 

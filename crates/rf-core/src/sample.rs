@@ -27,7 +27,10 @@ impl StereoSample {
 
     #[inline]
     pub const fn mono(value: Sample) -> Self {
-        Self { left: value, right: value }
+        Self {
+            left: value,
+            right: value,
+        }
     }
 
     #[inline]

@@ -10,11 +10,11 @@
 use std::f64::consts::PI;
 use std::sync::Arc;
 
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
-use rf_core::Sample;
 use crate::{Processor, ProcessorConfig, StereoProcessor};
+use rf_core::Sample;
 
 // ============ Constants ============
 
@@ -153,7 +153,10 @@ struct FrequencyResponseDesigner {
 
 impl FrequencyResponseDesigner {
     fn new(sample_rate: f64, fft_size: usize) -> Self {
-        Self { sample_rate, fft_size }
+        Self {
+            sample_rate,
+            fft_size,
+        }
     }
 
     /// Calculate magnitude response for a band at given frequency
@@ -298,9 +301,8 @@ impl FirDesigner {
     /// Create linear phase FIR from magnitude response
     fn design_filter(&self, magnitude: &[f64]) -> Vec<f64> {
         // Create complex spectrum with zero phase
-        let mut spectrum: Vec<Complex<f64>> = magnitude.iter()
-            .map(|&m| Complex::new(m, 0.0))
-            .collect();
+        let mut spectrum: Vec<Complex<f64>> =
+            magnitude.iter().map(|&m| Complex::new(m, 0.0)).collect();
 
         // IFFT to get impulse response
         let mut impulse = vec![0.0; self.fft_size];
@@ -325,9 +327,7 @@ impl FirDesigner {
         // Apply window (Blackman-Harris for low sidelobes)
         for (i, sample) in symmetric.iter_mut().enumerate() {
             let t = i as f64 / (self.fft_size - 1) as f64;
-            let window = 0.35875
-                - 0.48829 * (2.0 * PI * t).cos()
-                + 0.14128 * (4.0 * PI * t).cos()
+            let window = 0.35875 - 0.48829 * (2.0 * PI * t).cos() + 0.14128 * (4.0 * PI * t).cos()
                 - 0.01168 * (6.0 * PI * t).cos();
             *sample *= window;
         }
@@ -371,7 +371,9 @@ impl OverlapSaveConvolver {
         filter_padded[..copy_len].copy_from_slice(&filter_ir[..copy_len]);
 
         let mut filter_spectrum = vec![Complex::new(0.0, 0.0); fft_size / 2 + 1];
-        fft_forward.process(&mut filter_padded, &mut filter_spectrum).ok();
+        fft_forward
+            .process(&mut filter_padded, &mut filter_spectrum)
+            .ok();
 
         Self {
             filter_spectrum,
@@ -390,7 +392,9 @@ impl OverlapSaveConvolver {
         let copy_len = filter_ir.len().min(self.fft_size);
         filter_padded[..copy_len].copy_from_slice(&filter_ir[..copy_len]);
 
-        self.fft_forward.process(&mut filter_padded, &mut self.filter_spectrum).ok();
+        self.fft_forward
+            .process(&mut filter_padded, &mut self.filter_spectrum)
+            .ok();
     }
 
     fn process_block(&mut self, input: &[f64], output: &mut [f64]) {
@@ -402,17 +406,22 @@ impl OverlapSaveConvolver {
         // FFT input
         let mut input_copy = self.input_buffer.clone();
         let mut input_spectrum = vec![Complex::new(0.0, 0.0); self.fft_size / 2 + 1];
-        self.fft_forward.process(&mut input_copy, &mut input_spectrum).ok();
+        self.fft_forward
+            .process(&mut input_copy, &mut input_spectrum)
+            .ok();
 
         // Complex multiply
-        let mut result_spectrum: Vec<Complex<f64>> = input_spectrum.iter()
+        let mut result_spectrum: Vec<Complex<f64>> = input_spectrum
+            .iter()
             .zip(&self.filter_spectrum)
             .map(|(a, b)| a * b)
             .collect();
 
         // IFFT
         let mut result = vec![0.0; self.fft_size];
-        self.fft_inverse.process(&mut result_spectrum, &mut result).ok();
+        self.fft_inverse
+            .process(&mut result_spectrum, &mut result)
+            .ok();
 
         // Normalize and output
         let norm = 1.0 / self.fft_size as f64;
@@ -590,8 +599,10 @@ impl LinearPhaseEQ {
         self.update_filter();
 
         // Process through convolvers
-        self.convolver_l.process_block(&self.input_l, &mut self.output_l);
-        self.convolver_r.process_block(&self.input_r, &mut self.output_r);
+        self.convolver_l
+            .process_block(&self.input_l, &mut self.output_l);
+        self.convolver_r
+            .process_block(&self.input_r, &mut self.output_r);
     }
 }
 
@@ -680,7 +691,8 @@ mod tests {
         assert_eq!(response.len(), 100);
 
         // Check that response at 1kHz is boosted
-        let at_1k = response.iter()
+        let at_1k = response
+            .iter()
             .find(|(f, _)| (*f - 1000.0).abs() < 100.0)
             .map(|(_, db)| *db)
             .unwrap_or(0.0);

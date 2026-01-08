@@ -184,11 +184,13 @@ impl LufsMeter {
         self.buffer_pos += 1;
 
         // Calculate momentary (400ms)
-        let momentary_power: f64 = self.momentary_buffer.iter().sum::<f64>() / momentary_blocks as f64;
+        let momentary_power: f64 =
+            self.momentary_buffer.iter().sum::<f64>() / momentary_blocks as f64;
         self.momentary_lufs = -0.691 + 10.0 * momentary_power.max(1e-10).log10();
 
         // Calculate short-term (3s)
-        let short_term_power: f64 = self.short_term_buffer.iter().sum::<f64>() / short_term_blocks as f64;
+        let short_term_power: f64 =
+            self.short_term_buffer.iter().sum::<f64>() / short_term_blocks as f64;
         self.short_term_lufs = -0.691 + 10.0 * short_term_power.max(1e-10).log10();
 
         // Store for integrated calculation (gated)
@@ -206,7 +208,8 @@ impl LufsMeter {
         }
 
         // Calculate ungated mean
-        let mean_power: f64 = self.integrated_power.iter().sum::<f64>() / self.integrated_power.len() as f64;
+        let mean_power: f64 =
+            self.integrated_power.iter().sum::<f64>() / self.integrated_power.len() as f64;
         let ungated_lufs = -0.691 + 10.0 * mean_power.max(1e-10).log10();
 
         // Relative gate (-10 dB below ungated)
@@ -214,10 +217,14 @@ impl LufsMeter {
         let gate_linear = 10.0f64.powf((relative_threshold + 0.691) / 10.0);
 
         // Recalculate with relative gate
-        let gated_sum: f64 = self.integrated_power.iter()
+        let gated_sum: f64 = self
+            .integrated_power
+            .iter()
             .filter(|&&p| p >= gate_linear)
             .sum();
-        let gated_count = self.integrated_power.iter()
+        let gated_count = self
+            .integrated_power
+            .iter()
             .filter(|&&p| p >= gate_linear)
             .count();
 
@@ -325,15 +332,21 @@ impl LoudnessNormalizer {
     /// Apply gain to audio
     pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
         // Smooth gain changes
-        self.smoothed_gain = self.smooth_coeff * self.smoothed_gain
-            + (1.0 - self.smooth_coeff) * self.gain as f64;
+        self.smoothed_gain =
+            self.smooth_coeff * self.smoothed_gain + (1.0 - self.smooth_coeff) * self.gain as f64;
 
         let gain = self.smoothed_gain as f32;
         (left * gain, right * gain)
     }
 
     /// Process buffer
-    pub fn process_buffer(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process_buffer(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),

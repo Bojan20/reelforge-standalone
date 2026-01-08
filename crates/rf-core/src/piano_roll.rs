@@ -8,8 +8,8 @@
 //! - Copy/paste operations
 //! - Undo/redo support
 
+use crate::midi::{MidiChannel, MidiClip, MidiNote, NoteName, NoteNumber, Velocity};
 use serde::{Deserialize, Serialize};
-use crate::midi::{MidiClip, MidiNote, MidiChannel, NoteNumber, Velocity, NoteName};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -216,8 +216,8 @@ impl Default for PianoRollView {
             pixels_per_beat: 100.0,
             pixels_per_note: 16.0,
             scroll_x_tick: 0,
-            scroll_y_note: 36, // C2
-            visible_note_low: 21,  // A0
+            scroll_y_note: 36,      // C2
+            visible_note_low: 21,   // A0
             visible_note_high: 108, // C8
             show_velocity: true,
             show_keys: true,
@@ -231,7 +231,8 @@ impl PianoRollView {
     /// Convert tick to x pixel position
     pub fn tick_to_x(&self, tick: u64) -> f64 {
         let beats = (tick as f64) / (TICKS_PER_BEAT as f64);
-        beats * self.pixels_per_beat - (self.scroll_x_tick as f64 / TICKS_PER_BEAT as f64) * self.pixels_per_beat
+        beats * self.pixels_per_beat
+            - (self.scroll_x_tick as f64 / TICKS_PER_BEAT as f64) * self.pixels_per_beat
     }
 
     /// Convert x pixel to tick
@@ -328,7 +329,7 @@ impl Default for PianoRollState {
             snap_enabled: true,
             time_sig_num: 4,
             time_sig_den: 4,
-            clip_length: TICKS_PER_BEAT * 4, // 1 bar
+            clip_length: TICKS_PER_BEAT * 4,         // 1 bar
             default_note_length: TICKS_PER_BEAT / 4, // 16th note
             default_velocity: 100,
             default_channel: 0,
@@ -393,7 +394,13 @@ impl PianoRollState {
     }
 
     /// Add a new note
-    pub fn add_note(&mut self, note: NoteNumber, start_tick: u64, duration: u64, velocity: Velocity) -> u64 {
+    pub fn add_note(
+        &mut self,
+        note: NoteNumber,
+        start_tick: u64,
+        duration: u64,
+        velocity: Velocity,
+    ) -> u64 {
         let start = if self.snap_enabled {
             self.snap_to_grid(start_tick)
         } else {
@@ -497,7 +504,9 @@ impl PianoRollState {
                     let new_start = if delta_duration >= 0 {
                         note.note.start_tick.saturating_add(delta_duration as u64)
                     } else {
-                        note.note.start_tick.saturating_sub((-delta_duration) as u64)
+                        note.note
+                            .start_tick
+                            .saturating_sub((-delta_duration) as u64)
                     };
                     // Snap inline
                     let snapped_start = if snap_enabled {
@@ -514,9 +523,13 @@ impl PianoRollState {
                 } else {
                     // Resize from end (keep start, adjust duration)
                     let new_duration = if delta_duration >= 0 {
-                        note.note.duration_ticks.saturating_add(delta_duration as u64)
+                        note.note
+                            .duration_ticks
+                            .saturating_add(delta_duration as u64)
                     } else {
-                        note.note.duration_ticks.saturating_sub((-delta_duration) as u64)
+                        note.note
+                            .duration_ticks
+                            .saturating_sub((-delta_duration) as u64)
                     };
                     note.note.duration_ticks = new_duration.max(min_duration);
                 }
@@ -533,7 +546,8 @@ impl PianoRollState {
     /// Set velocity for selected notes
     pub fn set_selected_velocity(&mut self, velocity: Velocity) {
         let ids: Vec<_> = self.selected_ids.clone();
-        let old_velocities: Vec<_> = ids.iter()
+        let old_velocities: Vec<_> = ids
+            .iter()
             .filter_map(|id| self.notes.iter().find(|n| n.id == *id))
             .map(|n| n.note.velocity)
             .collect();
@@ -558,7 +572,8 @@ impl PianoRollState {
         let ids: Vec<_> = self.selected_ids.clone();
         let grid_ticks = self.grid.ticks(self.time_sig_num, self.time_sig_den);
 
-        let old_positions: Vec<_> = ids.iter()
+        let old_positions: Vec<_> = ids
+            .iter()
             .filter_map(|id| self.notes.iter().find(|n| n.id == *id))
             .map(|n| n.note.start_tick)
             .collect();
@@ -639,7 +654,14 @@ impl PianoRollState {
     }
 
     /// Select notes in rectangle (tick_start, note_low) to (tick_end, note_high)
-    pub fn select_rect(&mut self, tick_start: u64, tick_end: u64, note_low: u8, note_high: u8, add: bool) {
+    pub fn select_rect(
+        &mut self,
+        tick_start: u64,
+        tick_end: u64,
+        note_low: u8,
+        note_high: u8,
+        add: bool,
+    ) {
         if !add {
             self.deselect_all();
         }
@@ -680,10 +702,7 @@ impl PianoRollState {
 
     /// Copy selected notes
     pub fn copy(&mut self) {
-        self.clipboard = self.notes.iter()
-            .filter(|n| n.selected)
-            .cloned()
-            .collect();
+        self.clipboard = self.notes.iter().filter(|n| n.selected).cloned().collect();
     }
 
     /// Cut selected notes
@@ -702,7 +721,8 @@ impl PianoRollState {
         let clipboard_copy: Vec<_> = self.clipboard.clone();
 
         // Find earliest tick in clipboard
-        let min_tick = clipboard_copy.iter()
+        let min_tick = clipboard_copy
+            .iter()
             .map(|n| n.note.start_tick)
             .min()
             .unwrap_or(0);
@@ -736,7 +756,9 @@ impl PianoRollState {
     pub fn duplicate(&mut self, offset_ticks: u64) {
         self.copy();
 
-        let min_tick = self.selected_ids.iter()
+        let min_tick = self
+            .selected_ids
+            .iter()
             .filter_map(|id| self.notes.iter().find(|n| n.id == *id))
             .map(|n| n.note.start_tick)
             .min()
@@ -790,7 +812,11 @@ impl PianoRollState {
             PianoRollEdit::RemoveNote { note } => {
                 self.notes.retain(|n| n.id != note.id);
             }
-            PianoRollEdit::MoveNotes { note_ids, delta_tick, delta_note } => {
+            PianoRollEdit::MoveNotes {
+                note_ids,
+                delta_tick,
+                delta_note,
+            } => {
                 for id in note_ids {
                     if let Some(note) = self.notes.iter_mut().find(|n| n.id == *id) {
                         note.note.start_tick = if *delta_tick >= 0 {
@@ -798,11 +824,16 @@ impl PianoRollState {
                         } else {
                             note.note.start_tick.saturating_sub((-*delta_tick) as u64)
                         };
-                        note.note.note = (note.note.note as i16 + *delta_note as i16).clamp(0, 127) as u8;
+                        note.note.note =
+                            (note.note.note as i16 + *delta_note as i16).clamp(0, 127) as u8;
                     }
                 }
             }
-            PianoRollEdit::ChangeVelocity { note_ids, new_velocities, .. } => {
+            PianoRollEdit::ChangeVelocity {
+                note_ids,
+                new_velocities,
+                ..
+            } => {
                 for (id, vel) in note_ids.iter().zip(new_velocities.iter()) {
                     if let Some(note) = self.notes.iter_mut().find(|n| n.id == *id) {
                         note.note.velocity = *vel;
@@ -822,7 +853,11 @@ impl PianoRollState {
                 self.notes.push(*note);
                 self.notes.sort_by_key(|n| n.note.start_tick);
             }
-            PianoRollEdit::MoveNotes { note_ids, delta_tick, delta_note } => {
+            PianoRollEdit::MoveNotes {
+                note_ids,
+                delta_tick,
+                delta_note,
+            } => {
                 for id in note_ids {
                     if let Some(note) = self.notes.iter_mut().find(|n| n.id == *id) {
                         note.note.start_tick = if *delta_tick >= 0 {
@@ -830,11 +865,16 @@ impl PianoRollState {
                         } else {
                             note.note.start_tick.saturating_add((-*delta_tick) as u64)
                         };
-                        note.note.note = (note.note.note as i16 - *delta_note as i16).clamp(0, 127) as u8;
+                        note.note.note =
+                            (note.note.note as i16 - *delta_note as i16).clamp(0, 127) as u8;
                     }
                 }
             }
-            PianoRollEdit::ChangeVelocity { note_ids, old_velocities, .. } => {
+            PianoRollEdit::ChangeVelocity {
+                note_ids,
+                old_velocities,
+                ..
+            } => {
                 for (id, vel) in note_ids.iter().zip(old_velocities.iter()) {
                     if let Some(note) = self.notes.iter_mut().find(|n| n.id == *id) {
                         note.note.velocity = *vel;

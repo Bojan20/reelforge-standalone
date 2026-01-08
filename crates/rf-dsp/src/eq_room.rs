@@ -14,9 +14,9 @@ use std::sync::Arc;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
+use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::{MonoProcessor, Processor, StereoProcessor};
 use rf_core::Sample;
-use crate::{Processor, StereoProcessor, MonoProcessor};
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
 
 // ============================================================================
 // CONSTANTS
@@ -115,11 +115,13 @@ impl TargetCurve {
 
     /// Generate full target curve
     pub fn generate(&self, num_points: usize, min_freq: f64, max_freq: f64) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = min_freq * (max_freq / min_freq).powf(t);
-            self.offset_at(freq)
-        }).collect()
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = min_freq * (max_freq / min_freq).powf(t);
+                self.offset_at(freq)
+            })
+            .collect()
     }
 }
 
@@ -270,7 +272,9 @@ impl RoomMeasurement {
         }
 
         // Convert to dB
-        let db: Vec<f64> = self.magnitude.iter()
+        let db: Vec<f64> = self
+            .magnitude
+            .iter()
             .map(|&m| 20.0 * m.max(1e-10).log10())
             .collect();
 
@@ -287,9 +291,7 @@ impl RoomMeasurement {
             }
 
             // Check if local maximum
-            if db[i] > db[i - 1] && db[i] > db[i + 1]
-                && db[i] > db[i - 2] && db[i] > db[i + 2]
-            {
+            if db[i] > db[i - 1] && db[i] > db[i + 1] && db[i] > db[i - 2] && db[i] > db[i + 2] {
                 let excess = db[i] - smoothed[i];
 
                 // Significant peak (> 3dB above smoothed)
@@ -317,9 +319,8 @@ impl RoomMeasurement {
         }
 
         // Sort by magnitude (most problematic first)
-        self.room_modes.sort_by(|a, b| {
-            b.magnitude_db.partial_cmp(&a.magnitude_db).unwrap()
-        });
+        self.room_modes
+            .sort_by(|a, b| b.magnitude_db.partial_cmp(&a.magnitude_db).unwrap());
     }
 
     fn smooth_1_3_octave(&self, db: &[f64]) -> Vec<f64> {
@@ -381,7 +382,8 @@ impl RoomMeasurement {
 
     /// Get frequency response in dB
     pub fn get_response_db(&self) -> Vec<f64> {
-        self.magnitude.iter()
+        self.magnitude
+            .iter()
             .map(|&m| 20.0 * m.max(1e-10).log10())
             .collect()
     }
@@ -444,7 +446,10 @@ impl CorrectionBand {
         if !self.enabled {
             return (left, right);
         }
-        (self.filter_l.process_sample(left), self.filter_r.process_sample(right))
+        (
+            self.filter_l.process_sample(left),
+            self.filter_r.process_sample(right),
+        )
     }
 
     fn reset(&mut self) {
@@ -500,13 +505,16 @@ impl RoomCorrectionEq {
         }
 
         // Calculate average level
-        let avg_level: f64 = measured.iter()
+        let avg_level: f64 = measured
+            .iter()
             .skip(1) // Skip DC
             .take(measured.len() / 2) // Only up to Nyquist/2
-            .sum::<f64>() / (measured.len() / 2) as f64;
+            .sum::<f64>()
+            / (measured.len() / 2) as f64;
 
         // Generate target
-        let target: Vec<f64> = freqs.iter()
+        let target: Vec<f64> = freqs
+            .iter()
             .map(|&f| self.target.offset_at(f) + avg_level)
             .collect();
 
@@ -526,14 +534,12 @@ impl RoomCorrectionEq {
 
         // Then, add broadband correction at key frequencies
         let correction_freqs = [
-            31.5, 63.0, 125.0, 250.0, 500.0,
-            1000.0, 2000.0, 4000.0, 8000.0, 16000.0
+            31.5, 63.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
         ];
 
         for &freq in &correction_freqs {
             // Skip if we already have a mode correction nearby
-            let has_nearby = self.bands.iter()
-                .any(|b| (b.freq / freq - 1.0).abs() < 0.3);
+            let has_nearby = self.bands.iter().any(|b| (b.freq / freq - 1.0).abs() < 0.3);
 
             if has_nearby {
                 continue;
@@ -557,12 +563,8 @@ impl RoomCorrectionEq {
             if correction.abs() > 0.5 {
                 // Use moderate Q for broadband corrections
                 let q = 1.0;
-                self.bands.push(CorrectionBand::new(
-                    freq,
-                    correction,
-                    q,
-                    self.sample_rate,
-                ));
+                self.bands
+                    .push(CorrectionBand::new(freq, correction, q, self.sample_rate));
             }
         }
 
@@ -577,29 +579,31 @@ impl RoomCorrectionEq {
 
     /// Get correction curve for visualization
     pub fn get_correction_curve(&self, num_points: usize) -> Vec<f64> {
-        (0..num_points).map(|i| {
-            let t = i as f64 / (num_points - 1) as f64;
-            let freq = 20.0 * (1000.0_f64).powf(t);
+        (0..num_points)
+            .map(|i| {
+                let t = i as f64 / (num_points - 1) as f64;
+                let freq = 20.0 * (1000.0_f64).powf(t);
 
-            // Sum contribution from all bands
-            let mut total_db = 0.0;
-            for band in &self.bands {
-                if !band.enabled {
-                    continue;
+                // Sum contribution from all bands
+                let mut total_db = 0.0;
+                for band in &self.bands {
+                    if !band.enabled {
+                        continue;
+                    }
+
+                    // Approximate band contribution (simplified)
+                    let ratio = freq / band.freq;
+                    let q_factor = band.q;
+
+                    // Peaking filter magnitude approximation
+                    let denom = (1.0 - ratio * ratio).powi(2) + (ratio / q_factor).powi(2);
+                    let magnitude = (band.gain_db / 20.0).exp() / denom.sqrt();
+                    total_db += 20.0 * magnitude.log10();
                 }
 
-                // Approximate band contribution (simplified)
-                let ratio = freq / band.freq;
-                let q_factor = band.q;
-
-                // Peaking filter magnitude approximation
-                let denom = (1.0 - ratio * ratio).powi(2) + (ratio / q_factor).powi(2);
-                let magnitude = (band.gain_db / 20.0).exp() / denom.sqrt();
-                total_db += 20.0 * magnitude.log10();
-            }
-
-            total_db
-        }).collect()
+                total_db
+            })
+            .collect()
     }
 
     /// Number of correction bands

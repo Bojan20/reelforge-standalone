@@ -85,7 +85,8 @@ impl FormatConverter {
     /// Create new converter
     pub fn new(source: AmbisonicFormat, target: AmbisonicFormat, order: AmbisonicOrder) -> Self {
         let _num_channels = order.channel_count();
-        let norm_gains = Self::compute_norm_gains(source.normalization, target.normalization, order);
+        let norm_gains =
+            Self::compute_norm_gains(source.normalization, target.normalization, order);
         let reorder_map = Self::compute_reorder_map(source.ordering, target.ordering, order);
 
         Self {
@@ -116,7 +117,11 @@ impl FormatConverter {
     }
 
     /// Compute normalization conversion gains
-    fn compute_norm_gains(source: Normalization, target: Normalization, order: AmbisonicOrder) -> Vec<f32> {
+    fn compute_norm_gains(
+        source: Normalization,
+        target: Normalization,
+        order: AmbisonicOrder,
+    ) -> Vec<f32> {
         let num_channels = order.channel_count();
         let mut gains = vec![1.0f32; num_channels];
 
@@ -160,10 +165,16 @@ impl FormatConverter {
             Normalization::FuMa => {
                 // FuMa factors (first order only accurate here)
                 factors[0] = 1.0 / 2.0_f32.sqrt(); // W
-                if num_channels > 1 { factors[1] = 1.0; } // Y
-                if num_channels > 2 { factors[2] = 1.0; } // Z
-                if num_channels > 3 { factors[3] = 1.0; } // X
-                // Higher orders have different FuMa factors
+                if num_channels > 1 {
+                    factors[1] = 1.0;
+                } // Y
+                if num_channels > 2 {
+                    factors[2] = 1.0;
+                } // Z
+                if num_channels > 3 {
+                    factors[3] = 1.0;
+                } // X
+                  // Higher orders have different FuMa factors
             }
             Normalization::MaxN => {
                 // MaxN: all channels have max value of 1
@@ -200,7 +211,11 @@ impl FormatConverter {
     }
 
     /// Compute channel reordering map
-    fn compute_reorder_map(source: ChannelOrdering, target: ChannelOrdering, order: AmbisonicOrder) -> Vec<usize> {
+    fn compute_reorder_map(
+        source: ChannelOrdering,
+        target: ChannelOrdering,
+        order: AmbisonicOrder,
+    ) -> Vec<usize> {
         let num_channels = order.channel_count();
 
         if source == target {
@@ -269,21 +284,13 @@ impl FormatConverter {
 
 /// Convert between AmbiX and FuMa
 pub fn ambix_to_fuma(input: &[Vec<f32>], order: AmbisonicOrder) -> Vec<Vec<f32>> {
-    let converter = FormatConverter::new(
-        AmbisonicFormat::ambix(),
-        AmbisonicFormat::fuma(),
-        order,
-    );
+    let converter = FormatConverter::new(AmbisonicFormat::ambix(), AmbisonicFormat::fuma(), order);
     converter.convert(input)
 }
 
 /// Convert between FuMa and AmbiX
 pub fn fuma_to_ambix(input: &[Vec<f32>], order: AmbisonicOrder) -> Vec<Vec<f32>> {
-    let converter = FormatConverter::new(
-        AmbisonicFormat::fuma(),
-        AmbisonicFormat::ambix(),
-        order,
-    );
+    let converter = FormatConverter::new(AmbisonicFormat::fuma(), AmbisonicFormat::ambix(), order);
     converter.convert(input)
 }
 
@@ -299,12 +306,7 @@ mod tests {
             AmbisonicOrder::First,
         );
 
-        let input = vec![
-            vec![1.0; 10],
-            vec![0.5; 10],
-            vec![0.3; 10],
-            vec![0.7; 10],
-        ];
+        let input = vec![vec![1.0; 10], vec![0.5; 10], vec![0.3; 10], vec![0.7; 10]];
 
         let output = converter.convert(&input);
 
@@ -317,12 +319,7 @@ mod tests {
 
     #[test]
     fn test_fuma_ambix_roundtrip() {
-        let input = vec![
-            vec![1.0; 10],
-            vec![0.5; 10],
-            vec![0.3; 10],
-            vec![0.7; 10],
-        ];
+        let input = vec![vec![1.0; 10], vec![0.5; 10], vec![0.3; 10], vec![0.7; 10]];
 
         let fuma = ambix_to_fuma(&input, AmbisonicOrder::First);
         let back = fuma_to_ambix(&fuma, AmbisonicOrder::First);
@@ -332,7 +329,10 @@ mod tests {
                 assert!(
                     (back[ch][s] - input[ch][s]).abs() < 0.01,
                     "Channel {} sample {}: {} vs {}",
-                    ch, s, back[ch][s], input[ch][s]
+                    ch,
+                    s,
+                    back[ch][s],
+                    input[ch][s]
                 );
             }
         }

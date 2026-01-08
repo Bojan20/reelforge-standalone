@@ -140,11 +140,7 @@ impl DirectRoutingMatrix {
         self.slots
             .iter()
             .enumerate()
-            .filter_map(|(i, slot)| {
-                slot.active_route()
-                    .filter(|r| r.active)
-                    .map(|r| (i, r))
-            })
+            .filter_map(|(i, slot)| slot.active_route().filter(|r| r.active).map(|r| (i, r)))
             .collect()
     }
 
@@ -248,14 +244,18 @@ impl RoutingManager {
         self.track_routing
             .iter()
             .filter(|(_, matrix)| {
-                matrix.active_routes().iter().any(|(_, route)| {
-                    match (&route.destination, dest) {
+                matrix
+                    .active_routes()
+                    .iter()
+                    .any(|(_, route)| match (&route.destination, dest) {
                         (RouteDestination::Track(a), RouteDestination::Track(b)) => a == b,
-                        (RouteDestination::HardwareOutput(a), RouteDestination::HardwareOutput(b)) => a == b,
+                        (
+                            RouteDestination::HardwareOutput(a),
+                            RouteDestination::HardwareOutput(b),
+                        ) => a == b,
                         (RouteDestination::Master, RouteDestination::Master) => true,
                         _ => false,
-                    }
-                })
+                    })
             })
             .map(|(id, _)| *id)
             .collect()
@@ -320,10 +320,14 @@ mod tests {
         matrix.set_route(0, 0, Some(DirectRoute::default()));
 
         // Set up bank B with track
-        matrix.set_route(0, 1, Some(DirectRoute {
-            destination: RouteDestination::Track(TrackId::new(5)),
-            ..Default::default()
-        }));
+        matrix.set_route(
+            0,
+            1,
+            Some(DirectRoute {
+                destination: RouteDestination::Track(TrackId::new(5)),
+                ..Default::default()
+            }),
+        );
 
         // Default is bank A
         assert!(matches!(

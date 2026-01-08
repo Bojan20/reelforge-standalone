@@ -11,8 +11,7 @@ mod hrtf;
 mod renderer;
 
 pub use hrtf::{Hrtf, HrtfDatabase, HrtfInterpolation};
-pub use renderer::{BinauralRenderer, BinauralConfig};
-
+pub use renderer::{BinauralConfig, BinauralRenderer};
 
 /// HRIR (Head-Related Impulse Response) pair
 #[derive(Debug, Clone)]
@@ -173,8 +172,8 @@ impl ItdIldModel {
     /// Calculate ITD in samples for given azimuth
     pub fn itd_samples(&self, azimuth_deg: f32) -> f32 {
         let azimuth_rad = azimuth_deg.to_radians();
-        let itd_seconds = (self.head_radius / self.speed_of_sound)
-            * (azimuth_rad.sin() + azimuth_rad);
+        let itd_seconds =
+            (self.head_radius / self.speed_of_sound) * (azimuth_rad.sin() + azimuth_rad);
         itd_seconds * self.sample_rate as f32
     }
 

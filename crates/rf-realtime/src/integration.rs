@@ -153,23 +153,49 @@ impl ModuleType {
 
     /// Get modules by category
     pub fn ml_modules() -> Vec<Self> {
-        vec![Self::MlStemSeparation, Self::MlDenoise, Self::MlEnhance, Self::MlVoiceIsolation]
+        vec![
+            Self::MlStemSeparation,
+            Self::MlDenoise,
+            Self::MlEnhance,
+            Self::MlVoiceIsolation,
+        ]
     }
 
     pub fn spatial_modules() -> Vec<Self> {
-        vec![Self::SpatialPanner, Self::SpatialBinaural, Self::SpatialReverb, Self::SpatialAmbisonics]
+        vec![
+            Self::SpatialPanner,
+            Self::SpatialBinaural,
+            Self::SpatialReverb,
+            Self::SpatialAmbisonics,
+        ]
     }
 
     pub fn restoration_modules() -> Vec<Self> {
-        vec![Self::RestoreDenoise, Self::RestoreDeclick, Self::RestoreDeclip, Self::RestoreDehum, Self::RestoreDereverb]
+        vec![
+            Self::RestoreDenoise,
+            Self::RestoreDeclick,
+            Self::RestoreDeclip,
+            Self::RestoreDehum,
+            Self::RestoreDereverb,
+        ]
     }
 
     pub fn mastering_modules() -> Vec<Self> {
-        vec![Self::MasterLimiter, Self::MasterEq, Self::MasterCompressor, Self::MasterStereoWidth, Self::MasterLoudness]
+        vec![
+            Self::MasterLimiter,
+            Self::MasterEq,
+            Self::MasterCompressor,
+            Self::MasterStereoWidth,
+            Self::MasterLoudness,
+        ]
     }
 
     pub fn pitch_modules() -> Vec<Self> {
-        vec![Self::PitchDetector, Self::PitchCorrector, Self::PitchShifter]
+        vec![
+            Self::PitchDetector,
+            Self::PitchCorrector,
+            Self::PitchShifter,
+        ]
     }
 }
 

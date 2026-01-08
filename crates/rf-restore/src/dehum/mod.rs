@@ -145,7 +145,12 @@ impl Dehum {
     }
 
     /// Create notch filter bank
-    fn create_notches(fundamental: f32, harmonics: usize, q: f32, sample_rate: u32) -> Vec<NotchFilter> {
+    fn create_notches(
+        fundamental: f32,
+        harmonics: usize,
+        q: f32,
+        sample_rate: u32,
+    ) -> Vec<NotchFilter> {
         (1..=harmonics)
             .map(|h| {
                 let freq = fundamental * h as f32;
@@ -294,13 +299,15 @@ mod tests {
         let mut dehum = Dehum::new(config, 48000);
 
         // Create signal with 50Hz hum
-        let hum: Vec<f32> = (0..4800).map(|i| {
-            let t = i as f32 / 48000.0;
-            // 50Hz + harmonics
-            (2.0 * std::f32::consts::PI * 50.0 * t).sin() * 0.5
-                + (2.0 * std::f32::consts::PI * 100.0 * t).sin() * 0.3
-                + (2.0 * std::f32::consts::PI * 150.0 * t).sin() * 0.2
-        }).collect();
+        let hum: Vec<f32> = (0..4800)
+            .map(|i| {
+                let t = i as f32 / 48000.0;
+                // 50Hz + harmonics
+                (2.0 * std::f32::consts::PI * 50.0 * t).sin() * 0.5
+                    + (2.0 * std::f32::consts::PI * 100.0 * t).sin() * 0.3
+                    + (2.0 * std::f32::consts::PI * 150.0 * t).sin() * 0.2
+            })
+            .collect();
 
         let mut output = vec![0.0f32; hum.len()];
         dehum.process(&hum, &mut output).unwrap();

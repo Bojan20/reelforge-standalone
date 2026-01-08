@@ -7,10 +7,10 @@
 //! - Undo/Redo command pattern
 //! - Lock-free updates to audio thread
 
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::{Deserialize, Serialize};
-use parking_lot::RwLock;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ID TYPES
@@ -95,18 +95,18 @@ impl From<u32> for OutputBus {
 pub struct Track {
     pub id: TrackId,
     pub name: String,
-    pub color: u32,           // ARGB color
-    pub height: f64,          // UI height in pixels
+    pub color: u32,  // ARGB color
+    pub height: f64, // UI height in pixels
     pub output_bus: OutputBus,
-    pub volume: f64,          // 0.0 to 1.5 (linear, +6dB headroom)
-    pub pan: f64,             // -1.0 to +1.0
+    pub volume: f64, // 0.0 to 1.5 (linear, +6dB headroom)
+    pub pan: f64,    // -1.0 to +1.0
     pub muted: bool,
     pub soloed: bool,
     pub armed: bool,
     pub locked: bool,
     pub frozen: bool,
     pub input_monitor: bool,
-    pub order: usize,         // Position in track list
+    pub order: usize, // Position in track list
 }
 
 impl Track {
@@ -139,17 +139,17 @@ impl Track {
 pub struct Take {
     pub id: TakeId,
     pub name: String,
-    pub source_file: String,    // Audio file path
-    pub source_offset: f64,     // Offset within source file (seconds)
-    pub source_duration: f64,   // Duration in source file (seconds)
+    pub source_file: String,  // Audio file path
+    pub source_offset: f64,   // Offset within source file (seconds)
+    pub source_duration: f64, // Duration in source file (seconds)
     pub track_id: TrackId,
     pub lane_id: CompLaneId,
-    pub start_time: f64,        // Position on timeline (seconds)
-    pub duration: f64,          // Duration on timeline (seconds)
-    pub gain: f64,              // Take gain (linear, default 1.0)
+    pub start_time: f64, // Position on timeline (seconds)
+    pub duration: f64,   // Duration on timeline (seconds)
+    pub gain: f64,       // Take gain (linear, default 1.0)
     pub muted: bool,
-    pub color: u32,             // Take-specific color (ARGB)
-    pub rating: u8,             // 0-5 star rating
+    pub color: u32, // Take-specific color (ARGB)
+    pub rating: u8, // 0-5 star rating
 }
 
 impl Take {
@@ -181,9 +181,9 @@ impl Take {
 /// A comp region - selected portion of a take for final comp
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompRegion {
-    pub start_time: f64,        // Region start on timeline
-    pub end_time: f64,          // Region end on timeline
-    pub take_id: TakeId,        // Which take is selected for this region
+    pub start_time: f64, // Region start on timeline
+    pub end_time: f64,   // Region end on timeline
+    pub take_id: TakeId, // Which take is selected for this region
 }
 
 /// A comp lane containing multiple takes
@@ -192,8 +192,8 @@ pub struct CompLane {
     pub id: CompLaneId,
     pub name: String,
     pub track_id: TrackId,
-    pub height: f64,            // UI height in pixels
-    pub order: usize,           // Order within track's comp lanes
+    pub height: f64,  // UI height in pixels
+    pub order: usize, // Order within track's comp lanes
     pub visible: bool,
     pub color: u32,
 }
@@ -479,7 +479,7 @@ pub struct Clip {
     pub id: ClipId,
     pub track_id: TrackId,
     pub name: String,
-    pub color: Option<u32>,   // Override track color if set
+    pub color: Option<u32>, // Override track color if set
 
     // Timeline position (in seconds)
     pub start_time: f64,
@@ -495,7 +495,7 @@ pub struct Clip {
     pub fade_out: f64,
 
     // Gain and state
-    pub gain: f64,            // 0.0 to 2.0 (linear)
+    pub gain: f64, // 0.0 to 2.0 (linear)
     pub muted: bool,
     pub selected: bool,
     /// Play audio in reverse
@@ -508,7 +508,13 @@ pub struct Clip {
 }
 
 impl Clip {
-    pub fn new(track_id: TrackId, name: &str, source_file: &str, start_time: f64, duration: f64) -> Self {
+    pub fn new(
+        track_id: TrackId,
+        name: &str,
+        source_file: &str,
+        start_time: f64,
+        duration: f64,
+    ) -> Self {
         Self {
             id: ClipId(next_id()),
             track_id,
@@ -617,9 +623,7 @@ impl CrossfadeCurve {
                 // (10^t - 1) / 9
                 (10.0_f32.powf(t) - 1.0) / 9.0
             }
-            CrossfadeCurve::Custom(points) => {
-                Self::evaluate_custom(points, t)
-            }
+            CrossfadeCurve::Custom(points) => Self::evaluate_custom(points, t),
         }
     }
 
@@ -728,7 +732,13 @@ pub struct Crossfade {
 }
 
 impl Crossfade {
-    pub fn new(track_id: TrackId, clip_a: ClipId, clip_b: ClipId, start_time: f64, duration: f64) -> Self {
+    pub fn new(
+        track_id: TrackId,
+        clip_a: ClipId,
+        clip_b: ClipId,
+        start_time: f64,
+        duration: f64,
+    ) -> Self {
         Self {
             id: CrossfadeId(next_id()),
             track_id,
@@ -903,7 +913,9 @@ impl TrackManager {
     /// Delete a track and all its clips
     pub fn delete_track(&self, track_id: TrackId) {
         // Remove all clips on this track
-        let clip_ids: Vec<ClipId> = self.clips.read()
+        let clip_ids: Vec<ClipId> = self
+            .clips
+            .read()
             .values()
             .filter(|c| c.track_id == track_id)
             .map(|c| c.id)
@@ -929,7 +941,8 @@ impl TrackManager {
     pub fn get_all_tracks(&self) -> Vec<Track> {
         let tracks = self.tracks.read();
         let order = self.track_order.read();
-        order.iter()
+        order
+            .iter()
             .filter_map(|id| tracks.get(id).cloned())
             .collect()
     }
@@ -987,7 +1000,9 @@ impl TrackManager {
     /// Delete a clip
     pub fn delete_clip(&self, clip_id: ClipId) {
         // Remove associated crossfades
-        let xfade_ids: Vec<CrossfadeId> = self.crossfades.read()
+        let xfade_ids: Vec<CrossfadeId> = self
+            .crossfades
+            .read()
             .values()
             .filter(|x| x.clip_a_id == clip_id || x.clip_b_id == clip_id)
             .map(|x| x.id)
@@ -1007,7 +1022,8 @@ impl TrackManager {
 
     /// Get all clips for a track
     pub fn get_clips_for_track(&self, track_id: TrackId) -> Vec<Clip> {
-        self.clips.read()
+        self.clips
+            .read()
             .values()
             .filter(|c| c.track_id == track_id)
             .cloned()
@@ -1127,7 +1143,8 @@ impl TrackManager {
 
     /// Get selected clips
     pub fn get_selected_clips(&self) -> Vec<Clip> {
-        self.clips.read()
+        self.clips
+            .read()
             .values()
             .filter(|c| c.selected)
             .cloned()
@@ -1159,7 +1176,12 @@ impl TrackManager {
     }
 
     /// Insert FX at specific position in clip's chain
-    pub fn insert_clip_fx(&self, clip_id: ClipId, index: usize, fx_type: ClipFxType) -> Option<ClipFxSlotId> {
+    pub fn insert_clip_fx(
+        &self,
+        clip_id: ClipId,
+        index: usize,
+        fx_type: ClipFxType,
+    ) -> Option<ClipFxSlotId> {
         let mut clips = self.clips.write();
         if let Some(clip) = clips.get_mut(&clip_id) {
             let slot = ClipFxSlot::new(fx_type);
@@ -1234,14 +1256,16 @@ impl TrackManager {
 
     /// Get specific FX slot from a clip
     pub fn get_clip_fx_slot(&self, clip_id: ClipId, slot_id: ClipFxSlotId) -> Option<ClipFxSlot> {
-        self.clips.read()
+        self.clips
+            .read()
             .get(&clip_id)
             .and_then(|c| c.fx_chain.get_slot(slot_id).cloned())
     }
 
     /// Get all clips that have active FX processing
     pub fn get_clips_with_fx(&self) -> Vec<Clip> {
-        self.clips.read()
+        self.clips
+            .read()
             .values()
             .filter(|c| c.has_fx())
             .cloned()
@@ -1367,13 +1391,7 @@ impl TrackManager {
         // Determine crossfade start (overlap point)
         let start_time = clip_a.end_time() - duration / 2.0;
 
-        let mut xfade = Crossfade::new(
-            clip_a.track_id,
-            clip_a_id,
-            clip_b_id,
-            start_time,
-            duration,
-        );
+        let mut xfade = Crossfade::new(clip_a.track_id, clip_a_id, clip_b_id, start_time, duration);
         xfade.shape = shape;
 
         let id = xfade.id;
@@ -1384,7 +1402,8 @@ impl TrackManager {
 
     /// Get all crossfades for a track
     pub fn get_crossfades_for_track(&self, track_id: TrackId) -> Vec<Crossfade> {
-        self.crossfades.read()
+        self.crossfades
+            .read()
             .values()
             .filter(|x| x.track_id == track_id)
             .cloned()
@@ -1398,7 +1417,8 @@ impl TrackManager {
 
     /// Find crossfade at given time on a track
     pub fn get_crossfade_at_time(&self, track_id: TrackId, time: f64) -> Option<Crossfade> {
-        self.crossfades.read()
+        self.crossfades
+            .read()
             .values()
             .find(|x| x.track_id == track_id && x.contains_time(time))
             .cloned()
@@ -1414,7 +1434,12 @@ impl TrackManager {
     }
 
     /// Update crossfade with full shape control
-    pub fn update_crossfade_shape(&self, xfade_id: CrossfadeId, duration: f64, shape: CrossfadeShape) {
+    pub fn update_crossfade_shape(
+        &self,
+        xfade_id: CrossfadeId,
+        duration: f64,
+        shape: CrossfadeShape,
+    ) {
         if let Some(xfade) = self.crossfades.write().get_mut(&xfade_id) {
             xfade.duration = duration;
             xfade.shape = shape;
@@ -1487,7 +1512,8 @@ impl TrackManager {
 
     /// Get total project duration (end of last clip)
     pub fn get_duration(&self) -> f64 {
-        self.clips.read()
+        self.clips
+            .read()
             .values()
             .map(|c| c.end_time())
             .fold(0.0, f64::max)
@@ -1509,7 +1535,10 @@ impl TrackManager {
 
     /// Create a new comp lane for a track
     pub fn create_comp_lane(&self, track_id: TrackId, name: &str) -> CompLaneId {
-        let order = self.comp_lanes.read().values()
+        let order = self
+            .comp_lanes
+            .read()
+            .values()
             .filter(|l| l.track_id == track_id)
             .count();
         let lane = CompLane::new(name, track_id, order);
@@ -1527,7 +1556,13 @@ impl TrackManager {
     }
 
     /// Add a take to a comp lane
-    pub fn add_take(&self, lane_id: CompLaneId, source_file: &str, start_time: f64, duration: f64) -> Option<TakeId> {
+    pub fn add_take(
+        &self,
+        lane_id: CompLaneId,
+        source_file: &str,
+        start_time: f64,
+        duration: f64,
+    ) -> Option<TakeId> {
         let lane = self.comp_lanes.read().get(&lane_id)?.clone();
         let take = Take::new(source_file, lane.track_id, lane_id, start_time, duration);
         let take_id = take.id;
@@ -1559,7 +1594,13 @@ impl TrackManager {
     }
 
     /// Set comp region - select which take is active for a time range
-    pub fn set_comp_region(&self, track_id: TrackId, start_time: f64, end_time: f64, take_id: TakeId) {
+    pub fn set_comp_region(
+        &self,
+        track_id: TrackId,
+        start_time: f64,
+        end_time: f64,
+        take_id: TakeId,
+    ) {
         let mut regions = self.comp_regions.write();
         let track_regions = regions.entry(track_id).or_insert_with(Vec::new);
 
@@ -1579,7 +1620,9 @@ impl TrackManager {
 
     /// Get all comp lanes for a track
     pub fn get_comp_lanes(&self, track_id: TrackId) -> Vec<CompLane> {
-        self.comp_lanes.read().values()
+        self.comp_lanes
+            .read()
+            .values()
             .filter(|l| l.track_id == track_id)
             .cloned()
             .collect()
@@ -1587,7 +1630,9 @@ impl TrackManager {
 
     /// Get all takes for a comp lane
     pub fn get_takes(&self, lane_id: CompLaneId) -> Vec<Take> {
-        self.takes.read().values()
+        self.takes
+            .read()
+            .values()
             .filter(|t| t.lane_id == lane_id)
             .cloned()
             .collect()
@@ -1595,7 +1640,11 @@ impl TrackManager {
 
     /// Get comp regions for a track
     pub fn get_comp_regions(&self, track_id: TrackId) -> Vec<CompRegion> {
-        self.comp_regions.read().get(&track_id).cloned().unwrap_or_default()
+        self.comp_regions
+            .read()
+            .get(&track_id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Flatten comp to clip - create a clip from the comp regions
@@ -1606,12 +1655,24 @@ impl TrackManager {
         }
 
         // Find overall time range
-        let start = regions.iter().map(|r| r.start_time).fold(f64::INFINITY, f64::min);
-        let end = regions.iter().map(|r| r.end_time).fold(f64::NEG_INFINITY, f64::max);
+        let start = regions
+            .iter()
+            .map(|r| r.start_time)
+            .fold(f64::INFINITY, f64::min);
+        let end = regions
+            .iter()
+            .map(|r| r.end_time)
+            .fold(f64::NEG_INFINITY, f64::max);
 
         // Create a new clip (audio will need to be rendered/bounced separately)
         // Source file will be set after rendering
-        let clip = Clip::new(track_id, &format!("Comp {}", track_id.0), "", start, end - start);
+        let clip = Clip::new(
+            track_id,
+            &format!("Comp {}", track_id.0),
+            "",
+            start,
+            end - start,
+        );
         let clip_id = clip.id;
         self.clips.write().insert(clip_id, clip);
 
@@ -1714,18 +1775,30 @@ mod tests {
         for curve in curves {
             // At start (t=0), fade-in should be 0
             let val_start = curve.evaluate(0.0);
-            assert!(val_start >= 0.0 && val_start <= 0.01,
-                "{:?} start: {}", curve, val_start);
+            assert!(
+                val_start >= 0.0 && val_start <= 0.01,
+                "{:?} start: {}",
+                curve,
+                val_start
+            );
 
             // At end (t=1), fade-in should be 1
             let val_end = curve.evaluate(1.0);
-            assert!(val_end >= 0.99 && val_end <= 1.0,
-                "{:?} end: {}", curve, val_end);
+            assert!(
+                val_end >= 0.99 && val_end <= 1.0,
+                "{:?} end: {}",
+                curve,
+                val_end
+            );
 
             // At midpoint, value should be between 0 and 1
             let val_mid = curve.evaluate(0.5);
-            assert!(val_mid > 0.0 && val_mid < 1.0,
-                "{:?} mid: {}", curve, val_mid);
+            assert!(
+                val_mid > 0.0 && val_mid < 1.0,
+                "{:?} mid: {}",
+                curve,
+                val_mid
+            );
         }
     }
 
@@ -1741,8 +1814,11 @@ mod tests {
         let sum_of_squares = fade_in * fade_in + fade_out * fade_out;
 
         // Should be close to 1.0 (within floating point tolerance)
-        assert!((sum_of_squares - 1.0).abs() < 0.01,
-            "Equal power sum of squares: {}", sum_of_squares);
+        assert!(
+            (sum_of_squares - 1.0).abs() < 0.01,
+            "Equal power sum of squares: {}",
+            sum_of_squares
+        );
     }
 
     #[test]
@@ -1769,8 +1845,8 @@ mod tests {
     fn test_crossfade_shape_asymmetric() {
         // Use different curves for fade-out and fade-in
         let shape = CrossfadeShape::Asymmetric {
-            fade_out: CrossfadeCurve::Exponential,  // Slow start
-            fade_in: CrossfadeCurve::Logarithmic,   // Fast start
+            fade_out: CrossfadeCurve::Exponential, // Slow start
+            fade_in: CrossfadeCurve::Logarithmic,  // Fast start
         };
 
         // Both should work independently
@@ -1789,16 +1865,16 @@ mod tests {
         // Custom curve with specific control points
         let points = vec![
             (0.0, 0.0),
-            (0.25, 0.5),  // Fast initial rise
-            (0.75, 0.5),  // Plateau
-            (1.0, 1.0),   // Final rise
+            (0.25, 0.5), // Fast initial rise
+            (0.75, 0.5), // Plateau
+            (1.0, 1.0),  // Final rise
         ];
         let curve = CrossfadeCurve::Custom(points);
 
         // Test interpolation
         assert!((curve.evaluate(0.0) - 0.0).abs() < 0.01);
         assert!((curve.evaluate(0.25) - 0.5).abs() < 0.01);
-        assert!((curve.evaluate(0.5) - 0.5).abs() < 0.01);  // Should be on plateau
+        assert!((curve.evaluate(0.5) - 0.5).abs() < 0.01); // Should be on plateau
         assert!((curve.evaluate(1.0) - 1.0).abs() < 0.01);
     }
 
@@ -1812,13 +1888,16 @@ mod tests {
         let clip_b = manager.create_clip(track, "Clip B", "b.wav", 3.5, 4.0, 4.0);
 
         // Create symmetric crossfade
-        let xfade_id = manager.create_crossfade(
-            clip_a, clip_b, 0.5, CrossfadeCurve::EqualPower
-        ).unwrap();
+        let xfade_id = manager
+            .create_crossfade(clip_a, clip_b, 0.5, CrossfadeCurve::EqualPower)
+            .unwrap();
 
         let xfade = manager.get_crossfade(xfade_id).unwrap();
         assert_eq!(xfade.duration, 0.5);
-        assert!(matches!(xfade.shape, CrossfadeShape::Symmetric(CrossfadeCurve::EqualPower)));
+        assert!(matches!(
+            xfade.shape,
+            CrossfadeShape::Symmetric(CrossfadeCurve::EqualPower)
+        ));
     }
 
     #[test]
@@ -1830,11 +1909,15 @@ mod tests {
         let clip_b = manager.create_clip(track, "Clip B", "b.wav", 3.5, 4.0, 4.0);
 
         // Create asymmetric crossfade
-        let xfade_id = manager.create_asymmetric_crossfade(
-            clip_a, clip_b, 0.5,
-            CrossfadeCurve::Exponential,
-            CrossfadeCurve::Logarithmic,
-        ).unwrap();
+        let xfade_id = manager
+            .create_asymmetric_crossfade(
+                clip_a,
+                clip_b,
+                0.5,
+                CrossfadeCurve::Exponential,
+                CrossfadeCurve::Logarithmic,
+            )
+            .unwrap();
 
         let xfade = manager.get_crossfade(xfade_id).unwrap();
         assert!(matches!(xfade.shape, CrossfadeShape::Asymmetric { .. }));
@@ -1848,9 +1931,9 @@ mod tests {
         let clip_a = manager.create_clip(track, "A", "a.wav", 0.0, 4.0, 4.0);
         let clip_b = manager.create_clip(track, "B", "b.wav", 3.5, 4.0, 4.0);
 
-        let xfade_id = manager.create_crossfade(
-            clip_a, clip_b, 1.0, CrossfadeCurve::Linear
-        ).unwrap();
+        let xfade_id = manager
+            .create_crossfade(clip_a, clip_b, 1.0, CrossfadeCurve::Linear)
+            .unwrap();
 
         let xfade = manager.get_crossfade(xfade_id).unwrap();
 
@@ -1893,7 +1976,10 @@ mod tests {
     fn test_clip_fx_chain_bypass() {
         let mut chain = ClipFxChain::new();
 
-        let slot = ClipFxSlot::new(ClipFxType::Saturation { drive: 0.5, mix: 1.0 });
+        let slot = ClipFxSlot::new(ClipFxType::Saturation {
+            drive: 0.5,
+            mix: 1.0,
+        });
         let slot_id = chain.add_slot(slot);
 
         // Active by default
@@ -1921,16 +2007,15 @@ mod tests {
         let mut chain = ClipFxChain::new();
 
         // Add 3 FX in order
-        let slot1 = ClipFxSlot::new(ClipFxType::Gain { db: 0.0, pan: 0.0 })
-            .with_name("Gain 1");
+        let slot1 = ClipFxSlot::new(ClipFxType::Gain { db: 0.0, pan: 0.0 }).with_name("Gain 1");
         let slot2 = ClipFxSlot::new(ClipFxType::Compressor {
             ratio: 4.0,
             threshold_db: -20.0,
             attack_ms: 10.0,
             release_ms: 100.0,
-        }).with_name("Compressor");
-        let slot3 = ClipFxSlot::new(ClipFxType::Limiter { ceiling_db: -0.3 })
-            .with_name("Limiter");
+        })
+        .with_name("Compressor");
+        let slot3 = ClipFxSlot::new(ClipFxType::Limiter { ceiling_db: -0.3 }).with_name("Limiter");
 
         let id1 = chain.add_slot(slot1);
         let id2 = chain.add_slot(slot2);
@@ -1962,7 +2047,10 @@ mod tests {
 
         // Fill to max
         for i in 0..MAX_CLIP_FX_SLOTS {
-            let slot = ClipFxSlot::new(ClipFxType::Gain { db: i as f64, pan: 0.0 });
+            let slot = ClipFxSlot::new(ClipFxType::Gain {
+                db: i as f64,
+                pan: 0.0,
+            });
             chain.add_slot(slot);
         }
 
@@ -1985,8 +2073,8 @@ mod tests {
         let chain = ClipFxChain {
             slots: vec![],
             bypass: false,
-            input_gain_db: -6.0,   // -6dB = 0.5
-            output_gain_db: 6.0,   // +6dB = ~2.0
+            input_gain_db: -6.0, // -6dB = 0.5
+            output_gain_db: 6.0, // +6dB = ~2.0
         };
 
         let input_gain = chain.input_gain_linear();
@@ -2011,7 +2099,8 @@ mod tests {
         assert!(clip.fx_chain.is_empty());
 
         // Add FX via TrackManager
-        let slot_id = manager.add_clip_fx(clip_id, ClipFxType::Gain { db: 3.0, pan: -0.5 })
+        let slot_id = manager
+            .add_clip_fx(clip_id, ClipFxType::Gain { db: 3.0, pan: -0.5 })
             .unwrap();
 
         // Verify FX added
@@ -2021,7 +2110,9 @@ mod tests {
 
         // Get slot
         let slot = manager.get_clip_fx_slot(clip_id, slot_id).unwrap();
-        assert!(matches!(slot.fx_type, ClipFxType::Gain { db, pan } if (db - 3.0).abs() < 0.01 && (pan - (-0.5)).abs() < 0.01));
+        assert!(
+            matches!(slot.fx_type, ClipFxType::Gain { db, pan } if (db - 3.0).abs() < 0.01 && (pan - (-0.5)).abs() < 0.01)
+        );
 
         // Bypass FX
         manager.set_clip_fx_bypass(clip_id, slot_id, true);
@@ -2043,12 +2134,15 @@ mod tests {
         let clip2 = manager.create_clip(track, "Clip 2", "b.wav", 2.0, 2.0, 2.0);
 
         // Add FX to clip1
-        manager.add_clip_fx(clip1, ClipFxType::Compressor {
-            ratio: 4.0,
-            threshold_db: -18.0,
-            attack_ms: 5.0,
-            release_ms: 50.0,
-        });
+        manager.add_clip_fx(
+            clip1,
+            ClipFxType::Compressor {
+                ratio: 4.0,
+                threshold_db: -18.0,
+                attack_ms: 5.0,
+                release_ms: 50.0,
+            },
+        );
         manager.add_clip_fx(clip1, ClipFxType::Limiter { ceiling_db: -1.0 });
         manager.set_clip_fx_input_gain(clip1, -3.0);
 
@@ -2068,10 +2162,13 @@ mod tests {
 
     #[test]
     fn test_clip_fx_slot_builder() {
-        let slot = ClipFxSlot::new(ClipFxType::Saturation { drive: 0.7, mix: 0.8 })
-            .with_name("Warm Saturation")
-            .with_wet_dry(0.5)
-            .bypassed();
+        let slot = ClipFxSlot::new(ClipFxType::Saturation {
+            drive: 0.7,
+            mix: 0.8,
+        })
+        .with_name("Warm Saturation")
+        .with_wet_dry(0.5)
+        .bypassed();
 
         assert_eq!(slot.name, "Warm Saturation");
         assert_eq!(slot.wet_dry, 0.5);
@@ -2102,9 +2199,15 @@ mod tests {
                 release_ms: 50.0,
             },
             ClipFxType::Gain { db: 0.0, pan: 0.0 },
-            ClipFxType::PitchShift { semitones: 12.0, cents: 0.0 },
+            ClipFxType::PitchShift {
+                semitones: 12.0,
+                cents: 0.0,
+            },
             ClipFxType::TimeStretch { ratio: 1.0 },
-            ClipFxType::Saturation { drive: 0.5, mix: 1.0 },
+            ClipFxType::Saturation {
+                drive: 0.5,
+                mix: 1.0,
+            },
             ClipFxType::External {
                 plugin_id: "com.vendor.plugin".to_string(),
                 state: None,

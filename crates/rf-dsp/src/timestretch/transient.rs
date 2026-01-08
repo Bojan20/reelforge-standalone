@@ -8,8 +8,8 @@
 //! - **High Frequency Content (HFC)**: Weights high frequencies
 //! - **Complex Domain**: Combines magnitude and phase deviation
 
-use std::f64::consts::PI;
 use rustfft::{FftPlanner, num_complex::Complex64};
+use std::f64::consts::PI;
 
 use crate::timestretch::{FlexMarker, FlexMarkerType};
 
@@ -97,7 +97,8 @@ impl TransientDetector {
         let peaks = self.pick_peaks(&detection_function);
 
         // Convert peaks to flex markers
-        peaks.into_iter()
+        peaks
+            .into_iter()
             .map(|(sample_pos, confidence)| FlexMarker {
                 original_pos: sample_pos as u64,
                 warped_pos: sample_pos as u64,
@@ -149,9 +150,8 @@ impl TransientDetector {
 
             // Weighted combination
             let w = &self.method_weights;
-            detection[frame_idx] = w.spectral_flux * flux
-                + w.hfc * hfc
-                + w.complex_domain * complex;
+            detection[frame_idx] =
+                w.spectral_flux * flux + w.hfc * hfc + w.complex_domain * complex;
 
             // Update previous frame
             self.prev_magnitude = magnitude;
@@ -171,7 +171,8 @@ impl TransientDetector {
 
     /// Spectral flux: sum of positive magnitude differences
     fn spectral_flux(&self, magnitude: &[f64]) -> f64 {
-        magnitude.iter()
+        magnitude
+            .iter()
             .zip(self.prev_magnitude.iter())
             .map(|(&curr, &prev)| (curr - prev).max(0.0))
             .sum()
@@ -179,7 +180,8 @@ impl TransientDetector {
 
     /// High Frequency Content: frequency-weighted sum
     fn high_frequency_content(&self, magnitude: &[f64]) -> f64 {
-        magnitude.iter()
+        magnitude
+            .iter()
             .enumerate()
             .map(|(k, &m)| (k as f64 + 1.0) * m * m)
             .sum::<f64>()
@@ -194,13 +196,14 @@ impl TransientDetector {
         for k in 0..n {
             // Expected phase (linear extrapolation)
             let expected_phase = 2.0 * self.prev_phase.get(k).copied().unwrap_or(0.0)
-                - self.prev_phase.get(k.saturating_sub(1)).copied().unwrap_or(0.0);
+                - self
+                    .prev_phase
+                    .get(k.saturating_sub(1))
+                    .copied()
+                    .unwrap_or(0.0);
 
             // Expected magnitude and phase as complex
-            let expected = Complex64::from_polar(
-                self.prev_magnitude[k],
-                expected_phase,
-            );
+            let expected = Complex64::from_polar(self.prev_magnitude[k], expected_phase);
 
             // Actual
             let actual = Complex64::from_polar(magnitude[k], phase[k]);
@@ -270,19 +273,13 @@ pub fn transient_sharpness(samples: &[f64]) -> f64 {
     }
 
     // Compute derivative (absolute differences)
-    let derivative: Vec<f64> = samples.windows(2)
-        .map(|w| (w[1] - w[0]).abs())
-        .collect();
+    let derivative: Vec<f64> = samples.windows(2).map(|w| (w[1] - w[0]).abs()).collect();
 
     // Sharpness = peak derivative / mean derivative
     let peak = derivative.iter().cloned().fold(0.0, f64::max);
     let mean = derivative.iter().sum::<f64>() / derivative.len() as f64;
 
-    if mean > 0.0 {
-        peak / mean
-    } else {
-        0.0
-    }
+    if mean > 0.0 { peak / mean } else { 0.0 }
 }
 
 /// Detect if region contains sharp transient

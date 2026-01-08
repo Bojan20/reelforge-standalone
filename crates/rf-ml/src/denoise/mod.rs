@@ -17,16 +17,16 @@
 //! let clean = denoiser.process_frame(&noisy_frame)?;
 //! ```
 
+mod config;
 mod deep_filter;
 mod spectral_gate;
-mod config;
 
+pub use config::{DenoiseConfig, DenoiseMode, NoiseProfile};
 pub use deep_filter::DeepFilterNet;
 pub use spectral_gate::SpectralGate;
-pub use config::{DenoiseConfig, DenoiseMode, NoiseProfile};
 
-use crate::error::MlResult;
 use crate::buffer::AudioFrame;
+use crate::error::MlResult;
 
 /// Common trait for all denoisers
 pub trait Denoiser: Send + Sync {

@@ -10,16 +10,16 @@
 //! - Source-quality render (no quality loss)
 //! - Quick unfreeze (original data preserved)
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::io::{Write, BufWriter};
-use std::fs::File;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::insert_chain::InsertChain;
-use crate::track_manager::{TrackManager, Clip, TrackId};
 use crate::audio_import::{AudioImporter, ImportedAudio};
+use crate::insert_chain::InsertChain;
+use crate::track_manager::{Clip, TrackId, TrackManager};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FREEZE CONFIG
@@ -92,7 +92,10 @@ pub struct OfflineRenderer {
 
 impl OfflineRenderer {
     pub fn new(sample_rate: f64, block_size: usize) -> Self {
-        Self { sample_rate, block_size }
+        Self {
+            sample_rate,
+            block_size,
+        }
     }
 
     /// Render a track with inserts to stereo buffers
@@ -208,7 +211,8 @@ impl OfflineRenderer {
 
             // Source position
             let source_offset_samples = (clip.source_offset * source_sample_rate) as i64;
-            let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64 + source_offset_samples) as usize;
+            let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64
+                + source_offset_samples) as usize;
 
             // Get sample
             let (mut sample_l, mut sample_r) = if audio.channels == 1 {
@@ -271,8 +275,8 @@ impl OfflineRenderer {
 
         // fmt chunk
         writer.write_all(b"fmt ")?;
-        writer.write_all(&16u32.to_le_bytes())?;        // chunk size
-        writer.write_all(&3u16.to_le_bytes())?;         // IEEE float format
+        writer.write_all(&16u32.to_le_bytes())?; // chunk size
+        writer.write_all(&3u16.to_le_bytes())?; // IEEE float format
         writer.write_all(&num_channels.to_le_bytes())?;
         writer.write_all(&sample_rate.to_le_bytes())?;
         writer.write_all(&byte_rate.to_le_bytes())?;
@@ -321,7 +325,7 @@ impl OfflineRenderer {
         // fmt chunk
         writer.write_all(b"fmt ")?;
         writer.write_all(&16u32.to_le_bytes())?;
-        writer.write_all(&1u16.to_le_bytes())?;         // PCM format
+        writer.write_all(&1u16.to_le_bytes())?; // PCM format
         writer.write_all(&num_channels.to_le_bytes())?;
         writer.write_all(&sample_rate.to_le_bytes())?;
         writer.write_all(&byte_rate.to_le_bytes())?;
@@ -372,7 +376,7 @@ impl OfflineRenderer {
         // fmt chunk
         writer.write_all(b"fmt ")?;
         writer.write_all(&16u32.to_le_bytes())?;
-        writer.write_all(&1u16.to_le_bytes())?;         // PCM format
+        writer.write_all(&1u16.to_le_bytes())?; // PCM format
         writer.write_all(&num_channels.to_le_bytes())?;
         writer.write_all(&sample_rate.to_le_bytes())?;
         writer.write_all(&byte_rate.to_le_bytes())?;
@@ -487,7 +491,9 @@ impl FreezeManager {
         }
 
         // Get or create insert chain for this track
-        let mut insert_chain = self.insert_chains.write()
+        let mut insert_chain = self
+            .insert_chains
+            .write()
             .remove(&track_id)
             .unwrap_or_else(|| InsertChain::new(sample_rate as f64));
 
@@ -551,7 +557,10 @@ impl FreezeManager {
 
         log::info!(
             "Froze track {} to {:?} ({:.2}s, {} samples)",
-            track_id.0, frozen_path, total_duration, left.len()
+            track_id.0,
+            frozen_path,
+            total_duration,
+            left.len()
         );
 
         Ok(frozen_path)
@@ -580,7 +589,10 @@ impl FreezeManager {
 
         log::info!(
             "Freezing track {} from {}s to {}s (total: {}s)",
-            track_id.0, start_time, end_time, total_duration
+            track_id.0,
+            start_time,
+            end_time,
+            total_duration
         );
 
         // Progress simulation for legacy interface
@@ -608,7 +620,10 @@ impl FreezeManager {
 
     /// Unfreeze a track
     pub fn unfreeze_track(&self, track_id: TrackId) -> Result<(), FreezeError> {
-        let info = self.frozen_tracks.write().remove(&track_id)
+        let info = self
+            .frozen_tracks
+            .write()
+            .remove(&track_id)
             .ok_or(FreezeError::NotFrozen)?;
 
         if info.frozen_path.exists() {
@@ -626,7 +641,9 @@ impl FreezeManager {
 
     /// Get total frozen audio size in bytes
     pub fn total_frozen_size(&self) -> u64 {
-        self.frozen_tracks.read().values()
+        self.frozen_tracks
+            .read()
+            .values()
             .filter_map(|info| std::fs::metadata(&info.frozen_path).ok())
             .map(|m| m.len())
             .sum()
@@ -646,7 +663,8 @@ impl FreezeManager {
 
     /// Get frozen audio path for playback
     pub fn get_frozen_audio_path(&self, track_id: TrackId) -> Option<PathBuf> {
-        self.frozen_tracks.read()
+        self.frozen_tracks
+            .read()
             .get(&track_id)
             .map(|info| info.frozen_path.clone())
     }
@@ -689,7 +707,10 @@ lazy_static! {
 pub extern "C" fn track_freeze(track_id: u64, start_time: f64, end_time: f64) -> i32 {
     match FREEZE_MANAGER.freeze_track(TrackId(track_id), start_time, end_time, 48000) {
         Ok(_) => 1,
-        Err(e) => { log::error!("Freeze failed: {}", e); 0 }
+        Err(e) => {
+            log::error!("Freeze failed: {}", e);
+            0
+        }
     }
 }
 
@@ -698,14 +719,21 @@ pub extern "C" fn track_freeze(track_id: u64, start_time: f64, end_time: f64) ->
 pub extern "C" fn track_unfreeze(track_id: u64) -> i32 {
     match FREEZE_MANAGER.unfreeze_track(TrackId(track_id)) {
         Ok(_) => 1,
-        Err(e) => { log::error!("Unfreeze failed: {}", e); 0 }
+        Err(e) => {
+            log::error!("Unfreeze failed: {}", e);
+            0
+        }
     }
 }
 
 /// Check if track is frozen
 #[unsafe(no_mangle)]
 pub extern "C" fn track_is_frozen(track_id: u64) -> i32 {
-    if FREEZE_MANAGER.is_frozen(TrackId(track_id)) { 1 } else { 0 }
+    if FREEZE_MANAGER.is_frozen(TrackId(track_id)) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get total freeze cache size in MB

@@ -224,11 +224,7 @@ impl SigmaDeltaModulator {
     }
 
     /// Modulate with interpolation (for upsampling PCM to DSD rate)
-    pub fn modulate_interpolated(
-        &mut self,
-        input: &[Sample],
-        pcm_rate: f64,
-    ) -> Vec<u8> {
+    pub fn modulate_interpolated(&mut self, input: &[Sample], pcm_rate: f64) -> Vec<u8> {
         let ratio = (self.dsd_rate / pcm_rate) as usize;
         let mut output = Vec::with_capacity(input.len() * ratio);
 
@@ -276,8 +272,8 @@ impl SigmaDeltaModulator {
         // Theoretical noise floor based on order
         // Each order adds ~6dB of noise shaping benefit in audio band
         match self.order {
-            5 => -120.0,  // 5th order: ~120dB SNR in audio band
-            7 => -140.0,  // 7th order: ~140dB SNR in audio band (ULTIMATE)
+            5 => -120.0, // 5th order: ~120dB SNR in audio band
+            7 => -140.0, // 7th order: ~140dB SNR in audio band (ULTIMATE)
             _ => -100.0,
         }
     }
@@ -297,11 +293,7 @@ impl StereoSdm {
         }
     }
 
-    pub fn modulate_stereo(
-        &mut self,
-        left: &[Sample],
-        right: &[Sample],
-    ) -> (Vec<u8>, Vec<u8>) {
+    pub fn modulate_stereo(&mut self, left: &[Sample], right: &[Sample]) -> (Vec<u8>, Vec<u8>) {
         let left_dsd = self.left.modulate(left);
         let right_dsd = self.right.modulate(right);
         (left_dsd, right_dsd)

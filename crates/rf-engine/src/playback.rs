@@ -9,23 +9,22 @@
 //! - Bus routing (tracks → buses → master)
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::RwLock;
 
-use crate::track_manager::{
-    TrackManager, Clip, Track, OutputBus, Crossfade, TrackId,
-    ClipFxChain, ClipFxSlot, ClipFxType,
-};
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::automation::{AutomationEngine, ParamId};
 use crate::groups::{GroupManager, VcaId};
 use crate::insert_chain::InsertChain;
+use crate::track_manager::{
+    Clip, ClipFxChain, ClipFxSlot, ClipFxType, Crossfade, OutputBus, Track, TrackId, TrackManager,
+};
 
-use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 use rf_dsp::analysis::FftAnalyzer;
+use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO CACHE
@@ -55,7 +54,9 @@ impl AudioCache {
         match AudioImporter::import(Path::new(path)) {
             Ok(audio) => {
                 let arc = Arc::new(audio);
-                self.files.write().insert(path.to_string(), Arc::clone(&arc));
+                self.files
+                    .write()
+                    .insert(path.to_string(), Arc::clone(&arc));
                 Some(arc)
             }
             Err(e) => {
@@ -92,7 +93,8 @@ impl AudioCache {
 
     /// Get total memory usage (approximate)
     pub fn memory_usage(&self) -> usize {
-        self.files.read()
+        self.files
+            .read()
             .values()
             .map(|a| a.samples.len() * std::mem::size_of::<f32>())
             .sum()
@@ -218,8 +220,10 @@ impl PlaybackPosition {
 
     pub fn set_loop(&self, start_secs: f64, end_secs: f64, enabled: bool) {
         let rate = self.sample_rate.load(Ordering::Relaxed);
-        self.loop_start.store((start_secs * rate as f64) as u64, Ordering::Relaxed);
-        self.loop_end.store((end_secs * rate as f64) as u64, Ordering::Relaxed);
+        self.loop_start
+            .store((start_secs * rate as f64) as u64, Ordering::Relaxed);
+        self.loop_end
+            .store((end_secs * rate as f64) as u64, Ordering::Relaxed);
         self.loop_enabled.store(enabled, Ordering::Relaxed);
     }
 
@@ -275,7 +279,7 @@ impl BusBuffers {
 
     pub fn add_to_bus(&mut self, bus: OutputBus, left: &[f64], right: &[f64]) {
         let idx = match bus {
-            OutputBus::Master => 0,  // Routes directly to master
+            OutputBus::Master => 0, // Routes directly to master
             OutputBus::Music => 1,
             OutputBus::Sfx => 2,
             OutputBus::Voice => 3,
@@ -517,13 +521,10 @@ impl PlaybackEngine {
     /// Set elastic audio parameters for clip
     /// time_ratio: 1.0 = normal, 0.5 = half speed, 2.0 = double speed
     /// pitch_semitones: pitch shift in semitones
-    pub fn set_elastic_params(
-        &self,
-        clip_id: u32,
-        time_ratio: f64,
-        pitch_semitones: f64,
-    ) {
-        self.elastic_params.write().insert(clip_id, (time_ratio, pitch_semitones));
+    pub fn set_elastic_params(&self, clip_id: u32, time_ratio: f64, pitch_semitones: f64) {
+        self.elastic_params
+            .write()
+            .insert(clip_id, (time_ratio, pitch_semitones));
     }
 
     /// Get elastic audio parameters for clip
@@ -553,7 +554,9 @@ impl PlaybackEngine {
     /// Get or create insert chain for a track
     pub fn ensure_track_insert_chain(&self, track_id: u64, sample_rate: f64) {
         let mut chains = self.insert_chains.write();
-        chains.entry(track_id).or_insert_with(|| InsertChain::new(sample_rate));
+        chains
+            .entry(track_id)
+            .or_insert_with(|| InsertChain::new(sample_rate));
     }
 
     /// Load processor into track insert slot
@@ -565,7 +568,9 @@ impl PlaybackEngine {
     ) -> bool {
         let sample_rate = self.position.sample_rate() as f64;
         let mut chains = self.insert_chains.write();
-        let chain = chains.entry(track_id).or_insert_with(|| InsertChain::new(sample_rate));
+        let chain = chains
+            .entry(track_id)
+            .or_insert_with(|| InsertChain::new(sample_rate));
         chain.load(slot_index, processor)
     }
 
@@ -576,7 +581,9 @@ impl PlaybackEngine {
         slot_index: usize,
     ) -> Option<Box<dyn crate::insert_chain::InsertProcessor>> {
         let mut chains = self.insert_chains.write();
-        chains.get_mut(&track_id).and_then(|chain| chain.unload(slot_index))
+        chains
+            .get_mut(&track_id)
+            .and_then(|chain| chain.unload(slot_index))
     }
 
     /// Set bypass for track insert slot
@@ -619,7 +626,8 @@ impl PlaybackEngine {
 
     /// Get total insert latency for track
     pub fn get_track_insert_latency(&self, track_id: u64) -> usize {
-        self.insert_chains.read()
+        self.insert_chains
+            .read()
             .get(&track_id)
             .map(|c| c.total_latency())
             .unwrap_or(0)
@@ -645,7 +653,11 @@ impl PlaybackEngine {
         let mut chains = self.insert_chains.write();
         if let Some(chain) = chains.get_mut(&track_id) {
             if let Some(slot) = chain.slot_mut(slot_index) {
-                slot.set_position(if pre_fader { InsertPosition::PreFader } else { InsertPosition::PostFader });
+                slot.set_position(if pre_fader {
+                    InsertPosition::PreFader
+                } else {
+                    InsertPosition::PostFader
+                });
             }
         }
     }
@@ -658,7 +670,10 @@ impl PlaybackEngine {
     }
 
     /// Get insert slot info for track
-    pub fn get_track_insert_info(&self, track_id: u64) -> Vec<(usize, String, bool, bool, bool, f64, usize)> {
+    pub fn get_track_insert_info(
+        &self,
+        track_id: u64,
+    ) -> Vec<(usize, String, bool, bool, bool, f64, usize)> {
         // Returns: (index, name, is_loaded, is_bypassed, is_pre_fader, mix, latency)
         use crate::insert_chain::InsertPosition;
         let chains = self.insert_chains.read();
@@ -680,7 +695,9 @@ impl PlaybackEngine {
             result
         } else {
             // Return empty slots
-            (0..8).map(|i| (i, "Empty".to_string(), false, false, i < 4, 1.0, 0)).collect()
+            (0..8)
+                .map(|i| (i, "Empty".to_string(), false, false, i < 4, 1.0, 0))
+                .collect()
         }
     }
 
@@ -729,7 +746,11 @@ impl PlaybackEngine {
 
     /// Get track peak by track ID (0.0 - 1.0+)
     pub fn get_track_peak(&self, track_id: u64) -> f64 {
-        self.track_peaks.read().get(&track_id).copied().unwrap_or(0.0)
+        self.track_peaks
+            .read()
+            .get(&track_id)
+            .copied()
+            .unwrap_or(0.0)
     }
 
     /// Get all track peaks as HashMap
@@ -773,7 +794,8 @@ impl PlaybackEngine {
     }
 
     pub fn set_master_volume(&self, volume: f64) {
-        self.master_volume.store(volume.clamp(0.0, 1.5).to_bits(), Ordering::Relaxed);
+        self.master_volume
+            .store(volume.clamp(0.0, 1.5).to_bits(), Ordering::Relaxed);
     }
 
     pub fn master_volume(&self) -> f64 {
@@ -848,8 +870,11 @@ impl PlaybackEngine {
         let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if count % 200 == 0 {
             let cache_size = self.cache.files.read().len();
-            log::info!("[Process] Playing at sample {}, cache has {} files",
-                self.position.samples(), cache_size);
+            log::info!(
+                "[Process] Playing at sample {}, cache has {} files",
+                self.position.samples(),
+                cache_size
+            );
         }
 
         let sample_rate = self.position.sample_rate() as f64;
@@ -905,9 +930,12 @@ impl PlaybackEngine {
             track_r.fill(0.0);
 
             // Find crossfades active in this track for this time range
-            let track_crossfades: Vec<&Crossfade> = crossfades.values()
-                .filter(|xf| xf.track_id == track.id &&
-                    (xf.start_time < end_time && xf.end_time() > start_time))
+            let track_crossfades: Vec<&Crossfade> = crossfades
+                .values()
+                .filter(|xf| {
+                    xf.track_id == track.id
+                        && (xf.start_time < end_time && xf.end_time() > start_time)
+                })
                 .collect();
 
             // Get clips for this track that overlap with current time range
@@ -928,7 +956,8 @@ impl PlaybackEngine {
                 };
 
                 // Check if this clip is part of any active crossfade
-                let crossfade = track_crossfades.iter()
+                let crossfade = track_crossfades
+                    .iter()
                     .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
                     .copied();
 
@@ -1085,7 +1114,8 @@ impl PlaybackEngine {
         // Smooth correlation with decay to avoid jitter
         let prev_corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
         let smoothed_corr = prev_corr * 0.9 + correlation * 0.1;
-        self.correlation.store(smoothed_corr.to_bits(), Ordering::Relaxed);
+        self.correlation
+            .store(smoothed_corr.to_bits(), Ordering::Relaxed);
 
         // Stereo balance: based on RMS difference
         // -1.0 = full left, 0.0 = center, 1.0 = full right
@@ -1097,15 +1127,19 @@ impl PlaybackEngine {
         // Smooth balance
         let prev_bal = f64::from_bits(self.balance.load(Ordering::Relaxed));
         let smoothed_bal = prev_bal * 0.9 + balance * 0.1;
-        self.balance.store(smoothed_bal.to_bits(), Ordering::Relaxed);
+        self.balance
+            .store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
         // LUFS metering (ITU-R BS.1770-4)
         // Use try_write to avoid blocking audio thread if UI is reading
         if let Some(mut lufs) = self.lufs_meter.try_write() {
             lufs.process_block(output_l, output_r);
-            self.lufs_momentary.store(lufs.momentary_loudness().to_bits(), Ordering::Relaxed);
-            self.lufs_short.store(lufs.shortterm_loudness().to_bits(), Ordering::Relaxed);
-            self.lufs_integrated.store(lufs.integrated_loudness().to_bits(), Ordering::Relaxed);
+            self.lufs_momentary
+                .store(lufs.momentary_loudness().to_bits(), Ordering::Relaxed);
+            self.lufs_short
+                .store(lufs.shortterm_loudness().to_bits(), Ordering::Relaxed);
+            self.lufs_integrated
+                .store(lufs.integrated_loudness().to_bits(), Ordering::Relaxed);
         }
 
         // True Peak metering (4x oversampled per ITU-R BS.1770-4)
@@ -1121,7 +1155,8 @@ impl PlaybackEngine {
         // Spectrum analyzer (FFT)
         // Mix to mono and feed to analyzer
         if let Some(mut analyzer) = self.spectrum_analyzer.try_write() {
-            let mono_samples: Vec<f64> = output_l.iter()
+            let mono_samples: Vec<f64> = output_l
+                .iter()
                 .zip(output_r.iter())
                 .map(|(&l, &r)| (l + r) * 0.5)
                 .collect();
@@ -1161,12 +1196,7 @@ impl PlaybackEngine {
     /// - Takes a specific start position instead of using transport
     /// - Uses blocking locks (safe for offline processing)
     /// - Does not update meters or advance transport
-    pub fn process_offline(
-        &self,
-        start_sample: usize,
-        output_l: &mut [f64],
-        output_r: &mut [f64],
-    ) {
+    pub fn process_offline(&self, start_sample: usize, output_l: &mut [f64], output_r: &mut [f64]) {
         let frames = output_l.len();
 
         // Clear output buffers
@@ -1200,9 +1230,12 @@ impl PlaybackEngine {
             track_l.fill(0.0);
             track_r.fill(0.0);
 
-            let track_crossfades: Vec<&Crossfade> = crossfades.values()
-                .filter(|xf| xf.track_id == track.id &&
-                    (xf.start_time < end_time && xf.end_time() > start_time))
+            let track_crossfades: Vec<&Crossfade> = crossfades
+                .values()
+                .filter(|xf| {
+                    xf.track_id == track.id
+                        && (xf.start_time < end_time && xf.end_time() > start_time)
+                })
                 .collect();
 
             for clip in clips.values() {
@@ -1220,7 +1253,8 @@ impl PlaybackEngine {
                     None => continue, // Audio not cached - skip
                 };
 
-                let active_xf = track_crossfades.iter()
+                let active_xf = track_crossfades
+                    .iter()
                     .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
                     .copied();
 
@@ -1354,7 +1388,8 @@ impl PlaybackEngine {
 
             // Calculate source position (with offset and rate conversion)
             let source_offset_samples = (clip.source_offset * source_sample_rate) as i64;
-            let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64 + source_offset_samples) as usize;
+            let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64
+                + source_offset_samples) as usize;
 
             // Get sample from audio buffer
             let (mut sample_l, mut sample_r) = if audio.channels == 1 {
@@ -1432,12 +1467,7 @@ impl PlaybackEngine {
     /// This is a simplified version for built-in FX types.
     /// For full processing, use the dsp_wrappers module.
     #[inline]
-    fn process_clip_fx(
-        &self,
-        fx_chain: &ClipFxChain,
-        sample_l: f64,
-        sample_r: f64,
-    ) -> (f64, f64) {
+    fn process_clip_fx(&self, fx_chain: &ClipFxChain, sample_l: f64, sample_r: f64) -> (f64, f64) {
         // Skip if chain is bypassed or empty
         if fx_chain.bypass || fx_chain.is_empty() {
             return (sample_l, sample_r);
@@ -1472,12 +1502,7 @@ impl PlaybackEngine {
     /// Process a single FX slot
     /// Implements basic built-in FX processing
     #[inline]
-    fn process_fx_slot(
-        &self,
-        slot: &ClipFxSlot,
-        sample_l: f64,
-        sample_r: f64,
-    ) -> (f64, f64) {
+    fn process_fx_slot(&self, slot: &ClipFxSlot, sample_l: f64, sample_r: f64) -> (f64, f64) {
         match &slot.fx_type {
             ClipFxType::Gain { db, pan } => {
                 // Simple gain and pan
@@ -1502,7 +1527,12 @@ impl PlaybackEngine {
                 (l, r)
             }
 
-            ClipFxType::Compressor { ratio, threshold_db, attack_ms: _, release_ms: _ } => {
+            ClipFxType::Compressor {
+                ratio,
+                threshold_db,
+                attack_ms: _,
+                release_ms: _,
+            } => {
                 // Simplified static compression (no envelope follower for now)
                 // Full implementation would use stateful processor
                 let threshold = 10.0_f64.powf(*threshold_db / 20.0);
@@ -1530,7 +1560,11 @@ impl PlaybackEngine {
                 (l, r)
             }
 
-            ClipFxType::Gate { threshold_db, attack_ms: _, release_ms: _ } => {
+            ClipFxType::Gate {
+                threshold_db,
+                attack_ms: _,
+                release_ms: _,
+            } => {
                 // Simplified static gate (no envelope follower)
                 let threshold = 10.0_f64.powf(*threshold_db / 20.0);
                 let level = (sample_l.abs() + sample_r.abs()) / 2.0;
@@ -1542,7 +1576,10 @@ impl PlaybackEngine {
                 }
             }
 
-            ClipFxType::PitchShift { semitones: _, cents: _ } => {
+            ClipFxType::PitchShift {
+                semitones: _,
+                cents: _,
+            } => {
                 // Pitch shifting requires stateful buffer - pass through for now
                 // Full implementation in dsp_wrappers
                 (sample_l, sample_r)

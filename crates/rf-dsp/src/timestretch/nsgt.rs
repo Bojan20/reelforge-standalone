@@ -8,8 +8,8 @@
 //! - Velasco, Holighaus, Dörfler, Grill (2011): "Constructing an invertible constant-Q transform"
 //! - Balazs, Dörfler, Jaillet, Holighaus, Velasco (2011): "Theory, implementation and applications of NSGT"
 
-use std::f64::consts::PI;
 use rustfft::{FftPlanner, num_complex::Complex64};
+use std::f64::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -34,9 +34,9 @@ impl NsgtConfig {
     /// Default configuration for given sample rate
     pub fn default_for_sample_rate(sample_rate: f64) -> Self {
         Self {
-            min_freq: 32.7, // C1
+            min_freq: 32.7,              // C1
             max_freq: sample_rate / 2.1, // Just below Nyquist
-            bins_per_octave: 48, // Quarter-tone resolution
+            bins_per_octave: 48,         // Quarter-tone resolution
             sample_rate,
             window: WindowType::Hann,
         }
@@ -279,10 +279,8 @@ impl ConstantQNsgt {
 
                     // Modulate back to original frequency
                     let t = (start + i) as f64 / self.config.sample_rate;
-                    let modulator = Complex64::new(
-                        (2.0 * PI * freq * t).cos(),
-                        (2.0 * PI * freq * t).sin(),
-                    );
+                    let modulator =
+                        Complex64::new((2.0 * PI * freq * t).cos(), (2.0 * PI * freq * t).sin());
 
                     let sample = (coeff * modulator).re * self.windows[k][i];
                     output[start + i] += sample;
@@ -372,14 +370,20 @@ fn bessel_i0(x: f64) -> f64 {
     let ax = x.abs();
     if ax < 3.75 {
         let y = (x / 3.75).powi(2);
-        1.0 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492
-            + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
+        1.0 + y
+            * (3.5156229
+                + y * (3.0899424
+                    + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
     } else {
         let y = 3.75 / ax;
-        (ax.exp() / ax.sqrt()) * (0.39894228 + y * (0.01328592
-            + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281
-            + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633
-            + y * 0.00392377))))))))
+        (ax.exp() / ax.sqrt())
+            * (0.39894228
+                + y * (0.01328592
+                    + y * (0.00225319
+                        + y * (-0.00157565
+                            + y * (0.00916281
+                                + y * (-0.02057706
+                                    + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))))
     }
 }
 

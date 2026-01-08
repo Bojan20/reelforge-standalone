@@ -7,8 +7,8 @@
 //! - rf-master (intelligent mastering)
 //! - rf-pitch (polyphonic pitch)
 
-use std::collections::HashMap;
 use portable_atomic::{AtomicU64, Ordering};
+use std::collections::HashMap;
 
 /// Unique identifier for graph nodes
 pub type NodeId = u64;
@@ -134,7 +134,11 @@ impl ProcessingGraph {
     }
 
     /// Add a node to the graph
-    pub fn add_node(&mut self, node_type: NodeType, state: Box<dyn NodeState + Send + Sync>) -> NodeId {
+    pub fn add_node(
+        &mut self,
+        node_type: NodeType,
+        state: Box<dyn NodeState + Send + Sync>,
+    ) -> NodeId {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let latency = state.latency();
 
@@ -153,7 +157,8 @@ impl ProcessingGraph {
     /// Remove a node from the graph
     pub fn remove_node(&mut self, id: NodeId) -> bool {
         // Remove all connections to/from this node
-        self.connections.retain(|c| c.from_node != id && c.to_node != id);
+        self.connections
+            .retain(|c| c.from_node != id && c.to_node != id);
         self.nodes.remove(&id).is_some()
     }
 
@@ -183,7 +188,8 @@ impl ProcessingGraph {
     /// Disconnect two nodes
     pub fn disconnect(&mut self, from: NodeId, to: NodeId) -> bool {
         let len = self.connections.len();
-        self.connections.retain(|c| !(c.from_node == from && c.to_node == to));
+        self.connections
+            .retain(|c| !(c.from_node == from && c.to_node == to));
 
         if self.connections.len() != len {
             self.update_processing_order();
@@ -239,13 +245,15 @@ impl ProcessingGraph {
         self.processing_order.clear();
         while let Some(id) = queue.pop() {
             if let Some(node) = self.nodes.get(&id) {
-                let inputs: Vec<(NodeId, u32)> = self.connections
+                let inputs: Vec<(NodeId, u32)> = self
+                    .connections
                     .iter()
                     .filter(|c| c.to_node == id)
                     .map(|c| (c.from_node, c.from_port))
                     .collect();
 
-                let outputs: Vec<(NodeId, u32)> = self.connections
+                let outputs: Vec<(NodeId, u32)> = self
+                    .connections
                     .iter()
                     .filter(|c| c.from_node == id)
                     .map(|c| (c.to_node, c.to_port))
@@ -282,7 +290,8 @@ impl ProcessingGraph {
         let mut latencies: HashMap<NodeId, u32> = HashMap::new();
 
         for slot in &self.processing_order {
-            let max_input_latency = slot.inputs
+            let max_input_latency = slot
+                .inputs
                 .iter()
                 .filter_map(|(id, _)| latencies.get(id))
                 .max()
@@ -318,7 +327,8 @@ impl ProcessingGraph {
         // Process each node in order
         for slot in &self.processing_order {
             // Gather inputs
-            let input_buffers: Vec<Vec<f64>> = slot.inputs
+            let input_buffers: Vec<Vec<f64>> = slot
+                .inputs
                 .iter()
                 .filter_map(|(id, _)| buffers.get(id).cloned())
                 .collect();
@@ -393,10 +403,16 @@ impl NodeState for BypassNode {
         }
     }
 
-    fn latency(&self) -> u32 { 0 }
+    fn latency(&self) -> u32 {
+        0
+    }
     fn reset(&mut self) {}
-    fn num_inputs(&self) -> usize { self.num_channels }
-    fn num_outputs(&self) -> usize { self.num_channels }
+    fn num_inputs(&self) -> usize {
+        self.num_channels
+    }
+    fn num_outputs(&self) -> usize {
+        self.num_channels
+    }
 }
 
 /// Gain node - adjusts gain with smoothing
@@ -410,7 +426,8 @@ impl GainNode {
     pub fn new(gain_db: f64, sample_rate: f64) -> Self {
         let gain = 10.0_f64.powf(gain_db / 20.0);
         let smoothing_time_ms = 10.0;
-        let smoothing_coeff = (-2.0 * std::f64::consts::PI * 1000.0 / smoothing_time_ms / sample_rate).exp();
+        let smoothing_coeff =
+            (-2.0 * std::f64::consts::PI * 1000.0 / smoothing_time_ms / sample_rate).exp();
 
         Self {
             gain,
@@ -429,16 +446,25 @@ impl NodeState for GainNode {
         for (input, output) in inputs.iter().zip(outputs.iter_mut()) {
             for (i, &sample) in input.iter().enumerate() {
                 // Smooth gain transition
-                self.gain = self.target_gain + self.smoothing_coeff * (self.gain - self.target_gain);
+                self.gain =
+                    self.target_gain + self.smoothing_coeff * (self.gain - self.target_gain);
                 output[i] = sample * self.gain;
             }
         }
     }
 
-    fn latency(&self) -> u32 { 0 }
-    fn reset(&mut self) { self.gain = self.target_gain; }
-    fn num_inputs(&self) -> usize { 2 }
-    fn num_outputs(&self) -> usize { 2 }
+    fn latency(&self) -> u32 {
+        0
+    }
+    fn reset(&mut self) {
+        self.gain = self.target_gain;
+    }
+    fn num_inputs(&self) -> usize {
+        2
+    }
+    fn num_outputs(&self) -> usize {
+        2
+    }
 }
 
 /// Mixer node - sums multiple inputs
@@ -484,10 +510,16 @@ impl NodeState for MixerNode {
         }
     }
 
-    fn latency(&self) -> u32 { 0 }
+    fn latency(&self) -> u32 {
+        0
+    }
     fn reset(&mut self) {}
-    fn num_inputs(&self) -> usize { self.num_inputs }
-    fn num_outputs(&self) -> usize { 1 }
+    fn num_inputs(&self) -> usize {
+        self.num_inputs
+    }
+    fn num_outputs(&self) -> usize {
+        1
+    }
 }
 
 #[cfg(test)]

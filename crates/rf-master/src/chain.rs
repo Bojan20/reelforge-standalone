@@ -3,16 +3,16 @@
 //! Combines all mastering components into unified processor
 
 use crate::{
-    Genre, LoudnessTarget, MasterConfig, MasteringPreset, MasteringResult,
-    LoudnessMeasurement, ReferenceProfile,
     analysis::MasteringAnalyzer,
-    dynamics::{MultibandDynamics, MultibandDynamicsConfig, MasteringCompressor},
-    eq::{LinearPhaseEq, TiltEq, MasterEqConfig},
-    limiter::{TruePeakLimiter, LimiterConfig},
-    loudness::{LufsMeter, LoudnessNormalizer},
-    stereo::{StereoEnhancer, StereoConfig},
-    reference::ReferenceMatcher,
+    dynamics::{MasteringCompressor, MultibandDynamics, MultibandDynamicsConfig},
+    eq::{LinearPhaseEq, MasterEqConfig, TiltEq},
     error::{MasterError, MasterResult},
+    limiter::{LimiterConfig, TruePeakLimiter},
+    loudness::{LoudnessNormalizer, LufsMeter},
+    reference::ReferenceMatcher,
+    stereo::{StereoConfig, StereoEnhancer},
+    Genre, LoudnessMeasurement, LoudnessTarget, MasterConfig, MasteringPreset, MasteringResult,
+    ReferenceProfile,
 };
 
 /// Complete mastering engine
@@ -223,7 +223,13 @@ impl MasteringEngine {
     }
 
     /// Process buffer (offline or block-based)
-    pub fn process(&mut self, input_l: &[f32], input_r: &[f32], output_l: &mut [f32], output_r: &mut [f32]) -> MasterResult<()> {
+    pub fn process(
+        &mut self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f32],
+        output_r: &mut [f32],
+    ) -> MasterResult<()> {
         if input_l.len() != output_l.len() {
             return Err(MasterError::BufferMismatch {
                 expected: input_l.len(),
@@ -246,7 +252,11 @@ impl MasteringEngine {
     }
 
     /// Process complete file and return result
-    pub fn process_offline(&mut self, left: &[f32], right: &[f32]) -> MasterResult<MasteringResult> {
+    pub fn process_offline(
+        &mut self,
+        left: &[f32],
+        right: &[f32],
+    ) -> MasterResult<MasteringResult> {
         // Analysis phase
         self.analyze(left, right);
         self.finalize_analysis();
@@ -315,7 +325,11 @@ impl MasteringEngine {
         })
     }
 
-    fn calculate_quality_score(&self, _input: &LoudnessMeasurement, output: &LoudnessMeasurement) -> f32 {
+    fn calculate_quality_score(
+        &self,
+        _input: &LoudnessMeasurement,
+        output: &LoudnessMeasurement,
+    ) -> f32 {
         let mut score = 100.0;
 
         // Penalize if true peak too high

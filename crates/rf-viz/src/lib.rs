@@ -12,79 +12,37 @@
 //!
 //! All renderers are designed for 60fps+ performance.
 
-pub mod waveform;
 pub mod common;
-pub mod spectrogram;
 pub mod eq_spectrum;
 pub mod gpu_filter;
 pub mod plugin_browser;
 pub mod plugin_chain;
+pub mod spectrogram;
 pub mod stretch_overlay;
+pub mod waveform;
 
-pub use waveform::{WaveformRenderer, WaveformData, WaveformConfig};
 pub use common::{GpuContext, VizError, VizResult};
-pub use spectrogram::{
-    SpectrogramConfig,
-    SpectrogramData,
-    SpectrogramFrame,
-    SpectrogramVertex,
-    ColorMap,
-    FrequencyScale,
-    DisplayMode,
-    WindowFunction,
-    generate_3d_mesh,
-};
 pub use eq_spectrum::{
-    EqSpectrumConfig,
-    EqSpectrumData,
-    BandHandle,
-    CollisionZone,
-    SpectrumVertex,
-    generate_spectrum_mesh,
-    generate_curve_mesh,
-    generate_band_handles,
-    generate_grid,
-    generate_piano_roll,
-    generate_collision_zones,
-    x_to_frequency,
-    frequency_to_x,
-    y_to_db,
-    db_to_y,
+    BandHandle, CollisionZone, EqSpectrumConfig, EqSpectrumData, SpectrumVertex, db_to_y,
+    frequency_to_x, generate_band_handles, generate_collision_zones, generate_curve_mesh,
+    generate_grid, generate_piano_roll, generate_spectrum_mesh, x_to_frequency, y_to_db,
 };
 pub use gpu_filter::{
-    GpuFilterProcessor,
-    GpuFilterParams,
-    GpuFilterState,
-    GpuProcessConfig,
-    GpuStereoConfig,
-    GpuSaturationConfig,
-    GpuDynamicBand,
-    GpuEqBuilder,
+    GpuDynamicBand, GpuEqBuilder, GpuFilterParams, GpuFilterProcessor, GpuFilterState,
+    GpuProcessConfig, GpuSaturationConfig, GpuStereoConfig, MAX_BUFFER_SIZE, MAX_GPU_BANDS,
     SaturationMode,
-    MAX_GPU_BANDS,
-    MAX_BUFFER_SIZE,
 };
 pub use plugin_browser::{
-    PluginBrowserConfig,
-    PluginBrowserState,
-    PluginBrowserItem,
-    BrowserViewMode,
-    SortCriteria,
-    PluginCategoryFilter,
-    PluginFormat,
-    PluginValidationStatus,
-    BrowserLayout,
-    BrowserVertex,
-    format_color,
-    status_color,
+    BrowserLayout, BrowserVertex, BrowserViewMode, PluginBrowserConfig, PluginBrowserItem,
+    PluginBrowserState, PluginCategoryFilter, PluginFormat, PluginValidationStatus, SortCriteria,
+    format_color, status_color,
 };
 pub use plugin_chain::{
-    PluginChainConfig,
-    PluginChainState,
-    ChainSlotState,
-    ChainLayout,
-    ChainVertex,
-    slot_color,
-    latency_color,
-    cpu_color,
+    ChainLayout, ChainSlotState, ChainVertex, PluginChainConfig, PluginChainState, cpu_color,
+    latency_color, slot_color,
 };
+pub use spectrogram::{
+    ColorMap, DisplayMode, FrequencyScale, SpectrogramConfig, SpectrogramData, SpectrogramFrame,
+    SpectrogramVertex, WindowFunction, generate_3d_mesh,
+};
+pub use waveform::{WaveformConfig, WaveformData, WaveformRenderer};

@@ -70,7 +70,10 @@ impl TaskType {
 
     /// Is this task latency-critical?
     pub fn is_latency_critical(&self) -> bool {
-        matches!(self, TaskType::Eq | TaskType::Dynamics | TaskType::Convolution)
+        matches!(
+            self,
+            TaskType::Eq | TaskType::Dynamics | TaskType::Convolution
+        )
     }
 }
 
@@ -342,7 +345,12 @@ impl HybridScheduler {
     }
 
     /// Report task completion
-    pub fn report_completion(&mut self, task: &GpuTask, stats: ExecutionStats, target: ProcessingTarget) {
+    pub fn report_completion(
+        &mut self,
+        task: &GpuTask,
+        stats: ExecutionStats,
+        target: ProcessingTarget,
+    ) {
         let task_idx = task.task_type as usize;
 
         match target {

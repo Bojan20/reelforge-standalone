@@ -13,8 +13,8 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crossbeam_channel::{Receiver, Sender, bounded};
 use parking_lot::RwLock;
-use crossbeam_channel::{bounded, Receiver, Sender};
 
 // ============ Link State ============
 

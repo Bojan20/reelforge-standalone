@@ -15,9 +15,9 @@
 //! - Non-destructive fade and gain per event
 //! - Clip-based and event-based editing
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CLIP IDS
@@ -80,7 +80,13 @@ pub struct AudioClip {
 }
 
 impl AudioClip {
-    pub fn new(name: &str, file_path: &str, sample_rate: u32, length_samples: u64, channels: u8) -> Self {
+    pub fn new(
+        name: &str,
+        file_path: &str,
+        sample_rate: u32,
+        length_samples: u64,
+        channels: u8,
+    ) -> Self {
         Self {
             id: new_clip_id(),
             name: name.to_string(),
@@ -175,7 +181,8 @@ impl MidiClip {
     /// Quantize notes to grid
     pub fn quantize(&mut self, grid_ticks: u64, strength: f64) {
         for note in &mut self.notes {
-            let nearest_grid = (note.start_tick as f64 / grid_ticks as f64).round() as u64 * grid_ticks;
+            let nearest_grid =
+                (note.start_tick as f64 / grid_ticks as f64).round() as u64 * grid_ticks;
             let diff = nearest_grid as i64 - note.start_tick as i64;
             note.start_tick = (note.start_tick as i64 + (diff as f64 * strength) as i64) as u64;
         }
@@ -871,7 +878,8 @@ impl EventManager {
     /// Remove audio event
     pub fn remove_audio_event(&mut self, id: EventId) -> Option<AudioEvent> {
         // Also remove any crossfades
-        self.crossfades.retain(|xf| xf.left_event_id != id && xf.right_event_id != id);
+        self.crossfades
+            .retain(|xf| xf.left_event_id != id && xf.right_event_id != id);
         self.audio_events.remove(&id)
     }
 
@@ -921,7 +929,11 @@ impl EventManager {
     }
 
     /// Auto-create crossfade for overlapping events
-    pub fn create_auto_crossfade(&mut self, left_id: EventId, right_id: EventId) -> Option<&Crossfade> {
+    pub fn create_auto_crossfade(
+        &mut self,
+        left_id: EventId,
+        right_id: EventId,
+    ) -> Option<&Crossfade> {
         let left = self.audio_events.get(&left_id)?;
         let right = self.audio_events.get(&right_id)?;
 

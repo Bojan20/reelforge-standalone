@@ -278,7 +278,14 @@ impl TempoDetector {
             // Detect onset (energy spike)
             if self.energy_history.len() >= 4 {
                 let recent: f64 = self.energy_history.iter().rev().take(2).sum::<f64>() / 2.0;
-                let older: f64 = self.energy_history.iter().rev().skip(2).take(2).sum::<f64>() / 2.0;
+                let older: f64 = self
+                    .energy_history
+                    .iter()
+                    .rev()
+                    .skip(2)
+                    .take(2)
+                    .sum::<f64>()
+                    / 2.0;
 
                 if recent > older * 1.5 && recent > 0.01 {
                     self.onsets.push(self.position);
@@ -316,8 +323,8 @@ impl TempoDetector {
         for &interval in &intervals {
             if interval >= min_interval as f64 && interval <= max_interval as f64 {
                 // Quantize to histogram bins
-                let normalized = (interval - min_interval as f64)
-                    / (max_interval - min_interval) as f64;
+                let normalized =
+                    (interval - min_interval as f64) / (max_interval - min_interval) as f64;
                 let bin = (normalized * 255.0) as usize;
                 if bin < 256 {
                     histogram[bin] += 1;
@@ -347,7 +354,10 @@ impl TempoDetector {
 
         // Check stability
         let mean_interval: f64 = intervals.iter().sum::<f64>() / intervals.len() as f64;
-        let variance: f64 = intervals.iter().map(|i| (i - mean_interval).powi(2)).sum::<f64>()
+        let variance: f64 = intervals
+            .iter()
+            .map(|i| (i - mean_interval).powi(2))
+            .sum::<f64>()
             / intervals.len() as f64;
         let std_dev = variance.sqrt();
         let stable = std_dev / mean_interval < 0.1; // <10% variation

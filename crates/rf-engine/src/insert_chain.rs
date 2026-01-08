@@ -7,9 +7,9 @@
 //! - Latency compensation
 //! - Lock-free parameter updates
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 // ============ Insert Slot ============
 
@@ -95,7 +95,8 @@ impl InsertSlot {
 
     /// Set wet/dry mix
     pub fn set_mix(&self, mix: f64) {
-        self.mix.store(mix.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
+        self.mix
+            .store(mix.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
     }
 
     /// Get wet/dry mix

@@ -23,7 +23,7 @@ pub enum EqFilterType {
     Bell,
     LowShelf,
     HighShelf,
-    LowCut,      // 6/12/18/24/36/48/72/96 dB/oct
+    LowCut, // 6/12/18/24/36/48/72/96 dB/oct
     HighCut,
     Notch,
     Bandpass,
@@ -49,9 +49,9 @@ impl FilterSlope {
     /// Number of biquad stages needed for this slope
     pub fn stages(&self) -> usize {
         match self {
-            FilterSlope::Db6 => 1,   // Single 1st order (approximated with low Q biquad)
+            FilterSlope::Db6 => 1, // Single 1st order (approximated with low Q biquad)
             FilterSlope::Db12 => 1,
-            FilterSlope::Db18 => 2,  // Actually 1.5, but we use 2
+            FilterSlope::Db18 => 2, // Actually 1.5, but we use 2
             FilterSlope::Db24 => 2,
             FilterSlope::Db36 => 3,
             FilterSlope::Db48 => 4,
@@ -64,13 +64,34 @@ impl FilterSlope {
     pub fn butterworth_qs(&self) -> &'static [f64] {
         match self {
             FilterSlope::Db6 => &[0.5],
-            FilterSlope::Db12 => &[0.7071067811865476],  // 1/sqrt(2)
+            FilterSlope::Db12 => &[0.7071067811865476], // 1/sqrt(2)
             FilterSlope::Db18 => &[0.5, 1.0],
             FilterSlope::Db24 => &[0.5411961001461969, 1.3065629648763764],
             FilterSlope::Db36 => &[0.5176380902050415, 0.7071067811865476, 1.9318516525781366],
-            FilterSlope::Db48 => &[0.5097956518498039, 0.6013448869350453, 0.8999762231364156, 2.5629154477415055],
-            FilterSlope::Db72 => &[0.5035383837257176, 0.5411961001461969, 0.6305942171728886, 0.8213398248178996, 1.3065629648763764, 3.8306488522460520],
-            FilterSlope::Db96 => &[0.5024192861881557, 0.5224986826659456, 0.5609869851145321, 0.6248519501068930, 0.7271513822623236, 0.8999762231364156, 1.2715949820827674, 5.1011486186891552],
+            FilterSlope::Db48 => &[
+                0.5097956518498039,
+                0.6013448869350453,
+                0.8999762231364156,
+                2.5629154477415055,
+            ],
+            FilterSlope::Db72 => &[
+                0.5035383837257176,
+                0.5411961001461969,
+                0.6305942171728886,
+                0.8213398248178996,
+                1.3065629648763764,
+                3.8306488522460520,
+            ],
+            FilterSlope::Db96 => &[
+                0.5024192861881557,
+                0.5224986826659456,
+                0.5609869851145321,
+                0.6248519501068930,
+                0.7271513822623236,
+                0.8999762231364156,
+                1.2715949820827674,
+                5.1011486186891552,
+            ],
         }
     }
 }
@@ -81,7 +102,9 @@ pub enum PhaseMode {
     #[default]
     Minimum,
     Linear,
-    Hybrid { blend: f32 },  // 0.0 = minimum, 1.0 = linear
+    Hybrid {
+        blend: f32,
+    }, // 0.0 = minimum, 1.0 = linear
 }
 
 /// Stereo processing mode
@@ -204,17 +227,24 @@ impl EqBand {
 
         match self.filter_type {
             EqFilterType::Bell => {
-                let coeffs = BiquadCoeffs::peaking(self.frequency, self.q, self.gain_db, self.sample_rate);
+                let coeffs =
+                    BiquadCoeffs::peaking(self.frequency, self.q, self.gain_db, self.sample_rate);
                 self.filters_l[0].set_coeffs(coeffs);
                 self.filters_r[0].set_coeffs(coeffs);
             }
             EqFilterType::LowShelf => {
-                let coeffs = BiquadCoeffs::low_shelf(self.frequency, self.q, self.gain_db, self.sample_rate);
+                let coeffs =
+                    BiquadCoeffs::low_shelf(self.frequency, self.q, self.gain_db, self.sample_rate);
                 self.filters_l[0].set_coeffs(coeffs);
                 self.filters_r[0].set_coeffs(coeffs);
             }
             EqFilterType::HighShelf => {
-                let coeffs = BiquadCoeffs::high_shelf(self.frequency, self.q, self.gain_db, self.sample_rate);
+                let coeffs = BiquadCoeffs::high_shelf(
+                    self.frequency,
+                    self.q,
+                    self.gain_db,
+                    self.sample_rate,
+                );
                 self.filters_l[0].set_coeffs(coeffs);
                 self.filters_r[0].set_coeffs(coeffs);
             }
@@ -251,7 +281,8 @@ impl EqBand {
             EqFilterType::TiltShelf => {
                 // Tilt shelf: low shelf + high shelf at same frequency, opposite gains
                 // Simplified: use high shelf with adjusted parameters
-                let coeffs = BiquadCoeffs::high_shelf(self.frequency, 0.5, self.gain_db, self.sample_rate);
+                let coeffs =
+                    BiquadCoeffs::high_shelf(self.frequency, 0.5, self.gain_db, self.sample_rate);
                 self.filters_l[0].set_coeffs(coeffs);
                 self.filters_r[0].set_coeffs(coeffs);
             }
@@ -402,7 +433,7 @@ impl EqBand {
     /// Get frequency response at a specific frequency
     pub fn frequency_response(&self, freq: f64) -> (f64, f64) {
         if !self.enabled || self.filters_l.is_empty() {
-            return (1.0, 0.0);  // Unity gain, zero phase
+            return (1.0, 0.0); // Unity gain, zero phase
         }
 
         let mut magnitude = 1.0;
@@ -426,8 +457,8 @@ fn biquad_frequency_response(coeffs: &BiquadCoeffs, freq: f64, sample_rate: f64)
     let omega = 2.0 * PI * freq / sample_rate;
     let cos_w = omega.cos();
     let sin_w = omega.sin();
-    let cos_2w = (2.0 * omega).cos();  // = 2cos²(ω) - 1
-    let sin_2w = (2.0 * omega).sin();  // = 2sin(ω)cos(ω)
+    let cos_2w = (2.0 * omega).cos(); // = 2cos²(ω) - 1
+    let sin_2w = (2.0 * omega).sin(); // = 2sin(ω)cos(ω)
 
     // Numerator: b0 + b1*z^-1 + b2*z^-2
     // z^-1 = cos(ω) - j*sin(ω)
@@ -478,9 +509,7 @@ impl ParametricEq {
         } else {
             DEFAULT_SAMPLE_RATE
         };
-        let bands = (0..MAX_BANDS)
-            .map(|_| EqBand::new(sr))
-            .collect();
+        let bands = (0..MAX_BANDS).map(|_| EqBand::new(sr)).collect();
 
         Self {
             bands,
@@ -521,7 +550,14 @@ impl ParametricEq {
     }
 
     /// Set band parameters
-    pub fn set_band(&mut self, index: usize, freq: f64, gain_db: f64, q: f64, filter_type: EqFilterType) {
+    pub fn set_band(
+        &mut self,
+        index: usize,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+        filter_type: EqFilterType,
+    ) {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = true;
             band.set_params(freq, gain_db, q, filter_type);
@@ -738,7 +774,8 @@ mod tests {
         band.update_coeffs();
 
         // Process some samples
-        for _ in 0..4800 {  // 100ms at 48kHz
+        for _ in 0..4800 {
+            // 100ms at 48kHz
             let _ = band.process(0.5, 0.5);
         }
 

@@ -29,7 +29,7 @@ pub enum PanLaw {
 /// Stereo panner with multiple pan laws
 #[derive(Debug, Clone)]
 pub struct StereoPanner {
-    pan: f64,  // -1.0 (left) to 1.0 (right), 0.0 = center
+    pan: f64, // -1.0 (left) to 1.0 (right), 0.0 = center
     pan_law: PanLaw,
 
     // Cached gains
@@ -68,7 +68,7 @@ impl StereoPanner {
 
     /// Update cached gains based on pan position and law
     fn update_gains(&mut self) {
-        let pan_angle = (self.pan + 1.0) * 0.5 * PI * 0.5;  // 0 to PI/4
+        let pan_angle = (self.pan + 1.0) * 0.5 * PI * 0.5; // 0 to PI/4
 
         match self.pan_law {
             PanLaw::Linear => {
@@ -128,7 +128,7 @@ impl StereoProcessor for StereoPanner {
 /// Stereo balance (preserves stereo image, adjusts L/R level)
 #[derive(Debug, Clone)]
 pub struct StereoBalance {
-    balance: f64,  // -1.0 to 1.0
+    balance: f64, // -1.0 to 1.0
     gain_l: f64,
     gain_r: f64,
 }
@@ -176,7 +176,7 @@ impl StereoProcessor for StereoBalance {
 /// Stereo width control
 #[derive(Debug, Clone)]
 pub struct StereoWidth {
-    width: f64,  // 0.0 = mono, 1.0 = stereo, 2.0 = extra wide
+    width: f64, // 0.0 = mono, 1.0 = stereo, 2.0 = extra wide
 }
 
 impl StereoWidth {
@@ -294,7 +294,7 @@ impl StereoProcessor for MsProcessor {
 /// Stereo rotation (rotate stereo field)
 #[derive(Debug, Clone)]
 pub struct StereoRotation {
-    angle: f64,  // Radians
+    angle: f64, // Radians
     cos_angle: f64,
     sin_angle: f64,
 }
@@ -530,8 +530,8 @@ mod tests {
 
         // Test mono (width = 0)
         width.set_width(0.0);
-        let (l, r) = width.process_sample(1.0, -1.0);  // Full side signal
-        assert!((l - r).abs() < 0.01);  // Should be mono
+        let (l, r) = width.process_sample(1.0, -1.0); // Full side signal
+        assert!((l - r).abs() < 0.01); // Should be mono
 
         // Test normal stereo (width = 1)
         width.set_width(1.0);

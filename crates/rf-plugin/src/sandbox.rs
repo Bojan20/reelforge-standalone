@@ -39,7 +39,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, bounded};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -77,7 +77,10 @@ pub type SandboxResult<T> = Result<T, SandboxError>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SandboxCommand {
     /// Load plugin
-    Load { plugin_path: String, plugin_type: String },
+    Load {
+        plugin_path: String,
+        plugin_type: String,
+    },
     /// Initialize with context
     Initialize { sample_rate: f64, block_size: usize },
     /// Activate processing
@@ -376,15 +379,16 @@ impl SandboxedPlugin {
 
     /// Send command and wait for response
     fn send_command(&mut self, cmd: SandboxCommand) -> SandboxResult<SandboxResponse> {
-        let process = self.process.as_mut()
-            .ok_or(SandboxError::NotInitialized)?;
+        let process = self.process.as_mut().ok_or(SandboxError::NotInitialized)?;
 
         if !process.is_alive() {
             return Err(SandboxError::PluginCrashed);
         }
 
         // Send command
-        process.cmd_tx.send(cmd.clone())
+        process
+            .cmd_tx
+            .send(cmd.clone())
             .map_err(|e| SandboxError::IpcError(e.to_string()))?;
 
         // Wait for response with timeout
@@ -527,16 +531,17 @@ impl SandboxedPlugin {
                 self.output_buffer.copy_to(output);
                 Ok(())
             }
-            SandboxResponse::Error { message } => {
-                Err(SandboxError::PluginError(PluginError::ProcessingError(message)))
-            }
-            _ => Ok(())
+            SandboxResponse::Error { message } => Err(SandboxError::PluginError(
+                PluginError::ProcessingError(message),
+            )),
+            _ => Ok(()),
         }
     }
 
     /// Get parameter value
     pub fn get_parameter(&self, id: u32) -> Option<f64> {
-        self.parameters.iter()
+        self.parameters
+            .iter()
             .find(|p| p.id == id)
             .map(|p| p.normalized)
     }
@@ -546,7 +551,9 @@ impl SandboxedPlugin {
         let resp = self.send_command(SandboxCommand::SetParameter { id, value })?;
 
         if let SandboxResponse::Error { message } = resp {
-            return Err(SandboxError::PluginError(PluginError::ParameterError(message)));
+            return Err(SandboxError::PluginError(PluginError::ParameterError(
+                message,
+            )));
         }
 
         // Update cached value
@@ -658,16 +665,11 @@ impl SandboxManager {
         plugin_path: impl AsRef<Path>,
         plugin_type: &str,
     ) -> SandboxResult<()> {
-        let plugin = SandboxedPlugin::new(
-            plugin_path,
-            plugin_type,
-            self.config.clone(),
-        );
+        let plugin = SandboxedPlugin::new(plugin_path, plugin_type, self.config.clone());
 
-        self.plugins.write().insert(
-            instance_id.to_string(),
-            Arc::new(Mutex::new(plugin)),
-        );
+        self.plugins
+            .write()
+            .insert(instance_id.to_string(), Arc::new(Mutex::new(plugin)));
 
         Ok(())
     }

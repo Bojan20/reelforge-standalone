@@ -209,7 +209,8 @@ impl DelayCompensationManager {
     pub fn register_node(&mut self, node_id: NodeId) {
         if !self.node_latencies.contains_key(&node_id) {
             self.node_latencies.insert(node_id, NodeLatency::default());
-            self.delay_lines.insert(node_id, StereoDelayLine::new(MAX_COMPENSATION_SAMPLES));
+            self.delay_lines
+                .insert(node_id, StereoDelayLine::new(MAX_COMPENSATION_SAMPLES));
         }
     }
 
@@ -262,7 +263,9 @@ impl DelayCompensationManager {
         }
 
         // Find maximum latency across all nodes
-        self.max_latency = self.node_latencies.values()
+        self.max_latency = self
+            .node_latencies
+            .values()
             .map(|info| info.plugin_latency)
             .max()
             .unwrap_or(0);

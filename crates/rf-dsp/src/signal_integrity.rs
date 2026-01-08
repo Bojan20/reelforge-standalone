@@ -530,16 +530,16 @@ impl IspLimiter {
             self.gain_reduction = target_gr;
         } else {
             // Release (slow)
-            self.gain_reduction = self.release_coeff * self.gain_reduction
-                                + (1.0 - self.release_coeff) * target_gr;
+            self.gain_reduction =
+                self.release_coeff * self.gain_reduction + (1.0 - self.release_coeff) * target_gr;
         }
 
         // Update GR peak for meter
         if self.gain_reduction < self.gr_peak {
             self.gr_peak = self.gain_reduction;
         } else {
-            self.gr_peak = self.gr_release * self.gr_peak
-                         + (1.0 - self.gr_release) * self.gain_reduction;
+            self.gr_peak =
+                self.gr_release * self.gr_peak + (1.0 - self.gr_release) * self.gain_reduction;
         }
 
         // Store in lookahead buffer
@@ -960,9 +960,7 @@ impl Dither {
     fn generate_dither(&mut self) -> f64 {
         match self.dither_type {
             DitherType::None => 0.0,
-            DitherType::Rpdf => {
-                self.next_rand() * self.quant_step * 0.5
-            }
+            DitherType::Rpdf => self.next_rand() * self.quant_step * 0.5,
             DitherType::Tpdf => {
                 let r1 = self.next_rand();
                 let r2 = self.next_rand();
@@ -988,16 +986,12 @@ impl Dither {
             NoiseShapeType::ModifiedE => {
                 // Modified E-weighted: optimized for human hearing
                 // Coefficients tuned for 44.1/48kHz
-                1.623 * self.error_buf[0]
-                - 0.982 * self.error_buf[1]
-                + 0.109 * self.error_buf[2]
+                1.623 * self.error_buf[0] - 0.982 * self.error_buf[1] + 0.109 * self.error_buf[2]
             }
             NoiseShapeType::FWeighted => {
                 // Aggressive F-weighted for 16-bit
-                2.033 * self.error_buf[0]
-                - 2.165 * self.error_buf[1]
-                + 1.959 * self.error_buf[2]
-                - 0.209 * self.error_buf[3]
+                2.033 * self.error_buf[0] - 2.165 * self.error_buf[1] + 1.959 * self.error_buf[2]
+                    - 0.209 * self.error_buf[3]
             }
         };
 
@@ -1114,9 +1108,7 @@ impl SoftClip {
         let driven = input * self.drive;
 
         let clipped = match self.clip_type {
-            SoftClipType::Tanh => {
-                driven.tanh()
-            }
+            SoftClipType::Tanh => driven.tanh(),
             SoftClipType::SoftKnee => {
                 let abs = driven.abs();
                 if abs < self.threshold {
@@ -1758,14 +1750,20 @@ fn bessel_i0(x: f64) -> f64 {
     let ax = x.abs();
     if ax < 3.75 {
         let y = (x / 3.75).powi(2);
-        1.0 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492
-            + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
+        1.0 + y
+            * (3.5156229
+                + y * (3.0899424
+                    + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))
     } else {
         let y = 3.75 / ax;
-        (ax.exp() / ax.sqrt()) * (0.39894228 + y * (0.01328592
-            + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281
-            + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633
-            + y * 0.00392377))))))))
+        (ax.exp() / ax.sqrt())
+            * (0.39894228
+                + y * (0.01328592
+                    + y * (0.00225319
+                        + y * (-0.00157565
+                            + y * (0.00916281
+                                + y * (-0.02057706
+                                    + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))))
     }
 }
 
@@ -1806,16 +1804,33 @@ mod tests {
         // Default is tanh - verify it produces tanh output
         let out = clip.process(0.5);
         let expected = 0.5_f64.tanh();
-        assert!((out - expected).abs() < 0.01, "Expected tanh(0.5) ≈ {}, got {}", expected, out);
+        assert!(
+            (out - expected).abs() < 0.01,
+            "Expected tanh(0.5) ≈ {}, got {}",
+            expected,
+            out
+        );
 
         // Way above threshold: should be soft clipped close to 1.0
         let out = clip.process(10.0);
-        assert!(out.abs() <= 1.0, "Should be soft clipped to ≤1.0, got {}", out);
-        assert!(out > 0.99, "For large input, tanh should approach 1.0, got {}", out);
+        assert!(
+            out.abs() <= 1.0,
+            "Should be soft clipped to ≤1.0, got {}",
+            out
+        );
+        assert!(
+            out > 0.99,
+            "For large input, tanh should approach 1.0, got {}",
+            out
+        );
 
         // Test SoftKnee mode: below threshold should pass through
         clip.set_type(SoftClipType::SoftKnee);
-        let out = clip.process(0.5);  // 0.5 < threshold (0.9)
-        assert!((out - 0.5).abs() < 0.01, "Below threshold should pass through, got {}", out);
+        let out = clip.process(0.5); // 0.5 < threshold (0.9)
+        assert!(
+            (out - 0.5).abs() < 0.01,
+            "Below threshold should pass through, got {}",
+            out
+        );
     }
 }

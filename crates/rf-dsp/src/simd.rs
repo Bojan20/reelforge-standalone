@@ -9,8 +9,8 @@
 //! - Zero overhead after initial detection
 //! - Graceful fallback to scalar code
 
-use std::sync::OnceLock;
 use rf_core::Sample;
+use std::sync::OnceLock;
 
 // ============ SIMD Level Detection ============
 
@@ -452,21 +452,13 @@ mod x86_impl {
 
     #[cfg(feature = "avx512")]
     #[target_feature(enable = "avx512f", enable = "avx512dq")]
-    pub unsafe fn stereo_gain_avx512_impl(
-        left: &mut [Sample],
-        right: &mut [Sample],
-        gain: Sample,
-    ) {
+    pub unsafe fn stereo_gain_avx512_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
         gain_avx512_impl(left, gain);
         gain_avx512_impl(right, gain);
     }
 
     #[cfg(not(feature = "avx512"))]
-    pub unsafe fn stereo_gain_avx512_impl(
-        left: &mut [Sample],
-        right: &mut [Sample],
-        gain: Sample,
-    ) {
+    pub unsafe fn stereo_gain_avx512_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
         stereo_gain_avx2_impl(left, right, gain);
     }
 }
@@ -629,40 +621,72 @@ fn stereo_gain_neon(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
 
 // Fallback stubs for non-matching architectures
 #[cfg(not(target_arch = "x86_64"))]
-fn gain_sse42(buffer: &mut [Sample], gain: Sample) { gain_scalar(buffer, gain) }
+fn gain_sse42(buffer: &mut [Sample], gain: Sample) {
+    gain_scalar(buffer, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn biquad_sse42(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) { biquad_scalar(buffer, coeffs, state) }
+fn biquad_sse42(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) {
+    biquad_scalar(buffer, coeffs, state)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn mix_add_sse42(dest: &mut [Sample], src: &[Sample], gain: Sample) { mix_add_scalar(dest, src, gain) }
+fn mix_add_sse42(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+    mix_add_scalar(dest, src, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn stereo_gain_sse42(left: &mut [Sample], right: &mut [Sample], gain: Sample) { stereo_gain_scalar(left, right, gain) }
+fn stereo_gain_sse42(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+    stereo_gain_scalar(left, right, gain)
+}
 
 #[cfg(not(target_arch = "x86_64"))]
-fn gain_avx2(buffer: &mut [Sample], gain: Sample) { gain_scalar(buffer, gain) }
+fn gain_avx2(buffer: &mut [Sample], gain: Sample) {
+    gain_scalar(buffer, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn biquad_avx2(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) { biquad_scalar(buffer, coeffs, state) }
+fn biquad_avx2(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) {
+    biquad_scalar(buffer, coeffs, state)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn mix_add_avx2(dest: &mut [Sample], src: &[Sample], gain: Sample) { mix_add_scalar(dest, src, gain) }
+fn mix_add_avx2(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+    mix_add_scalar(dest, src, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn stereo_gain_avx2(left: &mut [Sample], right: &mut [Sample], gain: Sample) { stereo_gain_scalar(left, right, gain) }
+fn stereo_gain_avx2(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+    stereo_gain_scalar(left, right, gain)
+}
 
 #[cfg(not(target_arch = "x86_64"))]
-fn gain_avx512(buffer: &mut [Sample], gain: Sample) { gain_scalar(buffer, gain) }
+fn gain_avx512(buffer: &mut [Sample], gain: Sample) {
+    gain_scalar(buffer, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn biquad_avx512(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) { biquad_scalar(buffer, coeffs, state) }
+fn biquad_avx512(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) {
+    biquad_scalar(buffer, coeffs, state)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn mix_add_avx512(dest: &mut [Sample], src: &[Sample], gain: Sample) { mix_add_scalar(dest, src, gain) }
+fn mix_add_avx512(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+    mix_add_scalar(dest, src, gain)
+}
 #[cfg(not(target_arch = "x86_64"))]
-fn stereo_gain_avx512(left: &mut [Sample], right: &mut [Sample], gain: Sample) { stereo_gain_scalar(left, right, gain) }
+fn stereo_gain_avx512(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+    stereo_gain_scalar(left, right, gain)
+}
 
 #[cfg(not(target_arch = "aarch64"))]
-fn gain_neon(buffer: &mut [Sample], gain: Sample) { gain_scalar(buffer, gain) }
+fn gain_neon(buffer: &mut [Sample], gain: Sample) {
+    gain_scalar(buffer, gain)
+}
 #[cfg(not(target_arch = "aarch64"))]
-fn biquad_neon(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) { biquad_scalar(buffer, coeffs, state) }
+fn biquad_neon(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) {
+    biquad_scalar(buffer, coeffs, state)
+}
 #[cfg(not(target_arch = "aarch64"))]
-fn mix_add_neon(dest: &mut [Sample], src: &[Sample], gain: Sample) { mix_add_scalar(dest, src, gain) }
+fn mix_add_neon(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+    mix_add_scalar(dest, src, gain)
+}
 #[cfg(not(target_arch = "aarch64"))]
-fn stereo_gain_neon(left: &mut [Sample], right: &mut [Sample], gain: Sample) { stereo_gain_scalar(left, right, gain) }
+fn stereo_gain_neon(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+    stereo_gain_scalar(left, right, gain)
+}
 
 // ============ Convenience Functions ============
 
@@ -674,7 +698,11 @@ pub fn apply_gain(buffer: &mut [Sample], gain: Sample) {
 
 /// Process biquad using best available SIMD
 #[inline]
-pub fn process_biquad(buffer: &mut [Sample], coeffs: &BiquadCoeffsSimd, state: &mut BiquadStateSimd) {
+pub fn process_biquad(
+    buffer: &mut [Sample],
+    coeffs: &BiquadCoeffsSimd,
+    state: &mut BiquadStateSimd,
+) {
     (DspDispatch::get().process_biquad)(buffer, coeffs, state)
 }
 

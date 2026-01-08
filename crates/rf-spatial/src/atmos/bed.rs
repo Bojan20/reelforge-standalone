@@ -60,7 +60,9 @@ impl AtmosBed {
         // Height upmix if enabled
         if config.upmix_height {
             // Find height speakers
-            let height_indices: Vec<usize> = config.output_layout.speakers
+            let height_indices: Vec<usize> = config
+                .output_layout
+                .speakers
                 .iter()
                 .enumerate()
                 .filter(|(_, s)| s.position.z > 0.3)
@@ -82,7 +84,7 @@ impl AtmosBed {
 
                     let dist = ((in_spk.position.x - height_pos.x).powi(2)
                         + (in_spk.position.y - height_pos.y).powi(2))
-                        .sqrt();
+                    .sqrt();
 
                     if dist < nearest_dist {
                         nearest_dist = dist;

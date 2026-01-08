@@ -13,9 +13,9 @@
 //! - Cycle: Range with start/end
 //! - Arranger: Sections for song arrangement
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -162,7 +162,8 @@ impl Marker {
 
     /// Get length (for cycle/arranger)
     pub fn length(&self) -> Option<u64> {
-        self.end_position.map(|end| end.saturating_sub(self.position))
+        self.end_position
+            .map(|end| end.saturating_sub(self.position))
     }
 
     /// Check if position is within marker (for cycle/arranger)
@@ -468,8 +469,7 @@ impl MarkerTrack {
 
     /// Delete all markers of type
     pub fn delete_by_type(&mut self, marker_type: MarkerType) {
-        self.markers
-            .retain(|_, m| m.marker_type != marker_type);
+        self.markers.retain(|_, m| m.marker_type != marker_type);
     }
 }
 

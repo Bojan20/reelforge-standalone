@@ -11,7 +11,7 @@ use std::path::Path;
 use thiserror::Error;
 
 use symphonia::core::audio::{AudioBufferRef, Signal};
-use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+use symphonia::core::codecs::{CODEC_TYPE_NULL, DecoderOptions};
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
@@ -161,7 +161,11 @@ impl ImportedAudio {
         if self.channels == 1 {
             self.samples.clone()
         } else {
-            self.samples.iter().step_by(self.channels as usize).copied().collect()
+            self.samples
+                .iter()
+                .step_by(self.channels as usize)
+                .copied()
+                .collect()
         }
     }
 
@@ -170,7 +174,12 @@ impl ImportedAudio {
         if self.channels == 1 {
             self.samples.clone()
         } else if self.channels >= 2 {
-            self.samples.iter().skip(1).step_by(self.channels as usize).copied().collect()
+            self.samples
+                .iter()
+                .skip(1)
+                .step_by(self.channels as usize)
+                .copied()
+                .collect()
         } else {
             self.samples.clone()
         }
@@ -330,7 +339,9 @@ impl AudioImporter {
         }
 
         if samples.is_empty() {
-            return Err(ImportError::DecodeError("No audio samples decoded".to_string()));
+            return Err(ImportError::DecodeError(
+                "No audio samples decoded".to_string(),
+            ));
         }
 
         let path_str = path.display().to_string();
@@ -339,8 +350,11 @@ impl AudioImporter {
 
         log::info!(
             "Imported {}: {}ch, {}Hz, {:.2}s, {} samples",
-            audio.name, audio.channels, audio.sample_rate,
-            audio.duration_secs, audio.sample_count
+            audio.name,
+            audio.channels,
+            audio.sample_rate,
+            audio.duration_secs,
+            audio.sample_count
         );
 
         Ok(audio)
@@ -505,7 +519,12 @@ impl AudioImporter {
         }
 
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| ImportError::DecodeError(format!("Probe failed: {}", e)))?;
 
         let format = probed.format;
@@ -522,7 +541,8 @@ impl AudioImporter {
         let bit_depth = codec_params.bits_per_sample;
 
         // Calculate duration if available
-        let duration_secs = codec_params.n_frames
+        let duration_secs = codec_params
+            .n_frames
             .map(|frames| frames as f64 / sample_rate as f64);
 
         let format_name = path
@@ -562,12 +582,7 @@ pub struct SampleRateConverter;
 
 impl SampleRateConverter {
     /// Convert sample rate using linear interpolation (fast, lower quality)
-    pub fn convert_linear(
-        samples: &[f32],
-        from_rate: u32,
-        to_rate: u32,
-        channels: u8,
-    ) -> Vec<f32> {
+    pub fn convert_linear(samples: &[f32], from_rate: u32, to_rate: u32, channels: u8) -> Vec<f32> {
         if from_rate == to_rate {
             return samples.to_vec();
         }
@@ -584,7 +599,8 @@ impl SampleRateConverter {
                 let frac = src_pos - src_idx as f64;
 
                 let idx = src_idx * channels as usize + ch;
-                let next_idx = ((src_idx + 1).min(samples_per_channel - 1)) * channels as usize + ch;
+                let next_idx =
+                    ((src_idx + 1).min(samples_per_channel - 1)) * channels as usize + ch;
 
                 let sample = if idx < samples.len() && next_idx < samples.len() {
                     samples[idx] * (1.0 - frac as f32) + samples[next_idx] * frac as f32
@@ -614,12 +630,7 @@ impl SampleRateConverter {
 
     /// Convert sample rate using sinc interpolation (slower, higher quality)
     /// Uses Lanczos-3 kernel for high quality resampling
-    pub fn convert_sinc(
-        samples: &[f32],
-        from_rate: u32,
-        to_rate: u32,
-        channels: u8,
-    ) -> Vec<f32> {
+    pub fn convert_sinc(samples: &[f32], from_rate: u32, to_rate: u32, channels: u8) -> Vec<f32> {
         if from_rate == to_rate {
             return samples.to_vec();
         }

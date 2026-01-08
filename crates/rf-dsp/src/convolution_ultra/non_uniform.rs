@@ -168,7 +168,8 @@ impl Partition {
         let fft_inverse = planner.plan_fft_inverse(fft_size);
 
         // Compute IR spectrum
-        let mut ir_buffer: Vec<Complex64> = ir_segment.iter()
+        let mut ir_buffer: Vec<Complex64> = ir_segment
+            .iter()
             .take(size)
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
@@ -211,7 +212,9 @@ impl Partition {
     /// Process complete block
     fn process_block(&mut self) -> Vec<Sample> {
         // FFT input
-        let mut input_spectrum: Vec<Complex64> = self.input_buffer.iter()
+        let mut input_spectrum: Vec<Complex64> = self
+            .input_buffer
+            .iter()
             .map(|&s| Complex64::new(s, 0.0))
             .collect();
         input_spectrum.resize(self.fft_size, Complex64::new(0.0, 0.0));
@@ -286,23 +289,23 @@ impl NonUniformConvolver {
         let mut ir_offset = 0;
 
         for &size in &scheme.sizes {
-            let ir_segment: Vec<Sample> = ir.samples[ir_offset..]
-                .iter()
-                .take(size)
-                .copied()
-                .collect();
+            let ir_segment: Vec<Sample> =
+                ir.samples[ir_offset..].iter().take(size).copied().collect();
 
             // Calculate how many FDL segments needed based on position in IR
             // Later partitions need more FDL segments due to larger delays
             let fdl_segments = ((ir_offset + size) / size).max(1).min(16);
 
-            partitions.push(Partition::new(&ir_segment, size, fdl_segments, &mut planner));
+            partitions.push(Partition::new(
+                &ir_segment,
+                size,
+                fdl_segments,
+                &mut planner,
+            ));
             ir_offset += size;
         }
 
-        let output_accum = scheme.sizes.iter()
-            .map(|&size| vec![0.0; size])
-            .collect();
+        let output_accum = scheme.sizes.iter().map(|&size| vec![0.0; size]).collect();
 
         Self {
             partitions,
@@ -404,11 +407,7 @@ impl StereoNonUniformConvolver {
     }
 
     /// Process stereo
-    pub fn process(
-        &mut self,
-        left: &[Sample],
-        right: &[Sample],
-    ) -> (Vec<Sample>, Vec<Sample>) {
+    pub fn process(&mut self, left: &[Sample], right: &[Sample]) -> (Vec<Sample>, Vec<Sample>) {
         (self.left.process(left), self.right.process(right))
     }
 

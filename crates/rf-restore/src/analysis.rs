@@ -116,7 +116,9 @@ impl RestoreAnalyzer {
             }
 
             // FFT
-            self.fft.process_with_scratch(&mut input, &mut spectrum, &mut scratch).ok()?;
+            self.fft
+                .process_with_scratch(&mut input, &mut spectrum, &mut scratch)
+                .ok()?;
 
             // Accumulate magnitude
             for (i, c) in spectrum.iter().enumerate() {
@@ -181,9 +183,7 @@ impl RestoreAnalyzer {
 
         let envelope: Vec<f32> = audio
             .chunks(block_size)
-            .map(|chunk| {
-                chunk.iter().map(|s| s.abs()).sum::<f32>() / chunk.len() as f32
-            })
+            .map(|chunk| chunk.iter().map(|s| s.abs()).sum::<f32>() / chunk.len() as f32)
             .collect();
 
         // Find peak and measure decay
@@ -303,10 +303,12 @@ mod tests {
         assert_eq!(result.clipping_percent, 0.0);
 
         // Clipped signal
-        let clipped: Vec<f32> = (0..1000).map(|i| {
-            let s = (i as f32 * 0.1).sin() * 2.0;
-            s.clamp(-1.0, 1.0)
-        }).collect();
+        let clipped: Vec<f32> = (0..1000)
+            .map(|i| {
+                let s = (i as f32 * 0.1).sin() * 2.0;
+                s.clamp(-1.0, 1.0)
+            })
+            .collect();
         let result = analyzer.analyze(&clipped).unwrap();
         assert!(result.clipping_percent > 0.0);
     }

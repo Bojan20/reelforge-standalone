@@ -18,50 +18,46 @@
 // Flutter Rust Bridge uses custom cfg attributes
 #![allow(unexpected_cfgs)]
 
+pub mod advanced_metering;
 mod api;
+mod audio_io;
+pub mod command_queue;
+pub mod dsp_commands;
 mod engine_bridge;
 mod metering;
-mod transport;
-mod project;
-mod audio_io;
-mod viz;
 mod playback;
-pub mod dsp_commands;
-pub mod command_queue;
-pub mod advanced_metering;
+mod project;
 pub mod timestretch;
+mod transport;
+mod viz;
 
-pub use api::*;
-pub use viz::*;
-pub use playback::{PlaybackEngine, PlaybackState, PlaybackMeters, PlaybackClip};
-pub use dsp_commands::*;
-pub use command_queue::*;
 pub use advanced_metering::*;
+pub use api::*;
+pub use command_queue::*;
+pub use dsp_commands::*;
+pub use playback::{PlaybackClip, PlaybackEngine, PlaybackMeters, PlaybackState};
 pub use timestretch::*;
+pub use viz::*;
 
 // Re-export recording types from rf-file
 pub use rf_file::{RecordingConfig, RecordingState, RecordingStats};
 
-use std::sync::Arc;
-use parking_lot::RwLock;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
-use rf_engine::{DualPathEngine, EngineConfig};
-use rf_engine::track_manager::TrackManager;
-use rf_engine::playback::PlaybackEngine as EnginePlayback;
 use rf_engine::automation::AutomationEngine;
 use rf_engine::groups::GroupManager;
+use rf_engine::playback::PlaybackEngine as EnginePlayback;
+use rf_engine::track_manager::TrackManager;
+use rf_engine::{DualPathEngine, EngineConfig};
 use rf_state::{Project, UndoManager};
 
 /// Global engine instance (singleton for Flutter access)
-static ENGINE: Lazy<Arc<RwLock<Option<EngineBridge>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(None))
-});
+static ENGINE: Lazy<Arc<RwLock<Option<EngineBridge>>>> = Lazy::new(|| Arc::new(RwLock::new(None)));
 
 /// Global playback engine (real-time audio output)
-pub static PLAYBACK: Lazy<Arc<PlaybackEngine>> = Lazy::new(|| {
-    Arc::new(PlaybackEngine::new())
-});
+pub static PLAYBACK: Lazy<Arc<PlaybackEngine>> = Lazy::new(|| Arc::new(PlaybackEngine::new()));
 
 /// Bridge wrapper for the audio engine
 pub struct EngineBridge {
@@ -137,10 +133,7 @@ impl EngineBridge {
 
         // Create playback engine connected to track manager
         let sample_rate = config.sample_rate.as_u32();
-        let mut playback_engine = EnginePlayback::new(
-            Arc::clone(&track_manager),
-            sample_rate,
-        );
+        let mut playback_engine = EnginePlayback::new(Arc::clone(&track_manager), sample_rate);
 
         // Connect automation to playback engine
         playback_engine.set_automation(Arc::clone(&automation_engine));
@@ -183,15 +176,17 @@ impl EngineBridge {
 
     /// Mark project as dirty (has unsaved changes)
     pub fn mark_dirty(&self) {
-        self.is_dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.is_dirty
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Mark project as clean (just saved)
     pub fn mark_clean(&self) {
-        self.is_dirty.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.is_dirty
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         self.last_saved_undo_pos.store(
             self.undo_manager.undo_count(),
-            std::sync::atomic::Ordering::Relaxed
+            std::sync::atomic::Ordering::Relaxed,
         );
     }
 
@@ -199,7 +194,10 @@ impl EngineBridge {
     pub fn is_dirty(&self) -> bool {
         // Dirty if explicitly marked OR if undo count differs from saved position
         self.is_dirty.load(std::sync::atomic::Ordering::Relaxed)
-            || self.undo_manager.undo_count() != self.last_saved_undo_pos.load(std::sync::atomic::Ordering::Relaxed)
+            || self.undo_manager.undo_count()
+                != self
+                    .last_saved_undo_pos
+                    .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Set project file path

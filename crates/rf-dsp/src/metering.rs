@@ -87,8 +87,8 @@ impl CorrelationMeter {
         };
 
         // Smooth
-        self.smoothed = self.smoothed * (1.0 - self.smooth_coeff)
-            + raw_correlation * self.smooth_coeff;
+        self.smoothed =
+            self.smoothed * (1.0 - self.smooth_coeff) + raw_correlation * self.smooth_coeff;
     }
 
     /// Process a stereo block
@@ -199,8 +199,7 @@ impl BalanceMeter {
         };
 
         // Smooth
-        self.smoothed = self.smoothed * (1.0 - self.smooth_coeff)
-            + raw_balance * self.smooth_coeff;
+        self.smoothed = self.smoothed * (1.0 - self.smooth_coeff) + raw_balance * self.smooth_coeff;
     }
 
     /// Get balance (-1.0 = left, 0.0 = center, +1.0 = right)
@@ -517,11 +516,11 @@ impl PpmMeter {
     pub fn new(sample_rate: f64, ppm_type: PpmType) -> Self {
         // Get integration and return times based on PPM type
         let (integration_ms, return_time_s) = match ppm_type {
-            PpmType::BbcType1 => (10.0, 2.8),   // BBC Type I
-            PpmType::BbcType2 => (5.0, 1.7),    // BBC Type II / IEC Type I
-            PpmType::Ebu => (10.0, 1.7),        // EBU / IEC Type IIa
-            PpmType::Din => (5.0, 1.7),         // DIN 45406
-            PpmType::Nordic => (5.0, 1.5),      // Nordic N9
+            PpmType::BbcType1 => (10.0, 2.8), // BBC Type I
+            PpmType::BbcType2 => (5.0, 1.7),  // BBC Type II / IEC Type I
+            PpmType::Ebu => (10.0, 1.7),      // EBU / IEC Type IIa
+            PpmType::Din => (5.0, 1.7),       // DIN 45406
+            PpmType::Nordic => (5.0, 1.5),    // Nordic N9
         };
 
         // Attack: time to reach ~80% of step input
@@ -780,7 +779,8 @@ impl DynamicRangeMeter {
     /// This is the range between 10th and 95th percentile
     pub fn loudness_range(&self) -> f64 {
         // Collect valid loudness values
-        let mut values: Vec<f64> = self.loudness_history
+        let mut values: Vec<f64> = self
+            .loudness_history
             .iter()
             .filter(|&&v| v > -70.0)
             .copied()
@@ -905,16 +905,26 @@ impl PhaseScope {
 #[derive(Debug, Clone)]
 struct KWeightingFilter {
     // Stage 1: High-shelf pre-filter (+4dB above 1681Hz)
-    b0_1: f64, b1_1: f64, b2_1: f64,
-    a1_1: f64, a2_1: f64,
-    z1_1_l: f64, z2_1_l: f64,
-    z1_1_r: f64, z2_1_r: f64,
+    b0_1: f64,
+    b1_1: f64,
+    b2_1: f64,
+    a1_1: f64,
+    a2_1: f64,
+    z1_1_l: f64,
+    z2_1_l: f64,
+    z1_1_r: f64,
+    z2_1_r: f64,
 
     // Stage 2: High-pass filter (RLB weighting, -3dB at 38Hz)
-    b0_2: f64, b1_2: f64, b2_2: f64,
-    a1_2: f64, a2_2: f64,
-    z1_2_l: f64, z2_2_l: f64,
-    z1_2_r: f64, z2_2_r: f64,
+    b0_2: f64,
+    b1_2: f64,
+    b2_2: f64,
+    a1_2: f64,
+    a2_2: f64,
+    z1_2_l: f64,
+    z2_2_l: f64,
+    z1_2_r: f64,
+    z2_2_r: f64,
 }
 
 impl KWeightingFilter {
@@ -952,12 +962,24 @@ impl KWeightingFilter {
         let a2_2 = (1.0 - k2 / q2 + k2_sq) / denom2;
 
         Self {
-            b0_1, b1_1, b2_1, a1_1, a2_1,
-            z1_1_l: 0.0, z2_1_l: 0.0,
-            z1_1_r: 0.0, z2_1_r: 0.0,
-            b0_2, b1_2, b2_2, a1_2, a2_2,
-            z1_2_l: 0.0, z2_2_l: 0.0,
-            z1_2_r: 0.0, z2_2_r: 0.0,
+            b0_1,
+            b1_1,
+            b2_1,
+            a1_1,
+            a2_1,
+            z1_1_l: 0.0,
+            z2_1_l: 0.0,
+            z1_1_r: 0.0,
+            z2_1_r: 0.0,
+            b0_2,
+            b1_2,
+            b2_2,
+            a1_2,
+            a2_2,
+            z1_2_l: 0.0,
+            z2_2_l: 0.0,
+            z1_2_r: 0.0,
+            z2_2_r: 0.0,
         }
     }
 
@@ -988,10 +1010,14 @@ impl KWeightingFilter {
     }
 
     fn reset(&mut self) {
-        self.z1_1_l = 0.0; self.z2_1_l = 0.0;
-        self.z1_1_r = 0.0; self.z2_1_r = 0.0;
-        self.z1_2_l = 0.0; self.z2_2_l = 0.0;
-        self.z1_2_r = 0.0; self.z2_2_r = 0.0;
+        self.z1_1_l = 0.0;
+        self.z2_1_l = 0.0;
+        self.z1_1_r = 0.0;
+        self.z2_1_r = 0.0;
+        self.z1_2_l = 0.0;
+        self.z2_2_l = 0.0;
+        self.z1_2_r = 0.0;
+        self.z2_2_r = 0.0;
     }
 }
 
@@ -1151,7 +1177,9 @@ impl LufsMeter {
         }
 
         // First pass: Calculate ungated average (blocks above -70 LUFS)
-        let sum: f64 = self.gated_blocks.iter()
+        let sum: f64 = self
+            .gated_blocks
+            .iter()
             .map(|&lufs| 10.0_f64.powf((lufs + 0.691) / 10.0))
             .sum();
         let ungated_avg = sum / self.gated_blocks.len() as f64;
@@ -1160,7 +1188,9 @@ impl LufsMeter {
         // Second pass: Relative gate at ungated_lufs - 10 LU
         let relative_gate = ungated_lufs - 10.0;
 
-        let gated_blocks: Vec<f64> = self.gated_blocks.iter()
+        let gated_blocks: Vec<f64> = self
+            .gated_blocks
+            .iter()
             .filter(|&&lufs| lufs > relative_gate)
             .copied()
             .collect();
@@ -1169,7 +1199,8 @@ impl LufsMeter {
             return f64::NEG_INFINITY;
         }
 
-        let gated_sum: f64 = gated_blocks.iter()
+        let gated_sum: f64 = gated_blocks
+            .iter()
             .map(|&lufs| 10.0_f64.powf((lufs + 0.691) / 10.0))
             .sum();
         let gated_avg = gated_sum / gated_blocks.len() as f64;
@@ -1181,7 +1212,9 @@ impl LufsMeter {
     ///
     /// Range between 10th and 95th percentile of short-term loudness
     pub fn loudness_range(&self) -> f64 {
-        let mut values: Vec<f64> = self.lra_buffer.iter()
+        let mut values: Vec<f64> = self
+            .lra_buffer
+            .iter()
             .filter(|&&v| v > -70.0)
             .copied()
             .collect();
@@ -1200,7 +1233,8 @@ impl LufsMeter {
 
     /// Get max short-term loudness seen
     pub fn max_shortterm(&self) -> f64 {
-        self.lra_buffer.iter()
+        self.lra_buffer
+            .iter()
             .filter(|&&v| v > -70.0)
             .copied()
             .fold(f64::NEG_INFINITY, f64::max)

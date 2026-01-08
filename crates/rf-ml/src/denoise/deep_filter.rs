@@ -14,7 +14,7 @@ use crate::inference::{InferenceConfig, InferenceEngine};
 
 use ndarray::{Array1, Array2, Axis};
 use num_complex::Complex32;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
 /// Number of ERB bands
@@ -88,11 +88,7 @@ pub struct DeepFilterNet {
 
 impl DeepFilterNet {
     /// Create new DeepFilterNet denoiser
-    pub fn new(
-        erb_model_path: &str,
-        df_model_path: &str,
-        config: DenoiseConfig,
-    ) -> MlResult<Self> {
+    pub fn new(erb_model_path: &str, df_model_path: &str, config: DenoiseConfig) -> MlResult<Self> {
         let inference_config = InferenceConfig {
             providers: if config.use_gpu {
                 vec![
@@ -259,8 +255,7 @@ impl DeepFilterNet {
 
         // 6. Run deep filtering if enabled
         if self.config.post_filter {
-            let (df_coeffs, new_df_hidden) =
-                self.run_df_model(&erb_features, &enhanced_mag)?;
+            let (df_coeffs, new_df_hidden) = self.run_df_model(&erb_features, &enhanced_mag)?;
             self.df_hidden = new_df_hidden;
 
             // Apply deep filter
@@ -300,10 +295,7 @@ impl DeepFilterNet {
     }
 
     /// Run ERB model
-    fn run_erb_model(
-        &self,
-        erb_features: &Array1<f32>,
-    ) -> MlResult<(Array1<f32>, Array2<f32>)> {
+    fn run_erb_model(&self, erb_features: &Array1<f32>) -> MlResult<(Array1<f32>, Array2<f32>)> {
         // Prepare input: [batch=1, features=ERB_BANDS]
         let input = erb_features
             .clone()
@@ -322,12 +314,14 @@ impl DeepFilterNet {
             .clone();
 
         let gains = if gains_raw.shape().len() == 2 {
-            gains_raw.into_dimensionality::<ndarray::Ix2>()
+            gains_raw
+                .into_dimensionality::<ndarray::Ix2>()
                 .map_err(|e| MlError::Internal(e.to_string()))?
                 .index_axis(ndarray::Axis(0), 0)
                 .to_owned()
         } else {
-            gains_raw.into_dimensionality::<ndarray::Ix1>()
+            gains_raw
+                .into_dimensionality::<ndarray::Ix1>()
                 .map_err(|e| MlError::Internal(e.to_string()))?
         };
 
@@ -363,7 +357,9 @@ impl DeepFilterNet {
         let hidden_input = self.df_hidden.clone().into_dyn();
 
         // Run inference
-        let outputs = self.df_model.run_f32(&[erb_input, mag_input, hidden_input])?;
+        let outputs = self
+            .df_model
+            .run_f32(&[erb_input, mag_input, hidden_input])?;
 
         // Deep filter coefficients
         let _df_order = 5;

@@ -34,9 +34,9 @@ pub enum SaturationType {
 #[derive(Debug, Clone)]
 pub struct Saturator {
     sat_type: SaturationType,
-    drive: f64,      // Input gain (1.0 = unity)
-    mix: f64,        // Dry/wet (0.0 = dry, 1.0 = wet)
-    output: f64,     // Output gain
+    drive: f64,  // Input gain (1.0 = unity)
+    mix: f64,    // Dry/wet (0.0 = dry, 1.0 = wet)
+    output: f64, // Output gain
 
     // Tape-specific state
     tape_bias: f64,
@@ -316,7 +316,7 @@ impl Waveshaper {
     pub fn set_curve(&mut self, curve: WaveshaperCurve) {
         let n = self.table_size;
         for i in 0..n {
-            let x = (i as f64 / (n - 1) as f64) * 2.0 - 1.0;  // -1 to 1
+            let x = (i as f64 / (n - 1) as f64) * 2.0 - 1.0; // -1 to 1
             self.table[i] = match curve {
                 WaveshaperCurve::Tanh => x.tanh(),
                 WaveshaperCurve::Atan => (x * PI * 0.5).atan() / (PI * 0.5).atan(),
@@ -490,8 +490,11 @@ mod tests {
                 assert!(output.is_finite());
 
                 // Soft/hard clip should limit to ±1
-                if matches!(sat_type, SaturationType::SoftClip | SaturationType::HardClip) {
-                    assert!(output.abs() <= 1.1);  // Small margin for soft clip
+                if matches!(
+                    sat_type,
+                    SaturationType::SoftClip | SaturationType::HardClip
+                ) {
+                    assert!(output.abs() <= 1.1); // Small margin for soft clip
                 }
             }
         }
@@ -525,10 +528,10 @@ mod tests {
         // Should have step-like output (sample and hold)
         let mut step_count = 0;
         for i in 1..outputs.len() {
-            if (outputs[i] - outputs[i-1]).abs() < 1e-10 {
+            if (outputs[i] - outputs[i - 1]).abs() < 1e-10 {
                 step_count += 1;
             }
         }
-        assert!(step_count > 50);  // Many samples should be held
+        assert!(step_count > 50); // Many samples should be held
     }
 }

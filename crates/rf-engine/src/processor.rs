@@ -2,12 +2,12 @@
 
 use rf_core::{Sample, SampleRate};
 use rtrb::{Consumer, Producer, RingBuffer};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::EngineConfig;
 use crate::bus::{BusId, BusManager};
 use crate::graph::AudioGraph;
-use crate::EngineConfig;
 
 /// Parameter change from UI to audio thread
 #[derive(Debug, Clone)]

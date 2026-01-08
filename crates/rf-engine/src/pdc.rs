@@ -291,11 +291,14 @@ impl PdcManager {
         let mut delay_lines = self.delay_lines.write();
 
         if !nodes.contains_key(&node_id) {
-            nodes.insert(node_id, NodeLatencyInfo {
+            nodes.insert(
                 node_id,
-                node_type,
-                ..Default::default()
-            });
+                NodeLatencyInfo {
+                    node_id,
+                    node_type,
+                    ..Default::default()
+                },
+            );
             delay_lines.insert(node_id, PdcDelayLine::new(MAX_PDC_SAMPLES as usize));
         }
     }
@@ -389,7 +392,8 @@ impl PdcManager {
 
     /// Get compensation delay for a specific node
     pub fn get_compensation(&self, node_id: NodeId) -> LatencySamples {
-        self.nodes.read()
+        self.nodes
+            .read()
             .get(&node_id)
             .map(|n| n.compensation)
             .unwrap_or(0)
@@ -397,7 +401,8 @@ impl PdcManager {
 
     /// Check if node is PDC bypassed (constrain mode)
     pub fn is_node_bypassed(&self, node_id: NodeId) -> bool {
-        self.nodes.read()
+        self.nodes
+            .read()
             .get(&node_id)
             .map(|n| n.pdc_bypassed)
             .unwrap_or(false)
@@ -442,7 +447,9 @@ impl PdcManager {
             // First, collect input latencies without holding mutable borrow
             let (max_input_latency, plugin_lat, manual_delay) = {
                 if let Some(node) = nodes.get(&node_id) {
-                    let max_input = node.input_nodes.iter()
+                    let max_input = node
+                        .input_nodes
+                        .iter()
                         .filter_map(|&input_id| nodes.get(&input_id))
                         .map(|input| input.path_latency)
                         .max()
@@ -461,7 +468,8 @@ impl PdcManager {
         }
 
         // Find maximum latency
-        let mut max_lat = nodes.values()
+        let mut max_lat = nodes
+            .values()
             .filter(|n| n.output_nodes.is_empty()) // Leaf nodes (outputs)
             .map(|n| n.path_latency)
             .max()
@@ -685,10 +693,12 @@ impl SidechainPdc {
     pub fn update_delay(&mut self, pdc: &PdcManager) {
         let nodes = pdc.nodes.read();
 
-        let source_latency = nodes.get(&self.source_node)
+        let source_latency = nodes
+            .get(&self.source_node)
             .map(|n| n.path_latency)
             .unwrap_or(0);
-        let target_latency = nodes.get(&self.target_node)
+        let target_latency = nodes
+            .get(&self.target_node)
             .map(|n| n.path_latency)
             .unwrap_or(0);
 
@@ -735,7 +745,8 @@ impl SendPdc {
         let nodes = pdc.nodes.read();
 
         // FX return introduces latency, we need to delay the dry signal
-        let return_latency = nodes.get(&self.return_node)
+        let return_latency = nodes
+            .get(&self.return_node)
             .map(|n| n.plugin_latency)
             .unwrap_or(0);
 

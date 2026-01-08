@@ -305,14 +305,19 @@ mod tests {
         let mut declip = Declip::new(config);
 
         // Create signal with clipping
-        let signal: Vec<f32> = (0..1000).map(|i| {
-            let s = (i as f32 * 0.05).sin() * 1.5;
-            s.clamp(-1.0, 1.0) // Hard clip at ±1
-        }).collect();
+        let signal: Vec<f32> = (0..1000)
+            .map(|i| {
+                let s = (i as f32 * 0.05).sin() * 1.5;
+                s.clamp(-1.0, 1.0) // Hard clip at ±1
+            })
+            .collect();
 
         declip.detect_clips(&signal);
 
-        assert!(!declip.clip_regions.is_empty(), "Should detect clip regions");
+        assert!(
+            !declip.clip_regions.is_empty(),
+            "Should detect clip regions"
+        );
     }
 
     #[test]
@@ -321,16 +326,19 @@ mod tests {
         let mut declip = Declip::new(config);
 
         // Create clipped signal
-        let input: Vec<f32> = (0..1000).map(|i| {
-            let s = (i as f32 * 0.05).sin() * 1.5;
-            s.clamp(-1.0, 1.0)
-        }).collect();
+        let input: Vec<f32> = (0..1000)
+            .map(|i| {
+                let s = (i as f32 * 0.05).sin() * 1.5;
+                s.clamp(-1.0, 1.0)
+            })
+            .collect();
 
         let mut output = vec![0.0f32; 1000];
         declip.process(&input, &mut output).unwrap();
 
         // Output should be different from input (reconstructed)
-        let diff: f32 = input.iter()
+        let diff: f32 = input
+            .iter()
             .zip(output.iter())
             .map(|(a, b)| (a - b).abs())
             .sum();

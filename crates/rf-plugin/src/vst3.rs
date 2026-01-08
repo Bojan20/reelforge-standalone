@@ -21,11 +21,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::Mutex;
 
+use crate::scanner::{PluginCategory, PluginType};
 use crate::{
     AudioBuffer, ParameterInfo, PluginError, PluginInfo, PluginInstance, PluginResult,
     ProcessContext,
 };
-use crate::scanner::{PluginCategory, PluginType};
 
 /// Maximum parameter changes per audio block
 const MAX_PARAM_CHANGES: usize = 128;
@@ -200,7 +200,8 @@ impl PluginInstance for Vst3Host {
             context.max_block_size
         );
 
-        self.sample_rate.store(context.sample_rate.to_bits(), Ordering::SeqCst);
+        self.sample_rate
+            .store(context.sample_rate.to_bits(), Ordering::SeqCst);
         self.max_block_size = context.max_block_size;
 
         Ok(())

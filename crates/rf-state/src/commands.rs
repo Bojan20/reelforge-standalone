@@ -7,10 +7,10 @@
 //! - Automation operations
 //! - Project settings
 
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
-use crate::{Command, Project, TrackState, RegionState, AutomationPointState};
+use crate::{AutomationPointState, Command, Project, RegionState, TrackState};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TRACK COMMANDS
@@ -117,7 +117,10 @@ impl RenameTrackCommand {
     pub fn new(project: Arc<RwLock<Project>>, index: usize, new_name: String) -> Self {
         let old_name = {
             let p = project.read();
-            p.tracks.get(index).map(|t| t.name.clone()).unwrap_or_default()
+            p.tracks
+                .get(index)
+                .map(|t| t.name.clone())
+                .unwrap_or_default()
         };
         Self {
             project,
@@ -307,7 +310,8 @@ impl MoveClipCommand {
     ) -> Self {
         let old_position = {
             let p = project.read();
-            p.tracks.get(track_index)
+            p.tracks
+                .get(track_index)
                 .and_then(|t| t.regions.get(clip_index))
                 .map(|r| r.position)
                 .unwrap_or(0)
@@ -377,7 +381,8 @@ impl ResizeClipCommand {
     ) -> Self {
         let old_length = {
             let p = project.read();
-            p.tracks.get(track_index)
+            p.tracks
+                .get(track_index)
                 .and_then(|t| t.regions.get(clip_index))
                 .map(|r| r.length)
                 .unwrap_or(0)
@@ -516,7 +521,10 @@ impl SetTrackVolumeCommand {
     pub fn new(project: Arc<RwLock<Project>>, track_index: usize, new_volume: f64) -> Self {
         let old_volume = {
             let p = project.read();
-            p.tracks.get(track_index).map(|t| t.volume_db).unwrap_or(0.0)
+            p.tracks
+                .get(track_index)
+                .map(|t| t.volume_db)
+                .unwrap_or(0.0)
         };
         Self {
             project,
@@ -610,7 +618,10 @@ pub struct ToggleTrackMuteCommand {
 
 impl ToggleTrackMuteCommand {
     pub fn new(project: Arc<RwLock<Project>>, track_index: usize) -> Self {
-        Self { project, track_index }
+        Self {
+            project,
+            track_index,
+        }
     }
 }
 
@@ -641,7 +652,10 @@ pub struct ToggleTrackSoloCommand {
 
 impl ToggleTrackSoloCommand {
     pub fn new(project: Arc<RwLock<Project>>, track_index: usize) -> Self {
-        Self { project, track_index }
+        Self {
+            project,
+            track_index,
+        }
     }
 }
 
@@ -699,7 +713,9 @@ impl Command for AddAutomationPointCommand {
         if let Some(track) = project.tracks.get_mut(self.track_index) {
             if let Some(lane) = track.automation.get_mut(self.lane_index) {
                 // Insert in sorted order
-                let pos = lane.points.iter()
+                let pos = lane
+                    .points
+                    .iter()
                     .position(|p| p.position > self.point.position)
                     .unwrap_or(lane.points.len());
                 lane.points.insert(pos, self.point.clone());
@@ -749,7 +765,8 @@ impl MoveAutomationPointCommand {
     ) -> Self {
         let (old_position, old_value) = {
             let p = project.read();
-            p.tracks.get(track_index)
+            p.tracks
+                .get(track_index)
                 .and_then(|t| t.automation.get(lane_index))
                 .and_then(|l| l.points.get(point_index))
                 .map(|p| (p.position, p.value))
@@ -917,12 +934,7 @@ pub struct SetLoopRegionCommand {
 }
 
 impl SetLoopRegionCommand {
-    pub fn new(
-        project: Arc<RwLock<Project>>,
-        enabled: bool,
-        start: u64,
-        end: u64,
-    ) -> Self {
+    pub fn new(project: Arc<RwLock<Project>>, enabled: bool, start: u64, end: u64) -> Self {
         let (old_enabled, old_start, old_end) = {
             let p = project.read();
             (p.loop_enabled, p.loop_start, p.loop_end)
@@ -968,7 +980,7 @@ impl Command for SetLoopRegionCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{UndoManager, TrackType};
+    use crate::{TrackType, UndoManager};
 
     fn test_project() -> Arc<RwLock<Project>> {
         Arc::new(RwLock::new(Project::default()))

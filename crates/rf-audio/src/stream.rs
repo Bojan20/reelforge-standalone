@@ -2,13 +2,12 @@
 
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{
-    BufferSize as CpalBufferSize, Device, SampleFormat, Stream, StreamConfig,
-    SupportedStreamConfig,
+    BufferSize as CpalBufferSize, Device, SampleFormat, Stream, StreamConfig, SupportedStreamConfig,
 };
 use parking_lot::Mutex;
 use rtrb::{Consumer, Producer, RingBuffer};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rf_core::{BufferSize, Sample};
 
@@ -262,7 +261,10 @@ fn build_output_stream_with_input(
                 // Call user callback with real input
                 {
                     let mut callback = state.callback.lock();
-                    callback(&input_buffer[..frames * 2], &mut output_buffer[..frames * 2]);
+                    callback(
+                        &input_buffer[..frames * 2],
+                        &mut output_buffer[..frames * 2],
+                    );
                 }
 
                 // Convert f64 to f32 and write to output

@@ -5,10 +5,10 @@ use std::sync::Arc;
 use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex};
 
-use crate::error::{MlError, MlResult};
 use super::config::{MatchConfig, MatchWeighting};
 use super::curve::{EqCurve, FrequencyBand};
 use super::{EqMatcher, MatchResult};
+use crate::error::{MlError, MlResult};
 
 /// Spectral EQ matcher
 pub struct SpectralMatcher {
@@ -149,7 +149,12 @@ impl SpectralMatcher {
     }
 
     /// Compute averaged spectrum from audio
-    fn compute_spectrum(&self, audio: &[f32], channels: usize, _sample_rate: u32) -> MlResult<Vec<f32>> {
+    fn compute_spectrum(
+        &self,
+        audio: &[f32],
+        channels: usize,
+        _sample_rate: u32,
+    ) -> MlResult<Vec<f32>> {
         // Convert to mono if needed
         let mono: Vec<f32> = if channels == 2 {
             audio
@@ -306,8 +311,8 @@ impl SpectralMatcher {
                 let upper_bin = upper_bin.min(diff.len()).max(lower_bin + 1);
 
                 // Average gain in this band
-                let gain: f32 = diff[lower_bin..upper_bin].iter().sum::<f32>()
-                    / (upper_bin - lower_bin) as f32;
+                let gain: f32 =
+                    diff[lower_bin..upper_bin].iter().sum::<f32>() / (upper_bin - lower_bin) as f32;
 
                 // Q based on bandwidth
                 let octaves = (upper_freq / lower_freq).log2();
@@ -333,10 +338,16 @@ impl EqMatcher for SpectralMatcher {
         Ok(())
     }
 
-    fn compute_match(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<MatchResult> {
-        let reference = self.reference_spectrum.as_ref().ok_or_else(|| {
-            MlError::Internal("No reference spectrum set".into())
-        })?;
+    fn compute_match(
+        &mut self,
+        audio: &[f32],
+        channels: usize,
+        sample_rate: u32,
+    ) -> MlResult<MatchResult> {
+        let reference = self
+            .reference_spectrum
+            .as_ref()
+            .ok_or_else(|| MlError::Internal("No reference spectrum set".into()))?;
 
         // Ensure sample rates match
         if self.reference_sample_rate != Some(sample_rate) {

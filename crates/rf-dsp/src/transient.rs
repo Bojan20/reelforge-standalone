@@ -260,8 +260,7 @@ impl TransientDetector {
         self.block_position += 1;
 
         // Check for transient
-        if energy_delta > threshold
-            && self.samples_since_detection >= self.settings.min_gap_samples
+        if energy_delta > threshold && self.samples_since_detection >= self.settings.min_gap_samples
         {
             self.samples_since_detection = 0;
 
@@ -432,8 +431,8 @@ impl SliceGenerator {
             let quantized = nearest_grid as u64;
 
             // Blend based on strength
-            marker.position = (marker.position as f64 * (1.0 - strength)
-                + quantized as f64 * strength) as u64;
+            marker.position =
+                (marker.position as f64 * (1.0 - strength) + quantized as f64 * strength) as u64;
         }
     }
 }
@@ -512,9 +511,8 @@ impl TransientShaper {
     /// Update filter coefficients
     fn update_coefficients(&mut self) {
         // Attack detector: fast attack, slower release
-        self.attack_coeff = (-2.0 * std::f64::consts::PI * 1000.0
-            / (self.attack_speed * self.sample_rate))
-            .exp();
+        self.attack_coeff =
+            (-2.0 * std::f64::consts::PI * 1000.0 / (self.attack_speed * self.sample_rate)).exp();
 
         // Attack release (slower)
         self.attack_release = (-2.0 * std::f64::consts::PI * 100.0
@@ -522,9 +520,8 @@ impl TransientShaper {
             .exp();
 
         // Sustain detector: slower attack, slow release
-        self.sustain_attack = (-2.0 * std::f64::consts::PI * 100.0
-            / (self.sustain_speed * self.sample_rate))
-            .exp();
+        self.sustain_attack =
+            (-2.0 * std::f64::consts::PI * 100.0 / (self.sustain_speed * self.sample_rate)).exp();
 
         self.sustain_coeff = (-2.0 * std::f64::consts::PI * 10.0
             / (self.sustain_speed * 10.0 * self.sample_rate))
@@ -714,10 +711,14 @@ pub struct MultibandTransientShaper {
     crossover_high: f64,
 
     // Linkwitz-Riley filter states
-    lp1_l: f64, lp1_r: f64,
-    hp1_l: f64, hp1_r: f64,
-    lp2_l: f64, lp2_r: f64,
-    hp2_l: f64, hp2_r: f64,
+    lp1_l: f64,
+    lp1_r: f64,
+    hp1_l: f64,
+    hp1_r: f64,
+    lp2_l: f64,
+    lp2_r: f64,
+    hp2_l: f64,
+    hp2_r: f64,
 
     sample_rate: f64,
 }
@@ -731,10 +732,14 @@ impl MultibandTransientShaper {
             high: TransientShaper::new(sample_rate),
             crossover_low: 200.0,
             crossover_high: 4000.0,
-            lp1_l: 0.0, lp1_r: 0.0,
-            hp1_l: 0.0, hp1_r: 0.0,
-            lp2_l: 0.0, lp2_r: 0.0,
-            hp2_l: 0.0, hp2_r: 0.0,
+            lp1_l: 0.0,
+            lp1_r: 0.0,
+            hp1_l: 0.0,
+            hp1_r: 0.0,
+            lp2_l: 0.0,
+            lp2_r: 0.0,
+            hp2_l: 0.0,
+            hp2_r: 0.0,
             sample_rate,
         }
     }
@@ -765,7 +770,8 @@ impl MultibandTransientShaper {
         // Simple 1-pole crossover (should be Linkwitz-Riley in production)
         let alpha_low = (2.0 * std::f64::consts::PI * self.crossover_low / self.sample_rate).tan()
             / (1.0 + (2.0 * std::f64::consts::PI * self.crossover_low / self.sample_rate).tan());
-        let alpha_high = (2.0 * std::f64::consts::PI * self.crossover_high / self.sample_rate).tan()
+        let alpha_high = (2.0 * std::f64::consts::PI * self.crossover_high / self.sample_rate)
+            .tan()
             / (1.0 + (2.0 * std::f64::consts::PI * self.crossover_high / self.sample_rate).tan());
 
         // Low band
@@ -843,7 +849,11 @@ mod tests {
         let markers = detector.analyze(&audio);
 
         // Should detect approximately 3 transients
-        assert!(markers.len() >= 2, "Expected at least 2 transients, got {}", markers.len());
+        assert!(
+            markers.len() >= 2,
+            "Expected at least 2 transients, got {}",
+            markers.len()
+        );
     }
 
     #[test]
@@ -874,14 +884,12 @@ mod tests {
 
     #[test]
     fn test_grid_quantization() {
-        let transients = vec![
-            TransientMarker {
-                position: 11000, // Slightly off grid
-                strength: 1.0,
-                marker_type: TransientType::Generic,
-                user_adjusted: false,
-            },
-        ];
+        let transients = vec![TransientMarker {
+            position: 11000, // Slightly off grid
+            strength: 1.0,
+            marker_type: TransientType::Generic,
+            user_adjusted: false,
+        }];
 
         let mut generator = SliceGenerator::new(transients, 48000, 48000.0);
 

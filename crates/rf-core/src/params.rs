@@ -135,9 +135,7 @@ impl ParamRange {
                 let log_max = self.max.ln();
                 (log_min + normalized * (log_max - log_min)).exp()
             }
-            ParamSkew::Exponential(exp) => {
-                self.min + normalized.powf(exp) * (self.max - self.min)
-            }
+            ParamSkew::Exponential(exp) => self.min + normalized.powf(exp) * (self.max - self.min),
         }
     }
 
