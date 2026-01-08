@@ -28,6 +28,35 @@ Na osnovu detaljne analize 5 konkurenata (Pyramix, REAPER, Cubase, Logic Pro, Pr
 | **Advanced Metering** | ✅ **DONE** | `rf-dsp/src/metering.rs` (~1700 linija) |
 | **Hybrid Phase EQ** | ✅ **DONE** | `rf-dsp/src/eq_pro.rs` (~1861 linija) |
 
+### Phase 1.5 - SIGNAL INTEGRITY ✅ (2025-01-08)
+
+| Oblast | Status | Implementacija |
+|--------|--------|----------------|
+| **8x True Peak Metering** | ✅ **DONE** | `rf-dsp/src/metering_simd.rs` - Superior to ITU 4x |
+| **PSR Meter (unique)** | ✅ **DONE** | `rf-dsp/src/metering_simd.rs` - Peak-to-Short-term Ratio |
+| **Zwicker Loudness (ISO 532-1)** | ✅ **DONE** | `rf-dsp/src/loudness_advanced.rs` - Psychoacoustic sones/phons |
+| **Sharpness/Roughness/Fluctuation** | ✅ **DONE** | `rf-dsp/src/loudness_advanced.rs` - Full psychoacoustic suite |
+| **DC Offset Removal** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - 5Hz HPF |
+| **Auto-Gain Staging** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - -18dBFS target |
+| **ISP Limiter (8x oversample)** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - 0.0 dBTP guarantee |
+| **Kahan Summation** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Precision mix bus |
+| **Global Oversampling** | ✅ **DONE** | `rf-dsp/src/oversampling.rs` - 2x/4x/8x/16x |
+| **SIMD Biquad Batch** | ✅ **DONE** | `rf-dsp/src/oversampling.rs` - 4x/8x parallel |
+| **TPDF Dither + Noise Shaping** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - 4 algorithms |
+| **Soft Clip Protection** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Tanh/Cubic/Sine |
+| **Advanced Metering UI** | ✅ **DONE** | `flutter_ui/lib/widgets/meters/advanced_metering_panel.dart` |
+
+### Phase 1.6 - PRECISION & ANALYSIS ✅ (2025-01-08)
+
+| Oblast | Status | Implementacija |
+|--------|--------|----------------|
+| **Anti-Denormal Processing** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - DC injection + SIMD flush |
+| **SIMD DC Blocker (AVX2)** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - 4x throughput |
+| **Neumaier Summation** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Better than Kahan for varied magnitudes |
+| **Headroom Meter** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Real-time dB headroom |
+| **Signal Statistics** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Min/Max/Avg/RMS/DC/Crest |
+| **Phase Alignment Detector** | ✅ **DONE** | `rf-dsp/src/signal_integrity.rs` - Cross-correlation analysis |
+
 ### Achievable Superiority 🎯 (Phase 2+)
 
 | Oblast | Prioritet | Effort | Jedinstvena prednost |
@@ -321,156 +350,663 @@ pub struct BandDynamics {
 
 ---
 
-## PHASE 2: DIFFERENTIATION (2-4 meseca)
+## PHASE 2 ULTIMATE: BEYOND ALL COMPETITORS 🚀
 
-### 2.1 DSD/DXD Native Support
+> **Cilj:** Ne samo dostići konkurenciju, već DOMINIRATI
 
-**Zašto je ovo važno:**
-- Pyramix je JEDINI DAW sa native DSD
-- Audiophile market ($$$)
-- SACD mastering workflow
-- Premium positioning
+### Overview - Phase 2 Ultimate
 
-**Implementacija:**
+```
+PHASE 2 ULTIMATE STRUCTURE
+├── 2.1 DSD ULTIMATE
+│   ├── DSD64/128/256/512 Native
+│   ├── DoP (DSD over PCM) encode/decode
+│   ├── SACD ISO extraction
+│   ├── 5th/7th order Sigma-Delta Modulators
+│   └── Native DSD playback (no PCM conversion)
+│
+├── 2.2 GPU DSP ULTIMATE
+│   ├── GPU FFT (radix-2/4/8, stockham)
+│   ├── GPU 64-band Parallel EQ
+│   ├── GPU Compressor/Limiter
+│   ├── GPU Partitioned Convolution
+│   └── Hybrid CPU+GPU scheduler
+│
+├── 2.3 CONVOLUTION ULTIMATE
+│   ├── True Stereo (4-channel IR)
+│   ├── Non-uniform Partitioned (latency vs quality)
+│   ├── Zero-latency mode (direct + partitioned)
+│   ├── IR Morphing (crossfade between IRs)
+│   └── IR Deconvolution (sweep→IR extraction)
+│
+└── 2.4 FORMAT SUPPORT ULTIMATE
+    ├── MQA decode (full unfold)
+    └── Dolby TrueHD passthrough
+```
+
+---
+
+### 2.1 DSD ULTIMATE 🎵
+
+**Prednost:** Jedini DAW osim Pyramix-a sa full DSD podrskom, ALI sa dodatnim Ultimate features.
+
+#### DSD Sample Rates (ALL supported)
 
 ```rust
 // crates/rf-dsp/src/dsd/mod.rs
 
-/// DSD sample rates
-pub const DSD64_RATE: u32 = 2_822_400;   // 64 × 44100
-pub const DSD128_RATE: u32 = 5_644_800;  // 128 × 44100
-pub const DSD256_RATE: u32 = 11_289_600; // 256 × 44100
-pub const DXD_RATE: u32 = 352_800;       // 8 × 44100
+/// DSD sample rates - ALL supported
+pub const DSD64_RATE: u32 = 2_822_400;    // 64 × 44100 (standard SACD)
+pub const DSD128_RATE: u32 = 5_644_800;   // 128 × 44100 (double-rate)
+pub const DSD256_RATE: u32 = 11_289_600;  // 256 × 44100 (quad-rate)
+pub const DSD512_RATE: u32 = 22_579_200;  // 512 × 44100 (octa-rate - ULTIMATE)
+pub const DXD_RATE: u32 = 352_800;        // 8 × 44100 (intermediate PCM)
+```
 
-/// Sigma-Delta Modulator for PCM→DSD conversion
-pub struct SigmaDeltaModulator {
-    modulator_type: SdmType,
-    /// Integrator states
-    integrators: [f64; 5], // 5th order modulator
-    /// Previous output
-    prev_output: i8,
-}
+#### Sigma-Delta Modulators (5th & 7th order)
 
+```rust
+/// Sigma-Delta Modulator types
 #[derive(Debug, Clone, Copy)]
 pub enum SdmType {
-    /// Original algorithm
-    TypeB,
-    /// Dithered, recommended default
-    TypeD,
-    /// Meco algorithm (Pyramix)
-    TypeMeco,
+    /// 5th order classic (Pyramix standard)
+    Order5Classic,
+    /// 5th order dithered (recommended)
+    Order5Dithered,
+    /// 7th order - ULTIMATE (best noise shaping)
+    Order7Ultimate,
+    /// Meco algorithm (Pyramix compatible)
+    Meco,
 }
 
-/// DSD↔PCM converter
-pub struct DsdConverter {
-    /// Decimation filter for DSD→PCM
-    decimation_filter: DecimationFilter,
-    /// SDM for PCM→DSD
-    modulator: SigmaDeltaModulator,
+pub struct SigmaDeltaModulator {
+    modulator_type: SdmType,
+    /// 7 integrator states for Order7
+    integrators: [f64; 7],
+    /// Feedback coefficients (order-dependent)
+    feedback: [f64; 7],
+    /// Dither generator
+    dither: TpdfDither,
+    prev_output: i8,
+}
+```
+
+#### DoP (DSD over PCM) - UNIQUE
+
+```rust
+/// DoP marker bytes per DSD-over-PCM standard
+pub const DOP_MARKER_A: u8 = 0x05;  // Alternating pattern A
+pub const DOP_MARKER_B: u8 = 0xFA;  // Alternating pattern B
+
+pub struct DopEncoder {
+    marker_toggle: bool,
 }
 
-impl DsdConverter {
-    /// Convert DSD to DXD (352.8kHz PCM) for editing
-    pub fn dsd_to_dxd(&mut self, dsd_bits: &[u8]) -> Vec<f64> {
-        // Multi-stage decimation
-        // DSD64 (2.8MHz) → 705.6kHz → 352.8kHz (DXD)
-        self.decimation_filter.process(dsd_bits)
+impl DopEncoder {
+    /// Encode DSD bits into DoP PCM samples (24-bit)
+    pub fn encode(&mut self, dsd_bits: &[u8]) -> Vec<i32> {
+        // 16 DSD bits → 1 PCM sample with marker
+        // Bits 23-16: DoP marker (0x05 or 0xFA alternating)
+        // Bits 15-0: 16 DSD bits
+        // ...
     }
+}
 
-    /// Convert DXD back to DSD
-    pub fn dxd_to_dsd(&mut self, dxd_samples: &[f64]) -> Vec<u8> {
-        // Interpolate and modulate
-        self.modulator.process(dxd_samples)
+pub struct DopDecoder {
+    /// Detect DoP stream and extract DSD
+    pub fn decode(&mut self, pcm: &[i32]) -> Option<Vec<u8>> {
+        // Check for DoP markers, extract DSD if present
+        // ...
     }
 }
 ```
 
-**Workflow (kao Pyramix):**
-1. Import DSD file
-2. Automatically convert to DXD for editing
-3. Only convert edited sections
-4. Export back to DSD
+#### SACD ISO Extraction - UNIQUE
 
-**Tasks:**
+```rust
+/// Extract DSD streams from SACD ISO images
+pub struct SacdExtractor {
+    iso_reader: IsoReader,
+}
 
-| Task | Fajl | Effort |
-|------|------|--------|
-| DSD file reader (DSDIFF, DSF) | `rf-file/src/dsd_reader.rs` | L |
-| Decimation filter | `rf-dsp/src/dsd/decimation.rs` | M |
-| Sigma-Delta modulator | `rf-dsp/src/dsd/sdm.rs` | L |
-| DXD editing mode | `rf-engine/src/dxd_mode.rs` | L |
-| Selective conversion | `rf-engine/src/dsd_selective.rs` | M |
-| DSD export | `rf-file/src/dsd_writer.rs` | L |
-| UI indicators | `flutter_ui/.../dsd_indicator.dart` | S |
+impl SacdExtractor {
+    /// Parse SACD Master TOC
+    pub fn read_master_toc(&mut self) -> Result<SacdToc> { ... }
 
-**Total effort:** ~6-8 nedelja
+    /// Extract stereo or multichannel DSD stream
+    pub fn extract_track(&mut self, track_id: u32, channel_config: ChannelConfig) -> Result<DsdStream> { ... }
+
+    /// Supported channel configurations
+    pub fn supported_configs(&self) -> Vec<ChannelConfig> {
+        vec![
+            ChannelConfig::Stereo,
+            ChannelConfig::Surround51,  // 5.1
+            ChannelConfig::Surround71,  // 7.1 (rare)
+        ]
+    }
+}
+```
+
+#### Native DSD Playback - ULTIMATE
+
+```rust
+/// Direct DSD playback (no PCM conversion)
+pub struct NativeDsdPlayer {
+    /// ASIO driver with DSD support
+    asio_dsd: AsioDsdDriver,
+    /// Fallback: DoP output
+    dop_fallback: DopEncoder,
+}
+
+impl NativeDsdPlayer {
+    /// Check if hardware supports native DSD
+    pub fn supports_native_dsd(&self) -> bool { ... }
+
+    /// Play DSD without any conversion
+    pub fn play_native(&mut self, dsd_stream: &DsdStream) -> Result<()> { ... }
+}
+```
+
+| Feature | Pyramix | Competitors | ReelForge Ultimate |
+|---------|---------|-------------|-------------------|
+| DSD64/128/256 | ✅ | ❌ | ✅ |
+| DSD512 | ❌ | ❌ | ✅ **UNIQUE** |
+| DoP encode/decode | ✅ | ❌ | ✅ |
+| SACD ISO extract | ❌ | ❌ | ✅ **UNIQUE** |
+| 7th order SDM | ❌ | ❌ | ✅ **UNIQUE** |
+| Native DSD playback | ✅ | ❌ | ✅ |
 
 ---
 
-### 2.2 GPU-Accelerated DSP
+### 2.2 GPU DSP ULTIMATE 🎮
 
-**Zašto:**
-- Massive parallelism
-- Offload CPU za real-time
-- Huge convolution IRs
-- Real-time spectrogram
+**Prednost:** NIKO nema GPU-accelerated audio DSP u DAW-u. Ovo je game-changer.
 
-**wgpu Compute Shader za FFT:**
+#### GPU FFT (radix-2/4/8, Stockham)
 
 ```wgsl
 // shaders/fft_compute.wgsl
 
-@group(0) @binding(0) var<storage, read> input: array<vec2<f32>>;
-@group(0) @binding(1) var<storage, read_write> output: array<vec2<f32>>;
-@group(0) @binding(2) var<uniform> params: FftParams;
-
 struct FftParams {
     n: u32,
+    log2_n: u32,
     inverse: u32,
-    stage: u32,
+    radix: u32,  // 2, 4, or 8
 }
 
+@group(0) @binding(0) var<storage, read_write> data: array<vec2<f32>>;
+@group(0) @binding(1) var<uniform> params: FftParams;
+
+// Stockham auto-sort FFT (no bit-reversal needed)
 @compute @workgroup_size(256)
-fn fft_stage(@builtin(global_invocation_id) id: vec3<u32>) {
+fn fft_stockham(@builtin(global_invocation_id) id: vec3<u32>) {
     let idx = id.x;
-    if (idx >= params.n) { return; }
+    if (idx >= params.n / 2u) { return; }
 
-    // Cooley-Tukey butterfly
-    let stage_size = 1u << params.stage;
-    let half_stage = stage_size >> 1u;
-
-    let pair_idx = (idx / stage_size) * stage_size + (idx % half_stage);
-    let partner = pair_idx + half_stage;
-
-    // Twiddle factor
-    let angle = -2.0 * 3.14159265359 * f32(idx % half_stage) / f32(stage_size);
-    let twiddle = vec2<f32>(cos(angle), sin(angle));
-
-    // Butterfly operation
-    let a = input[pair_idx];
-    let b_raw = input[partner];
-    let b = vec2<f32>(
-        b_raw.x * twiddle.x - b_raw.y * twiddle.y,
-        b_raw.x * twiddle.y + b_raw.y * twiddle.x
-    );
-
-    output[pair_idx] = a + b;
-    output[partner] = a - b;
+    // Radix-4 butterfly for 4x throughput
+    if (params.radix == 4u) {
+        // 4-point butterfly with twiddles
+        // ...
+    }
+    // Radix-8 for maximum throughput
+    else if (params.radix == 8u) {
+        // 8-point butterfly
+        // ...
+    }
 }
 ```
 
-**Tasks:**
+#### GPU 64-Band Parallel EQ - UNIQUE
 
-| Task | Fajl | Effort |
-|------|------|--------|
-| wgpu compute pipeline | `rf-viz/src/compute/mod.rs` | L |
-| FFT compute shader | `shaders/fft_compute.wgsl` | L |
-| Convolution compute | `shaders/convolution.wgsl` | L |
-| Spectrogram compute | `shaders/spectrogram.wgsl` | M |
-| CPU↔GPU transfer | `rf-viz/src/compute/transfer.rs` | M |
-| Fallback to CPU | `rf-viz/src/compute/fallback.rs` | M |
+```wgsl
+// shaders/eq_parallel.wgsl
 
-**Total effort:** ~6-8 nedelja
+struct EqBand {
+    b0: f32, b1: f32, b2: f32,
+    a1: f32, a2: f32,
+    z1: f32, z2: f32,
+    enabled: u32,
+}
+
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<storage, read_write> bands: array<EqBand, 64>;
+
+// Process ALL 64 bands in parallel per sample
+@compute @workgroup_size(64)  // One thread per band
+fn process_eq_parallel(@builtin(local_invocation_id) band_id: vec3<u32>,
+                       @builtin(workgroup_id) sample_id: vec3<u32>) {
+    let band = band_id.x;
+    let sample_idx = sample_id.x;
+
+    if (bands[band].enabled == 0u) { return; }
+
+    let input_sample = input[sample_idx];
+
+    // TDF-II biquad per band
+    let y = bands[band].b0 * input_sample + bands[band].z1;
+    bands[band].z1 = bands[band].b1 * input_sample - bands[band].a1 * y + bands[band].z2;
+    bands[band].z2 = bands[band].b2 * input_sample - bands[band].a2 * y;
+
+    // Atomic add to output (all bands sum)
+    atomicAdd(&output[sample_idx], y);
+}
+```
+
+#### GPU Compressor/Limiter - UNIQUE
+
+```wgsl
+// shaders/dynamics_gpu.wgsl
+
+struct CompressorParams {
+    threshold: f32,
+    ratio: f32,
+    attack_coeff: f32,
+    release_coeff: f32,
+    knee_width: f32,
+    makeup_gain: f32,
+}
+
+@group(0) @binding(0) var<storage, read_write> audio: array<f32>;
+@group(0) @binding(1) var<storage, read_write> envelope: array<f32>;
+@group(0) @binding(2) var<uniform> params: CompressorParams;
+
+@compute @workgroup_size(256)
+fn gpu_compressor(@builtin(global_invocation_id) id: vec3<u32>) {
+    let idx = id.x;
+    let sample = audio[idx];
+    let level_db = 20.0 * log(abs(sample) + 1e-10) / log(10.0);
+
+    // Soft knee gain calculation
+    var gain_db = 0.0;
+    if (level_db > params.threshold + params.knee_width / 2.0) {
+        gain_db = (params.threshold - level_db) * (1.0 - 1.0 / params.ratio);
+    } else if (level_db > params.threshold - params.knee_width / 2.0) {
+        // Soft knee interpolation
+        let knee_input = level_db - params.threshold + params.knee_width / 2.0;
+        gain_db = -pow(knee_input, 2.0) / (2.0 * params.knee_width) * (1.0 - 1.0 / params.ratio);
+    }
+
+    // Envelope follower
+    let target_env = pow(10.0, gain_db / 20.0);
+    let coeff = select(params.release_coeff, params.attack_coeff, target_env < envelope[idx]);
+    envelope[idx] = envelope[idx] + coeff * (target_env - envelope[idx]);
+
+    // Apply gain + makeup
+    audio[idx] = sample * envelope[idx] * pow(10.0, params.makeup_gain / 20.0);
+}
+```
+
+#### GPU Partitioned Convolution - ULTIMATE
+
+```wgsl
+// shaders/convolution_partitioned.wgsl
+
+// Non-uniform partitioned convolution for huge IRs (10+ seconds)
+// First partition: small (low latency)
+// Later partitions: progressively larger
+
+struct PartitionInfo {
+    fft_size: u32,
+    num_segments: u32,
+    offset: u32,
+}
+
+@group(0) @binding(0) var<storage, read> input_spectrum: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read> ir_partitions: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> output_spectrum: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read> partitions: array<PartitionInfo>;
+
+@compute @workgroup_size(256)
+fn convolve_partition(@builtin(global_invocation_id) id: vec3<u32>,
+                      @builtin(workgroup_id) partition_id: vec3<u32>) {
+    let freq_bin = id.x;
+    let partition = partition_id.x;
+    let info = partitions[partition];
+
+    if (freq_bin >= info.fft_size) { return; }
+
+    // Complex multiply-accumulate
+    let input = input_spectrum[info.offset + freq_bin];
+    let ir = ir_partitions[partition * info.fft_size + freq_bin];
+
+    // (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+    let result = vec2<f32>(
+        input.x * ir.x - input.y * ir.y,
+        input.x * ir.y + input.y * ir.x
+    );
+
+    atomicAdd(&output_spectrum[freq_bin].x, result.x);
+    atomicAdd(&output_spectrum[freq_bin].y, result.y);
+}
+```
+
+#### Hybrid CPU+GPU Scheduler - ULTIMATE
+
+```rust
+/// Intelligent scheduler: route DSP to CPU or GPU based on load
+pub struct HybridScheduler {
+    gpu_compute: GpuCompute,
+    cpu_pool: ThreadPool,
+    /// GPU utilization threshold
+    gpu_threshold: f32,
+    /// Current GPU load
+    gpu_load: AtomicF32,
+}
+
+impl HybridScheduler {
+    /// Decide where to process
+    pub fn schedule(&self, task: DspTask) -> ProcessingTarget {
+        match task.task_type {
+            // Always GPU (massive parallelism benefits)
+            TaskType::Fft { size } if size >= 4096 => ProcessingTarget::Gpu,
+            TaskType::Convolution { ir_length } if ir_length >= 65536 => ProcessingTarget::Gpu,
+            TaskType::ParallelEq { bands } if bands >= 16 => ProcessingTarget::Gpu,
+
+            // GPU if available capacity
+            _ if self.gpu_load.load() < self.gpu_threshold => ProcessingTarget::Gpu,
+
+            // Fallback to CPU
+            _ => ProcessingTarget::Cpu,
+        }
+    }
+}
+```
+
+| Feature | Any Competitor | ReelForge Ultimate |
+|---------|---------------|-------------------|
+| GPU FFT | ❌ | ✅ **UNIQUE** |
+| GPU Parallel EQ | ❌ | ✅ **UNIQUE** |
+| GPU Compressor | ❌ | ✅ **UNIQUE** |
+| GPU Convolution | ❌ | ✅ **UNIQUE** |
+| CPU+GPU hybrid | ❌ | ✅ **UNIQUE** |
+
+---
+
+### 2.3 CONVOLUTION ULTIMATE 🎛️
+
+**Prednost:** Professional convolution reverb bolje od Altiverb, Spaces, LiquidSonics.
+
+#### True Stereo (4-channel IR)
+
+```rust
+/// True stereo convolution (L→L, L→R, R→L, R→R)
+pub struct TrueStereoConvolution {
+    /// Left input → Left output
+    ll: PartitionedConvolver,
+    /// Left input → Right output
+    lr: PartitionedConvolver,
+    /// Right input → Left output
+    rl: PartitionedConvolver,
+    /// Right input → Right output
+    rr: PartitionedConvolver,
+    /// Mix: 0 = mono IR, 1 = full true stereo
+    width: f64,
+}
+
+impl TrueStereoConvolution {
+    pub fn process(&mut self, left: &[f64], right: &[f64], out_l: &mut [f64], out_r: &mut [f64]) {
+        // Full 4-channel convolution
+        let ll = self.ll.process(left);
+        let lr = self.lr.process(left);
+        let rl = self.rl.process(right);
+        let rr = self.rr.process(right);
+
+        // Combine with width control
+        for i in 0..left.len() {
+            out_l[i] = ll[i] + self.width * rl[i];
+            out_r[i] = rr[i] + self.width * lr[i];
+        }
+    }
+}
+```
+
+#### Non-uniform Partitioned Convolution
+
+```rust
+/// Non-uniform partitions for optimal latency/quality tradeoff
+pub struct NonUniformConvolver {
+    /// Small first partition for low latency
+    first_partition_size: usize,  // e.g., 64 samples
+    /// Progressively larger partitions
+    partitions: Vec<ConvolverPartition>,
+}
+
+pub struct ConvolverPartition {
+    fft_size: usize,
+    num_segments: usize,
+    ir_spectra: Vec<Complex64>,
+    input_buffer: Vec<Complex64>,
+    fdl_buffer: Vec<Complex64>,  // Frequency Domain Delay Line
+}
+
+impl NonUniformConvolver {
+    /// Create non-uniform scheme for 5-second IR at 48kHz
+    pub fn new_optimal(ir: &[f64], sample_rate: f64) -> Self {
+        // Example scheme for ~240,000 samples IR:
+        // Partition 0: FFT 128 (64 samples latency)
+        // Partition 1: FFT 256
+        // Partition 2: FFT 512
+        // Partition 3: FFT 1024
+        // Partition 4+: FFT 4096 (bulk)
+    }
+}
+```
+
+#### Zero-Latency Mode
+
+```rust
+/// Zero-latency convolution: direct + partitioned
+pub struct ZeroLatencyConvolver {
+    /// Direct convolution for first N samples (FIR)
+    direct_fir: Vec<f64>,
+    direct_length: usize,
+    /// Partitioned for remainder
+    partitioned: PartitionedConvolver,
+    /// Crossfade
+    crossfade_samples: usize,
+}
+
+impl ZeroLatencyConvolver {
+    pub fn process(&mut self, input: &[f64], output: &mut [f64]) {
+        // Direct convolution (0 latency)
+        self.process_direct(input, output);
+
+        // Partitioned (adds after direct_length samples)
+        self.process_partitioned(input, output);
+
+        // Crossfade overlap region
+        self.apply_crossfade(output);
+    }
+}
+```
+
+#### IR Morphing - UNIQUE
+
+```rust
+/// Morph between two IRs in real-time
+pub struct IrMorpher {
+    ir_a: Vec<f64>,
+    ir_b: Vec<f64>,
+    /// Morphed IR (recalculated on blend change)
+    morphed: Vec<f64>,
+    /// Blend: 0.0 = IR A, 1.0 = IR B
+    blend: SmoothedParam,
+}
+
+impl IrMorpher {
+    /// Spectral morphing (better than crossfade)
+    pub fn morph_spectral(&mut self, blend: f64) {
+        let spectrum_a = self.fft.process(&self.ir_a);
+        let spectrum_b = self.fft.process(&self.ir_b);
+
+        // Interpolate magnitude and phase separately
+        for i in 0..spectrum_a.len() {
+            let mag = lerp(spectrum_a[i].norm(), spectrum_b[i].norm(), blend);
+            let phase = lerp_angle(spectrum_a[i].arg(), spectrum_b[i].arg(), blend);
+            self.morphed_spectrum[i] = Complex64::from_polar(mag, phase);
+        }
+
+        self.morphed = self.ifft.process(&self.morphed_spectrum);
+    }
+}
+```
+
+#### IR Deconvolution (Sweep → IR)
+
+```rust
+/// Extract IR from sweep recording
+pub struct IrDeconvolver {
+    reference_sweep: Vec<f64>,
+    inverse_filter: Vec<Complex64>,
+}
+
+impl IrDeconvolver {
+    /// Create from log sweep parameters
+    pub fn new_log_sweep(start_freq: f64, end_freq: f64, duration_sec: f64, sample_rate: f64) -> Self {
+        // Generate reference sweep
+        let sweep = Self::generate_log_sweep(start_freq, end_freq, duration_sec, sample_rate);
+
+        // Compute inverse filter
+        let sweep_spectrum = fft(&sweep);
+        let inverse = sweep_spectrum.iter()
+            .map(|s| s.conj() / (s.norm_sqr() + 1e-10))
+            .collect();
+
+        Self { reference_sweep: sweep, inverse_filter: inverse }
+    }
+
+    /// Deconvolve recording to extract IR
+    pub fn extract_ir(&self, recording: &[f64]) -> Vec<f64> {
+        let rec_spectrum = fft(recording);
+        let ir_spectrum: Vec<_> = rec_spectrum.iter()
+            .zip(&self.inverse_filter)
+            .map(|(r, inv)| r * inv)
+            .collect();
+        ifft(&ir_spectrum)
+    }
+}
+```
+
+| Feature | Altiverb/Spaces | ReelForge Ultimate |
+|---------|-----------------|-------------------|
+| True Stereo | ✅ | ✅ |
+| Non-uniform partitioned | ❌ | ✅ **UNIQUE** |
+| Zero-latency | ❌ | ✅ **UNIQUE** |
+| IR Morphing | ❌ | ✅ **UNIQUE** |
+| IR Deconvolution | ❌ | ✅ **UNIQUE** |
+
+---
+
+### 2.4 FORMAT SUPPORT ULTIMATE 📀
+
+#### MQA Decode (Full Unfold)
+
+```rust
+/// MQA decoder - full unfold to original resolution
+pub struct MqaDecoder {
+    /// Authentication state
+    authenticated: bool,
+    /// Original sample rate after unfold
+    original_rate: u32,
+    /// Unfold stages
+    stage: MqaStage,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MqaStage {
+    /// No MQA detected
+    None,
+    /// First unfold (renderer) - typically 96kHz
+    Core,
+    /// Second unfold (full decoder) - up to 384kHz
+    Full,
+}
+
+impl MqaDecoder {
+    /// Detect MQA signaling in audio
+    pub fn detect(&mut self, samples: &[f64]) -> bool {
+        // Look for MQA sync word in LSBs
+        // ...
+    }
+
+    /// Perform full unfold
+    pub fn unfold_full(&mut self, input: &[f64]) -> Vec<f64> {
+        // First unfold: reconstruct timing information
+        let stage1 = self.unfold_core(input);
+
+        // Second unfold: reconstruct full bandwidth
+        self.unfold_renderer(&stage1)
+    }
+}
+```
+
+#### Dolby TrueHD Passthrough
+
+```rust
+/// Dolby TrueHD bitstream passthrough
+pub struct TrueHdPassthrough {
+    /// IEC 61937 packer
+    iec_packer: Iec61937Packer,
+}
+
+impl TrueHdPassthrough {
+    /// Pack TrueHD frames for HDMI output
+    pub fn pack_for_hdmi(&mut self, truehd_frame: &[u8]) -> Vec<i32> {
+        // IEC 61937 encapsulation for S/PDIF or HDMI
+        self.iec_packer.pack(truehd_frame, DataType::TrueHd)
+    }
+}
+```
+
+---
+
+### Phase 2 Ultimate Implementation Status ✅ (2025-01-08)
+
+| # | Component | Status | Files |
+|---|-----------|--------|-------|
+| 1 | DSD64/128/256/512 | ✅ **DONE** | `rf-dsp/src/dsd/mod.rs`, `rates.rs` |
+| 2 | Sigma-Delta 5th/7th | ✅ **DONE** | `rf-dsp/src/dsd/sdm.rs` |
+| 3 | DoP encode/decode | ✅ **DONE** | `rf-dsp/src/dsd/dop.rs` |
+| 4 | SACD ISO extract | ✅ **DONE** | `rf-dsp/src/dsd/file_reader.rs` |
+| 5 | Decimation filters | ✅ **DONE** | `rf-dsp/src/dsd/decimation.rs` |
+| 6 | GPU FFT (stockham) | ✅ **DONE** | `shaders/compute/fft_stockham.wgsl` |
+| 7 | GPU Parallel EQ | ✅ **DONE** | `shaders/compute/eq_parallel.wgsl` |
+| 8 | GPU Compressor | ✅ **DONE** | `shaders/compute/dynamics_gpu.wgsl` |
+| 9 | GPU Convolution | ✅ **DONE** | `shaders/compute/convolution.wgsl` |
+| 10 | True Stereo Conv | ✅ **DONE** | `rf-dsp/src/convolution_ultra/true_stereo.rs` |
+| 11 | Non-uniform Part | ✅ **DONE** | `rf-dsp/src/convolution_ultra/non_uniform.rs` |
+| 12 | Zero-latency Conv | ✅ **DONE** | `rf-dsp/src/convolution_ultra/zero_latency.rs` |
+| 13 | IR Morphing | ✅ **DONE** | `rf-dsp/src/convolution_ultra/morph.rs` |
+| 14 | IR Deconvolution | ✅ **DONE** | `rf-dsp/src/convolution_ultra/deconvolve.rs` |
+| 15 | Native DSD playback | ✅ **DONE** | `rf-audio/src/dsd_output.rs` |
+| 16 | Hybrid GPU Scheduler | ✅ **DONE** | `rf-dsp/src/gpu/scheduler.rs` |
+| 17 | MQA decode | ✅ **DONE** | `rf-dsp/src/formats/mqa.rs` |
+| 18 | TrueHD passthrough | ✅ **DONE** | `rf-dsp/src/formats/truehd.rs` |
+
+**Phase 2 COMPLETE (18/18 items)** ✅
+
+### Phase 2 UI Implementation ✅ (2025-01-08)
+
+| # | Component | Status | Files |
+|---|-----------|--------|-------|
+| 1 | DSD Indicator | ✅ **DONE** | `flutter_ui/lib/widgets/dsp/dsd_indicator.dart` |
+| 2 | GPU Settings Panel | ✅ **DONE** | `flutter_ui/lib/widgets/dsp/gpu_settings_panel.dart` |
+| 3 | Convolution Ultra Panel | ✅ **DONE** | `flutter_ui/lib/widgets/dsp/convolution_ultra_panel.dart` |
+| 4 | Deconvolution Wizard | ✅ **DONE** | `flutter_ui/lib/widgets/dsp/deconvolution_wizard.dart` |
+
+**Phase 2 UI: COMPLETE (4/4 items)** ✅
+
+Total Phase 2 code:
+- DSD module: ~2,500 lines (5 files)
+- GPU Shaders: ~1,200 lines (4 WGSL files)
+- Convolution Ultra: ~2,800 lines (5 files)
+- Native DSD Output: ~450 lines
+- GPU Scheduler: ~500 lines
+- MQA Decoder: ~450 lines
+- TrueHD Handler: ~450 lines
+- Flutter UI Panels: ~2,400 lines (4 files)
+- **Total: ~10,750 lines**
 
 ---
 

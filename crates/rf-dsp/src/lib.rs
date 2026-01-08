@@ -56,6 +56,18 @@ pub mod loudness_advanced;  // Psychoacoustic loudness (Zwicker, sharpness, roug
 pub mod signal_integrity;   // Signal integrity chain (DC block, auto-gain, ISP limiter, dither)
 pub mod oversampling;       // Global oversampling + SIMD biquad batch processing
 
+// DSD Ultimate (Phase 2)
+pub mod dsd;                // DSD64/128/256/512, DoP, SACD, SDM
+
+// Convolution Ultimate (Phase 2)
+pub mod convolution_ultra;  // True Stereo, Non-uniform, Zero-latency, Morphing, Deconvolution
+
+// GPU DSP (Phase 2)
+pub mod gpu;                // Hybrid GPU/CPU scheduler, compute shaders
+
+// Advanced Formats (Phase 2)
+pub mod formats;            // MQA decode, TrueHD passthrough
+
 // Professional EQ (Pro-Q 4 competitor)
 pub mod eq_pro;
 

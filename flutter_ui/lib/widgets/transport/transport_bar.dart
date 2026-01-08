@@ -3,10 +3,13 @@
 /// Play, Stop, Record, Rewind, Forward with micro-interactions
 /// Time display (bars:beats, timecode, samples)
 /// Tempo, loop, metronome controls
+/// DSD/GPU status indicators
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/reelforge_theme.dart';
+import '../dsp/dsd_indicator.dart';
+import '../dsp/gpu_settings_panel.dart';
 
 enum TimeDisplayMode { bars, timecode, samples }
 
@@ -19,6 +22,15 @@ class TransportBar extends StatelessWidget {
   final double tempo;
   final TimeDisplayMode timeDisplayMode;
 
+  // DSD status
+  final DsdRate dsdRate;
+  final DsdPlaybackMode dsdMode;
+  final bool isDsdLoaded;
+
+  // GPU status
+  final GpuProcessingMode gpuMode;
+  final double gpuUtilization;
+
   final VoidCallback? onPlay;
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
@@ -28,6 +40,8 @@ class TransportBar extends StatelessWidget {
   final VoidCallback? onMetronomeToggle;
   final VoidCallback? onTimeDisplayModeChange;
   final ValueChanged<double>? onTempoChange;
+  final VoidCallback? onDsdTap;
+  final VoidCallback? onGpuTap;
 
   const TransportBar({
     super.key,
@@ -38,6 +52,11 @@ class TransportBar extends StatelessWidget {
     this.currentTime = 0,
     this.tempo = 120,
     this.timeDisplayMode = TimeDisplayMode.bars,
+    this.dsdRate = DsdRate.none,
+    this.dsdMode = DsdPlaybackMode.none,
+    this.isDsdLoaded = false,
+    this.gpuMode = GpuProcessingMode.cpuOnly,
+    this.gpuUtilization = 0,
     this.onPlay,
     this.onStop,
     this.onRecord,
@@ -47,6 +66,8 @@ class TransportBar extends StatelessWidget {
     this.onMetronomeToggle,
     this.onTimeDisplayModeChange,
     this.onTempoChange,
+    this.onDsdTap,
+    this.onGpuTap,
   });
 
   String _formatTime() {
@@ -113,6 +134,25 @@ class TransportBar extends StatelessWidget {
           ),
 
           const Spacer(),
+
+          // DSD Indicator (shows only when DSD content loaded)
+          DsdIndicator(
+            rate: dsdRate,
+            mode: dsdMode,
+            isDsdLoaded: isDsdLoaded,
+            onTap: onDsdTap,
+          ),
+
+          const SizedBox(width: 8),
+
+          // GPU Indicator (shows only when GPU processing active)
+          GpuIndicator(
+            mode: gpuMode,
+            utilization: gpuUtilization,
+            onTap: onGpuTap,
+          ),
+
+          const SizedBox(width: 16),
 
           // Loop & Metronome
           _ToggleButton(

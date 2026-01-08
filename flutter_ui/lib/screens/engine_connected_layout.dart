@@ -67,6 +67,9 @@ import '../widgets/dsp/pro_eq_panel.dart';
 import '../widgets/dsp/ultra_eq_panel.dart';
 import '../widgets/dsp/room_correction_panel.dart';
 import '../widgets/dsp/stereo_imager_panel.dart';
+import '../widgets/dsp/convolution_ultra_panel.dart';
+import '../widgets/dsp/gpu_settings_panel.dart';
+import '../widgets/dsp/deconvolution_wizard.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../src/rust/engine_api.dart';
 import '../src/rust/native_ffi.dart';
@@ -4781,6 +4784,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: StereoImagerPanel(trackId: 0, sampleRate: 48000.0),
         groupId: 'dsp',
       ),
+      // ========== Phase 2 Ultimate DSP Panels ==========
+      LowerZoneTab(
+        id: 'convolution-ultra',
+        label: 'Convolution Ultra',
+        icon: Icons.blur_on,
+        content: const ConvolutionUltraPanel(),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'gpu-settings',
+        label: 'GPU DSP',
+        icon: Icons.memory,
+        content: const GpuSettingsPanel(),
+        groupId: 'dsp',
+      ),
       // ========== Media Tabs ==========
       LowerZoneTab(
         id: 'audio-browser',
@@ -4850,7 +4868,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'dsp',
         label: 'DSP',
-        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager'],
+        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings'],
       ),
 
       // ========== MIDDLEWARE MODE GROUPS ==========
