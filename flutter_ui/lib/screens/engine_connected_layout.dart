@@ -36,6 +36,7 @@ import '../widgets/eq/eq_editor.dart';
 import '../widgets/spectrum/spectrum_analyzer.dart';
 import '../widgets/meters/loudness_meter.dart';
 import '../widgets/meters/pro_metering_panel.dart';
+import '../widgets/meters/advanced_metering_panel.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
 import '../widgets/eq/neve1073_eq.dart';
@@ -4588,6 +4589,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Meters',
         icon: Icons.speed,
         content: ProMeteringPanel(metering: metering),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'advanced-meters',
+        label: 'Advanced',
+        icon: Icons.insights,
+        content: const AdvancedMeteringPanel(),
         groupId: 'dsp',
       ),
       LowerZoneTab(

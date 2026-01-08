@@ -23,12 +23,14 @@ mod viz;
 mod playback;
 pub mod dsp_commands;
 pub mod command_queue;
+pub mod advanced_metering;
 
 pub use api::*;
 pub use viz::*;
 pub use playback::{PlaybackEngine, PlaybackState, PlaybackMeters, PlaybackClip};
 pub use dsp_commands::*;
 pub use command_queue::*;
+pub use advanced_metering::*;
 
 // Re-export recording types from rf-file
 pub use rf_file::{RecordingConfig, RecordingState, RecordingStats};

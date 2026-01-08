@@ -2212,3 +2212,179 @@ class ProjectInfo {
     modifiedAt: DateTime.now().millisecondsSinceEpoch,
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADVANCED METERING DATA TYPES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// 8x True Peak data (superior to ITU 4x)
+class TruePeak8xData {
+  final double peakDbtp;
+  final double maxDbtp;
+  final double holdDbtp;
+  final bool isClipping;
+
+  const TruePeak8xData({
+    required this.peakDbtp,
+    required this.maxDbtp,
+    required this.holdDbtp,
+    required this.isClipping,
+  });
+
+  factory TruePeak8xData.empty() => const TruePeak8xData(
+    peakDbtp: -60.0,
+    maxDbtp: -60.0,
+    holdDbtp: -60.0,
+    isClipping: false,
+  );
+}
+
+/// PSR (Peak-to-Short-term Ratio) data
+class PsrData {
+  final double psrDb;
+  final double shortTermLufs;
+  final double truePeakDbtp;
+  final String assessment;
+
+  const PsrData({
+    required this.psrDb,
+    required this.shortTermLufs,
+    required this.truePeakDbtp,
+    required this.assessment,
+  });
+
+  factory PsrData.empty() => const PsrData(
+    psrDb: 0.0,
+    shortTermLufs: -23.0,
+    truePeakDbtp: -60.0,
+    assessment: 'No Signal',
+  );
+}
+
+/// Crest Factor data
+class CrestFactorData {
+  final double crestDb;
+  final double crestRatio;
+  final String assessment;
+
+  const CrestFactorData({
+    required this.crestDb,
+    required this.crestRatio,
+    required this.assessment,
+  });
+
+  factory CrestFactorData.empty() => const CrestFactorData(
+    crestDb: 0.0,
+    crestRatio: 1.0,
+    assessment: 'No Signal',
+  );
+}
+
+/// Psychoacoustic data (Zwicker loudness model)
+class PsychoacousticData {
+  final double loudnessSones;
+  final double loudnessPhons;
+  final double sharpnessAcum;
+  final double fluctuationVacil;
+  final double roughnessAsper;
+  final List<double> specificLoudness;
+
+  const PsychoacousticData({
+    required this.loudnessSones,
+    required this.loudnessPhons,
+    required this.sharpnessAcum,
+    required this.fluctuationVacil,
+    required this.roughnessAsper,
+    required this.specificLoudness,
+  });
+
+  factory PsychoacousticData.empty() => PsychoacousticData(
+    loudnessSones: 0.0,
+    loudnessPhons: 0.0,
+    sharpnessAcum: 0.0,
+    fluctuationVacil: 0.0,
+    roughnessAsper: 0.0,
+    specificLoudness: List.filled(24, 0.0),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADVANCED METERING FFI FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Get 8x True Peak data
+TruePeak8xData advancedGetTruePeak8x() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      // Call FFI when available
+      return ffi.advancedGetTruePeak8x();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+  return TruePeak8xData.empty();
+}
+
+/// Get PSR data
+PsrData advancedGetPsr() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      return ffi.advancedGetPsr();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+  return PsrData.empty();
+}
+
+/// Get Crest Factor data
+CrestFactorData advancedGetCrestFactor() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      return ffi.advancedGetCrestFactor();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+  return CrestFactorData.empty();
+}
+
+/// Get Psychoacoustic data
+PsychoacousticData advancedGetPsychoacoustic() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      return ffi.advancedGetPsychoacoustic();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+  return PsychoacousticData.empty();
+}
+
+/// Initialize advanced meters
+void advancedInitMeters(double sampleRate) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.advancedInitMeters(sampleRate);
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+/// Reset all advanced meters
+void advancedResetAll() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.advancedResetAll();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}

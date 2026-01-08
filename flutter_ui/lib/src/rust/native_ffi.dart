@@ -7,6 +7,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
+import 'engine_api.dart' show TruePeak8xData, PsrData, CrestFactorData, PsychoacousticData;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE LIBRARY LOADING
@@ -5927,5 +5928,44 @@ extension SaturationAPI on NativeFFI {
 
   /// Check if saturation processor exists
   bool saturationExists(int trackId) => _saturationExists(trackId) == 1;
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ADVANCED METERING (8x True Peak, PSR, Psychoacoustic)
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get 8x True Peak data
+  TruePeak8xData advancedGetTruePeak8x() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    // For now, return empty data
+    return TruePeak8xData.empty();
+  }
+
+  /// Get PSR data
+  PsrData advancedGetPsr() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return PsrData.empty();
+  }
+
+  /// Get Crest Factor data
+  CrestFactorData advancedGetCrestFactor() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return CrestFactorData.empty();
+  }
+
+  /// Get Psychoacoustic data
+  PsychoacousticData advancedGetPsychoacoustic() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return PsychoacousticData.empty();
+  }
+
+  /// Initialize advanced meters
+  void advancedInitMeters(double sampleRate) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  }
+
+  /// Reset all advanced meters
+  void advancedResetAll() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  }
 }
 

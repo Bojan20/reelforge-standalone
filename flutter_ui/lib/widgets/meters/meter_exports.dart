@@ -9,3 +9,4 @@ export 'goniometer.dart';
 export 'vectorscope.dart';
 export 'spectrum_analyzer.dart';
 export 'pro_metering_panel.dart';
+export 'advanced_metering_panel.dart';
