@@ -165,7 +165,7 @@ class _TimeRulerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background
+    // Background with subtle gradient
     final bgPaint = Paint()..color = ReelForgeTheme.bgDeep;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
@@ -174,60 +174,28 @@ class _TimeRulerPainter extends CustomPainter {
       _drawLoopRegion(canvas, size);
     }
 
-    // Calculate tick interval
+    // Calculate musical timing
+    final beatsPerSecond = tempo / 60;
+    final beatDuration = 1 / beatsPerSecond;
+    final barDuration = beatDuration * timeSignatureNum;
+
+    // Visible time range
     final visibleDuration = size.width / zoom;
     final startTime = scrollOffset;
     final endTime = scrollOffset + visibleDuration;
 
-    double tickInterval = _calculateTickInterval();
+    // Determine detail level based on zoom
+    final showBeats = zoom >= 15;
+    final showBeatNumbers = zoom >= 40;
 
-    // Draw ticks and labels
-    final tickPaint = Paint()
-      ..color = ReelForgeTheme.textTertiary
-      ..strokeWidth = 1;
-
-    final textStyle = ui.TextStyle(
-      color: ReelForgeTheme.textTertiary,
-      fontSize: 10,
-      fontFamily: 'Inter',
-    );
-
-    final firstTick = (startTime / tickInterval).floor() * tickInterval;
-
-    for (double t = firstTick; t <= endTime; t += tickInterval) {
-      final x = (t - scrollOffset) * zoom;
-      if (x < 0 || x > size.width) continue;
-
-      // Major tick
-      canvas.drawLine(
-        Offset(x, 16),
-        Offset(x, 24),
-        tickPaint,
+    // Draw bar/beat markers and labels
+    if (timeDisplayMode == TimeDisplayMode.bars) {
+      _drawMusicalRuler(
+        canvas, size, startTime, endTime,
+        beatDuration, barDuration, showBeats, showBeatNumbers,
       );
-
-      // Label
-      final label = formatTime(
-        t,
-        timeDisplayMode,
-        tempo: tempo,
-        timeSignatureNum: timeSignatureNum,
-        sampleRate: sampleRate,
-      );
-
-      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
-        textAlign: TextAlign.center,
-        fontSize: 10,
-      ))
-        ..pushStyle(textStyle)
-        ..addText(label);
-
-      final paragraph = builder.build()
-        ..layout(const ui.ParagraphConstraints(width: 60));
-
-      canvas.drawParagraph(
-        paragraph,
-        Offset(x - 30, 2),
-      );
+    } else {
+      _drawTimeRuler(canvas, size, startTime, endTime);
     }
 
     // Bottom border
@@ -276,6 +244,167 @@ class _TimeRulerPainter extends CustomPainter {
           ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.4)
           ..strokeWidth = 1,
       );
+    }
+  }
+
+  /// Draw musical (bars/beats) ruler - professional DAW style
+  void _drawMusicalRuler(
+    Canvas canvas,
+    Size size,
+    double startTime,
+    double endTime,
+    double beatDuration,
+    double barDuration,
+    bool showBeats,
+    bool showBeatNumbers,
+  ) {
+    // Bar tick paint (orange accent like grid)
+    final barTickPaint = Paint()
+      ..color = ReelForgeTheme.accentOrange.withValues(alpha: 0.8)
+      ..strokeWidth = 2;
+
+    // Beat tick paint (cyan accent)
+    final beatTickPaint = Paint()
+      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.5)
+      ..strokeWidth = 1;
+
+    // Text styles
+    final barTextStyle = ui.TextStyle(
+      color: ReelForgeTheme.textPrimary,
+      fontSize: 11,
+      fontWeight: ui.FontWeight.w600,
+      fontFamily: 'JetBrains Mono',
+    );
+
+    final beatTextStyle = ui.TextStyle(
+      color: ReelForgeTheme.textTertiary,
+      fontSize: 9,
+      fontFamily: 'JetBrains Mono',
+    );
+
+    // Draw beats first (if zoom allows)
+    if (showBeats) {
+      final firstBeat = (startTime / beatDuration).floor() * beatDuration;
+      for (double t = firstBeat; t <= endTime; t += beatDuration) {
+        if (t < 0) continue;
+        // Skip bar positions (will draw them separately)
+        if ((t % barDuration).abs() < 0.0001) continue;
+
+        final x = (t - scrollOffset) * zoom;
+        if (x < 0 || x > size.width) continue;
+
+        // Beat tick (shorter)
+        canvas.drawLine(
+          Offset(x, 18),
+          Offset(x, size.height - 1),
+          beatTickPaint,
+        );
+
+        // Beat number (1, 2, 3, 4) - only at higher zoom
+        if (showBeatNumbers) {
+          final beatInBar = ((t / beatDuration) % timeSignatureNum).round();
+          final beatNum = beatInBar == 0 ? timeSignatureNum : beatInBar;
+
+          final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
+            textAlign: TextAlign.center,
+            fontSize: 9,
+          ))
+            ..pushStyle(beatTextStyle)
+            ..addText('$beatNum');
+
+          final paragraph = builder.build()
+            ..layout(const ui.ParagraphConstraints(width: 20));
+
+          canvas.drawParagraph(paragraph, Offset(x - 10, 6));
+        }
+      }
+    }
+
+    // Draw bars (always visible)
+    final firstBar = (startTime / barDuration).floor() * barDuration;
+    for (double t = firstBar; t <= endTime; t += barDuration) {
+      if (t < 0) continue;
+
+      final x = (t - scrollOffset) * zoom;
+      if (x < 0 || x > size.width) continue;
+
+      // Bar tick (taller, thicker)
+      canvas.drawLine(
+        Offset(x, 14),
+        Offset(x, size.height - 1),
+        barTickPaint,
+      );
+
+      // Bar number
+      final barNumber = (t / barDuration).round() + 1;
+
+      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
+        textAlign: TextAlign.left,
+        fontSize: 11,
+      ))
+        ..pushStyle(barTextStyle)
+        ..addText('$barNumber');
+
+      final paragraph = builder.build()
+        ..layout(const ui.ParagraphConstraints(width: 40));
+
+      canvas.drawParagraph(paragraph, Offset(x + 3, 1));
+    }
+  }
+
+  /// Draw time-based ruler (timecode/samples)
+  void _drawTimeRuler(
+    Canvas canvas,
+    Size size,
+    double startTime,
+    double endTime,
+  ) {
+    double tickInterval = _calculateTickInterval();
+
+    final tickPaint = Paint()
+      ..color = ReelForgeTheme.textTertiary
+      ..strokeWidth = 1;
+
+    final textStyle = ui.TextStyle(
+      color: ReelForgeTheme.textTertiary,
+      fontSize: 10,
+      fontFamily: 'JetBrains Mono',
+    );
+
+    final firstTick = (startTime / tickInterval).floor() * tickInterval;
+
+    for (double t = firstTick; t <= endTime; t += tickInterval) {
+      if (t < 0) continue;
+      final x = (t - scrollOffset) * zoom;
+      if (x < 0 || x > size.width) continue;
+
+      // Tick mark
+      canvas.drawLine(
+        Offset(x, 16),
+        Offset(x, 24),
+        tickPaint,
+      );
+
+      // Label
+      final label = formatTime(
+        t,
+        timeDisplayMode,
+        tempo: tempo,
+        timeSignatureNum: timeSignatureNum,
+        sampleRate: sampleRate,
+      );
+
+      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
+        textAlign: TextAlign.center,
+        fontSize: 10,
+      ))
+        ..pushStyle(textStyle)
+        ..addText(label);
+
+      final paragraph = builder.build()
+        ..layout(const ui.ParagraphConstraints(width: 60));
+
+      canvas.drawParagraph(paragraph, Offset(x - 30, 2));
     }
   }
 

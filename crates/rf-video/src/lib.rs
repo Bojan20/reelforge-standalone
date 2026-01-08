@@ -1,6 +1,8 @@
 //! rf-video: Video Playback for ReelForge
 //!
 //! Professional video playback for post-production:
+#![allow(dead_code)]
+#![allow(dropping_copy_types)]
 //! - FFmpeg-based decoding (H.264, H.265, ProRes, DNxHD)
 //! - Frame-accurate seeking
 //! - Audio/video sync with sample-accurate timecode

@@ -45,6 +45,7 @@ class MinPhaseEqPanel extends StatefulWidget {
 
 class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
   final _ffi = NativeFFI.instance;
+  // ignore: unused_field
   bool _initialized = false;
 
   final List<MinPhaseBand> _bands = [];

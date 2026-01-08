@@ -27,6 +27,8 @@
 
 #![feature(portable_simd)]
 #![allow(dead_code)]
+// GPU feature is conditional
+#![allow(unexpected_cfgs)]
 
 // Core infrastructure
 pub mod simd;

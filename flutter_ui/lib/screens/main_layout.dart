@@ -11,16 +11,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import '../theme/reelforge_theme.dart';
 import '../models/layout_models.dart';
-import '../providers/mixer_provider.dart';
+import '../models/timeline_models.dart' as timeline;
 import '../widgets/layout/control_bar.dart';
 import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
 import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
 import '../widgets/mixer/pro_daw_mixer.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
+import '../widgets/panels/clip_inspector_panel.dart';
 
 class MainLayout extends StatefulWidget {
   // Control bar props
@@ -79,10 +79,16 @@ class MainLayout extends StatefulWidget {
   // Center zone (main content)
   final Widget child;
 
-  // Right zone props
+  // Right zone props (Middleware mode)
   final InspectedObjectType inspectorType;
   final String? inspectorName;
   final List<InspectorSection> inspectorSections;
+
+  // Clip inspector props (DAW mode)
+  final timeline.TimelineClip? selectedClip;
+  final timeline.TimelineTrack? selectedClipTrack;
+  final ValueChanged<timeline.TimelineClip>? onClipChanged;
+  final VoidCallback? onOpenClipFxEditor;
 
   // Lower zone props
   final List<LowerZoneTab> lowerTabs;
@@ -150,10 +156,15 @@ class MainLayout extends StatefulWidget {
     this.onChannelOutputClick,
     // Center zone
     required this.child,
-    // Right zone
+    // Right zone (Middleware)
     this.inspectorType = InspectedObjectType.none,
     this.inspectorName,
     this.inspectorSections = const [],
+    // Clip inspector (DAW)
+    this.selectedClip,
+    this.selectedClipTrack,
+    this.onClipChanged,
+    this.onOpenClipFxEditor,
     // Lower zone
     this.lowerTabs = const [],
     this.lowerTabGroups,
@@ -400,8 +411,15 @@ class _MainLayoutState extends State<MainLayout>
                     ),
                   ),
 
-                  // Right Zone - Show Inspector in Middleware/Slot modes (not DAW)
-                  if (widget.editorMode != EditorMode.daw)
+                  // Right Zone - DAW mode: ClipInspectorPanel, Middleware: RightZone
+                  if (widget.editorMode == EditorMode.daw && _rightVisible)
+                    ClipInspectorPanel(
+                      clip: widget.selectedClip,
+                      track: widget.selectedClipTrack,
+                      onClipChanged: widget.onClipChanged,
+                      onOpenFxEditor: widget.onOpenClipFxEditor,
+                    )
+                  else if (widget.editorMode != EditorMode.daw)
                     RightZone(
                       collapsed: !_rightVisible,
                       objectType: widget.inspectorType,

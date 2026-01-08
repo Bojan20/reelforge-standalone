@@ -10,7 +10,7 @@
 //! - Multi-resolution spectrogram
 
 use std::f64::consts::PI;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::RealFftPlanner;
 use rustfft::num_complex::Complex;
 
 /// Wavelet family types

@@ -186,6 +186,8 @@ const kShortcuts = <String, ShortcutDef>{
 class GlobalShortcutsProvider extends ChangeNotifier {
   ShortcutAction actions = ShortcutAction();
   bool enabled = true;
+  // HTML input elements to ignore (for web platform)
+  // ignore: unused_field
   final Set<String> _ignoreElements = {'input', 'textarea', 'select'};
 
   void setActions(ShortcutAction newActions) {

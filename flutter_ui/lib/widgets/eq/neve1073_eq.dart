@@ -8,9 +8,7 @@
 // - Authentic transformer coloration
 // - Classic Neve burgundy/silver aesthetic
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
 
 /// Neve 1073 EQ parameter set
 class Neve1073Params {

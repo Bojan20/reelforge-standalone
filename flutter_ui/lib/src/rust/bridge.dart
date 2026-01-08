@@ -8,8 +8,6 @@ library;
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
-
 part 'bridge_generated.dart';
 
 /// Load the native library
@@ -29,6 +27,7 @@ class RustBridge {
   static RustBridge? _instance;
   static RustBridge get instance => _instance ??= RustBridge._();
 
+  // ignore: unused_field
   late final DynamicLibrary _lib;
   bool _initialized = false;
 

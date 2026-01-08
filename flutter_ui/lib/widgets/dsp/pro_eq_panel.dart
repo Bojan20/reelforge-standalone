@@ -78,6 +78,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
   ProEqAnalyzerMode _analyzerMode = ProEqAnalyzerMode.postEq;
   bool _autoGain = false;
   bool _matchEnabled = false;
+  // ignore: unused_field
   bool _showDynamicPanel = false;
 
   // Spectrum data

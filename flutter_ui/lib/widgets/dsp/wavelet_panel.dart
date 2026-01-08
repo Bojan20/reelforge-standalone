@@ -85,6 +85,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
     widget.onSettingsChanged?.call();
   }
 
+  // ignore: unused_element
   void _changeDecompositionLevels(int levels) {
     _ffi.waveletDwtSetMaxLevel(widget.trackId, levels);
     setState(() => _decompositionLevels = levels);

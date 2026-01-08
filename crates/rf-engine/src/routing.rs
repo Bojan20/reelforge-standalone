@@ -192,6 +192,7 @@ impl SendConfig {
 
 /// Complete channel with routing
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Channel {
     /// Unique identifier
     pub id: ChannelId,

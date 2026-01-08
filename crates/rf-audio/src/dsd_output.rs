@@ -88,6 +88,7 @@ impl Default for DsdCapabilities {
 }
 
 /// DoP (DSD over PCM) encoder
+#[allow(dead_code)]
 pub struct DoPEncoder {
     /// Current marker (alternates 0x05/0xFA)
     marker_state: bool,
@@ -379,6 +380,7 @@ impl DsdCapabilityDetector {
 }
 
 /// DSD to PCM converter for non-DSD-capable devices
+#[allow(dead_code)]
 pub struct DsdToPcmConverter {
     /// Output sample rate
     output_rate: u32,

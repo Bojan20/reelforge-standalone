@@ -385,6 +385,7 @@ pub struct MeterSnapshot {
 }
 
 /// Ring buffer for metering data (Audio → UI)
+#[allow(dead_code)]
 pub struct MeterRingBuffer {
     snapshots: Box<[MeterSnapshot]>,
     capacity: usize,

@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
-use rayon::prelude::*;
+// rayon used for parallel iteration when work-stealing is enabled
 use rf_core::Sample;
 
 use crate::node::NodeId;
@@ -139,6 +139,7 @@ impl SchedulerStats {
 }
 
 /// Anticipatory FX Scheduler
+#[allow(dead_code)]
 pub struct AnticipatoryScheduler {
     /// Configuration
     config: SchedulerConfig,
@@ -327,11 +328,13 @@ impl AnticipatoryScheduler {
 }
 
 /// Work-stealing deque for load balancing
+#[allow(dead_code)]
 pub struct WorkStealingDeque<T> {
     local: Mutex<Vec<T>>,
     shared: Mutex<Vec<T>>,
 }
 
+#[allow(dead_code)]
 impl<T> WorkStealingDeque<T> {
     pub fn new() -> Self {
         Self {

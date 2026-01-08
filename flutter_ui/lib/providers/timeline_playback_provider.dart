@@ -120,6 +120,7 @@ class TimelinePlaybackState {
 class TimelinePlaybackProvider extends ChangeNotifier {
   TimelinePlaybackState _state = const TimelinePlaybackState();
   List<TimelineClipData> _clips = [];
+  // ignore: unused_field
   List<PlaybackCrossfade> _crossfades = [];
 
   Timer? _updateTimer;

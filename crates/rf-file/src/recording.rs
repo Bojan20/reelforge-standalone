@@ -588,8 +588,8 @@ impl AudioRecorder {
                 // Check for punch-in
                 let punch = *self.punch.read();
                 if punch.enabled && position >= punch.punch_in {
-                    // Auto-start recording
-                    drop(state); // Release read lock
+                    // Auto-start recording (state is Copy, lock already released)
+                    let _ = state; // silence unused warning
                     if self.start().is_ok() {
                         self.queue_samples(samples);
                     }

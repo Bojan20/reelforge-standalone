@@ -32,8 +32,6 @@ pub mod world;
 pub mod transient;
 pub mod granular;
 
-use std::f64::consts::PI;
-
 // Re-exports
 pub use nsgt::{ConstantQNsgt, NsgtConfig};
 pub use rtpghi::PhaseGradientHeap;

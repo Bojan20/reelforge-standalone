@@ -1,6 +1,7 @@
 //! rf-file: Audio File I/O
 //!
 //! Provides import/export for various audio formats:
+#![allow(dead_code)]
 //! - WAV (via hound) - native, lossless
 //! - FLAC (via symphonia) - compressed, lossless
 //! - MP3 (via symphonia) - compressed, lossy

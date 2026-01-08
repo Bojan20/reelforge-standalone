@@ -173,6 +173,7 @@ pub struct ScriptEngine {
     search_paths: Vec<PathBuf>,
 }
 
+#[allow(dead_code)]
 struct LoadedScript {
     name: String,
     path: PathBuf,

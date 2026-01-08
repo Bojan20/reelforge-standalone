@@ -11,8 +11,8 @@ use std::path::Path;
 use thiserror::Error;
 
 use symphonia::core::audio::{AudioBufferRef, Signal};
-use symphonia::core::codecs::{Decoder, DecoderOptions, CODEC_TYPE_NULL};
-use symphonia::core::formats::{FormatOptions, FormatReader};
+use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;

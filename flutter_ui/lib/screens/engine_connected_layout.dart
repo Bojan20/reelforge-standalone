@@ -32,7 +32,6 @@ import '../widgets/eq/pro_eq_editor.dart' as rf_eq;
 import '../widgets/layout/right_zone.dart' show InspectedObjectType;
 import '../widgets/tabs/tab_placeholders.dart';
 import '../widgets/timeline/timeline.dart' as timeline_widget;
-import '../widgets/eq/eq_editor.dart';
 import '../widgets/spectrum/spectrum_analyzer.dart';
 import '../widgets/meters/loudness_meter.dart';
 import '../widgets/meters/pro_metering_panel.dart';
@@ -69,7 +68,6 @@ import '../widgets/dsp/room_correction_panel.dart';
 import '../widgets/dsp/stereo_imager_panel.dart';
 import '../widgets/dsp/convolution_ultra_panel.dart';
 import '../widgets/dsp/gpu_settings_panel.dart';
-import '../widgets/dsp/deconvolution_wizard.dart';
 import '../widgets/dsp/ml_processor_panel.dart';
 import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
@@ -166,8 +164,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // Analysis state (Transient/Pitch detection)
   double _transientSensitivity = 0.5;
   int _transientAlgorithm = 2; // 0=Energy, 1=Spectral, 2=Enhanced, 3=Onset, 4=ML
+  // Analysis state - used by transient/pitch detection UI (future)
+  // ignore: unused_field
   double _detectedPitch = 0.0;
+  // ignore: unused_field
   int _detectedMidi = -1;
+  // ignore: unused_field
   List<int> _detectedTransients = [];
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
@@ -1002,6 +1004,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // EQ state
   List<generic_eq.EqBand> _eqBands = [];
+  // ignore: unused_field
   String? _selectedEqBandId;
 
   /// Paste clips from clipboard
@@ -1064,6 +1067,49 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP INSPECTOR HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get track of selected clip
+  timeline.TimelineTrack? _getSelectedClipTrack() {
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true,
+      orElse: () => null,
+    );
+    if (selectedClip == null) return null;
+    return _tracks.cast<timeline.TimelineTrack?>().firstWhere(
+      (t) => t?.id == selectedClip.trackId,
+      orElse: () => null,
+    );
+  }
+
+  /// Handle changes from clip inspector panel
+  void _handleClipInspectorChange(timeline.TimelineClip updatedClip) {
+    setState(() {
+      _clips = _clips.map((c) {
+        if (c.id == updatedClip.id) return updatedClip;
+        return c;
+      }).toList();
+    });
+  }
+
+  /// Open FX editor for selected clip
+  void _handleOpenClipFxEditor() {
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true,
+      orElse: () => null,
+    );
+    if (selectedClip == null) return;
+
+    // Switch to lower zone with Clip FX tab
+    setState(() {
+      _lowerVisible = true;
+      _activeLowerTab = 'clip-editor';
+    });
+    _showSnackBar('Clip FX: ${selectedClip.name}');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // VIEW MENU HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1084,6 +1130,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Show project settings dialog
+  // ignore: unused_element
   void _showProjectSettingsDialog(EngineProvider engine) {
     showDialog(
       context: context,
@@ -1751,6 +1798,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           inspectorName: 'Play_Music',
           inspectorSections: _buildInspectorSections(),
 
+          // Clip inspector (DAW mode)
+          selectedClip: _clips.cast<timeline.TimelineClip?>().firstWhere(
+            (c) => c?.selected == true,
+            orElse: () => null,
+          ),
+          selectedClipTrack: _getSelectedClipTrack(),
+          onClipChanged: _handleClipInspectorChange,
+          onOpenClipFxEditor: _handleOpenClipFxEditor,
+
           // Lower zone - all tabs with mode-based filtering
           lowerTabs: _buildLowerTabs(metering, transport.isPlaying),
           lowerTabGroups: _buildTabGroups(),
@@ -2240,12 +2296,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     'SetSwitch', 'SetRTPC', 'ResetRTPC', 'Seek', 'Trigger', 'PostEvent',
   ];
 
-  // Complete bus list
+  // Complete bus list (for middleware mode dropdowns)
+  // ignore: unused_field
   static const List<String> kBuses = [
     'Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience', 'Reels', 'Wins', 'VO',
   ];
 
-  // Complete event list
+  // Complete event list (for middleware mode dropdowns)
+  // ignore: unused_field
   static const List<String> kEvents = [
     'Play_Music', 'Stop_Music', 'Play_SFX', 'Stop_All', 'Pause_All',
     'Set_State', 'Trigger_Win', 'Spin_Start', 'Spin_Stop', 'Reel_Land',
@@ -2253,7 +2311,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     'UI_Click', 'UI_Hover', 'Ambient_Start', 'Ambient_Stop', 'VO_Play',
   ];
 
-  // Asset IDs
+  // Asset IDs (for middleware mode dropdowns)
+  // ignore: unused_field
   static const List<String> kAssetIds = [
     'music_main', 'music_bonus', 'music_freespins', 'music_bigwin',
     'sfx_spin', 'sfx_reel_land', 'sfx_win_small', 'sfx_win_medium', 'sfx_win_big',
@@ -2278,12 +2337,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     'Linear', 'Log3', 'Sine', 'Log1', 'InvSCurve', 'SCurve', 'Exp1', 'Exp3',
   ];
 
-  // State groups (Wwise-style)
+  // State groups (Wwise-style) - for middleware dropdowns
+  // ignore: unused_field
   static const List<String> kStateGroups = [
     'GameState', 'MusicState', 'PlayerState', 'BonusState', 'Intensity',
   ];
 
-  // States per group
+  // States per group - for middleware dropdowns
+  // ignore: unused_field
   static const Map<String, List<String>> kStates = {
     'GameState': ['Menu', 'BaseGame', 'Bonus', 'FreeSpins', 'Paused'],
     'MusicState': ['Normal', 'Suspense', 'Action', 'Victory', 'Defeat'],
@@ -2292,7 +2353,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     'Intensity': ['Low', 'Medium', 'High', 'Extreme'],
   };
 
-  // Switch groups
+  // Switch groups - for middleware dropdowns
+  // ignore: unused_field
   static const List<String> kSwitchGroups = [
     'Surface', 'Footsteps', 'Material', 'Weapon', 'Environment',
   ];
@@ -3955,7 +4017,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build Analysis content - Transient & Pitch Detection
   Widget _buildAnalysisContent() {
-    final sampleRate = NativeFFI.instance.getSampleRate();
+    // Sample rate available via NativeFFI.instance.getSampleRate() when needed
 
     return Container(
       color: const Color(0xFF0A0A0C),
@@ -4167,6 +4229,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Get default EQ bands (for generic EQ - kept for backwards compatibility)
+  // ignore: unused_element
   List<generic_eq.EqBand> _getDefaultEqBands() {
     return [
       const generic_eq.EqBand(id: '1', frequency: 80, gain: 0, q: 0.7, type: generic_eq.FilterType.lowShelf, enabled: true),
@@ -4178,6 +4241,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Sync EQ state to Rust DSP engine
+  // ignore: unused_element
   void _syncEqToEngine() {
     // TODO: Call Rust engine via FFI when ready
     // engine.setMasterEq(_eqBands.map((b) => b.toMap()).toList());
@@ -4926,6 +4990,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 }
 
+// ignore: unused_element
 class _MeterRow extends StatelessWidget {
   final String label;
   final String value;
@@ -4976,6 +5041,7 @@ class _MeterRow extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _StatusIndicator extends StatelessWidget {
   final String label;
   final bool active;

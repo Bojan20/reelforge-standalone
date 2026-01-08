@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../editors/clip_fx_editor.dart';
+import 'stretch_overlay.dart';
 
 class ClipWidget extends StatefulWidget {
   final TimelineClip clip;
@@ -127,6 +128,21 @@ class _ClipWidgetState extends State<ClipWidget> {
   }
 
   double _log10(double x) => x > 0 ? (math.log(x) / math.ln10) : double.negativeInfinity;
+
+  /// Check if clip has time stretch applied
+  bool _hasTimeStretch(TimelineClip clip) {
+    // Time stretch is applied if clip has a time stretch FX slot that isn't bypassed
+    return clip.fxChain.slots.any((s) => s.type == ClipFxType.timeStretch && !s.bypass);
+  }
+
+  /// Get time stretch ratio from clip
+  double _getStretchRatio(TimelineClip clip) {
+    // Calculate from duration vs source duration if available
+    if (clip.sourceDuration != null && clip.sourceDuration! > 0) {
+      return clip.duration / clip.sourceDuration!;
+    }
+    return 1.0;
+  }
 
   void _startEditing() {
     setState(() {
@@ -629,6 +645,16 @@ class _ClipWidgetState extends State<ClipWidget> {
                       fxChain: clip.fxChain,
                       onTap: widget.onOpenFxEditor,
                     ),
+                  ),
+                ),
+
+              // Time stretch badge (bottom-left, next to FX)
+              if (_hasTimeStretch(clip) && width > 70)
+                Positioned(
+                  left: 4,
+                  bottom: 2,
+                  child: StretchIndicatorBadge(
+                    stretchRatio: _getStretchRatio(clip),
                   ),
                 ),
 

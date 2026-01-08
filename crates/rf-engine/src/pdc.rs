@@ -714,6 +714,7 @@ impl SidechainPdc {
 /// Send effect delay compensation
 /// Compensates for latency difference between dry and wet paths
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct SendPdc {
     delay_line: PdcDelayLine,
     send_node: NodeId,

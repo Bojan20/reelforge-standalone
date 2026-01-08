@@ -8,9 +8,7 @@
 // - Characteristic API transformer saturation
 // - Authentic panel layout with LED indicators
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
 
 /// API 550A parameter set
 class Api550Params {

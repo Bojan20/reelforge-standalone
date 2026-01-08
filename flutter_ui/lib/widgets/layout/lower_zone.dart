@@ -678,7 +678,7 @@ class MixerStrip extends StatelessWidget {
               : ReelForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: hasPlugin && !(insert?.bypassed ?? false)
+            color: hasPlugin && !insert.bypassed
                 ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
                 : ReelForgeTheme.borderSubtle,
           ),
@@ -691,7 +691,7 @@ class MixerStrip extends StatelessWidget {
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: hasPlugin && !(insert?.bypassed ?? false)
+                color: hasPlugin && !insert.bypassed
                     ? ReelForgeTheme.accentGreen
                     : ReelForgeTheme.borderSubtle,
               ),
@@ -700,11 +700,11 @@ class MixerStrip extends StatelessWidget {
             // Name
             Expanded(
               child: Text(
-                hasPlugin ? insert!.name : '+',
+                hasPlugin ? insert.name : '+',
                 style: TextStyle(
                   fontSize: 8,
                   color: hasPlugin
-                      ? (insert!.bypassed
+                      ? (insert.bypassed
                           ? ReelForgeTheme.textSecondary
                           : ReelForgeTheme.textPrimary)
                       : ReelForgeTheme.textSecondary,

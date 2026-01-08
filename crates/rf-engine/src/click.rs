@@ -152,6 +152,7 @@ impl CountInMode {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Metronome/Click track generator
+#[allow(dead_code)]
 pub struct ClickTrack {
     /// Enabled
     enabled: AtomicBool,

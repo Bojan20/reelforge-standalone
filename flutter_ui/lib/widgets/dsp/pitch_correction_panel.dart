@@ -8,7 +8,6 @@
 /// - Formant preservation
 /// - Keyboard display showing active notes
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 

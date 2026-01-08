@@ -262,8 +262,11 @@ class EqEditor extends StatefulWidget {
 class _EqEditorState extends State<EqEditor> {
   final FocusNode _focusNode = FocusNode();
   String? _draggingBandId;
+  // ignore: unused_field
   Offset? _dragStart;
+  // ignore: unused_field
   double? _initialFreq;
+  // ignore: unused_field
   double? _initialGain;
   bool _showPreSpectrum = true;
   bool _showPostSpectrum = true;

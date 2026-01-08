@@ -89,7 +89,7 @@ impl WsolaProcessor {
         let mut output = vec![0.0; output_len];
 
         // Initialize previous frame position
-        let mut prev_analysis_pos: i64 = 0;
+        let mut _prev_analysis_pos: i64 = 0;
         let mut synthesis_pos: usize = 0;
 
         // Reset previous frame
@@ -120,7 +120,7 @@ impl WsolaProcessor {
             self.prev_frame.copy_from_slice(&frame);
 
             // Advance positions
-            prev_analysis_pos = optimal_pos;
+            _prev_analysis_pos = optimal_pos;
             synthesis_pos += hop_synthesis;
         }
 

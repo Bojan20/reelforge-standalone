@@ -15,6 +15,8 @@
 
 // Many structs/methods are only used via FFI from Flutter
 #![allow(dead_code)]
+// Flutter Rust Bridge uses custom cfg attributes
+#![allow(unexpected_cfgs)]
 
 mod api;
 mod engine_bridge;

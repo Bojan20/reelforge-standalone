@@ -21,8 +21,11 @@
 //! - aTENNuate: ~5ms latency
 //! - HTDemucs: Offline only (segment-based)
 
-#![warn(missing_docs)]
+// Many internal items don't need docs
+#![allow(missing_docs)]
 #![allow(dead_code)]
+// ONNX Runtime feature detection
+#![allow(unexpected_cfgs)]
 
 pub mod denoise;
 pub mod separation;

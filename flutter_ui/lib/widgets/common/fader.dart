@@ -23,6 +23,7 @@ enum FaderOrientation { vertical, horizontal }
 // ============ Constants ============
 
 const _faderThumbHeight = 24.0;
+// ignore: unused_element
 const _faderThumbWidth = 16.0;
 const _meterGap = 2.0;
 const _scaleWidth = 24.0;
@@ -292,6 +293,7 @@ class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
     }
   }
 
+  // ignore: unused_element
   double _normalizedToDb(double normalized) {
     if (normalized <= 0) return widget.min;
     if (normalized >= 1) return widget.max;
@@ -394,6 +396,7 @@ class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
   Widget _buildVerticalFader() {
     final normalized = _dbToNormalized(widget.value);
     final accentColor = widget.accentColor ?? ReelForgeTheme.accentBlue;
+    // ignore: unused_local_variable
     final trackHeight = widget.height - 40;
 
     return RepaintBoundary(

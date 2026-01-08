@@ -32,7 +32,8 @@
 //! - Late reverb with diffusion
 //! - Material absorption coefficients
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(dead_code)]
 
 pub mod atmos;
 pub mod binaural;

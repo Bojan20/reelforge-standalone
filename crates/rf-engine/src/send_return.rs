@@ -249,6 +249,7 @@ impl SendBank {
 // ============ Return Bus ============
 
 /// Return bus for aux effects
+#[allow(dead_code)]
 pub struct ReturnBus {
     /// Return bus index
     index: usize,

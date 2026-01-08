@@ -48,6 +48,7 @@ class StereoEqPanel extends StatefulWidget {
 
 class _StereoEqPanelState extends State<StereoEqPanel> {
   final _ffi = NativeFFI.instance;
+  // ignore: unused_field
   bool _initialized = false;
 
   final List<StereoBand> _bands = [];

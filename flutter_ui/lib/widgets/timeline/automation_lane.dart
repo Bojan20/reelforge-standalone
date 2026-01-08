@@ -8,8 +8,6 @@
 // - Range selection and editing
 // - Copy/paste automation data
 
-import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
@@ -210,8 +208,10 @@ class AutomationLaneData {
     final y2 = p2.value;
 
     // Control points
+    // ignore: unused_local_variable
     final cx1 = x1 + h1.dx * (x2 - x1);
     final cy1 = y1 + h1.dy * (y2 - y1);
+    // ignore: unused_local_variable
     final cx2 = x2 + h2.dx * (x2 - x1);
     final cy2 = y2 + h2.dy * (y2 - y1);
 
@@ -277,10 +277,14 @@ class AutomationLane extends StatefulWidget {
 
 class _AutomationLaneState extends State<AutomationLane> {
   String? _draggingPointId;
+  // ignore: unused_field
   String? _draggingHandle;  // 'in' or 'out'
   bool _isDrawing = false;
   Offset? _lastDrawPosition;
   final Set<String> _selectedPoints = {};
+  Offset? _hoverPosition;
+  bool _showValueTooltip = false;
+  final FocusNode _focusNode = FocusNode();
 
   double _timeAtX(double x) {
     return widget.scrollOffset + x / widget.zoom;
@@ -355,64 +359,332 @@ class _AutomationLaneState extends State<AutomationLane> {
     widget.onDataChanged?.call(widget.data.copyWith(points: newPoints));
   }
 
+  void _deletePoint(String pointId) {
+    final newPoints = widget.data.points
+        .where((p) => p.id != pointId)
+        .toList();
+    _selectedPoints.remove(pointId);
+    widget.onDataChanged?.call(widget.data.copyWith(points: newPoints));
+  }
+
+  void _selectAllPoints() {
+    setState(() {
+      _selectedPoints.clear();
+      for (final p in widget.data.points) {
+        _selectedPoints.add(p.id);
+      }
+    });
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    // Delete selected points
+    if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      _deleteSelectedPoints();
+    }
+
+    // Select all (Cmd/Ctrl + A)
+    if (event.logicalKey == LogicalKeyboardKey.keyA &&
+        (HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed)) {
+      _selectAllPoints();
+    }
+
+    // Curve type shortcuts
+    if (_selectedPoints.isNotEmpty) {
+      if (event.logicalKey == LogicalKeyboardKey.digit1) {
+        _setCurveType(AutomationCurveType.linear);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+        _setCurveType(AutomationCurveType.bezier);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+        _setCurveType(AutomationCurveType.step);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+        _setCurveType(AutomationCurveType.scurve);
+      }
+    }
+  }
+
+  void _showPointContextMenu(BuildContext context, AutomationPoint point, Offset position) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 1,
+        position.dy + 1,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'linear',
+          child: Row(
+            children: [
+              Icon(
+                Icons.trending_flat,
+                size: 16,
+                color: point.curveType == AutomationCurveType.linear
+                    ? ReelForgeTheme.accentBlue
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Linear'),
+              const Spacer(),
+              Text('1', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'bezier',
+          child: Row(
+            children: [
+              Icon(
+                Icons.gesture,
+                size: 16,
+                color: point.curveType == AutomationCurveType.bezier
+                    ? ReelForgeTheme.accentBlue
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Bezier'),
+              const Spacer(),
+              Text('2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'step',
+          child: Row(
+            children: [
+              Icon(
+                Icons.stairs,
+                size: 16,
+                color: point.curveType == AutomationCurveType.step
+                    ? ReelForgeTheme.accentBlue
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Step'),
+              const Spacer(),
+              Text('3', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'scurve',
+          child: Row(
+            children: [
+              Icon(
+                Icons.waves,
+                size: 16,
+                color: point.curveType == AutomationCurveType.scurve
+                    ? ReelForgeTheme.accentBlue
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('S-Curve'),
+              const Spacer(),
+              Text('4', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 16, color: Colors.red[400]),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.red[400])),
+              const Spacer(),
+              Text('⌫', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+      switch (value) {
+        case 'linear':
+          _setCurveTypeForPoint(point.id, AutomationCurveType.linear);
+          break;
+        case 'bezier':
+          _setCurveTypeForPoint(point.id, AutomationCurveType.bezier);
+          break;
+        case 'step':
+          _setCurveTypeForPoint(point.id, AutomationCurveType.step);
+          break;
+        case 'scurve':
+          _setCurveTypeForPoint(point.id, AutomationCurveType.scurve);
+          break;
+        case 'delete':
+          _deletePoint(point.id);
+          break;
+      }
+    });
+  }
+
+  void _setCurveTypeForPoint(String pointId, AutomationCurveType type) {
+    final newPoints = widget.data.points.map((p) {
+      if (p.id == pointId || _selectedPoints.contains(p.id)) {
+        return p.copyWith(curveType: type);
+      }
+      return p;
+    }).toList();
+    widget.onDataChanged?.call(widget.data.copyWith(points: newPoints));
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: widget.data.height,
-      color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.5),
-      child: Stack(
-        children: [
-          // Automation curve
-          Positioned.fill(
-            child: GestureDetector(
-              onTapDown: (details) {
-                // Double-tap to add point
-                if (widget.data.mode != AutomationMode.off &&
-                    widget.data.mode != AutomationMode.read) {
-                  _addPoint(details.localPosition.dx, details.localPosition.dy);
-                }
-              },
-              onPanStart: (details) {
-                if (widget.data.mode == AutomationMode.write) {
-                  _isDrawing = true;
-                  _lastDrawPosition = details.localPosition;
-                }
-              },
-              onPanUpdate: (details) {
-                if (_isDrawing && _lastDrawPosition != null) {
-                  _addPoint(details.localPosition.dx, details.localPosition.dy);
-                  _lastDrawPosition = details.localPosition;
-                }
-              },
-              onPanEnd: (_) {
-                _isDrawing = false;
-                _lastDrawPosition = null;
-              },
-              child: CustomPaint(
-                painter: _AutomationCurvePainter(
-                  data: widget.data,
-                  zoom: widget.zoom,
-                  scrollOffset: widget.scrollOffset,
-                  selectedPoints: _selectedPoints,
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: MouseRegion(
+        onEnter: (_) => _focusNode.requestFocus(),
+        onHover: (event) {
+          setState(() {
+            _hoverPosition = event.localPosition;
+            _showValueTooltip = true;
+          });
+        },
+        onExit: (_) {
+          setState(() {
+            _hoverPosition = null;
+            _showValueTooltip = false;
+          });
+        },
+        child: Container(
+          height: widget.data.height,
+          color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.5),
+          child: Stack(
+            children: [
+              // Automation curve
+              Positioned.fill(
+                child: GestureDetector(
+                  onTapDown: (details) {
+                    _focusNode.requestFocus();
+                    // Double-tap to add point
+                    if (widget.data.mode != AutomationMode.off &&
+                        widget.data.mode != AutomationMode.read) {
+                      _addPoint(details.localPosition.dx, details.localPosition.dy);
+                    }
+                  },
+                  onPanStart: (details) {
+                    if (widget.data.mode == AutomationMode.write) {
+                      _isDrawing = true;
+                      _lastDrawPosition = details.localPosition;
+                    }
+                  },
+                  onPanUpdate: (details) {
+                    if (_isDrawing && _lastDrawPosition != null) {
+                      _addPoint(details.localPosition.dx, details.localPosition.dy);
+                      _lastDrawPosition = details.localPosition;
+                    }
+                  },
+                  onPanEnd: (_) {
+                    _isDrawing = false;
+                    _lastDrawPosition = null;
+                  },
+                  child: CustomPaint(
+                    painter: _AutomationCurvePainter(
+                      data: widget.data,
+                      zoom: widget.zoom,
+                      scrollOffset: widget.scrollOffset,
+                      selectedPoints: _selectedPoints,
+                    ),
+                  ),
                 ),
               ),
+
+              // Automation points (interactive)
+              for (final point in widget.data.points)
+                _buildPointWidget(point),
+
+              // Lane header
+              Positioned(
+                left: 4,
+                top: 4,
+                child: _buildLaneHeader(),
+              ),
+
+              // Hover value tooltip
+              if (_showValueTooltip && _hoverPosition != null)
+                _buildValueTooltip(),
+
+              // Selection count badge
+              if (_selectedPoints.isNotEmpty)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: ReelForgeTheme.accentBlue.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      '${_selectedPoints.length} selected',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildValueTooltip() {
+    if (_hoverPosition == null) return const SizedBox.shrink();
+
+    final time = _timeAtX(_hoverPosition!.dx);
+    final value = widget.data.getValueAtTime(time);
+    final displayValue = widget.data.formatValue(value);
+
+    // Position tooltip near cursor but not overlapping
+    double tooltipX = _hoverPosition!.dx + 10;
+    double tooltipY = _hoverPosition!.dy - 25;
+
+    // Keep in bounds
+    if (tooltipX > widget.width - 60) tooltipX = _hoverPosition!.dx - 60;
+    if (tooltipY < 0) tooltipY = _hoverPosition!.dy + 15;
+
+    return Positioned(
+      left: tooltipX,
+      top: tooltipY,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: ReelForgeTheme.bgElevated,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: widget.data.color.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
+          ],
+        ),
+        child: Text(
+          displayValue,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: widget.data.color,
+            fontFamily: 'JetBrains Mono',
           ),
-
-          // Automation points (interactive)
-          for (final point in widget.data.points)
-            _buildPointWidget(point),
-
-          // Lane header
-          Positioned(
-            left: 4,
-            top: 4,
-            child: _buildLaneHeader(),
-          ),
-
-          // Value indicator at cursor (when hovering)
-          // TODO: Implement hover value display
-        ],
+        ),
       ),
     );
   }
@@ -447,6 +719,15 @@ class _AutomationLaneState extends State<AutomationLane> {
             }
           });
         },
+        onSecondaryTapDown: (details) {
+          // Right-click context menu
+          _selectedPoints.add(point.id);
+          _showPointContextMenu(context, point, details.globalPosition);
+        },
+        onDoubleTap: () {
+          // Double-click to delete
+          _deletePoint(point.id);
+        },
         onPanStart: (_) {
           setState(() => _draggingPointId = point.id);
         },
@@ -458,18 +739,21 @@ class _AutomationLaneState extends State<AutomationLane> {
         onPanEnd: (_) {
           setState(() => _draggingPointId = null);
         },
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected || isDragging
-                ? Colors.white
-                : widget.data.color,
-            border: Border.all(
-              color: widget.data.color,
-              width: isSelected ? 2 : 1,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSelected || isDragging
+                  ? Colors.white
+                  : widget.data.color,
+              border: Border.all(
+                color: widget.data.color,
+                width: isSelected ? 2 : 1,
+              ),
+              shape: point.curveType == AutomationCurveType.step
+                  ? BoxShape.rectangle
+                  : BoxShape.circle,
             ),
-            shape: point.curveType == AutomationCurveType.step
-                ? BoxShape.rectangle
-                : BoxShape.circle,
           ),
         ),
       ),

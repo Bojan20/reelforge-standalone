@@ -116,6 +116,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
   Offset? _dragStart;
   Offset? _dragCurrent;
   int? _dragNoteId;
+  // ignore: unused_field
   int? _drawingNoteStart;
 
   // Selection rectangle
@@ -170,6 +171,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     return (beats * ticksPerBeat).round().clamp(0, widget.lengthBars * 4 * ticksPerBeat);
   }
 
+  // ignore: unused_element
   double _tickToX(int tick) {
     final beats = tick / ticksPerBeat;
     return beats * _pixelsPerBeat - _scrollX;
@@ -180,6 +182,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     return (_visibleNoteHigh - noteOffset.floor()).clamp(0, 127);
   }
 
+  // ignore: unused_element
   double _noteToY(int note) {
     final noteOffset = _visibleNoteHigh - note;
     return noteOffset * _pixelsPerNote - _scrollY;
@@ -565,6 +568,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
             final isBlack = [1, 3, 6, 8, 10].contains(note % 12);
             final isC = note % 12 == 0;
             final octave = (note ~/ 12) - 1;
+            // ignore: unused_local_variable
             final noteName = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][note % 12];
 
             return Container(

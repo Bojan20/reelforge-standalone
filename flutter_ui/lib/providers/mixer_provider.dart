@@ -948,7 +948,8 @@ class MixerProvider extends ChangeNotifier {
     }
   }
 
-  double _linearToDb(double linear) {
+  /// Convert linear gain to dB
+  double linearToDb(double linear) {
     if (linear <= 0) return -96.0;
     return 20 * _log10(linear);
   }

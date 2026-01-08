@@ -104,6 +104,7 @@ pub struct DualPathStats {
 }
 
 /// Dual-path audio engine
+#[allow(dead_code)]
 pub struct DualPathEngine {
     /// Processing mode
     mode: ProcessingMode,
@@ -343,6 +344,7 @@ impl Drop for DualPathEngine {
 // ============ Lookahead Buffer ============
 
 /// Circular buffer for lookahead processing
+#[allow(dead_code)]
 struct LookaheadBuffer {
     /// Stored blocks
     blocks: Vec<AudioBlock>,
@@ -356,6 +358,7 @@ struct LookaheadBuffer {
     capacity: usize,
 }
 
+#[allow(dead_code)]
 impl LookaheadBuffer {
     fn new(block_size: usize, num_blocks: usize) -> Self {
         Self {

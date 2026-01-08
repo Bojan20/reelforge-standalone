@@ -12,7 +12,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-use crate::common::{GpuContext, VizError, VizResult};
+use crate::common::{GpuContext, VizResult};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES

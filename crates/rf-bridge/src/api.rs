@@ -2434,6 +2434,7 @@ pub fn audio_list_hosts() -> Vec<String> {
 }
 
 /// Set output device by name
+#[allow(unused_must_use)]
 #[flutter_rust_bridge::frb(sync)]
 pub fn audio_set_output_device(device_name: String) -> bool {
     // Stop current stream

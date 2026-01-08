@@ -11,7 +11,6 @@
 /// NO OTHER DAW HAS THIS LEVEL OF METERING!
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../src/rust/engine_api.dart';

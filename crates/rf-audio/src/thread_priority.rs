@@ -92,6 +92,7 @@ fn platform_set_priority() -> PriorityResult {
     }
 
     unsafe extern "C" {
+        #[allow(dead_code)]
         fn pthread_self() -> libc::pthread_t;
         fn pthread_set_qos_class_self_np(qos_class: u32, relative_priority: i32) -> i32;
         fn mach_thread_self() -> u32;

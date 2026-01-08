@@ -397,6 +397,7 @@ class _ChannelStripState extends State<ChannelStrip> {
   Widget _buildInsertSection() {
     const maxSlots = 4; // Show 4 slots in compact view
     final preSlots = widget.data.insertsPreFader.take(maxSlots).toList();
+    // ignore: unused_local_variable
     final postSlots = widget.data.insertsPostFader.take(maxSlots).toList();
 
     return Container(

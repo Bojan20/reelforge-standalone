@@ -27,6 +27,8 @@
 
 #![warn(missing_docs)]
 
+#![allow(dead_code)]
+
 pub mod analysis;
 pub mod dynamics;
 pub mod eq;

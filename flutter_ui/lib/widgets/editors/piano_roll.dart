@@ -204,7 +204,9 @@ class _PianoRollState extends State<PianoRoll> {
   int? _hoveredPitch;
   double? _hoveredBeat;
   String? _draggingNoteId;
+  // ignore: unused_field
   Offset? _dragOffset;
+  // ignore: unused_field
   bool _isResizing = false;
   Rect? _selectionRect;
   Offset? _selectionStart;

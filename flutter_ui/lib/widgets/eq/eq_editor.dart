@@ -87,7 +87,9 @@ class EqBandState {
   double responseAt(double freq, double sampleRate) {
     if (!enabled) return 0.0;
 
+    // ignore: unused_local_variable
     final omega = 2.0 * math.pi * frequency / sampleRate;
+    // ignore: unused_local_variable
     final targetOmega = 2.0 * math.pi * freq / sampleRate;
 
     switch (filterType) {
@@ -189,6 +191,7 @@ class EqEditor extends StatefulWidget {
 class _EqEditorState extends State<EqEditor> {
   int? _hoveredBandId;
   int? _draggingBandId;
+  // ignore: unused_field
   Offset? _dragStart;
   EqBandState? _dragStartState;
 

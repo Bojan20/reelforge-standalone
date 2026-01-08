@@ -9,7 +9,7 @@ use rf_core::Sample;
 use rf_dsp::channel::ChannelStrip;
 use rf_dsp::dynamics::{TruePeakLimiter, StereoCompressor, CompressorType};
 use rf_dsp::analysis::{PeakMeter, LufsMeter};
-use rf_dsp::{Processor, ProcessorConfig, StereoProcessor, MonoProcessor};
+use rf_dsp::{Processor, ProcessorConfig, StereoProcessor};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;

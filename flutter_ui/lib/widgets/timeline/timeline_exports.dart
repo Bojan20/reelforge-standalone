@@ -13,4 +13,5 @@ export 'automation_lane.dart';
 export 'comping_lane.dart';
 export 'freeze_overlay.dart';
 export 'lane_header.dart';
+export 'stretch_overlay.dart';
 export '../../models/timeline_models.dart';

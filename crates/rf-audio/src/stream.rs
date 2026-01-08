@@ -18,6 +18,7 @@ use crate::{AudioConfig, AudioError, AudioResult};
 pub type AudioCallback = Box<dyn FnMut(&[Sample], &mut [Sample]) + Send + 'static>;
 
 /// Shared input buffer between input and output streams
+#[allow(dead_code)]
 pub struct SharedInputBuffer {
     consumer: Mutex<Consumer<f32>>,
     num_channels: usize,

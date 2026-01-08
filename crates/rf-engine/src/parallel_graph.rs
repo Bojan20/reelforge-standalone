@@ -115,6 +115,7 @@ impl BufferPool {
 
 /// A level of nodes that can be processed in parallel
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ProcessingLevel {
     /// Node IDs at this level
     node_ids: Vec<NodeId>,
@@ -125,6 +126,7 @@ struct ProcessingLevel {
 // ============ Node Wrapper ============
 
 /// Thread-safe node wrapper for parallel processing
+#[allow(dead_code)]
 struct NodeWrapper {
     node: RwLock<Box<dyn AudioNode>>,
     /// Input buffer indices in the pool

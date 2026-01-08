@@ -12,7 +12,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
-import '../../models/layout_models.dart';
 
 // ============ Types ============
 
@@ -519,6 +518,7 @@ class _VerticalFader extends StatelessWidget {
     this.onChanged,
   });
 
+  // ignore: unused_element
   String get _displayValue {
     if (value <= -60) return '-∞';
     return value >= 0 ? '+${value.toStringAsFixed(1)}' : value.toStringAsFixed(1);
@@ -1042,6 +1042,7 @@ class _LUFSMeterDisplay extends StatelessWidget {
   final LUFSData lufs;
   final double target;
 
+  // ignore: unused_element_parameter
   const _LUFSMeterDisplay({required this.lufs, this.target = -14});
 
   String _formatLufs(double value) {

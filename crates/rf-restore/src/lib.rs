@@ -27,7 +27,8 @@
 //! - Early reflections removal
 //! - Tail reduction
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(dead_code)]
 
 pub mod declip;
 pub mod declick;

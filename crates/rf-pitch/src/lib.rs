@@ -28,7 +28,8 @@
 //! let corrected = engine.synthesize(&notes);
 //! ```
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(dead_code)]
 
 pub mod analysis;
 pub mod detection;

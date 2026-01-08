@@ -10,7 +10,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
 
 /// Goniometer configuration
 class GoniometerConfig {

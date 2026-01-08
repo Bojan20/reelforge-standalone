@@ -428,6 +428,7 @@ impl AoipTransmitter {
 }
 
 /// AoIP Receiver
+#[allow(dead_code)]
 pub struct AoipReceiver {
     config: AoipStreamConfig,
     socket: Option<UdpSocket>,
@@ -587,6 +588,7 @@ fn rand_u32() -> u32 {
 }
 
 /// PTP Clock (IEEE 1588-2008)
+#[allow(dead_code)]
 pub struct PtpClock {
     /// Clock status
     status: PtpStatus,

@@ -22,7 +22,6 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
-import 'track_header.dart';
 import 'track_header_pro.dart';
 import 'track_lane.dart';
 import 'automation_lane.dart';
@@ -230,18 +229,22 @@ class _TimelineState extends State<Timeline> {
   bool _isDraggingLoopLeft = false;
   bool _isDraggingLoopRight = false;
   bool _isDroppingFile = false;
+  // ignore: unused_field
   bool _isDroppingPoolFile = false;
   bool _isResizingHeader = false;
   Offset? _dropPosition;
+  // ignore: unused_field
   Offset? _poolDropPosition;
 
   // Cross-track drag state
   String? _crossTrackDraggingClipId;
   double _crossTrackDragTime = 0;
+  // ignore: unused_field
   double _crossTrackDragYDelta = 0;
   int _crossTrackTargetIndex = -1;
 
   // Drag state (Cubase-style direct move)
+  // ignore: unused_field
   int _dragSourceTrackIndex = -1;
 
   // Ghost preview state (visual feedback during drag)
@@ -415,6 +418,7 @@ class _TimelineState extends State<Timeline> {
   }
 
   /// Check if any file is an audio file
+  // ignore: unused_element
   bool _hasAudioFiles(List<XFile> files) {
     return files.any((file) {
       final ext = file.path.toLowerCase().split('.').lastOrNull;

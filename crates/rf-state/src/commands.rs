@@ -968,7 +968,7 @@ impl Command for SetLoopRegionCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::UndoManager;
+    use crate::{UndoManager, TrackType};
 
     fn test_project() -> Arc<RwLock<Project>> {
         Arc::new(RwLock::new(Project::default()))

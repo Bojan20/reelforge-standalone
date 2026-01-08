@@ -46,6 +46,7 @@ class LinearPhaseEqPanel extends StatefulWidget {
 
 class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
   final _ffi = NativeFFI.instance;
+  // ignore: unused_field
   bool _initialized = false;
   bool _bypassed = false;
 

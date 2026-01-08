@@ -664,6 +664,7 @@ class NativeFFI {
   late final EngineCreateCrossfadeDart _createCrossfade;
   late final EngineDeleteCrossfadeDart _deleteCrossfade;
 
+  // ignore: unused_field
   late final EngineFreeStringDart _freeString;
   late final EngineClearAllDart _clearAll;
 

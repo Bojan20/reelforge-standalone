@@ -38,6 +38,7 @@ pub struct InsertSlot {
     /// Position (pre/post fader)
     position: InsertPosition,
     /// Slot index (0-7)
+    #[allow(dead_code)]
     index: usize,
     /// Latency introduced by this slot
     latency: LatencySamples,

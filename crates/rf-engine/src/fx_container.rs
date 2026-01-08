@@ -166,6 +166,7 @@ pub enum BlendMode {
 
 /// FX Container metadata for saving/loading
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ContainerPreset {
     /// Preset name
     pub name: String,
@@ -187,6 +188,7 @@ pub struct ContainerPreset {
 
 /// Path preset data
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PathPreset {
     pub name: String,
     pub wet: f64,
@@ -199,6 +201,7 @@ pub struct PathPreset {
 
 /// Serialized plugin state
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PluginState {
     /// Plugin identifier
     pub plugin_id: String,
@@ -494,6 +497,7 @@ impl FxContainer {
 }
 
 /// FX Container Manager
+#[allow(dead_code)]
 pub struct ContainerManager {
     containers: HashMap<ContainerId, FxContainer>,
     next_id: u32,
@@ -501,6 +505,7 @@ pub struct ContainerManager {
     block_size: usize,
 }
 
+#[allow(dead_code)]
 impl ContainerManager {
     pub fn new(sample_rate: f64, block_size: usize) -> Self {
         Self {

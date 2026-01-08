@@ -116,6 +116,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
     widget.onSettingsChanged?.call();
   }
 
+  // ignore: unused_element
   void _updateCorrelation() {
     if (_initialized) {
       setState(() {

@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use crate::{VideoError, VideoResult};
-use crate::decoder::{VideoDecoder, VideoFrame};
+use crate::decoder::{VideoDecoder, VideoFrame, PixelFormat};
 
 // ============ Thumbnail ============
 

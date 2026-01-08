@@ -76,7 +76,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   DitherType _dither = DitherType.none;
   bool _includeMasterFx = true;
   bool _realTime = false;
+  // ignore: unused_field
   double _startSec = 0;
+  // ignore: unused_field
   double _endSec = 0;
   bool _exportWholeProject = true;
 

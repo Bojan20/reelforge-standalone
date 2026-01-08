@@ -49,6 +49,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
   double _compKnee = 6.0;
   double _compMakeupGain = 0.0;
   double _compDryWet = 1.0;
+  // ignore: unused_field
   bool _compAutoMakeup = false;
 
   // Limiter parameters
@@ -77,7 +78,9 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
 
   // Metering
   double _gainReduction = 0.0;
+  // ignore: unused_field
   double _inputLevel = -60.0;
+  // ignore: unused_field
   double _outputLevel = -60.0;
 
   @override

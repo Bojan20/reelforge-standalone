@@ -2,7 +2,6 @@
 //
 // Test screen to preview all EQ widgets before integration
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../widgets/eq/pro_eq_editor.dart';
 import '../widgets/eq/pultec_eq.dart';
@@ -104,6 +103,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     );
   }
 
+  // ignore: unused_element
   Widget _buildProEqFeatures() {
     return Container(
       padding: const EdgeInsets.all(12),
