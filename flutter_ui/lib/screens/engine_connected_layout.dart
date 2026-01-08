@@ -90,6 +90,7 @@ import 'main_layout.dart';
 import '../widgets/project/track_templates_panel.dart';
 import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
+import '../providers/undo_manager.dart';
 
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
@@ -395,16 +396,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // TRACK MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Track colors palette
+  /// Track colors palette (Logic Pro style - audio blue first)
   static const List<Color> _trackColors = [
-    Color(0xFF4A9EFF), // Blue
-    Color(0xFFFF9040), // Orange
-    Color(0xFF40FF90), // Green
-    Color(0xFF40C8FF), // Cyan
-    Color(0xFFFF4090), // Pink
-    Color(0xFFFFFF40), // Yellow
-    Color(0xFFFF4040), // Red
-    Color(0xFF9040FF), // Purple
+    Color(0xFF5B9BD5), // Logic Pro Audio Blue
+    Color(0xFF70C050), // Logic Pro Green (Instrument/MIDI)
+    Color(0xFFD4A84B), // Logic Pro Gold (Bus)
+    Color(0xFFFF5858), // Warm Red
+    Color(0xFFFF8C42), // Orange
+    Color(0xFFFFD93D), // Yellow
+    Color(0xFF4ECDC4), // Teal
+    Color(0xFF8B5CF6), // Purple
   ];
 
   /// Add a new track
@@ -555,34 +556,55 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Add pool file to a NEW track (double-click behavior)
-  void _addPoolFileToNewTrack(timeline.PoolAudioFile poolFile) {
-    final transport = context.read<EngineProvider>().transport;
+  Future<void> _addPoolFileToNewTrack(timeline.PoolAudioFile poolFile) async {
+    final engineProvider = context.read<EngineProvider>();
+    final transport = engineProvider.transport;
     final insertTime = transport.positionSeconds;
 
     // Create new track with same name as audio file
     final trackIndex = _tracks.length;
     final color = _trackColors[trackIndex % _trackColors.length];
     final trackId = 'track-${DateTime.now().millisecondsSinceEpoch}';
+    final trackName = poolFile.name.replaceAll(RegExp(r'\.[^.]+$'), ''); // Remove extension
 
     // Use file's default bus
     final bus = poolFile.defaultBus;
 
     final newTrack = timeline.TimelineTrack(
       id: trackId,
-      name: poolFile.name.replaceAll(RegExp(r'\.[^.]+$'), ''), // Remove extension
+      name: trackName,
       color: color,
       outputBus: bus,
     );
 
-    final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}-${trackIndex}';
+    // Import audio to native engine (this loads into playback cache and returns native clip ID)
+    final clipInfo = await EngineApi.instance.importAudioFile(
+      filePath: poolFile.path,
+      trackId: trackId,
+      startTime: insertTime,
+    );
+
+    // Use native clip ID for all operations (fade, gain, etc.)
+    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
+
+    // Get real waveform from engine (or fallback to pool waveform)
+    Float32List? waveform = poolFile.waveform;
+    if (clipInfo != null) {
+      final peaks = await EngineApi.instance.getWaveformPeaks(clipId: clipInfo.clipId);
+      if (peaks.isNotEmpty) {
+        waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+      }
+    }
+
     final newClip = timeline.TimelineClip(
       id: clipId,
       trackId: trackId,
       name: poolFile.name,
       startTime: insertTime,
-      duration: poolFile.duration,
-      sourceDuration: poolFile.duration,
-      waveform: poolFile.waveform,
+      duration: clipInfo?.duration ?? poolFile.duration,
+      sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
+      sourceFile: poolFile.path,
+      waveform: waveform,
       color: color,
     );
 
@@ -591,7 +613,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _clips = [..._clips, newClip];
     });
 
-    debugPrint('[UI] Created new track "${newTrack.name}" with ${poolFile.name}');
+    // Create mixer channel for the new track
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.createChannelFromTrack(trackId, trackName, color);
+
+    debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} (clipId: $clipId)');
     _showSnackBar('Added ${poolFile.name} to new track');
     _updateActiveBuses();
   }
@@ -996,6 +1022,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // EDIT MENU HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Undo last action (UI or Engine)
+  void _handleUndo() {
+    // Try UI undo first, then engine
+    if (UiUndoManager.instance.canUndo) {
+      UiUndoManager.instance.undo();
+    } else if (engine.canUndo) {
+      engine.undo();
+    }
+  }
+
+  /// Redo last undone action (UI or Engine)
+  void _handleRedo() {
+    // Try UI redo first, then engine
+    if (UiUndoManager.instance.canRedo) {
+      UiUndoManager.instance.redo();
+    } else if (engine.canRedo) {
+      engine.redo();
+    }
+  }
+
   /// Cut selected clips
   void _handleCut() {
     _handleCopy();
@@ -1097,12 +1143,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Handle changes from clip inspector panel
   void _handleClipInspectorChange(timeline.TimelineClip updatedClip) {
+    // Find old clip to detect what changed
+    final oldClip = _clips.firstWhere((c) => c.id == updatedClip.id);
+
     setState(() {
       _clips = _clips.map((c) {
         if (c.id == updatedClip.id) return updatedClip;
         return c;
       }).toList();
     });
+
+    // Sync fade changes to audio engine
+    if (oldClip.fadeIn != updatedClip.fadeIn) {
+      EngineApi.instance.fadeInClip(updatedClip.id, updatedClip.fadeIn);
+    }
+    if (oldClip.fadeOut != updatedClip.fadeOut) {
+      EngineApi.instance.fadeOutClip(updatedClip.id, updatedClip.fadeOut);
+    }
+    // Sync gain changes to audio engine
+    if (oldClip.gain != updatedClip.gain) {
+      EngineApi.instance.applyGainToClip(updatedClip.id, 20 * _log10(updatedClip.gain));
+    }
   }
 
   /// Open FX editor for selected clip
@@ -1911,10 +1972,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onBounce: () => _handleBounce(),
             onRenderInPlace: () => _handleRenderInPlace(),
             // ═══════════════════════════════════════════════════════════════
-            // EDIT MENU - All connected
+            // EDIT MENU - All connected (UI + Engine undo/redo)
             // ═══════════════════════════════════════════════════════════════
-            onUndo: engine.canUndo ? () => engine.undo() : null,
-            onRedo: engine.canRedo ? () => engine.redo() : null,
+            onUndo: (UiUndoManager.instance.canUndo || engine.canUndo) ? () => _handleUndo() : null,
+            onRedo: (UiUndoManager.instance.canRedo || engine.canRedo) ? () => _handleRedo() : null,
             onCut: () => _handleCut(),
             onCopy: () => _handleCopy(),
             onPaste: () => _handlePaste(),
@@ -2033,6 +2094,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       sampleRate: 48000,
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
+      isPlaying: transport.isPlaying, // For R button pulsing animation
       // Playhead callbacks
       onPlayheadChange: (time) {
         final engine = context.read<EngineProvider>();
@@ -2068,19 +2130,29 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       onClipMove: (clipId, newStartTime) {
         final clip = _clips.firstWhere((c) => c.id == clipId);
-        // Notify engine
-        engine.moveClip(
-          clipId: clipId,
-          targetTrackId: clip.trackId,
-          startTime: newStartTime,
-        );
+        final oldStartTime = clip.startTime;
+
+        // Record undo action
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Move clip',
+          onExecute: () {
+            engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: newStartTime);
+            setState(() {
+              _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
+            });
+          },
+          onUndo: () {
+            engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: oldStartTime);
+            setState(() {
+              _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: oldStartTime) : c).toList();
+            });
+          },
+        ));
+
+        // Execute move
+        engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: newStartTime);
         setState(() {
-          _clips = _clips.map((c) {
-            if (c.id == clipId) {
-              return c.copyWith(startTime: newStartTime);
-            }
-            return c;
-          }).toList();
+          _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
         });
       },
       onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
@@ -2184,6 +2256,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onClipFadeChange: (clipId, fadeIn, fadeOut) {
+        // Update Flutter state
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -2192,6 +2265,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return c;
           }).toList();
         });
+        // Sync to audio engine (use EngineApi.instance for clip operations)
+        EngineApi.instance.fadeInClip(clipId, fadeIn);
+        EngineApi.instance.fadeOutClip(clipId, fadeOut);
       },
       onClipRename: (clipId, newName) {
         setState(() {
@@ -2455,9 +2531,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         }
       },
       onStop: () => engine.stop(),
-      // Undo/Redo shortcuts (Cmd+Z, Cmd+Shift+Z)
-      onUndo: engine.canUndo ? () => engine.undo() : null,
-      onRedo: engine.canRedo ? () => engine.redo() : null,
+      // Undo/Redo shortcuts (Cmd+Z, Cmd+Shift+Z) - always enabled
+      onUndo: () => _handleUndo(),
+      onRedo: () => _handleRedo(),
     );
   }
 
@@ -3244,9 +3320,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
   }
 
-  /// Convert bus ID to numeric track ID for FFI
+  /// Convert bus/channel ID to numeric track ID for FFI
+  /// Uses MixerProvider to get actual engine track ID for audio channels
   int _busIdToTrackId(String busId) {
-    // Map bus IDs to numeric track IDs
+    // Map bus IDs to numeric track IDs (buses use fixed IDs)
     switch (busId) {
       case 'master': return 0;
       case 'sfx': return 1;
@@ -3255,7 +3332,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       case 'amb': return 4;
       case 'ui': return 5;
       default:
-        // Try to parse numeric ID from channel ID (ch_123)
+        // For audio channels (ch_xxx), get trackIndex from MixerProvider
+        // This is the actual engine track ID from createTrack() FFI call
+        final mixerProv = context.read<MixerProvider>();
+        final channel = mixerProv.getChannel(busId);
+        if (channel != null && channel.trackIndex != null) {
+          return channel.trackIndex!;
+        }
+        // Fallback: try to parse numeric ID
         if (busId.startsWith('ch_')) {
           return int.tryParse(busId.substring(3)) ?? 0;
         }
@@ -3412,6 +3496,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(trackIdInt);
       final correlation = EngineApi.instance.getTrackCorrelation(trackIdInt);
 
+      // Get inserts for this channel
+      final channelInserts = _busInserts[ch.id]?.slots ?? [];
+      final inserts = channelInserts.map((slot) => ultimate.InsertData(
+        index: slot.index,
+        pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      )).toList();
+
       channels.add(ultimate.UltimateMixerChannel(
         id: ch.id,
         name: ch.name,
@@ -3421,6 +3514,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         pan: ch.pan,
         muted: ch.muted,
         soloed: ch.soloed,
+        inserts: inserts,
         peakL: hasClips && isPlaying ? peakL : 0,
         peakR: hasClips && isPlaying ? peakR : 0,
         rmsL: hasClips && isPlaying ? rmsL : 0,
@@ -3429,24 +3523,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       ));
     }
 
-    // Add bus channels
-    for (final busId in ['sfx', 'music', 'voice', 'amb', 'ui']) {
-      channels.add(ultimate.UltimateMixerChannel(
-        id: busId,
-        name: busId.toUpperCase(),
-        type: ultimate.ChannelType.bus,
-        color: _getBusColor(busId),
-        volume: _busVolumes[busId] ?? 1.0,
-        pan: 0,
-        muted: _busMuted[busId] ?? false,
-        soloed: _busSoloed[busId] ?? false,
-        peakL: isPlaying ? _dbToLinear(metering.masterPeakL) * 0.8 : 0,
-        peakR: isPlaying ? _dbToLinear(metering.masterPeakR) * 0.8 : 0,
-        rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) * 0.8 : 0,
-        rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) * 0.8 : 0,
-        correlation: 1.0,
-      ));
-    }
+    // No hardcoded buses - only track channels + master
+    // Buses will be created dynamically when needed
+
+    // Master channel inserts
+    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
+      index: slot.index,
+      pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+      bypassed: slot.bypassed,
+      isPreFader: slot.isPreFader,
+    )).toList();
 
     // Master channel
     final masterChannel = ultimate.UltimateMixerChannel(
@@ -3458,6 +3545,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       pan: 0,
       muted: _busMuted['master'] ?? false,
       soloed: false,
+      inserts: masterInserts,
       peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL,
       peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR,
       rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
@@ -3465,44 +3553,155 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       correlation: metering.correlation,
     );
 
-    // Separate bus channels
-    final busChannels = channels.where((c) => c.type == ultimate.ChannelType.bus).toList();
-    final audioChannels = channels.where((c) => c.type == ultimate.ChannelType.audio).toList();
-
+    // All channels are audio tracks (no hardcoded buses)
     return ultimate.UltimateMixer(
-      channels: audioChannels,
-      buses: busChannels,
+      channels: channels,
+      buses: const [], // No hardcoded buses
       auxes: const [],
       vcas: const [],
       master: masterChannel,
       compact: true,
       onVolumeChange: (id, vol) {
-        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+        if (id == 'master') {
           _onBusVolumeChange(id, vol);
         } else {
           mixerProvider.setVolume(id, vol);
         }
       },
       onPanChange: (id, pan) {
-        if (!['sfx', 'music', 'voice', 'amb', 'ui', 'master'].contains(id)) {
+        if (id != 'master') {
           mixerProvider.setChannelPan(id, pan);
         }
       },
       onMuteToggle: (id) {
-        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+        if (id == 'master') {
           _onBusMuteToggle(id);
         } else {
           mixerProvider.toggleMute(id);
         }
       },
       onSoloToggle: (id) {
-        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+        if (id == 'master') {
           _onBusSoloToggle(id);
         } else {
           mixerProvider.toggleSolo(id);
         }
       },
+      onInsertClick: (channelId, insertIndex) {
+        debugPrint('[UltimateMixer] Insert click: channel=$channelId, slot=$insertIndex');
+        _handleUltimateMixerInsertClick(channelId, insertIndex);
+      },
+      onSendLevelChange: (channelId, sendIndex, level) {
+        debugPrint('[UltimateMixer] Send level: channel=$channelId, send=$sendIndex, level=$level');
+        engine.setSendLevel(channelId, sendIndex, level);
+      },
     );
+  }
+
+  /// Handle insert click from Ultimate Mixer
+  void _handleUltimateMixerInsertClick(String channelId, int insertIndex) async {
+    // Ensure insert chain exists for this channel
+    if (!_busInserts.containsKey(channelId)) {
+      _busInserts[channelId] = InsertChain(channelId: channelId);
+    }
+    final chain = _busInserts[channelId]!;
+    final currentSlot = chain.slots[insertIndex];
+    final isPreFader = insertIndex < 4;
+
+    // Get friendly channel name
+    final mixerProv = context.read<MixerProvider>();
+    final channelName = mixerProv.getChannel(channelId)?.name ?? channelId;
+
+    // If slot has plugin, show options menu (same as _onInsertClick)
+    if (!currentSlot.isEmpty) {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: ReelForgeTheme.bgElevated,
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: 200,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ReelForgeTheme.bgSurface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(currentSlot.plugin!.category.icon, size: 16, color: currentSlot.plugin!.category.color),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(currentSlot.plugin!.name, style: ReelForgeTheme.label, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                ),
+                _InsertMenuOption(icon: Icons.open_in_new, label: 'Open Editor', onTap: () => Navigator.pop(ctx, 'open')),
+                _InsertMenuOption(icon: currentSlot.bypassed ? Icons.toggle_on : Icons.toggle_off, label: currentSlot.bypassed ? 'Enable' : 'Bypass', onTap: () => Navigator.pop(ctx, 'bypass')),
+                _InsertMenuOption(icon: Icons.swap_horiz, label: 'Replace', onTap: () => Navigator.pop(ctx, 'replace')),
+                _InsertMenuOption(icon: Icons.delete_outline, label: 'Remove', color: ReelForgeTheme.errorRed, onTap: () => Navigator.pop(ctx, 'remove')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (result == 'open') {
+        if (currentSlot.plugin!.category == PluginCategory.eq) {
+          _openEqWindow(channelId);
+        }
+        debugPrint('[Mixer] Open editor for ${currentSlot.plugin!.name}');
+      } else if (result == 'bypass') {
+        setState(() {
+          _busInserts[channelId] = chain.toggleBypass(insertIndex);
+        });
+        // Sync bypass to engine FFI
+        final trackId = _busIdToTrackId(channelId);
+        final newBypass = !currentSlot.bypassed;
+        NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
+        debugPrint('[Mixer] Bypass toggled for slot $insertIndex on $channelId -> $newBypass');
+      } else if (result == 'replace') {
+        final plugin = await showPluginSelector(context: context, channelName: channelName, slotIndex: insertIndex, isPreFader: isPreFader);
+        if (plugin != null) {
+          setState(() { _busInserts[channelId] = chain.setPlugin(insertIndex, plugin); });
+          // Load new processor into engine audio path
+          final trackId = _busIdToTrackId(channelId);
+          final processorName = _pluginIdToProcessorName(plugin.id);
+          if (processorName != null) {
+            NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+          }
+          debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
+        }
+      } else if (result == 'remove') {
+        setState(() { _busInserts[channelId] = chain.removePlugin(insertIndex); });
+        // Unload processor from engine audio path
+        final trackId = _busIdToTrackId(channelId);
+        NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
+        debugPrint('[Mixer] Removed plugin from slot $insertIndex on $channelId');
+      }
+    } else {
+      // Empty slot - show plugin selector
+      final plugin = await showPluginSelector(context: context, channelName: channelName, slotIndex: insertIndex, isPreFader: isPreFader);
+      if (plugin != null) {
+        setState(() { _busInserts[channelId] = chain.setPlugin(insertIndex, plugin); });
+
+        // Ensure insert chain exists and load processor into engine
+        final trackId = _busIdToTrackId(channelId);
+        NativeFFI.instance.insertCreateChain(trackId);
+        final processorName = _pluginIdToProcessorName(plugin.id);
+        if (processorName != null) {
+          NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+        }
+        debugPrint('[UltimateMixer] Inserted ${plugin.name} on slot $insertIndex for $channelId');
+
+        // Auto-open EQ editor
+        if (plugin.category == PluginCategory.eq) {
+          _openEqWindow(channelId);
+        }
+      }
+    }
   }
 
   Color _getBusColor(String busId) {
@@ -3905,13 +4104,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           setState(() {
             _busInserts[busId] = chain.setPlugin(insertIndex, plugin);
           });
+          // Load new processor into engine audio path
+          final trackId = _busIdToTrackId(busId);
+          final processorName = _pluginIdToProcessorName(plugin.id);
+          if (processorName != null) {
+            final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+            debugPrint('[Mixer] Load processor "$processorName" -> result: $result');
+          }
           debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
         }
       } else if (result == 'remove') {
-        // Remove plugin
+        // Remove plugin from UI state
         setState(() {
           _busInserts[busId] = chain.removePlugin(insertIndex);
         });
+        // Unload processor from engine audio path
+        final trackId = _busIdToTrackId(busId);
+        NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
         debugPrint('[Mixer] Removed plugin from slot $insertIndex on $busId');
       }
     } else {
@@ -3932,6 +4141,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final trackId = _busIdToTrackId(busId);
         NativeFFI.instance.insertCreateChain(trackId);
 
+        // Load processor into engine audio path
+        final processorName = _pluginIdToProcessorName(plugin.id);
+        if (processorName != null) {
+          final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+          debugPrint('[Mixer] Load processor "$processorName" -> result: $result');
+        }
+
         debugPrint('[Mixer] Inserted ${plugin.name} on slot $insertIndex');
 
         // Auto-open EQ editor in floating window if EQ was inserted
@@ -3940,6 +4156,41 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         }
       }
     }
+  }
+
+  /// Map plugin ID to Rust processor name
+  String? _pluginIdToProcessorName(String pluginId) {
+    const mapping = {
+      'rf-pro-eq': 'pro-eq',
+      'rf-channel-eq': 'pro-eq',  // Use pro-eq as fallback
+      'rf-linear-eq': 'pro-eq',   // Use pro-eq as fallback
+      'rf-compressor': 'compressor',
+      'rf-limiter': 'limiter',
+      'rf-gate': 'gate',
+      'rf-expander': 'expander',
+      'rf-pultec': 'pultec',
+      'rf-api550': 'api550',
+      'rf-neve1073': 'neve1073',
+      'rf-ultra-eq': 'ultra-eq',
+      'rf-morph-eq': 'morph-eq',
+      'rf-room-correction': 'room-correction',
+    };
+    return mapping[pluginId];
+  }
+
+  /// Find which insert slot contains an EQ for given channel
+  /// Returns slot index (0-9) or -1 if not found
+  int _findEqSlotForChannel(String channelId) {
+    final chain = _busInserts[channelId];
+    if (chain == null) return -1;
+
+    for (int i = 0; i < chain.slots.length; i++) {
+      final slot = chain.slots[i];
+      if (slot.plugin != null && slot.plugin!.category == PluginCategory.eq) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /// Open EQ in floating window
@@ -3990,7 +4241,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               border: Border.all(color: const Color(0xFF404048)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
+                  color: ReelForgeTheme.bgVoid.withValues(alpha: 0.8),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -4040,22 +4291,43 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     width: 900,
                     height: 468,
                     signalLevel: signalLevel,
+                    // Pass real spectrum data from engine metering
+                    spectrumData: metering.spectrum.isNotEmpty
+                        ? metering.spectrum.map((e) => e.toDouble()).toList()
+                        : null,
                     onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
-                      if (enabled != null) {
-                        engineApi.proEqSetBandEnabled(channelId, bandIndex, enabled);
+                      // Send params to INSERT CHAIN processor (not standalone PRO_EQS)
+                      // Find which slot has the EQ for this channel
+                      final slotIndex = _findEqSlotForChannel(channelId);
+                      if (slotIndex < 0) {
+                        // Fallback to old API if no insert slot found
+                        if (enabled != null) engineApi.proEqSetBandEnabled(channelId, bandIndex, enabled);
+                        if (freq != null) engineApi.proEqSetBandFrequency(channelId, bandIndex, freq);
+                        if (gain != null) engineApi.proEqSetBandGain(channelId, bandIndex, gain);
+                        if (q != null) engineApi.proEqSetBandQ(channelId, bandIndex, q);
+                        if (filterType != null) {
+                          final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
+                          engineApi.proEqSetBandShape(channelId, bandIndex, shape);
+                        }
+                        return;
                       }
+                      // Use insert chain params: per band = 5 (freq=0, gain=1, q=2, enabled=3, shape=4)
+                      final trackId = _busIdToTrackId(channelId);
+                      final baseParam = bandIndex * 5;
                       if (freq != null) {
-                        engineApi.proEqSetBandFrequency(channelId, bandIndex, freq);
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
                       }
                       if (gain != null) {
-                        engineApi.proEqSetBandGain(channelId, bandIndex, gain);
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 1, gain);
                       }
                       if (q != null) {
-                        engineApi.proEqSetBandQ(channelId, bandIndex, q);
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 2, q);
+                      }
+                      if (enabled != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 3, enabled ? 1.0 : 0.0);
                       }
                       if (filterType != null) {
-                        final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
-                        engineApi.proEqSetBandShape(channelId, bandIndex, shape);
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 4, filterType.toDouble());
                       }
                     },
                     onBypassChange: (bypass) {
@@ -4151,7 +4423,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             decoration: BoxDecoration(
               color: const Color(0xFF121216),
               border: Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                bottom: BorderSide(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
             ),
             child: Row(
@@ -4165,7 +4437,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 Text(
                   'Vintage Analog EQ Models',
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: ReelForgeTheme.textTertiary,
                     fontSize: 12,
                   ),
                 ),
@@ -4209,16 +4481,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? const Color(0xFF4A9EFF) : Colors.white.withValues(alpha: 0.1),
+            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF4A9EFF) : Colors.grey,
+            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textTertiary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -4353,19 +4625,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               decoration: BoxDecoration(
                 color: const Color(0xFF121216),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                border: Border.all(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.flash_on, color: const Color(0xFFFF9040), size: 18),
+                      Icon(Icons.flash_on, color: ReelForgeTheme.accentOrange, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         'Transient Detection',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: ReelForgeTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -4378,26 +4650,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     '• Automatic beat slicing\n'
                     '• Tempo detection\n'
                     '• Quantization points',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12, height: 1.5),
+                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   // Sensitivity slider
-                  Text('Sensitivity', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text('Sensitivity', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
                   Slider(
                     value: _transientSensitivity,
                     min: 0.0,
                     max: 1.0,
                     onChanged: (v) => setState(() => _transientSensitivity = v),
-                    activeColor: const Color(0xFFFF9040),
+                    activeColor: ReelForgeTheme.accentOrange,
                   ),
                   // Algorithm selector
-                  Text('Algorithm', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text('Algorithm', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
                   const SizedBox(height: 4),
                   DropdownButton<int>(
                     value: _transientAlgorithm,
-                    dropdownColor: const Color(0xFF1A1A20),
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                    underline: Container(height: 1, color: Colors.white24),
+                    dropdownColor: ReelForgeTheme.bgMid,
+                    style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                    underline: Container(height: 1, color: ReelForgeTheme.borderSubtle),
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(value: 0, child: Text('High Emphasis')),
@@ -4416,8 +4688,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       icon: const Icon(Icons.search, size: 16),
                       label: const Text('Detect Transients'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF9040),
-                        foregroundColor: Colors.white,
+                        backgroundColor: ReelForgeTheme.accentOrange,
+                        foregroundColor: ReelForgeTheme.textPrimary,
                       ),
                       onPressed: () {
                         // TODO: Get audio data from selected clip
@@ -4438,19 +4710,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               decoration: BoxDecoration(
                 color: const Color(0xFF121216),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                border: Border.all(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.music_note, color: const Color(0xFF40C8FF), size: 18),
+                      Icon(Icons.music_note, color: ReelForgeTheme.accentCyan, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         'Pitch Detection',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: ReelForgeTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -4463,14 +4735,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     '• Audio to MIDI conversion\n'
                     '• Key detection\n'
                     '• Melodyne-style editing',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12, height: 1.5),
+                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   // Detected pitch display
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0A0A0C),
+                      color: ReelForgeTheme.bgVoid,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -4479,11 +4751,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Detected Pitch', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                              Text('Detected Pitch', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
                               Text(
                                 _detectedPitch > 0 ? '${_detectedPitch.toStringAsFixed(1)} Hz' : '-- Hz',
                                 style: TextStyle(
-                                  color: const Color(0xFF40C8FF),
+                                  color: ReelForgeTheme.accentCyan,
                                   fontSize: 20,
                                   fontFamily: 'monospace',
                                   fontWeight: FontWeight.bold,
@@ -4496,11 +4768,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('MIDI Note', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                              Text('MIDI Note', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
                               Text(
                                 _detectedMidi >= 0 ? _midiNoteToName(_detectedMidi) : '--',
                                 style: TextStyle(
-                                  color: const Color(0xFF40FF90),
+                                  color: ReelForgeTheme.accentGreen,
                                   fontSize: 20,
                                   fontFamily: 'monospace',
                                   fontWeight: FontWeight.bold,
@@ -4520,8 +4792,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       icon: const Icon(Icons.piano, size: 16),
                       label: const Text('Detect Pitch'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF40C8FF),
-                        foregroundColor: Colors.white,
+                        backgroundColor: ReelForgeTheme.accentCyan,
+                        foregroundColor: ReelForgeTheme.textPrimary,
                       ),
                       onPressed: () {
                         // TODO: Get audio data from selected clip
@@ -4837,17 +5109,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         groupId: 'mixconsole',
       ),
       // ========== Mixer (MixConsole group) ==========
+      // Only Ultimate Mixer - no legacy DAW mixer
       LowerZoneTab(
         id: 'mixer',
         label: 'Mixer',
         icon: Icons.tune,
-        content: _buildMixerContent(metering, isPlaying),
-        groupId: 'mixconsole',
-      ),
-      LowerZoneTab(
-        id: 'ultimate-mixer',
-        label: 'Ultimate Mixer',
-        icon: Icons.dashboard,
         content: _buildUltimateMixerContent(metering, isPlaying),
         groupId: 'mixconsole',
       ),
@@ -5634,7 +5900,7 @@ class _InspectorCheckbox extends StatelessWidget {
               ),
             ),
             child: checked
-                ? const Icon(Icons.check, size: 12, color: Colors.white)
+                ? Icon(Icons.check, size: 12, color: ReelForgeTheme.textPrimary)
                 : null,
           ),
         ],
@@ -5665,10 +5931,10 @@ class _ToolbarButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: Colors.white),
+            Icon(icon, size: 12, color: ReelForgeTheme.textPrimary),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+              Text(label, style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
             ],
           ],
         ),

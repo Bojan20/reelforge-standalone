@@ -7,8 +7,8 @@
 /// - Drop zone for audio
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
+import '../../theme/reelforge_theme.dart';
 import 'grid_lines.dart';
 import 'clip_widget.dart';
 import 'crossfade_overlay.dart';
@@ -85,11 +85,16 @@ class TrackLane extends StatefulWidget {
 class _TrackLaneState extends State<TrackLane> {
   @override
   Widget build(BuildContext context) {
+    // Use track color for lane background (Logic Pro style)
+    // Audio tracks: subtle blue tint, MIDI: green tint, etc.
+    final trackColor = widget.track.color;
+
     return Container(
       height: widget.trackHeight,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep.withValues(alpha: 0.5),
-        border: const Border(
+        // Blend track color with dark background (Logic Pro style visible tint)
+        color: Color.lerp(ReelForgeTheme.bgDeep, trackColor, 0.18),
+        border: Border(
           bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
         ),
       ),

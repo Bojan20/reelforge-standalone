@@ -172,16 +172,44 @@ impl AutosaveManager {
     }
 
     /// Get autosave file path
+    ///
+    /// Returns a safe path within the autosave directory.
+    /// Path traversal attacks are prevented by sanitizing the filename
+    /// and validating the final path stays within the autosave directory.
     pub fn autosave_path(&self) -> PathBuf {
         let config = self.config.read();
         let name = self.project_name.read();
         let timestamp = current_timestamp();
 
-        config.autosave_dir.join(format!(
+        let filename = format!(
             "{}_autosave_{}.rfproj",
             sanitize_filename(&name),
             timestamp
-        ))
+        );
+
+        let path = config.autosave_dir.join(&filename);
+
+        // Security: Verify the path is within autosave_dir (defense in depth)
+        // Even though sanitize_filename should prevent traversal, we double-check
+        if let (Ok(canonical_dir), Some(canonical_path)) = (
+            config.autosave_dir.canonicalize(),
+            // For new files, check parent directory
+            path.parent()
+                .and_then(|p| p.canonicalize().ok())
+                .or_else(|| config.autosave_dir.canonicalize().ok()),
+        ) {
+            if !canonical_path.starts_with(&canonical_dir) {
+                log::error!(
+                    "Path traversal attempt detected: {} escapes {}",
+                    path.display(),
+                    config.autosave_dir.display()
+                );
+                // Return a safe fallback path
+                return config.autosave_dir.join(format!("unnamed_autosave_{}.rfproj", timestamp));
+            }
+        }
+
+        path
     }
 
     /// Get latest autosave for recovery
@@ -451,13 +479,34 @@ pub enum AutosaveError {
 }
 
 /// Sanitize filename for cross-platform compatibility
+/// Also prevents path traversal attacks by removing directory separators and ".."
 fn sanitize_filename(name: &str) -> String {
-    name.chars()
+    // First pass: replace dangerous characters
+    let sanitized: String = name
+        .chars()
         .map(|c| match c {
             '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
             _ => c,
         })
-        .collect()
+        .collect();
+
+    // Second pass: remove any ".." sequences that could escape directory
+    let mut result = sanitized.replace("..", "");
+
+    // Remove leading/trailing dots and spaces (Windows compatibility)
+    result = result.trim_matches(|c| c == '.' || c == ' ').to_string();
+
+    // If empty after sanitization, use a default name
+    if result.is_empty() {
+        result = "unnamed".to_string();
+    }
+
+    // Limit filename length (255 is typical filesystem limit)
+    if result.len() > 200 {
+        result.truncate(200);
+    }
+
+    result
 }
 
 // ============ Tests ============

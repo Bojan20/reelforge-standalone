@@ -254,6 +254,7 @@ class UltimateWaveformConfig {
   final bool use3dEffect;
   final bool antiAlias;
   final double lineWidth;
+  final bool transparentBackground; // Don't draw background - use parent's
 
   const UltimateWaveformConfig({
     this.style = WaveformStyle.filled,
@@ -270,6 +271,7 @@ class UltimateWaveformConfig {
     this.use3dEffect = true,
     this.antiAlias = true,
     this.lineWidth = 1.0,
+    this.transparentBackground = false,
   });
 }
 
@@ -365,8 +367,10 @@ class _UltimateWaveformPainter extends CustomPainter {
       _drawSelection(canvas, size);
     }
 
-    // Draw grid
-    _drawGrid(canvas, size, samplesPerPixel);
+    // Draw grid (skip for transparent/clip mode)
+    if (!config.transparentBackground) {
+      _drawGrid(canvas, size, samplesPerPixel);
+    }
 
     // Draw waveform based on style and stereo mode
     if (data.isStereo && isStereoSplit) {
@@ -396,14 +400,21 @@ class _UltimateWaveformPainter extends CustomPainter {
       _drawZeroCrossings(canvas, size, lodData, startSample ~/ lodFactor, samplesPerPixel / lodFactor);
     }
 
-    // Playhead
-    _drawPlayhead(canvas, size);
+    // Playhead (skip for clip mode)
+    if (!config.transparentBackground) {
+      _drawPlayhead(canvas, size);
+    }
 
-    // Border
-    _drawBorder(canvas, size);
+    // Border (skip for clip mode - clip has its own border)
+    if (!config.transparentBackground) {
+      _drawBorder(canvas, size);
+    }
   }
 
   void _drawBackground(Canvas canvas, Size size) {
+    // Skip background if transparent mode (clip widget provides its own background)
+    if (config.transparentBackground) return;
+
     // 3D depth background
     final bgGradient = ui.Gradient.linear(
       Offset.zero,

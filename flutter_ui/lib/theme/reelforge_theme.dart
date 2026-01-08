@@ -16,6 +16,7 @@
 /// - 8px grid system alignment
 
 import 'package:flutter/material.dart';
+import '../models/timeline_models.dart' show TrackType;
 
 class ReelForgeTheme {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -564,18 +565,76 @@ class ReelForgeTheme {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TRACK COLORS - Cubase-inspired 16-color palette
+// TRACK TYPE COLORS - Logic Pro inspired defaults
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Default track colors by type (Logic Pro style)
+class TrackTypeColors {
+  // Logic Pro default track type colors
+  static const Color audio = Color(0xFF5B9BD5);      // Blue - Logic Pro audio
+  static const Color midi = Color(0xFF70C050);       // Green - Logic Pro MIDI
+  static const Color instrument = Color(0xFF70C050); // Green - Logic Pro instrument
+  static const Color folder = Color(0xFF808080);     // Gray - Folder
+  static const Color bus = Color(0xFFD4A84B);        // Gold - Logic Pro bus
+  static const Color aux = Color(0xFFA855F7);        // Purple - Aux/Return
+  static const Color master = Color(0xFFFF5858);     // Red - Master
+  static const Color drummer = Color(0xFFFFD93D);    // Yellow - Drummer
+
+  // Get icon for track type
+  static IconData iconFor(TrackType type) {
+    switch (type) {
+      case TrackType.audio:
+        return Icons.graphic_eq;
+      case TrackType.midi:
+        return Icons.piano;
+      case TrackType.instrument:
+        return Icons.piano;
+      case TrackType.folder:
+        return Icons.folder;
+      case TrackType.bus:
+        return Icons.call_split;
+      case TrackType.aux:
+        return Icons.alt_route;
+      case TrackType.master:
+        return Icons.speaker;
+    }
+  }
+
+  // Get default color for track type
+  static Color colorFor(TrackType type) {
+    switch (type) {
+      case TrackType.audio:
+        return audio;
+      case TrackType.midi:
+        return midi;
+      case TrackType.instrument:
+        return instrument;
+      case TrackType.folder:
+        return folder;
+      case TrackType.bus:
+        return bus;
+      case TrackType.aux:
+        return aux;
+      case TrackType.master:
+        return master;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRACK COLORS - Cubase-inspired 16-color palette (user selectable)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class TrackColors {
   // Primary palette - high saturation for visibility
   static const List<Color> palette = [
+    Color(0xFF5B9BD5), // Logic Blue (Audio default)
+    Color(0xFF70C050), // Logic Green (Instrument/MIDI default)
+    Color(0xFFD4A84B), // Logic Gold (Bus default)
     Color(0xFFFF5858), // Warm Red
     Color(0xFFFF8C42), // Orange
     Color(0xFFFFD93D), // Yellow
-    Color(0xFF6BCB77), // Green
     Color(0xFF4ECDC4), // Teal
-    Color(0xFF5AA8FF), // Blue
     Color(0xFF8B5CF6), // Purple
     Color(0xFFEC4899), // Pink
     Color(0xFFFF6B6B), // Coral
@@ -584,7 +643,6 @@ class TrackColors {
     Color(0xFF26A69A), // Dark Teal
     Color(0xFF42A5F5), // Light Blue
     Color(0xFFA78BFA), // Lavender
-    Color(0xFFF472B6), // Rose
     Color(0xFF78909C), // Blue Gray
   ];
 

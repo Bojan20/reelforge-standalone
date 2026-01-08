@@ -388,7 +388,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               backgroundColor: ReelForgeTheme.bgSurface,
               selectedColor: ReelForgeTheme.accentBlue,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
               ),
             );
           }).toList(),

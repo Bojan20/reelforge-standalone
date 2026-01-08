@@ -117,6 +117,9 @@ class Timeline extends StatefulWidget {
   final bool snapEnabled;
   final double snapValue;
 
+  /// Transport state - is playback active
+  final bool isPlaying;
+
   /// File drop callback
   /// Called when audio files are dropped on the timeline
   /// Returns (filePath, trackId, startTime) - trackId can be null for new track
@@ -204,6 +207,7 @@ class Timeline extends StatefulWidget {
     this.onCrossfadeDelete,
     this.snapEnabled = true,
     this.snapValue = 1,
+    this.isPlaying = false,
     this.onFileDrop,
     this.onPoolFileDrop,
     this.onTrackDuplicate,
@@ -490,6 +494,8 @@ class _TimelineState extends State<Timeline> {
   }
 
   void _handleKeyEvent(KeyEvent event) {
+    debugPrint('[Timeline] Key event: ${event.logicalKey.keyLabel} (${event.runtimeType})');
+
     // G/H zoom - allow repeat (hold key for continuous zoom)
     final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
         event.logicalKey == LogicalKeyboardKey.keyH;
@@ -598,8 +604,10 @@ class _TimelineState extends State<Timeline> {
             HardwareKeyboard.instance.isControlPressed) &&
         event.logicalKey == LogicalKeyboardKey.keyZ) {
       if (HardwareKeyboard.instance.isShiftPressed) {
+        debugPrint('[Timeline] Redo shortcut triggered');
         widget.onRedo?.call();
       } else {
+        debugPrint('[Timeline] Undo shortcut triggered');
         widget.onUndo?.call();
       }
     }
@@ -749,6 +757,9 @@ class _TimelineState extends State<Timeline> {
                   waveformPreview: firstClipWaveform,
                   waveformPreviewR: firstClipWaveform, // Use same for both channels if mono
                   isEmpty: isEmpty,
+                  trackNumber: trackIndex + 1, // 1-based track numbers (Logic Pro style)
+                  isPlaying: widget.isPlaying, // For R button pulsing animation
+                  showPowerButton: trackHeight >= 100, // Show power button in Expanded+ layouts
                   onMuteToggle: () =>
                       widget.onTrackMuteToggle?.call(track.id),
                   onSoloToggle: () =>
@@ -941,7 +952,8 @@ class _TimelineState extends State<Timeline> {
               _containerWidth = constraints.maxWidth - _headerWidth;
 
               return Container(
-                color: ReelForgeTheme.bgDeepest,
+                // Logic Pro-style timeline background
+                color: ReelForgeTheme.bgMid,
                 child: Stack(
                   children: [
                     Column(
@@ -1163,9 +1175,9 @@ class _TimelineState extends State<Timeline> {
                                       ),
                                       child: Text(
                                         marker.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 9,
-                                          color: Colors.white,
+                                          color: ReelForgeTheme.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -1196,12 +1208,12 @@ class _TimelineState extends State<Timeline> {
                                       color: (_draggingClip!.color ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                        color: Colors.white,
+                                        color: ReelForgeTheme.textPrimary,
                                         width: 2,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.4),
+                                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
                                           blurRadius: 8,
                                           offset: const Offset(2, 2),
                                         ),
@@ -1230,7 +1242,7 @@ class _TimelineState extends State<Timeline> {
                                             child: Text(
                                               _draggingClip!.name,
                                               style: ReelForgeTheme.bodySmall.copyWith(
-                                                color: Colors.white,
+                                                color: ReelForgeTheme.textPrimary,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -1340,9 +1352,9 @@ class _TimelineState extends State<Timeline> {
                                                 begin: Alignment.topCenter,
                                                 end: Alignment.bottomCenter,
                                                 colors: [
-                                                  Colors.white.withValues(alpha: 0.2),
-                                                  Colors.white.withValues(alpha: 0.1),
-                                                  Colors.white.withValues(alpha: 0.2),
+                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
+                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
+                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
                                                 ],
                                               ),
                                             ),
@@ -1354,7 +1366,7 @@ class _TimelineState extends State<Timeline> {
                                         child: Icon(
                                           Icons.audio_file,
                                           size: 20,
-                                          color: Colors.white.withValues(alpha: 0.7),
+                                          color: ReelForgeTheme.textPrimary.withValues(alpha: 0.7),
                                         ),
                                       ),
                                     ],
@@ -1488,7 +1500,7 @@ class _PlayheadPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Cubase-style playhead triangle with shadow
     final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.4)
+      ..color = ReelForgeTheme.bgVoid.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
 
     final paint = Paint()
@@ -1516,7 +1528,7 @@ class _PlayheadPainter extends CustomPainter {
     // Inner highlight for 3D effect
     if (isDragging) {
       final highlightPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.3)
+        ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1;
       final highlightPath = Path()
@@ -1547,7 +1559,7 @@ class _GhostWaveformPainter extends CustomPainter {
     final samplesPerPixel = waveform.length / size.width;
 
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
 
     final path = Path();

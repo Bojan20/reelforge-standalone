@@ -118,7 +118,7 @@ class InsertState {
   }
 }
 
-/// Channel insert chain (8 slots: 4 pre + 4 post)
+/// Channel insert chain (up to 10 slots: 5 pre + 5 post, dynamic display)
 class InsertChain {
   final String channelId;
   final List<InsertState> slots;
@@ -126,10 +126,34 @@ class InsertChain {
   InsertChain({
     required this.channelId,
     List<InsertState>? slots,
-  }) : slots = slots ?? List.generate(8, (i) => InsertState(
+  }) : slots = slots ?? List.generate(10, (i) => InsertState(
           index: i,
-          isPreFader: i < 4,
+          isPreFader: i < 5,
         ));
+
+  /// Get number of visible pre-fader slots (always show 1 empty + used)
+  int get visiblePreSlots {
+    int lastUsed = -1;
+    for (int i = 0; i < 5; i++) {
+      if (slots[i].plugin != null) lastUsed = i;
+    }
+    return (lastUsed + 2).clamp(1, 5); // Show last used + 1 empty, min 1
+  }
+
+  /// Get number of visible post-fader slots (always show 1 empty + used)
+  int get visiblePostSlots {
+    int lastUsed = -1;
+    for (int i = 5; i < 10; i++) {
+      if (slots[i].plugin != null) lastUsed = i - 5;
+    }
+    return (lastUsed + 2).clamp(1, 5); // Show last used + 1 empty, min 1
+  }
+
+  /// Get visible pre-fader slots
+  List<InsertState> get visiblePreFaderSlots => slots.sublist(0, visiblePreSlots);
+
+  /// Get visible post-fader slots
+  List<InsertState> get visiblePostFaderSlots => slots.sublist(5, 5 + visiblePostSlots);
 
   InsertChain copyWith({
     String? channelId,

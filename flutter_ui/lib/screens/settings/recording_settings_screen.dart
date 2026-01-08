@@ -197,7 +197,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
               backgroundColor: ReelForgeTheme.bgSurface,
               selectedColor: ReelForgeTheme.accentBlue,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
               ),
             );
           }).toList(),

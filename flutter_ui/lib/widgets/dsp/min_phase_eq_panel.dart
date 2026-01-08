@@ -8,6 +8,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Min Phase Band data
 class MinPhaseBand {
@@ -104,19 +105,19 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           Expanded(
             child: Column(
               children: [
                 Expanded(flex: 2, child: _buildEqGraph()),
-                const Divider(height: 1, color: Color(0xFF2A2A30)),
+                Divider(height: 1, color: ReelForgeTheme.borderSubtle),
                 _buildBandList(),
                 if (_selectedBandIndex != null) _buildBandEditor(),
               ],
@@ -132,12 +133,12 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.show_chart, color: Color(0xFF40C8FF), size: 20),
+          Icon(Icons.show_chart, color: ReelForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'MINIMUM PHASE EQ',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -147,13 +148,13 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A20),
+              color: ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
+            child: Text(
               'ZERO LATENCY',
               style: TextStyle(
-                color: Color(0xFF40FF90),
+                color: ReelForgeTheme.accentGreen,
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
               ),
@@ -173,17 +174,17 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _showGroupDelay
-              ? const Color(0xFFFFFF40).withValues(alpha: 0.3)
-              : const Color(0xFF1A1A20),
+              ? ReelForgeTheme.accentYellow.withValues(alpha: 0.3)
+              : ReelForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _showGroupDelay ? const Color(0xFFFFFF40) : const Color(0xFF3A3A40),
+            color: _showGroupDelay ? ReelForgeTheme.accentYellow : ReelForgeTheme.borderMedium,
           ),
         ),
         child: Text(
           _showGroupDelay ? 'GROUP DELAY' : 'MAGNITUDE',
           style: TextStyle(
-            color: _showGroupDelay ? const Color(0xFFFFFF40) : const Color(0xFF808090),
+            color: _showGroupDelay ? ReelForgeTheme.accentYellow : ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -196,9 +197,9 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF121216),
+        color: ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -276,8 +277,8 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
         children: [
           Text(
             'BANDS: ${_bands.length}/32',
-            style: const TextStyle(
-              color: Color(0xFF606070),
+            style: TextStyle(
+              color: ReelForgeTheme.textTertiary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -291,7 +292,7 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF40C8FF), size: 20),
+            icon: Icon(Icons.add_circle_outline, color: ReelForgeTheme.accentCyan, size: 20),
             onPressed: () => _addBand(MinPhaseFilterType.bell, 1000.0),
           ),
         ],
@@ -311,14 +312,14 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? color : const Color(0xFF1A1A20),
+          color: isSelected ? color : ReelForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color),
         ),
         child: Text(
           '${band.freq.toInt()} Hz',
           style: TextStyle(
-            color: isSelected ? Colors.white : color,
+            color: isSelected ? ReelForgeTheme.textPrimary : color,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -329,12 +330,12 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
 
   Color _getFilterColor(MinPhaseFilterType type) {
     return switch (type) {
-      MinPhaseFilterType.bell => const Color(0xFF40C8FF),
-      MinPhaseFilterType.lowShelf => const Color(0xFFFF9040),
-      MinPhaseFilterType.highShelf => const Color(0xFFFFFF40),
-      MinPhaseFilterType.lowCut => const Color(0xFFFF4040),
-      MinPhaseFilterType.highCut => const Color(0xFFFF4040),
-      MinPhaseFilterType.notch => const Color(0xFFFF40FF),
+      MinPhaseFilterType.bell => ReelForgeTheme.accentCyan,
+      MinPhaseFilterType.lowShelf => ReelForgeTheme.accentOrange,
+      MinPhaseFilterType.highShelf => ReelForgeTheme.accentYellow,
+      MinPhaseFilterType.lowCut => ReelForgeTheme.accentRed,
+      MinPhaseFilterType.highCut => ReelForgeTheme.accentRed,
+      MinPhaseFilterType.notch => ReelForgeTheme.accentPink,
     };
   }
 
@@ -359,16 +360,16 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
 
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF121216),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A30))),
+      decoration: BoxDecoration(
+        color: ReelForgeTheme.bgDeep,
+        border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
       ),
       child: Column(
         children: [
           // Type selector
           Row(
             children: [
-              const Text('TYPE:', style: TextStyle(color: Color(0xFF606070), fontSize: 10)),
+              Text('TYPE:', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
               const SizedBox(width: 8),
               Expanded(
                 child: SingleChildScrollView(
@@ -386,14 +387,14 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isSelected ? _getFilterColor(type) : const Color(0xFF1A1A20),
+                              color: isSelected ? _getFilterColor(type) : ReelForgeTheme.bgMid,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: _getFilterColor(type)),
                             ),
                             child: Text(
                               _filterName(type),
                               style: TextStyle(
-                                color: isSelected ? Colors.white : _getFilterColor(type),
+                                color: isSelected ? ReelForgeTheme.textPrimary : _getFilterColor(type),
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -406,7 +407,7 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Color(0xFFFF4040), size: 18),
+                icon: Icon(Icons.delete_outline, color: ReelForgeTheme.accentRed, size: 18),
                 onPressed: () => _removeBand(_selectedBandIndex!),
               ),
             ],
@@ -452,17 +453,17 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: band.enabled
-                        ? const Color(0xFF40FF90).withValues(alpha: 0.3)
-                        : const Color(0xFF1A1A20),
+                        ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3)
+                        : ReelForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: band.enabled ? const Color(0xFF40FF90) : const Color(0xFF3A3A40),
+                      color: band.enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.borderMedium,
                     ),
                   ),
                   child: Text(
                     band.enabled ? 'ENABLED' : 'DISABLED',
                     style: TextStyle(
-                      color: band.enabled ? const Color(0xFF40FF90) : const Color(0xFF606070),
+                      color: band.enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -487,7 +488,7 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Color(0xFF606070), fontSize: 9, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
             Text(display, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
           ],
         ),
@@ -495,7 +496,7 @@ class _MinPhaseEqPanelState extends State<MinPhaseEqPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: const Color(0xFF2A2A30),
+            inactiveTrackColor: ReelForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -566,7 +567,7 @@ class _MinPhaseEqPainter extends CustomPainter {
       ..lineTo(0, centerY)
       ..close();
 
-    final fillColor = showGroupDelay ? const Color(0xFFFFFF40) : const Color(0xFF40C8FF);
+    final fillColor = showGroupDelay ? ReelForgeTheme.accentYellow : ReelForgeTheme.accentCyan;
     canvas.drawPath(fillPath, Paint()..color = fillColor.withValues(alpha: 0.1));
     canvas.drawPath(path, Paint()
       ..color = fillColor
@@ -585,7 +586,7 @@ class _MinPhaseEqPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8)), i == selectedIndex ? 10 : 7, Paint()..color = color);
       if (i == selectedIndex) {
         canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8)), 12, Paint()
-          ..color = Colors.white
+          ..color = ReelForgeTheme.textPrimary
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2);
       }
@@ -593,12 +594,12 @@ class _MinPhaseEqPainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF2A2A30)..strokeWidth = 1;
+    final paint = Paint()..color = ReelForgeTheme.borderSubtle..strokeWidth = 1;
     for (final freq in [100.0, 1000.0, 10000.0]) {
       final x = _freqToX(freq, size.width);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = const Color(0xFF3A3A40));
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = ReelForgeTheme.borderMedium);
   }
 
   double _freqToX(double freq, double width) {
@@ -615,12 +616,12 @@ class _MinPhaseEqPainter extends CustomPainter {
 
   Color _getFilterColor(MinPhaseFilterType type) {
     return switch (type) {
-      MinPhaseFilterType.bell => const Color(0xFF40C8FF),
-      MinPhaseFilterType.lowShelf => const Color(0xFFFF9040),
-      MinPhaseFilterType.highShelf => const Color(0xFFFFFF40),
-      MinPhaseFilterType.lowCut => const Color(0xFFFF4040),
-      MinPhaseFilterType.highCut => const Color(0xFFFF4040),
-      MinPhaseFilterType.notch => const Color(0xFFFF40FF),
+      MinPhaseFilterType.bell => ReelForgeTheme.accentCyan,
+      MinPhaseFilterType.lowShelf => ReelForgeTheme.accentOrange,
+      MinPhaseFilterType.highShelf => ReelForgeTheme.accentYellow,
+      MinPhaseFilterType.lowCut => ReelForgeTheme.accentRed,
+      MinPhaseFilterType.highCut => ReelForgeTheme.accentRed,
+      MinPhaseFilterType.notch => ReelForgeTheme.accentPink,
     };
   }
 

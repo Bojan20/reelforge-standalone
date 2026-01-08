@@ -1,7 +1,7 @@
 //! Insert Effect Chain
 //!
 //! Provides per-channel effect insert slots with:
-//! - 8 insert slots per channel (like Pro Tools)
+//! - 10 insert slots per channel (Pro Tools style: 5 pre + 5 post fader)
 //! - Pre/post fader positioning
 //! - Bypass per slot
 //! - Latency compensation
@@ -13,8 +13,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 // ============ Insert Slot ============
 
-/// Maximum insert slots per channel
-pub const MAX_INSERT_SLOTS: usize = 8;
+/// Maximum insert slots per channel (Pro Tools style: 5 pre-fader + 5 post-fader)
+pub const MAX_INSERT_SLOTS: usize = 10;
 
 /// Insert slot position
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

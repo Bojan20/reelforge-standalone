@@ -334,9 +334,9 @@ class LoudnessMeter extends StatelessWidget {
       valueColor = ReelForgeTheme.textTertiary;
     } else if (isMain) {
       valueColor = isOnTarget
-          ? const Color(0xFF40FF90) // Green - on target
+          ? ReelForgeTheme.accentGreen // Green - on target
           : isOver
-              ? const Color(0xFFFF4040) // Red - over target
+              ? ReelForgeTheme.accentRed // Red - over target
               : ReelForgeTheme.textPrimary; // Normal - under target
     } else {
       valueColor = ReelForgeTheme.textPrimary;
@@ -350,16 +350,16 @@ class LoudnessMeter extends StatelessWidget {
       decoration: isMain
           ? BoxDecoration(
               color: isOnTarget
-                  ? const Color(0x1A40FF90)
+                  ? ReelForgeTheme.accentGreen.withAlpha(26)
                   : isOver
-                      ? const Color(0x1AFF4040)
+                      ? ReelForgeTheme.accentRed.withAlpha(26)
                       : ReelForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isOnTarget
-                    ? const Color(0x4040FF90)
+                    ? ReelForgeTheme.accentGreen.withAlpha(64)
                     : isOver
-                        ? const Color(0x40FF4040)
+                        ? ReelForgeTheme.accentRed.withAlpha(64)
                         : ReelForgeTheme.borderSubtle,
               ),
             )
@@ -416,9 +416,9 @@ class LoudnessMeter extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: isOnTarget
-                    ? const Color(0x3340FF90)
+                    ? ReelForgeTheme.accentGreen.withAlpha(51)
                     : isOver
-                        ? const Color(0x33FF4040)
+                        ? ReelForgeTheme.accentRed.withAlpha(51)
                         : ReelForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(3),
               ),
@@ -429,9 +429,9 @@ class LoudnessMeter extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontFamily: 'monospace',
                   color: isOnTarget
-                      ? const Color(0xFF40FF90)
+                      ? ReelForgeTheme.accentGreen
                       : isOver
-                          ? const Color(0xFFFF4040)
+                          ? ReelForgeTheme.accentRed
                           : ReelForgeTheme.textSecondary,
                 ),
               ),
@@ -451,10 +451,10 @@ class LoudnessMeter extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: isOver ? const Color(0x33FF4040) : ReelForgeTheme.bgDeepest,
+        color: isOver ? ReelForgeTheme.accentRed.withAlpha(51) : ReelForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isOver ? const Color(0x80FF4040) : ReelForgeTheme.borderSubtle,
+          color: isOver ? ReelForgeTheme.accentRed.withAlpha(128) : ReelForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
@@ -466,7 +466,7 @@ class LoudnessMeter extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: isOver
-                  ? const Color(0xFFFF4040)
+                  ? ReelForgeTheme.accentRed
                   : ReelForgeTheme.accentOrange,
             ),
           ),
@@ -488,7 +488,7 @@ class LoudnessMeter extends StatelessWidget {
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
               color: isOver
-                  ? const Color(0xFFFF4040)
+                  ? ReelForgeTheme.accentRed
                   : isValid
                       ? ReelForgeTheme.textPrimary
                       : ReelForgeTheme.textTertiary,
@@ -510,7 +510,7 @@ class LoudnessMeter extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: isOver
-                    ? const Color(0x66FF4040)
+                    ? ReelForgeTheme.accentRed.withAlpha(102)
                     : ReelForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(3),
               ),
@@ -521,8 +521,8 @@ class LoudnessMeter extends StatelessWidget {
                     isOver ? Icons.warning_amber : Icons.check,
                     size: 10,
                     color: isOver
-                        ? const Color(0xFFFF4040)
-                        : const Color(0xFF40FF90),
+                        ? ReelForgeTheme.accentRed
+                        : ReelForgeTheme.accentGreen,
                   ),
                   const SizedBox(width: 2),
                   Text(
@@ -530,7 +530,7 @@ class LoudnessMeter extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       color: isOver
-                          ? const Color(0xFFFF4040)
+                          ? ReelForgeTheme.accentRed
                           : ReelForgeTheme.textSecondary,
                     ),
                   ),
@@ -631,7 +631,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
   void _drawLufsMeter(Canvas canvas, Rect rect) {
     // Background
-    final bgPaint = Paint()..color = const Color(0xFF1A1A20);
+    final bgPaint = Paint()..color = ReelForgeTheme.bgMid;
     canvas.drawRect(rect, bgPaint);
 
     // Scale: -60 to 0 LUFS
@@ -644,7 +644,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     }
 
     // Target zone (-1 to +1 around target)
-    final targetZonePaint = Paint()..color = const Color(0x3340FF90);
+    final targetZonePaint = Paint()..color = ReelForgeTheme.accentGreen.withAlpha(51);
     final targetLeft = lufsToX(targetLufs - 1);
     final targetRight = lufsToX(targetLufs + 1);
     canvas.drawRect(
@@ -654,7 +654,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
     // Target line
     final targetLinePaint = Paint()
-      ..color = const Color(0xFF40FF90)
+      ..color = ReelForgeTheme.accentGreen
       ..strokeWidth = 2;
     final targetX = lufsToX(targetLufs);
     canvas.drawLine(
@@ -671,7 +671,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       canvas,
       Rect.fromLTWH(rect.left, rect.top + 1, rect.width, barHeight),
       lufsM,
-      const Color(0xFF4A9EFF),
+      ReelForgeTheme.accentBlue,
       minLufs,
       maxLufs,
     );
@@ -681,7 +681,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       canvas,
       Rect.fromLTWH(rect.left, rect.top + barHeight + 2, rect.width, barHeight),
       lufsS,
-      const Color(0xFF40C8FF),
+      ReelForgeTheme.accentCyan,
       minLufs,
       maxLufs,
     );
@@ -692,14 +692,14 @@ class _LoudnessMeterPainter extends CustomPainter {
       Rect.fromLTWH(
           rect.left, rect.top + (barHeight + 2) * 2, rect.width, barHeight),
       lufsI,
-      const Color(0xFF40FF90),
+      ReelForgeTheme.accentGreen,
       minLufs,
       maxLufs,
     );
 
     // Scale ticks
     final tickPaint = Paint()
-      ..color = const Color(0x40FFFFFF)
+      ..color = ReelForgeTheme.textPrimary.withAlpha(64)
       ..strokeWidth = 1;
     for (final tick in [-48, -36, -24, -18, -12, -6, 0]) {
       final x = lufsToX(tick.toDouble());
@@ -742,7 +742,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
   void _drawTruePeakMeter(Canvas canvas, Rect rect) {
     // Background
-    final bgPaint = Paint()..color = const Color(0xFF1A1A20);
+    final bgPaint = Paint()..color = ReelForgeTheme.bgMid;
     canvas.drawRect(rect, bgPaint);
 
     // Scale: -60 to +3 dBTP
@@ -757,7 +757,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     // Ceiling line
     final ceilingX = dbToX(truePeakCeiling);
     final ceilingPaint = Paint()
-      ..color = const Color(0xFFFF4040)
+      ..color = ReelForgeTheme.accentRed
       ..strokeWidth = 2;
     canvas.drawLine(
       Offset(ceilingX, rect.top),
@@ -766,7 +766,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     );
 
     // Over ceiling zone
-    final overZonePaint = Paint()..color = const Color(0x33FF4040);
+    final overZonePaint = Paint()..color = ReelForgeTheme.accentRed.withAlpha(51);
     canvas.drawRect(
       Rect.fromLTRB(ceilingX, rect.top, rect.right, rect.bottom),
       overZonePaint,
@@ -782,11 +782,11 @@ class _LoudnessMeterPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          const Color(0xFF40C8FF),
-          const Color(0xFF40FF90),
-          const Color(0xFFFFFF40),
-          const Color(0xFFFF9040),
-          const Color(0xFFFF4040),
+          ReelForgeTheme.accentCyan,
+          ReelForgeTheme.accentGreen,
+          ReelForgeTheme.accentYellow,
+          ReelForgeTheme.accentOrange,
+          ReelForgeTheme.accentRed,
         ],
         stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
       ).createShader(Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height));
@@ -800,7 +800,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       // Peak hold indicator
       final peakX = dbToX(truePeak);
       final peakPaint = Paint()
-        ..color = isOver ? const Color(0xFFFF4040) : Colors.white
+        ..color = isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary
         ..strokeWidth = 2;
       canvas.drawLine(
         Offset(peakX, rect.top),
@@ -890,7 +890,7 @@ class CompactLoudnessDisplay extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 color: isTpOver
-                    ? const Color(0xFFFF4040)
+                    ? ReelForgeTheme.accentRed
                     : ReelForgeTheme.textTertiary,
               ),
             ),
@@ -902,7 +902,7 @@ class CompactLoudnessDisplay extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
                 color: isTpOver
-                    ? const Color(0xFFFF4040)
+                    ? ReelForgeTheme.accentRed
                     : isTpValid
                         ? ReelForgeTheme.textPrimary
                         : ReelForgeTheme.textTertiary,

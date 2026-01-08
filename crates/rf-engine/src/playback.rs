@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
 
@@ -27,36 +27,92 @@ use rf_dsp::analysis::FftAnalyzer;
 use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AUDIO CACHE
+// AUDIO CACHE WITH LRU EVICTION
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Cache for loaded audio files
+/// Default maximum cache size (512MB)
+pub const DEFAULT_CACHE_MAX_BYTES: usize = 512 * 1024 * 1024;
+
+/// Minimum files to keep in cache regardless of size
+pub const MIN_CACHE_FILES: usize = 4;
+
+/// Cached audio entry with LRU tracking
+struct CacheEntry {
+    /// The audio data
+    audio: Arc<ImportedAudio>,
+    /// Last access time (monotonic counter)
+    last_access: u64,
+    /// Size in bytes
+    size_bytes: usize,
+}
+
+/// Cache for loaded audio files with LRU eviction policy
 pub struct AudioCache {
-    /// Map from file path to loaded audio data
-    pub(crate) files: RwLock<HashMap<String, Arc<ImportedAudio>>>,
+    /// Map from file path to cache entry
+    entries: RwLock<HashMap<String, CacheEntry>>,
+    /// Access counter for LRU tracking
+    access_counter: AtomicU64,
+    /// Maximum cache size in bytes
+    max_bytes: usize,
+    /// Current cache size in bytes
+    current_bytes: AtomicU64,
 }
 
 impl AudioCache {
+    /// Create new cache with default size limit
     pub fn new() -> Self {
+        Self::with_max_size(DEFAULT_CACHE_MAX_BYTES)
+    }
+
+    /// Create cache with custom size limit
+    pub fn with_max_size(max_bytes: usize) -> Self {
         Self {
-            files: RwLock::new(HashMap::new()),
+            entries: RwLock::new(HashMap::new()),
+            access_counter: AtomicU64::new(0),
+            max_bytes,
+            current_bytes: AtomicU64::new(0),
         }
     }
 
     /// Load audio file into cache (or return cached version)
+    /// Automatically evicts LRU entries if cache is full
     pub fn load(&self, path: &str) -> Option<Arc<ImportedAudio>> {
         // Check if already cached
-        if let Some(audio) = self.files.read().get(path) {
-            return Some(Arc::clone(audio));
+        {
+            let mut entries = self.entries.write();
+            if let Some(entry) = entries.get_mut(path) {
+                // Update LRU timestamp
+                entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
+                return Some(Arc::clone(&entry.audio));
+            }
         }
 
         // Load from disk
         match AudioImporter::import(Path::new(path)) {
             Ok(audio) => {
+                let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
                 let arc = Arc::new(audio);
-                self.files
-                    .write()
-                    .insert(path.to_string(), Arc::clone(&arc));
+
+                // Evict if necessary before adding
+                self.evict_if_needed(size_bytes);
+
+                // Add to cache
+                let entry = CacheEntry {
+                    audio: Arc::clone(&arc),
+                    last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
+                    size_bytes,
+                };
+
+                self.entries.write().insert(path.to_string(), entry);
+                self.current_bytes.fetch_add(size_bytes as u64, Ordering::Relaxed);
+
+                log::debug!(
+                    "Cached audio '{}' ({:.2} MB, total cache: {:.2} MB)",
+                    path,
+                    size_bytes as f64 / 1024.0 / 1024.0,
+                    self.current_bytes.load(Ordering::Relaxed) as f64 / 1024.0 / 1024.0
+                );
+
                 Some(arc)
             }
             Err(e) => {
@@ -66,38 +122,155 @@ impl AudioCache {
         }
     }
 
-    /// Check if file is cached
-    pub fn is_cached(&self, path: &str) -> bool {
-        self.files.read().contains_key(path)
+    /// Evict least recently used entries until we have room for new_size bytes
+    fn evict_if_needed(&self, new_size: usize) {
+        let current = self.current_bytes.load(Ordering::Relaxed) as usize;
+
+        // Check if eviction is needed
+        if current + new_size <= self.max_bytes {
+            return;
+        }
+
+        let target_size = self.max_bytes.saturating_sub(new_size);
+        let mut entries = self.entries.write();
+
+        // Keep evicting until we're under target or at minimum files
+        while self.current_bytes.load(Ordering::Relaxed) as usize > target_size
+            && entries.len() > MIN_CACHE_FILES
+        {
+            // Find LRU entry
+            let lru_key = entries
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_access)
+                .map(|(k, _)| k.clone());
+
+            if let Some(key) = lru_key {
+                if let Some(entry) = entries.remove(&key) {
+                    self.current_bytes
+                        .fetch_sub(entry.size_bytes as u64, Ordering::Relaxed);
+                    log::debug!(
+                        "Evicted LRU cache entry '{}' ({:.2} MB)",
+                        key,
+                        entry.size_bytes as f64 / 1024.0 / 1024.0
+                    );
+                }
+            } else {
+                break;
+            }
+        }
     }
 
-    /// Get cached audio (without loading)
+    /// Check if file is cached
+    pub fn is_cached(&self, path: &str) -> bool {
+        self.entries.read().contains_key(path)
+    }
+
+    /// Get cached audio (without loading) - updates LRU timestamp
     pub fn get(&self, path: &str) -> Option<Arc<ImportedAudio>> {
-        self.files.read().get(path).cloned()
+        let mut entries = self.entries.write();
+        if let Some(entry) = entries.get_mut(path) {
+            entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
+            return Some(Arc::clone(&entry.audio));
+        }
+        None
+    }
+
+    /// Peek cached audio without updating LRU timestamp
+    pub fn peek(&self, path: &str) -> Option<Arc<ImportedAudio>> {
+        self.entries.read().get(path).map(|e| Arc::clone(&e.audio))
     }
 
     /// Remove file from cache
     pub fn unload(&self, path: &str) {
-        self.files.write().remove(path);
+        if let Some(entry) = self.entries.write().remove(path) {
+            self.current_bytes
+                .fetch_sub(entry.size_bytes as u64, Ordering::Relaxed);
+        }
     }
 
     /// Clear entire cache
     pub fn clear(&self) {
-        self.files.write().clear();
+        self.entries.write().clear();
+        self.current_bytes.store(0, Ordering::Relaxed);
     }
 
     /// Get cache size (number of files)
     pub fn size(&self) -> usize {
-        self.files.read().len()
+        self.entries.read().len()
     }
 
-    /// Get total memory usage (approximate)
+    /// Get total memory usage (bytes)
     pub fn memory_usage(&self) -> usize {
-        self.files
+        self.current_bytes.load(Ordering::Relaxed) as usize
+    }
+
+    /// Get maximum cache size (bytes)
+    pub fn max_size(&self) -> usize {
+        self.max_bytes
+    }
+
+    /// Get cache utilization (0.0 - 1.0)
+    pub fn utilization(&self) -> f64 {
+        self.memory_usage() as f64 / self.max_bytes as f64
+    }
+
+    /// Set new maximum cache size, evicting if necessary
+    pub fn set_max_size(&mut self, max_bytes: usize) {
+        self.max_bytes = max_bytes;
+        self.evict_if_needed(0);
+    }
+
+    /// Get list of cached file paths ordered by recency (most recent first)
+    pub fn cached_files(&self) -> Vec<String> {
+        let entries = self.entries.read();
+        let mut files: Vec<_> = entries
+            .iter()
+            .map(|(k, v)| (k.clone(), v.last_access))
+            .collect();
+        files.sort_by(|a, b| b.1.cmp(&a.1)); // Descending by access time
+        files.into_iter().map(|(k, _)| k).collect()
+    }
+
+    /// Touch entry to mark as recently used (without returning data)
+    pub fn touch(&self, path: &str) {
+        if let Some(entry) = self.entries.write().get_mut(path) {
+            entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Insert audio directly into cache (for pre-loaded/rendered audio)
+    /// This bypasses disk loading
+    pub fn insert(&self, path: String, audio: Arc<ImportedAudio>) {
+        let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
+
+        // Evict if necessary
+        self.evict_if_needed(size_bytes);
+
+        let entry = CacheEntry {
+            audio,
+            last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
+            size_bytes,
+        };
+
+        // Check if replacing existing entry
+        if let Some(old) = self.entries.write().insert(path, entry) {
+            // Adjust size if replacing
+            self.current_bytes
+                .fetch_sub(old.size_bytes as u64, Ordering::Relaxed);
+        }
+
+        self.current_bytes
+            .fetch_add(size_bytes as u64, Ordering::Relaxed);
+    }
+
+    /// Get all entries as HashMap (for offline rendering compatibility)
+    /// Creates a temporary copy - suitable for offline operations
+    pub fn to_hashmap(&self) -> HashMap<String, Arc<ImportedAudio>> {
+        self.entries
             .read()
-            .values()
-            .map(|a| a.samples.len() * std::mem::size_of::<f32>())
-            .sum()
+            .iter()
+            .map(|(k, v)| (k.clone(), Arc::clone(&v.audio)))
+            .collect()
     }
 }
 
@@ -484,6 +657,14 @@ pub struct PlaybackEngine {
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
     spectrum_data: RwLock<Vec<f32>>,
+    /// Pre-allocated track buffer left (avoid heap alloc in audio thread)
+    track_buffer_l: RwLock<Vec<f64>>,
+    /// Pre-allocated track buffer right (avoid heap alloc in audio thread)
+    track_buffer_r: RwLock<Vec<f64>>,
+    /// Pre-allocated mono buffer for spectrum analyzer
+    spectrum_mono_buffer: RwLock<Vec<f64>>,
+    /// Current block size (for buffer reallocation check)
+    current_block_size: AtomicUsize,
 }
 
 impl PlaybackEngine {
@@ -518,6 +699,11 @@ impl PlaybackEngine {
             track_meters: RwLock::new(HashMap::new()),
             spectrum_analyzer: RwLock::new(FftAnalyzer::new(2048)),
             spectrum_data: RwLock::new(vec![0.0_f32; 256]),
+            // Pre-allocate buffers for common block size (will resize if needed)
+            track_buffer_l: RwLock::new(vec![0.0_f64; 4096]),
+            track_buffer_r: RwLock::new(vec![0.0_f64; 4096]),
+            spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 4096]),
+            current_block_size: AtomicUsize::new(4096),
         }
     }
 
@@ -906,16 +1092,37 @@ impl PlaybackEngine {
     }
 
     /// Get all track meters as HashMap
+    /// Note: This clones the HashMap - use get_track_meters_for_ids for better performance
     pub fn get_all_track_meters(&self) -> HashMap<u64, TrackMeter> {
         self.track_meters.read().clone()
     }
 
+    /// Get track meters for specific track IDs (more efficient than get_all_track_meters)
+    /// Avoids cloning the entire HashMap when only a subset of tracks is needed
+    pub fn get_track_meters_for_ids(&self, track_ids: &[u64]) -> Vec<(u64, TrackMeter)> {
+        let meters = self.track_meters.read();
+        track_ids
+            .iter()
+            .filter_map(|&id| meters.get(&id).map(|m| (id, *m)))
+            .collect()
+    }
+
     /// Get all track peaks as HashMap (backward compatibility - returns max of L/R)
+    /// Note: This allocates a new HashMap - use get_track_peaks_for_ids for better performance
     pub fn get_all_track_peaks(&self) -> HashMap<u64, f64> {
         self.track_meters
             .read()
             .iter()
             .map(|(&id, m)| (id, m.peak_l.max(m.peak_r)))
+            .collect()
+    }
+
+    /// Get track peaks for specific track IDs (more efficient)
+    pub fn get_track_peaks_for_ids(&self, track_ids: &[u64]) -> Vec<(u64, f64)> {
+        let meters = self.track_meters.read();
+        track_ids
+            .iter()
+            .filter_map(|&id| meters.get(&id).map(|m| (id, m.peak_l.max(m.peak_r))))
             .collect()
     }
 
@@ -1026,18 +1233,6 @@ impl PlaybackEngine {
             return;
         }
 
-        // Debug: Log once every ~1 second (at 48kHz, ~188 calls per sec with 256 frame buffer)
-        static DEBUG_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if count % 200 == 0 {
-            let cache_size = self.cache.files.read().len();
-            log::info!(
-                "[Process] Playing at sample {}, cache has {} files",
-                self.position.samples(),
-                cache_size
-            );
-        }
-
         let sample_rate = self.position.sample_rate() as f64;
         let start_sample = self.position.samples();
         let start_time = start_sample as f64 / sample_rate;
@@ -1076,9 +1271,26 @@ impl PlaybackEngine {
             None => return,
         };
 
-        // Temporary track output buffer
-        let mut track_l = vec![0.0f64; frames];
-        let mut track_r = vec![0.0f64; frames];
+        // Use pre-allocated track buffers (resize only if block size changed)
+        let mut track_l_guard = match self.track_buffer_l.try_write() {
+            Some(g) => g,
+            None => return,
+        };
+        let mut track_r_guard = match self.track_buffer_r.try_write() {
+            Some(g) => g,
+            None => return,
+        };
+
+        // Ensure buffers are large enough (only reallocates if frames > current capacity)
+        if track_l_guard.len() < frames {
+            track_l_guard.resize(frames, 0.0);
+            track_r_guard.resize(frames, 0.0);
+            self.current_block_size.store(frames, Ordering::Relaxed);
+        }
+
+        // Get mutable slices of the exact size needed
+        let track_l = &mut track_l_guard[..frames];
+        let track_r = &mut track_r_guard[..frames];
 
         // Process each track → route to its bus
         for track in tracks.values() {
@@ -1090,14 +1302,20 @@ impl PlaybackEngine {
             track_l.fill(0.0);
             track_r.fill(0.0);
 
-            // Find crossfades active in this track for this time range
-            let track_crossfades: Vec<&Crossfade> = crossfades
-                .values()
-                .filter(|xf| {
-                    xf.track_id == track.id
-                        && (xf.start_time < end_time && xf.end_time() > start_time)
-                })
-                .collect();
+            // Find crossfades active in this track for this time range (iterate without collect)
+            // Store matching crossfade IDs to avoid lifetime issues
+            let mut active_crossfade_ids: [Option<u64>; 8] = [None; 8];
+            let mut crossfade_count = 0;
+            for xf in crossfades.values() {
+                if xf.track_id == track.id
+                    && xf.start_time < end_time
+                    && xf.end_time() > start_time
+                    && crossfade_count < 8
+                {
+                    active_crossfade_ids[crossfade_count] = Some(xf.id.0);
+                    crossfade_count += 1;
+                }
+            }
 
             // Get clips for this track that overlap with current time range
             for clip in clips.values() {
@@ -1116,11 +1334,16 @@ impl PlaybackEngine {
                     None => continue,
                 };
 
-                // Check if this clip is part of any active crossfade
-                let crossfade = track_crossfades
+                // Check if this clip is part of any active crossfade (using stored IDs)
+                let crossfade = active_crossfade_ids[..crossfade_count]
                     .iter()
-                    .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
-                    .copied();
+                    .filter_map(|&id| id)
+                    .find_map(|xf_id| {
+                        crossfades.values().find(|xf| {
+                            xf.id.0 == xf_id
+                                && (xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
+                        })
+                    });
 
                 // Process clip samples into track buffer (with crossfade if applicable)
                 self.process_clip_with_crossfade(
@@ -1130,18 +1353,16 @@ impl PlaybackEngine {
                     crossfade,
                     start_sample,
                     sample_rate,
-                    &mut track_l,
-                    &mut track_r,
+                    track_l,
+                    track_r,
                 );
             }
 
             // Process track insert chain (pre-fader inserts applied before volume)
-            // Note: Using write() instead of try_write() ensures processing always happens.
-            // UI parameter updates should be quick, minimizing contention.
-            {
-                let mut chains = self.insert_chains.write();
+            // Use try_write to avoid blocking audio thread - skip inserts if lock contended
+            if let Some(mut chains) = self.insert_chains.try_write() {
                 if let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_pre_fader(&mut track_l, &mut track_r);
+                    chain.process_pre_fader(track_l, track_r);
                 }
             }
 
@@ -1151,8 +1372,10 @@ impl PlaybackEngine {
             let final_volume = track_volume * vca_gain;
 
             let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
-            let pan_l = ((1.0 - pan) * std::f64::consts::FRAC_PI_4).cos();
-            let pan_r = ((1.0 + pan) * std::f64::consts::FRAC_PI_4).cos();
+            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
+            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4; // 0 to PI/2
+            let pan_l = pan_angle.cos();  // 1 at left, 0.707 at center, 0 at right
+            let pan_r = pan_angle.sin();  // 0 at left, 0.707 at center, 1 at right
 
             for i in 0..frames {
                 track_l[i] *= final_volume * pan_l;
@@ -1160,10 +1383,10 @@ impl PlaybackEngine {
             }
 
             // Process track insert chain (post-fader inserts applied after volume)
-            {
-                let mut chains = self.insert_chains.write();
+            // Use try_write to avoid blocking audio thread - skip inserts if lock contended
+            if let Some(mut chains) = self.insert_chains.try_write() {
                 if let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_post_fader(&mut track_l, &mut track_r);
+                    chain.process_post_fader(track_l, track_r);
                 }
             }
 
@@ -1175,7 +1398,7 @@ impl PlaybackEngine {
             }
 
             // Route track to its output bus
-            bus_buffers.add_to_bus(track.output_bus, &track_l, &track_r);
+            bus_buffers.add_to_bus(track.output_bus, track_l, track_r);
         }
 
         // Process buses → sum to master
@@ -1203,8 +1426,10 @@ impl PlaybackEngine {
             // Apply bus volume and pan
             let volume = state.volume;
             let pan = state.pan;
-            let pan_l = ((1.0 - pan) * std::f64::consts::FRAC_PI_4).cos();
-            let pan_r = ((1.0 + pan) * std::f64::consts::FRAC_PI_4).cos();
+            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
+            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_l = pan_angle.cos();
+            let pan_r = pan_angle.sin();
 
             for i in 0..frames {
                 output_l[i] += bus_l[i] * volume * pan_l;
@@ -1312,14 +1537,19 @@ impl PlaybackEngine {
         }
 
         // Spectrum analyzer (FFT)
-        // Mix to mono and feed to analyzer
+        // Mix to mono using pre-allocated buffer to avoid heap allocation
         if let Some(mut analyzer) = self.spectrum_analyzer.try_write() {
-            let mono_samples: Vec<f64> = output_l
-                .iter()
-                .zip(output_r.iter())
-                .map(|(&l, &r)| (l + r) * 0.5)
-                .collect();
-            analyzer.push_samples(&mono_samples);
+            if let Some(mut mono_buffer) = self.spectrum_mono_buffer.try_write() {
+                // Ensure buffer is large enough
+                if mono_buffer.len() < frames {
+                    mono_buffer.resize(frames, 0.0);
+                }
+                // Mix stereo to mono in-place
+                for i in 0..frames {
+                    mono_buffer[i] = (output_l[i] + output_r[i]) * 0.5;
+                }
+                analyzer.push_samples(&mono_buffer[..frames]);
+            }
             analyzer.analyze();
 
             // Convert FFT bins to log-scaled 256 bins (20Hz-20kHz)
@@ -1434,8 +1664,10 @@ impl PlaybackEngine {
             let vca_gain = self.get_vca_gain(track.id.0);
             let final_volume = track_volume * vca_gain;
             let pan = track.pan;
-            let pan_l = if pan < 0.0 { 1.0 } else { 1.0 - pan };
-            let pan_r = if pan > 0.0 { 1.0 } else { 1.0 + pan };
+            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
+            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_l = pan_angle.cos();
+            let pan_r = pan_angle.sin();
 
             for i in 0..frames {
                 track_l[i] *= final_volume * pan_l;
@@ -1672,8 +1904,10 @@ impl PlaybackEngine {
                 };
 
                 let pan_val = pan.clamp(-1.0, 1.0);
-                let pan_l = ((1.0 - pan_val) * std::f64::consts::FRAC_PI_4).cos();
-                let pan_r = ((1.0 + pan_val) * std::f64::consts::FRAC_PI_4).cos();
+                // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
+                let pan_angle = (pan_val + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_l = pan_angle.cos();
+                let pan_r = pan_angle.sin();
 
                 (sample_l * gain * pan_l, sample_r * gain * pan_r)
             }

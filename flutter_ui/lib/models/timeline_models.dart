@@ -158,7 +158,7 @@ class TimelineTrack {
   const TimelineTrack({
     required this.id,
     required this.name,
-    this.color = const Color(0xFF4A9EFF),
+    this.color = const Color(0xFF5B9BD5), // Logic Pro audio blue
     this.height = 80,
     this.muted = false,
     this.soloed = false,

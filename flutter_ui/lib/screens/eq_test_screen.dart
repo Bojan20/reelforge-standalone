@@ -3,6 +3,7 @@
 // Test screen to preview all EQ widgets before integration
 
 import 'package:flutter/material.dart';
+import '../theme/reelforge_theme.dart';
 import '../widgets/eq/pro_eq_editor.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
@@ -42,17 +43,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0C),
+      backgroundColor: ReelForgeTheme.bgVoid,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121216),
+        backgroundColor: ReelForgeTheme.bgDeep,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: Icon(Icons.arrow_back, color: ReelForgeTheme.textSecondary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'EQ Test Lab',
           style: TextStyle(
-            color: Colors.white,
+            color: ReelForgeTheme.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -60,9 +61,9 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          indicatorColor: const Color(0xFF4A9EFF),
-          labelColor: const Color(0xFF4A9EFF),
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: ReelForgeTheme.accentBlue,
+          labelColor: ReelForgeTheme.accentBlue,
+          unselectedLabelColor: ReelForgeTheme.textTertiary,
           tabs: const [
             Tab(text: 'Pro EQ 64'),
             Tab(text: 'Pultec'),
@@ -88,7 +89,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
   Widget _buildProEqTab() {
     // Fullscreen Pro-EQ with VanEQ Pro styling
     return Container(
-      color: const Color(0xFF050508), // VanEQ Pro background
+      color: ReelForgeTheme.bgVoid, // VanEQ Pro background
       child: LayoutBuilder(
         builder: (context, constraints) {
           return Center(
@@ -108,7 +109,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Wrap(
@@ -130,15 +131,15 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF242430),
+        color: ReelForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF4A9EFF)),
+          Icon(icon, size: 14, color: ReelForgeTheme.accentBlue),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(label, style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
         ],
       ),
     );
@@ -150,10 +151,10 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Pultec EQP-1A',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -162,7 +163,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Legendary passive tube EQ • Famous "Boost & Cut" trick • Smooth musical curves',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: ReelForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -188,17 +189,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.lightbulb_outline, color: Color(0xFFFF9040), size: 20),
+          Icon(Icons.lightbulb_outline, color: ReelForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Pro tip: Boost AND cut at the same frequency for the famous "Pultec trick" - adds harmonic richness!',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -212,10 +213,10 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'API 550A',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -224,7 +225,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             '3-band discrete EQ • Proportional Q • Punchy American character',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: ReelForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -250,17 +251,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.music_note, color: Color(0xFF40FF90), size: 20),
+          Icon(Icons.music_note, color: ReelForgeTheme.accentGreen, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Classic on drums, vocals, and guitars. The proportional Q gives it that "musical" feel.',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -274,10 +275,10 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Neve 1073',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -286,7 +287,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Legendary preamp/EQ • Inductor-based filters • Transformer saturation',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: ReelForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -312,17 +313,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.auto_awesome, color: Color(0xFF40C8FF), size: 20),
+          Icon(Icons.auto_awesome, color: ReelForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'The sound of countless hit records. Smooth highs, punchy lows, musical in any setting.',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -336,10 +337,10 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Preset Morph Pad',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -348,7 +349,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'XY pad for blending between 4 presets • Smooth interpolation • Pro-Q 4 doesn\'t have this!',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: ReelForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -366,22 +367,22 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
                   },
                   presetA: MorphPreset(
                     name: 'Warm',
-                    color: Colors.orange,
+                    color: ReelForgeTheme.accentOrange,
                     parameters: {'bass': 3.0, 'mid': -1.0, 'treble': -2.0},
                   ),
                   presetB: MorphPreset(
                     name: 'Bright',
-                    color: Colors.cyan,
+                    color: ReelForgeTheme.accentCyan,
                     parameters: {'bass': -1.0, 'mid': 1.0, 'treble': 4.0},
                   ),
                   presetC: MorphPreset(
                     name: 'Flat',
-                    color: Colors.grey,
+                    color: ReelForgeTheme.textTertiary,
                     parameters: {'bass': 0.0, 'mid': 0.0, 'treble': 0.0},
                   ),
                   presetD: MorphPreset(
                     name: 'Scooped',
-                    color: Colors.purple,
+                    color: ReelForgeTheme.accentPurple,
                     parameters: {'bass': 4.0, 'mid': -4.0, 'treble': 3.0},
                   ),
                 ),
@@ -399,7 +400,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -407,18 +408,18 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Row(
             children: [
-              const Icon(Icons.touch_app, color: Color(0xFFFF9040), size: 20),
+              Icon(Icons.touch_app, color: ReelForgeTheme.accentOrange, size: 20),
               const SizedBox(width: 12),
               Text(
                 'Drag to blend between presets',
-                style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Position: X=${_morphPosition.dx.toStringAsFixed(2)}, Y=${_morphPosition.dy.toStringAsFixed(2)}',
-            style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 12, fontFamily: 'monospace'),
+            style: TextStyle(color: ReelForgeTheme.accentBlue, fontSize: 12, fontFamily: 'monospace'),
           ),
         ],
       ),

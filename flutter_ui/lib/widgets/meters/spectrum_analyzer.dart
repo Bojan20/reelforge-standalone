@@ -10,6 +10,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Spectrum display mode
 enum SpectrumDisplayMode {
@@ -38,12 +39,12 @@ class SpectrumAnalyzerConfig {
 
   const SpectrumAnalyzerConfig({
     this.mode = SpectrumDisplayMode.bars,
-    this.lowColor = const Color(0xFF40C8FF),
-    this.midColor = const Color(0xFF40FF90),
-    this.highColor = const Color(0xFFFF9040),
-    this.backgroundColor = const Color(0xFF0A0A0E),
-    this.gridColor = const Color(0xFF2A2A30),
-    this.peakColor = Colors.white,
+    this.lowColor = ReelForgeTheme.accentCyan,
+    this.midColor = ReelForgeTheme.accentGreen,
+    this.highColor = ReelForgeTheme.accentOrange,
+    this.backgroundColor = ReelForgeTheme.bgDeepest,
+    this.gridColor = ReelForgeTheme.borderSubtle,
+    this.peakColor = ReelForgeTheme.textPrimary,
     this.showPeakHold = true,
     this.showGrid = true,
     this.showFreqLabels = true,
@@ -127,7 +128,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer> {
       decoration: BoxDecoration(
         color: widget.config.backgroundColor,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -352,7 +353,7 @@ class _SpectrumPainter extends CustomPainter {
 
   void _drawFreqLabels(Canvas canvas, Size size) {
     final textStyle = TextStyle(
-      color: const Color(0xFF808090),
+      color: ReelForgeTheme.textTertiary,
       fontSize: 9,
       fontFamily: 'monospace',
     );
@@ -377,7 +378,7 @@ class _SpectrumPainter extends CustomPainter {
 
   void _drawDbLabels(Canvas canvas, Size size) {
     final textStyle = TextStyle(
-      color: const Color(0xFF808090),
+      color: ReelForgeTheme.textTertiary,
       fontSize: 9,
       fontFamily: 'monospace',
     );

@@ -170,7 +170,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           center: const Alignment(-0.3, -0.5),
           radius: 1.5,
           colors: [
-            const Color(0xFF1A1A24),
+            ReelForgeTheme.bgMid,
             ReelForgeTheme.bgDeepest,
           ],
         ),
@@ -329,12 +329,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   ReelForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
-              child: const Text(
+              child: Text(
                 'R',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w200,
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                 ),
               ),
             ),
@@ -352,13 +352,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   ReelForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
-              child: const Text(
+              child: Text(
                 'ReelForge',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w300,
                   letterSpacing: 4,
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                 ),
               ),
             ),
@@ -527,7 +527,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(128),
+            color: ReelForgeTheme.bgVoid.withAlpha(200),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -614,7 +614,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 onPressed: _confirmNewProject,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ReelForgeTheme.accentBlue,
-                  foregroundColor: Colors.white,
+                  foregroundColor: ReelForgeTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,

@@ -51,7 +51,7 @@ class TruePeak8xMeter extends StatelessWidget {
               child: const Text(
                 '8x',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                   fontSize: 8,
                   fontWeight: FontWeight.bold,
                 ),
@@ -61,7 +61,7 @@ class TruePeak8xMeter extends StatelessWidget {
             Text(
               'TRUE PEAK',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -93,7 +93,7 @@ class TruePeak8xMeter extends StatelessWidget {
         Text(
           '${data.peakDbtp.toStringAsFixed(1)} dBTP',
           style: TextStyle(
-            color: data.isClipping ? Colors.red : Colors.white,
+            color: data.isClipping ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -102,7 +102,7 @@ class TruePeak8xMeter extends StatelessWidget {
         Text(
           'Max: ${data.maxDbtp.toStringAsFixed(1)}',
           style: TextStyle(
-            color: Colors.grey[500],
+            color: ReelForgeTheme.textTertiary,
             fontSize: 9,
           ),
         ),
@@ -138,9 +138,9 @@ class _TruePeak8xPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.red.withValues(alpha: 0.2),
-        Colors.yellow.withValues(alpha: 0.2),
-        Colors.green.withValues(alpha: 0.2),
+        ReelForgeTheme.accentRed.withValues(alpha: 0.2),
+        ReelForgeTheme.accentYellow.withValues(alpha: 0.2),
+        ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
         ReelForgeTheme.bgDeepest,
       ],
       stops: const [0.0, 0.05, 0.15, 1.0],
@@ -149,7 +149,7 @@ class _TruePeak8xPainter extends CustomPainter {
 
     // Scale markers
     final markerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     for (final db in [0, -3, -6, -12, -20, -40, -60]) {
@@ -159,7 +159,7 @@ class _TruePeak8xPainter extends CustomPainter {
 
     // 0 dBTP line (critical threshold)
     final zeroPaint = Paint()
-      ..color = Colors.red.withValues(alpha: 0.5)
+      ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.5)
       ..strokeWidth = 2;
     final zeroY = size.height * (1 - _dbToNorm(0));
     canvas.drawLine(Offset(0, zeroY), Offset(size.width, zeroY), zeroPaint);
@@ -172,8 +172,8 @@ class _TruePeak8xPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: isClipping
-          ? [Colors.red, Colors.orange]
-          : [Colors.cyan, Colors.green],
+          ? [ReelForgeTheme.accentRed, ReelForgeTheme.accentOrange]
+          : [ReelForgeTheme.accentCyan, ReelForgeTheme.accentGreen],
     );
 
     canvas.drawRect(
@@ -184,7 +184,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Hold indicator
     final holdY = size.height * (1 - _dbToNorm(holdDbtp));
     final holdPaint = Paint()
-      ..color = Colors.white
+      ..color = ReelForgeTheme.textPrimary
       ..strokeWidth = 2;
     canvas.drawLine(
       Offset(4, holdY),
@@ -195,7 +195,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Max indicator (thin line)
     final maxY = size.height * (1 - _dbToNorm(maxDbtp));
     final maxPaint = Paint()
-      ..color = Colors.red.withValues(alpha: 0.8)
+      ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.8)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(4, maxY),
@@ -206,7 +206,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Clipping indicator
     if (isClipping) {
       final clipPaint = Paint()
-        ..color = Colors.red
+        ..color = ReelForgeTheme.accentRed
         ..style = PaintingStyle.fill;
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, 8),
@@ -242,11 +242,11 @@ class PsrMeterWidget extends StatelessWidget {
   });
 
   Color _getPsrColor(double psr) {
-    if (psr < 6) return Colors.red;
-    if (psr < 8) return Colors.orange;
-    if (psr < 10) return Colors.yellow;
-    if (psr < 14) return Colors.green;
-    return Colors.cyan;
+    if (psr < 6) return ReelForgeTheme.accentRed;
+    if (psr < 8) return ReelForgeTheme.accentOrange;
+    if (psr < 10) return ReelForgeTheme.accentYellow;
+    if (psr < 14) return ReelForgeTheme.accentGreen;
+    return ReelForgeTheme.accentCyan;
   }
 
   @override
@@ -278,7 +278,7 @@ class PsrMeterWidget extends StatelessWidget {
                 child: const Text(
                   'PSR',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ReelForgeTheme.textPrimary,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -311,11 +311,11 @@ class PsrMeterWidget extends StatelessWidget {
                     // Zones background
                     Row(
                       children: [
-                        Expanded(flex: 6, child: Container(color: Colors.red.withValues(alpha: 0.2))),
-                        Expanded(flex: 2, child: Container(color: Colors.orange.withValues(alpha: 0.2))),
-                        Expanded(flex: 2, child: Container(color: Colors.yellow.withValues(alpha: 0.2))),
-                        Expanded(flex: 4, child: Container(color: Colors.green.withValues(alpha: 0.2))),
-                        Expanded(flex: 6, child: Container(color: Colors.cyan.withValues(alpha: 0.2))),
+                        Expanded(flex: 6, child: Container(color: ReelForgeTheme.accentRed.withValues(alpha: 0.2))),
+                        Expanded(flex: 2, child: Container(color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2))),
+                        Expanded(flex: 2, child: Container(color: ReelForgeTheme.accentYellow.withValues(alpha: 0.2))),
+                        Expanded(flex: 4, child: Container(color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2))),
+                        Expanded(flex: 6, child: Container(color: ReelForgeTheme.accentCyan.withValues(alpha: 0.2))),
                       ],
                     ),
                     // Value bar
@@ -362,10 +362,10 @@ class CrestFactorMeterWidget extends StatelessWidget {
   });
 
   Color _getCrestColor(double crest) {
-    if (crest < 6) return Colors.red;
-    if (crest < 10) return Colors.orange;
-    if (crest < 14) return Colors.yellow;
-    return Colors.green;
+    if (crest < 6) return ReelForgeTheme.accentRed;
+    if (crest < 10) return ReelForgeTheme.accentOrange;
+    if (crest < 14) return ReelForgeTheme.accentYellow;
+    return ReelForgeTheme.accentGreen;
   }
 
   @override
@@ -390,7 +390,7 @@ class CrestFactorMeterWidget extends StatelessWidget {
               Text(
                 'CREST',
                 style: TextStyle(
-                  color: Colors.grey[500],
+                  color: ReelForgeTheme.textTertiary,
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
                 ),
@@ -433,8 +433,8 @@ class CrestFactorMeterWidget extends StatelessWidget {
   Widget _buildRef(String label, String value) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 7)),
-        Text(value, style: TextStyle(color: Colors.grey[500], fontSize: 8)),
+        Text(label, style: TextStyle(color: ReelForgeTheme.textDisabled, fontSize: 7)),
+        Text(value, style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 8)),
       ],
     );
   }
@@ -484,7 +484,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                 child: const Text(
                   'PSYCHOACOUSTIC',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ReelForgeTheme.textPrimary,
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1,
@@ -495,7 +495,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
               Text(
                 'ISO 532-1',
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: ReelForgeTheme.textDisabled,
                   fontSize: 8,
                 ),
               ),
@@ -512,14 +512,14 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                   Text(
                     'LOUDNESS',
                     style: TextStyle(
-                      color: Colors.grey[500],
+                      color: ReelForgeTheme.textTertiary,
                       fontSize: 9,
                     ),
                   ),
                   Text(
                     '${data.loudnessSones.toStringAsFixed(1)} sone',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: ReelForgeTheme.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -530,7 +530,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
               Text(
                 '${data.loudnessPhons.toStringAsFixed(0)} phon',
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: ReelForgeTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -541,9 +541,9 @@ class PsychoacousticMeterWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildMetric('Sharpness', data.sharpnessAcum, 'acum', Colors.orange),
-              _buildMetric('Roughness', data.roughnessAsper, 'asper', Colors.red),
-              _buildMetric('Fluctuation', data.fluctuationVacil, 'vacil', Colors.purple),
+              _buildMetric('Sharpness', data.sharpnessAcum, 'acum', ReelForgeTheme.accentOrange),
+              _buildMetric('Roughness', data.roughnessAsper, 'asper', ReelForgeTheme.accentRed),
+              _buildMetric('Fluctuation', data.fluctuationVacil, 'vacil', ReelForgeTheme.accentPurple),
             ],
           ),
           const SizedBox(height: 12),
@@ -551,7 +551,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
           Text(
             'SPECIFIC LOUDNESS (Bark)',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: ReelForgeTheme.textTertiary,
               fontSize: 8,
               letterSpacing: 0.5,
             ),
@@ -577,7 +577,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey[500],
+            color: ReelForgeTheme.textTertiary,
             fontSize: 8,
           ),
         ),
@@ -592,7 +592,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
         Text(
           unit,
           style: TextStyle(
-            color: Colors.grey[600],
+            color: ReelForgeTheme.textDisabled,
             fontSize: 7,
           ),
         ),
@@ -633,7 +633,7 @@ class _SpecificLoudnessPainter extends CustomPainter {
     }
 
     // Draw Bark scale labels
-    final textPaint = TextStyle(color: Colors.grey.shade600, fontSize: 6);
+    final textPaint = TextStyle(color: ReelForgeTheme.textDisabled, fontSize: 6);
     for (final bark in [0, 6, 12, 18, 24]) {
       if (bark < specificLoudness.length) {
         final x = bark * barWidth;
@@ -748,7 +748,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                 const Text(
                   'ADVANCED METERING',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ReelForgeTheme.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -822,7 +822,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                   Text(
                     'WHAT MAKES THIS SPECIAL',
                     style: TextStyle(
-                      color: Colors.grey[400],
+                      color: ReelForgeTheme.textSecondary,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -853,7 +853,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
           Text(
             '$title: ',
             style: const TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -861,7 +861,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
           Expanded(
             child: Text(
               desc,
-              style: TextStyle(color: Colors.grey[400], fontSize: 10),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
             ),
           ),
         ],

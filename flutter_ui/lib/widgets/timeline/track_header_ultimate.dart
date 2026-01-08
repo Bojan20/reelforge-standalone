@@ -53,6 +53,20 @@ class TrackHeaderUltimate extends StatefulWidget {
   final bool isSelected;
   final Float32List? waveformPreview;
   final Float32List? waveformPreviewR;
+  /// Track number (1-based, for display)
+  final int trackNumber;
+  /// Whether to show track numbers
+  final bool showTrackNumber;
+  /// Whether to show track type icons
+  final bool showTrackTypeIcon;
+  /// Whether transport is playing (for R button pulse)
+  final bool isPlaying;
+  /// Whether to show power/on-off button
+  final bool showPowerButton;
+  /// Track enabled state (for power button)
+  final bool trackEnabled;
+  /// Power button callback
+  final VoidCallback? onPowerToggle;
 
   // Callbacks
   final VoidCallback? onMuteToggle;
@@ -86,6 +100,13 @@ class TrackHeaderUltimate extends StatefulWidget {
     this.isSelected = false,
     this.waveformPreview,
     this.waveformPreviewR,
+    this.trackNumber = 1,
+    this.showTrackNumber = true,
+    this.showTrackTypeIcon = true,
+    this.isPlaying = false,
+    this.showPowerButton = false,
+    this.trackEnabled = true,
+    this.onPowerToggle,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -328,45 +349,66 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMPACT LAYOUT (40-64px) - Name + M/S/R + mini volume
+  // COMPACT LAYOUT (40-64px) - Pro Tools style: #, Icon, Name | M S R
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildCompactLayout(TimelineTrack track) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        // Row 1: Name + buttons
-        SizedBox(
-          height: 16,
+        // Left: Track number + Type icon + Name (Pro Tools style)
+        Expanded(
           child: Row(
             children: [
+              // Track number (Pro Tools style)
+              if (widget.showTrackNumber)
+                Container(
+                  width: 20,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${widget.trackNumber}',
+                    style: TextStyle(
+                      color: ReelForgeTheme.textTertiary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              // Track type icon
+              if (widget.showTrackTypeIcon)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    _getTrackTypeIcon(track),
+                    size: 12,
+                    color: track.color.withValues(alpha: 0.8),
+                  ),
+                ),
+              // Track name
               Expanded(child: _buildTrackName(track, fontSize: 11)),
-              _PillButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
-              const SizedBox(width: 2),
-              _PillButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
-              const SizedBox(width: 2),
-              _PillButton('R', track.armed, ReelForgeTheme.accentRed, widget.onArmToggle),
-              const SizedBox(width: 16),
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        // Row 2: Volume bar
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 18),
-            child: _GlassSlider(
-              value: track.volume,
-              max: 1.5,
-              color: ReelForgeTheme.accentGreen,
-              label: _volumeToDb(track.volume),
-              onChanged: widget.onVolumeChange,
-              onDoubleTap: () => widget.onVolumeChange?.call(1.0),
-            ),
-          ),
+        // Right: M S R buttons (Pro Tools style - compact)
+        _ProToolsButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
+        const SizedBox(width: 1),
+        _ProToolsButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
+        const SizedBox(width: 1),
+        _ProToolsRecordButton(
+          isArmed: track.armed,
+          isPlaying: widget.isPlaying,
+          onTap: widget.onArmToggle,
         ),
+        const SizedBox(width: 14), // Space for meter
       ],
     );
+  }
+
+  IconData _getTrackTypeIcon(TimelineTrack track) {
+    // Determine type from track properties
+    if (track.isFolder) return Icons.folder;
+    // Default to audio waveform icon for standard tracks
+    return Icons.graphic_eq;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -386,7 +428,12 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
               Expanded(child: _buildTrackName(track, fontSize: 12)),
               _CoreButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
               _CoreButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
-              _CoreButton('R', track.armed, ReelForgeTheme.accentRed, widget.onArmToggle),
+              _PulsingRecordButton(
+                isArmed: track.armed,
+                isPlaying: widget.isPlaying,
+                onTap: widget.onArmToggle,
+              ),
+              _buildInputMonitorButton(track),
               const SizedBox(width: 18),
             ],
           ),
@@ -441,7 +488,12 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
               Expanded(child: _buildTrackName(track, fontSize: 12)),
               _CoreButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
               _CoreButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
-              _CoreButton('R', track.armed, ReelForgeTheme.accentRed, widget.onArmToggle),
+              _PulsingRecordButton(
+                isArmed: track.armed,
+                isPlaying: widget.isPlaying,
+                onTap: widget.onArmToggle,
+              ),
+              _buildInputMonitorButton(track),
               const SizedBox(width: 18),
             ],
           ),
@@ -505,7 +557,7 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
           ),
         ),
         const Spacer(),
-        // Row 4: Extra buttons
+        // Row 4: Extra buttons (with power button)
         SizedBox(
           height: 14,
           child: Padding(
@@ -513,6 +565,8 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (widget.showPowerButton)
+                  _PowerButton(isEnabled: widget.trackEnabled, onTap: widget.onPowerToggle),
                 _TinyButton(Icons.auto_graph, track.automationExpanded, ReelForgeTheme.accentPurple, widget.onAutomationToggle, 'Auto'),
                 _TinyButton(Icons.ac_unit, track.frozen, ReelForgeTheme.accentCyan, widget.onFreezeToggle, 'Freeze'),
                 _TinyButton(Icons.lock_outline, track.locked, ReelForgeTheme.textSecondary, widget.onLockToggle, 'Lock'),
@@ -541,7 +595,12 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
               Expanded(child: _buildTrackName(track, fontSize: 12)),
               _CoreButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
               _CoreButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
-              _CoreButton('R', track.armed, ReelForgeTheme.accentRed, widget.onArmToggle),
+              _PulsingRecordButton(
+                isArmed: track.armed,
+                isPlaying: widget.isPlaying,
+                onTap: widget.onArmToggle,
+              ),
+              _buildInputMonitorButton(track),
               const SizedBox(width: 18),
             ],
           ),
@@ -609,7 +668,7 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
             ),
           ),
         ),
-        // Row: Extra buttons
+        // Row: Extra buttons (with power button)
         SizedBox(
           height: 14,
           child: Padding(
@@ -617,6 +676,8 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (widget.showPowerButton)
+                  _PowerButton(isEnabled: widget.trackEnabled, onTap: widget.onPowerToggle),
                 _TinyButton(Icons.auto_graph, track.automationExpanded, ReelForgeTheme.accentPurple, widget.onAutomationToggle, 'Auto'),
                 _TinyButton(Icons.ac_unit, track.frozen, ReelForgeTheme.accentCyan, widget.onFreezeToggle, 'Freeze'),
                 _TinyButton(Icons.lock_outline, track.locked, ReelForgeTheme.textSecondary, widget.onLockToggle, 'Lock'),
@@ -670,15 +731,72 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
         setState(() => _isEditing = true);
         _focusNode.requestFocus();
       },
-      child: Text(
-        track.name,
-        style: TextStyle(
-          color: track.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.textPrimary,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
+      child: Row(
+        children: [
+          // Track number (Logic Pro style)
+          if (widget.showTrackNumber) ...[
+            SizedBox(
+              width: 18,
+              child: Text(
+                '${widget.trackNumber}',
+                style: TextStyle(
+                  color: ReelForgeTheme.textTertiary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'JetBrains Mono',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+          // Track type icon (Logic Pro style)
+          if (widget.showTrackTypeIcon) ...[
+            Icon(
+              TrackTypeColors.iconFor(track.trackType),
+              size: 12,
+              color: track.muted ? ReelForgeTheme.textDisabled : track.color,
+            ),
+            const SizedBox(width: 4),
+          ],
+          // Track name
+          Expanded(
+            child: Text(
+              track.name,
+              style: TextStyle(
+                color: track.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.textPrimary,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Input Monitoring button (for audio tracks only)
+  Widget _buildInputMonitorButton(TimelineTrack track) {
+    if (track.trackType != TrackType.audio) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: widget.onMonitorToggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        width: 16,
+        height: 14,
+        margin: const EdgeInsets.only(left: 2),
+        decoration: BoxDecoration(
+          color: track.inputMonitor
+              ? ReelForgeTheme.accentGreen
+              : ReelForgeTheme.bgDeepest,
+          borderRadius: BorderRadius.circular(2),
         ),
-        overflow: TextOverflow.ellipsis,
+        child: Icon(
+          Icons.headphones,
+          size: 10,
+          color: track.inputMonitor ? Colors.black : ReelForgeTheme.textTertiary,
+        ),
       ),
     );
   }
@@ -808,6 +926,146 @@ class _TrackHeaderUltimateState extends State<TrackHeaderUltimate>
 // ═══════════════════════════════════════════════════════════════════════════
 
 enum _LayoutMode { mini, compact, standard, expanded, xl }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRO TOOLS STYLE BUTTON (ultra-compact M/S)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ProToolsButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final VoidCallback? onTap;
+
+  const _ProToolsButton(this.label, this.isActive, this.activeColor, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 18,
+        height: 18,
+        decoration: BoxDecoration(
+          color: isActive ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isActive ? activeColor : ReelForgeTheme.borderSubtle.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isActive ? Colors.black : ReelForgeTheme.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRO TOOLS RECORD BUTTON (ultra-compact with pulse)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ProToolsRecordButton extends StatefulWidget {
+  final bool isArmed;
+  final bool isPlaying;
+  final VoidCallback? onTap;
+
+  const _ProToolsRecordButton({
+    required this.isArmed,
+    required this.isPlaying,
+    this.onTap,
+  });
+
+  @override
+  State<_ProToolsRecordButton> createState() => _ProToolsRecordButtonState();
+}
+
+class _ProToolsRecordButtonState extends State<_ProToolsRecordButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _updatePulse();
+  }
+
+  @override
+  void didUpdateWidget(_ProToolsRecordButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isArmed != widget.isArmed || oldWidget.isPlaying != widget.isPlaying) {
+      _updatePulse();
+    }
+  }
+
+  void _updatePulse() {
+    if (widget.isArmed && widget.isPlaying) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.stop();
+      _pulseController.value = widget.isArmed ? 1.0 : 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, child) {
+          final opacity = widget.isArmed
+              ? (widget.isPlaying ? 0.5 + 0.5 * _pulseController.value : 1.0)
+              : 0.0;
+          return Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: widget.isArmed
+                  ? ReelForgeTheme.accentRed.withValues(alpha: opacity)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: widget.isArmed
+                    ? ReelForgeTheme.accentRed
+                    : ReelForgeTheme.borderSubtle.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                'R',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: widget.isArmed ? Colors.white : ReelForgeTheme.textSecondary,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PILL BUTTON (compact mode)
@@ -1415,4 +1673,184 @@ class _StereoWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_StereoWaveformPainter old) => old.waveformL != waveformL || old.waveformR != waveformR;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PULSING RECORD BUTTON (R with animation when armed + playing)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PulsingRecordButton extends StatefulWidget {
+  final bool isArmed;
+  final bool isPlaying;
+  final VoidCallback? onTap;
+
+  const _PulsingRecordButton({
+    required this.isArmed,
+    required this.isPlaying,
+    this.onTap,
+  });
+
+  @override
+  State<_PulsingRecordButton> createState() => _PulsingRecordButtonState();
+}
+
+class _PulsingRecordButtonState extends State<_PulsingRecordButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _hover = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isArmed && widget.isPlaying) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PulsingRecordButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isArmed && widget.isPlaying) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            final intensity = widget.isArmed && widget.isPlaying
+                ? _animation.value
+                : (widget.isArmed ? 1.0 : 0.0);
+
+            return Container(
+              width: 18,
+              height: 16,
+              margin: const EdgeInsets.only(left: 2),
+              decoration: BoxDecoration(
+                gradient: widget.isArmed
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          ReelForgeTheme.accentRed.withValues(alpha: intensity),
+                          ReelForgeTheme.accentRed.withValues(alpha: intensity * 0.8),
+                        ],
+                      )
+                    : null,
+                color: widget.isArmed
+                    ? null
+                    : (_hover ? ReelForgeTheme.borderMedium : ReelForgeTheme.bgDeepest),
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: widget.isArmed
+                    ? [
+                        BoxShadow(
+                          color: ReelForgeTheme.accentRed.withValues(alpha: intensity * 0.6),
+                          blurRadius: 6 + (intensity * 4),
+                          spreadRadius: -1 + (intensity * 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  'R',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: widget.isArmed
+                        ? Colors.black.withValues(alpha: intensity)
+                        : ReelForgeTheme.textSecondary,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POWER BUTTON (On/Off for CPU bypass)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PowerButton extends StatefulWidget {
+  final bool isEnabled;
+  final VoidCallback? onTap;
+
+  const _PowerButton({
+    required this.isEnabled,
+    this.onTap,
+  });
+
+  @override
+  State<_PowerButton> createState() => _PowerButtonState();
+}
+
+class _PowerButtonState extends State<_PowerButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          width: 16,
+          height: 14,
+          margin: const EdgeInsets.only(left: 2),
+          decoration: BoxDecoration(
+            color: widget.isEnabled
+                ? (_hover ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3) : ReelForgeTheme.bgDeepest)
+                : ReelForgeTheme.bgVoid,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: widget.isEnabled
+                  ? ReelForgeTheme.accentGreen.withValues(alpha: 0.5)
+                  : ReelForgeTheme.borderSubtle,
+              width: 0.5,
+            ),
+          ),
+          child: Icon(
+            Icons.power_settings_new,
+            size: 10,
+            color: widget.isEnabled
+                ? ReelForgeTheme.accentGreen
+                : ReelForgeTheme.textDisabled,
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -302,7 +302,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
                       selectedColor: ReelForgeTheme.accentBlue,
                       labelStyle: TextStyle(
                         color:
-                            isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                            isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                       ),
                     );
                   }).toList(),

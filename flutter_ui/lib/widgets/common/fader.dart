@@ -31,12 +31,12 @@ const _peakHoldTime = 1500; // ms
 const _peakDecayRate = 0.003;
 
 const _meterColors = (
-  green: Color(0xFF00CC33),
-  greenDark: Color(0xFF006622),
-  yellow: Color(0xFFFFCC00),
-  orange: Color(0xFFFF8800),
-  red: Color(0xFFFF0033),
-  clip: Color(0xFFFF0033),
+  green: ReelForgeTheme.accentGreen,
+  greenDark: Color(0xFF287048), // Darker variant of accentGreen
+  yellow: ReelForgeTheme.accentYellow,
+  orange: ReelForgeTheme.accentOrange,
+  red: ReelForgeTheme.accentRed,
+  clip: ReelForgeTheme.clipRed,
 );
 
 const _scaleMarks = [12.0, 6.0, 3.0, 0.0, -3.0, -6.0, -12.0, -18.0, -24.0, -36.0, -48.0, -60.0];
@@ -692,7 +692,7 @@ class _VerticalFaderPainter extends CustomPainter {
     // Shadow
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(x + 1, y + 2, w, h), const Radius.circular(4)),
-      Paint()..color = Colors.black.withValues(alpha: 0.4),
+      Paint()..color = ReelForgeTheme.bgVoid.withValues(alpha: 0.6),
     );
 
     // Body

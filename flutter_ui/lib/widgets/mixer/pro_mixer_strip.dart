@@ -879,13 +879,13 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           intensity: 0.8,
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           'CLIP',
                           style: TextStyle(
                             fontSize: 6,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: ReelForgeTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -1007,7 +1007,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -1350,7 +1350,7 @@ class _FaderThumb extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: ReelForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),

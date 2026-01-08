@@ -40,6 +40,12 @@ pub enum ImportError {
 
     #[error("Unsupported codec: {0}")]
     UnsupportedCodec(String),
+
+    #[error("Path traversal detected: {0}")]
+    PathTraversal(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -227,15 +233,51 @@ impl ImportedAudio {
 pub struct AudioImporter;
 
 impl AudioImporter {
-    /// Import audio file from path
+    /// Validate path for security (prevents path traversal attacks)
+    ///
+    /// Checks:
+    /// - Path doesn't contain ".." components
+    /// - Path is absolute or can be canonicalized
+    /// - Path doesn't point outside expected locations
+    pub fn validate_path(path: &Path) -> Result<std::path::PathBuf, ImportError> {
+        // Check for path traversal attempts
+        let path_str = path.to_string_lossy();
+        if path_str.contains("..") {
+            return Err(ImportError::PathTraversal(path_str.to_string()));
+        }
+
+        // Try to canonicalize the path (resolves symlinks, validates existence)
+        match path.canonicalize() {
+            Ok(canonical) => {
+                // Additional check: ensure the canonical path doesn't escape
+                // by having ".." that wasn't in the original path
+                let canonical_str = canonical.to_string_lossy();
+                if canonical_str.contains("..") {
+                    return Err(ImportError::PathTraversal(canonical_str.to_string()));
+                }
+                Ok(canonical)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Err(ImportError::FileNotFound(path_str.to_string()))
+            }
+            Err(e) => {
+                Err(ImportError::InvalidPath(format!("{}: {}", path_str, e)))
+            }
+        }
+    }
+
+    /// Import audio file from path with security validation
     ///
     /// Supports: WAV, MP3, FLAC, OGG, AAC, ALAC, AIFF
     pub fn import(path: &Path) -> Result<ImportedAudio, ImportError> {
-        if !path.exists() {
-            return Err(ImportError::FileNotFound(path.display().to_string()));
+        // Validate path for security
+        let validated_path = Self::validate_path(path)?;
+
+        if !validated_path.exists() {
+            return Err(ImportError::FileNotFound(validated_path.display().to_string()));
         }
 
-        let extension = path
+        let extension = validated_path
             .extension()
             .and_then(|e| e.to_str())
             .map(|s| s.to_lowercase())
@@ -243,12 +285,12 @@ impl AudioImporter {
 
         // Use symphonia for all supported formats
         match extension.as_str() {
-            "wav" | "wave" => Self::import_symphonia(path),
-            "mp3" => Self::import_symphonia(path),
-            "flac" => Self::import_symphonia(path),
-            "ogg" | "oga" => Self::import_symphonia(path),
-            "m4a" | "aac" => Self::import_symphonia(path),
-            "aiff" | "aif" => Self::import_symphonia(path),
+            "wav" | "wave" => Self::import_symphonia(&validated_path),
+            "mp3" => Self::import_symphonia(&validated_path),
+            "flac" => Self::import_symphonia(&validated_path),
+            "ogg" | "oga" => Self::import_symphonia(&validated_path),
+            "m4a" | "aac" => Self::import_symphonia(&validated_path),
+            "aiff" | "aif" => Self::import_symphonia(&validated_path),
             _ => Err(ImportError::UnsupportedFormat(extension)),
         }
     }

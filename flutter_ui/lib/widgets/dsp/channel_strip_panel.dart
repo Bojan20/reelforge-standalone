@@ -12,6 +12,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Channel Strip Panel Widget
 class ChannelStripPanel extends StatefulWidget {
@@ -131,8 +132,8 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -176,7 +177,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           const Text(
             'CHANNEL STRIP',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -193,13 +194,13 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF3A3A40)),
+        border: Border.all(color: ReelForgeTheme.borderMedium),
       ),
       child: DropdownButton<ChannelStripProcessingOrder>(
         value: _processingOrder,
-        dropdownColor: const Color(0xFF1A1A20),
+        dropdownColor: ReelForgeTheme.bgMid,
         style: const TextStyle(color: Color(0xFF808090), fontSize: 10),
         underline: const SizedBox(),
         isDense: true,
@@ -223,7 +224,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildInputSection() {
     return _buildSection(
       'INPUT',
-      const Color(0xFF40C8FF),
+      ReelForgeTheme.accentCyan,
       true,
       null,
       Column(
@@ -234,7 +235,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
             widget.onSettingsChanged?.call();
           }),
           const SizedBox(height: 8),
-          _buildMeterBar('Level', _inputLevel, const Color(0xFF40C8FF)),
+          _buildMeterBar('Level', _inputLevel, ReelForgeTheme.accentCyan),
         ],
       ),
     );
@@ -243,7 +244,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildHpfSection() {
     return _buildSection(
       'HIGH PASS',
-      const Color(0xFFFF9040),
+      ReelForgeTheme.accentOrange,
       _hpfEnabled,
       (v) {
         setState(() => _hpfEnabled = v);
@@ -285,14 +286,14 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF9040) : const Color(0xFF1A1A20),
+          color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? const Color(0xFFFF9040) : const Color(0xFF3A3A40)),
+          border: Border.all(color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium),
         ),
         child: Text(
           '$slope',
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF808090),
+            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -304,7 +305,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildGateSection() {
     return _buildSection(
       'GATE',
-      const Color(0xFF40FF90),
+      ReelForgeTheme.accentGreen,
       _gateEnabled,
       (v) {
         setState(() => _gateEnabled = v);
@@ -339,7 +340,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
             widget.onSettingsChanged?.call();
           }),
           const SizedBox(height: 8),
-          _buildGrMeter('GR', _gateGr, const Color(0xFF40FF90)),
+          _buildGrMeter('GR', _gateGr, ReelForgeTheme.accentGreen),
         ],
       ),
     );
@@ -348,7 +349,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildCompressorSection() {
     return _buildSection(
       'COMPRESSOR',
-      const Color(0xFFFFFF40),
+      ReelForgeTheme.accentYellow,
       _compEnabled,
       (v) {
         setState(() => _compEnabled = v);
@@ -388,7 +389,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
             widget.onSettingsChanged?.call();
           }),
           const SizedBox(height: 8),
-          _buildGrMeter('GR', _compGr, const Color(0xFFFFFF40)),
+          _buildGrMeter('GR', _compGr, ReelForgeTheme.accentYellow),
         ],
       ),
     );
@@ -397,7 +398,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildEqSection() {
     return _buildSection(
       'CONSOLE EQ',
-      const Color(0xFF40C8FF),
+      ReelForgeTheme.accentCyan,
       _eqEnabled,
       (v) {
         setState(() => _eqEnabled = v);
@@ -456,7 +457,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -476,8 +477,8 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                       value: freq,
                       min: minFreq,
                       max: maxFreq,
-                      activeColor: const Color(0xFF40C8FF),
-                      inactiveColor: const Color(0xFF2A2A30),
+                      activeColor: ReelForgeTheme.accentCyan,
+                      inactiveColor: ReelForgeTheme.borderSubtle,
                       onChanged: (v) => onChanged(v, gain, q),
                     ),
                   ],
@@ -492,8 +493,8 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                       value: gain,
                       min: -18,
                       max: 18,
-                      activeColor: const Color(0xFFFF9040),
-                      inactiveColor: const Color(0xFF2A2A30),
+                      activeColor: ReelForgeTheme.accentOrange,
+                      inactiveColor: ReelForgeTheme.borderSubtle,
                       onChanged: (v) => onChanged(freq, v, q),
                     ),
                   ],
@@ -509,8 +510,8 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                         value: q,
                         min: 0.1,
                         max: 18,
-                        activeColor: const Color(0xFF40FF90),
-                        inactiveColor: const Color(0xFF2A2A30),
+                        activeColor: ReelForgeTheme.accentGreen,
+                        inactiveColor: ReelForgeTheme.borderSubtle,
                         onChanged: (v) => onChanged(freq, gain, v),
                       ),
                     ],
@@ -526,7 +527,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildLimiterSection() {
     return _buildSection(
       'LIMITER',
-      const Color(0xFFFF4040),
+      ReelForgeTheme.accentRed,
       _limiterEnabled,
       (v) {
         setState(() => _limiterEnabled = v);
@@ -546,7 +547,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
             widget.onSettingsChanged?.call();
           }),
           const SizedBox(height: 8),
-          _buildGrMeter('GR', _limiterGr, const Color(0xFFFF4040)),
+          _buildGrMeter('GR', _limiterGr, ReelForgeTheme.accentRed),
         ],
       ),
     );
@@ -555,7 +556,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildOutputSection() {
     return _buildSection(
       'OUTPUT',
-      const Color(0xFF40FF90),
+      ReelForgeTheme.accentGreen,
       true,
       null,
       Column(
@@ -586,7 +587,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
             widget.onSettingsChanged?.call();
           }),
           const SizedBox(height: 8),
-          _buildMeterBar('Level', _outputLevel, const Color(0xFF40FF90)),
+          _buildMeterBar('Level', _outputLevel, ReelForgeTheme.accentGreen),
         ],
       ),
     );
@@ -595,9 +596,9 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
   Widget _buildSection(String title, Color color, bool enabled, void Function(bool)? onToggle, Widget child) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF121216),
+        color: ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: enabled ? color.withValues(alpha: 0.5) : const Color(0xFF2A2A30)),
+        border: Border.all(color: enabled ? color.withValues(alpha: 0.5) : ReelForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,13 +620,13 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: enabled ? color : const Color(0xFF3A3A40),
+                        color: enabled ? color : ReelForgeTheme.borderMedium,
                       ),
                     ),
                   Text(
                     title,
                     style: TextStyle(
-                      color: enabled ? color : const Color(0xFF606070),
+                      color: enabled ? color : ReelForgeTheme.textTertiary,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
@@ -670,8 +671,8 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
               value: value.clamp(min, max),
               min: min,
               max: max,
-              activeColor: const Color(0xFF40C8FF),
-              inactiveColor: const Color(0xFF2A2A30),
+              activeColor: ReelForgeTheme.accentCyan,
+              inactiveColor: ReelForgeTheme.borderSubtle,
               onChanged: onChanged,
             ),
           ),
@@ -700,7 +701,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           child: Container(
             height: 8,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A20),
+              color: ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(2),
             ),
             child: FractionallySizedBox(
@@ -741,7 +742,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           child: Container(
             height: 8,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A20),
+              color: ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(2),
             ),
             child: FractionallySizedBox(

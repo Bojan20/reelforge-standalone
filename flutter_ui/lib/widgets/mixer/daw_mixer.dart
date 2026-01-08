@@ -408,7 +408,7 @@ class _DawMixerState extends State<DawMixer> {
               style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : ReelForgeTheme.textTertiary,
+                color: isActive ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
               ),
             ),
           ),

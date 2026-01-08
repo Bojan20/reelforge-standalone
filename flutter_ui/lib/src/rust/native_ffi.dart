@@ -617,6 +617,21 @@ typedef InsertBypassAllDart = void Function(int trackId, int bypass);
 typedef InsertGetTotalLatencyNative = Uint32 Function(Uint64 trackId);
 typedef InsertGetTotalLatencyDart = int Function(int trackId);
 
+typedef InsertLoadProcessorNative = Int32 Function(Uint32 trackId, Uint32 slotIndex, Pointer<Utf8> processorName);
+typedef InsertLoadProcessorDart = int Function(int trackId, int slotIndex, Pointer<Utf8> processorName);
+
+typedef InsertUnloadSlotNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
+typedef InsertUnloadSlotDart = int Function(int trackId, int slotIndex);
+
+typedef InsertSetParamNative = Int32 Function(Uint32 trackId, Uint32 slotIndex, Uint32 paramIndex, Double value);
+typedef InsertSetParamDart = int Function(int trackId, int slotIndex, int paramIndex, double value);
+
+typedef InsertGetParamNative = Double Function(Uint32 trackId, Uint32 slotIndex, Uint32 paramIndex);
+typedef InsertGetParamDart = double Function(int trackId, int slotIndex, int paramIndex);
+
+typedef InsertIsLoadedNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
+typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
+
 // Transient Detection
 typedef TransientDetectNative = Uint32 Function(Pointer<Double> samples, Uint32 length, Double sampleRate, Double sensitivity, Uint8 algorithm, Pointer<Uint64> outPositions, Uint32 outMaxCount);
 typedef TransientDetectDart = int Function(Pointer<Double> samples, int length, double sampleRate, double sensitivity, int algorithm, Pointer<Uint64> outPositions, int outMaxCount);
@@ -857,6 +872,11 @@ class NativeFFI {
   late final InsertSetMixDart _insertSetMix;
   late final InsertBypassAllDart _insertBypassAll;
   late final InsertGetTotalLatencyDart _insertGetTotalLatency;
+  late final InsertLoadProcessorDart _insertLoadProcessor;
+  late final InsertUnloadSlotDart _insertUnloadSlot;
+  late final InsertSetParamDart _insertSetParam;
+  late final InsertGetParamDart _insertGetParam;
+  late final InsertIsLoadedDart _insertIsLoaded;
 
   // Transient Detection
   late final TransientDetectDart _transientDetect;
@@ -1102,6 +1122,11 @@ class NativeFFI {
     _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('insert_set_mix');
     _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('insert_bypass_all');
     _insertGetTotalLatency = _lib.lookupFunction<InsertGetTotalLatencyNative, InsertGetTotalLatencyDart>('insert_get_total_latency');
+    _insertLoadProcessor = _lib.lookupFunction<InsertLoadProcessorNative, InsertLoadProcessorDart>('insert_load_processor');
+    _insertUnloadSlot = _lib.lookupFunction<InsertUnloadSlotNative, InsertUnloadSlotDart>('insert_unload_slot');
+    _insertSetParam = _lib.lookupFunction<InsertSetParamNative, InsertSetParamDart>('insert_set_param');
+    _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
+    _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
 
     // Transient Detection
     _transientDetect = _lib.lookupFunction<TransientDetectNative, TransientDetectDart>('transient_detect');
@@ -2470,6 +2495,45 @@ class NativeFFI {
   int insertGetTotalLatency(int trackId) {
     if (!_loaded) return 0;
     return _insertGetTotalLatency(trackId);
+  }
+
+  /// Load processor into insert slot
+  /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
+  /// Returns 0 on success, negative on error
+  int insertLoadProcessor(int trackId, int slotIndex, String processorName) {
+    if (!_loaded) return -1;
+    final namePtr = processorName.toNativeUtf8();
+    try {
+      return _insertLoadProcessor(trackId, slotIndex, namePtr);
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Unload processor from insert slot
+  /// Returns 0 on success, negative on error
+  int insertUnloadSlot(int trackId, int slotIndex) {
+    if (!_loaded) return -1;
+    return _insertUnloadSlot(trackId, slotIndex);
+  }
+
+  /// Set parameter on insert slot processor
+  /// Returns 0 on success
+  int insertSetParam(int trackId, int slotIndex, int paramIndex, double value) {
+    if (!_loaded) return -1;
+    return _insertSetParam(trackId, slotIndex, paramIndex, value);
+  }
+
+  /// Get parameter from insert slot processor
+  double insertGetParam(int trackId, int slotIndex, int paramIndex) {
+    if (!_loaded) return 0.0;
+    return _insertGetParam(trackId, slotIndex, paramIndex);
+  }
+
+  /// Check if insert slot has a processor loaded
+  bool insertIsLoaded(int trackId, int slotIndex) {
+    if (!_loaded) return false;
+    return _insertIsLoaded(trackId, slotIndex) != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

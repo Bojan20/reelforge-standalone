@@ -336,7 +336,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentGreen.withOpacity(0.2),
+                      color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -397,7 +397,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentGreen.withOpacity(0.2),
+                      color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -452,10 +452,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             disabledColor: ReelForgeTheme.bgMid,
             labelStyle: TextStyle(
               color: isSelected
-                  ? Colors.white
+                  ? ReelForgeTheme.textPrimary
                   : isAvailable
                       ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textSecondary.withOpacity(0.5),
+                      : ReelForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
           );
         }).toList(),
@@ -482,7 +482,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 backgroundColor: ReelForgeTheme.bgSurface,
                 selectedColor: ReelForgeTheme.accentBlue,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                  color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                 ),
               );
             }).toList(),
@@ -624,7 +624,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
         label: Text(_isTesting ? 'Playing...' : 'Test Audio Output'),
         style: ElevatedButton.styleFrom(
           backgroundColor: ReelForgeTheme.accentBlue,
-          foregroundColor: Colors.white,
+          foregroundColor: ReelForgeTheme.textPrimary,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),

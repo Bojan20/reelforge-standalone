@@ -360,7 +360,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   backgroundColor: ReelForgeTheme.bgSurface,
                   selectedColor: ReelForgeTheme.accentBlue,
                   labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                   ),
                 );
               }).toList(),
@@ -382,7 +382,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                     backgroundColor: ReelForgeTheme.bgSurface,
                     selectedColor: ReelForgeTheme.accentBlue,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                      color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                     ),
                   );
                 }).toList(),
@@ -411,7 +411,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   backgroundColor: ReelForgeTheme.bgSurface,
                   selectedColor: ReelForgeTheme.accentBlue,
                   labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                   ),
                 );
               }).toList(),
@@ -738,7 +738,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                         backgroundColor:
                             isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : ReelForgeTheme.textSecondary,
+                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
                           fontSize: 11,
                         ),
                         onPressed: () => setState(() => _normalizeTarget = preset),
@@ -930,7 +930,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
       backgroundColor: ReelForgeTheme.bgMid,
       selectedColor: ReelForgeTheme.accentBlue,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : ReelForgeTheme.textSecondary,
+        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
         fontSize: 12,
       ),
     );
@@ -1025,7 +1025,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             label: const Text('Bounce'),
             style: ElevatedButton.styleFrom(
               backgroundColor: ReelForgeTheme.accentOrange,
-              foregroundColor: Colors.white,
+              foregroundColor: ReelForgeTheme.textPrimary,
             ),
           ),
         ],

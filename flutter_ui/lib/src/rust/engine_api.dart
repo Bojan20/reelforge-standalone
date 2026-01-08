@@ -819,7 +819,7 @@ class EngineApi {
   bool fadeInClip(String clipId, double durationSec, {int curveType = 1}) {
     print('[Engine] Fade in clip $clipId for $durationSec sec');
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clipFadeIn(nativeClipId, durationSec, curveType);
       }
@@ -831,12 +831,28 @@ class EngineApi {
   bool fadeOutClip(String clipId, double durationSec, {int curveType = 1}) {
     print('[Engine] Fade out clip $clipId for $durationSec sec');
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clipFadeOut(nativeClipId, durationSec, curveType);
       }
     }
     return true;
+  }
+
+  /// Parse clip ID - native engine clip IDs are integers
+  ///
+  /// NOTE: "clip-TIMESTAMP-INDEX" format IDs (from mock mode) cannot be
+  /// converted to native engine IDs. Only clips imported via importAudioFile
+  /// have valid native IDs that can be used for fade, gain, and other operations.
+  int? _parseClipId(String clipId) {
+    // Native clip IDs are simple integers returned from importAudioFile
+    final direct = int.tryParse(clipId);
+    if (direct != null) return direct;
+
+    // "clip-TIMESTAMP-INDEX" format does NOT contain native engine IDs
+    // The timestamp is NOT a valid clip ID - return null
+    // This will cause the operation to fail gracefully in mock mode
+    return null;
   }
 
   /// Apply gain adjustment to clip
@@ -1277,10 +1293,28 @@ class EngineApi {
   // EQ
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Convert track ID string to native int (master = 0, others parsed)
+  /// Convert track ID string to native int (master = 0, buses = 1-5, others parsed)
   int? _trackIdToNative(String trackId) {
-    if (trackId == 'master') return 0;
-    return int.tryParse(trackId);
+    // Map bus names to native track IDs
+    switch (trackId) {
+      case 'master': return 0;
+      case 'sfx': return 1;
+      case 'music': return 2;
+      case 'voice': return 3;
+      case 'amb': return 4;
+      case 'ui': return 5;
+      default:
+        // Handle channel IDs like 'ch_123'
+        if (trackId.startsWith('ch_')) {
+          return int.tryParse(trackId.substring(3));
+        }
+        // Handle mock track IDs like 'track-1234567890123'
+        if (trackId.startsWith('track-')) {
+          // Mock mode - return a stable hash-based ID
+          return trackId.hashCode.abs() % 10000 + 100; // Offset to avoid bus collision
+        }
+        return int.tryParse(trackId);
+    }
   }
 
   /// Set EQ band enabled state
@@ -1341,6 +1375,30 @@ class EngineApi {
       }
     }
     return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEND/RETURN
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set send level (0.0 to 1.0)
+  void setSendLevel(String trackId, int sendIndex, double level) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.sendSetLevel(nativeTrackId, sendIndex, level.clamp(0.0, 1.0));
+      }
+    }
+  }
+
+  /// Set send level in dB
+  void setSendLevelDb(String trackId, int sendIndex, double db) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.sendSetLevelDb(nativeTrackId, sendIndex, db.clamp(-96.0, 12.0));
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2181,6 +2239,12 @@ class MeteringState {
     }
     return null;
   }
+
+  // Compatibility getters for older code
+  double get lufsMomentary => masterLufsM;
+  double get lufsShortTerm => masterLufsS;
+  double get lufsShort => masterLufsS;
+  double get lufsIntegrated => masterLufsI;
 }
 
 /// Imported clip info (returned from importAudioFile)

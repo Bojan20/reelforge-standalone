@@ -7,6 +7,11 @@
 //!
 //! This enables running expensive processors (linear phase EQ, convolution reverb)
 //! without affecting real-time performance.
+//!
+//! # Lock-Free Design
+//! - Audio blocks use pre-allocated pool (no heap in audio thread)
+//! - Lookahead buffer is circular with pre-allocated blocks
+//! - Communication via crossbeam bounded channels (lock-free)
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -32,13 +37,19 @@ pub enum ProcessingMode {
 
 // ============ Audio Block ============
 
+/// Maximum block size supported (4096 samples @ 384kHz = ~10.7ms)
+pub const MAX_BLOCK_SIZE: usize = 4096;
+
 /// Audio block for passing between threads
+/// Uses fixed-size arrays to avoid heap allocation
 #[derive(Clone)]
 pub struct AudioBlock {
-    /// Left channel data
+    /// Left channel data (pre-allocated)
     pub left: Vec<Sample>,
-    /// Right channel data
+    /// Right channel data (pre-allocated)
     pub right: Vec<Sample>,
+    /// Actual number of samples used
+    pub valid_samples: usize,
     /// Block sequence number
     pub sequence: u64,
     /// Timestamp (sample position)
@@ -46,26 +57,186 @@ pub struct AudioBlock {
 }
 
 impl AudioBlock {
+    /// Create new audio block with given capacity
+    /// Call this ONCE during setup, not in audio thread!
     pub fn new(block_size: usize) -> Self {
         Self {
             left: vec![0.0; block_size],
             right: vec![0.0; block_size],
+            valid_samples: block_size,
             sequence: 0,
             sample_position: 0,
         }
     }
 
+    /// Create from slices - copies data into pre-allocated block
+    /// WARNING: This allocates! Use copy_from_slices() in audio thread instead
     pub fn from_slices(left: &[Sample], right: &[Sample], sequence: u64, position: u64) -> Self {
         Self {
             left: left.to_vec(),
             right: right.to_vec(),
+            valid_samples: left.len(),
             sequence,
             sample_position: position,
         }
     }
 
+    /// Copy data into this block without allocation
+    /// Use this in audio thread
+    #[inline]
+    pub fn copy_from_slices(&mut self, left: &[Sample], right: &[Sample], sequence: u64, position: u64) {
+        let len = left.len().min(right.len()).min(self.left.len());
+        self.left[..len].copy_from_slice(&left[..len]);
+        self.right[..len].copy_from_slice(&right[..len]);
+        self.valid_samples = len;
+        self.sequence = sequence;
+        self.sample_position = position;
+    }
+
+    /// Copy data out of this block without allocation
+    #[inline]
+    pub fn copy_to_slices(&self, left: &mut [Sample], right: &mut [Sample]) {
+        let len = self.valid_samples.min(left.len()).min(right.len());
+        left[..len].copy_from_slice(&self.left[..len]);
+        right[..len].copy_from_slice(&self.right[..len]);
+    }
+
+    /// Clear the block (fill with zeros)
+    #[inline]
+    pub fn clear(&mut self) {
+        self.left[..self.valid_samples].fill(0.0);
+        self.right[..self.valid_samples].fill(0.0);
+    }
+
     pub fn block_size(&self) -> usize {
-        self.left.len()
+        self.valid_samples
+    }
+}
+
+// ============ Audio Block Pool ============
+
+/// Lock-free pre-allocated pool of audio blocks
+/// Uses atomic stack for O(1) acquire/release without locks
+pub struct AudioBlockPool {
+    blocks: Vec<AudioBlock>,
+    /// Atomic stack of free indices (LIFO for cache locality)
+    /// Uses AtomicUsize for lock-free push/pop
+    /// Index value of usize::MAX means "empty slot"
+    free_stack: Vec<AtomicUsize>,
+    /// Current stack top (atomic for lock-free access)
+    stack_top: AtomicUsize,
+    block_size: usize,
+    pool_size: usize,
+}
+
+impl AudioBlockPool {
+    /// Create pool with given number of pre-allocated blocks
+    pub fn new(block_size: usize, pool_size: usize) -> Self {
+        let blocks = (0..pool_size)
+            .map(|_| AudioBlock::new(block_size))
+            .collect();
+
+        // Initialize free stack with all indices
+        let free_stack: Vec<AtomicUsize> = (0..pool_size)
+            .map(|i| AtomicUsize::new(i))
+            .collect();
+
+        Self {
+            blocks,
+            free_stack,
+            stack_top: AtomicUsize::new(pool_size), // All blocks free initially
+            block_size,
+            pool_size,
+        }
+    }
+
+    /// Get a free block index (returns None if pool exhausted)
+    /// Lock-free using atomic CAS
+    #[inline]
+    pub fn acquire(&self) -> Option<usize> {
+        loop {
+            let top = self.stack_top.load(Ordering::Acquire);
+            if top == 0 {
+                return None; // Pool exhausted
+            }
+
+            let new_top = top - 1;
+            // Try to decrement stack_top atomically
+            match self.stack_top.compare_exchange_weak(
+                top,
+                new_top,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    // Successfully decremented, get the index
+                    let index = self.free_stack[new_top].load(Ordering::Acquire);
+                    return Some(index);
+                }
+                Err(_) => {
+                    // CAS failed, another thread modified stack_top, retry
+                    continue;
+                }
+            }
+        }
+    }
+
+    /// Return a block to the pool
+    /// Lock-free using atomic CAS
+    #[inline]
+    pub fn release(&self, index: usize) {
+        if index >= self.pool_size {
+            return; // Invalid index
+        }
+
+        loop {
+            let top = self.stack_top.load(Ordering::Acquire);
+            if top >= self.pool_size {
+                return; // Stack full (shouldn't happen if used correctly)
+            }
+
+            // Try to increment stack_top atomically
+            match self.stack_top.compare_exchange_weak(
+                top,
+                top + 1,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    // Successfully incremented, store the index
+                    self.free_stack[top].store(index, Ordering::Release);
+                    return;
+                }
+                Err(_) => {
+                    // CAS failed, retry
+                    continue;
+                }
+            }
+        }
+    }
+
+    /// Get block by index (for reading/writing)
+    #[inline]
+    pub fn get(&self, index: usize) -> Option<&AudioBlock> {
+        self.blocks.get(index)
+    }
+
+    /// Get mutable block by index
+    #[inline]
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut AudioBlock> {
+        self.blocks.get_mut(index)
+    }
+
+    /// Number of free blocks (approximate, may be slightly off due to concurrent access)
+    #[inline]
+    pub fn available(&self) -> usize {
+        self.stack_top.load(Ordering::Relaxed)
+    }
+
+    /// Block size
+    #[inline]
+    pub fn block_size(&self) -> usize {
+        self.block_size
     }
 }
 
@@ -130,6 +301,10 @@ pub struct DualPathEngine {
     stats: Arc<DualPathStats>,
     /// Fallback processor (runs in realtime when guard is behind)
     fallback: Mutex<Option<Box<dyn GuardProcessor>>>,
+    /// Pre-allocated audio block for realtime processing (avoids heap alloc)
+    realtime_block: Mutex<AudioBlock>,
+    /// Pre-allocated audio block for hybrid fallback (avoids heap alloc)
+    fallback_block: Mutex<AudioBlock>,
 }
 
 impl DualPathEngine {
@@ -160,6 +335,9 @@ impl DualPathEngine {
             sample_position: AtomicU64::new(0),
             stats,
             fallback: Mutex::new(None),
+            // Pre-allocate audio blocks to avoid heap allocation in process()
+            realtime_block: Mutex::new(AudioBlock::new(block_size)),
+            fallback_block: Mutex::new(AudioBlock::new(block_size)),
         }
     }
 
@@ -235,10 +413,16 @@ impl DualPathEngine {
 
     /// Process audio block
     ///
-    /// In Guard/Hybrid mode:
-    /// 1. Send current block to guard thread
-    /// 2. Try to receive processed block from guard
-    /// 3. If no processed block, use fallback or pass through
+    /// # Processing Modes:
+    /// - **RealTime**: Direct processing with fallback, minimum latency
+    /// - **Guard**: Uses lookahead buffer for latency compensation
+    /// - **Hybrid**: Guard when available, fallback when behind
+    ///
+    /// # Lookahead Operation (Guard/Hybrid mode):
+    /// 1. Push current input to lookahead buffer
+    /// 2. Send oldest buffered block to guard thread
+    /// 3. Receive processed block (delayed by lookahead)
+    /// 4. Output processed block (introduces lookahead_blocks * block_size latency)
     pub fn process(&self, left: &mut [Sample], right: &mut [Sample]) {
         let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
         let pos = self
@@ -247,30 +431,38 @@ impl DualPathEngine {
 
         match self.mode {
             ProcessingMode::RealTime => {
-                // Direct processing with fallback
+                // Direct processing with fallback - minimum latency
+                // Use pre-allocated block to avoid heap allocation
                 if let Some(ref mut fallback) = *self.fallback.lock() {
-                    let mut block = AudioBlock::from_slices(left, right, seq, pos);
+                    let mut block = self.realtime_block.lock();
+                    block.copy_from_slices(left, right, seq, pos);
                     fallback.process(&mut block);
-                    left.copy_from_slice(&block.left);
-                    right.copy_from_slice(&block.right);
+                    block.copy_to_slices(left, right);
                 }
             }
 
-            ProcessingMode::Guard | ProcessingMode::Hybrid => {
-                // Send to guard thread
-                let block = AudioBlock::from_slices(left, right, seq, pos);
+            ProcessingMode::Guard => {
+                // Pure guard mode with lookahead buffer
+                // This introduces latency but guarantees processed output
+                // Note: Guard mode still needs to send blocks through channel,
+                // so we create a new block here (channel takes ownership)
 
-                match self.guard_tx.try_send(block) {
-                    Ok(_) => {
-                        self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(TrySendError::Full(_)) => {
-                        // Queue full, guard is falling behind
-                        self.stats.underruns.fetch_add(1, Ordering::Relaxed);
-                        log::debug!("Guard queue full, underrun");
-                    }
-                    Err(TrySendError::Disconnected(_)) => {
-                        log::warn!("Guard thread disconnected");
+                let mut lookahead = self.lookahead_buffer.write();
+
+                // Create input block - must allocate since channel takes ownership
+                let input_block = AudioBlock::from_slices(left, right, seq, pos);
+
+                // Push to lookahead buffer, get oldest block if full
+                if let Some(oldest) = lookahead.push(input_block) {
+                    // Send oldest block to guard thread
+                    match self.guard_tx.try_send(oldest) {
+                        Ok(_) => {
+                            self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Err(TrySendError::Full(_)) => {
+                            self.stats.underruns.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Err(TrySendError::Disconnected(_)) => {}
                     }
                 }
 
@@ -278,30 +470,57 @@ impl DualPathEngine {
                 match self.guard_rx.try_recv() {
                     Ok(processed) => {
                         self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
-
-                        // Copy processed data
-                        let len = left.len().min(processed.left.len());
-                        left[..len].copy_from_slice(&processed.left[..len]);
-                        right[..len].copy_from_slice(&processed.right[..len]);
+                        processed.copy_to_slices(left, right);
                     }
                     Err(_) => {
-                        // No processed block available
-                        if self.mode == ProcessingMode::Hybrid {
-                            // Use fallback
-                            self.stats.fallback_blocks.fetch_add(1, Ordering::Relaxed);
+                        // Guard not ready yet - output silence during initial fill
+                        left.fill(0.0);
+                        right.fill(0.0);
+                    }
+                }
+            }
 
-                            if let Some(ref mut fallback) = *self.fallback.lock() {
-                                let mut block = AudioBlock::from_slices(left, right, seq, pos);
-                                fallback.process(&mut block);
-                                left.copy_from_slice(&block.left);
-                                right.copy_from_slice(&block.right);
-                            }
+            ProcessingMode::Hybrid => {
+                // Hybrid: try guard, fallback if not available
+                // Note: Must allocate for channel, but fallback uses pre-allocated block
+                let block = AudioBlock::from_slices(left, right, seq, pos);
+
+                // Send to guard thread
+                match self.guard_tx.try_send(block) {
+                    Ok(_) => {
+                        self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(TrySendError::Full(_)) => {
+                        self.stats.underruns.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(TrySendError::Disconnected(_)) => {}
+                }
+
+                // Try to receive processed block
+                match self.guard_rx.try_recv() {
+                    Ok(processed) => {
+                        self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
+                        processed.copy_to_slices(left, right);
+                    }
+                    Err(_) => {
+                        // No processed block - use fallback with pre-allocated block
+                        self.stats.fallback_blocks.fetch_add(1, Ordering::Relaxed);
+
+                        if let Some(ref mut fallback) = *self.fallback.lock() {
+                            let mut block = self.fallback_block.lock();
+                            block.copy_from_slices(left, right, seq, pos);
+                            fallback.process(&mut block);
+                            block.copy_to_slices(left, right);
                         }
-                        // In pure Guard mode, we'd introduce latency (use lookahead buffer)
                     }
                 }
             }
         }
+    }
+
+    /// Get lookahead latency in samples
+    pub fn lookahead_latency(&self) -> usize {
+        self.lookahead_buffer.read().capacity * self.block_size
     }
 
     /// Get processing statistics

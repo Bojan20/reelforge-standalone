@@ -283,7 +283,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
                   label: Text(_isSaving ? 'Saving...' : 'Save'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ReelForgeTheme.accentBlue,
-                    foregroundColor: Colors.white,
+                    foregroundColor: ReelForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -320,7 +320,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
         backgroundColor: ReelForgeTheme.bgSurface,
         selectedColor: ReelForgeTheme.accentBlue,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
           fontSize: 12,
         ),
       ),

@@ -623,7 +623,7 @@ class _MeterPainter extends CustomPainter {
     final colors = [
       ReelForgeTheme.accentCyan,
       ReelForgeTheme.accentGreen,
-      const Color(0xFFFFFF40),
+      ReelForgeTheme.accentYellow,
       ReelForgeTheme.accentOrange,
       ReelForgeTheme.accentRed,
     ];
@@ -648,9 +648,9 @@ class _MeterPainter extends CustomPainter {
     if (lvl < 0.5) {
       return Color.lerp(ReelForgeTheme.accentCyan, ReelForgeTheme.accentGreen, lvl * 2)!;
     } else if (lvl < 0.7) {
-      return Color.lerp(ReelForgeTheme.accentGreen, const Color(0xFFFFFF40), (lvl - 0.5) * 5)!;
+      return Color.lerp(ReelForgeTheme.accentGreen, ReelForgeTheme.accentYellow, (lvl - 0.5) * 5)!;
     } else if (lvl < 0.85) {
-      return Color.lerp(const Color(0xFFFFFF40), ReelForgeTheme.accentOrange, (lvl - 0.7) * 6.67)!;
+      return Color.lerp(ReelForgeTheme.accentYellow, ReelForgeTheme.accentOrange, (lvl - 0.7) * 6.67)!;
     } else {
       return Color.lerp(ReelForgeTheme.accentOrange, ReelForgeTheme.accentRed, (lvl - 0.85) * 6.67)!;
     }

@@ -493,8 +493,8 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(alpha: 0.4),
-                          Colors.black.withValues(alpha: 0.2),
+                          ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
+                          ReelForgeTheme.bgVoid.withValues(alpha: 0.2),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(2),
@@ -581,7 +581,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
         ),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
+          color: ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: [
@@ -599,19 +599,19 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           Container(
             width: 14,
             height: 1,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 2),
           Container(
             width: 14,
             height: 1,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 2),
           Container(
             width: 14,
             height: 1,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
         ],
       ),
@@ -778,7 +778,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           child: Text(
             label,
             style: TextStyle(
-              color: active ? Colors.black : ReelForgeTheme.textTertiary,
+              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
               fontSize: fontSize,
               fontWeight: FontWeight.w700,
             ),
@@ -969,7 +969,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: ReelForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1119,10 +1119,10 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
                 ),
               ),
               child: isSelected
-                  ? const Icon(
+                  ? Icon(
                       Icons.check,
                       size: 12,
-                      color: Colors.black,
+                      color: ReelForgeTheme.bgVoid,
                     )
                   : null,
             ),
@@ -1178,7 +1178,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: widget.vca.color,
-            foregroundColor: Colors.black,
+            foregroundColor: ReelForgeTheme.bgVoid,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           ),
           child: const Text(
@@ -1319,7 +1319,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
                     color: color,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: isSelected ? Colors.white : Colors.transparent,
+                      color: isSelected ? ReelForgeTheme.textPrimary : Colors.transparent,
                       width: 2,
                     ),
                     boxShadow: isSelected
@@ -1332,9 +1332,9 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
                         : null,
                   ),
                   child: isSelected
-                      ? const Icon(
+                      ? Icon(
                           Icons.check,
-                          color: Colors.white,
+                          color: ReelForgeTheme.textPrimary,
                           size: 18,
                         )
                       : null,
@@ -1363,7 +1363,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: _selectedColor,
-            foregroundColor: Colors.black,
+            foregroundColor: ReelForgeTheme.bgVoid,
           ),
           child: const Text(
             'Create',

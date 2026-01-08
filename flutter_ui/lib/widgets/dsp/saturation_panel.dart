@@ -10,15 +10,16 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Saturation type
 enum SaturationType {
-  tape('Tape', 'Warm analog tape saturation', Color(0xFFFF9040)),
-  tube('Tube', 'Even harmonics, creamy warmth', Color(0xFF40FF90)),
-  transistor('Transistor', 'Odd harmonics, aggressive', Color(0xFF40C8FF)),
-  softClip('Soft Clip', 'Clean soft limiting', Color(0xFFFFFF40)),
-  hardClip('Hard Clip', 'Digital-style clipping', Color(0xFFFF4040)),
-  foldback('Foldback', 'Creative foldback distortion', Color(0xFFFF40FF));
+  tape('Tape', 'Warm analog tape saturation', ReelForgeTheme.accentOrange),
+  tube('Tube', 'Even harmonics, creamy warmth', ReelForgeTheme.accentGreen),
+  transistor('Transistor', 'Odd harmonics, aggressive', ReelForgeTheme.accentCyan),
+  softClip('Soft Clip', 'Clean soft limiting', ReelForgeTheme.accentYellow),
+  hardClip('Hard Clip', 'Digital-style clipping', ReelForgeTheme.accentRed),
+  foldback('Foldback', 'Creative foldback distortion', ReelForgeTheme.accentPink);
 
   final String label;
   final String description;
@@ -125,16 +126,16 @@ class _SaturationPanelState extends State<SaturationPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           _buildTypeSelector(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -167,7 +168,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           const Text(
             'SATURATION',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -199,17 +200,17 @@ class _SaturationPanelState extends State<SaturationPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _bypassed
-              ? const Color(0xFFFF4040).withValues(alpha: 0.3)
-              : const Color(0xFF40FF90).withValues(alpha: 0.2),
+              ? ReelForgeTheme.accentRed.withValues(alpha: 0.3)
+              : ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
           ),
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
           style: TextStyle(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -249,10 +250,10 @@ class _SaturationPanelState extends State<SaturationPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? type.color : const Color(0xFF1A1A20),
+              color: isSelected ? type.color : ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isSelected ? type.color : const Color(0xFF3A3A40),
+                color: isSelected ? type.color : ReelForgeTheme.borderMedium,
               ),
             ),
             child: Column(
@@ -260,7 +261,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
                 Text(
                   type.label,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF808090),
+                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -302,7 +303,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
                   Text(
                     _type.description,
                     style: const TextStyle(
-                      color: Color(0xFF606070),
+                      color: ReelForgeTheme.textTertiary,
                       fontSize: 11,
                     ),
                   ),
@@ -326,7 +327,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
         height: 100,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: const Color(0xFF1A1A20),
+          color: ReelForgeTheme.bgMid,
           border: Border.all(color: _type.color, width: 3),
           boxShadow: [
             BoxShadow(
@@ -378,7 +379,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
             const Text(
               'DRY',
               style: TextStyle(
-                color: Color(0xFF808090),
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -391,7 +392,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
             const Text(
               'WET',
               style: TextStyle(
-                color: Color(0xFF808090),
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -441,9 +442,9 @@ class _SaturationPanelState extends State<SaturationPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -492,7 +493,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? _type.color : const Color(0xFF3A3A40),
+            color: active ? _type.color : ReelForgeTheme.borderMedium,
           ),
         ),
         const SizedBox(height: 4),
@@ -500,7 +501,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: active ? _type.color : const Color(0xFF606070),
+            color: active ? _type.color : ReelForgeTheme.textTertiary,
             fontSize: 9,
             fontWeight: FontWeight.bold,
           ),
@@ -513,7 +514,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
     return Text(
       title,
       style: const TextStyle(
-        color: Color(0xFF808090),
+        color: ReelForgeTheme.textTertiary,
         fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
@@ -526,7 +527,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
       data: SliderThemeData(
         trackHeight: 4,
         activeTrackColor: _type.color,
-        inactiveTrackColor: const Color(0xFF2A2A30),
+        inactiveTrackColor: ReelForgeTheme.borderSubtle,
         thumbColor: _type.color,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
         overlayColor: _type.color.withValues(alpha: 0.2),

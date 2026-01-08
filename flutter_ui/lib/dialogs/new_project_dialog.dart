@@ -312,7 +312,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                   label: Text(_isCreating ? 'Creating...' : 'Create Project'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ReelForgeTheme.accentGreen,
-                    foregroundColor: Colors.white,
+                    foregroundColor: ReelForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -340,7 +340,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
           Icon(
             icon,
             size: 14,
-            color: isSelected ? Colors.white : ReelForgeTheme.textSecondary,
+            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
           ),
           const SizedBox(width: 6),
           Text(label),
@@ -351,7 +351,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
       backgroundColor: ReelForgeTheme.bgSurface,
       selectedColor: ReelForgeTheme.accentBlue,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
         fontSize: 12,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

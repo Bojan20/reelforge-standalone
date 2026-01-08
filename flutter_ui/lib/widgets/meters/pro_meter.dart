@@ -313,11 +313,11 @@ class _ProMeterPainter extends CustomPainter {
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
       colors: const [
-        Color(0xFF40C8FF), // Blue (low)
-        Color(0xFF40FF90), // Green (mid-low)
-        Color(0xFFFFFF40), // Yellow (mid)
-        Color(0xFFFF9040), // Orange (high)
-        Color(0xFFFF4040), // Red (peak)
+        ReelForgeTheme.accentCyan, // Blue (low)
+        ReelForgeTheme.accentGreen, // Green (mid-low)
+        ReelForgeTheme.accentYellow, // Yellow (mid)
+        ReelForgeTheme.accentOrange, // Orange (high)
+        ReelForgeTheme.accentRed, // Red (peak)
       ],
       stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
     ).createShader(rect);
@@ -337,7 +337,7 @@ class _ProMeterPainter extends CustomPainter {
     final rmsHeight = rect.height * rmsNormalized;
 
     final rmsPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
@@ -352,7 +352,7 @@ class _ProMeterPainter extends CustomPainter {
       final peakY = rect.bottom - rect.height * peakNormalized;
 
       final peakPaint = Paint()
-        ..color = peakDb > -3 ? const Color(0xFFFF4040) : Colors.white
+        ..color = peakDb > -3 ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary
         ..strokeWidth = 2;
 
       canvas.drawLine(
@@ -421,7 +421,7 @@ class _ProMeterPainter extends CustomPainter {
 
     final leftClipPaint = Paint()
       ..color = readings.clippedLeft
-          ? const Color(0xFFFF4040)
+          ? ReelForgeTheme.accentRed
           : ReelForgeTheme.bgMid;
 
     canvas.drawRect(leftClipRect, leftClipPaint);
@@ -436,7 +436,7 @@ class _ProMeterPainter extends CustomPainter {
 
     final rightClipPaint = Paint()
       ..color = readings.clippedRight
-          ? const Color(0xFFFF4040)
+          ? ReelForgeTheme.accentRed
           : ReelForgeTheme.bgMid;
 
     canvas.drawRect(rightClipRect, rightClipPaint);
@@ -647,9 +647,9 @@ class StereoMeterStrip extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontFamily: 'monospace',
                   color: readings.lufsIntegrated > -14
-                      ? const Color(0xFFFF4040)
+                      ? ReelForgeTheme.accentRed
                       : readings.lufsIntegrated > -23
-                          ? const Color(0xFFFFAA00)
+                          ? ReelForgeTheme.accentOrange
                           : ReelForgeTheme.textPrimary,
                 ),
               ),
@@ -689,7 +689,7 @@ class StereoMeterStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: isOver
-            ? const Color(0x33FF4040)
+            ? ReelForgeTheme.accentRed.withAlpha(51)
             : ReelForgeTheme.bgDeepest,
         border: Border(
           top: BorderSide(color: ReelForgeTheme.borderSubtle),
@@ -711,7 +711,7 @@ class StereoMeterStrip extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
-              color: isOver ? const Color(0xFFFF4040) : ReelForgeTheme.textSecondary,
+              color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textSecondary,
             ),
           ),
         ],
@@ -789,10 +789,10 @@ class _CorrelationPainter extends CustomPainter {
     final indicatorX = normalizedPos * size.width;
 
     final indicatorColor = correlation < 0
-        ? const Color(0xFFFF4040) // Out of phase - red
+        ? ReelForgeTheme.accentRed // Out of phase - red
         : correlation < 0.5
-            ? const Color(0xFFFFAA00) // Low correlation - orange
-            : const Color(0xFF40FF90); // Good correlation - green
+            ? ReelForgeTheme.accentOrange // Low correlation - orange
+            : ReelForgeTheme.accentGreen; // Good correlation - green
 
     final indicatorPaint = Paint()
       ..color = indicatorColor
@@ -883,9 +883,9 @@ class LufsMeter extends StatelessWidget {
   Widget _buildLufsValue(String label, double value, String description) {
     final isValid = value > -70;
     final color = value > -14
-        ? const Color(0xFFFF4040)
+        ? ReelForgeTheme.accentRed
         : value > -23
-            ? const Color(0xFF40FF90)
+            ? ReelForgeTheme.accentGreen
             : ReelForgeTheme.textPrimary;
 
     return Row(
@@ -971,7 +971,7 @@ class LufsMeter extends StatelessWidget {
       height: 28,
       decoration: BoxDecoration(
         color: isOnTarget
-            ? const Color(0x3340FF90)
+            ? ReelForgeTheme.accentGreen.withAlpha(51)
             : ReelForgeTheme.bgDeepest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(3)),
       ),
@@ -982,7 +982,7 @@ class LufsMeter extends StatelessWidget {
             isOnTarget ? Icons.check_circle : Icons.info_outline,
             size: 14,
             color: isOnTarget
-                ? const Color(0xFF40FF90)
+                ? ReelForgeTheme.accentGreen
                 : ReelForgeTheme.textTertiary,
           ),
           const SizedBox(width: 4),
@@ -991,7 +991,7 @@ class LufsMeter extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               color: isOnTarget
-                  ? const Color(0xFF40FF90)
+                  ? ReelForgeTheme.accentGreen
                   : ReelForgeTheme.textTertiary,
             ),
           ),

@@ -321,7 +321,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                   label: Text(_isOpening ? 'Opening...' : 'Open'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ReelForgeTheme.accentBlue,
-                    foregroundColor: Colors.white,
+                    foregroundColor: ReelForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -341,7 +341,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
 
   Widget _buildRecentProjectItem(RecentProject project) {
     return Material(
-      color: Colors.transparent,
+      color: ReelForgeTheme.bgVoid.withValues(alpha: 0.0),
       child: InkWell(
         onTap: () {
           _pathController.text = project.path;

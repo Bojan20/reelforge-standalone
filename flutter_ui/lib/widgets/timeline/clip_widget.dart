@@ -181,7 +181,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Rename'),
               const Spacer(),
-              Text('F2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('F2', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -193,7 +193,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Duplicate'),
               const Spacer(),
-              Text('⌘D', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('⌘D', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -205,7 +205,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Split at Playhead'),
               const Spacer(),
-              Text('S', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('S', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -218,7 +218,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               Text(clip.muted ? 'Unmute' : 'Mute'),
               const Spacer(),
-              Text('M', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('M', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -237,11 +237,11 @@ class _ClipWidgetState extends State<ClipWidget> {
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 18, color: Colors.red[400]),
+              Icon(Icons.delete, size: 18, color: ReelForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Colors.red[400])),
+              Text('Delete', style: TextStyle(color: ReelForgeTheme.accentRed)),
               const Spacer(),
-              Text('⌫', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text('⌫', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -281,7 +281,8 @@ class _ClipWidgetState extends State<ClipWidget> {
     if (x + width < 0 || x > 2000) return const SizedBox.shrink();
 
     final clipHeight = widget.trackHeight - 4;
-    final clipColor = clip.color ?? const Color(0xFF3A6EA5);
+    // Logic Pro style: Pastel blue background with white waveform
+    const clipColor = Color(0xFF4A90C2); // Logic Pro audio region blue
 
     return Positioned(
       left: x,
@@ -386,13 +387,12 @@ class _ClipWidgetState extends State<ClipWidget> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: clipColor.withValues(
-              alpha: clip.muted ? 0.3 : (clip.selected ? 0.9 : 0.7),
-            ),
+            // Logic Pro style: BLUE background with WHITE waveform
+            color: clipColor,
             borderRadius: BorderRadius.circular(4),
             border: clip.selected
                 ? Border.all(color: Colors.white, width: 2)
-                : null,
+                : Border.all(color: clipColor.withValues(alpha: 0.7), width: 1),
           ),
           child: Stack(
             children: [
@@ -424,7 +424,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                           controller: _nameController,
                           focusNode: _focusNode,
                           style: ReelForgeTheme.bodySmall.copyWith(
-                            color: Colors.white,
+                            color: ReelForgeTheme.textPrimary,
                           ),
                           decoration: const InputDecoration(
                             isDense: true,
@@ -437,7 +437,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                       : Text(
                           clip.name,
                           style: ReelForgeTheme.bodySmall.copyWith(
-                            color: Colors.white,
+                            color: ReelForgeTheme.textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -471,14 +471,14 @@ class _ClipWidgetState extends State<ClipWidget> {
                       decoration: BoxDecoration(
                         color: _isDraggingGain
                             ? ReelForgeTheme.accentBlue
-                            : Colors.black54,
+                            : ReelForgeTheme.bgVoid.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         _gainDisplay,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 9,
-                          color: Colors.white,
+                          color: ReelForgeTheme.textPrimary,
                           fontFamily: 'JetBrains Mono',
                         ),
                       ),
@@ -744,19 +744,27 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     // Calculate samples per pixel for LOD selection
     final isStereo = widget.waveformRight != null;
 
-    // Use UltimateWaveform config tuned for clip display
+    // Logic Pro style: CLEAN WHITE waveform on BLUE background
+    // No transients, no clipping markers, no extra colors - JUST CLEAN WHITE WAVE
+    const waveColor = Color(0xFFFFFFFF); // Pure white
+    const rmsWaveColor = Color(0xDDFFFFFF); // Slightly transparent white
+
     final config = UltimateWaveformConfig(
       style: WaveformStyle.filled,
-      primaryColor: Colors.white,
-      rmsColor: Colors.white.withValues(alpha: 0.85),
+      primaryColor: waveColor,
+      rmsColor: rmsWaveColor,
+      transientColor: waveColor,
+      clippingColor: waveColor,
+      zeroCrossingColor: waveColor,
       showRms: true,
-      showTransients: widget.zoom > 30, // Show transients at higher zoom
-      showClipping: true,
-      showZeroCrossings: widget.zoom > 80, // Only at very high zoom
-      showSampleDots: widget.zoom > 150, // Individual samples at extreme zoom
-      use3dEffect: true,
+      showTransients: false,
+      showClipping: false,
+      showZeroCrossings: false,
+      showSampleDots: false,
+      use3dEffect: false,
       antiAlias: true,
       lineWidth: 1.0,
+      transparentBackground: true, // Use clip's background color instead
     );
 
     return Transform.scale(
@@ -769,6 +777,26 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
       ),
     );
+  }
+
+  /// Darken a color by a factor (0.0 = no change, 1.0 = black)
+  Color _darkenColor(Color color, double factor) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness * (1 - factor)).clamp(0.0, 1.0)).toColor();
+  }
+
+  /// Lighten a color by a factor (0.0 = no change, 1.0 = white)
+  Color _lightenColor(Color color, double factor) {
+    final hsl = HSLColor.fromColor(color);
+    final newLightness = hsl.lightness + (1.0 - hsl.lightness) * factor;
+    return hsl.withLightness(newLightness.clamp(0.0, 1.0)).toColor();
+  }
+
+  /// Increase saturation of a color (Logic Pro style vivid waveforms)
+  Color _saturateColor(Color color, double factor) {
+    final hsl = HSLColor.fromColor(color);
+    final newSaturation = (hsl.saturation + factor).clamp(0.0, 1.0);
+    return hsl.withSaturation(newSaturation).toColor();
   }
 }
 
@@ -1090,14 +1118,18 @@ class _FadeOverlayPainter extends CustomPainter {
 
     final path = Path();
     if (isLeft) {
+      // Fade IN: dark at top-left (silence) → clear at right (full volume)
+      // Triangle: top-left corner filled, representing reduced gain at start
       path.moveTo(0, 0);
-      path.lineTo(size.width, size.height);
+      path.lineTo(size.width, 0);
       path.lineTo(0, size.height);
       path.close();
     } else {
+      // Fade OUT: clear at left (full volume) → dark at top-right (silence)
+      // Triangle: top-right corner filled, representing reduced gain at end
       path.moveTo(size.width, 0);
-      path.lineTo(0, size.height);
       path.lineTo(size.width, size.height);
+      path.lineTo(0, 0);
       path.close();
     }
 
@@ -1154,7 +1186,7 @@ class _FadeHandle extends StatelessWidget {
               width: 8,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: isActive ? 0.8 : 0.4),
+                color: ReelForgeTheme.textPrimary.withValues(alpha: isActive ? 0.8 : 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

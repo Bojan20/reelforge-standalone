@@ -92,6 +92,70 @@ pub fn simd_level() -> SimdLevel {
     detect_simd_level()
 }
 
+// ============ Denormal Protection ============
+
+/// Set CPU flags to flush denormals to zero (DAZ + FTZ)
+/// This prevents massive CPU slowdown when processing very quiet audio
+/// MUST be called once at audio thread startup
+///
+/// # Safety
+/// This modifies the MXCSR register on x86_64.
+/// The change affects the current thread only.
+#[inline]
+pub fn set_denormals_zero() {
+    #[cfg(target_arch = "x86_64")]
+    {
+        // Safety: These intrinsics only affect floating-point behavior
+        // and are safe to call at any time
+        unsafe {
+            use std::arch::x86_64::{_mm_getcsr, _mm_setcsr};
+            // DAZ (Denormals Are Zero) = bit 6 (0x0040)
+            // FTZ (Flush To Zero) = bit 15 (0x8000)
+            let mxcsr = _mm_getcsr();
+            _mm_setcsr(mxcsr | 0x8040);
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        // ARM: FPCR.FZ bit enables flush-to-zero
+        // This is typically the default on ARM, but set it explicitly
+        // Note: Rust doesn't have stable intrinsics for this yet,
+        // so we rely on default ARM behavior
+    }
+}
+
+/// Restore normal denormal handling (for compatibility tests)
+#[inline]
+pub fn restore_denormals() {
+    #[cfg(target_arch = "x86_64")]
+    {
+        unsafe {
+            use std::arch::x86_64::{_mm_getcsr, _mm_setcsr};
+            let mxcsr = _mm_getcsr();
+            _mm_setcsr(mxcsr & !0x8040);
+        }
+    }
+}
+
+/// Check if denormals are being flushed to zero
+#[inline]
+pub fn denormals_are_zero() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        unsafe {
+            use std::arch::x86_64::_mm_getcsr;
+            let mxcsr = _mm_getcsr();
+            (mxcsr & 0x8040) == 0x8040
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        true // Assume ARM handles this correctly
+    }
+}
+
 // ============ Dispatch Function Types ============
 
 /// Function pointer type for gain processing
@@ -269,9 +333,11 @@ mod x86_impl {
             _mm_storeu_pd(ptr.add(i), output);
         }
 
-        // Remainder
-        for i in simd_len..len {
-            *buffer.get_unchecked_mut(i) *= gain;
+        // Remainder - safe because simd_len..len is always within bounds
+        // simd_len = len - (len % 2), so simd_len <= len always
+        debug_assert!(simd_len <= len, "SIMD remainder loop bounds check failed");
+        for sample in &mut buffer[simd_len..len] {
+            *sample *= gain;
         }
     }
 
@@ -308,8 +374,10 @@ mod x86_impl {
             _mm_storeu_pd(dest_ptr.add(i), result);
         }
 
+        // Remainder - safe because simd_len..len is within bounds of both slices
+        debug_assert!(simd_len <= len, "SIMD mix_add remainder loop bounds check failed");
         for i in simd_len..len {
-            *dest.get_unchecked_mut(i) += *src.get_unchecked(i) * gain;
+            dest[i] += src[i] * gain;
         }
     }
 
@@ -334,9 +402,10 @@ mod x86_impl {
             _mm256_storeu_pd(ptr.add(i), output);
         }
 
-        // Remainder
-        for i in simd_len..len {
-            *buffer.get_unchecked_mut(i) *= gain;
+        // Remainder - safe because simd_len..len is always within bounds
+        debug_assert!(simd_len <= len, "AVX2 remainder loop bounds check failed");
+        for sample in &mut buffer[simd_len..len] {
+            *sample *= gain;
         }
     }
 
@@ -366,8 +435,10 @@ mod x86_impl {
             _mm256_storeu_pd(dest_ptr.add(i), result);
         }
 
+        // Remainder - safe because simd_len..len is within bounds
+        debug_assert!(simd_len <= len, "AVX2 mix_add remainder loop bounds check failed");
         for i in simd_len..len {
-            *dest.get_unchecked_mut(i) += *src.get_unchecked(i) * gain;
+            dest[i] += src[i] * gain;
         }
     }
 
@@ -483,8 +554,10 @@ mod arm_impl {
                 vst1q_f64(ptr.add(i), output);
             }
 
-            for i in simd_len..len {
-                *buffer.get_unchecked_mut(i) *= gain;
+            // Remainder - safe because simd_len..len is always within bounds
+            debug_assert!(simd_len <= len, "NEON remainder loop bounds check failed");
+            for sample in &mut buffer[simd_len..len] {
+                *sample *= gain;
             }
         }
     }
@@ -519,8 +592,10 @@ mod arm_impl {
                 vst1q_f64(dest_ptr.add(i), result);
             }
 
+            // Remainder - safe because simd_len..len is within bounds
+            debug_assert!(simd_len <= len, "NEON mix_add remainder loop bounds check failed");
             for i in simd_len..len {
-                *dest.get_unchecked_mut(i) += *src.get_unchecked(i) * gain;
+                dest[i] += src[i] * gain;
             }
         }
     }

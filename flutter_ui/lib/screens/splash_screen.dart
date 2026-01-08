@@ -149,7 +149,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0C),
+      backgroundColor: ReelForgeTheme.bgVoid,
       body: Stack(
         children: [
           // Background gradient
@@ -159,8 +159,8 @@ class _SplashScreenState extends State<SplashScreen>
                 center: Alignment.center,
                 radius: 1.5,
                 colors: [
-                  const Color(0xFF1A1A20),
-                  const Color(0xFF0A0A0C),
+                  ReelForgeTheme.bgMid,
+                  ReelForgeTheme.bgVoid,
                 ],
               ),
             ),
@@ -225,19 +225,19 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     children: [
                       ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
+                        shaderCallback: (bounds) => LinearGradient(
                           colors: [
-                            Color(0xFF4A9EFF),
-                            Color(0xFF40C8FF),
+                            ReelForgeTheme.accentBlue,
+                            ReelForgeTheme.accentCyan,
                           ],
                         ).createShader(bounds),
-                        child: const Text(
+                        child: Text(
                           'ReelForge',
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w300,
                             letterSpacing: 8,
-                            color: Colors.white,
+                            color: ReelForgeTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -248,7 +248,7 @@ class _SplashScreenState extends State<SplashScreen>
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 6,
-                          color: Colors.white.withAlpha(128),
+                          color: ReelForgeTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -292,7 +292,7 @@ class _SplashScreenState extends State<SplashScreen>
                     'v0.1.0',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withAlpha(77),
+                      color: ReelForgeTheme.textTertiary,
                       letterSpacing: 2,
                     ),
                   ),
@@ -301,7 +301,7 @@ class _SplashScreenState extends State<SplashScreen>
                     '© 2025 VanVinkl Studio',
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.white.withAlpha(51),
+                      color: ReelForgeTheme.textDisabled,
                       letterSpacing: 1,
                     ),
                   ),
@@ -320,12 +320,12 @@ class _SplashScreenState extends State<SplashScreen>
       height: 140,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF242430),
-            Color(0xFF1A1A20),
+            ReelForgeTheme.bgSurface,
+            ReelForgeTheme.bgMid,
           ],
         ),
         border: Border.all(
@@ -351,20 +351,20 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             // Inner symbol - stylized R
             ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
+              shaderCallback: (bounds) => LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF4A9EFF),
-                  Color(0xFF40C8FF),
+                  ReelForgeTheme.accentBlue,
+                  ReelForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
-              child: const Text(
+              child: Text(
                 'R',
                 style: TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.w200,
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                   letterSpacing: -2,
                 ),
               ),
@@ -403,7 +403,7 @@ class _SplashScreenState extends State<SplashScreen>
           Container(
             height: 3,
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(26),
+              color: ReelForgeTheme.bgElevated,
               borderRadius: BorderRadius.circular(1.5),
             ),
             child: widget.progress != null
@@ -412,10 +412,10 @@ class _SplashScreenState extends State<SplashScreen>
                     widthFactor: widget.progress!.clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [
-                            Color(0xFF4A9EFF),
-                            Color(0xFF40C8FF),
+                            ReelForgeTheme.accentBlue,
+                            ReelForgeTheme.accentCyan,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(1.5),
@@ -430,7 +430,7 @@ class _SplashScreenState extends State<SplashScreen>
             widget.loadingMessage ?? 'Initializing...',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withAlpha(128),
+              color: ReelForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
           ),
@@ -465,7 +465,7 @@ class _SplashScreenState extends State<SplashScreen>
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.white.withAlpha(128),
+                color: ReelForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -522,10 +522,10 @@ class _IndeterminateProgressState extends State<_IndeterminateProgress>
           alignment: Alignment(-1.0 + 2.0 * _controller.value, 0),
           child: Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [
-                  Color(0xFF4A9EFF),
-                  Color(0xFF40C8FF),
+                  ReelForgeTheme.accentBlue,
+                  ReelForgeTheme.accentCyan,
                 ],
               ),
               borderRadius: BorderRadius.circular(1.5),
@@ -542,7 +542,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withAlpha(5)
+      ..color = ReelForgeTheme.textPrimary.withAlpha(5)
       ..strokeWidth = 0.5;
 
     const spacing = 50.0;

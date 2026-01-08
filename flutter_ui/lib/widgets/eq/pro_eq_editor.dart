@@ -15,6 +15,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import '../../theme/reelforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FABFILTER-STYLE COLOR SYSTEM
@@ -181,6 +182,9 @@ class ProEqEditor extends StatefulWidget {
   /// Signal level from metering (0.0-1.0, linear)
   /// When > 0, spectrum analyzer is visible
   final double signalLevel;
+  /// Real spectrum data from engine (256 bins, 0.0-1.0 normalized)
+  /// If null, no spectrum is shown (no fake data)
+  final List<double>? spectrumData;
   /// Callback when EQ band parameters change - sends to Rust DSP
   final void Function(int bandIndex, {
     bool? enabled,
@@ -198,6 +202,7 @@ class ProEqEditor extends StatefulWidget {
     this.width = 1200,
     this.height = 700,
     this.signalLevel = 0.0,
+    this.spectrumData,
     this.onBandChange,
     this.onBypassChange,
   });
@@ -295,7 +300,26 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       return;
     }
 
-    // HAS SIGNAL: Generate spectrum visualization based on signal level
+    // USE REAL SPECTRUM DATA from engine if available
+    if (widget.spectrumData != null && widget.spectrumData!.isNotEmpty) {
+      const n = 256;
+      if (_spectrum.length != n) _spectrum = List.filled(n, -100.0);
+
+      // Convert normalized 0-1 spectrum to dB scale (-80 to 0 dB)
+      for (int i = 0; i < math.min(n, widget.spectrumData!.length); i++) {
+        // spectrumData is 0.0-1.0 normalized, convert to dB
+        final normalized = widget.spectrumData![i].clamp(0.0, 1.0);
+        final db = normalized > 0.001 ? -80.0 + normalized * 80.0 : -100.0;
+
+        // Smooth interpolation for fluid animation
+        _spectrum[i] = _spectrum[i] * 0.7 + db * 0.3;
+      }
+
+      if (mounted) setState(() {});
+      return;
+    }
+
+    // FALLBACK: Generate simulated spectrum (only when no real data)
     const n = 256;
     if (_spectrum.length != n) _spectrum = List.filled(n, -100.0);
 
@@ -498,7 +522,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           border: Border.all(color: _Colors.bg4, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: ReelForgeTheme.bgVoid.withOpacity(0.5),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -635,7 +659,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           color: enabled ? _Colors.controlBg : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(icon, size: 16, color: enabled ? _Colors.textSecondary : _Colors.textDim),
+        child: Icon(icon, size: 16, color: enabled ? ReelForgeTheme.textSecondary : ReelForgeTheme.textDisabled),
       ),
     );
   }
@@ -921,7 +945,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         ),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: ReelForgeTheme.bgVoid.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
           BoxShadow(color: band.color.withOpacity(0.2), blurRadius: 24, spreadRadius: -8),
         ],
       ),
@@ -1735,45 +1759,186 @@ class _EQDisplayPainter extends CustomPainter {
   void _drawSpectrum(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final n = spectrum!.length;
+    if (n < 2) return;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FABFILTER PRO-Q 4 STYLE SPECTRUM ANALYZER
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Key techniques from FabFilter:
+    // 1. Constant-Q style display: equal resolution per octave
+    // 2. 1/3 octave smoothing across all frequencies
+    // 3. Parabolic/quadratic interpolation for peak finding
+    // 4. 4.5 dB/octave tilt compensation (pink noise = flat)
+    // 5. Proper energy (RMS) averaging of FFT bins
+    //
+    // The main insight: FFT gives LINEAR frequency bins, but we need
+    // LOGARITHMIC display. Low frequencies have very few bins (20-40Hz
+    // might only be 1-2 bins), so we must interpolate and smooth heavily.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const sampleRate = 48000.0;
+    final fftSize = n * 2; // Assuming spectrum is half the FFT size
+    final binWidth = sampleRate / fftSize;
+
+    const minFreq = 20.0;
+    const maxFreq = 20000.0;
+
+    // Pro-Q uses ~512 display points for smooth curve
+    const numPoints = 512;
+
+    // Tilt: 4.5 dB/octave makes pink noise appear flat
+    // This matches human loudness perception
+    const tiltDbPerOctave = 4.5;
+    const tiltRefFreq = 1000.0;
 
     final points = <Offset>[];
-    for (int i = 0; i < n; i++) {
-      final x = (i / (n - 1)) * w;
-      final db = spectrum![i].clamp(-100.0, 0.0);
-      // Map dB to screen (0dB at center, spectrum below)
-      final normalized = (db + 60) / 60; // -60dB to 0dB mapped to 0-1
-      final y = h - (normalized * h * 0.8);
+
+    for (int i = 0; i < numPoints; i++) {
+      // Logarithmic frequency mapping
+      final t = i / (numPoints - 1);
+      final freq = minFreq * math.pow(maxFreq / minFreq, t);
+
+      // ─────────────────────────────────────────────────────────────────────
+      // CONSTANT-Q SMOOTHING: 1/3 octave bandwidth at ALL frequencies
+      // This is the key to Pro-Q's smooth appearance
+      // ─────────────────────────────────────────────────────────────────────
+      const smoothingOctaves = 1.0 / 3.0; // 1/3 octave = standard smoothing
+
+      final lowFreq = freq * math.pow(2, -smoothingOctaves / 2);
+      final highFreq = freq * math.pow(2, smoothingOctaves / 2);
+
+      // Map to FFT bins
+      final exactLowBin = lowFreq / binWidth;
+      final exactHighBin = highFreq / binWidth;
+
+      final lowBin = exactLowBin.floor().clamp(0, n - 1);
+      final highBin = exactHighBin.ceil().clamp(0, n - 1);
+
+      double db;
+
+      if (lowBin >= highBin) {
+        // ─────────────────────────────────────────────────────────────────
+        // BASS FREQUENCIES: Parabolic interpolation between bins
+        // When we don't have enough bins, interpolate for smooth curve
+        // ─────────────────────────────────────────────────────────────────
+        final exactBin = freq / binWidth;
+        final binIndex = exactBin.floor().clamp(1, n - 2);
+        final frac = exactBin - binIndex;
+
+        // Quadratic (parabolic) interpolation using 3 points
+        // This gives much smoother curves than linear interpolation
+        final y0 = spectrum![binIndex - 1];
+        final y1 = spectrum![binIndex];
+        final y2 = spectrum![binIndex + 1];
+
+        // Parabolic interpolation formula
+        final a = (y0 + y2) / 2 - y1;
+        final b = (y2 - y0) / 2;
+        final c = y1;
+
+        db = a * frac * frac + b * frac + c;
+      } else {
+        // ─────────────────────────────────────────────────────────────────
+        // MID/HIGH FREQUENCIES: RMS energy averaging over 1/3 octave
+        // ─────────────────────────────────────────────────────────────────
+        double sumEnergy = 0;
+        double totalWeight = 0;
+
+        for (int bin = lowBin; bin <= highBin; bin++) {
+          // Triangular weighting: bins closer to center freq get more weight
+          final binFreq = bin * binWidth;
+          final distance = (binFreq - freq).abs() / (highFreq - lowFreq);
+          final weight = 1.0 - distance.clamp(0.0, 1.0);
+
+          // Convert dB to linear power for proper RMS averaging
+          final dbVal = spectrum![bin].clamp(-120.0, 20.0);
+          final linearPower = math.pow(10, dbVal / 10); // Power, not amplitude
+
+          sumEnergy += linearPower * weight;
+          totalWeight += weight;
+        }
+
+        // Convert back to dB
+        if (totalWeight > 0 && sumEnergy > 0) {
+          db = 10 * math.log(sumEnergy / totalWeight) / math.ln10;
+        } else {
+          db = -90;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // TILT COMPENSATION: 4.5 dB/octave
+      // Makes pink noise appear flat, matching human perception
+      // ─────────────────────────────────────────────────────────────────────
+      final octavesFromRef = math.log(freq / tiltRefFreq) / math.ln2;
+      db += octavesFromRef * tiltDbPerOctave;
+
+      // Clamp to display range
+      db = db.clamp(-90.0, 12.0);
+
+      // Map to screen coordinates
+      final x = _freqToX(freq, w);
+      final normalized = (db + 90) / 102; // -90 to +12 dB range
+      final y = h - (normalized * h * 0.88);
+
       points.add(Offset(x, y.clamp(0.0, h)));
     }
 
-    if (points.length < 2) return;
+    // ─────────────────────────────────────────────────────────────────────
+    // ADDITIONAL SMOOTHING PASS: Gaussian-like smoothing on display points
+    // This removes any remaining jaggedness
+    // ─────────────────────────────────────────────────────────────────────
+    final smoothedPoints = <Offset>[];
+    const smoothRadius = 3;
 
-    // Build smooth path using Catmull-Rom
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (int i = 0; i < points.length - 1; i++) {
-      final p0 = i > 0 ? points[i - 1] : points[i];
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      final p3 = i + 2 < points.length ? points[i + 2] : p2;
+    for (int i = 0; i < points.length; i++) {
+      double sumY = 0;
+      double sumWeight = 0;
 
-      const t = 0.4;
+      for (int j = -smoothRadius; j <= smoothRadius; j++) {
+        final idx = (i + j).clamp(0, points.length - 1);
+        // Gaussian-like weight
+        final weight = math.exp(-j * j / (smoothRadius * smoothRadius * 0.5));
+        sumY += points[idx].dy * weight;
+        sumWeight += weight;
+      }
+
+      smoothedPoints.add(Offset(points[i].dx, sumY / sumWeight));
+    }
+
+    if (smoothedPoints.length < 2) return;
+
+    // Build ultra-smooth Catmull-Rom spline path using smoothed points
+    final path = Path()..moveTo(smoothedPoints.first.dx, smoothedPoints.first.dy);
+
+    for (int i = 0; i < smoothedPoints.length - 1; i++) {
+      final p0 = i > 0 ? smoothedPoints[i - 1] : smoothedPoints[i];
+      final p1 = smoothedPoints[i];
+      final p2 = smoothedPoints[i + 1];
+      final p3 = i + 2 < smoothedPoints.length ? smoothedPoints[i + 2] : p2;
+
+      // Catmull-Rom spline with optimized tension for smooth curves
+      const tension = 0.5; // Slightly higher for smoother curves
       path.cubicTo(
-        p1.dx + (p2.dx - p0.dx) * t / 3,
-        p1.dy + (p2.dy - p0.dy) * t / 3,
-        p2.dx - (p3.dx - p1.dx) * t / 3,
-        p2.dy - (p3.dy - p1.dy) * t / 3,
+        p1.dx + (p2.dx - p0.dx) * tension / 3,
+        p1.dy + (p2.dy - p0.dy) * tension / 3,
+        p2.dx - (p3.dx - p1.dx) * tension / 3,
+        p2.dy - (p3.dy - p1.dy) * tension / 3,
         p2.dx,
         p2.dy,
       );
     }
 
-    // Fill
+    // Fill with gradient
     final fillPath = Path.from(path)
       ..lineTo(w, h)
       ..lineTo(0, h)
       ..close();
 
-    final opacity = signalLevel * 0.8;
+    final opacity = (signalLevel * 0.95).clamp(0.4, 0.95);
+
+    // Gradient fill like Pro-Q
     canvas.drawPath(
       fillPath,
       Paint()
@@ -1781,19 +1946,31 @@ class _EQDisplayPainter extends CustomPainter {
           Offset(0, 0),
           Offset(0, h),
           [
-            _Colors.spectrumFill.withOpacity(opacity * 0.5),
+            _Colors.spectrumFill.withOpacity(opacity * 0.55),
             _Colors.spectrumFill.withOpacity(opacity * 0.02),
           ],
         ),
     );
 
-    // Line
+    // Soft glow behind line
     canvas.drawPath(
       path,
       Paint()
-        ..color = _Colors.spectrumLine.withOpacity(opacity * 0.6)
+        ..color = _Colors.spectrumLine.withOpacity(opacity * 0.25)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+        ..strokeWidth = 5.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // Main spectrum line
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = _Colors.spectrumLine.withOpacity(opacity * 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 
@@ -1978,9 +2155,9 @@ class _EQDisplayPainter extends CustomPainter {
         ..shader = RadialGradient(
           center: const Alignment(-0.3, -0.4),
           colors: [
-            Color.lerp(color, Colors.white, 0.3)!,
+            Color.lerp(color, ReelForgeTheme.textPrimary, 0.3)!,
             color,
-            Color.lerp(color, Colors.black, 0.2)!,
+            Color.lerp(color, ReelForgeTheme.bgVoid, 0.2)!,
           ],
           stops: const [0.0, 0.5, 1.0],
         ).createShader(Rect.fromCircle(center: Offset(x, y), radius: radius)),

@@ -326,7 +326,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: ReelForgeTheme.bgDeep,
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+        border: Border(bottom: BorderSide(color: ReelForgeTheme.textPrimary.withOpacity(0.1))),
       ),
       child: Row(
         children: [
@@ -444,7 +444,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               border: Border.all(
                 color: ch.selected
                     ? ch.color.withOpacity(0.6)
-                    : Colors.white.withOpacity(0.05),
+                    : ReelForgeTheme.textPrimary.withOpacity(0.05),
               ),
             ),
             child: Column(
@@ -457,11 +457,11 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                   ),
                 ),
-                // Insert slots (collapsible)
-                if (widget.showInserts && !widget.compact)
+                // Insert slots (always shown when enabled)
+                if (widget.showInserts)
                   _buildInsertSection(),
-                // Send slots (collapsible)
-                if (widget.showSends && !widget.compact)
+                // Send slots (always shown when enabled)
+                if (widget.showSends)
                   _buildSendSection(),
                 // Pan control
                 _buildPanControl(),
@@ -480,10 +480,17 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildInsertSection() {
+    // Dynamic slots: show used + 1 empty, min 1, max 8
+    int lastUsedInsert = -1;
+    for (int i = 0; i < widget.channel.inserts.length; i++) {
+      if (widget.channel.inserts[i].pluginName != null) lastUsedInsert = i;
+    }
+    final visibleInserts = (lastUsedInsert + 2).clamp(1, 8);
+
     return Container(
       padding: const EdgeInsets.all(2),
       child: Column(
-        children: List.generate(4, (i) {
+        children: List.generate(visibleInserts, (i) {
           final insert = i < widget.channel.inserts.length
               ? widget.channel.inserts[i]
               : InsertData(index: i);
@@ -497,10 +504,17 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildSendSection() {
+    // Dynamic slots: show used + 1 empty, min 1, max 8
+    int lastUsedSend = -1;
+    for (int i = 0; i < widget.channel.sends.length; i++) {
+      if (widget.channel.sends[i].destination != null) lastUsedSend = i;
+    }
+    final visibleSends = (lastUsedSend + 2).clamp(1, 8);
+
     return Container(
       padding: const EdgeInsets.all(2),
       child: Column(
-        children: List.generate(4, (i) {
+        children: List.generate(visibleSends, (i) {
           final send = i < widget.channel.sends.length
               ? widget.channel.sends[i]
               : SendData(index: i);
@@ -693,7 +707,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   bottom: 4,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
+                      color: ReelForgeTheme.bgVoid.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -718,7 +732,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: ReelForgeTheme.bgVoid.withOpacity(0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -728,7 +742,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       child: Container(
                         width: 8,
                         height: 1,
-                        color: Colors.black.withOpacity(0.3),
+                        color: ReelForgeTheme.bgVoid.withOpacity(0.3),
                       ),
                     ),
                   ),
@@ -980,13 +994,13 @@ class _InsertSlot extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 1),
         decoration: BoxDecoration(
           color: insert.isEmpty
-              ? Colors.black.withOpacity(0.3)
+              ? ReelForgeTheme.bgVoid.withOpacity(0.3)
               : ReelForgeTheme.accentBlue.withOpacity(0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: insert.bypassed
                 ? Colors.orange.withOpacity(0.5)
-                : Colors.white.withOpacity(0.1),
+                : ReelForgeTheme.textPrimary.withOpacity(0.1),
           ),
         ),
         child: Center(
@@ -1024,7 +1038,7 @@ class _SendSlot extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: send.isEmpty
-                    ? Colors.black.withOpacity(0.3)
+                    ? ReelForgeTheme.bgVoid.withOpacity(0.3)
                     : ReelForgeTheme.accentPurple.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -1074,7 +1088,7 @@ class _MiniSendLevel extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: ReelForgeTheme.bgVoid.withOpacity(0.4),
           borderRadius: BorderRadius.circular(2),
         ),
         child: FractionallySizedBox(
@@ -1117,10 +1131,10 @@ class _StripButton extends StatelessWidget {
         width: 18,
         height: 14,
         decoration: BoxDecoration(
-          color: active ? activeColor : Colors.black.withOpacity(0.3),
+          color: active ? activeColor : ReelForgeTheme.bgVoid.withOpacity(0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : Colors.white.withOpacity(0.1),
+            color: active ? activeColor : ReelForgeTheme.textPrimary.withOpacity(0.1),
             width: 0.5,
           ),
         ),
@@ -1128,7 +1142,7 @@ class _StripButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: active ? Colors.black : ReelForgeTheme.textTertiary,
+              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
               fontSize: 8,
               fontWeight: FontWeight.w600,
             ),
@@ -1237,7 +1251,7 @@ class _VcaFader extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: ReelForgeTheme.bgVoid.withOpacity(0.4),
           borderRadius: BorderRadius.circular(2),
         ),
         child: LayoutBuilder(
@@ -1346,7 +1360,7 @@ class _MasterStrip extends StatelessWidget {
             height: 20,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
+              color: ReelForgeTheme.bgVoid.withOpacity(0.4),
               borderRadius: BorderRadius.circular(2),
             ),
             child: const Center(
@@ -1423,7 +1437,7 @@ class _SectionDivider extends StatelessWidget {
       width: 2,
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: ReelForgeTheme.textPrimary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(1),
       ),
     );
@@ -1455,7 +1469,7 @@ class _ToolbarToggle extends StatelessWidget {
           border: Border.all(
             color: active
                 ? ReelForgeTheme.accentBlue
-                : Colors.white.withOpacity(0.2),
+                : ReelForgeTheme.textPrimary.withOpacity(0.2),
           ),
         ),
         child: Text(

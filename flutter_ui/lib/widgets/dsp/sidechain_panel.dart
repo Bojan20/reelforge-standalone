@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Sidechain source type
 enum SidechainSource {
@@ -103,14 +104,14 @@ class _SidechainPanelState extends State<SidechainPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -138,12 +139,12 @@ class _SidechainPanelState extends State<SidechainPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.call_split, color: Color(0xFF40C8FF), size: 20),
+          const Icon(Icons.call_split, color: ReelForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           const Text(
             'SIDECHAIN',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -154,13 +155,13 @@ class _SidechainPanelState extends State<SidechainPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF40C8FF).withValues(alpha: 0.2),
+                color: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
                 'EXT',
                 style: TextStyle(
-                  color: Color(0xFF40C8FF),
+                  color: ReelForgeTheme.accentCyan,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -193,17 +194,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF40C8FF) : const Color(0xFF1A1A20),
+                      color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF40C8FF) : const Color(0xFF3A3A40),
+                        color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderMedium,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         source.label,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFF808090),
+                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -221,17 +222,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A20),
+              color: ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF3A3A40)),
+              border: Border.all(color: ReelForgeTheme.borderMedium),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 value: _selectedExternalId,
                 isExpanded: true,
-                dropdownColor: const Color(0xFF1A1A20),
+                dropdownColor: ReelForgeTheme.bgMid,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                   fontSize: 12,
                 ),
                 items: widget.availableSources
@@ -278,17 +279,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFFF9040) : const Color(0xFF1A1A20),
+                      color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFFFF9040) : const Color(0xFF3A3A40),
+                        color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         mode.label,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFF808090),
+                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -330,7 +331,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
             const Text(
               'INT',
               style: TextStyle(
-                color: Color(0xFF808090),
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -347,7 +348,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
             const Text(
               'EXT',
               style: TextStyle(
-                color: Color(0xFF808090),
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -380,13 +381,13 @@ class _SidechainPanelState extends State<SidechainPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _monitoring
-                  ? const Color(0xFFFF9040).withValues(alpha: 0.3)
-                  : const Color(0xFF1A1A20),
+                  ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3)
+                  : ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: _monitoring
-                    ? const Color(0xFFFF9040)
-                    : const Color(0xFF3A3A40),
+                    ? ReelForgeTheme.accentOrange
+                    : ReelForgeTheme.borderMedium,
               ),
             ),
             child: Row(
@@ -395,8 +396,8 @@ class _SidechainPanelState extends State<SidechainPanel> {
                 Icon(
                   _monitoring ? Icons.headphones : Icons.headphones_outlined,
                   color: _monitoring
-                      ? const Color(0xFFFF9040)
-                      : const Color(0xFF606070),
+                      ? ReelForgeTheme.accentOrange
+                      : ReelForgeTheme.textTertiary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -404,8 +405,8 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   _monitoring ? 'LISTENING TO KEY' : 'LISTEN TO KEY SIGNAL',
                   style: TextStyle(
                     color: _monitoring
-                        ? const Color(0xFFFF9040)
-                        : const Color(0xFF808090),
+                        ? ReelForgeTheme.accentOrange
+                        : ReelForgeTheme.textTertiary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -418,7 +419,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
         const Text(
           'Solo the sidechain signal to hear what the compressor is responding to.',
           style: TextStyle(
-            color: Color(0xFF606070),
+            color: ReelForgeTheme.textTertiary,
             fontSize: 10,
           ),
         ),
@@ -430,7 +431,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
     return Text(
       title,
       style: const TextStyle(
-        color: Color(0xFF808090),
+        color: ReelForgeTheme.textTertiary,
         fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
@@ -457,7 +458,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Color(0xFF808090),
+                  color: ReelForgeTheme.textTertiary,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
@@ -466,7 +467,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
               Text(
                 '${value.toStringAsFixed(value < 10 ? 1 : 0)} $unit',
                 style: const TextStyle(
-                  color: Color(0xFF40C8FF),
+                  color: ReelForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -477,11 +478,11 @@ class _SidechainPanelState extends State<SidechainPanel> {
         SliderTheme(
           data: SliderThemeData(
             trackHeight: 4,
-            activeTrackColor: const Color(0xFF40C8FF),
-            inactiveTrackColor: const Color(0xFF2A2A30),
-            thumbColor: const Color(0xFF40C8FF),
+            activeTrackColor: ReelForgeTheme.accentCyan,
+            inactiveTrackColor: ReelForgeTheme.borderSubtle,
+            thumbColor: ReelForgeTheme.accentCyan,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: const Color(0xFF40C8FF).withValues(alpha: 0.2),
+            overlayColor: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value.clamp(min, max),

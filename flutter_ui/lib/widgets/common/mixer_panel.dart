@@ -233,7 +233,7 @@ class MixerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF121216),
+      color: ReelForgeTheme.bgDeep,
       child: Row(
         children: [
           // Bus channels
@@ -261,7 +261,7 @@ class MixerPanel extends StatelessWidget {
           if (masterBus != null) ...[
             Container(
               width: 1,
-              color: Colors.white.withOpacity(0.1),
+              color: ReelForgeTheme.borderSubtle,
             ),
             _ChannelStrip(
               channel: masterBus!,
@@ -319,15 +319,15 @@ class _ChannelStripState extends State<_ChannelStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final channelColor = widget.channel.color ?? const Color(0xFF6366F1);
+    final channelColor = widget.channel.color ?? ReelForgeTheme.accentPurple;
 
     return Container(
       width: widget.compact ? 50 : 70,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
+        color: ReelForgeTheme.bgMid,
         border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.05)),
+          right: BorderSide(color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)),
         ),
       ),
       child: Column(
@@ -344,15 +344,15 @@ class _ChannelStripState extends State<_ChannelStrip> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D0D10),
+              color: ReelForgeTheme.bgVoid,
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               '$_volumeDbStr dB',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9,
                 fontFamily: 'monospace',
-                color: Colors.white70,
+                color: ReelForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -374,10 +374,10 @@ class _ChannelStripState extends State<_ChannelStrip> {
       children: [
         Text(
           widget.channel.name,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: ReelForgeTheme.textPrimary,
           ),
           overflow: TextOverflow.ellipsis,
         ),
@@ -440,7 +440,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           width: 12,
           height: height,
           decoration: BoxDecoration(
-            color: const Color(0xFF0D0D10),
+            color: ReelForgeTheme.bgVoid,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -455,8 +455,8 @@ class _ChannelStripState extends State<_ChannelStrip> {
               width: 4,
               height: 1,
               color: db == 0
-                  ? const Color(0xFF00AAFF)
-                  : Colors.white.withOpacity(0.2),
+                  ? ReelForgeTheme.accentBlue
+                  : ReelForgeTheme.borderMedium,
             ),
           );
         }),
@@ -472,10 +472,10 @@ class _ChannelStripState extends State<_ChannelStrip> {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  const Color(0xFF22C55E),
-                  const Color(0xFF22C55E),
-                  const Color(0xFFEAB308),
-                  const Color(0xFFEF4444),
+                  ReelForgeTheme.accentGreen,
+                  ReelForgeTheme.accentGreen,
+                  ReelForgeTheme.accentYellow,
+                  ReelForgeTheme.accentRed,
                 ],
                 stops: const [0, 0.7, 0.9, 1],
               ),
@@ -491,27 +491,27 @@ class _ChannelStripState extends State<_ChannelStrip> {
             width: 20,
             height: 24,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF5A5A5A),
-                  Color(0xFF3A3A3A),
-                  Color(0xFF2A2A2A),
+                  ReelForgeTheme.bgHover,
+                  ReelForgeTheme.bgElevated,
+                  ReelForgeTheme.bgSurface,
                 ],
               ),
               borderRadius: BorderRadius.circular(3),
               border: Border.all(
                 color: _isDragging
-                    ? const Color(0xFF00AAFF)
-                    : Colors.white.withOpacity(0.2),
+                    ? ReelForgeTheme.accentBlue
+                    : ReelForgeTheme.borderMedium,
               ),
             ),
             child: Center(
               child: Container(
                 width: 12,
                 height: 2,
-                color: Colors.white.withOpacity(0.5),
+                color: ReelForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -547,9 +547,9 @@ class _ChannelStripState extends State<_ChannelStrip> {
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              activeTrackColor: const Color(0xFF4A9EFF),
-              inactiveTrackColor: const Color(0xFF333344),
-              thumbColor: Colors.white,
+              activeTrackColor: ReelForgeTheme.accentBlue,
+              inactiveTrackColor: ReelForgeTheme.bgElevated,
+              thumbColor: ReelForgeTheme.textPrimary,
             ),
             child: Slider(
               value: pan,
@@ -561,7 +561,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
         ),
         Text(
           panLabel,
-          style: const TextStyle(fontSize: 8, color: Colors.white54),
+          style: TextStyle(fontSize: 8, color: ReelForgeTheme.textSecondary),
         ),
       ],
     );
@@ -574,14 +574,14 @@ class _ChannelStripState extends State<_ChannelStrip> {
         _ChannelButton(
           label: 'M',
           active: widget.channel.muted,
-          activeColor: const Color(0xFFFF4040),
+          activeColor: ReelForgeTheme.accentRed,
           onTap: widget.onMuteToggle,
         ),
         const SizedBox(width: 2),
         _ChannelButton(
           label: 'S',
           active: widget.channel.solo,
-          activeColor: const Color(0xFFFFD700),
+          activeColor: ReelForgeTheme.accentYellow,
           onTap: widget.onSoloToggle,
         ),
         if (!widget.isMaster && widget.onArmToggle != null) ...[
@@ -589,7 +589,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           _ChannelButton(
             label: 'R',
             active: widget.channel.armed,
-            activeColor: const Color(0xFFFF4040),
+            activeColor: ReelForgeTheme.accentRed,
             onTap: widget.onArmToggle,
           ),
         ],
@@ -632,10 +632,10 @@ class _ChannelButton extends StatelessWidget {
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: active ? activeColor : const Color(0xFF2A2A30),
+          color: active ? activeColor : ReelForgeTheme.bgSurface,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : Colors.white.withOpacity(0.1),
+            color: active ? activeColor : ReelForgeTheme.borderSubtle,
           ),
         ),
         child: Center(
@@ -644,7 +644,7 @@ class _ChannelButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.bold,
-              color: active ? Colors.black : Colors.white54,
+              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -667,7 +667,7 @@ class _MeterPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFF0D0D10),
+      Paint()..color = ReelForgeTheme.bgVoid,
     );
 
     if (reading == null) return;
@@ -683,7 +683,7 @@ class _MeterPainter extends CustomPainter {
     if (reading!.isClipping) {
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, 4),
-        Paint()..color = const Color(0xFFFF0000),
+        Paint()..color = ReelForgeTheme.clipRed,
       );
     }
   }
@@ -696,11 +696,11 @@ class _MeterPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
-      colors: const [
-        Color(0xFF22C55E),
-        Color(0xFF22C55E),
-        Color(0xFFEAB308),
-        Color(0xFFEF4444),
+      colors: [
+        ReelForgeTheme.accentGreen,
+        ReelForgeTheme.accentGreen,
+        ReelForgeTheme.accentYellow,
+        ReelForgeTheme.accentRed,
       ],
       stops: const [0, 0.6, 0.85, 1],
     );

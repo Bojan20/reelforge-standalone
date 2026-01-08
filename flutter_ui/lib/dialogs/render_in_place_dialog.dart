@@ -294,7 +294,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                 backgroundColor: ReelForgeTheme.bgSurface,
                 selectedColor: ReelForgeTheme.accentBlue,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+                  color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
                   fontSize: 12,
                 ),
               );
@@ -401,7 +401,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
       label: Text(label),
       backgroundColor: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : ReelForgeTheme.textSecondary,
+        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
         fontSize: 11,
       ),
       onPressed: () => setState(() => _tailTime = value),
@@ -609,7 +609,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             label: const Text('Render'),
             style: ElevatedButton.styleFrom(
               backgroundColor: ReelForgeTheme.accentBlue,
-              foregroundColor: Colors.white,
+              foregroundColor: ReelForgeTheme.textPrimary,
             ),
           ),
         ],

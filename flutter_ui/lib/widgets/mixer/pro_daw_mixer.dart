@@ -226,11 +226,11 @@ class _ProDawMixerState extends State<ProDawMixer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: ReelForgeTheme.bgDeep,
-        title: const Text('Add Bus', style: TextStyle(color: Colors.white)),
+        title: Text('Add Bus', style: TextStyle(color: ReelForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: ReelForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
             labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
@@ -259,11 +259,11 @@ class _ProDawMixerState extends State<ProDawMixer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: ReelForgeTheme.bgDeep,
-        title: const Text('Add Aux', style: TextStyle(color: Colors.white)),
+        title: Text('Add Aux', style: TextStyle(color: ReelForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: ReelForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
             labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
@@ -292,11 +292,11 @@ class _ProDawMixerState extends State<ProDawMixer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: ReelForgeTheme.bgDeep,
-        title: const Text('Add VCA', style: TextStyle(color: Colors.white)),
+        title: Text('Add VCA', style: TextStyle(color: ReelForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: ReelForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
             labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
@@ -468,7 +468,7 @@ class _ChannelStrip extends StatelessWidget {
             child: Text(
               channel.name,
               style: ReelForgeTheme.labelTiny.copyWith(
-                color: Colors.white,
+                color: ReelForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -623,7 +623,7 @@ class _VcaStrip extends StatelessWidget {
             child: Text(
               vca.name,
               style: ReelForgeTheme.labelTiny.copyWith(
-                color: Colors.white,
+                color: ReelForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -667,9 +667,9 @@ class _MasterStrip extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
             color: channel.color.withValues(alpha: 0.3),
-            child: const Center(
+            child: Center(
               child: Text('MASTER', style: TextStyle(
-                color: Colors.white,
+                color: ReelForgeTheme.textPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               )),
@@ -720,8 +720,8 @@ class _MasterStrip extends StatelessWidget {
             color: ReelForgeTheme.bgDeepest,
             child: Text(
               channel.volumeDbString,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: ReelForgeTheme.textPrimary,
                 fontSize: 12,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
@@ -835,7 +835,7 @@ class _PanKnobPainter extends CustomPainter {
       center,
       end,
       Paint()
-        ..color = Colors.white
+        ..color = ReelForgeTheme.textPrimary
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
@@ -853,7 +853,7 @@ class _VerticalFader extends StatelessWidget {
   const _VerticalFader({
     required this.value,
     this.onChanged,
-    this.color = Colors.white,
+    this.color = ReelForgeTheme.textPrimary,
   });
 
   @override
@@ -928,7 +928,7 @@ class _VerticalFader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(3),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
+                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -939,7 +939,7 @@ class _VerticalFader extends StatelessWidget {
                         width: double.infinity,
                         height: 2,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: ReelForgeTheme.textPrimary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -1076,7 +1076,7 @@ class _MiniButton extends StatelessWidget {
   const _MiniButton({
     required this.label,
     this.active = false,
-    this.activeColor = Colors.white,
+    this.activeColor = ReelForgeTheme.textPrimary,
     this.onPressed,
   });
 
@@ -1098,7 +1098,7 @@ class _MiniButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: active ? Colors.black : ReelForgeTheme.textTertiary,
+              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
               fontSize: 9,
               fontWeight: FontWeight.bold,
             ),

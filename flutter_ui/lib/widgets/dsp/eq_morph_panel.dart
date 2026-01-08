@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// EQ Morph Panel Widget
 class EqMorphPanel extends StatefulWidget {
@@ -95,14 +96,14 @@ class _EqMorphPanelState extends State<EqMorphPanel>
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -130,12 +131,12 @@ class _EqMorphPanelState extends State<EqMorphPanel>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.compare_arrows, color: Color(0xFF40FF90), size: 20),
+          Icon(Icons.compare_arrows, color: ReelForgeTheme.accentGreen, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'EQ MORPH',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -143,9 +144,9 @@ class _EqMorphPanelState extends State<EqMorphPanel>
           ),
           const Spacer(),
           if (!_initialized)
-            const Text(
+            Text(
               'Initializing...',
-              style: TextStyle(color: Color(0xFF808090), fontSize: 11),
+              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
             ),
         ],
       ),
@@ -156,8 +157,8 @@ class _EqMorphPanelState extends State<EqMorphPanel>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildPresetButton('A', _position < 0.5, const Color(0xFF40C8FF), _goToA),
-        _buildPresetButton('B', _position > 0.5, const Color(0xFFFF9040), _goToB),
+        _buildPresetButton('A', _position < 0.5, ReelForgeTheme.accentCyan, _goToA),
+        _buildPresetButton('B', _position > 0.5, ReelForgeTheme.accentOrange, _goToB),
       ],
     );
   }
@@ -175,9 +176,9 @@ class _EqMorphPanelState extends State<EqMorphPanel>
         height: 80,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? color.withValues(alpha: 0.3) : const Color(0xFF1A1A20),
+          color: isActive ? color.withValues(alpha: 0.3) : ReelForgeTheme.bgMid,
           border: Border.all(
-            color: isActive ? color : const Color(0xFF3A3A40),
+            color: isActive ? color : ReelForgeTheme.borderMedium,
             width: 3,
           ),
           boxShadow: isActive
@@ -194,7 +195,7 @@ class _EqMorphPanelState extends State<EqMorphPanel>
           child: Text(
             label,
             style: TextStyle(
-              color: isActive ? color : const Color(0xFF606070),
+              color: isActive ? color : ReelForgeTheme.textTertiary,
               fontSize: 32,
               fontWeight: FontWeight.bold,
             ),
@@ -207,10 +208,10 @@ class _EqMorphPanelState extends State<EqMorphPanel>
   Widget _buildMorphSlider() {
     return Column(
       children: [
-        const Text(
+        Text(
           'MORPH POSITION',
           style: TextStyle(
-            color: Color(0xFF808090),
+            color: ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
@@ -221,8 +222,8 @@ class _EqMorphPanelState extends State<EqMorphPanel>
           height: 60,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF40C8FF), Color(0xFFFF9040)],
+            gradient: LinearGradient(
+              colors: [ReelForgeTheme.accentCyan, ReelForgeTheme.accentOrange],
             ),
           ),
           child: Stack(
@@ -231,7 +232,7 @@ class _EqMorphPanelState extends State<EqMorphPanel>
               Container(
                 margin: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0A0A0C),
+                  color: ReelForgeTheme.bgVoid,
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -243,9 +244,9 @@ class _EqMorphPanelState extends State<EqMorphPanel>
                     trackHeight: 48,
                     activeTrackColor: Colors.transparent,
                     inactiveTrackColor: Colors.transparent,
-                    thumbColor: Colors.white,
+                    thumbColor: ReelForgeTheme.textPrimary,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 20),
-                    overlayColor: Colors.white.withValues(alpha: 0.2),
+                    overlayColor: ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
                   ),
                   child: Slider(
                     value: _position,
@@ -270,23 +271,23 @@ class _EqMorphPanelState extends State<EqMorphPanel>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A20),
+          color: ReelForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF3A3A40)),
+          border: Border.all(color: ReelForgeTheme.borderMedium),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.swap_horiz,
-              color: _position < 0.5 ? const Color(0xFF40C8FF) : const Color(0xFFFF9040),
+              color: _position < 0.5 ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange,
               size: 24,
             ),
             const SizedBox(width: 8),
             Text(
               'TOGGLE A↔B',
               style: TextStyle(
-                color: _position < 0.5 ? const Color(0xFF40C8FF) : const Color(0xFFFF9040),
+                color: _position < 0.5 ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -307,7 +308,7 @@ class _EqMorphPanelState extends State<EqMorphPanel>
         Text(
           'A: $aPercent%',
           style: TextStyle(
-            color: const Color(0xFF40C8FF).withValues(alpha: 0.5 + (1.0 - _position) * 0.5),
+            color: ReelForgeTheme.accentCyan.withValues(alpha: 0.5 + (1.0 - _position) * 0.5),
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
@@ -316,7 +317,7 @@ class _EqMorphPanelState extends State<EqMorphPanel>
         Text(
           'B: $bPercent%',
           style: TextStyle(
-            color: const Color(0xFFFF9040).withValues(alpha: 0.5 + _position * 0.5),
+            color: ReelForgeTheme.accentOrange.withValues(alpha: 0.5 + _position * 0.5),
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),

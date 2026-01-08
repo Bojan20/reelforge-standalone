@@ -9,6 +9,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// EQ Band data
 class LinearPhaseBand {
@@ -136,8 +137,8 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -173,7 +174,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
           const Text(
             'LINEAR PHASE EQ',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -183,7 +184,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A20),
+              color: ReelForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -213,17 +214,17 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _bypassed
-              ? const Color(0xFFFF4040).withValues(alpha: 0.3)
-              : const Color(0xFF40FF90).withValues(alpha: 0.2),
+              ? ReelForgeTheme.accentRed.withValues(alpha: 0.3)
+              : ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
           ),
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
           style: TextStyle(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -236,9 +237,9 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
     return Container(
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF121216),
+        color: ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
       ),
       child: CustomPaint(
         painter: _LinearPhaseEqCurvePainter(
@@ -266,10 +267,10 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A20),
+        backgroundColor: ReelForgeTheme.bgMid,
         title: Text(
           'Add Band at ${freq.toInt()} Hz',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 16),
         ),
         content: Wrap(
           spacing: 8,
@@ -277,8 +278,8 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
           children: LinearPhaseFilterType.values.map((type) {
             return ActionChip(
               label: Text(_filterTypeName(type)),
-              backgroundColor: const Color(0xFF2A2A30),
-              labelStyle: const TextStyle(color: Colors.white, fontSize: 12),
+              backgroundColor: ReelForgeTheme.borderSubtle,
+              labelStyle: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
               onPressed: () {
                 Navigator.pop(ctx);
                 _addBand(type, freq);
@@ -354,7 +355,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? color : const Color(0xFF1A1A20),
+          color: isSelected ? color : ReelForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color),
         ),
@@ -364,7 +365,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
             Text(
               '${band.freq.toInt()} Hz',
               style: TextStyle(
-                color: isSelected ? Colors.white : color,
+                color: isSelected ? ReelForgeTheme.textPrimary : color,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -373,7 +374,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
             Text(
               '${band.gain >= 0 ? '+' : ''}${band.gain.toStringAsFixed(1)}',
               style: TextStyle(
-                color: isSelected ? Colors.white70 : const Color(0xFF808090),
+                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                 fontSize: 10,
               ),
             ),
@@ -385,14 +386,14 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
 
   Color _getBandColor(LinearPhaseFilterType type) {
     return switch (type) {
-      LinearPhaseFilterType.bell => const Color(0xFF40C8FF),
-      LinearPhaseFilterType.lowShelf => const Color(0xFFFF9040),
-      LinearPhaseFilterType.highShelf => const Color(0xFFFFFF40),
-      LinearPhaseFilterType.lowCut => const Color(0xFFFF4040),
-      LinearPhaseFilterType.highCut => const Color(0xFFFF4040),
-      LinearPhaseFilterType.notch => const Color(0xFFFF40FF),
-      LinearPhaseFilterType.bandpass => const Color(0xFF40FF90),
-      LinearPhaseFilterType.tilt => const Color(0xFF40FFFF),
+      LinearPhaseFilterType.bell => ReelForgeTheme.accentCyan,
+      LinearPhaseFilterType.lowShelf => ReelForgeTheme.accentOrange,
+      LinearPhaseFilterType.highShelf => ReelForgeTheme.accentYellow,
+      LinearPhaseFilterType.lowCut => ReelForgeTheme.accentRed,
+      LinearPhaseFilterType.highCut => ReelForgeTheme.accentRed,
+      LinearPhaseFilterType.notch => ReelForgeTheme.accentPink,
+      LinearPhaseFilterType.bandpass => ReelForgeTheme.accentGreen,
+      LinearPhaseFilterType.tilt => ReelForgeTheme.accentCyan,
     };
   }
 
@@ -433,14 +434,14 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isSelected ? _getBandColor(type) : const Color(0xFF1A1A20),
+                              color: isSelected ? _getBandColor(type) : ReelForgeTheme.bgMid,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: _getBandColor(type)),
                             ),
                             child: Text(
                               _filterTypeName(type),
                               style: TextStyle(
-                                color: isSelected ? Colors.white : _getBandColor(type),
+                                color: isSelected ? ReelForgeTheme.textPrimary : _getBandColor(type),
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -545,7 +546,7 @@ class _LinearPhaseEqPanelState extends State<LinearPhaseEqPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: const Color(0xFF2A2A30),
+            inactiveTrackColor: ReelForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayColor: color.withValues(alpha: 0.2),
@@ -621,15 +622,15 @@ class _LinearPhaseEqCurvePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFF40FF90).withValues(alpha: 0.2),
-          const Color(0xFF40FF90).withValues(alpha: 0.05),
+          ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+          ReelForgeTheme.accentGreen.withValues(alpha: 0.05),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawPath(fillPath, fillPaint);
 
     // Draw curve line
     final curvePaint = Paint()
-      ..color = const Color(0xFF40FF90)
+      ..color = ReelForgeTheme.accentGreen
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     canvas.drawPath(curvePath, curvePaint);
@@ -650,7 +651,7 @@ class _LinearPhaseEqCurvePainter extends CustomPainter {
       // Selection ring
       if (isSelected) {
         final ringPaint = Paint()
-          ..color = Colors.white
+          ..color = ReelForgeTheme.textPrimary
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
         canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8)), 10, ringPaint);
@@ -660,7 +661,7 @@ class _LinearPhaseEqCurvePainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = const Color(0xFF2A2A30)
+      ..color = ReelForgeTheme.borderSubtle
       ..strokeWidth = 1;
 
     // Frequency lines
@@ -671,11 +672,11 @@ class _LinearPhaseEqCurvePainter extends CustomPainter {
 
     // dB lines
     final centerY = size.height / 2;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), gridPaint..color = const Color(0xFF3A3A40));
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), gridPaint..color = ReelForgeTheme.borderMedium);
 
     for (final db in [-12.0, 12.0]) {
       final y = centerY - (db / 24) * (size.height / 2);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint..color = const Color(0xFF2A2A30));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint..color = ReelForgeTheme.borderSubtle);
     }
   }
 
@@ -719,14 +720,14 @@ class _LinearPhaseEqCurvePainter extends CustomPainter {
 
   Color _getBandColor(LinearPhaseFilterType type) {
     return switch (type) {
-      LinearPhaseFilterType.bell => const Color(0xFF40C8FF),
-      LinearPhaseFilterType.lowShelf => const Color(0xFFFF9040),
-      LinearPhaseFilterType.highShelf => const Color(0xFFFFFF40),
-      LinearPhaseFilterType.lowCut => const Color(0xFFFF4040),
-      LinearPhaseFilterType.highCut => const Color(0xFFFF4040),
-      LinearPhaseFilterType.notch => const Color(0xFFFF40FF),
-      LinearPhaseFilterType.bandpass => const Color(0xFF40FF90),
-      LinearPhaseFilterType.tilt => const Color(0xFF40FFFF),
+      LinearPhaseFilterType.bell => ReelForgeTheme.accentCyan,
+      LinearPhaseFilterType.lowShelf => ReelForgeTheme.accentOrange,
+      LinearPhaseFilterType.highShelf => ReelForgeTheme.accentYellow,
+      LinearPhaseFilterType.lowCut => ReelForgeTheme.accentRed,
+      LinearPhaseFilterType.highCut => ReelForgeTheme.accentRed,
+      LinearPhaseFilterType.notch => ReelForgeTheme.accentPink,
+      LinearPhaseFilterType.bandpass => ReelForgeTheme.accentGreen,
+      LinearPhaseFilterType.tilt => ReelForgeTheme.accentCyan,
     };
   }
 

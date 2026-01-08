@@ -365,7 +365,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
                 label: const Text('Export'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ReelForgeTheme.accentGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: ReelForgeTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -451,7 +451,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
           backgroundColor: ReelForgeTheme.bgSurface,
           selectedColor: ReelForgeTheme.accentBlue,
           labelStyle: TextStyle(
-            color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
             fontSize: 12,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

@@ -222,7 +222,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                       widget.oldVersionName,
                       style: TextStyle(color: ReelForgeTheme.accentRed, fontSize: 12),
                     ),
-                    const Icon(Icons.arrow_right_alt, color: Colors.white38, size: 18),
+                    Icon(Icons.arrow_right_alt, color: ReelForgeTheme.textTertiary, size: 18),
                     Text(
                       widget.newVersionName,
                       style: TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 12),
@@ -283,7 +283,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
             ),
             child: Text(
               '${comp.totalChanges} total changes',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
             ),
           ),
         ],
@@ -304,7 +304,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.2) : ReelForgeTheme.bgVoid.withValues(alpha: 0.0),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.3)),
         ),
@@ -331,12 +331,12 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       child: Row(
         children: [
           // Category filter
-          const Text('Category: ', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          Text('Category: ', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
           const SizedBox(width: 8),
           DropdownButton<String>(
             value: _selectedCategory,
             dropdownColor: ReelForgeTheme.bgMid,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
             underline: const SizedBox(),
             items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
             onChanged: (v) => setState(() => _selectedCategory = v ?? 'All'),
@@ -351,7 +351,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
               }),
               icon: const Icon(Icons.clear, size: 14),
               label: const Text('Clear Filters'),
-              style: TextButton.styleFrom(foregroundColor: Colors.white54),
+              style: TextButton.styleFrom(foregroundColor: ReelForgeTheme.textSecondary),
             ),
         ],
       ),
@@ -371,14 +371,14 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                   ? Icons.filter_list_off
                   : Icons.check_circle_outline,
               size: 48,
-              color: Colors.white24,
+              color: ReelForgeTheme.textDisabled,
             ),
             const SizedBox(height: 12),
             Text(
               _filterType != null || _selectedCategory != 'All'
                   ? 'No changes match current filters'
                   : 'No differences found',
-              style: const TextStyle(color: Colors.white38),
+              style: TextStyle(color: ReelForgeTheme.textTertiary),
             ),
           ],
         ),
@@ -420,18 +420,18 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
           const SizedBox(width: 8),
           Text(
             category,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '$count',
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
+              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
             ),
           ),
         ],
@@ -460,7 +460,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
               Expanded(
                 child: Text(
                   change.item,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
                 ),
               ),
               Container(
@@ -540,7 +540,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
             const SizedBox(height: 6),
             Text(
               change.details!,
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
             ),
           ],
         ],
@@ -555,7 +555,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
         children: [
           const Icon(Icons.error_outline, size: 48, color: ReelForgeTheme.accentRed),
           const SizedBox(height: 12),
-          Text(_error!, style: const TextStyle(color: Colors.white70)),
+          Text(_error!, style: TextStyle(color: ReelForgeTheme.textSecondary)),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _loadComparison,
@@ -605,7 +605,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       case ChangeType.modified:
         return (ReelForgeTheme.accentOrange, Icons.edit);
       case ChangeType.unchanged:
-        return (Colors.white38, Icons.horizontal_rule);
+        return (ReelForgeTheme.textTertiary, Icons.horizontal_rule);
     }
   }
 

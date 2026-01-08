@@ -49,7 +49,7 @@ class DynamicRangeMeter extends StatelessWidget {
         Text(
           'DR',
           style: TextStyle(
-            color: Colors.grey[500],
+            color: ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -86,9 +86,9 @@ class DynamicRangeMeter extends StatelessWidget {
   }
 
   Color _getDrColor(double dr) {
-    if (dr < 6) return Colors.red;
-    if (dr < 10) return Colors.orange;
-    if (dr < 14) return Colors.yellow;
+    if (dr < 6) return ReelForgeTheme.accentRed;
+    if (dr < 10) return ReelForgeTheme.accentOrange;
+    if (dr < 14) return ReelForgeTheme.accentYellow;
     return ReelForgeTheme.accentGreen;
   }
 }
@@ -114,10 +114,10 @@ class _DynamicRangePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.red.withValues(alpha: 0.3),
-          Colors.orange.withValues(alpha: 0.3),
-          Colors.yellow.withValues(alpha: 0.3),
-          Colors.green.withValues(alpha: 0.3),
+          ReelForgeTheme.accentRed.withValues(alpha: 0.3),
+          ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
+          ReelForgeTheme.accentYellow.withValues(alpha: 0.3),
+          ReelForgeTheme.accentGreen.withValues(alpha: 0.3),
         ],
         stops: const [0.0, 0.25, 0.5, 1.0],
       ).createShader(rect);
@@ -134,10 +134,10 @@ class _DynamicRangePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          dynamicRange < 6 ? Colors.red :
-          dynamicRange < 10 ? Colors.orange :
-          dynamicRange < 14 ? Colors.yellow : Colors.green,
-          Colors.green.withValues(alpha: 0.5),
+          dynamicRange < 6 ? ReelForgeTheme.accentRed :
+          dynamicRange < 10 ? ReelForgeTheme.accentOrange :
+          dynamicRange < 14 ? ReelForgeTheme.accentYellow : ReelForgeTheme.accentGreen,
+          ReelForgeTheme.accentGreen.withValues(alpha: 0.5),
         ],
       ).createShader(Rect.fromLTWH(0, size.height - barHeight, size.width, barHeight));
 
@@ -148,7 +148,7 @@ class _DynamicRangePainter extends CustomPainter {
 
     // Scale markers
     final markerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     for (final db in [6, 10, 14, 20, 30, 40]) {
@@ -200,9 +200,9 @@ class StereoBalanceMeter extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('L', style: TextStyle(color: Colors.grey[500], fontSize: 10)),
-            Text('Balance', style: TextStyle(color: Colors.grey[500], fontSize: 10)),
-            Text('R', style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+            Text('L', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+            Text('Balance', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+            Text('R', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
           ],
         ),
         const SizedBox(height: 2),
@@ -224,7 +224,7 @@ class StereoBalanceMeter extends StatelessWidget {
           balance.abs() < 0.05 ? 'C' :
             '${balance > 0 ? "R" : "L"} ${(balance.abs() * 100).toStringAsFixed(0)}%',
           style: TextStyle(
-            color: balance.abs() < 0.1 ? Colors.green : Colors.orange,
+            color: balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange,
             fontSize: 10,
           ),
         ),
@@ -251,7 +251,7 @@ class _BalancePainter extends CustomPainter {
 
     // Center line
     final centerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(center, 0),
@@ -264,7 +264,7 @@ class _BalancePainter extends CustomPainter {
     final indicatorX = center + (balance * (size.width / 2 - indicatorWidth / 2));
 
     final indicatorPaint = Paint()
-      ..color = balance.abs() < 0.1 ? Colors.green : Colors.orange;
+      ..color = balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange;
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -357,7 +357,7 @@ class KSystemMeter extends StatelessWidget {
           child: Text(
             'K-$headroom',
             style: const TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -432,7 +432,7 @@ class _KMeterPainter extends CustomPainter {
 
   void _drawScale(Canvas canvas, Size size, double meterWidth) {
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
+      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     // Scale marks: +3, 0, -3, -6, -9, -12, -20, -30, -40
@@ -458,11 +458,11 @@ class _KMeterPainter extends CustomPainter {
 
     final rmsPaint = Paint();
     if (rmsDb > -headroom + 3) {
-      rmsPaint.color = Colors.red;
+      rmsPaint.color = ReelForgeTheme.accentRed;
     } else if (rmsDb > -headroom) {
-      rmsPaint.color = Colors.yellow;
+      rmsPaint.color = ReelForgeTheme.accentYellow;
     } else {
-      rmsPaint.color = Colors.green;
+      rmsPaint.color = ReelForgeTheme.accentGreen;
     }
 
     canvas.drawRect(
@@ -475,7 +475,7 @@ class _KMeterPainter extends CustomPainter {
     final peakY = height * (1 - peakNorm);
 
     final peakPaint = Paint()
-      ..color = Colors.white
+      ..color = ReelForgeTheme.textPrimary
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -585,7 +585,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   Text(
                     'STEREO ANALYSIS',
                     style: TextStyle(
-                      color: Colors.grey[500],
+                      color: ReelForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -644,7 +644,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   Text(
                     'LOUDNESS (EBU R128)',
                     style: TextStyle(
-                      color: Colors.grey[500],
+                      color: ReelForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -671,7 +671,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
         Text(
           'MODE: ',
           style: TextStyle(
-            color: Colors.grey[500],
+            color: ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -694,7 +694,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 child: Text(
                   mode.name.toUpperCase(),
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey[400],
+                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -713,7 +713,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
         Text(
           _selectedMeterMode.name.toUpperCase(),
           style: TextStyle(
-            color: Colors.grey[500],
+            color: ReelForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -759,7 +759,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   child: Text(
                     'K$label',
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[500],
+                      color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
@@ -788,11 +788,11 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLufsRow('Momentary', m.masterLufsM, Colors.cyan),
+        _buildLufsRow('Momentary', m.masterLufsM, ReelForgeTheme.accentCyan),
         const SizedBox(height: 8),
-        _buildLufsRow('Short-term', m.masterLufsS, Colors.green),
+        _buildLufsRow('Short-term', m.masterLufsS, ReelForgeTheme.accentGreen),
         const SizedBox(height: 8),
-        _buildLufsRow('Integrated', m.masterLufsI, Colors.orange),
+        _buildLufsRow('Integrated', m.masterLufsI, ReelForgeTheme.accentOrange),
         const SizedBox(height: 16),
         // Target comparison
         Container(
@@ -803,11 +803,11 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
           ),
           child: Row(
             children: [
-              Icon(Icons.flag, size: 14, color: Colors.grey[500]),
+              Icon(Icons.flag, size: 14, color: ReelForgeTheme.textTertiary),
               const SizedBox(width: 8),
               Text(
                 'Target: -14 LUFS',
-                style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
               ),
               const Spacer(),
               Text(
@@ -844,12 +844,12 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
               ),
               Text(
                 '${displayValue.toStringAsFixed(1)} LUFS',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -868,17 +868,17 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isOver ? Colors.red.withValues(alpha: 0.2) : ReelForgeTheme.bgMid,
+        color: isOver ? ReelForgeTheme.accentRed.withValues(alpha: 0.2) : ReelForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isOver ? Colors.red : ReelForgeTheme.borderSubtle,
+          color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
         children: [
           Icon(
             isOver ? Icons.warning : Icons.show_chart,
-            color: isOver ? Colors.red : Colors.grey[500],
+            color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textTertiary,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -888,7 +888,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               Text(
                 'TRUE PEAK',
                 style: TextStyle(
-                  color: Colors.grey[500],
+                  color: ReelForgeTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -896,7 +896,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               Text(
                 '${tp.toStringAsFixed(1)} dBTP',
                 style: TextStyle(
-                  color: isOver ? Colors.red : Colors.white,
+                  color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -908,13 +908,13 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.red,
+                color: ReelForgeTheme.accentRed,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
                 'OVER',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: ReelForgeTheme.textPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -933,10 +933,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
   }
 
   Color _getTargetColor(double current, double target) {
-    if (!current.isFinite) return Colors.grey;
+    if (!current.isFinite) return ReelForgeTheme.textTertiary;
     final diff = (current - target).abs();
-    if (diff < 1) return Colors.green;
-    if (diff < 3) return Colors.yellow;
-    return Colors.red;
+    if (diff < 1) return ReelForgeTheme.accentGreen;
+    if (diff < 3) return ReelForgeTheme.accentYellow;
+    return ReelForgeTheme.accentRed;
   }
 }

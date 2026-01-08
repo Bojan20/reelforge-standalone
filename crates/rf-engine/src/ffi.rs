@@ -86,14 +86,51 @@ impl ProjectState {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SECURITY CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum allowed string length from FFI (16KB)
+const MAX_FFI_STRING_LEN: usize = 16 * 1024;
+
+/// Maximum allowed array size from FFI (10K elements)
+const MAX_FFI_ARRAY_SIZE: usize = 10_000;
+
+/// Maximum allowed buffer size from FFI (100MB)
+const MAX_FFI_BUFFER_SIZE: usize = 100 * 1024 * 1024;
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Convert C string to Rust string
+/// Convert C string to Rust string with length validation
+///
+/// # Safety
+/// - ptr must be a valid pointer to a null-terminated C string, or null
+/// - The string must be valid UTF-8
+/// - The string length must not exceed MAX_FFI_STRING_LEN
 unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
     if ptr.is_null() {
         return None;
     }
+
+    // Safety: Find string length without reading past MAX_FFI_STRING_LEN
+    let mut len = 0;
+    unsafe {
+        while len < MAX_FFI_STRING_LEN {
+            if *ptr.add(len) == 0 {
+                break;
+            }
+            len += 1;
+        }
+    }
+
+    // Reject strings that are too long (no null terminator found within limit)
+    if len >= MAX_FFI_STRING_LEN {
+        log::warn!("FFI string exceeds maximum length of {}", MAX_FFI_STRING_LEN);
+        return None;
+    }
+
+    // Now safe to use CStr::from_ptr since we verified null terminator exists
     unsafe { CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string()) }
 }
 
@@ -102,6 +139,38 @@ fn string_to_cstr(s: &str) -> *mut c_char {
     CString::new(s)
         .map(|cs| cs.into_raw())
         .unwrap_or(ptr::null_mut())
+}
+
+/// Validate FFI buffer size for audio processing
+/// Returns true if the size is within acceptable limits
+#[inline]
+fn validate_buffer_size(size: usize, context: &str) -> bool {
+    if size > MAX_FFI_BUFFER_SIZE {
+        log::warn!(
+            "FFI {} buffer size {} exceeds maximum of {}",
+            context,
+            size,
+            MAX_FFI_BUFFER_SIZE
+        );
+        return false;
+    }
+    true
+}
+
+/// Validate FFI array count
+/// Returns true if the count is within acceptable limits
+#[inline]
+fn validate_array_count(count: usize, context: &str) -> bool {
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!(
+            "FFI {} array count {} exceeds maximum of {}",
+            context,
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
+        return false;
+    }
+    true
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -220,6 +289,16 @@ pub extern "C" fn engine_set_track_bus(track_id: u64, bus_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_reorder_tracks(track_ids: *const u64, count: usize) -> i32 {
     if track_ids.is_null() || count == 0 {
+        return 0;
+    }
+
+    // Security: Validate array size to prevent buffer overflow
+    if count > MAX_FFI_ARRAY_SIZE {
+        log::warn!(
+            "FFI array size {} exceeds maximum of {}",
+            count,
+            MAX_FFI_ARRAY_SIZE
+        );
         return 0;
     }
 
@@ -474,14 +553,11 @@ pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_
         duration,
         imported.samples.len()
     );
-    PLAYBACK_ENGINE
-        .cache
-        .files
-        .write()
-        .insert(path_str.clone(), imported);
+    // Use the LRU cache insert method
+    PLAYBACK_ENGINE.cache.insert(path_str.clone(), imported);
 
     // Debug: verify cache contents
-    let cache_size = PLAYBACK_ENGINE.cache.files.read().len();
+    let cache_size = PLAYBACK_ENGINE.cache.size();
     log::info!("[Import] Cache now has {} entries", cache_size);
 
     clip_id.0
@@ -1026,9 +1102,19 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
 ///
 /// This should be called from the audio thread callback.
 /// output_l and output_r should be arrays of `frames` f64 values.
+///
+/// # Safety
+/// - output_l and output_r must be valid pointers to arrays of at least `frames` f64 values
+/// - frames must not exceed MAX_FFI_BUFFER_SIZE / sizeof(f64)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_process_audio(output_l: *mut f64, output_r: *mut f64, frames: usize) {
     if output_l.is_null() || output_r.is_null() || frames == 0 {
+        return;
+    }
+
+    // Security: Validate buffer size (frames * sizeof(f64))
+    let buffer_bytes = frames.saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "audio_process") {
         return;
     }
 
@@ -2190,6 +2276,15 @@ pub extern "C" fn transient_detect(
         return 0;
     }
 
+    // Security: Validate buffer sizes
+    let input_bytes = (length as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(input_bytes, "transient_detect_input") {
+        return 0;
+    }
+    if !validate_array_count(out_max_count as usize, "transient_detect_output") {
+        return 0;
+    }
+
     let algo = match algorithm {
         0 => DetectionAlgorithm::HighEmphasis,
         1 => DetectionAlgorithm::LowEmphasis,
@@ -2230,6 +2325,12 @@ pub extern "C" fn pitch_detect(samples: *const f64, length: u32, sample_rate: f6
         return 0.0;
     }
 
+    // Security: Validate buffer size
+    let buffer_bytes = (length as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "pitch_detect") {
+        return 0.0;
+    }
+
     let mut detector = PitchDetector::new(sample_rate);
     let input = unsafe { std::slice::from_raw_parts(samples, length as usize) };
 
@@ -2247,6 +2348,12 @@ pub extern "C" fn pitch_detect_midi(samples: *const f64, length: u32, sample_rat
     use rf_dsp::pitch::PitchDetector;
 
     if samples.is_null() || length == 0 {
+        return -1;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (length as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "pitch_detect_midi") {
         return -1;
     }
 
@@ -4411,6 +4518,16 @@ pub extern "C" fn elastic_process(
         return 0;
     }
 
+    // Security: Validate buffer sizes
+    let input_bytes = (input_len as usize).saturating_mul(std::mem::size_of::<f64>());
+    let output_bytes = (output_max_len as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(input_bytes, "elastic_process_input") {
+        return 0;
+    }
+    if !validate_buffer_size(output_bytes, "elastic_process_output") {
+        return 0;
+    }
+
     let mut procs = ELASTIC_PROCESSORS.write();
     let proc = match procs.get_mut(&clip_id) {
         Some(p) => p,
@@ -4445,6 +4562,16 @@ pub extern "C" fn elastic_process_stereo(
         || output_r.is_null()
         || input_len == 0
     {
+        return 0;
+    }
+
+    // Security: Validate buffer sizes
+    let input_bytes = (input_len as usize).saturating_mul(std::mem::size_of::<f64>());
+    let output_bytes = (output_max_len as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(input_bytes, "elastic_stereo_input") {
+        return 0;
+    }
+    if !validate_buffer_size(output_bytes, "elastic_stereo_output") {
         return 0;
     }
 
@@ -5025,10 +5152,21 @@ pub extern "C" fn convolution_reverb_load_ir(
         return 0;
     }
 
+    // Security: Validate buffer size and channel count
+    if channel_count == 0 || channel_count > 2 {
+        log::warn!("Invalid channel count: {}", channel_count);
+        return 0;
+    }
+
+    let total_samples = (length as usize).saturating_mul(channel_count as usize);
+    let buffer_bytes = total_samples.saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "convolution_load_ir") {
+        return 0;
+    }
+
     let mut reverbs = CONVOLUTION_REVERBS.write();
     if let Some(reverb) = reverbs.get_mut(&track_id) {
-        let samples =
-            unsafe { std::slice::from_raw_parts(ir_samples, (length * channel_count) as usize) };
+        let samples = unsafe { std::slice::from_raw_parts(ir_samples, total_samples) };
 
         if channel_count == 1 {
             reverb.load_ir_mono(samples);
@@ -5095,7 +5233,13 @@ pub extern "C" fn convolution_reverb_process(
     num_samples: u32,
 ) -> i32 {
     use rf_dsp::StereoProcessor;
-    if left.is_null() || right.is_null() {
+    if left.is_null() || right.is_null() || num_samples == 0 {
+        return 0;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (num_samples as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "convolution_process") {
         return 0;
     }
 
@@ -5245,7 +5389,13 @@ pub extern "C" fn algorithmic_reverb_process(
     num_samples: u32,
 ) -> i32 {
     use rf_dsp::StereoProcessor;
-    if left.is_null() || right.is_null() {
+    if left.is_null() || right.is_null() || num_samples == 0 {
+        return 0;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (num_samples as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "algorithmic_reverb_process") {
         return 0;
     }
 
@@ -7381,6 +7531,12 @@ pub extern "C" fn pro_eq_process(
     num_samples: u32,
 ) -> i32 {
     if left.is_null() || right.is_null() || num_samples == 0 {
+        return 0;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (num_samples as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(buffer_bytes, "pro_eq_process") {
         return 0;
     }
 
@@ -10274,9 +10430,9 @@ pub extern "C" fn render_in_place(
         return 0;
     }
 
-    // Get audio cache from playback engine
+    // Get audio cache from playback engine as HashMap (for offline rendering)
     let audio_cache_ref = PLAYBACK_ENGINE.cache();
-    let audio_cache = audio_cache_ref.files.read();
+    let audio_cache = audio_cache_ref.to_hashmap();
 
     // Create offline renderer
     let sample_rate = PLAYBACK_ENGINE.position.sample_rate() as f64;
@@ -10293,7 +10449,7 @@ pub extern "C" fn render_in_place(
     let (left, right) = renderer.render_track(
         &clips,
         &mut insert_chain,
-        &*audio_cache,
+        &audio_cache,
         start_time,
         end_time,
         tail_seconds,
@@ -10366,11 +10522,9 @@ pub extern "C" fn render_selection_to_new_clip(
     let source_duration = imported.samples.len() as f64
         / (imported.sample_rate as f64 * imported.channels as f64);
 
-    // Add to audio cache
+    // Add to audio cache using LRU cache insert
     PLAYBACK_ENGINE
         .cache()
-        .files
-        .write()
         .insert(path_str.to_string(), imported.clone());
 
     // Create new clip from rendered file

@@ -558,7 +558,7 @@ class _EqCurvePainter extends CustomPainter {
 
       // Node border
       final borderPaint = Paint()
-        ..color = isSelected ? Colors.white : Colors.white.withOpacity(0.7)
+        ..color = isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary.withOpacity(0.7)
         ..strokeWidth = isSelected ? 2 : 1.5
         ..style = PaintingStyle.stroke;
       canvas.drawCircle(Offset(x, y), radius, borderPaint);
@@ -569,7 +569,7 @@ class _EqCurvePainter extends CustomPainter {
           text: TextSpan(
             text: '${band.id + 1}',
             style: const TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),

@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Thresholding mode
 enum ThresholdMode {
@@ -96,8 +97,8 @@ class _WaveletPanelState extends State<WaveletPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -140,7 +141,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
           const Text(
             'WAVELET',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -178,17 +179,17 @@ class _WaveletPanelState extends State<WaveletPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _bypassed
-              ? const Color(0xFFFF4040).withValues(alpha: 0.3)
-              : const Color(0xFF40FF90).withValues(alpha: 0.2),
+              ? ReelForgeTheme.accentRed.withValues(alpha: 0.3)
+              : ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
           ),
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
           style: TextStyle(
-            color: _bypassed ? const Color(0xFFFF4040) : const Color(0xFF40FF90),
+            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -213,16 +214,16 @@ class _WaveletPanelState extends State<WaveletPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF845EF7) : const Color(0xFF1A1A20),
+                  color: isSelected ? ReelForgeTheme.accentPurple : ReelForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF845EF7) : const Color(0xFF3A3A40),
+                    color: isSelected ? ReelForgeTheme.accentPurple : ReelForgeTheme.borderMedium,
                   ),
                 ),
                 child: Text(
                   type.name,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF808090),
+                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -298,15 +299,15 @@ class _WaveletPanelState extends State<WaveletPanel> {
                   margin: const EdgeInsets.symmetric(horizontal: 1),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Color.lerp(const Color(0xFF845EF7), const Color(0xFF40C8FF), i / 7)
-                        : const Color(0xFF1A1A20),
+                        ? Color.lerp(ReelForgeTheme.accentPurple, ReelForgeTheme.accentCyan, i / 7)
+                        : ReelForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Center(
                     child: Text(
                       '$level',
                       style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF606070),
+                        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -387,9 +388,9 @@ class _WaveletPanelState extends State<WaveletPanel> {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A20),
+                  color: ReelForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFF3A3A40)),
+                  border: Border.all(color: ReelForgeTheme.borderMedium),
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.bottomCenter,
@@ -400,8 +401,8 @@ class _WaveletPanelState extends State<WaveletPanel> {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Color.lerp(const Color(0xFF845EF7), const Color(0xFF40C8FF), index / 7)!,
-                          Color.lerp(const Color(0xFF845EF7), const Color(0xFF40C8FF), index / 7)!
+                          Color.lerp(ReelForgeTheme.accentPurple, ReelForgeTheme.accentCyan, index / 7)!,
+                          Color.lerp(ReelForgeTheme.accentPurple, ReelForgeTheme.accentCyan, index / 7)!
                               .withValues(alpha: 0.5),
                         ],
                       ),
@@ -439,7 +440,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
             widget.onSettingsChanged?.call();
           },
           icon: Icons.flash_on,
-          color: const Color(0xFFFF9040),
+          color: ReelForgeTheme.accentOrange,
         ),
         const SizedBox(height: 8),
         _buildSliderRow(
@@ -450,7 +451,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
             widget.onSettingsChanged?.call();
           },
           icon: Icons.music_note,
-          color: const Color(0xFF40FF90),
+          color: ReelForgeTheme.accentGreen,
         ),
         const SizedBox(height: 8),
         Row(
@@ -505,7 +506,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
             data: SliderThemeData(
               trackHeight: 4,
               activeTrackColor: color,
-              inactiveTrackColor: const Color(0xFF2A2A30),
+              inactiveTrackColor: ReelForgeTheme.borderSubtle,
               thumbColor: color,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               overlayColor: color.withValues(alpha: 0.2),
@@ -552,10 +553,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF845EF7) : const Color(0xFF1A1A20),
+                      color: isSelected ? ReelForgeTheme.accentPurple : ReelForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF845EF7) : const Color(0xFF3A3A40),
+                        color: isSelected ? ReelForgeTheme.accentPurple : ReelForgeTheme.borderMedium,
                       ),
                     ),
                     child: Column(
@@ -563,7 +564,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
                         Text(
                           mode.label,
                           style: TextStyle(
-                            color: isSelected ? Colors.white : const Color(0xFF808090),
+                            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -572,8 +573,8 @@ class _WaveletPanelState extends State<WaveletPanel> {
                           mode.description,
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white.withValues(alpha: 0.7)
-                                : const Color(0xFF606070),
+                                ? ReelForgeTheme.textPrimary.withValues(alpha: 0.7)
+                                : ReelForgeTheme.textTertiary,
                             fontSize: 9,
                           ),
                         ),
@@ -681,11 +682,11 @@ class _WaveletPanelState extends State<WaveletPanel> {
     return SliderTheme(
       data: SliderThemeData(
         trackHeight: 4,
-        activeTrackColor: const Color(0xFF845EF7),
-        inactiveTrackColor: const Color(0xFF2A2A30),
-        thumbColor: const Color(0xFF845EF7),
+        activeTrackColor: ReelForgeTheme.accentPurple,
+        inactiveTrackColor: ReelForgeTheme.borderSubtle,
+        thumbColor: ReelForgeTheme.accentPurple,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-        overlayColor: const Color(0xFF845EF7).withValues(alpha: 0.2),
+        overlayColor: ReelForgeTheme.accentPurple.withValues(alpha: 0.2),
       ),
       child: Slider(
         value: value.clamp(0.0, 1.0),

@@ -70,7 +70,8 @@ pub use send_return::{
 };
 
 pub use dual_path::{
-    AudioBlock, DualPathEngine, DualPathStats, FnGuardProcessor, GuardProcessor, ProcessingMode,
+    AudioBlock, AudioBlockPool, DualPathEngine, DualPathStats, FnGuardProcessor, GuardProcessor,
+    ProcessingMode, MAX_BLOCK_SIZE,
 };
 
 pub use sidechain::{

@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/reelforge_theme.dart';
 
 /// Stereo Imager Panel Widget
 class StereoImagerPanel extends StatefulWidget {
@@ -130,14 +131,14 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0C),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        color: ReelForgeTheme.bgVoid,
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: Color(0xFF2A2A30)),
+          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -177,12 +178,12 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.spatial_audio, color: Color(0xFF40C8FF), size: 20),
+          const Icon(Icons.spatial_audio, color: ReelForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           const Text(
             'STEREO IMAGER',
             style: TextStyle(
-              color: Colors.white,
+              color: ReelForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -192,7 +193,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           if (!_initialized)
             const Text(
               'Initializing...',
-              style: TextStyle(color: Color(0xFF808090), fontSize: 11),
+              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
             )
           else
             GestureDetector(
@@ -210,13 +211,13 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A20),
+                  color: ReelForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
                   'RESET',
                   style: TextStyle(
-                    color: Color(0xFF808090),
+                    color: ReelForgeTheme.textTertiary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -232,9 +233,9 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
     return Container(
       height: 150,
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D10),
+        color: ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF2A2A30)),
+        border: Border.all(color: ReelForgeTheme.borderSubtle),
       ),
       child: CustomPaint(
         painter: _StereoScopePainter(
@@ -250,10 +251,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
 
   Widget _buildCorrelationMeter() {
     final correlationColor = _correlation >= 0.5
-        ? const Color(0xFF40FF90)
+        ? ReelForgeTheme.accentGreen
         : _correlation >= 0
-            ? const Color(0xFFFFFF40)
-            : const Color(0xFFFF4040);
+            ? ReelForgeTheme.accentYellow
+            : ReelForgeTheme.accentRed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +265,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
             const Text(
               'CORRELATION',
               style: TextStyle(
-                color: Color(0xFF808090),
+                color: ReelForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
@@ -284,7 +285,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         Container(
           height: 12,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A20),
+            color: ReelForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Stack(
@@ -294,9 +295,9 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    Text('-1', style: TextStyle(color: Color(0xFF606060), fontSize: 8)),
-                    Text('0', style: TextStyle(color: Color(0xFF606060), fontSize: 8)),
-                    Text('+1', style: TextStyle(color: Color(0xFF606060), fontSize: 8)),
+                    Text('-1', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 8)),
+                    Text('0', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 8)),
+                    Text('+1', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 8)),
                   ],
                 ),
               ),
@@ -320,9 +321,9 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('Out of Phase', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
-            Text('Mono', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
-            Text('In Phase', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
+            Text('Out of Phase', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+            Text('Mono', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+            Text('In Phase', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
           ],
         ),
       ],
@@ -343,11 +344,11 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Width', style: TextStyle(color: Color(0xFF808090), fontSize: 11)),
+              const Text('Width', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
               Text(
                 '${(_width * 100).round()}%',
                 style: TextStyle(
-                  color: _width == 1.0 ? const Color(0xFF808090) : const Color(0xFF40C8FF),
+                  color: _width == 1.0 ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -371,9 +372,9 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text('Mono', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
-              Text('Stereo', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
-              Text('Wide', style: TextStyle(color: Color(0xFF606060), fontSize: 9)),
+              Text('Mono', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+              Text('Stereo', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+              Text('Wide', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
             ],
           ),
         ],
@@ -395,11 +396,11 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Position', style: TextStyle(color: Color(0xFF808090), fontSize: 11)),
+              const Text('Position', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
               Text(
                 _pan == 0 ? 'C' : _pan < 0 ? 'L${(_pan.abs() * 100).round()}' : 'R${(_pan * 100).round()}',
                 style: TextStyle(
-                  color: _pan == 0 ? const Color(0xFF808090) : const Color(0xFF40C8FF),
+                  color: _pan == 0 ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -424,10 +425,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Pan Law', style: TextStyle(color: Color(0xFF808090), fontSize: 11)),
+              const Text('Pan Law', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
               DropdownButton<PanLaw>(
                 value: _panLaw,
-                dropdownColor: const Color(0xFF1A1A20),
+                dropdownColor: ReelForgeTheme.bgMid,
                 style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 11),
                 underline: const SizedBox(),
                 items: PanLaw.values.map((law) {
@@ -479,11 +480,11 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('L/R Balance', style: TextStyle(color: Color(0xFF808090), fontSize: 11)),
+              const Text('L/R Balance', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
               Text(
                 _balance == 0 ? 'C' : _balance < 0 ? 'L${(_balance.abs() * 100).round()}' : 'R${(_balance * 100).round()}',
                 style: TextStyle(
-                  color: _balance == 0 ? const Color(0xFF808090) : const Color(0xFF40C8FF),
+                  color: _balance == 0 ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -568,11 +569,11 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Angle', style: TextStyle(color: Color(0xFF808090), fontSize: 11)),
+              const Text('Angle', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
               Text(
                 '${_rotation.round()}°',
                 style: TextStyle(
-                  color: _rotation == 0 ? const Color(0xFF808090) : const Color(0xFF40C8FF),
+                  color: _rotation == 0 ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -607,10 +608,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: enabled ? const Color(0xFF12121A) : const Color(0xFF0D0D10),
+        color: enabled ? ReelForgeTheme.bgDeep : ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: enabled ? const Color(0xFF3A3A40) : const Color(0xFF2A2A30),
+          color: enabled ? ReelForgeTheme.borderMedium : ReelForgeTheme.borderSubtle,
         ),
       ),
       child: Column(
@@ -622,7 +623,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
               Text(
                 title,
                 style: TextStyle(
-                  color: enabled ? const Color(0xFF40C8FF) : const Color(0xFF606070),
+                  color: enabled ? ReelForgeTheme.accentCyan : ReelForgeTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
@@ -634,7 +635,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
                   width: 36,
                   height: 18,
                   decoration: BoxDecoration(
-                    color: enabled ? const Color(0xFF40C8FF) : const Color(0xFF2A2A30),
+                    color: enabled ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderSubtle,
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: AnimatedAlign(
@@ -645,7 +646,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
                       height: 14,
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: ReelForgeTheme.textPrimary,
                         borderRadius: BorderRadius.circular(7),
                       ),
                     ),
@@ -701,8 +702,8 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
             height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF1A1A20),
-              border: Border.all(color: const Color(0xFF3A3A40), width: 2),
+              color: ReelForgeTheme.bgMid,
+              border: Border.all(color: ReelForgeTheme.borderMedium, width: 2),
             ),
             child: CustomPaint(
               painter: _KnobPainter(
@@ -716,7 +717,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         Text(
           format(value),
           style: TextStyle(
-            color: enabled ? const Color(0xFF40C8FF) : const Color(0xFF606070),
+            color: enabled ? ReelForgeTheme.accentCyan : ReelForgeTheme.textTertiary,
             fontSize: 11,
             fontWeight: FontWeight.bold,
           ),
@@ -730,7 +731,7 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
       trackHeight: 4,
       activeTrackColor: Color(0xFF40C8FF),
       inactiveTrackColor: Color(0xFF2A2A30),
-      thumbColor: Colors.white,
+      thumbColor: ReelForgeTheme.textPrimary,
       thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8),
       overlayColor: Color(0x2040C8FF),
     );
@@ -757,7 +758,7 @@ class _StereoScopePainter extends CustomPainter {
 
     // Background grid
     final gridPaint = Paint()
-      ..color = const Color(0xFF2A2A30)
+      ..color = ReelForgeTheme.borderSubtle
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -815,7 +816,7 @@ class _StereoScopePainter extends CustomPainter {
 
     // Draw stereo field as a cone
     final fieldPaint = Paint()
-      ..color = const Color(0xFF40C8FF).withValues(alpha: 0.2)
+      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill;
 
     final leftAngle = math.pi / 2 + rotRad - (math.pi / 4 * widthScale);
@@ -837,14 +838,14 @@ class _StereoScopePainter extends CustomPainter {
 
     // Outline
     final outlinePaint = Paint()
-      ..color = const Color(0xFF40C8FF)
+      ..color = ReelForgeTheme.accentCyan
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
     canvas.drawPath(path, outlinePaint);
 
     // Center point (pan position)
-    final centerPaint = Paint()..color = const Color(0xFF40C8FF);
+    final centerPaint = Paint()..color = ReelForgeTheme.accentCyan;
     canvas.drawCircle(
       Offset(center.dx + pan * radius * 0.3, center.dy),
       6,
@@ -874,7 +875,7 @@ class _KnobPainter extends CustomPainter {
 
     // Arc background
     final bgPaint = Paint()
-      ..color = const Color(0xFF2A2A30)
+      ..color = ReelForgeTheme.borderSubtle
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -893,7 +894,7 @@ class _KnobPainter extends CustomPainter {
     // Value arc
     if (enabled) {
       final valuePaint = Paint()
-        ..color = const Color(0xFF40C8FF)
+        ..color = ReelForgeTheme.accentCyan
         ..strokeWidth = 3
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
@@ -910,7 +911,7 @@ class _KnobPainter extends CustomPainter {
     // Indicator line
     final indicatorAngle = startAngle + sweepAngle * value;
     final indicatorPaint = Paint()
-      ..color = enabled ? Colors.white : const Color(0xFF606070)
+      ..color = enabled ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 

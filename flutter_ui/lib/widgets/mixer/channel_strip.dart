@@ -340,10 +340,10 @@ class _ChannelStripState extends State<ChannelStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.data.name,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: ReelForgeTheme.textPrimary,
         ),
         overflow: TextOverflow.ellipsis,
       ),
@@ -395,10 +395,13 @@ class _ChannelStripState extends State<ChannelStrip> {
   }
 
   Widget _buildInsertSection() {
-    const maxSlots = 4; // Show 4 slots in compact view
-    final preSlots = widget.data.insertsPreFader.take(maxSlots).toList();
-    // ignore: unused_local_variable
-    final postSlots = widget.data.insertsPostFader.take(maxSlots).toList();
+    // Dynamic slots: show used + 1 empty, min 1, max 8
+    final preSlots = widget.data.insertsPreFader;
+    int lastUsed = -1;
+    for (int i = 0; i < preSlots.length; i++) {
+      if (!preSlots[i].isEmpty) lastUsed = i;
+    }
+    final visibleSlots = (lastUsed + 2).clamp(1, 8);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -418,7 +421,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             ),
           ),
           const SizedBox(height: 2),
-          for (int i = 0; i < maxSlots; i++)
+          for (int i = 0; i < visibleSlots; i++)
             _buildInsertSlot(
               i < preSlots.length ? preSlots[i] : const InsertSlot(),
               i,
@@ -785,13 +788,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [
-                          const Color(0xFF40C8FF),
-                          const Color(0xFF40FF90),
-                          const Color(0xFFFFFF40),
-                          const Color(0xFFFF4040),
-                        ],
-                        stops: const [0.0, 0.5, 0.85, 1.0],
+                        colors: ReelForgeTheme.meterGradient,
+                        stops: ReelForgeTheme.meterStops,
                       ),
                       borderRadius: BorderRadius.circular(1),
                     ),
@@ -815,13 +813,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [
-                          const Color(0xFF40C8FF),
-                          const Color(0xFF40FF90),
-                          const Color(0xFFFFFF40),
-                          const Color(0xFFFF4040),
-                        ],
-                        stops: const [0.0, 0.5, 0.85, 1.0],
+                        colors: ReelForgeTheme.meterGradient,
+                        stops: ReelForgeTheme.meterStops,
                       ),
                       borderRadius: BorderRadius.circular(1),
                     ),
@@ -912,20 +905,20 @@ class _ChannelStripState extends State<ChannelStrip> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.grey.shade400,
-                          Colors.grey.shade600,
-                          Colors.grey.shade500,
+                          ReelForgeTheme.textSecondary,
+                          ReelForgeTheme.textTertiary,
+                          ReelForgeTheme.textSecondary,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: _faderDragging
                             ? ReelForgeTheme.accentBlue
-                            : Colors.grey.shade700,
+                            : ReelForgeTheme.borderMedium,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
+                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -936,7 +929,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                         width: double.infinity,
                         height: 2,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: Colors.grey.shade800,
+                        color: ReelForgeTheme.bgElevated,
                       ),
                     ),
                   ),
@@ -989,14 +982,14 @@ class _ChannelStripState extends State<ChannelStrip> {
           _buildChannelButton(
             'M',
             widget.data.muted,
-            const Color(0xFFFF4040),
+            ReelForgeTheme.accentRed,
             () => _updateData(widget.data.copyWith(muted: !widget.data.muted)),
           ),
           // Solo
           _buildChannelButton(
             'S',
             widget.data.soloed,
-            const Color(0xFFFFFF40),
+            ReelForgeTheme.accentYellow,
             () => _updateData(widget.data.copyWith(soloed: !widget.data.soloed)),
           ),
           // Record
@@ -1005,7 +998,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             _buildChannelButton(
               'R',
               widget.data.armed,
-              const Color(0xFFFF4040),
+              ReelForgeTheme.accentRed,
               () => _updateData(widget.data.copyWith(armed: !widget.data.armed)),
             ),
         ],
@@ -1037,7 +1030,7 @@ class _ChannelStripState extends State<ChannelStrip> {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: active ? Colors.black : ReelForgeTheme.textTertiary,
+            color: active ? ReelForgeTheme.bgDeepest : ReelForgeTheme.textTertiary,
           ),
         ),
       ),

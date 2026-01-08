@@ -363,7 +363,7 @@ class PulseIndicator extends StatefulWidget {
 
   const PulseIndicator({
     super.key,
-    this.color = const Color(0xFFFF5068),
+    this.color = ReelForgeTheme.accentRed,
     this.size = 8,
     this.isActive = true,
     this.duration = const Duration(milliseconds: 1000),
@@ -722,7 +722,7 @@ class GlowContainer extends StatefulWidget {
   const GlowContainer({
     super.key,
     required this.child,
-    this.glowColor = const Color(0xFF5AA8FF),
+    this.glowColor = ReelForgeTheme.accentBlue,
     this.isGlowing = false,
     this.glowIntensity = 0.5,
     this.duration = const Duration(milliseconds: 1500),

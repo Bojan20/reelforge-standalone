@@ -467,9 +467,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
       onSelected: (_) => onSelected(),
       backgroundColor: ReelForgeTheme.bgSurface,
       selectedColor: ReelForgeTheme.accentBlue,
-      checkmarkColor: Colors.white,
+      checkmarkColor: ReelForgeTheme.textPrimary,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : ReelForgeTheme.textPrimary,
+        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
         fontSize: 12,
       ),
     );

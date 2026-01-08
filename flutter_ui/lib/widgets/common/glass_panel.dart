@@ -62,7 +62,7 @@ class GlassPanel extends StatelessWidget {
               color: backgroundColor ?? ReelForgeTheme.bgSurface.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
-                color: borderColor ?? Colors.white.withValues(alpha: 0.08),
+                color: borderColor ?? ReelForgeTheme.borderSubtle,
                 width: borderWidth,
               ),
             ),
@@ -134,8 +134,8 @@ class _AnimatedGlassPanelState extends State<AnimatedGlassPanel>
               color: widget.selected
                   ? color
                   : _isHovered
-                      ? Colors.white.withValues(alpha: 0.15)
-                      : Colors.white.withValues(alpha: 0.08),
+                      ? ReelForgeTheme.borderMedium
+                      : ReelForgeTheme.borderSubtle,
               width: widget.selected ? 2 : 1,
             ),
             boxShadow: [
