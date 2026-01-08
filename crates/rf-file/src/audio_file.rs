@@ -8,7 +8,6 @@
 //! - AAC/M4A (lossy)
 
 use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 
 use rf_core::Sample;
@@ -374,7 +373,7 @@ pub fn write_flac<P: AsRef<Path>>(
 
     for chunk_start in (0..num_frames).step_by(CHUNK_SIZE) {
         let chunk_end = (chunk_start + CHUNK_SIZE).min(num_frames);
-        let chunk_len = chunk_end - chunk_start;
+        let _chunk_len = chunk_end - chunk_start;
 
         // Fill channel buffers
         for (ch, buf) in channel_buffers.iter_mut().enumerate() {

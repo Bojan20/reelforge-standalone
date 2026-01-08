@@ -148,7 +148,7 @@ impl WaveletFilter {
         };
 
         // Generate other filters from lo_d
-        let n = lo_d.len();
+        let _n = lo_d.len();
 
         // Hi_d: QMF of lo_d
         let hi_d: Vec<f64> = lo_d.iter().enumerate()
@@ -187,7 +187,7 @@ impl DWT {
 
     /// Single-level decomposition
     pub fn decompose_level(&self, signal: &[f64]) -> (Vec<f64>, Vec<f64>) {
-        let n = signal.len();
+        let _n = signal.len();
         let filter_len = self.filter.lo_d.len();
 
         // Symmetric extension

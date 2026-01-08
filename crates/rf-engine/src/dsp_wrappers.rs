@@ -752,8 +752,8 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
 // ============ Dynamics Wrappers ============
 
 use rf_dsp::dynamics::{
-    Compressor, StereoCompressor, CompressorType,
-    TruePeakLimiter, Limiter, Gate, Expander, Oversampling,
+    StereoCompressor, CompressorType,
+    TruePeakLimiter, Gate, Expander, Oversampling,
 };
 use rf_dsp::MonoProcessor;
 

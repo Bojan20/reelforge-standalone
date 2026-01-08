@@ -2,12 +2,11 @@
 
 use std::sync::Arc;
 
-use ndarray::{Array1, Array2};
 use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex};
 
 use crate::error::{MlError, MlResult};
-use super::config::{MatchConfig, MatchMode, MatchWeighting};
+use super::config::{MatchConfig, MatchWeighting};
 use super::curve::{EqCurve, FrequencyBand};
 use super::{EqMatcher, MatchResult};
 
@@ -150,7 +149,7 @@ impl SpectralMatcher {
     }
 
     /// Compute averaged spectrum from audio
-    fn compute_spectrum(&self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<f32>> {
+    fn compute_spectrum(&self, audio: &[f32], channels: usize, _sample_rate: u32) -> MlResult<Vec<f32>> {
         // Convert to mono if needed
         let mono: Vec<f32> = if channels == 2 {
             audio

@@ -12,7 +12,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use ndarray::{Array1, Array2, Array3, Axis, s};
+use ndarray::{Array2, Array3, Axis, s};
 use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
 
@@ -233,7 +233,7 @@ impl ATENNuate {
         }
 
         // Concatenate with hidden state
-        let hidden_expanded = self.state.hidden.clone().insert_axis(Axis(2));
+        let _hidden_expanded = self.state.hidden.clone().insert_axis(Axis(2));
 
         // Run model (simplified - actual model would take both input and state)
         let input_2d = input.slice(s![0, .., 0]).to_owned();

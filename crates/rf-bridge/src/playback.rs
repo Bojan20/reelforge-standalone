@@ -29,12 +29,11 @@ use std::collections::HashMap;
 use parking_lot::{Mutex, RwLock};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-use crate::command_queue::{audio_command_handle, AudioCommandHandle};
+use crate::command_queue::audio_command_handle;
 use crate::dsp_commands::DspCommand;
 
 use rf_engine::playback::{PlaybackEngine as EnginePlayback, BusState};
 // Re-export BusState for external use
-pub use rf_engine::playback::BusState as EngineBusState;
 
 use rf_file::{AudioRecorder, RecordingConfig, RecordingState};
 

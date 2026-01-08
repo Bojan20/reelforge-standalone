@@ -10,7 +10,7 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use rf_dsp::metering_simd::{TruePeak8x, PsrMeter, CrestFactorMeter};
-use rf_dsp::loudness_advanced::{ZwickerLoudness, PsychoacousticMeter};
+use rf_dsp::loudness_advanced::PsychoacousticMeter;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL ADVANCED METERS

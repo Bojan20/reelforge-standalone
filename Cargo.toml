@@ -42,6 +42,10 @@ rf-video = { path = "crates/rf-video" }
 rf-script = { path = "crates/rf-script" }
 rf-ml = { path = "crates/rf-ml" }
 rf-spatial = { path = "crates/rf-spatial" }
+rf-restore = { path = "crates/rf-restore" }
+rf-master = { path = "crates/rf-master" }
+rf-pitch = { path = "crates/rf-pitch" }
+rf-realtime = { path = "crates/rf-realtime" }
 
 # Plugin hosting
 vst3 = "0.3"

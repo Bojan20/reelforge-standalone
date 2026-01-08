@@ -10,7 +10,6 @@
 //! - Keyboard shortcuts
 
 use serde::{Deserialize, Serialize};
-use crate::theme::Color;
 
 /// Widget interaction state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -7,7 +7,6 @@
 //! - Soft-knee compression
 
 use rf_core::Sample;
-use std::f64::consts::PI;
 
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 

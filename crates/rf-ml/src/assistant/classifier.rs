@@ -4,7 +4,7 @@ use std::path::Path;
 
 use ndarray::Array2;
 
-use crate::error::{MlError, MlResult};
+use crate::error::MlResult;
 use crate::inference::{InferenceEngine, InferenceConfig};
 
 /// Music genre
@@ -264,7 +264,7 @@ impl GenreClassifier {
     }
 
     /// Classify mood from audio
-    pub fn classify_mood(&mut self, audio: &[f32], channels: usize, sample_rate: u32) -> MlResult<Vec<(Mood, f32)>> {
+    pub fn classify_mood(&mut self, audio: &[f32], channels: usize, _sample_rate: u32) -> MlResult<Vec<(Mood, f32)>> {
         // Similar to genre but with mood model
         // For now, return heuristic-based moods from audio features
 

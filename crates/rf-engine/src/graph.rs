@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use rf_core::Sample;
 
-use crate::node::{AudioNode, NodeId, NodeType};
+use crate::node::{AudioNode, NodeId};
 
 /// Connection between nodes
 #[derive(Debug, Clone, Copy)]

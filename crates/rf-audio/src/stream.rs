@@ -27,7 +27,7 @@ impl SharedInputBuffer {
     /// Read samples from input buffer into f64 slice
     pub fn read_to_f64(&self, output: &mut [f64]) {
         let mut consumer = self.consumer.lock();
-        for (i, sample) in output.iter_mut().enumerate() {
+        for (_i, sample) in output.iter_mut().enumerate() {
             *sample = consumer.pop().unwrap_or(0.0) as f64;
         }
     }

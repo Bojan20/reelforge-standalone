@@ -7,7 +7,6 @@
 //! - Interactivity support
 
 use serde::{Deserialize, Serialize};
-use crate::error::SpatialResult;
 use crate::position::Position3D;
 
 /// MPEG-H audio scene

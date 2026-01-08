@@ -414,7 +414,7 @@ impl MassCoreEngine {
             config.buffer_size as f64 / config.sample_rate as f64
         );
 
-        let mut input_buffer = vec![0.0f32; config.buffer_size * 2]; // stereo
+        let input_buffer = vec![0.0f32; config.buffer_size * 2]; // stereo
         let mut output_buffer = vec![0.0f32; config.buffer_size * 2];
 
         while running.load(Ordering::Acquire) {

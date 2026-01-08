@@ -10,7 +10,7 @@
 use std::sync::Arc;
 use parking_lot::RwLock;
 
-use crate::{Command, Project, TrackState, RegionState, BusState, AutomationLaneState, AutomationPointState, TrackType};
+use crate::{Command, Project, TrackState, RegionState, AutomationPointState};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TRACK COMMANDS

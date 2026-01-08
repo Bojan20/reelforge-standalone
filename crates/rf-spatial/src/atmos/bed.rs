@@ -1,6 +1,5 @@
 //! Atmos bed (channel-based) mixing
 
-use crate::error::SpatialResult;
 use crate::SpeakerLayout;
 
 /// Atmos bed configuration

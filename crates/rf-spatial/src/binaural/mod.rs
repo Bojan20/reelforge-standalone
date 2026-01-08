@@ -13,8 +13,6 @@ mod renderer;
 pub use hrtf::{Hrtf, HrtfDatabase, HrtfInterpolation};
 pub use renderer::{BinauralRenderer, BinauralConfig};
 
-use crate::error::SpatialResult;
-use crate::position::{Position3D, Orientation};
 
 /// HRIR (Head-Related Impulse Response) pair
 #[derive(Debug, Clone)]

@@ -546,7 +546,7 @@ impl PlaybackEngine {
     // ═══════════════════════════════════════════════════════════════════════
 
     /// Get insert chain for track (creates if not exists)
-    pub fn get_track_insert_chain(&self, track_id: TrackId) -> &RwLock<HashMap<u64, InsertChain>> {
+    pub fn get_track_insert_chain(&self, _track_id: TrackId) -> &RwLock<HashMap<u64, InsertChain>> {
         &self.insert_chains
     }
 

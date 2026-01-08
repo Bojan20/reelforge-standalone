@@ -13,6 +13,9 @@
 //! - `dsp_commands` - All DSP parameter command types
 //! - `command_queue` - Lock-free producer/consumer queues
 
+// Many structs/methods are only used via FFI from Flutter
+#![allow(dead_code)]
+
 mod api;
 mod engine_bridge;
 mod metering;
@@ -39,7 +42,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use once_cell::sync::Lazy;
 
-use rf_engine::{DualPathEngine, EngineConfig, ProcessingMode};
+use rf_engine::{DualPathEngine, EngineConfig};
 use rf_engine::track_manager::TrackManager;
 use rf_engine::playback::PlaybackEngine as EnginePlayback;
 use rf_engine::automation::AutomationEngine;

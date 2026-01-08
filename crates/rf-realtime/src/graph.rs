@@ -8,9 +8,7 @@
 //! - rf-pitch (polyphonic pitch)
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use portable_atomic::{AtomicU64, Ordering};
-use rtrb::{Consumer, Producer, RingBuffer};
 
 /// Unique identifier for graph nodes
 pub type NodeId = u64;

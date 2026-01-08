@@ -89,7 +89,7 @@ impl LRFilter {
 
         let mut stages = Vec::with_capacity(num_stages);
 
-        for i in 0..num_stages {
+        for _i in 0..num_stages {
             let q = match crossover_type {
                 CrossoverType::Butterworth12 => 0.7071,
                 CrossoverType::LinkwitzRiley24 | CrossoverType::LinkwitzRiley48 => 0.7071,

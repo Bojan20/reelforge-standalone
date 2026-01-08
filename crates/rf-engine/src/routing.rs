@@ -21,10 +21,9 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
-use rf_core::{Decibels, Sample};
+use rf_core::Sample;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHANNEL TYPES

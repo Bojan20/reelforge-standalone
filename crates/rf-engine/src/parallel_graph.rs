@@ -426,7 +426,7 @@ impl ParallelAudioGraph {
         // Process nodes in parallel
         let results: Vec<(NodeId, Vec<Vec<Sample>>)> = level_inputs
             .into_par_iter()
-            .map(|(node_id, inputs, sidechains)| {
+            .map(|(node_id, inputs, _sidechains)| {
                 let wrapper = &self.nodes[&node_id];
                 let mut node = wrapper.node.write();
 
@@ -466,7 +466,7 @@ impl ParallelAudioGraph {
     }
 
     /// Get mutable access to a node
-    pub fn get_node_mut(&self, id: NodeId) -> Option<parking_lot::RwLockWriteGuard<Box<dyn AudioNode>>> {
+    pub fn get_node_mut(&self, id: NodeId) -> Option<parking_lot::RwLockWriteGuard<'_, Box<dyn AudioNode>>> {
         self.nodes.get(&id).map(|w| w.node.write())
     }
 

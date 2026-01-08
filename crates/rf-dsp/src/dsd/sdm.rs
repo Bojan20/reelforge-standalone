@@ -7,7 +7,6 @@
 //! - MECO algorithm (Pyramix compatible)
 
 use rf_core::Sample;
-use std::f64::consts::PI;
 
 /// Sigma-Delta Modulator type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

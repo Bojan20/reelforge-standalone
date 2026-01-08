@@ -7,7 +7,6 @@
 //! - Streaming import for large files
 
 use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use thiserror::Error;
 

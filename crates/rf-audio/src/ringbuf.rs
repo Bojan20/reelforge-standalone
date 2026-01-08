@@ -7,8 +7,7 @@
 //!
 //! CRITICAL: Audio thread must NEVER block. All operations are wait-free.
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rf_core::Sample;
 
@@ -411,7 +410,7 @@ impl MeterRingBuffer {
     /// Push metering snapshot (Audio thread)
     pub fn push(&self, snapshot: MeterSnapshot) -> bool {
         let write = self.write_pos.load(Ordering::Relaxed);
-        let read = self.read_pos.load(Ordering::Acquire);
+        let _read = self.read_pos.load(Ordering::Acquire);
 
         // Allow overwrite if full (UI can skip frames)
         let idx = write & self.mask;

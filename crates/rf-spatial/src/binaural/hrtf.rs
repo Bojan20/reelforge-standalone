@@ -1,9 +1,7 @@
 //! HRTF database and interpolation
 
 use std::collections::HashMap;
-use std::path::Path;
 
-use crate::error::{SpatialError, SpatialResult};
 use crate::position::{Position3D, SphericalCoord};
 use super::HrirPair;
 

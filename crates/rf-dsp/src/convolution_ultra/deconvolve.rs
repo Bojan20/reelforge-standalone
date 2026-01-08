@@ -151,7 +151,7 @@ impl IrDeconvolver {
 
     /// Generate linear frequency sweep
     fn generate_linear_sweep(sweep: &mut [Sample], config: &SweepConfig) {
-        let num_samples = sweep.len();
+        let _num_samples = sweep.len();
         let f1 = config.start_freq;
         let f2 = config.end_freq;
         let duration = config.duration;
@@ -167,7 +167,7 @@ impl IrDeconvolver {
 
     /// Generate logarithmic frequency sweep
     fn generate_log_sweep(sweep: &mut [Sample], config: &SweepConfig) {
-        let num_samples = sweep.len();
+        let _num_samples = sweep.len();
         let f1 = config.start_freq;
         let f2 = config.end_freq;
         let duration = config.duration;
@@ -184,7 +184,7 @@ impl IrDeconvolver {
 
     /// Generate exponential sine sweep (ESS)
     fn generate_ess(sweep: &mut [Sample], config: &SweepConfig) {
-        let num_samples = sweep.len();
+        let _num_samples = sweep.len();
         let f1 = config.start_freq;
         let f2 = config.end_freq;
         let duration = config.duration;

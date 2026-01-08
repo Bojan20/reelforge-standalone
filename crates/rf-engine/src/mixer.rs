@@ -5,7 +5,7 @@
 //! - Lock-free metering for GUI
 //! - Master bus with limiter
 
-use rf_core::{Sample, SampleRate, Decibels};
+use rf_core::Sample;
 use rf_dsp::channel::ChannelStrip;
 use rf_dsp::dynamics::{TruePeakLimiter, StereoCompressor, CompressorType};
 use rf_dsp::analysis::{PeakMeter, LufsMeter};

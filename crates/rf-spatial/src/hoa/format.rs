@@ -1,6 +1,5 @@
 //! Ambisonic format conversion - normalization and channel ordering
 
-use crate::error::SpatialResult;
 use super::AmbisonicOrder;
 
 /// Normalization scheme
@@ -85,7 +84,7 @@ pub struct FormatConverter {
 impl FormatConverter {
     /// Create new converter
     pub fn new(source: AmbisonicFormat, target: AmbisonicFormat, order: AmbisonicOrder) -> Self {
-        let num_channels = order.channel_count();
+        let _num_channels = order.channel_count();
         let norm_gains = Self::compute_norm_gains(source.normalization, target.normalization, order);
         let reorder_map = Self::compute_reorder_map(source.ordering, target.ordering, order);
 

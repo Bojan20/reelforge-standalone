@@ -370,7 +370,7 @@ pub struct ChainVertex {
 }
 
 /// Generate slot background mesh
-pub fn generate_slot_mesh(rect: &LayoutRect, color: [f32; 4], corner_radius: f32) -> Vec<ChainVertex> {
+pub fn generate_slot_mesh(rect: &LayoutRect, color: [f32; 4], _corner_radius: f32) -> Vec<ChainVertex> {
     // For simplicity, generate a basic rectangle
     // A proper implementation would generate rounded corners
     vec![

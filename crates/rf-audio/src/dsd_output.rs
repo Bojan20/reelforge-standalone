@@ -8,8 +8,6 @@
 //! - Automatic capability detection
 //! - DSD64/128/256/512 rate selection
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::Arc;
 
 /// DSD output mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -578,12 +576,16 @@ mod tests {
         let mut converter = DsdToPcmConverter::new(DsdRate::Dsd64, 44100);
 
         // All 1s DSD should produce positive PCM
-        let dsd_data = vec![0xFF; 64];
-        let mut pcm_output = vec![0.0; 4];
+        let dsd_data = vec![0xFF; 256]; // More data for filter warmup
+        let mut pcm_output = vec![0.0; 16];
 
         converter.convert(&dsd_data, &mut pcm_output);
 
-        // Output should be positive (trending towards +1)
-        assert!(pcm_output.iter().all(|&s| s >= -1.0 && s <= 1.0));
+        // After warmup, output should be in reasonable range (filter may overshoot slightly)
+        // All-1s DSD (constant +1) should produce positive PCM after settling
+        let last_samples = &pcm_output[8..]; // Check after warmup
+        assert!(last_samples.iter().all(|&s| s > 0.0), "All-1s DSD should produce positive PCM");
+        // Check values are finite and reasonable (filter transients can exceed ±1 briefly)
+        assert!(pcm_output.iter().all(|&s| s.is_finite() && s.abs() < 2.0));
     }
 }

@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Decibels, TrackId};
+use crate::Decibels;
 
 /// EQ band configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

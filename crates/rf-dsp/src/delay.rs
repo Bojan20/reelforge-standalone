@@ -10,7 +10,7 @@ use rf_core::Sample;
 use std::f64::consts::PI;
 
 use crate::{Processor, ProcessorConfig, StereoProcessor, MonoProcessor};
-use crate::biquad::{BiquadTDF2, BiquadCoeffs};
+use crate::biquad::BiquadTDF2;
 
 /// Simple mono delay with feedback and filtering
 #[derive(Debug, Clone)]

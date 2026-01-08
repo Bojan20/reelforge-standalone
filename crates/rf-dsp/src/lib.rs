@@ -26,6 +26,7 @@
 //! - `multiband` - Multi-band dynamics (compressor, limiter)
 
 #![feature(portable_simd)]
+#![allow(dead_code)]
 
 // Core infrastructure
 pub mod simd;

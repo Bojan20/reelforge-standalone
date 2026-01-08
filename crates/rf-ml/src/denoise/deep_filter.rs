@@ -388,7 +388,7 @@ impl DeepFilterNet {
 
     /// Apply deep filter to magnitude
     fn apply_deep_filter(&self, magnitude: &[f32], coeffs: &Array2<f32>) -> Vec<f32> {
-        let df_order = 5;
+        let _df_order = 5;
         let mut filtered = magnitude.to_vec();
 
         // Deep filtering: convolution with learned complex coefficients

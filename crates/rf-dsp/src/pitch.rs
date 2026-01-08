@@ -10,7 +10,6 @@
 //! Similar to Cubase VariAudio, Melodyne Essential
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PITCH REPRESENTATION

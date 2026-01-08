@@ -172,7 +172,7 @@ impl Dereverb {
     /// Process single FFT frame
     fn process_frame(&mut self) {
         let fft_size = self.config.fft_size;
-        let bins = fft_size / 2 + 1;
+        let _bins = fft_size / 2 + 1;
 
         // Apply analysis window
         for (i, sample) in self.fft_scratch.iter_mut().enumerate() {

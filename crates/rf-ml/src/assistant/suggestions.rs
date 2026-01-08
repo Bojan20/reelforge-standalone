@@ -350,9 +350,9 @@ impl SuggestionGenerator {
     pub fn from_spectral(
         &self,
         low_ratio: f32,
-        mid_ratio: f32,
+        _mid_ratio: f32,
         high_ratio: f32,
-        centroid_hz: f32,
+        _centroid_hz: f32,
     ) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
 

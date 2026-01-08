@@ -5,7 +5,7 @@
 //! - Overlap-add with phase continuity
 //! - Formant-aware processing
 
-use crate::{midi_to_freq, NoteEvent, PitchConfig};
+use crate::{NoteEvent, PitchConfig};
 use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 use std::sync::Arc;

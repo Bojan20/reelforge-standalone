@@ -21,7 +21,7 @@ use crate::track_manager::{
 };
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::waveform::{StereoWaveformPeaks, WaveformCache, NUM_LOD_LEVELS, SAMPLES_PER_PEAK};
-use crate::playback::{PlaybackEngine, PlaybackState, AudioCache};
+use crate::playback::PlaybackEngine;
 use rf_state::UndoManager;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2882,7 +2882,7 @@ pub extern "C" fn routing_get_output(out_left: *mut f64, out_right: *mut f64, ma
 // VCA FADER FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use crate::groups::{GroupManager, VcaFader, Group, FolderTrack, LinkParameter, LinkMode};
+use crate::groups::{GroupManager, LinkParameter, LinkMode};
 
 lazy_static::lazy_static! {
     static ref GROUP_MANAGER: RwLock<GroupManager> = RwLock::new(GroupManager::new());

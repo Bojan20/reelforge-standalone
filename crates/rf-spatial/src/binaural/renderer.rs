@@ -5,7 +5,7 @@ use rustfft::{FftPlanner, Fft};
 use std::sync::Arc;
 
 use crate::error::{SpatialError, SpatialResult};
-use crate::position::{Position3D, Orientation, SphericalCoord};
+use crate::position::{Position3D, Orientation};
 use crate::{AudioObject, SpatialRenderer, SpeakerLayout};
 use super::{HrtfDatabase, HrirPair, Hrtf, Crossfeed};
 
@@ -168,7 +168,7 @@ impl BinauralRenderer {
         output_right: &mut [f32],
     ) {
         let fft_size = self.config.fft_size;
-        let hop_size = fft_size / 2;
+        let _hop_size = fft_size / 2;
 
         // Transform position to listener-relative
         let relative_pos = if self.config.head_tracking {
@@ -294,7 +294,7 @@ impl BinauralRenderer {
         ];
 
         // Simple first-order decoding to virtual speakers
-        for (spk_idx, spk_pos) in virtual_speakers.iter().enumerate() {
+        for (_spk_idx, spk_pos) in virtual_speakers.iter().enumerate() {
             let spherical = spk_pos.to_spherical();
             let az = spherical.azimuth.to_radians();
             let el = spherical.elevation.to_radians();
@@ -408,7 +408,7 @@ impl SpatialRenderer for BinauralRenderer {
                 None => continue,
             };
 
-            let hrtf = Hrtf::from_hrir(&hrir, spherical, fft_size);
+            let _hrtf = Hrtf::from_hrir(&hrir, spherical, fft_size);
 
             // Distance attenuation
             let distance = relative_pos.magnitude();

@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
-use mlua::{Lua, Result as LuaResult, Value, Function, Table, UserData, UserDataMethods};
+use mlua::{Lua, Table, UserData, UserDataMethods};
 use parking_lot::RwLock;
 use thiserror::Error;
 

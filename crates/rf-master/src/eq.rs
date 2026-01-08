@@ -456,7 +456,7 @@ impl MatchingEq {
                 // This would normally compare against analyzed input spectrum
                 // For now, assume flat input and just use reference as target
                 let ref_mag = reference[i].max(1e-10);
-                let target_gain = ref_mag; // Simplified
+                let _target_gain = ref_mag; // Simplified
 
                 // Apply smoothing
                 let smoothed = if i > 0 && i < bins - 1 {

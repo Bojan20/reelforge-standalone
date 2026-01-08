@@ -219,7 +219,6 @@ fn get_device_info(device: &Device, is_input: bool) -> (u16, Vec<u32>) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 use parking_lot::RwLock;
-use std::sync::Arc;
 
 /// Device selection state
 #[derive(Debug, Clone)]

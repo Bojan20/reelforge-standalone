@@ -15,8 +15,7 @@ pub use renderer::{AtmosRenderer, AtmosConfig};
 pub use bed::AtmosBed;
 pub use metadata::{AdmMetadata, ObjectMetadata};
 
-use crate::error::{SpatialError, SpatialResult};
-use crate::{AudioObject, Position3D, SpeakerLayout};
+use crate::Position3D;
 
 /// Atmos object
 #[derive(Debug, Clone)]

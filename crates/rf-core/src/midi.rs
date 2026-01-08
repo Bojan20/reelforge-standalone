@@ -844,7 +844,7 @@ impl MidiClip {
         start_tick: u64,
         end_tick: u64,
         ticks_per_sample: f64,
-        buffer_start_sample: u64,
+        _buffer_start_sample: u64,
     ) -> Vec<MidiEvent> {
         let mut events = Vec::new();
 

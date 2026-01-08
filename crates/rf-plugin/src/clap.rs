@@ -5,8 +5,6 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use parking_lot::RwLock;
 
 use crate::{AudioBuffer, ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext};
 use crate::scanner::{PluginCategory, PluginInfo, PluginType};

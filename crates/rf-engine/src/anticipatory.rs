@@ -9,14 +9,14 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 use rf_core::Sample;
 
-use crate::node::{AudioNode, NodeId};
+use crate::node::NodeId;
 
 /// Processing job for a single node
 #[derive(Clone)]

@@ -43,7 +43,7 @@ impl AmbisonicDecoder {
     /// Create new decoder
     pub fn new(order: AmbisonicOrder, layout: SpeakerLayout) -> SpatialResult<Self> {
         let num_input_channels = order.channel_count();
-        let num_speakers = layout.speakers.iter().filter(|s| !s.is_lfe).count();
+        let _num_speakers = layout.speakers.iter().filter(|s| !s.is_lfe).count();
 
         // Create basic decoding matrix
         let decode_matrix = Self::create_decode_matrix(order, &layout, DecodingMethod::Basic)?;
@@ -262,14 +262,14 @@ impl AmbisonicDecoder {
         speakers: &[&Speaker],
         order: AmbisonicOrder,
     ) -> SpatialResult<()> {
-        let num_speakers = speakers.len();
+        let _num_speakers = speakers.len();
         let num_channels = order.channel_count();
 
         // Create virtual speaker positions on a t-design
         let virtual_speakers = Self::create_tdesign(2 * order.as_usize() + 1);
 
         // For each virtual speaker, find VBAP gains to real speakers
-        for (v_idx, v_pos) in virtual_speakers.iter().enumerate() {
+        for (_v_idx, v_pos) in virtual_speakers.iter().enumerate() {
             let vbap_gains = Self::compute_vbap_gains(v_pos, speakers);
 
             // Compute SH coefficients for virtual speaker

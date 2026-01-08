@@ -9,7 +9,7 @@
 //! - Stereo M/S processing
 
 use std::sync::Arc;
-use wgpu::{self, util::DeviceExt};
+use wgpu::{self};
 use bytemuck::{Pod, Zeroable};
 
 use crate::common::{GpuContext, VizError, VizResult};

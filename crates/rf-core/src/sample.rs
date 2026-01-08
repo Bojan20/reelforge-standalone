@@ -1,6 +1,6 @@
 //! Sample types and audio buffer definitions
 
-use std::simd::{f64x4, f64x8, Simd};
+use std::simd::{f64x4, f64x8};
 
 /// Type alias for audio samples (always f64 for maximum precision)
 pub type Sample = f64;

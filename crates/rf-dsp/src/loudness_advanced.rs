@@ -243,7 +243,7 @@ impl SharpnessMeter {
 
         let mut numerator = 0.0;
         for band in 0..NUM_BARK_BANDS {
-            let z = (band as f64 + 0.5); // Bark position
+            let z = band as f64 + 0.5; // Bark position
 
             // Weighting function g(z)
             let g = if z < 15.8 {

@@ -1,6 +1,6 @@
 //! Atmos renderer
 
-use crate::error::{SpatialError, SpatialResult};
+use crate::error::SpatialResult;
 use crate::position::{Position3D, Orientation};
 use crate::{AudioObject, SpeakerLayout, SpatialRenderer};
 use super::AtmosObject;
@@ -182,7 +182,7 @@ impl AtmosRenderer {
         audio: &[&[f32]],
         output: &mut [Vec<f32>],
     ) -> SpatialResult<()> {
-        let num_speakers = self.config.layout.total_channels();
+        let _num_speakers = self.config.layout.total_channels();
         let samples = audio.get(0).map(|a| a.len()).unwrap_or(0);
 
         // Clear output

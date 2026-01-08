@@ -7,11 +7,11 @@ use crate::{
     LoudnessMeasurement, ReferenceProfile,
     analysis::MasteringAnalyzer,
     dynamics::{MultibandDynamics, MultibandDynamicsConfig, MasteringCompressor},
-    eq::{LinearPhaseEq, TiltEq, MasterEqConfig, EqBand, BandType},
-    limiter::{TruePeakLimiter, LimiterConfig, LimiterMode},
+    eq::{LinearPhaseEq, TiltEq, MasterEqConfig},
+    limiter::{TruePeakLimiter, LimiterConfig},
     loudness::{LufsMeter, LoudnessNormalizer},
     stereo::{StereoEnhancer, StereoConfig},
-    reference::{ReferenceMatcher, MatchSettings},
+    reference::ReferenceMatcher,
     error::{MasterError, MasterResult},
 };
 
@@ -315,7 +315,7 @@ impl MasteringEngine {
         })
     }
 
-    fn calculate_quality_score(&self, input: &LoudnessMeasurement, output: &LoudnessMeasurement) -> f32 {
+    fn calculate_quality_score(&self, _input: &LoudnessMeasurement, output: &LoudnessMeasurement) -> f32 {
         let mut score = 100.0;
 
         // Penalize if true peak too high

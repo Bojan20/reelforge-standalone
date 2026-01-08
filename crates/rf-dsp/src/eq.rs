@@ -347,7 +347,7 @@ impl EqBand {
     /// Calculate dynamic EQ gain reduction
     fn calculate_dynamic_gain(&mut self, left: Sample, right: Sample) -> f64 {
         let input_level = ((left * left + right * right) * 0.5).sqrt();
-        let input_db = if input_level > 0.0 {
+        let _input_db = if input_level > 0.0 {
             20.0 * input_level.log10()
         } else {
             -120.0

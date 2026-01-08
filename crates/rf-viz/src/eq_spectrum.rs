@@ -10,7 +10,6 @@
 
 use std::f32::consts::PI;
 
-use crate::common::{GpuContext, VizResult};
 
 // ============================================================================
 // CONFIGURATION
@@ -188,8 +187,8 @@ pub fn generate_spectrum_mesh(
         return (vertices, indices);
     }
 
-    let log_min = config.min_freq.log10();
-    let log_max = config.max_freq.log10();
+    let _log_min = config.min_freq.log10();
+    let _log_max = config.max_freq.log10();
     let db_range = config.max_db - config.min_db;
 
     // Generate filled spectrum

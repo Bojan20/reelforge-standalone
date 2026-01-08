@@ -254,7 +254,7 @@ pub struct AutomationPointState {
 }
 
 // Marker types moved to markers.rs
-use crate::markers::{Marker, MarkerTrack};
+use crate::markers::MarkerTrack;
 
 // ============ Complete Project ============
 

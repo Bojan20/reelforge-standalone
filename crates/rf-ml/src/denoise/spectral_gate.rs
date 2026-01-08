@@ -5,7 +5,7 @@
 //! - Psychoacoustic masking
 //! - Optional neural post-filter
 
-use crate::buffer::{AudioFrame, StftBuffer, OverlapAddBuffer};
+use crate::buffer::AudioFrame;
 use crate::denoise::{DenoiseConfig, Denoiser, NoiseProfile};
 use crate::error::{MlError, MlResult};
 

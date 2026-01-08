@@ -95,8 +95,8 @@ impl EqPreset {
                 continue;
             }
 
-            let omega = 2.0 * PI * freq / sample_rate;
-            let band_omega = 2.0 * PI * band.freq / sample_rate;
+            let _omega = 2.0 * PI * freq / sample_rate;
+            let _band_omega = 2.0 * PI * band.freq / sample_rate;
 
             // Simplified magnitude calculation
             match band.filter_type {
@@ -320,7 +320,7 @@ impl PresetMatcher {
         let mut result = Vec::new();
 
         // Interpolate matched bands
-        for &(si, ti, weight) in &self.matches {
+        for &(si, ti, _weight) in &self.matches {
             if si < source.bands.len() && ti < target.bands.len() {
                 let sb = &source.bands[si];
                 let tb = &target.bands[ti];

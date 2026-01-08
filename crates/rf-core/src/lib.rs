@@ -3,6 +3,7 @@
 //! This crate provides the foundational types used across all ReelForge crates.
 
 #![feature(portable_simd)]
+#![allow(dead_code)]
 
 mod sample;
 mod time;

@@ -10,7 +10,6 @@
 //!
 //! Uses ML to analyze reference tracks and suggest processing parameters.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Target loudness standard

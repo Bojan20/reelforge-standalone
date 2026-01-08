@@ -241,7 +241,7 @@ impl PianoRollView {
     }
 
     /// Convert note number to y pixel position
-    pub fn note_to_y(&self, note: u8, total_height: f64) -> f64 {
+    pub fn note_to_y(&self, note: u8, _total_height: f64) -> f64 {
         let note_offset = (self.visible_note_high as f64) - (note as f64);
         note_offset * self.pixels_per_note
     }

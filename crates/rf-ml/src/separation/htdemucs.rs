@@ -20,14 +20,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use ndarray::{Array1, Array2, Array3, Array4, Axis, s};
+use ndarray::{Array2, Array3, Axis};
 use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
 use num_complex::Complex32;
 
 use crate::error::{MlError, MlResult};
 use crate::inference::{InferenceEngine, InferenceConfig};
-use crate::buffer::AudioFrame;
-use super::config::{SeparationConfig, SeparationQuality};
+use super::config::SeparationConfig;
 use super::stems::{StemType, StemOutput, StemCollection};
 use super::SourceSeparator;
 
@@ -313,7 +312,7 @@ impl HTDemucs {
 
     /// Process a single segment through the model
     fn process_segment(&self, segment: &Array2<f32>) -> MlResult<Array3<f32>> {
-        let (channels, samples) = (segment.shape()[0], segment.shape()[1]);
+        let (_channels, _samples) = (segment.shape()[0], segment.shape()[1]);
 
         // Prepare input tensor: [batch, channels, samples]
         let input = segment.clone().insert_axis(Axis(0));
@@ -346,7 +345,7 @@ impl HTDemucs {
         stems_stft: &[Array3<Complex32>],
         iterations: usize,
     ) -> MlResult<Vec<Array3<Complex32>>> {
-        let n_stems = stems_stft.len();
+        let _n_stems = stems_stft.len();
         let shape = mix_stft.shape();
 
         let mut filtered = stems_stft.to_vec();

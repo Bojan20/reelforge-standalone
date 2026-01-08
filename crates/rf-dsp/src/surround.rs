@@ -426,7 +426,7 @@ impl AmbisonicsDecoder {
     /// Calculate decode matrix for given speaker layout
     fn calculate_decode_matrix(layout: &ChannelLayout) -> Vec<Vec<f64>> {
         let positions = layout.speaker_positions();
-        let num_speakers = positions.len();
+        let _num_speakers = positions.len();
 
         // For each speaker, calculate its B-format coefficients
         positions.iter().map(|&(az, el)| {

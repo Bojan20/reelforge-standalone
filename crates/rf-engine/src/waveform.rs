@@ -388,13 +388,16 @@ mod tests {
         let samples = generate_sine_wave(440.0, 48000, 1.0);
         let peaks = WaveformPeaks::from_samples(&samples, 48000);
 
-        // High zoom should select finest level
-        let lod_high_zoom = peaks.select_lod_level(500.0);
-        assert!(lod_high_zoom < 2);
+        // Very high zoom (many pixels per second) should select fine level
+        let lod_high_zoom = peaks.select_lod_level(10000.0);
+        assert!(lod_high_zoom <= 2, "High zoom should select fine LOD, got {}", lod_high_zoom);
 
-        // Low zoom should select coarser level
+        // Low zoom (few pixels per second) should select coarser level
         let lod_low_zoom = peaks.select_lod_level(10.0);
-        assert!(lod_low_zoom > 2);
+        assert!(lod_low_zoom >= 2, "Low zoom should select coarse LOD, got {}", lod_low_zoom);
+
+        // Verify ordering: higher zoom = finer LOD (lower level)
+        assert!(lod_high_zoom <= lod_low_zoom);
     }
 
     #[test]

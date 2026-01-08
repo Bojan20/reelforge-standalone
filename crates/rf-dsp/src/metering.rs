@@ -738,7 +738,7 @@ impl DynamicRangeMeter {
         self.window_buffer[self.window_pos] = squared;
 
         // Record loudness at end of window
-        let old_pos = self.window_pos;
+        let _old_pos = self.window_pos;
         self.window_pos = (self.window_pos + 1) % self.window_buffer.len();
 
         if self.window_pos == 0 {

@@ -219,7 +219,7 @@ impl Denoise {
     /// Process single FFT frame
     fn process_frame(&mut self) {
         let fft_size = self.config.fft_size;
-        let bins = fft_size / 2 + 1;
+        let _bins = fft_size / 2 + 1;
 
         // Apply window
         for (i, sample) in self.fft_scratch.iter_mut().enumerate() {
@@ -272,7 +272,7 @@ impl Denoise {
         for (i, spectrum_bin) in self.spectrum.iter_mut().enumerate() {
             let input_mag = magnitudes[i];
             let noise_mag = self.noise_profile.magnitude[i] * self.reduction_gain;
-            let noise_var = self.noise_profile.variance[i];
+            let _noise_var = self.noise_profile.variance[i];
 
             let gain = if self.config.use_wiener {
                 // Wiener filter with a priori SNR estimation

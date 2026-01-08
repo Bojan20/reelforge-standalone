@@ -7,7 +7,6 @@
 //! - Real-time recording and playback
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 

@@ -9,7 +9,6 @@
 
 use crate::{
     DynamicsProfile, Genre, LoudnessMeasurement, ReferenceProfile, StereoProfile,
-    error::{MasterError, MasterResult},
 };
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;

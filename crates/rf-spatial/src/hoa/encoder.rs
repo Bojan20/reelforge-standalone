@@ -1,7 +1,6 @@
 //! Ambisonic encoder - point source to Ambisonic
 
 use crate::position::Position3D;
-use crate::error::SpatialResult;
 use super::{AmbisonicOrder, SphericalHarmonics};
 
 /// Ambisonic encoder for point sources

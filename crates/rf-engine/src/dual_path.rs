@@ -140,8 +140,8 @@ impl DualPathEngine {
         lookahead_blocks: usize,
     ) -> Self {
         // Create channels with enough capacity
-        let (guard_tx, guard_input_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
-        let (guard_output_tx, guard_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
+        let (guard_tx, _guard_input_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
+        let (_guard_output_tx, guard_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
 
         let guard_running = Arc::new(AtomicBool::new(false));
         let stats = Arc::new(DualPathStats::default());

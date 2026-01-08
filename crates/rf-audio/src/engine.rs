@@ -10,12 +10,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock};
-use rtrb::{Consumer, Producer, RingBuffer};
 
 use rf_core::{BufferSize, Sample, SampleRate};
 
 use crate::{
-    AudioConfig, AudioError, AudioResult, AudioStream,
+    AudioConfig, AudioResult, AudioStream,
     get_default_output_device, get_output_device_by_name,
 };
 

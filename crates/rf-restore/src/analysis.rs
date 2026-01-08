@@ -1,6 +1,6 @@
 //! Audio analysis for restoration detection
 
-use crate::error::{RestoreError, RestoreResult};
+use crate::error::RestoreResult;
 use crate::AnalysisResult;
 use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex};
@@ -179,7 +179,7 @@ impl RestoreAnalyzer {
         // Simple decay analysis
         let block_size = self.sample_rate as usize / 10; // 100ms blocks
 
-        let mut envelope: Vec<f32> = audio
+        let envelope: Vec<f32> = audio
             .chunks(block_size)
             .map(|chunk| {
                 chunk.iter().map(|s| s.abs()).sum::<f32>() / chunk.len() as f32

@@ -638,7 +638,7 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
 
         // Restore automation lanes
         for lane_state in &track_state.automation {
-            use rf_engine::automation::{AutomationPoint, CurveType, ParamId, TargetType};
+            use rf_engine::automation::{AutomationPoint, CurveType, ParamId};
 
             // Create ParamId from stored data
             let param_id = ParamId::track_volume(track_id.0);  // Use track_volume as default
@@ -2946,14 +2946,14 @@ pub fn export_start(config: ExportConfig) -> bool {
         block_size: 1024,
     };
 
-    let output_path = config.output_path.clone();
+    let _output_path = config.output_path.clone();
 
     // Spawn export thread
     std::thread::spawn(move || {
         let mut renderer = OfflineRenderer::new(bounce_config);
 
         // Set up progress callback
-        let progress_clone = EXPORT_PROGRESS.lock().clone();
+        let _progress_clone = EXPORT_PROGRESS.lock().clone();
         let total_secs = if end_samples < u64::MAX {
             (end_samples - start_samples) as f64 / source_sample_rate as f64
         } else {
@@ -5113,7 +5113,7 @@ impl Default for DenoiseSettings {
 pub fn ml_stem_separation_start(
     input_path: String,
     output_dir: String,
-    model_type: String,
+    _model_type: String,
 ) -> bool {
     // Validate input exists
     if !std::path::Path::new(&input_path).exists() {
@@ -5145,9 +5145,9 @@ pub fn ml_stem_separation_cancel() -> bool {
 #[flutter_rust_bridge::frb(sync)]
 pub fn ml_denoise_file(
     input_path: String,
-    output_path: String,
-    strength: f32,
-    preserve_voice: bool,
+    _output_path: String,
+    _strength: f32,
+    _preserve_voice: bool,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
@@ -5182,7 +5182,7 @@ pub fn ml_model_is_available(model_name: String) -> bool {
 
 /// Download ML model
 #[flutter_rust_bridge::frb(sync)]
-pub fn ml_model_download(model_name: String) -> bool {
+pub fn ml_model_download(_model_name: String) -> bool {
     // Would trigger async download
     true
 }
@@ -5341,7 +5341,7 @@ pub fn mastering_analyze(input_path: String) -> Option<MasteringAnalysis> {
 
 /// Apply mastering preset
 #[flutter_rust_bridge::frb(sync)]
-pub fn mastering_apply_preset(preset_id: String) -> bool {
+pub fn mastering_apply_preset(_preset_id: String) -> bool {
     // Would configure rf-master with preset
     true
 }
@@ -5349,11 +5349,11 @@ pub fn mastering_apply_preset(preset_id: String) -> bool {
 /// Set mastering settings
 #[flutter_rust_bridge::frb(sync)]
 pub fn mastering_set_settings(
-    target_lufs: f32,
-    true_peak_limit: f32,
-    stereo_width: f32,
-    multiband_enabled: bool,
-    limiter_enabled: bool,
+    _target_lufs: f32,
+    _true_peak_limit: f32,
+    _stereo_width: f32,
+    _multiband_enabled: bool,
+    _limiter_enabled: bool,
 ) -> bool {
     // Would configure rf-master
     true
@@ -5369,8 +5369,8 @@ pub fn mastering_get_settings() -> MasteringSettings {
 #[flutter_rust_bridge::frb(sync)]
 pub fn mastering_process_file(
     input_path: String,
-    output_path: String,
-    preset_id: String,
+    _output_path: String,
+    _preset_id: String,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
@@ -5382,7 +5382,7 @@ pub fn mastering_process_file(
 
 /// Enable/disable mastering on master bus
 #[flutter_rust_bridge::frb(sync)]
-pub fn mastering_set_enabled(enabled: bool) -> bool {
+pub fn mastering_set_enabled(_enabled: bool) -> bool {
     // Would toggle rf-master on master bus
     true
 }
@@ -5490,15 +5490,15 @@ pub fn restoration_analyze(input_path: String) -> Option<RestorationAnalysis> {
 /// Set restoration settings
 #[flutter_rust_bridge::frb(sync)]
 pub fn restoration_set_settings(
-    denoise_enabled: bool,
-    denoise_strength: f32,
-    declick_enabled: bool,
-    declick_sensitivity: f32,
-    declip_enabled: bool,
-    dehum_enabled: bool,
-    dehum_frequency: f32,
-    dereverb_enabled: bool,
-    dereverb_amount: f32,
+    _denoise_enabled: bool,
+    _denoise_strength: f32,
+    _declick_enabled: bool,
+    _declick_sensitivity: f32,
+    _declip_enabled: bool,
+    _dehum_enabled: bool,
+    _dehum_frequency: f32,
+    _dereverb_enabled: bool,
+    _dereverb_amount: f32,
 ) -> bool {
     // Would configure rf-restore
     true
@@ -5514,7 +5514,7 @@ pub fn restoration_get_settings() -> RestorationSettings {
 #[flutter_rust_bridge::frb(sync)]
 pub fn restoration_process_file(
     input_path: String,
-    output_path: String,
+    _output_path: String,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
@@ -5528,8 +5528,8 @@ pub fn restoration_process_file(
 #[flutter_rust_bridge::frb(sync)]
 pub fn restoration_learn_noise_profile(
     input_path: String,
-    start_sample: u64,
-    end_sample: u64,
+    _start_sample: u64,
+    _end_sample: u64,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
@@ -5547,7 +5547,7 @@ pub fn restoration_clear_noise_profile() -> bool {
 
 /// Enable/disable restoration on track
 #[flutter_rust_bridge::frb(sync)]
-pub fn restoration_set_enabled_for_track(track_id: u32, enabled: bool) -> bool {
+pub fn restoration_set_enabled_for_track(_track_id: u32, _enabled: bool) -> bool {
     // Would toggle rf-restore on track
     true
 }
@@ -5560,7 +5560,7 @@ pub fn restoration_get_processing_state() -> (bool, f32, String) {
 
 /// Auto-detect and fix issues
 #[flutter_rust_bridge::frb(sync)]
-pub fn restoration_auto_fix(input_path: String, output_path: String) -> bool {
+pub fn restoration_auto_fix(input_path: String, _output_path: String) -> bool {
     if !std::path::Path::new(&input_path).exists() {
         return false;
     }
@@ -5612,7 +5612,7 @@ pub enum StemType {
 #[flutter_rust_bridge::frb(sync)]
 pub fn ml_denoise_start(
     input_path: String,
-    output_path: String,
+    _output_path: String,
     model: DenoiseModel,
     strength: f32,
 ) -> bool {
@@ -5642,7 +5642,7 @@ pub fn ml_denoise_cancel() -> bool {
 #[flutter_rust_bridge::frb(sync)]
 pub fn ml_separate_stems(
     input_path: String,
-    output_dir: String,
+    _output_dir: String,
     stems: Vec<StemType>,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
@@ -5673,7 +5673,7 @@ pub struct MasteringPreset {
 #[flutter_rust_bridge::frb(sync)]
 pub fn ml_master_start(
     input_path: String,
-    output_path: String,
+    _output_path: String,
     preset: MasteringPreset,
 ) -> bool {
     if !std::path::Path::new(&input_path).exists() {
@@ -5704,7 +5704,7 @@ pub fn ml_get_mastering_suggestions(input_path: String) -> Vec<String> {
 pub fn ml_eq_match(
     target_path: String,
     reference_path: String,
-    output_path: String,
+    _output_path: String,
     match_amount: f32,
 ) -> bool {
     if !std::path::Path::new(&target_path).exists()
@@ -5794,19 +5794,19 @@ pub fn spatial_create_object(name: String, position: SpatialPosition3D) -> u32 {
 
 /// Update object position
 #[flutter_rust_bridge::frb(sync)]
-pub fn spatial_update_object_position(object_id: u32, position: SpatialPosition3D) -> bool {
+pub fn spatial_update_object_position(_object_id: u32, _position: SpatialPosition3D) -> bool {
     true
 }
 
 /// Update object size/spread
 #[flutter_rust_bridge::frb(sync)]
-pub fn spatial_update_object_size(object_id: u32, size: f32) -> bool {
+pub fn spatial_update_object_size(_object_id: u32, _size: f32) -> bool {
     true
 }
 
 /// Remove object
 #[flutter_rust_bridge::frb(sync)]
-pub fn spatial_remove_object(object_id: u32) -> bool {
+pub fn spatial_remove_object(_object_id: u32) -> bool {
     true
 }
 
@@ -5836,10 +5836,10 @@ pub fn spatial_load_hrtf(path: String) -> bool {
 /// Set listener head position (for binaural)
 #[flutter_rust_bridge::frb(sync)]
 pub fn spatial_set_listener_position(
-    position: SpatialPosition3D,
-    yaw: f32,
-    pitch: f32,
-    roll: f32,
+    _position: SpatialPosition3D,
+    _yaw: f32,
+    _pitch: f32,
+    _roll: f32,
 ) -> bool {
     true
 }
@@ -5865,8 +5865,8 @@ pub fn spatial_set_hoa_order(order: u32) -> bool {
 #[flutter_rust_bridge::frb(sync)]
 pub fn spatial_export_atmos(
     output_path: String,
-    include_beds: bool,
-    include_objects: bool,
+    _include_beds: bool,
+    _include_objects: bool,
 ) -> bool {
     log::info!("Exporting Atmos ADM to: {}", output_path);
     true

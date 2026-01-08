@@ -11,7 +11,7 @@
 
 use rf_core::Sample;
 use std::f64::consts::PI;
-use std::simd::{f64x4, Simd};
+use std::simd::f64x4;
 
 use crate::{MonoProcessor, Processor, ProcessorConfig};
 

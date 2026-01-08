@@ -12,7 +12,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use ndarray::{Array2, Array3, s};
+use ndarray::Array2;
 use num_complex::Complex32;
 use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
 

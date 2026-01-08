@@ -7,14 +7,12 @@ use realfft::{RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
 use crate::error::{MlError, MlResult};
-use crate::inference::{InferenceEngine, InferenceConfig};
 use super::config::AssistantConfig;
-use super::classifier::{GenreClassifier, Genre, Mood};
+use super::classifier::{GenreClassifier, Genre};
 use super::suggestions::{Suggestion, SuggestionGenerator};
 use super::{
     AnalysisResult, AudioAssistantTrait, ComparisonResult,
     LoudnessAnalysis, SpectralAnalysis, DynamicsAnalysis, StereoAnalysis,
-    MusicKey,
 };
 
 /// Audio analyzer

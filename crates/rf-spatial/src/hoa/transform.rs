@@ -1,7 +1,6 @@
 //! Ambisonic transformations - rotation, zoom, focus
 
 use crate::position::Orientation;
-use crate::error::SpatialResult;
 use super::AmbisonicOrder;
 
 /// Ambisonic transformation processor
@@ -132,8 +131,8 @@ impl AmbisonicTransform {
         &self,
         input: &[Vec<f32>],
         shelf_db: f32,
-        high_order_cutoff_hz: f32,
-        sample_rate: u32,
+        _high_order_cutoff_hz: f32,
+        _sample_rate: u32,
     ) -> Vec<Vec<f32>> {
         let mut output = input.to_vec();
         let shelf_gain = 10.0_f32.powf(shelf_db / 20.0);

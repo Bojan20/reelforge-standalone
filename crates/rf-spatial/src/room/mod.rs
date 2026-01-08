@@ -7,7 +7,6 @@
 //! - Room mode simulation
 
 use serde::{Deserialize, Serialize};
-use crate::error::SpatialResult;
 use crate::position::Position3D;
 
 /// Room definition
@@ -185,7 +184,7 @@ impl RoomSimulator {
         // First-order reflections
         for (normal, dist, material) in &walls {
             // Calculate image source position
-            let listener = &self.room.listener_pos;
+            let _listener = &self.room.listener_pos;
 
             // Simple reflection calculation
             let reflection_dist = 2.0 * dist;

@@ -9,6 +9,8 @@
 //! - MassCore++ style processing (Phase 5.3)
 //! - Performance benchmarking (Phase 5.3)
 
+#![allow(dead_code)]
+
 pub mod graph;
 pub mod pipeline;
 pub mod state;

@@ -896,20 +896,20 @@ fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
     //   where D(z) = 1 - (2 - a3 - 2*a2)*z^-1 + (1 - 2*a2 + a3)*z^-2
 
     // Compute (1 + z^-1) = (1 + cos(ω) - j*sin(ω)) = (1 + cos(ω)) - j*sin(ω)
-    let one_plus_zinv_r = 1.0 + cos_w;
-    let one_plus_zinv_i = -sin_w;
+    let _one_plus_zinv_r = 1.0 + cos_w;
+    let _one_plus_zinv_i = -sin_w;
 
     // Compute (1 - z^-1) = (1 - cos(ω) + j*sin(ω))
-    let one_minus_zinv_r = 1.0 - cos_w;
-    let one_minus_zinv_i = sin_w;
+    let _one_minus_zinv_r = 1.0 - cos_w;
+    let _one_minus_zinv_i = sin_w;
 
     // Compute z^-1 = cos(ω) - j*sin(ω)
-    let zinv_r = cos_w;
-    let zinv_i = -sin_w;
+    let _zinv_r = cos_w;
+    let _zinv_i = -sin_w;
 
     // Compute z^-2 = cos(2ω) - j*sin(2ω)
-    let z2inv_r = (2.0 * omega).cos();
-    let z2inv_i = -(2.0 * omega).sin();
+    let _z2inv_r = (2.0 * omega).cos();
+    let _z2inv_i = -(2.0 * omega).sin();
 
     // Denominator: D(z) = 1 + d1*z^-1 + d2*z^-2
     // From SVF analysis: d1 = -(2 - a3 - 2*a2), d2 = 1 - 2*a2 + a3

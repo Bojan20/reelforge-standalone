@@ -39,12 +39,12 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError};
+use crossbeam_channel::{bounded, Receiver, Sender};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{AudioBuffer, ParameterInfo, PluginError, PluginResult, ProcessContext};
+use crate::{AudioBuffer, ParameterInfo, PluginError, ProcessContext};
 
 // ============ Error Types ============
 
@@ -482,7 +482,7 @@ impl SandboxedPlugin {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
-        context: &ProcessContext,
+        _context: &ProcessContext,
     ) -> SandboxResult<()> {
         if !self.active {
             // Pass through

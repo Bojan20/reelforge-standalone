@@ -13,8 +13,7 @@
 //! - Subdivided: 8ths, 16ths, triplets
 //! - Custom: user-defined patterns
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rf_core::Sample;
 
@@ -241,7 +240,7 @@ impl ClickTrack {
     }
 
     /// Trigger click at specific beat position
-    pub fn trigger(&mut self, beat_in_bar: u8, is_downbeat: bool, is_subdivision: bool) {
+    pub fn trigger(&mut self, _beat_in_bar: u8, is_downbeat: bool, is_subdivision: bool) {
         if !self.is_enabled() {
             return;
         }

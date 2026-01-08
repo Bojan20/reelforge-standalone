@@ -8,11 +8,11 @@
 //! - Parallel processing
 //! - Stem export
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 
 use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_wav, write_flac};
 
@@ -394,7 +394,7 @@ impl SampleRateConverter {
         // Calculate output frames
         let num_output_frames = ((num_input_frames as f64) / ratio) as usize;
 
-        for out_frame in 0..num_output_frames {
+        for _out_frame in 0..num_output_frames {
             let in_pos = self.phase;
             let in_frame = in_pos as usize;
             let frac = in_pos - in_frame as f64;
@@ -536,7 +536,7 @@ impl OfflineRenderer {
             end_frame = (end_frame + tail_frames).min(source.num_frames());
         }
 
-        let total_frames = end_frame - start_frame;
+        let _total_frames = end_frame - start_frame;
 
         // Setup sample rate conversion
         let target_sample_rate = if self.config.export_format.sample_rate > 0 {
