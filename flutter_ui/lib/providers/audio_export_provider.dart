@@ -1,16 +1,15 @@
-/// Audio Export Provider
-///
-/// Offline rendering and export with:
-/// - Render timeline to audio buffer
-/// - WAV export (16/24/32-bit)
-/// - True peak limiting
-/// - Normalization
-/// - Dithering
-/// - Progress tracking
+// Audio Export Provider
+//
+// Offline rendering and export with:
+// - Render timeline to audio buffer
+// - WAV export (16/24/32-bit)
+// - True peak limiting
+// - Normalization
+// - Dithering
+// - Progress tracking
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 // ============ Types ============

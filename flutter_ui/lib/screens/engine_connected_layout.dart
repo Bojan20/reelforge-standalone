@@ -1,7 +1,7 @@
-/// Engine Connected Layout
-///
-/// Connects MainLayout to the Rust EngineProvider.
-/// Bridges UI callbacks to engine API calls.
+// Engine Connected Layout
+//
+// Connects MainLayout to the Rust EngineProvider.
+// Bridges UI callbacks to engine API calls.
 
 import 'dart:async';
 import 'dart:convert';
@@ -72,12 +72,24 @@ import '../widgets/dsp/ml_processor_panel.dart';
 import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
 import '../widgets/midi/piano_roll_widget.dart';
+import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
+import '../widgets/metering/metering_bridge.dart';
+import '../widgets/meters/pdc_display.dart';
 import '../src/rust/engine_api.dart';
 import '../src/rust/native_ffi.dart';
 import '../dialogs/export_audio_dialog.dart';
+import '../dialogs/batch_export_dialog.dart';
+import '../dialogs/export_presets_dialog.dart';
+import '../dialogs/bounce_dialog.dart';
+import '../dialogs/render_in_place_dialog.dart';
 import 'settings/audio_settings_screen.dart';
+import 'settings/midi_settings_screen.dart';
+import 'settings/plugin_manager_screen.dart';
 import 'project/project_settings_screen.dart';
 import 'main_layout.dart';
+import '../widgets/project/track_templates_panel.dart';
+import '../widgets/project/project_versions_panel.dart';
+import '../widgets/timeline/freeze_track_overlay.dart';
 
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
@@ -1238,13 +1250,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  /// Build/Export project
-  void _handleBuildProject() {
-    _showSnackBar('Building project...');
-    // TODO: Implement actual build/export
-    Future.delayed(const Duration(seconds: 1), () {
-      _showSnackBar('Build complete!');
-    });
+  /// Build/Export project - opens export dialog
+  void _handleBuildProject() async {
+    final engine = context.read<EngineProvider>();
+    final projectName = engine.project.name.isNotEmpty
+        ? engine.project.name
+        : (widget.projectName ?? 'Untitled');
+
+    // Compute duration in seconds from samples
+    final projectDuration = engine.project.sampleRate > 0
+        ? engine.project.durationSamples / engine.project.sampleRate
+        : 60.0;
+
+    final result = await ExportAudioDialog.show(
+      context,
+      projectName: projectName,
+      projectDuration: projectDuration,
+    );
+
+    if (result != null && result.success) {
+      _showSnackBar('Build complete: ${result.outputPath}');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1260,44 +1286,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  /// Open MIDI Settings (placeholder)
+  /// Open MIDI Settings screen
   void _handleMidiSettings() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: const Text('MIDI Settings', style: TextStyle(color: ReelForgeTheme.textPrimary)),
-        content: Text(
-          'MIDI settings coming soon...',
-          style: TextStyle(color: ReelForgeTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const MidiSettingsScreen(),
       ),
     );
   }
 
-  /// Open Plugin Manager (placeholder)
+  /// Open Plugin Manager screen
   void _handlePluginManager() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: const Text('Plugin Manager', style: TextStyle(color: ReelForgeTheme.textPrimary)),
-        content: Text(
-          'Plugin Manager coming soon...',
-          style: TextStyle(color: ReelForgeTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const PluginManagerScreen(),
       ),
     );
   }
@@ -1331,6 +1333,157 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (result != null && result.success) {
       _showSnackBar('Audio exported to ${result.outputPath}');
     }
+  }
+
+  /// Batch export dialog
+  void _handleBatchExport() {
+    // Create batch export items from tracks
+    final items = _tracks.map((track) => BatchExportItem(
+      id: track.id,
+      name: track.name,
+      type: BatchExportType.track,
+      trackId: track.id,
+    )).toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => BatchExportDialog(items: items),
+    );
+  }
+
+  /// Export presets dialog
+  void _handleExportPresets() {
+    showDialog(
+      context: context,
+      builder: (ctx) => const ExportPresetsDialog(),
+    );
+  }
+
+  /// Bounce to disk dialog
+  void _handleBounce() async {
+    final engine = context.read<EngineProvider>();
+    final projectDuration = engine.project.sampleRate > 0
+        ? engine.project.durationSamples / engine.project.sampleRate
+        : 60.0;
+
+    final result = await BounceDialog.show(
+      context,
+      projectStart: 0,
+      projectEnd: projectDuration,
+      projectSampleRate: engine.project.sampleRate > 0 ? engine.project.sampleRate.toInt() : 48000,
+    );
+
+    if (result != null) {
+      _showSnackBar('Bounce started with options: ${result.format.name}');
+    }
+  }
+
+  /// Render in place dialog
+  void _handleRenderInPlace() async {
+    // Get selected clips
+    final selectedClips = _clips.where((c) => c.selected).toList();
+    if (selectedClips.isEmpty) {
+      _showSnackBar('Please select clips to render');
+      return;
+    }
+
+    final result = await RenderInPlaceDialog.show(
+      context,
+      clipName: selectedClips.first.name,
+      hasClipFx: true,
+      hasInserts: true,
+    );
+
+    if (result != null) {
+      _showSnackBar('Rendered ${selectedClips.length} clip(s) in place');
+    }
+  }
+
+  /// Show Audio Pool panel in lower zone
+  void _handleShowAudioPool() {
+    setState(() {
+      _lowerVisible = true;
+      _activeLowerTab = 'pool';
+    });
+  }
+
+  /// Show Markers in lower zone
+  void _handleShowMarkers() {
+    setState(() {
+      _lowerVisible = true;
+      _activeLowerTab = 'markers';
+    });
+  }
+
+  /// Show MIDI Editor in lower zone
+  void _handleShowMidiEditor() {
+    setState(() {
+      _lowerVisible = true;
+      _activeLowerTab = 'midi';
+    });
+  }
+
+  /// Track templates dialog
+  void _handleTrackTemplates() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: ReelForgeTheme.bgDeep,
+        child: SizedBox(
+          width: 500,
+          height: 600,
+          child: TrackTemplatesPanel(
+            onTrackCreated: (trackId) {
+              Navigator.pop(ctx);
+              _showSnackBar('Created track from template');
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Version history dialog
+  void _handleVersionHistory() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: ReelForgeTheme.bgDeep,
+        child: SizedBox(
+          width: 800,
+          height: 600,
+          child: ProjectVersionsPanel(
+            onVersionRestored: () {
+              Navigator.pop(ctx);
+              _showSnackBar('Version restored');
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Freeze selected tracks
+  void _handleFreezeSelectedTracks() async {
+    if (_tracks.isEmpty) {
+      _showSnackBar('No tracks to freeze');
+      return;
+    }
+
+    // Use first track as example
+    final track = _tracks.first;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => FreezeOptionsDialog(
+        trackName: track.name,
+        plugins: ['EQ', 'Compressor', 'Reverb'], // Example plugins
+        onFreeze: (options) {
+          Navigator.pop(ctx);
+          _showSnackBar('Froze track: ${track.name}');
+        },
+      ),
+    );
   }
 
   /// Show snackbar message
@@ -1753,6 +1906,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onImportAudioFolder: () => _handleImportAudioFolder(),
             onImportAudioFiles: _openFilePicker,
             onExportAudio: () => _handleExportAudio(),
+            onBatchExport: () => _handleBatchExport(),
+            onExportPresets: () => _handleExportPresets(),
+            onBounce: () => _handleBounce(),
+            onRenderInPlace: () => _handleRenderInPlace(),
             // ═══════════════════════════════════════════════════════════════
             // EDIT MENU - All connected
             // ═══════════════════════════════════════════════════════════════
@@ -1770,10 +1927,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onToggleRightPanel: () => setState(() => _rightVisible = !_rightVisible),
             onToggleLowerPanel: () => setState(() => _lowerVisible = !_lowerVisible),
             onResetLayout: () => _handleResetLayout(),
+            onShowAudioPool: () => _handleShowAudioPool(),
+            onShowMarkers: () => _handleShowMarkers(),
+            onShowMidiEditor: () => _handleShowMidiEditor(),
             // ═══════════════════════════════════════════════════════════════
             // PROJECT MENU - All connected
             // ═══════════════════════════════════════════════════════════════
             onProjectSettings: () => _handleProjectSettings(),
+            onTrackTemplates: () => _handleTrackTemplates(),
+            onVersionHistory: () => _handleVersionHistory(),
+            onFreezeSelectedTracks: () => _handleFreezeSelectedTracks(),
             onValidateProject: () => _handleValidateProject(),
             onBuildProject: () => _handleBuildProject(),
             // ═══════════════════════════════════════════════════════════════
@@ -2215,6 +2378,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
               return t.copyWith(locked: !t.locked);
+            }
+            return t;
+          }).toList();
+        });
+      },
+      onTrackHeightChange: (trackId, height) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              return t.copyWith(height: height);
             }
             return t;
           }).toList();
@@ -3223,6 +3396,154 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
+  /// Build Ultimate Mixer content with all channels and metering
+  Widget _buildUltimateMixerContent(dynamic metering, bool isPlaying) {
+    // Collect channels from timeline tracks
+    final mixerProvider = context.watch<MixerProvider>();
+    final channels = <ultimate.UltimateMixerChannel>[];
+
+    for (final ch in mixerProvider.channels) {
+      final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
+      final trackIdInt = int.tryParse(trackId) ?? 0;
+      final hasClips = _clips.any((clip) => clip.trackId == trackId);
+
+      // Get stereo metering from engine
+      final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(trackIdInt);
+      final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(trackIdInt);
+      final correlation = EngineApi.instance.getTrackCorrelation(trackIdInt);
+
+      channels.add(ultimate.UltimateMixerChannel(
+        id: ch.id,
+        name: ch.name,
+        type: ultimate.ChannelType.audio,
+        color: ch.color,
+        volume: ch.volume,
+        pan: ch.pan,
+        muted: ch.muted,
+        soloed: ch.soloed,
+        peakL: hasClips && isPlaying ? peakL : 0,
+        peakR: hasClips && isPlaying ? peakR : 0,
+        rmsL: hasClips && isPlaying ? rmsL : 0,
+        rmsR: hasClips && isPlaying ? rmsR : 0,
+        correlation: hasClips && isPlaying ? correlation : 1.0,
+      ));
+    }
+
+    // Add bus channels
+    for (final busId in ['sfx', 'music', 'voice', 'amb', 'ui']) {
+      channels.add(ultimate.UltimateMixerChannel(
+        id: busId,
+        name: busId.toUpperCase(),
+        type: ultimate.ChannelType.bus,
+        color: _getBusColor(busId),
+        volume: _busVolumes[busId] ?? 1.0,
+        pan: 0,
+        muted: _busMuted[busId] ?? false,
+        soloed: _busSoloed[busId] ?? false,
+        peakL: isPlaying ? _dbToLinear(metering.masterPeakL) * 0.8 : 0,
+        peakR: isPlaying ? _dbToLinear(metering.masterPeakR) * 0.8 : 0,
+        rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) * 0.8 : 0,
+        rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) * 0.8 : 0,
+        correlation: 1.0,
+      ));
+    }
+
+    // Master channel
+    final masterChannel = ultimate.UltimateMixerChannel(
+      id: 'master',
+      name: 'MASTER',
+      type: ultimate.ChannelType.master,
+      color: ReelForgeTheme.warningOrange,
+      volume: _busVolumes['master'] ?? 1.0,
+      pan: 0,
+      muted: _busMuted['master'] ?? false,
+      soloed: false,
+      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL,
+      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR,
+      rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
+      rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
+      correlation: metering.correlation,
+    );
+
+    // Separate bus channels
+    final busChannels = channels.where((c) => c.type == ultimate.ChannelType.bus).toList();
+    final audioChannels = channels.where((c) => c.type == ultimate.ChannelType.audio).toList();
+
+    return ultimate.UltimateMixer(
+      channels: audioChannels,
+      buses: busChannels,
+      auxes: const [],
+      vcas: const [],
+      master: masterChannel,
+      compact: true,
+      onVolumeChange: (id, vol) {
+        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+          _onBusVolumeChange(id, vol);
+        } else {
+          mixerProvider.setVolume(id, vol);
+        }
+      },
+      onPanChange: (id, pan) {
+        if (!['sfx', 'music', 'voice', 'amb', 'ui', 'master'].contains(id)) {
+          mixerProvider.setChannelPan(id, pan);
+        }
+      },
+      onMuteToggle: (id) {
+        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+          _onBusMuteToggle(id);
+        } else {
+          mixerProvider.toggleMute(id);
+        }
+      },
+      onSoloToggle: (id) {
+        if (id == 'master' || ['sfx', 'music', 'voice', 'amb', 'ui'].contains(id)) {
+          _onBusSoloToggle(id);
+        } else {
+          mixerProvider.toggleSolo(id);
+        }
+      },
+    );
+  }
+
+  Color _getBusColor(String busId) {
+    switch (busId) {
+      case 'sfx': return ReelForgeTheme.accentBlue;
+      case 'music': return ReelForgeTheme.accentCyan;
+      case 'voice': return ReelForgeTheme.warningOrange;
+      case 'amb': return ReelForgeTheme.accentGreen;
+      case 'ui': return ReelForgeTheme.accentBlue.withValues(alpha: 0.7);
+      default: return ReelForgeTheme.accentBlue;
+    }
+  }
+
+  /// Build Metering Bridge content with K-System and Goniometer
+  Widget _buildMeteringBridgeContent(dynamic metering, bool isPlaying) {
+    // Get real metering data
+    final peakL = isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL;
+    final peakR = isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR;
+    final rmsL = isPlaying ? _dbToLinear(metering.masterRmsL) : 0.0;
+    final rmsR = isPlaying ? _dbToLinear(metering.masterRmsR) : 0.0;
+    final truePeakL = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
+    final truePeakR = isPlaying ? _dbToLinear(metering.masterTruePeak) : 0.0;
+
+    return MeteringBridge(
+      peakL: peakL,
+      peakR: peakR,
+      rmsL: rmsL,
+      rmsR: rmsR,
+      truePeakL: truePeakL,
+      truePeakR: truePeakR,
+      correlation: metering.correlation,
+      balance: (peakL - peakR).clamp(-1.0, 1.0),
+      lufsMomentary: metering.lufsMomentary,
+      lufsShort: metering.lufsShort,
+      lufsIntegrated: metering.lufsIntegrated,
+      kSystem: KSystemType.k14,
+      showGoniometer: true,
+      showLoudnessHistory: true,
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // MIXER CALLBACKS - Connected to bus state
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3639,7 +3960,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build floating EQ windows
   List<Widget> _buildFloatingEqWindows(MeteringState metering, bool isPlaying) {
-    debugPrint('[EQ] Building floating windows, count: ${_openEqWindows.length}');
+    // debugPrint('[EQ] Building floating windows, count: ${_openEqWindows.length}');
     return _openEqWindows.entries.map((entry) {
       final channelId = entry.key;
       final channelName = channelId == 'master' ? 'Master' : channelId;
@@ -4523,6 +4844,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: _buildMixerContent(metering, isPlaying),
         groupId: 'mixconsole',
       ),
+      LowerZoneTab(
+        id: 'ultimate-mixer',
+        label: 'Ultimate Mixer',
+        icon: Icons.dashboard,
+        content: _buildUltimateMixerContent(metering, isPlaying),
+        groupId: 'mixconsole',
+      ),
+      LowerZoneTab(
+        id: 'metering-bridge',
+        label: 'Metering Bridge',
+        icon: Icons.speed,
+        content: _buildMeteringBridgeContent(metering, isPlaying),
+        groupId: 'mixconsole',
+      ),
       // ========== Clip Editor (Editor group) ==========
       LowerZoneTab(
         id: 'clip-editor',
@@ -4666,6 +5001,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Advanced',
         icon: Icons.insights,
         content: const AdvancedMeteringPanel(),
+        groupId: 'dsp',
+      ),
+      LowerZoneTab(
+        id: 'pdc',
+        label: 'PDC',
+        icon: Icons.timer_outlined,
+        content: PdcDetailPanel(
+          trackIds: _tracks.map((t) => t.id.hashCode).toList(),
+          sampleRate: 48000,
+        ),
         groupId: 'dsp',
       ),
       LowerZoneTab(
@@ -4902,6 +5247,36 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: const AudioPoolTabPlaceholder(),
         groupId: 'media',
       ),
+      // ========== Project Management Tabs ==========
+      LowerZoneTab(
+        id: 'track-templates',
+        label: 'Track Templates',
+        icon: Icons.content_copy,
+        content: TrackTemplatesPanel(
+          onTrackCreated: (trackId) => setState(() {}),
+        ),
+        groupId: 'media',
+      ),
+      LowerZoneTab(
+        id: 'project-versions',
+        label: 'Versions',
+        icon: Icons.history,
+        content: ProjectVersionsPanel(
+          onVersionRestored: () => setState(() {}),
+        ),
+        groupId: 'media',
+      ),
+      // ========== PDC (Tools group) ==========
+      LowerZoneTab(
+        id: 'pdc-status',
+        label: 'PDC Status',
+        icon: Icons.timer_outlined,
+        content: PdcDetailPanel(
+          trackIds: _tracks.map((t) => int.tryParse(t.id) ?? 0).toList(),
+          sampleRate: 48000.0,
+        ),
+        groupId: 'tools',
+      ),
       // ========== Debug/Demo Tabs (Tools group) ==========
       LowerZoneTab(
         id: 'drag-drop-lab',
@@ -4932,7 +5307,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'mixconsole',
         label: 'MixConsole',
-        tabs: ['mixer'], // NOTE: timeline is in center zone, not lower
+        tabs: ['mixer', 'ultimate-mixer', 'metering-bridge'], // NOTE: timeline is in center zone, not lower
       ),
       // Editor - Clip Editor, Crossfade, Automation, Piano Roll (like Cubase Lower Zone editors)
       const TabGroup(

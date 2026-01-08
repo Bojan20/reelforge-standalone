@@ -558,17 +558,50 @@ class EngineApi {
   }
 
   /// Get track peak level for metering (0.0 - 1.0+)
-  /// Get track peak level by track ID
+  /// Returns max of L/R for backward compatibility
   double getTrackPeak(int trackId) {
     if (_useMock) return 0.0;
     return _ffi.getTrackPeak(trackId);
   }
 
+  /// Get track stereo peak levels (L, R) by track ID
+  /// Returns (peakL, peakR) tuple
+  (double, double) getTrackPeakStereo(int trackId) {
+    if (_useMock) return (0.0, 0.0);
+    return _ffi.getTrackPeakStereo(trackId);
+  }
+
+  /// Get track stereo RMS levels (L, R) by track ID
+  /// Returns (rmsL, rmsR) tuple
+  (double, double) getTrackRmsStereo(int trackId) {
+    if (_useMock) return (0.0, 0.0);
+    return _ffi.getTrackRmsStereo(trackId);
+  }
+
+  /// Get track correlation by track ID (-1.0 to 1.0)
+  double getTrackCorrelation(int trackId) {
+    if (_useMock) return 1.0;
+    return _ffi.getTrackCorrelation(trackId);
+  }
+
+  /// Get full track meter data (peakL, peakR, rmsL, rmsR, correlation)
+  ({double peakL, double peakR, double rmsL, double rmsR, double correlation}) getTrackMeter(int trackId) {
+    if (_useMock) return (peakL: 0.0, peakR: 0.0, rmsL: 0.0, rmsR: 0.0, correlation: 1.0);
+    return _ffi.getTrackMeter(trackId);
+  }
+
   /// Get all track peak levels at once (more efficient for UI metering)
-  /// Returns map of track_id -> peak value
+  /// Returns map of track_id -> peak value (max of L/R for backward compat)
   Map<int, double> getAllTrackPeaks(int maxTracks) {
     if (_useMock) return {};
     return _ffi.getAllTrackPeaks(maxTracks);
+  }
+
+  /// Get all track stereo meters at once (most efficient for UI)
+  /// Returns map of track_id -> TrackMeterData
+  Map<int, ({double peakL, double peakR, double rmsL, double rmsR, double correlation})> getAllTrackMeters(int maxTracks) {
+    if (_useMock) return {};
+    return _ffi.getAllTrackMeters(maxTracks);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -1,10 +1,10 @@
-/// Auto-Save Provider
-///
-/// Automatic project saving with:
-/// - Configurable interval
-/// - Dirty state tracking
-/// - Recovery support
-/// - Emergency save on close
+// Auto-Save Provider
+//
+// Automatic project saving with:
+// - Configurable interval
+// - Dirty state tracking
+// - Recovery support
+// - Emergency save on close
 
 import 'dart:async';
 import 'dart:convert';

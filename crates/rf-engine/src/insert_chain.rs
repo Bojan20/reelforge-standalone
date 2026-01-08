@@ -181,6 +181,21 @@ impl InsertSlot {
     pub fn name(&self) -> &str {
         self.processor.as_ref().map(|p| p.name()).unwrap_or("Empty")
     }
+
+    /// Set processor parameter (lock-free if processor supports it)
+    pub fn set_processor_param(&mut self, index: usize, value: f64) {
+        if let Some(ref mut processor) = self.processor {
+            processor.set_param(index, value);
+        }
+    }
+
+    /// Get processor parameter
+    pub fn get_processor_param(&self, index: usize) -> f64 {
+        self.processor
+            .as_ref()
+            .map(|p| p.get_param(index))
+            .unwrap_or(0.0)
+    }
 }
 
 // ============ Insert Processor Trait ============
@@ -396,6 +411,20 @@ impl InsertChain {
         }
 
         result
+    }
+
+    /// Set parameter on processor in specific slot
+    pub fn set_slot_param(&mut self, slot_index: usize, param_index: usize, value: f64) {
+        if let Some(slot) = self.slot_mut(slot_index) {
+            slot.set_processor_param(param_index, value);
+        }
+    }
+
+    /// Get parameter from processor in specific slot
+    pub fn get_slot_param(&self, slot_index: usize, param_index: usize) -> f64 {
+        self.slot(slot_index)
+            .map(|s| s.get_processor_param(param_index))
+            .unwrap_or(0.0)
     }
 }
 

@@ -1,9 +1,9 @@
-/// New Project Dialog
-///
-/// Creates a new project with:
-/// - Project name
-/// - Template selection
-/// - Initial settings
+// New Project Dialog
+//
+// Creates a new project with:
+// - Project name
+// - Template selection
+// - Initial settings
 
 import 'package:flutter/material.dart';
 import '../theme/reelforge_theme.dart';

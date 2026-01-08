@@ -133,7 +133,7 @@ pub use waveform::{
 };
 
 pub use playback::{
-    AudioCache, BusBuffers, BusState, PlaybackEngine, PlaybackPosition, PlaybackState,
+    AudioCache, BusBuffers, BusState, PlaybackEngine, PlaybackPosition, PlaybackState, TrackMeter,
 };
 
 // Re-exports: Phase 5 - Dynamic Routing

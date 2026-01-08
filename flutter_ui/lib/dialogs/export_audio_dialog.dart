@@ -1,13 +1,13 @@
-/// Audio Export Dialog
-///
-/// Provides a comprehensive dialog for exporting audio with:
-/// - Format selection (WAV, FLAC, MP3, AAC, OGG)
-/// - Sample rate selection
-/// - Bit depth selection
-/// - Normalization options
-/// - Dither options
-/// - Export range selection
-/// - Progress tracking
+// Audio Export Dialog
+//
+// Provides a comprehensive dialog for exporting audio with:
+// - Format selection (WAV, FLAC, MP3, AAC, OGG)
+// - Sample rate selection
+// - Bit depth selection
+// - Normalization options
+// - Dither options
+// - Export range selection
+// - Progress tracking
 
 import 'dart:async';
 import 'package:flutter/material.dart';

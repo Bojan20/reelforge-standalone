@@ -1,12 +1,12 @@
-/// Meter Provider
-///
-/// Real-time audio metering with:
-/// - Peak/RMS levels
-/// - Peak hold with decay
-/// - Stereo L/R metering
-/// - LUFS short-term
-/// - Visibility-based throttling
-/// - Integration with Rust engine metering
+// Meter Provider
+//
+// Real-time audio metering with:
+// - Peak/RMS levels
+// - Peak hold with decay
+// - Stereo L/R metering
+// - LUFS short-term
+// - Visibility-based throttling
+// - Integration with Rust engine metering
 
 import 'dart:async';
 import 'dart:math' as math;

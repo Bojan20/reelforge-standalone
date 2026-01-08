@@ -179,7 +179,7 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final track = widget.track;
-    final busInfo = getBusInfo(track.outputBus);
+    final busInfo = _getTrackBusInfo(track.outputBus);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -213,10 +213,10 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
                   children: [
                     // Row 1: Icon + Name + M/S/R + Settings
                     _buildTopRow(track),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     // Row 2: Volume slider + meter
                     _buildVolumeRow(track),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     // Row 3: Pan slider + Bus
                     _buildPanRow(track, busInfo),
                   ],
@@ -364,8 +364,8 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
         GestureDetector(
           onTap: () => setState(() => _showSettings = !_showSettings),
           child: Container(
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             decoration: BoxDecoration(
               color: _showSettings
                   ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
@@ -405,7 +405,7 @@ class _TrackHeaderProState extends State<TrackHeaderPro> with SingleTickerProvid
         // Volume meter (compact)
         SizedBox(
           width: 16,
-          height: 14,
+          height: 12,
           child: CustomPaint(
             painter: _VolumeMeterPainter(
               level: widget.signalLevel,
@@ -565,8 +565,8 @@ class _MSRButtonState extends State<_MSRButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          width: 20,
-          height: 20,
+          width: 18,
+          height: 18,
           decoration: BoxDecoration(
             color: widget.isActive
                 ? widget.activeColor
@@ -822,7 +822,7 @@ class _BusInfo {
   });
 }
 
-_BusInfo getBusInfo(OutputBus bus) {
+_BusInfo _getTrackBusInfo(OutputBus bus) {
   switch (bus) {
     case OutputBus.sfx:
       return _BusInfo(
@@ -867,10 +867,4 @@ _BusInfo getBusInfo(OutputBus bus) {
   }
 }
 
-final kBusOptions = [
-  getBusInfo(OutputBus.sfx),
-  getBusInfo(OutputBus.music),
-  getBusInfo(OutputBus.voice),
-  getBusInfo(OutputBus.ambience),
-  getBusInfo(OutputBus.master),
-];
+// kBusOptions is defined in timeline_models.dart

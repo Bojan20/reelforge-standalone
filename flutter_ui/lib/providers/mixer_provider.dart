@@ -1,13 +1,13 @@
-/// Mixer Provider
-///
-/// Professional DAW mixer state management:
-/// - Dynamic tracks (auto-created from timeline)
-/// - Buses (UI, SFX, Music, VO, Ambient, Master)
-/// - Aux sends/returns
-/// - VCA faders
-/// - Groups
-/// - Full routing matrix
-/// - Real-time metering integration
+// Mixer Provider
+//
+// Professional DAW mixer state management:
+// - Dynamic tracks (auto-created from timeline)
+// - Buses (UI, SFX, Music, VO, Ambient, Master)
+// - Aux sends/returns
+// - VCA faders
+// - Groups
+// - Full routing matrix
+// - Real-time metering integration
 
 import 'dart:async';
 import 'dart:math' show pow, log, ln10;

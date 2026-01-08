@@ -1,14 +1,13 @@
-/// Timeline Playback Provider
-///
-/// Connects timeline clips to audio playback with:
-/// - Seamless loop playback (Cubase-style)
-/// - Crossfade gain curves
-/// - Track mute/solo/volume/pan
-/// - Scrubbing with throttling
+// Timeline Playback Provider
+//
+// Connects timeline clips to audio playback with:
+// - Seamless loop playback (Cubase-style)
+// - Crossfade gain curves
+// - Track mute/solo/volume/pan
+// - Scrubbing with throttling
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 // ============ Types ============

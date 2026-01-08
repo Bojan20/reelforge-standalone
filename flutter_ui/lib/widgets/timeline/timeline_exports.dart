@@ -5,6 +5,8 @@
 export 'timeline.dart';
 export 'time_ruler.dart';
 export 'track_header.dart';
+export 'track_header_pro.dart';
+export 'track_header_ultimate.dart';
 export 'track_lane.dart';
 export 'clip_widget.dart';
 export 'crossfade_overlay.dart';

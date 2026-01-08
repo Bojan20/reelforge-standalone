@@ -1,9 +1,9 @@
-/// Open Project Dialog
-///
-/// Provides project loading functionality with:
-/// - Recent projects list
-/// - File browser
-/// - Project preview
+// Open Project Dialog
+//
+// Provides project loading functionality with:
+// - Recent projects list
+// - File browser
+// - Project preview
 
 import 'package:flutter/material.dart';
 import '../theme/reelforge_theme.dart';

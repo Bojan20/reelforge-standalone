@@ -1,10 +1,10 @@
-/// ReelForge DAW - Flutter Frontend
-///
-/// Professional digital audio workstation with:
-/// - Cubase-inspired multi-zone layout
-/// - GPU-accelerated waveforms and spectrum
-/// - 120fps smooth animations
-/// - Rust audio engine via flutter_rust_bridge
+// ReelForge DAW - Flutter Frontend
+//
+// Professional digital audio workstation with:
+// - Cubase-inspired multi-zone layout
+// - GPU-accelerated waveforms and spectrum
+// - 120fps smooth animations
+// - Rust audio engine via flutter_rust_bridge
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

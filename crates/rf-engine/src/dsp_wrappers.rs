@@ -362,6 +362,16 @@ impl InsertProcessor for PultecWrapper {
         4
     }
 
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_low_boost(value),
+            1 => self.set_low_atten(value),
+            2 => self.set_high_boost(value),
+            3 => self.set_high_atten(value),
+            _ => {}
+        }
+    }
+
     fn param_name(&self, index: usize) -> &str {
         match index {
             0 => "Low Boost",
@@ -379,6 +389,13 @@ impl InsertProcessor for PultecWrapper {
 pub struct Api550Wrapper {
     eq: StereoApi550,
     sample_rate: f64,
+    // Store current gain settings
+    low_gain: f64,
+    mid_gain: f64,
+    high_gain: f64,
+    low_freq: rf_dsp::Api550LowFreq,
+    mid_freq: rf_dsp::Api550MidFreq,
+    high_freq: rf_dsp::Api550HighFreq,
 }
 
 impl Api550Wrapper {
@@ -386,22 +403,52 @@ impl Api550Wrapper {
         Self {
             eq: StereoApi550::new(sample_rate),
             sample_rate,
+            low_gain: 0.0,
+            mid_gain: 0.0,
+            high_gain: 0.0,
+            low_freq: rf_dsp::Api550LowFreq::default(),
+            mid_freq: rf_dsp::Api550MidFreq::default(),
+            high_freq: rf_dsp::Api550HighFreq::default(),
         }
     }
 
     pub fn set_low(&mut self, gain_db: f64, freq: rf_dsp::Api550LowFreq) {
+        self.low_gain = gain_db;
+        self.low_freq = freq;
         self.eq.left.set_low(gain_db, freq);
         self.eq.right.set_low(gain_db, freq);
     }
 
     pub fn set_mid(&mut self, gain_db: f64, freq: rf_dsp::Api550MidFreq) {
+        self.mid_gain = gain_db;
+        self.mid_freq = freq;
         self.eq.left.set_mid(gain_db, freq);
         self.eq.right.set_mid(gain_db, freq);
     }
 
     pub fn set_high(&mut self, gain_db: f64, freq: rf_dsp::Api550HighFreq) {
+        self.high_gain = gain_db;
+        self.high_freq = freq;
         self.eq.left.set_high(gain_db, freq);
         self.eq.right.set_high(gain_db, freq);
+    }
+
+    pub fn set_low_gain(&mut self, gain_db: f64) {
+        self.low_gain = gain_db;
+        self.eq.left.set_low(gain_db, self.low_freq);
+        self.eq.right.set_low(gain_db, self.low_freq);
+    }
+
+    pub fn set_mid_gain(&mut self, gain_db: f64) {
+        self.mid_gain = gain_db;
+        self.eq.left.set_mid(gain_db, self.mid_freq);
+        self.eq.right.set_mid(gain_db, self.mid_freq);
+    }
+
+    pub fn set_high_gain(&mut self, gain_db: f64) {
+        self.high_gain = gain_db;
+        self.eq.left.set_high(gain_db, self.high_freq);
+        self.eq.right.set_high(gain_db, self.high_freq);
     }
 }
 
@@ -421,10 +468,35 @@ impl InsertProcessor for Api550Wrapper {
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
         self.eq = StereoApi550::new(sample_rate);
+        // Restore settings
+        self.eq.left.set_low(self.low_gain, self.low_freq);
+        self.eq.right.set_low(self.low_gain, self.low_freq);
+        self.eq.left.set_mid(self.mid_gain, self.mid_freq);
+        self.eq.right.set_mid(self.mid_gain, self.mid_freq);
+        self.eq.left.set_high(self.high_gain, self.high_freq);
+        self.eq.right.set_high(self.high_gain, self.high_freq);
     }
 
     fn num_params(&self) -> usize {
         3
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        match index {
+            0 => self.low_gain,
+            1 => self.mid_gain,
+            2 => self.high_gain,
+            _ => 0.0,
+        }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_low_gain(value),
+            1 => self.set_mid_gain(value),
+            2 => self.set_high_gain(value),
+            _ => {}
+        }
     }
 
     fn param_name(&self, index: usize) -> &str {

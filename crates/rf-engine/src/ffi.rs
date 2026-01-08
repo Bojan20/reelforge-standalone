@@ -16,6 +16,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
+use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::{
     Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, TrackId, TrackManager,
@@ -239,10 +240,79 @@ pub extern "C" fn engine_get_track_count() -> usize {
     TRACK_MANAGER.track_count()
 }
 
-/// Get track peak level (0.0 - 1.0+) by track ID
+/// Get track peak level (0.0 - 1.0+) by track ID - returns max of L/R
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_track_peak(track_id: u64) -> f64 {
     PLAYBACK_ENGINE.get_track_peak(track_id)
+}
+
+/// Get track stereo peak levels (L, R) by track ID
+/// Returns through out parameters, returns true if track exists
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_peak_stereo(
+    track_id: u64,
+    out_peak_l: *mut f64,
+    out_peak_r: *mut f64,
+) -> bool {
+    if out_peak_l.is_null() || out_peak_r.is_null() {
+        return false;
+    }
+    let (l, r) = PLAYBACK_ENGINE.get_track_peak_stereo(track_id);
+    unsafe {
+        *out_peak_l = l;
+        *out_peak_r = r;
+    }
+    true
+}
+
+/// Get track stereo RMS levels (L, R) by track ID
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_rms_stereo(
+    track_id: u64,
+    out_rms_l: *mut f64,
+    out_rms_r: *mut f64,
+) -> bool {
+    if out_rms_l.is_null() || out_rms_r.is_null() {
+        return false;
+    }
+    let (l, r) = PLAYBACK_ENGINE.get_track_rms_stereo(track_id);
+    unsafe {
+        *out_rms_l = l;
+        *out_rms_r = r;
+    }
+    true
+}
+
+/// Get track correlation by track ID (-1.0 to 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_correlation(track_id: u64) -> f64 {
+    PLAYBACK_ENGINE.get_track_correlation(track_id)
+}
+
+/// Get full track meter data (peak_l, peak_r, rms_l, rms_r, correlation)
+/// Returns true if track exists
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_meter(
+    track_id: u64,
+    out_peak_l: *mut f64,
+    out_peak_r: *mut f64,
+    out_rms_l: *mut f64,
+    out_rms_r: *mut f64,
+    out_correlation: *mut f64,
+) -> bool {
+    if out_peak_l.is_null() || out_peak_r.is_null() ||
+       out_rms_l.is_null() || out_rms_r.is_null() || out_correlation.is_null() {
+        return false;
+    }
+    let meter = PLAYBACK_ENGINE.get_track_meter(track_id);
+    unsafe {
+        *out_peak_l = meter.peak_l;
+        *out_peak_r = meter.peak_r;
+        *out_rms_l = meter.rms_l;
+        *out_rms_r = meter.rms_r;
+        *out_correlation = meter.correlation;
+    }
+    true
 }
 
 /// Get all track peaks at once (more efficient for UI)
@@ -265,6 +335,41 @@ pub extern "C" fn engine_get_all_track_peaks(
         for (i, (track_id, peak)) in peaks.iter().take(count).enumerate() {
             *out_ids.add(i) = *track_id;
             *out_peaks.add(i) = *peak;
+        }
+    }
+
+    count
+}
+
+/// Get all track stereo meters at once (most efficient for UI)
+/// Writes: out_ids[i], out_peak_l[i], out_peak_r[i], out_rms_l[i], out_rms_r[i], out_corr[i]
+/// Returns number of tracks written
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_all_track_meters(
+    out_ids: *mut u64,
+    out_peak_l: *mut f64,
+    out_peak_r: *mut f64,
+    out_rms_l: *mut f64,
+    out_rms_r: *mut f64,
+    out_corr: *mut f64,
+    max_count: usize,
+) -> usize {
+    if out_ids.is_null() || out_peak_l.is_null() || out_peak_r.is_null() ||
+       out_rms_l.is_null() || out_rms_r.is_null() || out_corr.is_null() {
+        return 0;
+    }
+
+    let meters = PLAYBACK_ENGINE.get_all_track_meters();
+    let count = meters.len().min(max_count);
+
+    unsafe {
+        for (i, (&track_id, meter)) in meters.iter().take(count).enumerate() {
+            *out_ids.add(i) = track_id;
+            *out_peak_l.add(i) = meter.peak_l;
+            *out_peak_r.add(i) = meter.peak_r;
+            *out_rms_l.add(i) = meter.rms_l;
+            *out_rms_r.add(i) = meter.rms_r;
+            *out_corr.add(i) = meter.correlation;
         }
     }
 
@@ -2486,107 +2591,686 @@ pub extern "C" fn engine_get_memory_usage() -> f32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EQ FFI
+// EQ FFI - Now integrated with InsertChain for actual audio processing
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    /// Per-track EQ processors
-    static ref EQ_PROCESSORS: parking_lot::RwLock<std::collections::HashMap<u32, crate::dsp_wrappers::ProEqWrapper>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+/// EQ insert slot index (slot 0 = pre-fader, first slot)
+const EQ_SLOT_INDEX: usize = 0;
 
-/// Get or create EQ processor for track
-fn get_or_create_eq(
-    track_id: u32,
-) -> parking_lot::RwLockWriteGuard<
-    'static,
-    std::collections::HashMap<u32, crate::dsp_wrappers::ProEqWrapper>,
-> {
-    let mut eqs = EQ_PROCESSORS.write();
-    if !eqs.contains_key(&track_id) {
-        eqs.insert(track_id, crate::dsp_wrappers::ProEqWrapper::new(48000.0));
+/// ProEQ parameter indices per band (5 params per band):
+/// - band * 5 + 0 = frequency
+/// - band * 5 + 1 = gain_db
+/// - band * 5 + 2 = q
+/// - band * 5 + 3 = enabled (1.0 or 0.0)
+/// - band * 5 + 4 = shape
+
+/// Ensure EQ is loaded into track's insert chain
+fn ensure_eq_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, EQ_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let eq = crate::dsp_wrappers::ProEqWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, EQ_SLOT_INDEX, Box::new(eq));
+        log::info!("Loaded ProEQ into track {} slot {}", track_id, EQ_SLOT_INDEX);
     }
-    eqs
 }
 
 /// Set EQ band enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn eq_set_band_enabled(track_id: u32, band_index: u8, enabled: i32) -> i32 {
-    let mut eqs = get_or_create_eq(track_id);
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band_enabled(band_index as usize, enabled != 0);
-        log::debug!(
-            "EQ track {} band {} enabled: {}",
-            track_id,
-            band_index,
-            enabled != 0
-        );
-        1
-    } else {
-        0
-    }
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    // param index: band * 5 + 3 = enabled
+    let param_index = (band_index as usize) * 5 + 3;
+    let value = if enabled != 0 { 1.0 } else { 0.0 };
+
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, value);
+    log::debug!(
+        "EQ track {} band {} enabled: {}",
+        track_id,
+        band_index,
+        enabled != 0
+    );
+    1
 }
 
 /// Set EQ band frequency
 #[unsafe(no_mangle)]
 pub extern "C" fn eq_set_band_frequency(track_id: u32, band_index: u8, frequency: f64) -> i32 {
-    let mut eqs = get_or_create_eq(track_id);
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band_frequency(band_index as usize, frequency);
-        log::debug!(
-            "EQ track {} band {} freq: {} Hz",
-            track_id,
-            band_index,
-            frequency
-        );
-        1
-    } else {
-        0
-    }
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    // param index: band * 5 + 0 = frequency
+    let param_index = (band_index as usize) * 5;
+
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, frequency);
+    log::debug!(
+        "EQ track {} band {} freq: {} Hz",
+        track_id,
+        band_index,
+        frequency
+    );
+    1
 }
 
 /// Set EQ band gain
 #[unsafe(no_mangle)]
 pub extern "C" fn eq_set_band_gain(track_id: u32, band_index: u8, gain: f64) -> i32 {
-    let mut eqs = get_or_create_eq(track_id);
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band_gain(band_index as usize, gain);
-        log::debug!(
-            "EQ track {} band {} gain: {} dB",
-            track_id,
-            band_index,
-            gain
-        );
-        1
-    } else {
-        0
-    }
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    // param index: band * 5 + 1 = gain_db
+    let param_index = (band_index as usize) * 5 + 1;
+
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, gain);
+    log::debug!(
+        "EQ track {} band {} gain: {} dB",
+        track_id,
+        band_index,
+        gain
+    );
+    1
 }
 
 /// Set EQ band Q
 #[unsafe(no_mangle)]
 pub extern "C" fn eq_set_band_q(track_id: u32, band_index: u8, q: f64) -> i32 {
-    let mut eqs = get_or_create_eq(track_id);
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band_q(band_index as usize, q);
-        log::debug!("EQ track {} band {} Q: {}", track_id, band_index, q);
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    // param index: band * 5 + 2 = q
+    let param_index = (band_index as usize) * 5 + 2;
+
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, q);
+    log::debug!("EQ track {} band {} Q: {}", track_id, band_index, q);
+    1
+}
+
+/// Set EQ bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn eq_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, EQ_SLOT_INDEX, bypass != 0);
+    log::debug!("EQ track {} bypass: {}", track_id, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPRESSOR FFI - Slot 1 (pre-fader)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Compressor insert slot index
+const COMP_SLOT_INDEX: usize = 1;
+
+/// Compressor parameter indices:
+/// - 0 = threshold (dB)
+/// - 1 = ratio
+/// - 2 = attack (ms)
+/// - 3 = release (ms)
+/// - 4 = makeup (dB)
+/// - 5 = mix (0.0-1.0)
+/// - 6 = link (0.0-1.0)
+/// - 7 = type (0=VCA, 1=Opto, 2=FET)
+
+/// Ensure Compressor is loaded into track's insert chain
+fn ensure_compressor_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, COMP_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let comp = crate::dsp_wrappers::CompressorWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, COMP_SLOT_INDEX, Box::new(comp));
+        log::info!("Loaded Compressor into track {} slot {}", track_id, COMP_SLOT_INDEX);
+    }
+}
+
+/// Set compressor threshold (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_threshold(track_id: u32, threshold_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 0, threshold_db);
+    log::debug!("Comp track {} threshold: {} dB", track_id, threshold_db);
+    1
+}
+
+/// Set compressor ratio
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_ratio(track_id: u32, ratio: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 1, ratio);
+    log::debug!("Comp track {} ratio: {}:1", track_id, ratio);
+    1
+}
+
+/// Set compressor attack (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_attack(track_id: u32, attack_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 2, attack_ms);
+    log::debug!("Comp track {} attack: {} ms", track_id, attack_ms);
+    1
+}
+
+/// Set compressor release (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_release(track_id: u32, release_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 3, release_ms);
+    log::debug!("Comp track {} release: {} ms", track_id, release_ms);
+    1
+}
+
+/// Set compressor makeup gain (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_makeup(track_id: u32, makeup_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 4, makeup_db);
+    log::debug!("Comp track {} makeup: {} dB", track_id, makeup_db);
+    1
+}
+
+/// Set compressor mix (0.0-1.0, parallel compression)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_mix(track_id: u32, mix: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 5, mix.clamp(0.0, 1.0));
+    log::debug!("Comp track {} mix: {}", track_id, mix);
+    1
+}
+
+/// Set compressor stereo link (0.0-1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_link(track_id: u32, link: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 6, link.clamp(0.0, 1.0));
+    log::debug!("Comp track {} link: {}", track_id, link);
+    1
+}
+
+/// Set compressor type (0=VCA, 1=Opto, 2=FET)
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_type(track_id: u32, comp_type: u8) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, COMP_SLOT_INDEX, 7, comp_type as f64);
+    log::debug!("Comp track {} type: {}", track_id, comp_type);
+    1
+}
+
+/// Set compressor bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn comp_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_compressor_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, COMP_SLOT_INDEX, bypass != 0);
+    log::debug!("Comp track {} bypass: {}", track_id, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIMITER FFI - Slot 2 (pre-fader)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Limiter insert slot index
+const LIMITER_SLOT_INDEX: usize = 2;
+
+/// Limiter parameter indices:
+/// - 0 = threshold (dB)
+/// - 1 = ceiling (dB)
+/// - 2 = release (ms)
+/// - 3 = oversampling (0=1x, 1=2x, 2=4x)
+
+/// Ensure Limiter is loaded into track's insert chain
+fn ensure_limiter_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, LIMITER_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let limiter = crate::dsp_wrappers::TruePeakLimiterWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, LIMITER_SLOT_INDEX, Box::new(limiter));
+        log::info!("Loaded Limiter into track {} slot {}", track_id, LIMITER_SLOT_INDEX);
+    }
+}
+
+/// Set track insert limiter threshold (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_limiter_set_threshold(track_id: u32, threshold_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_limiter_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, LIMITER_SLOT_INDEX, 0, threshold_db);
+    log::debug!("Track limiter {} threshold: {} dB", track_id, threshold_db);
+    1
+}
+
+/// Set track insert limiter ceiling (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_limiter_set_ceiling(track_id: u32, ceiling_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_limiter_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, LIMITER_SLOT_INDEX, 1, ceiling_db);
+    log::debug!("Track limiter {} ceiling: {} dB", track_id, ceiling_db);
+    1
+}
+
+/// Set track insert limiter release (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_limiter_set_release(track_id: u32, release_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_limiter_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, LIMITER_SLOT_INDEX, 2, release_ms);
+    log::debug!("Track limiter {} release: {} ms", track_id, release_ms);
+    1
+}
+
+/// Set track insert limiter oversampling (0=1x, 1=2x, 2=4x)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_limiter_set_oversampling(track_id: u32, oversampling: u8) -> i32 {
+    let track_id = track_id as u64;
+    ensure_limiter_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, LIMITER_SLOT_INDEX, 3, oversampling as f64);
+    log::debug!("Track limiter {} oversampling: {}x", track_id, 1 << oversampling);
+    1
+}
+
+/// Set track insert limiter bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn track_limiter_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_limiter_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, LIMITER_SLOT_INDEX, bypass != 0);
+    log::debug!("Track limiter {} bypass: {}", track_id, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GATE FFI - Slot 3 (pre-fader)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Gate insert slot index
+const GATE_SLOT_INDEX: usize = 3;
+
+/// Gate parameter indices:
+/// - 0 = threshold (dB)
+/// - 1 = range (dB)
+/// - 2 = attack (ms)
+/// - 3 = hold (ms)
+/// - 4 = release (ms)
+
+/// Ensure Gate is loaded into track's insert chain
+fn ensure_gate_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, GATE_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let gate = crate::dsp_wrappers::GateWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, GATE_SLOT_INDEX, Box::new(gate));
+        log::info!("Loaded Gate into track {} slot {}", track_id, GATE_SLOT_INDEX);
+    }
+}
+
+/// Set gate threshold (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_threshold(track_id: u32, threshold_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, GATE_SLOT_INDEX, 0, threshold_db);
+    log::debug!("Gate track {} threshold: {} dB", track_id, threshold_db);
+    1
+}
+
+/// Set gate range (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_range(track_id: u32, range_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, GATE_SLOT_INDEX, 1, range_db);
+    log::debug!("Gate track {} range: {} dB", track_id, range_db);
+    1
+}
+
+/// Set gate attack (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_attack(track_id: u32, attack_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, GATE_SLOT_INDEX, 2, attack_ms);
+    log::debug!("Gate track {} attack: {} ms", track_id, attack_ms);
+    1
+}
+
+/// Set gate hold (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_hold(track_id: u32, hold_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, GATE_SLOT_INDEX, 3, hold_ms);
+    log::debug!("Gate track {} hold: {} ms", track_id, hold_ms);
+    1
+}
+
+/// Set gate release (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_release(track_id: u32, release_ms: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, GATE_SLOT_INDEX, 4, release_ms);
+    log::debug!("Gate track {} release: {} ms", track_id, release_ms);
+    1
+}
+
+/// Set gate bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn track_gate_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_gate_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, GATE_SLOT_INDEX, bypass != 0);
+    log::debug!("Gate track {} bypass: {}", track_id, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPANDER FFI - Slot 4 (post-fader)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Expander insert slot index (post-fader)
+const EXPANDER_SLOT_INDEX: usize = 4;
+
+/// Expander parameter indices:
+/// - 0 = threshold (dB)
+/// - 1 = ratio
+/// - 2 = knee (dB)
+
+/// Ensure Expander is loaded into track's insert chain
+fn ensure_expander_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, EXPANDER_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let expander = crate::dsp_wrappers::ExpanderWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, EXPANDER_SLOT_INDEX, Box::new(expander));
+        log::info!("Loaded Expander into track {} slot {}", track_id, EXPANDER_SLOT_INDEX);
+    }
+}
+
+/// Set expander threshold (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_expander_set_threshold(track_id: u32, threshold_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_expander_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EXPANDER_SLOT_INDEX, 0, threshold_db);
+    log::debug!("Expander track {} threshold: {} dB", track_id, threshold_db);
+    1
+}
+
+/// Set expander ratio
+#[unsafe(no_mangle)]
+pub extern "C" fn track_expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_expander_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EXPANDER_SLOT_INDEX, 1, ratio);
+    log::debug!("Expander track {} ratio: {}:1", track_id, ratio);
+    1
+}
+
+/// Set expander knee (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_expander_set_knee(track_id: u32, knee_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_expander_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EXPANDER_SLOT_INDEX, 2, knee_db);
+    log::debug!("Expander track {} knee: {} dB", track_id, knee_db);
+    1
+}
+
+/// Set expander bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn track_expander_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_expander_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, EXPANDER_SLOT_INDEX, bypass != 0);
+    log::debug!("Expander track {} bypass: {}", track_id, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GENERIC INSERT SLOT FFI - For flexible plugin loading
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load processor by name into specific slot
+/// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_load_processor(track_id: u32, slot_index: u32, processor_name: *const c_char) -> i32 {
+    let name = match unsafe { cstr_to_string(processor_name) } {
+        Some(n) => n,
+        None => return 0,
+    };
+
+    let track_id = track_id as u64;
+    let slot_index = slot_index as usize;
+    let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+
+    if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+        PLAYBACK_ENGINE.load_track_insert(track_id, slot_index, processor);
+        log::info!("Loaded '{}' into track {} slot {}", name, track_id, slot_index);
+        1
+    } else {
+        log::warn!("Unknown processor: {}", name);
+        0
+    }
+}
+
+/// Unload processor from slot
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_unload_slot(track_id: u32, slot_index: u32) -> i32 {
+    let track_id = track_id as u64;
+    let slot_index = slot_index as usize;
+
+    if PLAYBACK_ENGINE.unload_track_insert(track_id, slot_index).is_some() {
+        log::info!("Unloaded processor from track {} slot {}", track_id, slot_index);
         1
     } else {
         0
     }
 }
 
-/// Set EQ bypass
+/// Set parameter on any insert slot
 #[unsafe(no_mangle)]
-pub extern "C" fn eq_set_bypass(track_id: u32, bypass: i32) -> i32 {
-    let mut eqs = get_or_create_eq(track_id);
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_bypass(bypass != 0);
-        log::debug!("EQ track {} bypass: {}", track_id, bypass != 0);
-        1
-    } else {
-        0
+pub extern "C" fn insert_set_param(track_id: u32, slot_index: u32, param_index: u32, value: f64) -> i32 {
+    let track_id = track_id as u64;
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, slot_index as usize, param_index as usize, value);
+    1
+}
+
+/// Get parameter from any insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: u32) -> f64 {
+    let track_id = track_id as u64;
+    PLAYBACK_ENGINE.get_track_insert_param(track_id, slot_index as usize, param_index as usize)
+}
+
+/// Set bypass on any insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn track_insert_set_bypass(track_id: u32, slot_index: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, slot_index as usize, bypass != 0);
+    1
+}
+
+/// Check if slot has a processor loaded
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_is_loaded(track_id: u32, slot_index: u32) -> i32 {
+    let track_id = track_id as u64;
+    if PLAYBACK_ENGINE.has_track_insert(track_id, slot_index as usize) { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PULTEC EQ FFI - Vintage tube EQ
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Pultec EQ slot (using slot 5 for vintage EQs)
+const PULTEC_SLOT_INDEX: usize = 5;
+
+/// Pultec parameter indices:
+/// - 0 = low boost (dB)
+/// - 1 = low atten (dB)
+/// - 2 = high boost (dB)
+/// - 3 = high atten (dB)
+
+fn ensure_pultec_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, PULTEC_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let pultec = crate::dsp_wrappers::PultecWrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, PULTEC_SLOT_INDEX, Box::new(pultec));
+        log::info!("Loaded Pultec into track {} slot {}", track_id, PULTEC_SLOT_INDEX);
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_pultec_set_low_boost(track_id: u32, boost: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_pultec_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, PULTEC_SLOT_INDEX, 0, boost);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_pultec_set_low_atten(track_id: u32, atten: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_pultec_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, PULTEC_SLOT_INDEX, 1, atten);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_pultec_set_high_boost(track_id: u32, boost: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_pultec_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, PULTEC_SLOT_INDEX, 2, boost);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_pultec_set_high_atten(track_id: u32, atten: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_pultec_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, PULTEC_SLOT_INDEX, 3, atten);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_pultec_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_pultec_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, PULTEC_SLOT_INDEX, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API 550 EQ FFI - Classic 3-band EQ
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// API 550 slot (using slot 6 for vintage EQs)
+const API550_SLOT_INDEX: usize = 6;
+
+/// API 550 parameter indices:
+/// - 0 = low gain (dB)
+/// - 1 = mid gain (dB)
+/// - 2 = high gain (dB)
+
+fn ensure_api550_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, API550_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let api = crate::dsp_wrappers::Api550Wrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, API550_SLOT_INDEX, Box::new(api));
+        log::info!("Loaded API 550 into track {} slot {}", track_id, API550_SLOT_INDEX);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_api550_set_low(track_id: u32, gain_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_api550_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, API550_SLOT_INDEX, 0, gain_db);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_api550_set_mid(track_id: u32, gain_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_api550_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, API550_SLOT_INDEX, 1, gain_db);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_api550_set_high(track_id: u32, gain_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_api550_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, API550_SLOT_INDEX, 2, gain_db);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_api550_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_api550_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, API550_SLOT_INDEX, bypass != 0);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEVE 1073 FFI - Classic preamp/EQ
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Neve 1073 slot (using slot 7 for vintage EQs)
+const NEVE1073_SLOT_INDEX: usize = 7;
+
+/// Neve 1073 parameter indices:
+/// - 0 = HP enabled (0.0 or 1.0)
+/// - 1 = low gain (dB)
+/// - 2 = high gain (dB)
+
+fn ensure_neve1073_loaded(track_id: u64) {
+    if !PLAYBACK_ENGINE.has_track_insert(track_id, NEVE1073_SLOT_INDEX) {
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let neve = crate::dsp_wrappers::Neve1073Wrapper::new(sample_rate);
+        PLAYBACK_ENGINE.load_track_insert(track_id, NEVE1073_SLOT_INDEX, Box::new(neve));
+        log::info!("Loaded Neve 1073 into track {} slot {}", track_id, NEVE1073_SLOT_INDEX);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_neve1073_set_hp_enabled(track_id: u32, enabled: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_neve1073_loaded(track_id);
+    let value = if enabled != 0 { 1.0 } else { 0.0 };
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, NEVE1073_SLOT_INDEX, 0, value);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_neve1073_set_low(track_id: u32, gain_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_neve1073_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, NEVE1073_SLOT_INDEX, 1, gain_db);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_neve1073_set_high(track_id: u32, gain_db: f64) -> i32 {
+    let track_id = track_id as u64;
+    ensure_neve1073_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, NEVE1073_SLOT_INDEX, 2, gain_db);
+    1
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn track_neve1073_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_neve1073_loaded(track_id);
+    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, NEVE1073_SLOT_INDEX, bypass != 0);
+    1
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5367,9 +6051,9 @@ pub extern "C" fn expander_set_threshold(track_id: u32, db: f64) -> i32 {
     }
 }
 
-/// Set expander ratio
+/// Set expander ratio (legacy, not connected to insert chain)
 #[unsafe(no_mangle)]
-pub extern "C" fn expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
+pub extern "C" fn legacy_expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
     let mut expanders = EXPANDERS.write();
     if let Some(exp) = expanders.get_mut(&track_id) {
         exp.set_ratio(ratio);
@@ -9492,4 +10176,785 @@ pub extern "C" fn saturation_exists(track_id: u32) -> i32 {
     } else {
         0
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PDC (PLUGIN DELAY COMPENSATION) FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get total system latency in samples from PDC
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_get_total_latency_samples() -> u32 {
+    PLAYBACK_ENGINE.get_master_insert_latency() as u32
+}
+
+/// Get track insert chain latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_get_track_latency(track_id: u64) -> u32 {
+    PLAYBACK_ENGINE.get_track_insert_latency(track_id) as u32
+}
+
+/// Get total latency in milliseconds (at current sample rate)
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_get_total_latency_ms() -> f64 {
+    let samples = PLAYBACK_ENGINE.get_master_insert_latency();
+    let sample_rate = PLAYBACK_ENGINE.position.sample_rate() as f64;
+    if sample_rate > 0.0 {
+        (samples as f64 / sample_rate) * 1000.0
+    } else {
+        0.0
+    }
+}
+
+/// Get insert slot latency (track_id, slot_index) -> latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_get_slot_latency(track_id: u64, slot_index: u32) -> u32 {
+    let info = PLAYBACK_ENGINE.get_track_insert_info(track_id);
+    if let Some((_, _, _, _, _, _, latency)) = info.get(slot_index as usize) {
+        *latency as u32
+    } else {
+        0
+    }
+}
+
+/// Check if PDC is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_is_enabled() -> i32 {
+    // PDC is always enabled in our architecture
+    1
+}
+
+/// Get master bus total latency
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_get_master_latency() -> u32 {
+    PLAYBACK_ENGINE.get_master_insert_latency() as u32
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER IN PLACE FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Render track to WAV file (render in place)
+/// Returns 1 on success, 0 on failure
+///
+/// Parameters:
+/// - track_id: The track to render
+/// - start_time: Start time in seconds
+/// - end_time: End time in seconds
+/// - output_path: Path to output WAV file (C string)
+/// - bit_depth: 16, 24, or 32 (float)
+/// - include_tail: If true, add 5 seconds for reverb/delay tails
+#[unsafe(no_mangle)]
+pub extern "C" fn render_in_place(
+    track_id: u64,
+    start_time: f64,
+    end_time: f64,
+    output_path: *const c_char,
+    bit_depth: u32,
+    include_tail: i32,
+) -> i32 {
+    use crate::insert_chain::InsertChain;
+
+    // Validate parameters
+    if output_path.is_null() || start_time >= end_time {
+        return 0;
+    }
+
+    let path_str = unsafe {
+        match CStr::from_ptr(output_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+    let output_path_buf = std::path::PathBuf::from(path_str);
+
+    // Get track clips
+    let clips = TRACK_MANAGER.get_clips_for_track(TrackId(track_id));
+    if clips.is_empty() {
+        return 0;
+    }
+
+    // Get audio cache from playback engine
+    let audio_cache_ref = PLAYBACK_ENGINE.cache();
+    let audio_cache = audio_cache_ref.files.read();
+
+    // Create offline renderer
+    let sample_rate = PLAYBACK_ENGINE.position.sample_rate() as f64;
+    let renderer = OfflineRenderer::new(sample_rate, 512);
+
+    // Create empty insert chain (track inserts not included in this simple version)
+    // Future: clone the track's insert chain for full render with effects
+    let mut insert_chain = InsertChain::new(sample_rate);
+
+    // Calculate tail time
+    let tail_seconds = if include_tail != 0 { 5.0 } else { 0.0 };
+
+    // Render track
+    let (left, right) = renderer.render_track(
+        &clips,
+        &mut insert_chain,
+        &*audio_cache,
+        start_time,
+        end_time,
+        tail_seconds,
+        None, // No progress callback for now
+    );
+
+    // Write output file based on bit depth
+    let result = match bit_depth {
+        16 => OfflineRenderer::write_wav_16bit(&output_path_buf, &left, &right, sample_rate as u32),
+        24 => OfflineRenderer::write_wav_24bit(&output_path_buf, &left, &right, sample_rate as u32),
+        32 => OfflineRenderer::write_wav_f32(&output_path_buf, &left, &right, sample_rate as u32),
+        _ => return 0, // Invalid bit depth
+    };
+
+    match result {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Get render progress (0.0 - 1.0)
+/// For future async rendering with progress callback
+#[unsafe(no_mangle)]
+pub extern "C" fn render_get_progress() -> f32 {
+    // Currently renders are synchronous, so always return 1.0 (complete) or 0.0
+    // Future: implement async rendering with progress tracking
+    1.0
+}
+
+/// Cancel ongoing render (for async implementation)
+#[unsafe(no_mangle)]
+pub extern "C" fn render_cancel() -> i32 {
+    // Currently renders are synchronous
+    // Future: implement cancellation
+    1
+}
+
+/// Render selection to new clip and add to track
+/// Returns the new clip ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn render_selection_to_new_clip(
+    track_id: u64,
+    start_time: f64,
+    end_time: f64,
+    output_path: *const c_char,
+    bit_depth: u32,
+) -> u64 {
+    use crate::track_manager::ClipFxChain;
+
+    // First render to file
+    if render_in_place(track_id, start_time, end_time, output_path, bit_depth, 0) == 0 {
+        return 0;
+    }
+
+    // Import the rendered file
+    let path_str = unsafe {
+        match CStr::from_ptr(output_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    // Import audio file
+    let imported = match AudioImporter::import(Path::new(path_str)) {
+        Ok(audio) => Arc::new(audio),
+        Err(_) => return 0,
+    };
+
+    // Calculate source duration from imported audio
+    let source_duration = imported.samples.len() as f64
+        / (imported.sample_rate as f64 * imported.channels as f64);
+
+    // Add to audio cache
+    PLAYBACK_ENGINE
+        .cache()
+        .files
+        .write()
+        .insert(path_str.to_string(), imported.clone());
+
+    // Create new clip from rendered file
+    let duration = end_time - start_time;
+    let clip = Clip {
+        id: ClipId(0), // Will be assigned by add_clip
+        track_id: TrackId(track_id),
+        name: format!("Render_{:.2}s", start_time),
+        color: Some(0xFF40FF90), // Green for rendered clips
+        start_time,
+        duration,
+        source_file: path_str.to_string(),
+        source_offset: 0.0,
+        source_duration,
+        fade_in: 0.0,
+        fade_out: 0.0,
+        gain: 1.0,
+        muted: false,
+        selected: false,
+        reversed: false,
+        fx_chain: ClipFxChain::new(),
+    };
+
+    // Add clip to track manager
+    let clip_id = TRACK_MANAGER.add_clip(clip);
+
+    // Waveform peaks will be computed on-demand when displayed
+    PROJECT_STATE.mark_dirty();
+
+    clip_id.0
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CYCLE REGION FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get cycle region start time
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_get_start() -> f64 {
+    TRACK_MANAGER.get_cycle_region().start
+}
+
+/// Get cycle region end time
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_get_end() -> f64 {
+    TRACK_MANAGER.get_cycle_region().end
+}
+
+/// Check if cycle region is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_is_enabled() -> i32 {
+    if TRACK_MANAGER.get_cycle_region().enabled { 1 } else { 0 }
+}
+
+/// Get current cycle count
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_get_current() -> u32 {
+    TRACK_MANAGER.get_cycle_region().current_cycle
+}
+
+/// Get max cycles (0 = unlimited)
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_get_max() -> u32 {
+    TRACK_MANAGER.get_cycle_region().max_cycles.unwrap_or(0)
+}
+
+/// Set cycle region range
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_set_range(start: f64, end: f64) {
+    TRACK_MANAGER.set_cycle_region(start, end);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Set cycle enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_set_enabled(enabled: i32) {
+    TRACK_MANAGER.set_cycle_enabled(enabled != 0);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Set max cycles (0 = unlimited)
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_set_max(max_cycles: u32) {
+    let max = if max_cycles == 0 { None } else { Some(max_cycles) };
+    TRACK_MANAGER.set_cycle_max(max);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Reset cycle counter
+#[unsafe(no_mangle)]
+pub extern "C" fn cycle_reset_counter() {
+    TRACK_MANAGER.reset_cycle_counter();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUNCH REGION FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get punch in time
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_get_in() -> f64 {
+    TRACK_MANAGER.get_punch_region().punch_in
+}
+
+/// Get punch out time
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_get_out() -> f64 {
+    TRACK_MANAGER.get_punch_region().punch_out
+}
+
+/// Check if punch is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_is_enabled() -> i32 {
+    if TRACK_MANAGER.get_punch_region().enabled { 1 } else { 0 }
+}
+
+/// Get pre-roll bars
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_get_pre_roll() -> f64 {
+    TRACK_MANAGER.get_punch_region().pre_roll_bars
+}
+
+/// Get post-roll bars
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_get_post_roll() -> f64 {
+    TRACK_MANAGER.get_punch_region().post_roll_bars
+}
+
+/// Set punch in/out range
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_set_range(punch_in: f64, punch_out: f64) {
+    TRACK_MANAGER.set_punch_region(punch_in, punch_out);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Set punch enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_set_enabled(enabled: i32) {
+    TRACK_MANAGER.set_punch_enabled(enabled != 0);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Set pre-roll bars
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_set_pre_roll(bars: f64) {
+    TRACK_MANAGER.set_punch_pre_roll(bars);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Set post-roll bars
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_set_post_roll(bars: f64) {
+    TRACK_MANAGER.set_punch_post_roll(bars);
+    PROJECT_STATE.mark_dirty();
+}
+
+/// Check if time is within punch region
+#[unsafe(no_mangle)]
+pub extern "C" fn punch_is_active(time: f64) -> i32 {
+    if TRACK_MANAGER.is_punch_active(time) { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRACK TEMPLATE FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Save track as template
+/// Returns template ID (caller must free) or null on error
+#[unsafe(no_mangle)]
+pub extern "C" fn template_save_track(
+    track_id: u64,
+    template_name: *const c_char,
+    category: *const c_char,
+) -> *mut c_char {
+    let name = unsafe { cstr_to_string(template_name) }.unwrap_or_else(|| "Untitled".to_string());
+    let cat = unsafe { cstr_to_string(category) }.unwrap_or_else(|| "Custom".to_string());
+
+    if let Some(template_id) =
+        TRACK_MANAGER.save_track_as_template(TrackId(track_id), &name, &cat)
+    {
+        PROJECT_STATE.mark_dirty();
+        string_to_cstr(&template_id)
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Create track from template
+/// Returns track ID (0 on error)
+#[unsafe(no_mangle)]
+pub extern "C" fn template_create_track(template_id: *const c_char) -> u64 {
+    let id = match unsafe { cstr_to_string(template_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+
+    if let Some(track_id) = TRACK_MANAGER.create_track_from_template(&id) {
+        PROJECT_STATE.mark_dirty();
+        track_id.0
+    } else {
+        0
+    }
+}
+
+/// Get template count
+#[unsafe(no_mangle)]
+pub extern "C" fn template_get_count() -> u32 {
+    TRACK_MANAGER.template_count() as u32
+}
+
+/// List all templates as JSON array
+/// Returns JSON string (caller must free)
+#[unsafe(no_mangle)]
+pub extern "C" fn template_list_all() -> *mut c_char {
+    let templates = TRACK_MANAGER.list_templates();
+    match serde_json::to_string(&templates) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+/// List templates by category as JSON array
+/// Returns JSON string (caller must free)
+#[unsafe(no_mangle)]
+pub extern "C" fn template_list_by_category(category: *const c_char) -> *mut c_char {
+    let cat = match unsafe { cstr_to_string(category) } {
+        Some(c) => c,
+        None => return string_to_cstr("[]"),
+    };
+
+    let templates = TRACK_MANAGER.list_templates_by_category(&cat);
+    match serde_json::to_string(&templates) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+/// Get template by ID as JSON
+/// Returns JSON string (caller must free) or null
+#[unsafe(no_mangle)]
+pub extern "C" fn template_get(template_id: *const c_char) -> *mut c_char {
+    let id = match unsafe { cstr_to_string(template_id) } {
+        Some(id) => id,
+        None => return ptr::null_mut(),
+    };
+
+    if let Some(template) = TRACK_MANAGER.get_template(&id) {
+        match serde_json::to_string(&template) {
+            Ok(json) => string_to_cstr(&json),
+            Err(_) => ptr::null_mut(),
+        }
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Delete template
+/// Returns 1 on success, 0 on failure (default templates cannot be deleted)
+#[unsafe(no_mangle)]
+pub extern "C" fn template_delete(template_id: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(template_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+
+    if TRACK_MANAGER.delete_template(&id) {
+        PROJECT_STATE.mark_dirty();
+        1
+    } else {
+        0
+    }
+}
+
+/// Update template description
+#[unsafe(no_mangle)]
+pub extern "C" fn template_set_description(
+    template_id: *const c_char,
+    description: *const c_char,
+) -> i32 {
+    let id = match unsafe { cstr_to_string(template_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+    let desc = unsafe { cstr_to_string(description) }.unwrap_or_default();
+
+    if TRACK_MANAGER.update_template_description(&id, &desc) {
+        PROJECT_STATE.mark_dirty();
+        1
+    } else {
+        0
+    }
+}
+
+/// Add tag to template
+#[unsafe(no_mangle)]
+pub extern "C" fn template_add_tag(template_id: *const c_char, tag: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(template_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+    let tag_str = match unsafe { cstr_to_string(tag) } {
+        Some(t) => t,
+        None => return 0,
+    };
+
+    if TRACK_MANAGER.add_template_tag(&id, &tag_str) {
+        PROJECT_STATE.mark_dirty();
+        1
+    } else {
+        0
+    }
+}
+
+/// Search templates by tag as JSON array
+#[unsafe(no_mangle)]
+pub extern "C" fn template_search_by_tag(tag: *const c_char) -> *mut c_char {
+    let tag_str = match unsafe { cstr_to_string(tag) } {
+        Some(t) => t,
+        None => return string_to_cstr("[]"),
+    };
+
+    let templates = TRACK_MANAGER.search_templates_by_tag(&tag_str);
+    match serde_json::to_string(&templates) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT VERSIONING FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    static ref VERSION_MANAGER: parking_lot::RwLock<rf_state::VersionManager> =
+        parking_lot::RwLock::new(rf_state::VersionManager::default());
+}
+
+/// Project snapshot for versioning
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ProjectSnapshot {
+    file_path: Option<String>,
+    // In a full implementation, this would include TrackManager state
+    // For now, we create a minimal snapshot
+    timestamp: u64,
+    track_count: usize,
+    clip_count: usize,
+}
+
+impl ProjectSnapshot {
+    fn capture() -> Self {
+        Self {
+            file_path: PROJECT_STATE.file_path(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+            track_count: TRACK_MANAGER.tracks.read().len(),
+            clip_count: TRACK_MANAGER.clips.read().len(),
+        }
+    }
+}
+
+/// Initialize version manager for project
+#[unsafe(no_mangle)]
+pub extern "C" fn version_init(project_name: *const c_char, base_dir: *const c_char) {
+    let name = unsafe { cstr_to_string(project_name) }.unwrap_or_else(|| "Untitled".to_string());
+    let dir = unsafe { cstr_to_string(base_dir) }
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::temp_dir()
+                .join("ReelForge")
+                .join("Versions")
+        });
+
+    *VERSION_MANAGER.write() = rf_state::VersionManager::new(&name, &dir);
+}
+
+/// Create a new version snapshot
+/// Returns version ID (caller must free) or null on error
+#[unsafe(no_mangle)]
+pub extern "C" fn version_create(
+    name: *const c_char,
+    description: *const c_char,
+) -> *mut c_char {
+    let version_name = unsafe { cstr_to_string(name) }
+        .unwrap_or_else(|| "Unnamed Version".to_string());
+    let desc = unsafe { cstr_to_string(description) }.unwrap_or_default();
+
+    // Capture current project state
+    let snapshot = ProjectSnapshot::capture();
+
+    match VERSION_MANAGER.write().create_version(&version_name, &desc, &snapshot) {
+        Ok(version) => string_to_cstr(&version.id),
+        Err(e) => {
+            log::error!("Failed to create version: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Load version by ID
+/// Returns project JSON (caller must free) or null on error
+#[unsafe(no_mangle)]
+pub extern "C" fn version_load(version_id: *const c_char) -> *mut c_char {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return ptr::null_mut(),
+    };
+
+    match VERSION_MANAGER.read().load_version::<serde_json::Value>(&id) {
+        Ok(data) => {
+            match serde_json::to_string(&data) {
+                Ok(json) => string_to_cstr(&json),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to load version: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// List all versions as JSON array
+/// Returns JSON string (caller must free)
+#[unsafe(no_mangle)]
+pub extern "C" fn version_list_all() -> *mut c_char {
+    let versions = VERSION_MANAGER.read().list_versions();
+    match serde_json::to_string(&versions) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+/// List milestone versions as JSON array
+#[unsafe(no_mangle)]
+pub extern "C" fn version_list_milestones() -> *mut c_char {
+    let versions = VERSION_MANAGER.read().list_milestones();
+    match serde_json::to_string(&versions) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+/// Get version metadata by ID as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn version_get(version_id: *const c_char) -> *mut c_char {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return ptr::null_mut(),
+    };
+
+    match VERSION_MANAGER.read().get_version(&id) {
+        Some(version) => {
+            match serde_json::to_string(&version) {
+                Ok(json) => string_to_cstr(&json),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Delete version
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn version_delete(version_id: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+
+    match VERSION_MANAGER.write().delete_version(&id) {
+        Ok(_) => 1,
+        Err(e) => {
+            log::warn!("Failed to delete version: {}", e);
+            0
+        }
+    }
+}
+
+/// Force delete version (even milestones)
+#[unsafe(no_mangle)]
+pub extern "C" fn version_force_delete(version_id: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+
+    match VERSION_MANAGER.write().force_delete_version(&id) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Mark version as milestone
+#[unsafe(no_mangle)]
+pub extern "C" fn version_set_milestone(version_id: *const c_char, is_milestone: i32) -> i32 {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+
+    match VERSION_MANAGER.write().set_milestone(&id, is_milestone != 0) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Add tag to version
+#[unsafe(no_mangle)]
+pub extern "C" fn version_add_tag(version_id: *const c_char, tag: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+    let tag_str = match unsafe { cstr_to_string(tag) } {
+        Some(t) => t,
+        None => return 0,
+    };
+
+    match VERSION_MANAGER.write().add_tag(&id, &tag_str) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Search versions by tag
+#[unsafe(no_mangle)]
+pub extern "C" fn version_search_by_tag(tag: *const c_char) -> *mut c_char {
+    let tag_str = match unsafe { cstr_to_string(tag) } {
+        Some(t) => t,
+        None => return string_to_cstr("[]"),
+    };
+
+    let versions = VERSION_MANAGER.read().search_by_tag(&tag_str);
+    match serde_json::to_string(&versions) {
+        Ok(json) => string_to_cstr(&json),
+        Err(_) => string_to_cstr("[]"),
+    }
+}
+
+/// Get version count
+#[unsafe(no_mangle)]
+pub extern "C" fn version_get_count() -> u32 {
+    VERSION_MANAGER.read().version_count() as u32
+}
+
+/// Get latest version ID
+/// Returns version ID (caller must free) or null if no versions
+#[unsafe(no_mangle)]
+pub extern "C" fn version_get_latest() -> *mut c_char {
+    match VERSION_MANAGER.read().latest_version() {
+        Some(v) => string_to_cstr(&v.id),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Export version to file
+#[unsafe(no_mangle)]
+pub extern "C" fn version_export(version_id: *const c_char, export_path: *const c_char) -> i32 {
+    let id = match unsafe { cstr_to_string(version_id) } {
+        Some(id) => id,
+        None => return 0,
+    };
+    let path = match unsafe { cstr_to_string(export_path) } {
+        Some(p) => std::path::PathBuf::from(p),
+        None => return 0,
+    };
+
+    match VERSION_MANAGER.read().export_version(&id, &path) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Set max versions to keep (0 = unlimited)
+#[unsafe(no_mangle)]
+pub extern "C" fn version_set_max_count(max: u32) {
+    VERSION_MANAGER.read().set_max_versions(max);
+}
+
+/// Refresh versions from disk
+#[unsafe(no_mangle)]
+pub extern "C" fn version_refresh() {
+    VERSION_MANAGER.read().refresh_versions();
 }

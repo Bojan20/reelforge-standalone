@@ -413,6 +413,8 @@ class ContextMenus {
     VoidCallback? onMute,
     VoidCallback? onSolo,
     VoidCallback? onFreeze,
+    VoidCallback? onRenderInPlace,
+    VoidCallback? onSaveAsTemplate,
     VoidCallback? onColor,
     bool isMuted = false,
     bool isSoloed = false,
@@ -451,6 +453,18 @@ class ContextMenus {
         onTap: onFreeze,
       ),
       ContextMenuItem(
+        label: 'Render in Place',
+        icon: Icons.local_fire_department,
+        shortcut: '⌘⇧R',
+        onTap: onRenderInPlace,
+      ),
+      ContextMenuItem.separator,
+      ContextMenuItem(
+        label: 'Save as Template...',
+        icon: Icons.save_alt,
+        onTap: onSaveAsTemplate,
+      ),
+      ContextMenuItem(
         label: 'Set Color...',
         icon: Icons.palette,
         onTap: onColor,
@@ -479,6 +493,8 @@ class ContextMenus {
     VoidCallback? onFadeIn,
     VoidCallback? onFadeOut,
     VoidCallback? onStretch,
+    VoidCallback? onRenderInPlace,
+    VoidCallback? onBounce,
     bool hasSelection = true,
     bool canPaste = false,
   }) {
@@ -555,6 +571,19 @@ class ContextMenus {
             onTap: onStretch,
           ),
         ],
+      ),
+      ContextMenuItem.separator,
+      ContextMenuItem(
+        label: 'Render in Place',
+        icon: Icons.local_fire_department,
+        shortcut: '⌘⇧R',
+        onTap: onRenderInPlace,
+      ),
+      ContextMenuItem(
+        label: 'Bounce Selection',
+        icon: Icons.compress,
+        shortcut: '⌘⇧B',
+        onTap: onBounce,
       ),
     ];
   }

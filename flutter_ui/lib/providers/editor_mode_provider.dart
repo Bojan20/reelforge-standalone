@@ -1,15 +1,14 @@
-/// Editor Mode Provider
-///
-/// Manages the current editor mode (DAW vs Middleware):
-/// - DAW Mode: Timeline-centric editing, full mixer
-/// - Middleware Mode: Event-centric editing, game integration
-///
-/// Features:
-/// - Keyboard shortcuts (Cmd+1, Cmd+2, Cmd+`)
-/// - Persistence to storage
-/// - Accent color per mode
+// Editor Mode Provider
+//
+// Manages the current editor mode (DAW vs Middleware):
+// - DAW Mode: Timeline-centric editing, full mixer
+// - Middleware Mode: Event-centric editing, game integration
+//
+// Features:
+// - Keyboard shortcuts (Cmd+1, Cmd+2, Cmd+`)
+// - Persistence to storage
+// - Accent color per mode
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 

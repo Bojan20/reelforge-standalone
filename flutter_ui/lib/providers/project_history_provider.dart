@@ -1,9 +1,9 @@
-/// Project History Provider
-///
-/// Undo/Redo system using command pattern:
-/// - Stack-based history
-/// - Maximum 20 states
-/// - Deep clone on save
+// Project History Provider
+//
+// Undo/Redo system using command pattern:
+// - Stack-based history
+// - Maximum 20 states
+// - Deep clone on save
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';

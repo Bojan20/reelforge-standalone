@@ -128,6 +128,151 @@ impl Track {
             order: 0,
         }
     }
+
+    /// Create track from template
+    pub fn from_template(template: &TrackTemplate) -> Self {
+        Self {
+            id: TrackId(next_id()),
+            name: template.name.clone(),
+            color: template.color,
+            height: template.height,
+            output_bus: template.output_bus,
+            volume: template.volume,
+            pan: template.pan,
+            muted: false,
+            soloed: false,
+            armed: false,
+            locked: false,
+            frozen: false,
+            input_monitor: false,
+            order: 0,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRACK TEMPLATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Track template for saving/loading track configurations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackTemplate {
+    /// Template ID (auto-generated on save)
+    pub id: String,
+    /// Template name (user-defined)
+    pub template_name: String,
+    /// Category for organization
+    pub category: String,
+    /// Description
+    pub description: String,
+    /// Creation timestamp
+    pub created_at: u64,
+
+    // Track configuration
+    pub name: String,
+    pub color: u32,
+    pub height: f64,
+    pub output_bus: OutputBus,
+    pub volume: f64,
+    pub pan: f64,
+
+    /// Tags for filtering
+    pub tags: Vec<String>,
+}
+
+impl TrackTemplate {
+    /// Create template from existing track
+    pub fn from_track(track: &Track, template_name: &str, category: &str) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let created_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        Self {
+            id: format!("tpl_{}", next_id()),
+            template_name: template_name.to_string(),
+            category: category.to_string(),
+            description: String::new(),
+            created_at,
+            name: track.name.clone(),
+            color: track.color,
+            height: track.height,
+            output_bus: track.output_bus,
+            volume: track.volume,
+            pan: track.pan,
+            tags: Vec::new(),
+        }
+    }
+
+    /// Create a default template
+    pub fn default_audio() -> Self {
+        Self {
+            id: "default_audio".to_string(),
+            template_name: "Audio Track".to_string(),
+            category: "Default".to_string(),
+            description: "Standard audio track".to_string(),
+            created_at: 0,
+            name: "Audio".to_string(),
+            color: 0xFF4A9EFF,
+            height: 80.0,
+            output_bus: OutputBus::Master,
+            volume: 1.0,
+            pan: 0.0,
+            tags: vec!["audio".to_string()],
+        }
+    }
+
+    pub fn default_vocal() -> Self {
+        Self {
+            id: "default_vocal".to_string(),
+            template_name: "Vocal Track".to_string(),
+            category: "Default".to_string(),
+            description: "Optimized for vocals".to_string(),
+            created_at: 0,
+            name: "Vocal".to_string(),
+            color: 0xFFFF9040,
+            height: 80.0,
+            output_bus: OutputBus::Voice,
+            volume: 1.0,
+            pan: 0.0,
+            tags: vec!["vocal".to_string(), "voice".to_string()],
+        }
+    }
+
+    pub fn default_drums() -> Self {
+        Self {
+            id: "default_drums".to_string(),
+            template_name: "Drums Track".to_string(),
+            category: "Default".to_string(),
+            description: "Optimized for drums".to_string(),
+            created_at: 0,
+            name: "Drums".to_string(),
+            color: 0xFFFF4060,
+            height: 100.0,
+            output_bus: OutputBus::Sfx,
+            volume: 1.0,
+            pan: 0.0,
+            tags: vec!["drums".to_string(), "percussion".to_string()],
+        }
+    }
+
+    pub fn default_bass() -> Self {
+        Self {
+            id: "default_bass".to_string(),
+            template_name: "Bass Track".to_string(),
+            category: "Default".to_string(),
+            description: "Optimized for bass".to_string(),
+            created_at: 0,
+            name: "Bass".to_string(),
+            color: 0xFF40FF90,
+            height: 80.0,
+            output_bus: OutputBus::Music,
+            volume: 1.0,
+            pan: 0.0,
+            tags: vec!["bass".to_string(), "music".to_string()],
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -851,6 +996,86 @@ impl LoopRegion {
     }
 }
 
+/// Cycle region for cycle recording (Cubase-style)
+/// Similar to loop but for recording multiple takes in a region
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct CycleRegion {
+    pub start: f64,
+    pub end: f64,
+    pub enabled: bool,
+    /// Maximum cycles to record (None = unlimited)
+    pub max_cycles: Option<u32>,
+    /// Current cycle count during recording
+    pub current_cycle: u32,
+}
+
+impl Default for CycleRegion {
+    fn default() -> Self {
+        Self {
+            start: 0.0,
+            end: 8.0,
+            enabled: false,
+            max_cycles: None,
+            current_cycle: 0,
+        }
+    }
+}
+
+impl CycleRegion {
+    pub fn duration(&self) -> f64 {
+        self.end - self.start
+    }
+
+    pub fn reset_cycles(&mut self) {
+        self.current_cycle = 0;
+    }
+
+    pub fn increment_cycle(&mut self) -> bool {
+        self.current_cycle += 1;
+        if let Some(max) = self.max_cycles {
+            self.current_cycle < max
+        } else {
+            true // Unlimited cycles
+        }
+    }
+}
+
+/// Punch region for punch in/out recording
+/// Records only within the specified time range
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct PunchRegion {
+    pub punch_in: f64,
+    pub punch_out: f64,
+    pub enabled: bool,
+    /// Pre-roll bars before punch in
+    pub pre_roll_bars: f64,
+    /// Post-roll bars after punch out
+    pub post_roll_bars: f64,
+}
+
+impl Default for PunchRegion {
+    fn default() -> Self {
+        Self {
+            punch_in: 0.0,
+            punch_out: 8.0,
+            enabled: false,
+            pre_roll_bars: 2.0,
+            post_roll_bars: 1.0,
+        }
+    }
+}
+
+impl PunchRegion {
+    pub fn duration(&self) -> f64 {
+        self.punch_out - self.punch_in
+    }
+
+    /// Check if time is within punch region
+    pub fn is_punch_active(&self, time: f64) -> bool {
+        self.enabled && time >= self.punch_in && time <= self.punch_out
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TRACK MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -867,6 +1092,10 @@ pub struct TrackManager {
     pub markers: RwLock<Vec<Marker>>,
     /// Loop region
     pub loop_region: RwLock<LoopRegion>,
+    /// Cycle region (for cycle recording)
+    pub cycle_region: RwLock<CycleRegion>,
+    /// Punch region (for punch in/out recording)
+    pub punch_region: RwLock<PunchRegion>,
     /// Track ordering
     pub track_order: RwLock<Vec<TrackId>>,
     /// Comp lanes for recording takes
@@ -875,21 +1104,105 @@ pub struct TrackManager {
     pub takes: RwLock<HashMap<TakeId, Take>>,
     /// Comp regions (selected portions of takes)
     pub comp_regions: RwLock<HashMap<TrackId, Vec<CompRegion>>>,
+    /// Track templates (user-saved and defaults)
+    pub templates: RwLock<HashMap<String, TrackTemplate>>,
 }
 
 impl TrackManager {
     pub fn new() -> Self {
+        // Initialize default templates
+        let mut templates = HashMap::new();
+        let defaults = [
+            TrackTemplate::default_audio(),
+            TrackTemplate::default_vocal(),
+            TrackTemplate::default_drums(),
+            TrackTemplate::default_bass(),
+        ];
+        for tpl in defaults {
+            templates.insert(tpl.id.clone(), tpl);
+        }
+
         Self {
             tracks: RwLock::new(HashMap::new()),
             clips: RwLock::new(HashMap::new()),
             crossfades: RwLock::new(HashMap::new()),
             markers: RwLock::new(Vec::new()),
             loop_region: RwLock::new(LoopRegion::default()),
+            cycle_region: RwLock::new(CycleRegion::default()),
+            punch_region: RwLock::new(PunchRegion::default()),
             track_order: RwLock::new(Vec::new()),
             comp_lanes: RwLock::new(HashMap::new()),
             takes: RwLock::new(HashMap::new()),
             comp_regions: RwLock::new(HashMap::new()),
+            templates: RwLock::new(templates),
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CYCLE REGION OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get current cycle region
+    pub fn get_cycle_region(&self) -> CycleRegion {
+        *self.cycle_region.read()
+    }
+
+    /// Set cycle region start and end times
+    pub fn set_cycle_region(&self, start: f64, end: f64) {
+        let mut region = self.cycle_region.write();
+        region.start = start;
+        region.end = end;
+    }
+
+    /// Set cycle region enabled state
+    pub fn set_cycle_enabled(&self, enabled: bool) {
+        self.cycle_region.write().enabled = enabled;
+    }
+
+    /// Set maximum cycles for recording (None = unlimited)
+    pub fn set_cycle_max(&self, max_cycles: Option<u32>) {
+        self.cycle_region.write().max_cycles = max_cycles;
+    }
+
+    /// Reset cycle counter
+    pub fn reset_cycle_counter(&self) {
+        self.cycle_region.write().current_cycle = 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PUNCH REGION OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get current punch region
+    pub fn get_punch_region(&self) -> PunchRegion {
+        *self.punch_region.read()
+    }
+
+    /// Set punch in/out times
+    pub fn set_punch_region(&self, punch_in: f64, punch_out: f64) {
+        let mut region = self.punch_region.write();
+        region.punch_in = punch_in;
+        region.punch_out = punch_out;
+    }
+
+    /// Set punch enabled state
+    pub fn set_punch_enabled(&self, enabled: bool) {
+        self.punch_region.write().enabled = enabled;
+    }
+
+    /// Set pre-roll bars
+    pub fn set_punch_pre_roll(&self, bars: f64) {
+        self.punch_region.write().pre_roll_bars = bars;
+    }
+
+    /// Set post-roll bars
+    pub fn set_punch_post_roll(&self, bars: f64) {
+        self.punch_region.write().post_roll_bars = bars;
+    }
+
+    /// Check if time is within punch region
+    pub fn is_punch_active(&self, time: f64) -> bool {
+        self.punch_region.read().is_punch_active(time)
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1677,6 +1990,110 @@ impl TrackManager {
         self.clips.write().insert(clip_id, clip);
 
         Some(clip_id)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TRACK TEMPLATE OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Save track as template
+    pub fn save_track_as_template(
+        &self,
+        track_id: TrackId,
+        template_name: &str,
+        category: &str,
+    ) -> Option<String> {
+        let tracks = self.tracks.read();
+        let track = tracks.get(&track_id)?;
+        let template = TrackTemplate::from_track(track, template_name, category);
+        let template_id = template.id.clone();
+        self.templates.write().insert(template_id.clone(), template);
+        Some(template_id)
+    }
+
+    /// Create track from template
+    pub fn create_track_from_template(&self, template_id: &str) -> Option<TrackId> {
+        let templates = self.templates.read();
+        let template = templates.get(template_id)?;
+        let track = Track::from_template(template);
+        let track_id = track.id;
+        drop(templates); // Release read lock before write
+
+        let mut tracks = self.tracks.write();
+        let order = tracks.len();
+        let mut track = track;
+        track.order = order;
+        tracks.insert(track_id, track);
+        drop(tracks);
+
+        self.track_order.write().push(track_id);
+        Some(track_id)
+    }
+
+    /// Get template by ID
+    pub fn get_template(&self, template_id: &str) -> Option<TrackTemplate> {
+        self.templates.read().get(template_id).cloned()
+    }
+
+    /// List all templates
+    pub fn list_templates(&self) -> Vec<TrackTemplate> {
+        self.templates.read().values().cloned().collect()
+    }
+
+    /// List templates by category
+    pub fn list_templates_by_category(&self, category: &str) -> Vec<TrackTemplate> {
+        self.templates
+            .read()
+            .values()
+            .filter(|t| t.category == category)
+            .cloned()
+            .collect()
+    }
+
+    /// Delete template
+    pub fn delete_template(&self, template_id: &str) -> bool {
+        // Don't allow deleting default templates
+        if template_id.starts_with("default_") {
+            return false;
+        }
+        self.templates.write().remove(template_id).is_some()
+    }
+
+    /// Update template description
+    pub fn update_template_description(&self, template_id: &str, description: &str) -> bool {
+        if let Some(tpl) = self.templates.write().get_mut(template_id) {
+            tpl.description = description.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Add tag to template
+    pub fn add_template_tag(&self, template_id: &str, tag: &str) -> bool {
+        if let Some(tpl) = self.templates.write().get_mut(template_id) {
+            if !tpl.tags.contains(&tag.to_string()) {
+                tpl.tags.push(tag.to_string());
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get template count
+    pub fn template_count(&self) -> usize {
+        self.templates.read().len()
+    }
+
+    /// Search templates by tag
+    pub fn search_templates_by_tag(&self, tag: &str) -> Vec<TrackTemplate> {
+        self.templates
+            .read()
+            .values()
+            .filter(|t| t.tags.iter().any(|tt| tt.contains(tag)))
+            .cloned()
+            .collect()
     }
 }
 

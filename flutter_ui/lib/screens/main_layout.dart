@@ -1,13 +1,13 @@
-/// ReelForge Main Layout
-///
-/// Master layout wrapper combining:
-/// - ControlBar (top)
-/// - LeftZone (project explorer)
-/// - CenterZone (main editor)
-/// - RightZone (inspector)
-/// - LowerZone (mixer/editor/browser)
-///
-/// 1:1 migration from React MainLayout.tsx
+// ReelForge Main Layout
+//
+// Master layout wrapper combining:
+// - ControlBar (top)
+// - LeftZone (project explorer)
+// - CenterZone (main editor)
+// - RightZone (inspector)
+// - LowerZone (mixer/editor/browser)
+//
+// 1:1 migration from React MainLayout.tsx
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

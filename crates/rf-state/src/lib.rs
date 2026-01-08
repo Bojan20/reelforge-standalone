@@ -21,6 +21,7 @@ mod preferences;
 mod preset;
 mod project;
 mod undo;
+mod versions;
 
 pub use ab_compare::*;
 pub use automation::*;
@@ -33,3 +34,4 @@ pub use preferences::*;
 pub use preset::*;
 pub use project::*;
 pub use undo::*;
+pub use versions::*;

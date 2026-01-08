@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../editors/clip_fx_editor.dart';
+import '../waveform/ultimate_waveform.dart';
 import 'stretch_overlay.dart';
 
 class ClipWidget extends StatefulWidget {
@@ -395,19 +396,19 @@ class _ClipWidgetState extends State<ClipWidget> {
           ),
           child: Stack(
             children: [
-              // Waveform
+              // Ultimate Waveform Display (best-in-class DAW waveform)
               if (clip.waveform != null && width > 20)
                 Positioned.fill(
                   child: Padding(
                     padding: const EdgeInsets.all(2),
-                    child: Transform.scale(
-                      scaleY: clip.gain,
-                      child: _WaveformCanvas(
-                        waveform: clip.waveform!,
-                        sourceOffset: clip.sourceOffset,
-                        duration: clip.duration,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
+                    child: _UltimateClipWaveform(
+                      waveform: clip.waveform!,
+                      waveformRight: clip.waveformRight, // Stereo support
+                      sourceOffset: clip.sourceOffset,
+                      duration: clip.duration,
+                      gain: clip.gain,
+                      zoom: widget.zoom,
+                      clipColor: clipColor,
                     ),
                   ),
                 ),
@@ -676,7 +677,102 @@ class _ClipWidgetState extends State<ClipWidget> {
   }
 }
 
-// ============ Waveform Canvas ============
+// ============ Ultimate Clip Waveform ============
+/// Advanced waveform widget for clips - best of all DAWs
+
+class _UltimateClipWaveform extends StatefulWidget {
+  final Float32List waveform;
+  final Float32List? waveformRight;
+  final double sourceOffset;
+  final double duration;
+  final double gain;
+  final double zoom;
+  final Color clipColor;
+
+  const _UltimateClipWaveform({
+    required this.waveform,
+    this.waveformRight,
+    required this.sourceOffset,
+    required this.duration,
+    required this.gain,
+    required this.zoom,
+    required this.clipColor,
+  });
+
+  @override
+  State<_UltimateClipWaveform> createState() => _UltimateClipWaveformState();
+}
+
+class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
+  UltimateWaveformData? _waveformData;
+  Float32List? _lastWaveform;
+
+  @override
+  void didUpdateWidget(_UltimateClipWaveform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Rebuild data only if waveform changed
+    if (widget.waveform != _lastWaveform) {
+      _buildWaveformData();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _buildWaveformData();
+  }
+
+  void _buildWaveformData() {
+    _lastWaveform = widget.waveform;
+    // Convert Float32List to List<double> for UltimateWaveformData
+    final leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
+    final rightSamples = widget.waveformRight?.map((s) => s.toDouble()).toList();
+
+    _waveformData = UltimateWaveformData.fromSamples(
+      leftSamples,
+      rightChannelSamples: rightSamples,
+      sampleRate: 48000, // Default, could be passed from clip
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_waveformData == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate samples per pixel for LOD selection
+    final isStereo = widget.waveformRight != null;
+
+    // Use UltimateWaveform config tuned for clip display
+    final config = UltimateWaveformConfig(
+      style: WaveformStyle.filled,
+      primaryColor: Colors.white,
+      rmsColor: Colors.white.withValues(alpha: 0.85),
+      showRms: true,
+      showTransients: widget.zoom > 30, // Show transients at higher zoom
+      showClipping: true,
+      showZeroCrossings: widget.zoom > 80, // Only at very high zoom
+      showSampleDots: widget.zoom > 150, // Individual samples at extreme zoom
+      use3dEffect: true,
+      antiAlias: true,
+      lineWidth: 1.0,
+    );
+
+    return Transform.scale(
+      scaleY: widget.gain,
+      child: UltimateWaveform(
+        data: _waveformData!,
+        config: config,
+        zoom: 1, // Zoom handled by clip width
+        scrollOffset: 0,
+        isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
+      ),
+    );
+  }
+}
+
+// ============ Legacy Waveform Canvas (fallback) ============
 
 class _WaveformCanvas extends StatelessWidget {
   final Float32List waveform;

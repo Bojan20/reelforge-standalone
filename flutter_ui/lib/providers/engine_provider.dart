@@ -1,10 +1,10 @@
-/// Engine Provider
-///
-/// Central hub connecting Flutter providers to the Rust audio engine.
-/// Manages:
-/// - Engine lifecycle (init, shutdown)
-/// - State synchronization (transport, metering, project)
-/// - Stream subscriptions for real-time updates
+// Engine Provider
+//
+// Central hub connecting Flutter providers to the Rust audio engine.
+// Manages:
+// - Engine lifecycle (init, shutdown)
+// - State synchronization (transport, metering, project)
+// - Stream subscriptions for real-time updates
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';

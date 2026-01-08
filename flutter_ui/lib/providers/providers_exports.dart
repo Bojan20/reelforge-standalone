@@ -1,7 +1,7 @@
-/// Provider Exports
-///
-/// Re-exports all state management providers for easy import.
-/// Migrated from React hooks to Flutter ChangeNotifier providers.
+// Provider Exports
+//
+// Re-exports all state management providers for easy import.
+// Migrated from React hooks to Flutter ChangeNotifier providers.
 
 // Rust Engine
 export 'engine_provider.dart';

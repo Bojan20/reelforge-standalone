@@ -1,11 +1,11 @@
-/// Session Persistence Provider
-///
-/// Persist session state with:
-/// - IndexedDB-like storage
-/// - Auto-save with debouncing
-/// - Version migration
-/// - Emergency backup on close
-/// - Schema validation
+// Session Persistence Provider
+//
+// Persist session state with:
+// - IndexedDB-like storage
+// - Auto-save with debouncing
+// - Version migration
+// - Emergency backup on close
+// - Schema validation
 
 import 'dart:async';
 import 'dart:convert';

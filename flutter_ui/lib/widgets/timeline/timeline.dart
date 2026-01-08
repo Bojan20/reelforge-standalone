@@ -22,7 +22,7 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
-import 'track_header_pro.dart';
+import 'track_header_ultimate.dart';
 import 'track_lane.dart';
 import 'automation_lane.dart';
 
@@ -142,6 +142,8 @@ class Timeline extends StatefulWidget {
   final void Function(String trackId, AutomationParameter parameter)? onAddAutomationLane;
   /// Remove automation lane from track
   final void Function(String trackId, String laneId)? onRemoveAutomationLane;
+  /// Track height change callback (for resizable tracks)
+  final void Function(String trackId, double height)? onTrackHeightChange;
 
   const Timeline({
     super.key,
@@ -211,6 +213,7 @@ class Timeline extends StatefulWidget {
     this.onAutomationLaneChanged,
     this.onAddAutomationLane,
     this.onRemoveAutomationLane,
+    this.onTrackHeightChange,
   });
 
   @override
@@ -222,7 +225,7 @@ class _TimelineState extends State<Timeline> {
   double _headerWidth = 180;
   static const double _headerWidthMin = 140;
   static const double _headerWidthMax = 300;
-  static const double _trackHeight = 80;
+  static const double _defaultTrackHeight = 80;
   static const double _rulerHeight = 28;
 
   bool _isDraggingPlayhead = false;
@@ -368,15 +371,29 @@ class _TimelineState extends State<Timeline> {
     if (widget.loopRegion == null) return;
 
     final x = details.localPosition.dx - _headerWidth;
-    final time = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+    var time = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
 
     if (isLeft) {
-      final newStart = time.clamp(0.0, widget.loopRegion!.end - 0.1);
+      // Clamp first to valid range
+      var newStart = time.clamp(0.0, widget.loopRegion!.end - 0.1);
+      // Snap to grid if enabled (after clamp)
+      if (widget.snapEnabled && widget.snapValue > 0) {
+        newStart = snapToGrid(newStart, widget.snapValue, widget.tempo);
+        // Re-clamp after snap to ensure validity
+        newStart = newStart.clamp(0.0, widget.loopRegion!.end - 0.05);
+      }
       widget.onLoopRegionChange?.call(
         LoopRegion(start: newStart, end: widget.loopRegion!.end),
       );
     } else {
-      final newEnd = time.clamp(widget.loopRegion!.start + 0.1, widget.totalDuration);
+      // Clamp first to valid range
+      var newEnd = time.clamp(widget.loopRegion!.start + 0.1, widget.totalDuration);
+      // Snap to grid if enabled (after clamp)
+      if (widget.snapEnabled && widget.snapValue > 0) {
+        newEnd = snapToGrid(newEnd, widget.snapValue, widget.tempo);
+        // Re-clamp after snap to ensure validity
+        newEnd = newEnd.clamp(widget.loopRegion!.start + 0.05, widget.totalDuration);
+      }
       widget.onLoopRegionChange?.call(
         LoopRegion(start: widget.loopRegion!.start, end: newEnd),
       );
@@ -400,7 +417,7 @@ class _TimelineState extends State<Timeline> {
     final startTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
 
     // Calculate track from Y position
-    final trackIndex = ((position.dy - _rulerHeight) / _trackHeight).floor();
+    final trackIndex = ((position.dy - _rulerHeight) / _defaultTrackHeight).floor();
     String? trackId;
     if (trackIndex >= 0 && trackIndex < widget.tracks.length) {
       trackId = widget.tracks[trackIndex].id;
@@ -452,7 +469,7 @@ class _TimelineState extends State<Timeline> {
     // Calculate track from Y position (local)
     // Account for ruler height (no vertical scroll in this timeline implementation)
     final yInContent = localPosition.dy - _rulerHeight;
-    final trackIndex = (yInContent / _trackHeight).floor();
+    final trackIndex = (yInContent / _defaultTrackHeight).floor();
 
     String? trackId;
     // Only assign trackId if dropping ON an existing track
@@ -599,7 +616,7 @@ class _TimelineState extends State<Timeline> {
   void _handleCrossTrackDrag(String clipId, double newStartTime, double verticalDelta, int sourceTrackIndex) {
     // Calculate target track index based on vertical delta
     // Allow tracks.length as valid target (means: create new track below)
-    final tracksDelta = (verticalDelta / _trackHeight).round();
+    final tracksDelta = (verticalDelta / _defaultTrackHeight).round();
     final targetIndex = (sourceTrackIndex + tracksDelta).clamp(0, widget.tracks.length);
 
     setState(() {
@@ -699,10 +716,13 @@ class _TimelineState extends State<Timeline> {
     required List<AutomationLaneData> visibleAutomationLanes,
     required int trackIndex,
   }) {
+    // Use track's height (per-track resizable) or default
+    final trackHeight = track.height > 0 ? track.height : _defaultTrackHeight;
+
     // Calculate total height including automation lanes
     final automationHeight = visibleAutomationLanes.fold<double>(
       0.0, (sum, lane) => sum + lane.height);
-    final totalHeight = _trackHeight + automationHeight;
+    final totalHeight = trackHeight + automationHeight;
 
     return SizedBox(
       height: totalHeight,
@@ -710,15 +730,24 @@ class _TimelineState extends State<Timeline> {
         children: [
           // Main track row
           SizedBox(
-            height: _trackHeight,
+            height: trackHeight,
             child: Row(
               children: [
-                // Track header - PRO VERSION
-                TrackHeaderPro(
+                // Track header - ULTIMATE VERSION with per-track resizing
+                Builder(
+                  builder: (context) {
+                    final trackId = int.tryParse(track.id) ?? 0;
+                    final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(trackId);
+                    // Get waveform preview from first clip (if any)
+                    final firstClipWaveform = trackClips.isNotEmpty ? trackClips.first.waveform : null;
+                    return TrackHeaderUltimate(
                   track: track,
-                  size: TrackHeaderSize.compact,
                   width: _headerWidth,
-                  signalLevel: EngineApi.instance.getTrackPeak(int.tryParse(track.id) ?? 0),
+                  height: trackHeight,
+                  signalLevel: peakL,
+                  signalLevelR: peakR,
+                  waveformPreview: firstClipWaveform,
+                  waveformPreviewR: firstClipWaveform, // Use same for both channels if mono
                   isEmpty: isEmpty,
                   onMuteToggle: () =>
                       widget.onTrackMuteToggle?.call(track.id),
@@ -734,6 +763,8 @@ class _TimelineState extends State<Timeline> {
                       widget.onTrackLockToggle?.call(track.id),
                   onFolderToggle: () =>
                       widget.onTrackFolderToggle?.call(track.id),
+                  onAutomationToggle: () =>
+                      widget.onTrackAutomationToggle?.call(track.id),
                   onVolumeChange: (v) =>
                       widget.onTrackVolumeChange?.call(track.id, v),
                   onPanChange: (p) =>
@@ -752,14 +783,17 @@ class _TimelineState extends State<Timeline> {
                       widget.onTrackDelete?.call(track.id),
                   onContextMenu: (pos) =>
                       widget.onTrackContextMenu?.call(track.id, pos),
-                  onAutomationToggle: () =>
-                      widget.onTrackAutomationToggle?.call(track.id),
+                  onHeightChange: (h) =>
+                      widget.onTrackHeightChange?.call(track.id, h),
+                  onWidthChange: (w) => setState(() => _headerWidth = w.clamp(_headerWidthMin, _headerWidthMax)),
+                    );
+                  },
                 ),
                 // Track lane
                 Expanded(
                   child: TrackLane(
                     track: track,
-                    trackHeight: _trackHeight,
+                    trackHeight: trackHeight,
                     clips: trackClips,
                     crossfades: trackCrossfades,
                     zoom: widget.zoom,
@@ -1157,7 +1191,7 @@ class _TimelineState extends State<Timeline> {
                                   opacity: 0.6,
                                   child: Container(
                                     width: _draggingClip!.duration * widget.zoom,
-                                    height: _trackHeight - 4,
+                                    height: _defaultTrackHeight - 4,
                                     decoration: BoxDecoration(
                                       color: (_draggingClip!.color ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(4),
@@ -1245,12 +1279,12 @@ class _TimelineState extends State<Timeline> {
                         builder: (context) {
                           // Calculate target track
                           final yInContent = _dropPosition!.dy - _rulerHeight;
-                          final trackIndex = (yInContent / _trackHeight).floor().clamp(0, math.max(0, widget.tracks.length - 1));
-                          final targetTrackY = trackIndex * _trackHeight + _rulerHeight + 2;
+                          final trackIndex = (yInContent / _defaultTrackHeight).floor().clamp(0, math.max(0, widget.tracks.length - 1));
+                          final targetTrackY = trackIndex * _defaultTrackHeight + _rulerHeight + 2;
 
                           // Ghost clip dimensions (preview)
                           const ghostWidth = 120.0; // Default width for preview
-                          final ghostHeight = _trackHeight - 4;
+                          final ghostHeight = _defaultTrackHeight - 4;
 
                           return Stack(
                             children: [
@@ -1260,7 +1294,7 @@ class _TimelineState extends State<Timeline> {
                                   left: _headerWidth,
                                   top: targetTrackY - 2,
                                   right: 0,
-                                  height: _trackHeight,
+                                  height: _defaultTrackHeight,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),

@@ -114,8 +114,23 @@ typedef EngineGetTrackCountDart = int Function();
 typedef EngineGetTrackPeakNative = Double Function(Uint64 trackId);
 typedef EngineGetTrackPeakDart = double Function(int trackId);
 
+typedef EngineGetTrackPeakStereoNative = Bool Function(Uint64 trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR);
+typedef EngineGetTrackPeakStereoDart = bool Function(int trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR);
+
+typedef EngineGetTrackRmsStereoNative = Bool Function(Uint64 trackId, Pointer<Double> outRmsL, Pointer<Double> outRmsR);
+typedef EngineGetTrackRmsStereoDart = bool Function(int trackId, Pointer<Double> outRmsL, Pointer<Double> outRmsR);
+
+typedef EngineGetTrackCorrelationNative = Double Function(Uint64 trackId);
+typedef EngineGetTrackCorrelationDart = double Function(int trackId);
+
+typedef EngineGetTrackMeterNative = Bool Function(Uint64 trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorrelation);
+typedef EngineGetTrackMeterDart = bool Function(int trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorrelation);
+
 typedef EngineGetAllTrackPeaksNative = IntPtr Function(Pointer<Uint64> outIds, Pointer<Double> outPeaks, IntPtr maxCount);
 typedef EngineGetAllTrackPeaksDart = int Function(Pointer<Uint64> outIds, Pointer<Double> outPeaks, int maxCount);
+
+typedef EngineGetAllTrackMetersNative = IntPtr Function(Pointer<Uint64> outIds, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorr, IntPtr maxCount);
+typedef EngineGetAllTrackMetersDart = int Function(Pointer<Uint64> outIds, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorr, int maxCount);
 
 // Audio import
 typedef EngineImportAudioNative = Uint64 Function(Pointer<Utf8> path, Uint64 trackId, Double startTime);
@@ -637,7 +652,12 @@ class NativeFFI {
   late final EngineSetTrackBusDart _setTrackBus;
   late final EngineGetTrackCountDart _getTrackCount;
   late final EngineGetTrackPeakDart _getTrackPeak;
+  late final EngineGetTrackPeakStereoDart _getTrackPeakStereo;
+  late final EngineGetTrackRmsStereoDart _getTrackRmsStereo;
+  late final EngineGetTrackCorrelationDart _getTrackCorrelation;
+  late final EngineGetTrackMeterDart _getTrackMeter;
   late final EngineGetAllTrackPeaksDart _getAllTrackPeaks;
+  late final EngineGetAllTrackMetersDart _getAllTrackMeters;
 
   late final EngineImportAudioDart _importAudio;
 
@@ -878,7 +898,12 @@ class NativeFFI {
     _setTrackBus = _lib.lookupFunction<EngineSetTrackBusNative, EngineSetTrackBusDart>('engine_set_track_bus');
     _getTrackCount = _lib.lookupFunction<EngineGetTrackCountNative, EngineGetTrackCountDart>('engine_get_track_count');
     _getTrackPeak = _lib.lookupFunction<EngineGetTrackPeakNative, EngineGetTrackPeakDart>('engine_get_track_peak');
+    _getTrackPeakStereo = _lib.lookupFunction<EngineGetTrackPeakStereoNative, EngineGetTrackPeakStereoDart>('engine_get_track_peak_stereo');
+    _getTrackRmsStereo = _lib.lookupFunction<EngineGetTrackRmsStereoNative, EngineGetTrackRmsStereoDart>('engine_get_track_rms_stereo');
+    _getTrackCorrelation = _lib.lookupFunction<EngineGetTrackCorrelationNative, EngineGetTrackCorrelationDart>('engine_get_track_correlation');
+    _getTrackMeter = _lib.lookupFunction<EngineGetTrackMeterNative, EngineGetTrackMeterDart>('engine_get_track_meter');
     _getAllTrackPeaks = _lib.lookupFunction<EngineGetAllTrackPeaksNative, EngineGetAllTrackPeaksDart>('engine_get_all_track_peaks');
+    _getAllTrackMeters = _lib.lookupFunction<EngineGetAllTrackMetersNative, EngineGetAllTrackMetersDart>('engine_get_all_track_meters');
 
     _importAudio = _lib.lookupFunction<EngineImportAudioNative, EngineImportAudioDart>('engine_import_audio');
 
@@ -1161,14 +1186,77 @@ class NativeFFI {
     return _getTrackCount();
   }
 
-  /// Get track peak level (0.0 - 1.0+) by track ID
+  /// Get track peak level (0.0 - 1.0+) by track ID - returns max(L, R)
   double getTrackPeak(int trackId) {
     if (!_loaded) return 0.0;
     return _getTrackPeak(trackId);
   }
 
+  /// Get track stereo peak levels (L, R) by track ID
+  /// Returns (peakL, peakR) tuple
+  (double, double) getTrackPeakStereo(int trackId) {
+    if (!_loaded) return (0.0, 0.0);
+    final peakLPtr = calloc<Double>();
+    final peakRPtr = calloc<Double>();
+    try {
+      _getTrackPeakStereo(trackId, peakLPtr, peakRPtr);
+      return (peakLPtr.value, peakRPtr.value);
+    } finally {
+      calloc.free(peakLPtr);
+      calloc.free(peakRPtr);
+    }
+  }
+
+  /// Get track stereo RMS levels (L, R) by track ID
+  /// Returns (rmsL, rmsR) tuple
+  (double, double) getTrackRmsStereo(int trackId) {
+    if (!_loaded) return (0.0, 0.0);
+    final rmsLPtr = calloc<Double>();
+    final rmsRPtr = calloc<Double>();
+    try {
+      _getTrackRmsStereo(trackId, rmsLPtr, rmsRPtr);
+      return (rmsLPtr.value, rmsRPtr.value);
+    } finally {
+      calloc.free(rmsLPtr);
+      calloc.free(rmsRPtr);
+    }
+  }
+
+  /// Get track correlation by track ID (-1.0 to 1.0)
+  double getTrackCorrelation(int trackId) {
+    if (!_loaded) return 1.0;
+    return _getTrackCorrelation(trackId);
+  }
+
+  /// Get full track meter data (peakL, peakR, rmsL, rmsR, correlation)
+  /// Returns TrackMeterData record
+  ({double peakL, double peakR, double rmsL, double rmsR, double correlation}) getTrackMeter(int trackId) {
+    if (!_loaded) return (peakL: 0.0, peakR: 0.0, rmsL: 0.0, rmsR: 0.0, correlation: 1.0);
+    final peakLPtr = calloc<Double>();
+    final peakRPtr = calloc<Double>();
+    final rmsLPtr = calloc<Double>();
+    final rmsRPtr = calloc<Double>();
+    final corrPtr = calloc<Double>();
+    try {
+      _getTrackMeter(trackId, peakLPtr, peakRPtr, rmsLPtr, rmsRPtr, corrPtr);
+      return (
+        peakL: peakLPtr.value,
+        peakR: peakRPtr.value,
+        rmsL: rmsLPtr.value,
+        rmsR: rmsRPtr.value,
+        correlation: corrPtr.value,
+      );
+    } finally {
+      calloc.free(peakLPtr);
+      calloc.free(peakRPtr);
+      calloc.free(rmsLPtr);
+      calloc.free(rmsRPtr);
+      calloc.free(corrPtr);
+    }
+  }
+
   /// Get all track peaks at once (more efficient for UI metering)
-  /// Returns map of track_id -> peak value
+  /// Returns map of track_id -> peak value (max of L/R for backward compat)
   Map<int, double> getAllTrackPeaks(int maxTracks) {
     if (!_loaded) return {};
     final idsPtr = calloc<Uint64>(maxTracks);
@@ -1183,6 +1271,39 @@ class NativeFFI {
     } finally {
       calloc.free(idsPtr);
       calloc.free(peaksPtr);
+    }
+  }
+
+  /// Get all track stereo meters at once (most efficient for UI)
+  /// Returns map of track_id -> TrackMeterData
+  Map<int, ({double peakL, double peakR, double rmsL, double rmsR, double correlation})> getAllTrackMeters(int maxTracks) {
+    if (!_loaded) return {};
+    final idsPtr = calloc<Uint64>(maxTracks);
+    final peakLPtr = calloc<Double>(maxTracks);
+    final peakRPtr = calloc<Double>(maxTracks);
+    final rmsLPtr = calloc<Double>(maxTracks);
+    final rmsRPtr = calloc<Double>(maxTracks);
+    final corrPtr = calloc<Double>(maxTracks);
+    try {
+      final count = _getAllTrackMeters(idsPtr, peakLPtr, peakRPtr, rmsLPtr, rmsRPtr, corrPtr, maxTracks);
+      final result = <int, ({double peakL, double peakR, double rmsL, double rmsR, double correlation})>{};
+      for (int i = 0; i < count; i++) {
+        result[idsPtr[i]] = (
+          peakL: peakLPtr[i],
+          peakR: peakRPtr[i],
+          rmsL: rmsLPtr[i],
+          rmsR: rmsRPtr[i],
+          correlation: corrPtr[i],
+        );
+      }
+      return result;
+    } finally {
+      calloc.free(idsPtr);
+      calloc.free(peakLPtr);
+      calloc.free(peakRPtr);
+      calloc.free(rmsLPtr);
+      calloc.free(rmsRPtr);
+      calloc.free(corrPtr);
     }
   }
 
@@ -5931,6 +6052,566 @@ extension SaturationAPI on NativeFFI {
   bool saturationExists(int trackId) => _saturationExists(trackId) == 1;
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // PDC (PLUGIN DELAY COMPENSATION)
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _pdcGetTotalLatencySamples = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('pdc_get_total_latency_samples');
+  static final _pdcGetTrackLatency = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Uint64), int Function(int)>('pdc_get_track_latency');
+  static final _pdcGetTotalLatencyMs = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('pdc_get_total_latency_ms');
+  static final _pdcGetSlotLatency = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Uint64, Uint32), int Function(int, int)>('pdc_get_slot_latency');
+  static final _pdcIsEnabled = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('pdc_is_enabled');
+  static final _pdcGetMasterLatency = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('pdc_get_master_latency');
+
+  /// Get total system latency in samples
+  int pdcGetTotalLatencySamples() => _pdcGetTotalLatencySamples();
+
+  /// Get track insert chain latency in samples
+  int pdcGetTrackLatency(int trackId) => _pdcGetTrackLatency(trackId);
+
+  /// Get total system latency in milliseconds
+  double pdcGetTotalLatencyMs() => _pdcGetTotalLatencyMs();
+
+  /// Get insert slot latency in samples
+  int pdcGetSlotLatency(int trackId, int slotIndex) => _pdcGetSlotLatency(trackId, slotIndex);
+
+  /// Check if PDC is enabled
+  bool pdcIsEnabled() => _pdcIsEnabled() == 1;
+
+  /// Get master bus total latency in samples
+  int pdcGetMasterLatency() => _pdcGetMasterLatency();
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // RENDER IN PLACE
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _renderInPlace = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double, Double, Pointer<Utf8>, Uint32, Int32),
+      int Function(int, double, double, Pointer<Utf8>, int, int)>('render_in_place');
+  static final _renderGetProgress = _loadNativeLibrary().lookupFunction<
+      Float Function(), double Function()>('render_get_progress');
+  static final _renderCancel = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('render_cancel');
+  static final _renderSelectionToNewClip = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Uint64, Double, Double, Pointer<Utf8>, Uint32),
+      int Function(int, double, double, Pointer<Utf8>, int)>('render_selection_to_new_clip');
+
+  /// Render track to WAV file
+  /// Returns true on success, false on failure
+  bool renderInPlace({
+    required int trackId,
+    required double startTime,
+    required double endTime,
+    required String outputPath,
+    int bitDepth = 32, // 16, 24, or 32
+    bool includeTail = false,
+  }) {
+    final pathPtr = outputPath.toNativeUtf8();
+    try {
+      return _renderInPlace(
+        trackId,
+        startTime,
+        endTime,
+        pathPtr,
+        bitDepth,
+        includeTail ? 1 : 0,
+      ) == 1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get render progress (0.0 - 1.0)
+  double renderGetProgress() => _renderGetProgress();
+
+  /// Cancel ongoing render
+  bool renderCancel() => _renderCancel() == 1;
+
+  /// Render selection and create new clip
+  /// Returns clip ID on success, 0 on failure
+  int renderSelectionToNewClip({
+    required int trackId,
+    required double startTime,
+    required double endTime,
+    required String outputPath,
+    int bitDepth = 32,
+  }) {
+    final pathPtr = outputPath.toNativeUtf8();
+    try {
+      return _renderSelectionToNewClip(
+        trackId,
+        startTime,
+        endTime,
+        pathPtr,
+        bitDepth,
+      );
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CYCLE REGION
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _cycleGetStart = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('cycle_get_start');
+  static final _cycleGetEnd = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('cycle_get_end');
+  static final _cycleIsEnabled = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('cycle_is_enabled');
+  static final _cycleGetCurrent = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('cycle_get_current');
+  static final _cycleGetMax = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('cycle_get_max');
+  static final _cycleSetRange = _loadNativeLibrary().lookupFunction<
+      Void Function(Double, Double), void Function(double, double)>('cycle_set_range');
+  static final _cycleSetEnabled = _loadNativeLibrary().lookupFunction<
+      Void Function(Int32), void Function(int)>('cycle_set_enabled');
+  static final _cycleSetMax = _loadNativeLibrary().lookupFunction<
+      Void Function(Uint32), void Function(int)>('cycle_set_max');
+  static final _cycleResetCounter = _loadNativeLibrary().lookupFunction<
+      Void Function(), void Function()>('cycle_reset_counter');
+
+  /// Get cycle region start time
+  double cycleGetStart() => _cycleGetStart();
+
+  /// Get cycle region end time
+  double cycleGetEnd() => _cycleGetEnd();
+
+  /// Check if cycle is enabled
+  bool cycleIsEnabled() => _cycleIsEnabled() == 1;
+
+  /// Get current cycle count
+  int cycleGetCurrent() => _cycleGetCurrent();
+
+  /// Get max cycles (0 = unlimited)
+  int cycleGetMax() => _cycleGetMax();
+
+  /// Set cycle region range
+  void cycleSetRange(double start, double end) => _cycleSetRange(start, end);
+
+  /// Set cycle enabled state
+  void cycleSetEnabled(bool enabled) => _cycleSetEnabled(enabled ? 1 : 0);
+
+  /// Set max cycles (0 = unlimited)
+  void cycleSetMax(int maxCycles) => _cycleSetMax(maxCycles);
+
+  /// Reset cycle counter
+  void cycleResetCounter() => _cycleResetCounter();
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PUNCH REGION
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _punchGetIn = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('punch_get_in');
+  static final _punchGetOut = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('punch_get_out');
+  static final _punchIsEnabled = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('punch_is_enabled');
+  static final _punchGetPreRoll = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('punch_get_pre_roll');
+  static final _punchGetPostRoll = _loadNativeLibrary().lookupFunction<
+      Double Function(), double Function()>('punch_get_post_roll');
+  static final _punchSetRange = _loadNativeLibrary().lookupFunction<
+      Void Function(Double, Double), void Function(double, double)>('punch_set_range');
+  static final _punchSetEnabled = _loadNativeLibrary().lookupFunction<
+      Void Function(Int32), void Function(int)>('punch_set_enabled');
+  static final _punchSetPreRoll = _loadNativeLibrary().lookupFunction<
+      Void Function(Double), void Function(double)>('punch_set_pre_roll');
+  static final _punchSetPostRoll = _loadNativeLibrary().lookupFunction<
+      Void Function(Double), void Function(double)>('punch_set_post_roll');
+  static final _punchIsActive = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Double), int Function(double)>('punch_is_active');
+
+  /// Get punch in time
+  double punchGetIn() => _punchGetIn();
+
+  /// Get punch out time
+  double punchGetOut() => _punchGetOut();
+
+  /// Check if punch is enabled
+  bool punchIsEnabled() => _punchIsEnabled() == 1;
+
+  /// Get pre-roll bars
+  double punchGetPreRoll() => _punchGetPreRoll();
+
+  /// Get post-roll bars
+  double punchGetPostRoll() => _punchGetPostRoll();
+
+  /// Set punch in/out range
+  void punchSetRange(double punchIn, double punchOut) => _punchSetRange(punchIn, punchOut);
+
+  /// Set punch enabled state
+  void punchSetEnabled(bool enabled) => _punchSetEnabled(enabled ? 1 : 0);
+
+  /// Set pre-roll bars
+  void punchSetPreRoll(double bars) => _punchSetPreRoll(bars);
+
+  /// Set post-roll bars
+  void punchSetPostRoll(double bars) => _punchSetPostRoll(bars);
+
+  /// Check if time is within punch region
+  bool punchIsActive(double time) => _punchIsActive(time) == 1;
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TRACK TEMPLATES
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _templateSaveTrack = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint64, Pointer<Utf8>, Pointer<Utf8>),
+      Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<Utf8>)>('template_save_track');
+  static final _templateCreateTrack = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)>('template_create_track');
+  static final _templateGetCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('template_get_count');
+  static final _templateListAll = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(), Pointer<Utf8> Function()>('template_list_all');
+  static final _templateListByCategory = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('template_list_by_category');
+  static final _templateGet = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('template_get');
+  static final _templateDelete = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)>('template_delete');
+  static final _templateSetDescription = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Pointer<Utf8>), int Function(Pointer<Utf8>, Pointer<Utf8>)>('template_set_description');
+  static final _templateAddTag = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Pointer<Utf8>), int Function(Pointer<Utf8>, Pointer<Utf8>)>('template_add_tag');
+  static final _templateSearchByTag = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('template_search_by_tag');
+
+  /// Save track as template
+  /// Returns template ID or null on failure
+  String? templateSaveTrack(int trackId, String templateName, String category) {
+    final namePtr = templateName.toNativeUtf8();
+    final categoryPtr = category.toNativeUtf8();
+    try {
+      final result = _templateSaveTrack(trackId, namePtr, categoryPtr);
+      if (result == nullptr) return null;
+      final id = result.toDartString();
+      calloc.free(result);
+      return id;
+    } finally {
+      calloc.free(namePtr);
+      calloc.free(categoryPtr);
+    }
+  }
+
+  /// Create track from template
+  /// Returns track ID or 0 on failure
+  int templateCreateTrack(String templateId) {
+    final idPtr = templateId.toNativeUtf8();
+    try {
+      return _templateCreateTrack(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get template count
+  int templateGetCount() => _templateGetCount();
+
+  /// List all templates as JSON
+  String templateListAll() {
+    final result = _templateListAll();
+    if (result == nullptr) return '[]';
+    final json = result.toDartString();
+    calloc.free(result);
+    return json;
+  }
+
+  /// List templates by category as JSON
+  String templateListByCategory(String category) {
+    final categoryPtr = category.toNativeUtf8();
+    try {
+      final result = _templateListByCategory(categoryPtr);
+      if (result == nullptr) return '[]';
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(categoryPtr);
+    }
+  }
+
+  /// Get template by ID as JSON
+  String? templateGet(String templateId) {
+    final idPtr = templateId.toNativeUtf8();
+    try {
+      final result = _templateGet(idPtr);
+      if (result == nullptr) return null;
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Delete template
+  /// Returns true on success, false if template doesn't exist or is a default
+  bool templateDelete(String templateId) {
+    final idPtr = templateId.toNativeUtf8();
+    try {
+      return _templateDelete(idPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Set template description
+  bool templateSetDescription(String templateId, String description) {
+    final idPtr = templateId.toNativeUtf8();
+    final descPtr = description.toNativeUtf8();
+    try {
+      return _templateSetDescription(idPtr, descPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(descPtr);
+    }
+  }
+
+  /// Add tag to template
+  bool templateAddTag(String templateId, String tag) {
+    final idPtr = templateId.toNativeUtf8();
+    final tagPtr = tag.toNativeUtf8();
+    try {
+      return _templateAddTag(idPtr, tagPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(tagPtr);
+    }
+  }
+
+  /// Search templates by tag as JSON
+  String templateSearchByTag(String tag) {
+    final tagPtr = tag.toNativeUtf8();
+    try {
+      final result = _templateSearchByTag(tagPtr);
+      if (result == nullptr) return '[]';
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(tagPtr);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PROJECT VERSIONING
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static final _versionInit = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>, Pointer<Utf8>),
+      void Function(Pointer<Utf8>, Pointer<Utf8>)>('version_init');
+  static final _versionCreate = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)>('version_create');
+  static final _versionLoad = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('version_load');
+  static final _versionListAll = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(), Pointer<Utf8> Function()>('version_list_all');
+  static final _versionListMilestones = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(), Pointer<Utf8> Function()>('version_list_milestones');
+  static final _versionGet = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('version_get');
+  static final _versionDelete = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)>('version_delete');
+  static final _versionForceDelete = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)>('version_force_delete');
+  static final _versionSetMilestone = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Int32),
+      int Function(Pointer<Utf8>, int)>('version_set_milestone');
+  static final _versionAddTag = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>)>('version_add_tag');
+  static final _versionSearchByTag = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('version_search_by_tag');
+  static final _versionGetCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('version_get_count');
+  static final _versionGetLatest = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(), Pointer<Utf8> Function()>('version_get_latest');
+  static final _versionExport = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>)>('version_export');
+  static final _versionSetMaxCount = _loadNativeLibrary().lookupFunction<
+      Void Function(Uint32), void Function(int)>('version_set_max_count');
+  static final _versionRefresh = _loadNativeLibrary().lookupFunction<
+      Void Function(), void Function()>('version_refresh');
+
+  /// Initialize version manager for project
+  void versionInit(String projectName, String baseDir) {
+    final namePtr = projectName.toNativeUtf8();
+    final dirPtr = baseDir.toNativeUtf8();
+    try {
+      _versionInit(namePtr, dirPtr);
+    } finally {
+      calloc.free(namePtr);
+      calloc.free(dirPtr);
+    }
+  }
+
+  /// Create a new version snapshot
+  /// Returns version ID or null on failure
+  String? versionCreate(String name, String description) {
+    final namePtr = name.toNativeUtf8();
+    final descPtr = description.toNativeUtf8();
+    try {
+      final result = _versionCreate(namePtr, descPtr);
+      if (result == nullptr) return null;
+      final id = result.toDartString();
+      calloc.free(result);
+      return id;
+    } finally {
+      calloc.free(namePtr);
+      calloc.free(descPtr);
+    }
+  }
+
+  /// Load version data by ID
+  /// Returns project JSON or null on failure
+  String? versionLoad(String versionId) {
+    final idPtr = versionId.toNativeUtf8();
+    try {
+      final result = _versionLoad(idPtr);
+      if (result == nullptr) return null;
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// List all versions as JSON array
+  String versionListAll() {
+    final result = _versionListAll();
+    if (result == nullptr) return '[]';
+    final json = result.toDartString();
+    calloc.free(result);
+    return json;
+  }
+
+  /// List milestone versions as JSON array
+  String versionListMilestones() {
+    final result = _versionListMilestones();
+    if (result == nullptr) return '[]';
+    final json = result.toDartString();
+    calloc.free(result);
+    return json;
+  }
+
+  /// Get version metadata by ID as JSON
+  String? versionGet(String versionId) {
+    final idPtr = versionId.toNativeUtf8();
+    try {
+      final result = _versionGet(idPtr);
+      if (result == nullptr) return null;
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Delete version
+  /// Returns true on success, false if protected or not found
+  bool versionDelete(String versionId) {
+    final idPtr = versionId.toNativeUtf8();
+    try {
+      return _versionDelete(idPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Force delete version (even milestones)
+  bool versionForceDelete(String versionId) {
+    final idPtr = versionId.toNativeUtf8();
+    try {
+      return _versionForceDelete(idPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Mark version as milestone
+  bool versionSetMilestone(String versionId, bool isMilestone) {
+    final idPtr = versionId.toNativeUtf8();
+    try {
+      return _versionSetMilestone(idPtr, isMilestone ? 1 : 0) == 1;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Add tag to version
+  bool versionAddTag(String versionId, String tag) {
+    final idPtr = versionId.toNativeUtf8();
+    final tagPtr = tag.toNativeUtf8();
+    try {
+      return _versionAddTag(idPtr, tagPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(tagPtr);
+    }
+  }
+
+  /// Search versions by tag
+  String versionSearchByTag(String tag) {
+    final tagPtr = tag.toNativeUtf8();
+    try {
+      final result = _versionSearchByTag(tagPtr);
+      if (result == nullptr) return '[]';
+      final json = result.toDartString();
+      calloc.free(result);
+      return json;
+    } finally {
+      calloc.free(tagPtr);
+    }
+  }
+
+  /// Get version count
+  int versionGetCount() => _versionGetCount();
+
+  /// Get latest version ID
+  String? versionGetLatest() {
+    final result = _versionGetLatest();
+    if (result == nullptr) return null;
+    final id = result.toDartString();
+    calloc.free(result);
+    return id;
+  }
+
+  /// Export version to file
+  bool versionExport(String versionId, String exportPath) {
+    final idPtr = versionId.toNativeUtf8();
+    final pathPtr = exportPath.toNativeUtf8();
+    try {
+      return _versionExport(idPtr, pathPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Set max versions to keep (0 = unlimited)
+  void versionSetMaxCount(int max) => _versionSetMaxCount(max);
+
+  /// Refresh versions from disk
+  void versionRefresh() => _versionRefresh();
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // ADVANCED METERING (8x True Peak, PSR, Psychoacoustic)
   // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -5967,6 +6648,78 @@ extension SaturationAPI on NativeFFI {
   /// Reset all advanced meters
   void advancedResetAll() {
     // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // AUDIO POOL
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get list of audio files in the pool
+  String audioPoolList() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return '[]';
+  }
+
+  /// Import audio file to pool
+  bool audioPoolImport(String path) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return true;
+  }
+
+  /// Remove audio file from pool
+  bool audioPoolRemove(String fileId) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return true;
+  }
+
+  /// Play audio file preview
+  void audioPoolPlayPreview(String fileId) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  }
+
+  /// Stop audio file preview
+  void audioPoolStopPreview() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  }
+
+  /// Locate missing audio file
+  bool audioPoolLocate(String fileId, String newPath) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // EXPORT PRESETS
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get list of export presets
+  String exportPresetsList() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return '[]';
+  }
+
+  /// Save export preset
+  bool exportPresetSave(String presetJson) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return true;
+  }
+
+  /// Delete export preset
+  bool exportPresetDelete(String presetId) {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return true;
+  }
+
+  /// Get default export path
+  String getDefaultExportPath() {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return '';
+  }
+
+  /// Select export folder (opens native dialog)
+  Future<String?> selectExportFolder() async {
+    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    return null;
   }
 }
 

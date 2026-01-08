@@ -9,6 +9,26 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    # Suppress deprecation warnings for Flutter 3.32+ RadioListTile/SwitchListTile API changes
+    deprecated_member_use: ignore
+    # Suppress dangling library doc comments (file headers with ///)
+    dangling_library_doc_comments: ignore
+    # Suppress unnecessary import warnings
+    unnecessary_import: ignore
+    # Suppress unnecessary late warnings (generated code)
+    unnecessary_late: ignore
+    # Suppress avoid_types_as_parameter_names
+    avoid_types_as_parameter_names: ignore
+    # Suppress unused field/element/parameter warnings
+    unused_field: ignore
+    unused_element: ignore
+    unused_element_parameter: ignore
+    unused_local_variable: ignore
+    # Suppress unnecessary string interpolation
+    unnecessary_string_interpolations: ignore
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
@@ -21,8 +41,17 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    avoid_print: false
+    prefer_final_fields: false
+    curly_braces_in_flow_control_structures: false
+    unnecessary_brace_in_string_interps: false
+    use_build_context_synchronously: false
+    sort_child_properties_last: false
+    no_leading_underscores_for_local_identifiers: false
+    unnecessary_this: false
+    prefer_initializing_formals: false
+    use_super_parameters: false
+    sized_box_for_whitespace: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

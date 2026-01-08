@@ -1,21 +1,21 @@
-/// Editor Mode Layout Configuration
-///
-/// Defines layout differences between DAW and Middleware modes.
-/// 1:1 migration from React editorModeConfig.ts
-///
-/// DAW Mode:
-/// - Timeline-centric editing
-/// - Full mixer in lower zone
-/// - Audio clip editing focus
-/// - Transport bar prominent
-/// - Default tab: Mixer
-///
-/// Middleware Mode:
-/// - Event-centric editing
-/// - Routing and states focus
-/// - Game integration tools
-/// - Console/debug prominent
-/// - Default tab: Slot Studio
+// Editor Mode Layout Configuration
+//
+// Defines layout differences between DAW and Middleware modes.
+// 1:1 migration from React editorModeConfig.ts
+//
+// DAW Mode:
+// - Timeline-centric editing
+// - Full mixer in lower zone
+// - Audio clip editing focus
+// - Transport bar prominent
+// - Default tab: Mixer
+//
+// Middleware Mode:
+// - Event-centric editing
+// - Routing and states focus
+// - Game integration tools
+// - Console/debug prominent
+// - Default tab: Slot Studio
 
 import 'layout_models.dart' show EditorMode;
 

@@ -1,10 +1,10 @@
-/// Mixer DSP Provider
-///
-/// Bridge between UI mixer state and real DSP processing:
-/// - Bus management (master, music, sfx, ambience, voice)
-/// - Insert chain management
-/// - Parameter updates
-/// - Volume/pan/mute control
+// Mixer DSP Provider
+//
+// Bridge between UI mixer state and real DSP processing:
+// - Bus management (master, music, sfx, ambience, voice)
+// - Insert chain management
+// - Parameter updates
+// - Volume/pan/mute control
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';

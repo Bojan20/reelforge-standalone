@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
+import '../meters/pdc_display.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIME FORMATTING
@@ -131,6 +132,12 @@ class ControlBar extends StatefulWidget {
   final VoidCallback? onToggleLowerZone;
   final MenuCallbacks? menuCallbacks;
 
+  // PDC (Plugin Delay Compensation)
+  final int pdcLatencySamples;
+  final double pdcLatencyMs;
+  final bool pdcEnabled;
+  final VoidCallback? onPdcTap;
+
   const ControlBar({
     super.key,
     this.editorMode = EditorMode.daw,
@@ -165,6 +172,10 @@ class ControlBar extends StatefulWidget {
     this.onToggleRightZone,
     this.onToggleLowerZone,
     this.menuCallbacks,
+    this.pdcLatencySamples = 0,
+    this.pdcLatencyMs = 0,
+    this.pdcEnabled = true,
+    this.onPdcTap,
   });
 
   @override
@@ -295,6 +306,20 @@ class _ControlBarState extends State<ControlBar> {
                     onToggleLeft: widget.onToggleLeftZone,
                     onToggleLower: widget.onToggleLowerZone,
                     onToggleRight: widget.onToggleRightZone,
+                  ),
+
+                // PDC Indicator (only in DAW mode, auto-fetch from engine)
+                if (features.showTransport && !isVeryCompact)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: widget.pdcLatencySamples > 0
+                      ? PdcIndicator(
+                          totalLatencySamples: widget.pdcLatencySamples,
+                          totalLatencyMs: widget.pdcLatencyMs,
+                          isEnabled: widget.pdcEnabled,
+                          onTap: widget.onPdcTap,
+                        )
+                      : PdcIndicator.fromEngine(onTap: widget.onPdcTap),
                   ),
 
                 // System Meters (hide on very compact)

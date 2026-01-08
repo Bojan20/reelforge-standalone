@@ -1,11 +1,11 @@
-/// Timeline Models
-///
-/// Core data types for timeline/sequencer:
-/// - TimelineClip
-/// - TimelineTrack
-/// - TimelineMarker
-/// - Crossfade
-/// - SnapConfig
+// Timeline Models
+//
+// Core data types for timeline/sequencer:
+// - TimelineClip
+// - TimelineTrack
+// - TimelineMarker
+// - Crossfade
+// - SnapConfig
 
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -22,8 +22,10 @@ class TimelineClip {
   final double startTime; // in seconds
   final double duration;
   final Color? color;
-  /// Pre-computed waveform peaks (0-1)
+  /// Pre-computed waveform peaks left channel (0-1)
   final Float32List? waveform;
+  /// Pre-computed waveform peaks right channel (0-1) - for stereo display
+  final Float32List? waveformRight;
   /// Source audio file path (for Rust engine lookup)
   final String? sourceFile;
   /// Source offset within audio file (for left-edge trim)
@@ -51,6 +53,7 @@ class TimelineClip {
     required this.duration,
     this.color,
     this.waveform,
+    this.waveformRight,
     this.sourceFile,
     this.sourceOffset = 0,
     this.sourceDuration,
@@ -75,6 +78,7 @@ class TimelineClip {
     double? duration,
     Color? color,
     Float32List? waveform,
+    Float32List? waveformRight,
     String? sourceFile,
     double? sourceOffset,
     double? sourceDuration,
@@ -93,6 +97,7 @@ class TimelineClip {
       duration: duration ?? this.duration,
       color: color ?? this.color,
       waveform: waveform ?? this.waveform,
+      waveformRight: waveformRight ?? this.waveformRight,
       sourceFile: sourceFile ?? this.sourceFile,
       sourceOffset: sourceOffset ?? this.sourceOffset,
       sourceDuration: sourceDuration ?? this.sourceDuration,

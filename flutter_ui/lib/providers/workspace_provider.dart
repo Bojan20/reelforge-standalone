@@ -1,10 +1,10 @@
-/// Workspace Provider
-///
-/// Manages layout presets (workspaces) like Cubase/Logic:
-/// - Save/load layout configurations
-/// - Quick workspace switching via keyboard
-/// - Default workspaces (Mixing, Editing, Recording)
-/// - Custom user workspaces
+// Workspace Provider
+//
+// Manages layout presets (workspaces) like Cubase/Logic:
+// - Save/load layout configurations
+// - Quick workspace switching via keyboard
+// - Default workspaces (Mixing, Editing, Recording)
+// - Custom user workspaces
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';

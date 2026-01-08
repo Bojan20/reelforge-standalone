@@ -13,6 +13,9 @@ import '../dsp/gpu_settings_panel.dart';
 
 enum TimeDisplayMode { bars, timecode, samples }
 
+/// Punch recording mode
+enum PunchMode { off, punchIn, punchOut, punchInOut }
+
 class TransportBar extends StatelessWidget {
   final bool isPlaying;
   final bool isRecording;
@@ -21,6 +24,21 @@ class TransportBar extends StatelessWidget {
   final double currentTime; // seconds
   final double tempo;
   final TimeDisplayMode timeDisplayMode;
+
+  // Punch In/Out
+  final PunchMode punchMode;
+  final double? punchInTime;  // seconds
+  final double? punchOutTime; // seconds
+
+  // Pre-roll / Post-roll
+  final bool preRollEnabled;
+  final double preRollBars; // bars before punch/locator
+  final bool postRollEnabled;
+  final double postRollBars; // bars after punch/locator
+
+  // Countdown
+  final bool countInEnabled;
+  final int countInBars;
 
   // DSD status
   final DsdRate dsdRate;
@@ -43,6 +61,23 @@ class TransportBar extends StatelessWidget {
   final VoidCallback? onDsdTap;
   final VoidCallback? onGpuTap;
 
+  // Punch callbacks
+  final ValueChanged<PunchMode>? onPunchModeChange;
+  final ValueChanged<double>? onPunchInChange;
+  final ValueChanged<double>? onPunchOutChange;
+  final VoidCallback? onSetPunchInAtCursor;
+  final VoidCallback? onSetPunchOutAtCursor;
+
+  // Pre-roll callbacks
+  final VoidCallback? onPreRollToggle;
+  final ValueChanged<double>? onPreRollBarsChange;
+  final VoidCallback? onPostRollToggle;
+  final ValueChanged<double>? onPostRollBarsChange;
+
+  // Count-in callback
+  final VoidCallback? onCountInToggle;
+  final ValueChanged<int>? onCountInBarsChange;
+
   const TransportBar({
     super.key,
     this.isPlaying = false,
@@ -52,11 +87,25 @@ class TransportBar extends StatelessWidget {
     this.currentTime = 0,
     this.tempo = 120,
     this.timeDisplayMode = TimeDisplayMode.bars,
+    // Punch defaults
+    this.punchMode = PunchMode.off,
+    this.punchInTime,
+    this.punchOutTime,
+    // Pre-roll defaults
+    this.preRollEnabled = false,
+    this.preRollBars = 2,
+    this.postRollEnabled = false,
+    this.postRollBars = 1,
+    // Count-in defaults
+    this.countInEnabled = false,
+    this.countInBars = 2,
+    // DSD/GPU
     this.dsdRate = DsdRate.none,
     this.dsdMode = DsdPlaybackMode.none,
     this.isDsdLoaded = false,
     this.gpuMode = GpuProcessingMode.cpuOnly,
     this.gpuUtilization = 0,
+    // Callbacks
     this.onPlay,
     this.onStop,
     this.onRecord,
@@ -68,6 +117,17 @@ class TransportBar extends StatelessWidget {
     this.onTempoChange,
     this.onDsdTap,
     this.onGpuTap,
+    this.onPunchModeChange,
+    this.onPunchInChange,
+    this.onPunchOutChange,
+    this.onSetPunchInAtCursor,
+    this.onSetPunchOutAtCursor,
+    this.onPreRollToggle,
+    this.onPreRollBarsChange,
+    this.onPostRollToggle,
+    this.onPostRollBarsChange,
+    this.onCountInToggle,
+    this.onCountInBarsChange,
   });
 
   String _formatTime() {
@@ -154,6 +214,41 @@ class TransportBar extends StatelessWidget {
 
           const SizedBox(width: 16),
 
+          // Punch In/Out
+          _PunchControl(
+            mode: punchMode,
+            punchInTime: punchInTime,
+            punchOutTime: punchOutTime,
+            tempo: tempo,
+            onModeChange: onPunchModeChange,
+            onSetPunchIn: onSetPunchInAtCursor,
+            onSetPunchOut: onSetPunchOutAtCursor,
+          ),
+
+          const SizedBox(width: 8),
+
+          // Pre-Roll
+          _ToggleButton(
+            icon: Icons.skip_previous_rounded,
+            label: 'PRE',
+            isActive: preRollEnabled,
+            onTap: onPreRollToggle,
+            activeColor: ReelForgeTheme.accentBlue,
+          ),
+
+          const SizedBox(width: 4),
+
+          // Count-In
+          _ToggleButton(
+            icon: Icons.timer_rounded,
+            label: 'COUNT',
+            isActive: countInEnabled,
+            onTap: onCountInToggle,
+            activeColor: ReelForgeTheme.accentOrange,
+          ),
+
+          const SizedBox(width: 8),
+
           // Loop & Metronome
           _ToggleButton(
             icon: Icons.repeat_rounded,
@@ -173,6 +268,181 @@ class TransportBar extends StatelessWidget {
             activeColor: ReelForgeTheme.accentOrange,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUNCH CONTROL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _PunchControl extends StatelessWidget {
+  final PunchMode mode;
+  final double? punchInTime;
+  final double? punchOutTime;
+  final double tempo;
+  final ValueChanged<PunchMode>? onModeChange;
+  final VoidCallback? onSetPunchIn;
+  final VoidCallback? onSetPunchOut;
+
+  const _PunchControl({
+    required this.mode,
+    this.punchInTime,
+    this.punchOutTime,
+    required this.tempo,
+    this.onModeChange,
+    this.onSetPunchIn,
+    this.onSetPunchOut,
+  });
+
+  String _formatTimeShort(double? time) {
+    if (time == null) return '--:--';
+    final beats = (time * tempo / 60);
+    final bar = (beats / 4).floor() + 1;
+    final beat = (beats % 4).floor() + 1;
+    return '$bar.$beat';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = mode != PunchMode.off;
+    final isPunchIn = mode == PunchMode.punchIn || mode == PunchMode.punchInOut;
+    final isPunchOut = mode == PunchMode.punchOut || mode == PunchMode.punchInOut;
+
+    return PopupMenuButton<PunchMode>(
+      initialValue: mode,
+      onSelected: onModeChange,
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: PunchMode.off,
+          child: Row(
+            children: [
+              Icon(Icons.block, size: 16),
+              SizedBox(width: 8),
+              Text('Off'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: PunchMode.punchIn,
+          child: Row(
+            children: [
+              Icon(Icons.first_page, size: 16,
+                color: isPunchIn ? ReelForgeTheme.accentRed : null),
+              const SizedBox(width: 8),
+              const Text('Punch In'),
+              const Spacer(),
+              Text(_formatTimeShort(punchInTime),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: ReelForgeTheme.textTertiary,
+                  fontFamily: 'JetBrains Mono',
+                )),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: PunchMode.punchOut,
+          child: Row(
+            children: [
+              Icon(Icons.last_page, size: 16,
+                color: isPunchOut ? ReelForgeTheme.accentRed : null),
+              const SizedBox(width: 8),
+              const Text('Punch Out'),
+              const Spacer(),
+              Text(_formatTimeShort(punchOutTime),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: ReelForgeTheme.textTertiary,
+                  fontFamily: 'JetBrains Mono',
+                )),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: PunchMode.punchInOut,
+          child: Row(
+            children: [
+              Icon(Icons.swap_horiz, size: 16,
+                color: mode == PunchMode.punchInOut ? ReelForgeTheme.accentRed : null),
+              const SizedBox(width: 8),
+              const Text('Punch In/Out'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: onSetPunchIn,
+          child: Row(
+            children: [
+              const Icon(Icons.keyboard_tab, size: 16),
+              const SizedBox(width: 8),
+              const Text('Set Punch In'),
+              const Spacer(),
+              Text('I', style: TextStyle(
+                fontSize: 11, color: ReelForgeTheme.textTertiary)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: onSetPunchOut,
+          child: Row(
+            children: [
+              const Icon(Icons.keyboard_tab, size: 16),
+              const SizedBox(width: 8),
+              const Text('Set Punch Out'),
+              const Spacer(),
+              Text('O', style: TextStyle(
+                fontSize: 11, color: ReelForgeTheme.textTertiary)),
+            ],
+          ),
+        ),
+      ],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? ReelForgeTheme.accentRed.withValues(alpha: 0.2)
+              : ReelForgeTheme.bgMid,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive
+                ? ReelForgeTheme.accentRed
+                : ReelForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              mode == PunchMode.punchInOut
+                  ? Icons.swap_horiz
+                  : isPunchIn
+                      ? Icons.first_page
+                      : isPunchOut
+                          ? Icons.last_page
+                          : Icons.block,
+              size: 14,
+              color: isActive
+                  ? ReelForgeTheme.accentRed
+                  : ReelForgeTheme.textTertiary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'PUNCH',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: isActive
+                    ? ReelForgeTheme.accentRed
+                    : ReelForgeTheme.textTertiary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

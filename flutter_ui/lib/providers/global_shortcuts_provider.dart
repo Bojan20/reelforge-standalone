@@ -1,16 +1,15 @@
-/// Global Shortcuts Provider
-///
-/// Cubase-style global keyboard shortcuts:
-/// - Space: Play/Pause
-/// - S: Split at cursor
-/// - G/H: Zoom out/in
-/// - Cmd+Z/Y: Undo/Redo
-/// - Delete: Delete selected
-/// - Cmd+D: Duplicate
-/// - M: Mute
-/// - And many more...
+// Global Shortcuts Provider
+//
+// Cubase-style global keyboard shortcuts:
+// - Space: Play/Pause
+// - S: Split at cursor
+// - G/H: Zoom out/in
+// - Cmd+Z/Y: Undo/Redo
+// - Delete: Delete selected
+// - Cmd+D: Duplicate
+// - M: Mute
+// - And many more...
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 

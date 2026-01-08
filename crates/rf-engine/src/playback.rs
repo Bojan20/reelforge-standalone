@@ -351,6 +351,84 @@ impl Default for BusState {
     }
 }
 
+/// Per-track stereo metering data
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TrackMeter {
+    /// Peak level left channel (linear 0.0 - 1.0+)
+    pub peak_l: f64,
+    /// Peak level right channel (linear 0.0 - 1.0+)
+    pub peak_r: f64,
+    /// RMS level left channel (linear)
+    pub rms_l: f64,
+    /// RMS level right channel (linear)
+    pub rms_r: f64,
+    /// Stereo correlation (-1.0 out of phase, 0.0 uncorrelated, 1.0 mono)
+    pub correlation: f64,
+}
+
+impl TrackMeter {
+    /// Create empty meter (silence)
+    pub fn empty() -> Self {
+        Self {
+            peak_l: 0.0,
+            peak_r: 0.0,
+            rms_l: 0.0,
+            rms_r: 0.0,
+            correlation: 1.0, // Mono when silent
+        }
+    }
+
+    /// Apply decay to meter values
+    pub fn decay(&mut self, factor: f64) {
+        self.peak_l *= factor;
+        self.peak_r *= factor;
+        self.rms_l *= factor;
+        self.rms_r *= factor;
+    }
+
+    /// Update with new sample data
+    pub fn update(&mut self, left: &[f64], right: &[f64], decay: f64) {
+        let frames = left.len().min(right.len());
+        if frames == 0 {
+            return;
+        }
+
+        // Decay previous values
+        self.decay(decay);
+
+        // Calculate new peaks and RMS
+        let mut sum_l_sq = 0.0;
+        let mut sum_r_sq = 0.0;
+        let mut sum_lr = 0.0;
+
+        for i in 0..frames {
+            let l = left[i];
+            let r = right[i];
+
+            // Peak (max with decayed)
+            self.peak_l = self.peak_l.max(l.abs());
+            self.peak_r = self.peak_r.max(r.abs());
+
+            // For RMS and correlation
+            sum_l_sq += l * l;
+            sum_r_sq += r * r;
+            sum_lr += l * r;
+        }
+
+        // RMS (root mean square)
+        let rms_l = (sum_l_sq / frames as f64).sqrt();
+        let rms_r = (sum_r_sq / frames as f64).sqrt();
+        self.rms_l = self.rms_l.max(rms_l);
+        self.rms_r = self.rms_r.max(rms_r);
+
+        // Correlation: r = Σ(L*R) / sqrt(Σ(L²) * Σ(R²))
+        let denominator = (sum_l_sq * sum_r_sq).sqrt();
+        if denominator > 1e-10 {
+            self.correlation = (sum_lr / denominator).clamp(-1.0, 1.0);
+        }
+    }
+}
+
 /// Main playback engine for timeline audio
 pub struct PlaybackEngine {
     /// Track manager reference
@@ -400,8 +478,8 @@ pub struct PlaybackEngine {
     insert_chains: RwLock<HashMap<u64, InsertChain>>,
     /// Master insert chain
     master_insert: RwLock<InsertChain>,
-    /// Per-track peak meters (track_id -> peak value as AtomicU64 bits)
-    track_peaks: RwLock<HashMap<u64, f64>>,
+    /// Per-track stereo meters (track_id -> TrackMeter with L/R peaks, RMS, correlation)
+    track_meters: RwLock<HashMap<u64, TrackMeter>>,
     /// Master spectrum analyzer (FFT)
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
@@ -437,7 +515,7 @@ impl PlaybackEngine {
             vca_assignments: RwLock::new(HashMap::new()),
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
-            track_peaks: RwLock::new(HashMap::new()),
+            track_meters: RwLock::new(HashMap::new()),
             spectrum_analyzer: RwLock::new(FftAnalyzer::new(2048)),
             spectrum_data: RwLock::new(vec![0.0_f32; 256]),
         }
@@ -647,6 +725,44 @@ impl PlaybackEngine {
         }
     }
 
+    /// Set parameter on track insert processor
+    pub fn set_track_insert_param(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        param_index: usize,
+        value: f64,
+    ) {
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            chain.set_slot_param(slot_index, param_index, value);
+        }
+    }
+
+    /// Get parameter from track insert processor
+    pub fn get_track_insert_param(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        param_index: usize,
+    ) -> f64 {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .map(|chain| chain.get_slot_param(slot_index, param_index))
+            .unwrap_or(0.0)
+    }
+
+    /// Check if track has insert loaded in slot
+    pub fn has_track_insert(&self, track_id: u64, slot_index: usize) -> bool {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .and_then(|chain| chain.slot(slot_index))
+            .map(|slot| slot.is_loaded())
+            .unwrap_or(false)
+    }
+
     /// Set position for track insert slot
     pub fn set_track_insert_position(&self, track_id: u64, slot_index: usize, pre_fader: bool) {
         use crate::insert_chain::InsertPosition;
@@ -744,18 +860,63 @@ impl PlaybackEngine {
         f64::from_bits(self.balance.load(Ordering::Relaxed))
     }
 
-    /// Get track peak by track ID (0.0 - 1.0+)
+    /// Get track peak by track ID (0.0 - 1.0+) - returns max of L/R for backward compatibility
     pub fn get_track_peak(&self, track_id: u64) -> f64 {
-        self.track_peaks
+        self.track_meters
             .read()
             .get(&track_id)
-            .copied()
+            .map(|m| m.peak_l.max(m.peak_r))
             .unwrap_or(0.0)
     }
 
-    /// Get all track peaks as HashMap
+    /// Get track stereo peaks (peak_l, peak_r) by track ID
+    pub fn get_track_peak_stereo(&self, track_id: u64) -> (f64, f64) {
+        self.track_meters
+            .read()
+            .get(&track_id)
+            .map(|m| (m.peak_l, m.peak_r))
+            .unwrap_or((0.0, 0.0))
+    }
+
+    /// Get track RMS stereo (rms_l, rms_r) by track ID
+    pub fn get_track_rms_stereo(&self, track_id: u64) -> (f64, f64) {
+        self.track_meters
+            .read()
+            .get(&track_id)
+            .map(|m| (m.rms_l, m.rms_r))
+            .unwrap_or((0.0, 0.0))
+    }
+
+    /// Get track correlation by track ID (-1.0 to 1.0)
+    pub fn get_track_correlation(&self, track_id: u64) -> f64 {
+        self.track_meters
+            .read()
+            .get(&track_id)
+            .map(|m| m.correlation)
+            .unwrap_or(1.0)
+    }
+
+    /// Get full track meter (all stereo data) by track ID
+    pub fn get_track_meter(&self, track_id: u64) -> TrackMeter {
+        self.track_meters
+            .read()
+            .get(&track_id)
+            .copied()
+            .unwrap_or_else(TrackMeter::empty)
+    }
+
+    /// Get all track meters as HashMap
+    pub fn get_all_track_meters(&self) -> HashMap<u64, TrackMeter> {
+        self.track_meters.read().clone()
+    }
+
+    /// Get all track peaks as HashMap (backward compatibility - returns max of L/R)
     pub fn get_all_track_peaks(&self) -> HashMap<u64, f64> {
-        self.track_peaks.read().clone()
+        self.track_meters
+            .read()
+            .iter()
+            .map(|(&id, m)| (id, m.peak_l.max(m.peak_r)))
+            .collect()
     }
 
     /// Get spectrum data (256 bins, normalized 0-1, log-scaled 20Hz-20kHz)
@@ -975,8 +1136,10 @@ impl PlaybackEngine {
             }
 
             // Process track insert chain (pre-fader inserts applied before volume)
-            // Uses try_write to avoid blocking if another thread holds the lock
-            if let Some(mut chains) = self.insert_chains.try_write() {
+            // Note: Using write() instead of try_write() ensures processing always happens.
+            // UI parameter updates should be quick, minimizing contention.
+            {
+                let mut chains = self.insert_chains.write();
                 if let Some(chain) = chains.get_mut(&track.id.0) {
                     chain.process_pre_fader(&mut track_l, &mut track_r);
                 }
@@ -997,22 +1160,18 @@ impl PlaybackEngine {
             }
 
             // Process track insert chain (post-fader inserts applied after volume)
-            if let Some(mut chains) = self.insert_chains.try_write() {
+            {
+                let mut chains = self.insert_chains.write();
                 if let Some(chain) = chains.get_mut(&track.id.0) {
                     chain.process_post_fader(&mut track_l, &mut track_r);
                 }
             }
 
-            // Calculate per-track peak (post-fader, post-insert)
-            let mut track_peak = 0.0_f64;
-            for i in 0..frames {
-                track_peak = track_peak.max(track_l[i].abs()).max(track_r[i].abs());
-            }
-            // Apply decay to existing peak (same as master)
-            if let Some(mut peaks) = self.track_peaks.try_write() {
-                let prev = peaks.get(&track.id.0).copied().unwrap_or(0.0);
-                let decayed = prev * decay;
-                peaks.insert(track.id.0, decayed.max(track_peak));
+            // Calculate per-track stereo metering (post-fader, post-insert)
+            // Includes: peak L/R, RMS L/R, correlation
+            if let Some(mut meters) = self.track_meters.try_write() {
+                let meter = meters.entry(track.id.0).or_insert_with(TrackMeter::empty);
+                meter.update(&track_l[..frames], &track_r[..frames], decay);
             }
 
             // Route track to its output bus
@@ -1645,6 +1804,11 @@ impl PlaybackEngine {
     /// Check if playing
     pub fn is_playing(&self) -> bool {
         self.position.is_playing()
+    }
+
+    /// Get current sample rate
+    pub fn sample_rate(&self) -> u32 {
+        self.position.sample_rate()
     }
 }
 

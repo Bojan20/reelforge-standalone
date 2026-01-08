@@ -1,10 +1,10 @@
-/// Plugin Models
-///
-/// Professional plugin system for DAW mixer inserts:
-/// - PluginInfo: Plugin metadata with categories
-/// - PluginCategory: EQ, Dynamics, Reverb, etc.
-/// - InsertState: Per-slot state (plugin + bypass)
-/// - Built-in plugins list (ReelForge native)
+// Plugin Models
+//
+// Professional plugin system for DAW mixer inserts:
+// - PluginInfo: Plugin metadata with categories
+// - PluginCategory: EQ, Dynamics, Reverb, etc.
+// - InsertState: Per-slot state (plugin + bypass)
+// - Built-in plugins list (ReelForge native)
 
 import 'package:flutter/material.dart';
 

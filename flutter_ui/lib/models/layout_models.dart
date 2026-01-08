@@ -1,12 +1,12 @@
-/// Layout Models
-///
-/// Core data types matching React TypeScript interfaces:
-/// - TreeNode (project explorer)
-/// - InspectorSection
-/// - LowerZoneTab
-/// - TabGroup
-/// - ChannelStripData
-/// - MenuCallbacks
+// Layout Models
+//
+// Core data types matching React TypeScript interfaces:
+// - TreeNode (project explorer)
+// - InspectorSection
+// - LowerZoneTab
+// - TabGroup
+// - ChannelStripData
+// - MenuCallbacks
 
 import 'package:flutter/material.dart';
 
@@ -250,6 +250,10 @@ class MenuCallbacks {
   final VoidCallback? onImportAudioFolder;
   final VoidCallback? onImportAudioFiles;
   final VoidCallback? onExportAudio;
+  final VoidCallback? onBatchExport;
+  final VoidCallback? onExportPresets;
+  final VoidCallback? onBounce;
+  final VoidCallback? onRenderInPlace;
   // Edit menu
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
@@ -263,10 +267,16 @@ class MenuCallbacks {
   final VoidCallback? onToggleRightPanel;
   final VoidCallback? onToggleLowerPanel;
   final VoidCallback? onResetLayout;
+  final VoidCallback? onShowAudioPool;
+  final VoidCallback? onShowMarkers;
+  final VoidCallback? onShowMidiEditor;
   // Project menu
   final VoidCallback? onProjectSettings;
   final VoidCallback? onValidateProject;
   final VoidCallback? onBuildProject;
+  final VoidCallback? onTrackTemplates;
+  final VoidCallback? onVersionHistory;
+  final VoidCallback? onFreezeSelectedTracks;
   // Studio menu
   final VoidCallback? onAudioSettings;
   final VoidCallback? onMidiSettings;
@@ -282,6 +292,10 @@ class MenuCallbacks {
     this.onImportAudioFolder,
     this.onImportAudioFiles,
     this.onExportAudio,
+    this.onBatchExport,
+    this.onExportPresets,
+    this.onBounce,
+    this.onRenderInPlace,
     this.onUndo,
     this.onRedo,
     this.onCut,
@@ -293,9 +307,15 @@ class MenuCallbacks {
     this.onToggleRightPanel,
     this.onToggleLowerPanel,
     this.onResetLayout,
+    this.onShowAudioPool,
+    this.onShowMarkers,
+    this.onShowMidiEditor,
     this.onProjectSettings,
     this.onValidateProject,
     this.onBuildProject,
+    this.onTrackTemplates,
+    this.onVersionHistory,
+    this.onFreezeSelectedTracks,
     this.onAudioSettings,
     this.onMidiSettings,
     this.onPluginManager,

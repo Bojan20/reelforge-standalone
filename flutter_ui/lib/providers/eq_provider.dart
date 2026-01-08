@@ -1,10 +1,10 @@
-/// EQ Provider
-///
-/// State management for parametric EQ:
-/// - Band state (frequency, gain, Q, type)
-/// - Curve calculation
-/// - Rust engine sync
-/// - Preset management
+// EQ Provider
+//
+// State management for parametric EQ:
+// - Band state (frequency, gain, Q, type)
+// - Curve calculation
+// - Rust engine sync
+// - Preset management
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';

@@ -1,15 +1,15 @@
-/// Comping Models
-///
-/// Multi-take recording and comping system (Cubase/Pro Tools style):
-/// - RecordingLane: Vertical lane within a track for take stacking
-/// - Take: A single recording pass with metadata
-/// - CompRegion: Selected region from a specific take for the comp
-/// - CompState: Track-level comping configuration
-///
-/// Architecture:
-/// Track → RecordingLanes[] → Takes[] → Clips
-///                         ↓
-///               CompRegions[] (selections for final comp)
+// Comping Models
+//
+// Multi-take recording and comping system (Cubase/Pro Tools style):
+// - RecordingLane: Vertical lane within a track for take stacking
+// - Take: A single recording pass with metadata
+// - CompRegion: Selected region from a specific take for the comp
+// - CompState: Track-level comping configuration
+//
+// Architecture:
+// Track → RecordingLanes[] → Takes[] → Clips
+//                         ↓
+//               CompRegions[] (selections for final comp)
 
 import 'dart:typed_data';
 import 'package:flutter/material.dart';

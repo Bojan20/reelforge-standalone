@@ -1,9 +1,9 @@
-/// Middleware Models
-///
-/// Data models for Wwise/FMOD-style middleware:
-/// - MiddlewareAction: Individual action in an event
-/// - MiddlewareEvent: Event with list of actions
-/// - All Wwise/FMOD action types, buses, scopes, etc.
+// Middleware Models
+//
+// Data models for Wwise/FMOD-style middleware:
+// - MiddlewareAction: Individual action in an event
+// - MiddlewareEvent: Event with list of actions
+// - All Wwise/FMOD action types, buses, scopes, etc.
 
 import 'package:flutter/material.dart';
 
