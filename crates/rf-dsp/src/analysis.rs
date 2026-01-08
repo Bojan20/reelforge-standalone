@@ -17,8 +17,8 @@ const DEFAULT_SAMPLE_RATE: f64 = 48000.0;
 const MIN_FFT_SIZE: usize = 64;
 /// Maximum FFT size
 const MAX_FFT_SIZE: usize = 65536;
-/// Default FFT size
-const DEFAULT_FFT_SIZE: usize = 2048;
+/// Default FFT size (8192 for better bass resolution)
+const DEFAULT_FFT_SIZE: usize = 8192;
 
 /// FFT analyzer for spectrum display
 pub struct FftAnalyzer {

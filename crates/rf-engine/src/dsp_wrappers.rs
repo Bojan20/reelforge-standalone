@@ -7,6 +7,7 @@ use crate::insert_chain::InsertProcessor;
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use rf_dsp::eq_room::RoomCorrectionEq;
+use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
 use rf_dsp::{
     EqPreset, FilterShape, MorphingEq, OversampleMode, ProEq, Processor, ProcessorConfig,
     StereoApi550, StereoNeve1073, StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
@@ -1249,6 +1250,117 @@ impl InsertProcessor for ExpanderWrapper {
     }
 }
 
+// ============ Linear Phase EQ Wrapper ============
+
+/// True linear phase EQ wrapper
+pub struct LinearPhaseEqWrapper {
+    eq: LinearPhaseEQ,
+    sample_rate: f64,
+}
+
+impl LinearPhaseEqWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            eq: LinearPhaseEQ::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    /// Add a band
+    pub fn add_band(&mut self, freq: f64, gain_db: f64, q: f64, filter_type: LinearPhaseFilterType) {
+        let band = match filter_type {
+            LinearPhaseFilterType::Bell => LinearPhaseBand::bell(freq, gain_db, q),
+            LinearPhaseFilterType::LowShelf => LinearPhaseBand::low_shelf(freq, gain_db, q),
+            LinearPhaseFilterType::HighShelf => LinearPhaseBand::high_shelf(freq, gain_db, q),
+            LinearPhaseFilterType::LowCut => LinearPhaseBand::low_cut(freq, q),
+            LinearPhaseFilterType::HighCut => LinearPhaseBand::high_cut(freq, q),
+            _ => LinearPhaseBand::bell(freq, gain_db, q),
+        };
+        self.eq.add_band(band);
+    }
+}
+
+impl InsertProcessor for LinearPhaseEqWrapper {
+    fn name(&self) -> &str {
+        "ReelForge Linear Phase EQ"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        // LinearPhaseEQ uses StereoProcessor trait (sample-by-sample)
+        use rf_dsp::StereoProcessor;
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.eq.process_sample(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn latency(&self) -> LatencySamples {
+        self.eq.latency()
+    }
+
+    fn reset(&mut self) {
+        self.eq.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.eq = LinearPhaseEQ::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        // Per band: freq(0), gain(1), q(2), enabled(3), type(4)
+        32 * 5 // 32 bands max, 5 params each
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        let band_idx = index / 5;
+        let param_idx = index % 5;
+
+        if band_idx < 32 {
+            // Get or create band
+            while self.eq.band_count() <= band_idx {
+                self.eq.add_band(LinearPhaseBand::bell(1000.0, 0.0, 1.0));
+            }
+
+            if let Some(mut band) = self.eq.get_band(band_idx).cloned() {
+                match param_idx {
+                    0 => band.frequency = value.clamp(20.0, 20000.0),
+                    1 => band.gain = value.clamp(-24.0, 24.0),
+                    2 => band.q = value.clamp(0.1, 30.0),
+                    3 => band.enabled = value > 0.5,
+                    4 => {
+                        band.filter_type = match value as i32 {
+                            0 => LinearPhaseFilterType::Bell,
+                            1 => LinearPhaseFilterType::LowShelf,
+                            2 => LinearPhaseFilterType::HighShelf,
+                            3 => LinearPhaseFilterType::LowCut,
+                            4 => LinearPhaseFilterType::HighCut,
+                            5 => LinearPhaseFilterType::Notch,
+                            6 => LinearPhaseFilterType::BandPass,
+                            7 => LinearPhaseFilterType::Tilt,
+                            _ => LinearPhaseFilterType::Bell,
+                        };
+                    }
+                    _ => {}
+                }
+                self.eq.update_band(band_idx, band);
+            }
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index % 5 {
+            0 => "Frequency",
+            1 => "Gain",
+            2 => "Q",
+            3 => "Enabled",
+            4 => "Type",
+            _ => "",
+        }
+    }
+}
+
 // ============ Extended Factory ============
 
 /// Create any processor by type name (extended version)
@@ -1266,6 +1378,9 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
         }
         "gate" | "noise-gate" => Some(Box::new(GateWrapper::new(sample_rate))),
         "expander" | "exp" => Some(Box::new(ExpanderWrapper::new(sample_rate))),
+        "linear-phase-eq" | "linear_phase_eq" | "linearphase" => {
+            Some(Box::new(LinearPhaseEqWrapper::new(sample_rate)))
+        }
         _ => None,
     }
 }
@@ -1276,6 +1391,7 @@ pub fn available_processors() -> Vec<&'static str> {
         // EQ
         "pro-eq",
         "ultra-eq",
+        "linear-phase-eq",
         "pultec",
         "api550",
         "neve1073",

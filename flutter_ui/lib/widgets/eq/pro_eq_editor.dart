@@ -229,14 +229,29 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
   double _outputGain = 0;
   int _phaseMode = 0; // 0=Zero Lat, 1=Natural, 2=Linear
 
-  // Spectrum data
+  // Spectrum data with temporal smoothing
   late AnimationController _spectrumController;
-  List<double> _spectrum = [];
+  List<double> _spectrum = [];        // Raw spectrum from engine
+  List<double> _smoothedSpectrum = []; // Temporally smoothed for display
+  List<double> _peakHold = [];         // Peak hold values
+  List<int> _peakHoldTime = [];        // Frames since peak was set
   double _signalLevel = 0; // 0-1, for fade effect
+
+  // Temporal smoothing parameters (FabFilter Pro-Q style)
+  // Attack: ~10ms at 60fps = 0.6 frames, so coefficient ~0.4-0.6
+  // Release: ~200ms at 60fps = 12 frames, so coefficient ~0.92
+  static const double _attackCoeff = 0.35;  // Fast rise (lower = faster)
+  static const double _releaseCoeff = 0.92; // Slow fall (higher = slower)
+  static const int _peakHoldFrames = 30;    // ~500ms at 60fps
 
   // Undo/Redo
   final List<List<_Band>> _undoStack = [];
   final List<List<_Band>> _redoStack = [];
+
+  // A/B Comparison
+  List<_Band>? _bandsA; // State A storage
+  List<_Band>? _bandsB; // State B storage
+  bool _isStateA = true; // Currently showing state A
 
   final FocusNode _focus = FocusNode();
 
@@ -296,6 +311,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     // NO SIGNAL: Clear spectrum completely - nothing to show
     if (_signalLevel < 0.01) {
       _spectrum.clear();
+      _smoothedSpectrum.clear();
+      _peakHold.clear();
+      _peakHoldTime.clear();
       if (mounted) setState(() {});
       return;
     }
@@ -303,16 +321,52 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     // USE REAL SPECTRUM DATA from engine if available
     if (widget.spectrumData != null && widget.spectrumData!.isNotEmpty) {
       const n = 256;
-      if (_spectrum.length != n) _spectrum = List.filled(n, -100.0);
 
-      // Convert normalized 0-1 spectrum to dB scale (-80 to 0 dB)
+      // Initialize buffers if needed
+      if (_spectrum.length != n) {
+        _spectrum = List.filled(n, -100.0);
+        _smoothedSpectrum = List.filled(n, -100.0);
+        _peakHold = List.filled(n, -100.0);
+        _peakHoldTime = List.filled(n, 0);
+      }
+
+      // Convert normalized 0-1 spectrum to dB scale and apply temporal smoothing
       for (int i = 0; i < math.min(n, widget.spectrumData!.length); i++) {
         // spectrumData is 0.0-1.0 normalized, convert to dB
         final normalized = widget.spectrumData![i].clamp(0.0, 1.0);
-        final db = normalized > 0.001 ? -80.0 + normalized * 80.0 : -100.0;
+        final targetDb = normalized > 0.001 ? -80.0 + normalized * 80.0 : -100.0;
 
-        // Smooth interpolation for fluid animation
-        _spectrum[i] = _spectrum[i] * 0.7 + db * 0.3;
+        // Store raw value
+        _spectrum[i] = targetDb;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TEMPORAL SMOOTHING: Attack/Release like FabFilter Pro-Q
+        // ═══════════════════════════════════════════════════════════════════
+        final currentSmoothed = _smoothedSpectrum[i];
+
+        if (targetDb > currentSmoothed) {
+          // ATTACK: Fast rise - signal is increasing
+          // Lower coefficient = faster response
+          _smoothedSpectrum[i] = currentSmoothed + (targetDb - currentSmoothed) * (1 - _attackCoeff);
+        } else {
+          // RELEASE: Slow fall - signal is decreasing
+          // Higher coefficient = slower decay
+          _smoothedSpectrum[i] = currentSmoothed * _releaseCoeff + targetDb * (1 - _releaseCoeff);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // PEAK HOLD: Optional peak markers
+        // ═══════════════════════════════════════════════════════════════════
+        if (targetDb > _peakHold[i]) {
+          _peakHold[i] = targetDb;
+          _peakHoldTime[i] = 0;
+        } else {
+          _peakHoldTime[i]++;
+          if (_peakHoldTime[i] > _peakHoldFrames) {
+            // Decay peak after hold time
+            _peakHold[i] = _peakHold[i] * 0.95 + targetDb * 0.05;
+          }
+        }
       }
 
       if (mounted) setState(() {});
@@ -454,6 +508,61 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     final next = _redoStack.removeLast();
     _undoStack.add(next);
     setState(() => _bands = next.map((b) => b.copy()).toList());
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // A/B COMPARISON
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle between A and B states
+  void _toggleAB() {
+    setState(() {
+      if (_isStateA) {
+        // Save current to A, switch to B
+        _bandsA = _bands.map((b) => b.copy()).toList();
+        if (_bandsB != null) {
+          _bands = _bandsB!.map((b) => b.copy()).toList();
+          _applyAllBandsToEngine();
+        }
+      } else {
+        // Save current to B, switch to A
+        _bandsB = _bands.map((b) => b.copy()).toList();
+        if (_bandsA != null) {
+          _bands = _bandsA!.map((b) => b.copy()).toList();
+          _applyAllBandsToEngine();
+        }
+      }
+      _isStateA = !_isStateA;
+    });
+  }
+
+  /// Copy current state to A
+  void _copyToA() {
+    setState(() {
+      _bandsA = _bands.map((b) => b.copy()).toList();
+    });
+  }
+
+  /// Copy current state to B
+  void _copyToB() {
+    setState(() {
+      _bandsB = _bands.map((b) => b.copy()).toList();
+    });
+  }
+
+  /// Apply all band parameters to engine (after A/B switch)
+  void _applyAllBandsToEngine() {
+    for (int i = 0; i < _bands.length; i++) {
+      final band = _bands[i];
+      widget.onBandChange?.call(
+        i,
+        enabled: band.enabled && !band.bypassed,
+        freq: band.freq,
+        gain: band.gain,
+        q: band.q,
+        filterType: band.shape.index,
+      );
+    }
   }
 
   void _selectBand(int? index) {
@@ -615,6 +724,13 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           _buildIconButton(Icons.undo, _undoStack.length > 1, _undo),
           _buildIconButton(Icons.redo, _redoStack.isNotEmpty, _redo),
 
+          const SizedBox(width: 12),
+
+          // A/B Comparison
+          _buildABToggle(),
+          const SizedBox(width: 4),
+          _buildABCopyButton(),
+
           const Spacer(),
 
           // Range selector
@@ -660,6 +776,106 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(icon, size: 16, color: enabled ? ReelForgeTheme.textSecondary : ReelForgeTheme.textDisabled),
+      ),
+    );
+  }
+
+  /// A/B toggle button
+  Widget _buildABToggle() {
+    return GestureDetector(
+      onTap: _toggleAB,
+      child: Container(
+        height: 26,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: _Colors.controlBg,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _Colors.controlBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // A button
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _isStateA ? _Colors.curveMain : Colors.transparent,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Text(
+                  'A',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: _isStateA ? _Colors.bg1 : _Colors.textDim,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 2),
+            // B button
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: !_isStateA ? _Colors.curveMain : Colors.transparent,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Text(
+                  'B',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: !_isStateA ? _Colors.bg1 : _Colors.textDim,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A/B copy button with popup menu
+  Widget _buildABCopyButton() {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        switch (value) {
+          case 'copy_a':
+            _copyToA();
+            break;
+          case 'copy_b':
+            _copyToB();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'copy_a',
+          child: Text('Copy to A', style: TextStyle(fontSize: 12)),
+        ),
+        const PopupMenuItem(
+          value: 'copy_b',
+          child: Text('Copy to B', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+      child: Container(
+        height: 26,
+        width: 26,
+        decoration: BoxDecoration(
+          color: _Colors.controlBg,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _Colors.controlBorder),
+        ),
+        child: const Icon(
+          Icons.copy,
+          size: 14,
+          color: _Colors.textSecondary,
+        ),
       ),
     );
   }
@@ -775,7 +991,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                       selectedBand: _selectedBand,
                       hoveredBand: _hoveredBand,
                       range: _range,
-                      spectrum: _analyzerOn && _signalLevel > 0.01 ? _spectrum : null,
+                      // Use temporally smoothed spectrum for display
+                      spectrum: _analyzerOn && _signalLevel > 0.01 && _smoothedSpectrum.isNotEmpty
+                          ? _smoothedSpectrum
+                          : null,
                       signalLevel: _signalLevel,
                       glowValue: _glowController.value,
                     ),

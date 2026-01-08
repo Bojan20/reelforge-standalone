@@ -4193,6 +4193,46 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     return -1;
   }
 
+  /// Auto-create EQ in first empty insert slot for channel
+  /// Returns slot index or -1 if failed
+  int _autoCreateEqSlot(String channelId) {
+    // Ensure insert chain exists for this channel
+    if (!_busInserts.containsKey(channelId)) {
+      _busInserts[channelId] = InsertChain(channelId: channelId);
+    }
+
+    final chain = _busInserts[channelId]!;
+
+    // Find first empty slot
+    for (int i = 0; i < chain.slots.length; i++) {
+      if (chain.slots[i].plugin == null) {
+        // Create Pro EQ plugin in this slot
+        final proEq = PluginInfo(
+          id: 'rf-pro-eq-${channelId.hashCode}-$i',
+          name: 'Pro EQ',
+          category: PluginCategory.eq,
+          format: PluginFormat.internal,
+          vendor: 'ReelForge',
+        );
+
+        setState(() {
+          chain.slots[i] = chain.slots[i].copyWith(plugin: proEq);
+        });
+
+        // Load EQ into Rust engine insert chain
+        final trackId = _busIdToTrackId(channelId);
+        NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro_eq');
+
+        debugPrint('[EQ] Auto-created Pro EQ in slot $i for $channelId (trackId: $trackId)');
+        return i;
+      }
+    }
+
+    // No empty slots
+    debugPrint('[EQ] No empty slots for $channelId');
+    return -1;
+  }
+
   /// Open EQ in floating window
   void _openEqWindow(String channelId) {
     debugPrint('[EQ] Opening floating window for: $channelId');
@@ -4296,21 +4336,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         ? metering.spectrum.map((e) => e.toDouble()).toList()
                         : null,
                     onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
-                      // Send params to INSERT CHAIN processor (not standalone PRO_EQS)
-                      // Find which slot has the EQ for this channel
-                      final slotIndex = _findEqSlotForChannel(channelId);
+                      // UNIFIED EQ ROUTING: All EQ params go through insert chain
+                      // Find which slot has the EQ for this channel, or auto-create one
+                      var slotIndex = _findEqSlotForChannel(channelId);
+
                       if (slotIndex < 0) {
-                        // Fallback to old API if no insert slot found
-                        if (enabled != null) engineApi.proEqSetBandEnabled(channelId, bandIndex, enabled);
-                        if (freq != null) engineApi.proEqSetBandFrequency(channelId, bandIndex, freq);
-                        if (gain != null) engineApi.proEqSetBandGain(channelId, bandIndex, gain);
-                        if (q != null) engineApi.proEqSetBandQ(channelId, bandIndex, q);
-                        if (filterType != null) {
-                          final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
-                          engineApi.proEqSetBandShape(channelId, bandIndex, shape);
+                        // Auto-create EQ in first empty insert slot
+                        slotIndex = _autoCreateEqSlot(channelId);
+                        if (slotIndex < 0) {
+                          debugPrint('[EQ] Failed to create EQ slot for $channelId');
+                          return;
                         }
-                        return;
                       }
+
                       // Use insert chain params: per band = 5 (freq=0, gain=1, q=2, enabled=3, shape=4)
                       final trackId = _busIdToTrackId(channelId);
                       final baseParam = bandIndex * 5;

@@ -24,6 +24,7 @@ use crate::track_manager::{
 };
 
 use rf_dsp::analysis::FftAnalyzer;
+use rf_dsp::delay_compensation::DelayCompensationManager;
 use rf_dsp::metering::{LufsMeter, TruePeakMeter};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -665,6 +666,8 @@ pub struct PlaybackEngine {
     spectrum_mono_buffer: RwLock<Vec<f64>>,
     /// Current block size (for buffer reallocation check)
     current_block_size: AtomicUsize,
+    /// Delay compensation manager for automatic plugin delay compensation
+    delay_comp: RwLock<DelayCompensationManager>,
 }
 
 impl PlaybackEngine {
@@ -697,13 +700,17 @@ impl PlaybackEngine {
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
             track_meters: RwLock::new(HashMap::new()),
-            spectrum_analyzer: RwLock::new(FftAnalyzer::new(2048)),
-            spectrum_data: RwLock::new(vec![0.0_f32; 256]),
+            // 8192-point FFT for better bass frequency resolution
+            // At 48kHz: bin width = 48000/8192 = 5.86Hz (vs 23.4Hz with 2048)
+            // This gives ~3-4 bins in 20-40Hz range instead of ~1 bin
+            spectrum_analyzer: RwLock::new(FftAnalyzer::new(8192)),
+            spectrum_data: RwLock::new(vec![0.0_f32; 512]), // More bins for better resolution
             // Pre-allocate buffers for common block size (will resize if needed)
-            track_buffer_l: RwLock::new(vec![0.0_f64; 4096]),
-            track_buffer_r: RwLock::new(vec![0.0_f64; 4096]),
-            spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 4096]),
-            current_block_size: AtomicUsize::new(4096),
+            track_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
+            track_buffer_r: RwLock::new(vec![0.0_f64; 8192]),
+            spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
+            current_block_size: AtomicUsize::new(8192),
+            delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
         }
     }
 
@@ -835,7 +842,14 @@ impl PlaybackEngine {
         let chain = chains
             .entry(track_id)
             .or_insert_with(|| InsertChain::new(sample_rate));
-        chain.load(slot_index, processor)
+        let result = chain.load(slot_index, processor);
+
+        // Update delay compensation after loading plugin
+        if result {
+            drop(chains); // Release chains lock before acquiring delay_comp lock
+            self.update_track_delay_compensation(track_id);
+        }
+        result
     }
 
     /// Unload processor from track insert slot
@@ -845,9 +859,16 @@ impl PlaybackEngine {
         slot_index: usize,
     ) -> Option<Box<dyn crate::insert_chain::InsertProcessor>> {
         let mut chains = self.insert_chains.write();
-        chains
+        let result = chains
             .get_mut(&track_id)
-            .and_then(|chain| chain.unload(slot_index))
+            .and_then(|chain| chain.unload(slot_index));
+
+        // Update delay compensation after unloading plugin
+        if result.is_some() {
+            drop(chains); // Release chains lock before acquiring delay_comp lock
+            self.update_track_delay_compensation(track_id);
+        }
+        result
     }
 
     /// Set bypass for track insert slot
@@ -900,6 +921,55 @@ impl PlaybackEngine {
     /// Get total master insert latency
     pub fn get_master_insert_latency(&self) -> usize {
         self.master_insert.read().total_latency()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DELAY COMPENSATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Enable/disable automatic delay compensation
+    pub fn set_delay_compensation_enabled(&self, enabled: bool) {
+        self.delay_comp.write().set_enabled(enabled);
+    }
+
+    /// Check if delay compensation is enabled
+    pub fn is_delay_compensation_enabled(&self) -> bool {
+        self.delay_comp.read().is_enabled()
+    }
+
+    /// Update delay compensation for a track based on its insert chain latency
+    pub fn update_track_delay_compensation(&self, track_id: u64) {
+        let latency = self.get_track_insert_latency(track_id);
+        let mut dc = self.delay_comp.write();
+        // Register node if not already registered
+        dc.register_node(track_id as u32);
+        // Report the latency
+        dc.report_latency(track_id as u32, latency);
+    }
+
+    /// Get compensation delay needed for a track
+    pub fn get_track_compensation_delay(&self, track_id: u64) -> usize {
+        self.delay_comp
+            .read()
+            .get_latency(track_id as u32)
+            .map(|l| l.compensation_delay)
+            .unwrap_or(0)
+    }
+
+    /// Get maximum latency in the graph (for monitoring)
+    pub fn get_max_latency(&self) -> usize {
+        self.delay_comp.read().total_latency()
+    }
+
+    /// Apply delay compensation to track buffers
+    pub fn apply_track_delay_compensation(
+        &self,
+        track_id: u64,
+        left: &mut [f64],
+        right: &mut [f64],
+    ) {
+        let mut dc = self.delay_comp.write();
+        dc.process(track_id as u32, left, right);
     }
 
     /// Set mix for track insert slot
@@ -1390,6 +1460,12 @@ impl PlaybackEngine {
                 }
             }
 
+            // Apply delay compensation for tracks with lower latency than max
+            // This aligns all tracks in time regardless of plugin latency
+            if let Some(mut dc) = self.delay_comp.try_write() {
+                dc.process(track.id.0 as u32, track_l, track_r);
+            }
+
             // Calculate per-track stereo metering (post-fader, post-insert)
             // Includes: peak L/R, RMS L/R, correlation
             if let Some(mut meters) = self.track_meters.try_write() {
@@ -1552,17 +1628,35 @@ impl PlaybackEngine {
             }
             analyzer.analyze();
 
-            // Convert FFT bins to log-scaled 256 bins (20Hz-20kHz)
+            // Convert FFT bins to log-scaled 512 bins (20Hz-20kHz)
+            // With 8192-point FFT at 48kHz, bin width = 5.86Hz
+            // This gives much better bass resolution than 2048-point (23.4Hz)
             if let Some(mut spectrum) = self.spectrum_data.try_write() {
                 let sample_rate = self.position.sample_rate() as f64;
                 let bin_count = analyzer.bin_count();
+                let output_bins = spectrum.len().min(512);
 
-                for i in 0..256 {
+                for i in 0..output_bins {
                     // Log-scale frequency mapping: 20Hz to 20kHz
-                    let freq_ratio = i as f64 / 255.0;
+                    let freq_ratio = i as f64 / (output_bins - 1) as f64;
                     let freq = 20.0 * (1000.0_f64).powf(freq_ratio); // 20Hz to 20kHz
-                    let bin = analyzer.freq_to_bin(freq, sample_rate).min(bin_count - 1);
-                    let db = analyzer.magnitude(bin);
+
+                    // For bass frequencies, average multiple FFT bins for smoother result
+                    // This is similar to 1/3 octave smoothing
+                    let center_bin = analyzer.freq_to_bin(freq, sample_rate).min(bin_count - 1);
+
+                    let db = if freq < 200.0 {
+                        // Bass: average 3 neighboring bins for smoother response
+                        let low_bin = center_bin.saturating_sub(1);
+                        let high_bin = (center_bin + 1).min(bin_count - 1);
+                        let sum: f64 = (low_bin..=high_bin)
+                            .map(|b| analyzer.magnitude(b))
+                            .sum();
+                        sum / (high_bin - low_bin + 1) as f64
+                    } else {
+                        analyzer.magnitude(center_bin)
+                    };
+
                     // Normalize to 0-1 range (-80dB to 0dB)
                     let normalized = ((db + 80.0) / 80.0).clamp(0.0, 1.0);
                     spectrum[i] = normalized as f32;
