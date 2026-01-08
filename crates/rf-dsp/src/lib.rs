@@ -51,7 +51,8 @@ pub mod linear_phase;
 pub mod spectral;
 pub mod multiband;
 pub mod metering;
-pub mod metering_simd;  // SIMD-optimized metering (AVX2/AVX-512, 8x True Peak)
+pub mod metering_simd;      // SIMD-optimized metering (AVX2/AVX-512, 8x True Peak)
+pub mod loudness_advanced;  // Psychoacoustic loudness (Zwicker, sharpness, roughness)
 
 // Professional EQ (Pro-Q 4 competitor)
 pub mod eq_pro;
