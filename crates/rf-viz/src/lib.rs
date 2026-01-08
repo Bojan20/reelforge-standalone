@@ -7,6 +7,8 @@
 //! - EQ curve visualization (Pro-Q style)
 //! - Meters and level displays
 //! - GPU filter processing (compute shaders)
+//! - Plugin browser (Phase 5.1)
+//! - Plugin chain visualization (Phase 5.1)
 //!
 //! All renderers are designed for 60fps+ performance.
 
@@ -15,6 +17,8 @@ pub mod common;
 pub mod spectrogram;
 pub mod eq_spectrum;
 pub mod gpu_filter;
+pub mod plugin_browser;
+pub mod plugin_chain;
 
 pub use waveform::{WaveformRenderer, WaveformData, WaveformConfig};
 pub use common::{GpuContext, VizError, VizResult};
@@ -58,4 +62,28 @@ pub use gpu_filter::{
     SaturationMode,
     MAX_GPU_BANDS,
     MAX_BUFFER_SIZE,
+};
+pub use plugin_browser::{
+    PluginBrowserConfig,
+    PluginBrowserState,
+    PluginBrowserItem,
+    BrowserViewMode,
+    SortCriteria,
+    PluginCategoryFilter,
+    PluginFormat,
+    PluginValidationStatus,
+    BrowserLayout,
+    BrowserVertex,
+    format_color,
+    status_color,
+};
+pub use plugin_chain::{
+    PluginChainConfig,
+    PluginChainState,
+    ChainSlotState,
+    ChainLayout,
+    ChainVertex,
+    slot_color,
+    latency_color,
+    cpu_color,
 };

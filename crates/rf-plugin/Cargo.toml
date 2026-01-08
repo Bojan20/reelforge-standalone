@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Plugin hosting for VST3/AU/CLAP formats"
+description = "ULTIMATE Plugin hosting for VST3/AU/CLAP/LV2/ARA2 formats"
 
 [dependencies]
 rf-core = { workspace = true }
@@ -22,6 +22,9 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+# Parallel scanning (Phase 5.1)
+rayon = { workspace = true }
+
 # Platform-specific
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
@@ -31,7 +34,9 @@ objc2 = "0.5"
 windows = { version = "0.58", features = ["Win32_System_Com", "Win32_Foundation"] }
 
 [features]
-default = ["vst3"]
+default = ["vst3", "clap", "lv2"]
 vst3 = []
 clap = []
+lv2 = []
 au = []
+ara2 = []

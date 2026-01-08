@@ -1,0 +1,56 @@
+[package]
+name = "rf-realtime"
+version = "0.1.0"
+edition = "2021"
+description = "ReelForge Real-Time Engine - Zero-latency, lock-free audio processing"
+license = "MIT"
+
+[dependencies]
+# Internal crates
+rf-core = { path = "../rf-core" }
+rf-dsp = { path = "../rf-dsp" }
+rf-ml = { path = "../rf-ml" }
+rf-spatial = { path = "../rf-spatial" }
+rf-restore = { path = "../rf-restore" }
+rf-master = { path = "../rf-master" }
+rf-pitch = { path = "../rf-pitch" }
+
+# Lock-free data structures
+rtrb = "0.3"
+crossbeam-utils = "0.8"
+parking_lot = "0.12"
+num_cpus = "1.16"
+
+# Atomics
+portable-atomic = { version = "1.9", features = ["float"] }
+
+# SIMD
+wide = "0.7"
+
+# GPU compute
+wgpu = "24.0"
+bytemuck = { version = "1.19", features = ["derive"] }
+
+# FFT
+rustfft = "6.2"
+realfft = "3.4"
+
+# Parallel processing
+rayon = "1.10"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+tracing = "0.1"
+
+[features]
+default = ["simd", "gpu"]
+simd = []
+gpu = []
+
+[dev-dependencies]
+criterion = "0.5"
+approx = "0.5"

@@ -9,11 +9,12 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use serde::{Deserialize, Serialize};
 
 use crate::PluginResult;
 
 /// Plugin format type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PluginType {
     /// VST3 plugin
     Vst3,
@@ -26,7 +27,7 @@ pub enum PluginType {
 }
 
 /// Plugin category
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginCategory {
     /// Effect processor (EQ, compressor, reverb, etc.)
     Effect,
@@ -41,7 +42,7 @@ pub enum PluginCategory {
 }
 
 /// Plugin information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginInfo {
     /// Unique plugin ID
     pub id: String,

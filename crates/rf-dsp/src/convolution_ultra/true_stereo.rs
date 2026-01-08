@@ -410,15 +410,23 @@ mod tests {
             44100.0,
         );
 
-        let mut convolver = TrueStereoConvolver::new(&ir, 128);
+        // Use small partition size so we get output with small input
+        let mut convolver = TrueStereoConvolver::new(&ir, 4);
 
-        let input_l = vec![1.0, 0.0, 0.0, 0.0];
-        let input_r = vec![0.0, 1.0, 0.0, 0.0];
+        // Input must be at least partition_size (fft_size/2 = 2) to get output
+        let input_l = vec![1.0, 0.0, 1.0, 0.0];
+        let input_r = vec![0.0, 1.0, 0.0, 1.0];
 
         let (out_l, out_r) = convolver.process(&input_l, &input_r);
 
-        // Should have some output
-        assert!(!out_l.is_empty() || !out_r.is_empty());
+        // With partition_size=2 and 4 input samples, we should get 2 output samples
+        // (one per completed partition)
+        assert!(out_l.len() >= 2 || out_r.len() >= 2,
+            "Expected output, got out_l.len()={}, out_r.len()={}", out_l.len(), out_r.len());
+
+        // Verify output is finite
+        assert!(out_l.iter().all(|x| x.is_finite()));
+        assert!(out_r.iter().all(|x| x.is_finite()));
     }
 
     #[test]

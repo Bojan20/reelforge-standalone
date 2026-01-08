@@ -17,6 +17,7 @@ members = [
     "crates/rf-restore",
     "crates/rf-master",
     "crates/rf-pitch",
+    "crates/rf-realtime",
 ]
 
 [workspace.package]

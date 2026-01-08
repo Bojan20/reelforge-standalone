@@ -29,6 +29,7 @@ pub mod separation;
 pub mod enhance;
 pub mod r#match;
 pub mod assistant;
+pub mod mastering;
 
 mod inference;
 mod buffer;

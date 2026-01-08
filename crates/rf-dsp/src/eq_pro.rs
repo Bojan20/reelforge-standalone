@@ -866,40 +866,172 @@ impl EqBand {
     }
 }
 
-/// Calculate SVF frequency response
+/// Calculate SVF frequency response using z-domain state-space analysis
 ///
-/// SVF topology outputs:
-/// - m0: contributes to highpass (direct path, no delay)
-/// - m1: contributes to bandpass (one integrator, z^-1 term)
-/// - m2: contributes to lowpass (two integrators, z^-2 term)
+/// For Simper's trapezoidal SVF:
+///   v3 = v0 - ic2eq
+///   v1 = a1*ic1eq + a2*v3   (bandpass-like)
+///   v2 = ic2eq + a2*ic1eq + a3*v3  (lowpass)
+///   output = m0*v0 + m1*v1 + m2*v2
 ///
-/// Transfer function: H(z) = (m0 + m1*z^-1 + m2*z^-2) / D(z)
+/// We derive the z-domain transfer function by converting the difference equations.
 fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
+    // z = e^(jω) = cos(ω) + j*sin(ω)
     let cos_w = omega.cos();
     let sin_w = omega.sin();
-    let cos_2w = (2.0 * omega).cos();  // cos(2ω) = 2cos²(ω) - 1
-    let sin_2w = (2.0 * omega).sin();  // sin(2ω) = 2sin(ω)cos(ω)
 
-    // Denominator: SVF characteristic polynomial
-    // D(z) = 1 + a1*a2*(z^-1) + a3*(z^-2)
-    let k = coeffs.a1 * coeffs.a2;
-    let den_real = 1.0 + k * cos_w + coeffs.a3 * cos_2w;
-    let den_imag = -k * sin_w - coeffs.a3 * sin_2w;
-    let den_mag_sq = den_real * den_real + den_imag * den_imag;
+    // For the SVF state equations, we need to find H(z) = Y(z)/X(z)
+    // The trapezoidal SVF has a specific transfer function structure.
+    //
+    // From Simper's derivation, the outputs have these transfer functions:
+    // For coefficients a1, a2, a3:
+    //   g = a2/a1 (if a1 != 0)
+    //   The SVF denominator is: D(z) = z^2 - 2*R*z + 1 (normalized form)
+    //   where R depends on g and k
+    //
+    // Alternative: directly compute using the mixing coefficients
+    // For the SVF with trapezoidal integration:
+    //   H_lp(z) = a3*(1 + z^-1)^2 / D(z)
+    //   H_bp(z) = a2*(1 - z^-2) / D(z)
+    //   where D(z) = 1 - (2 - a3 - 2*a2)*z^-1 + (1 - 2*a2 + a3)*z^-2
 
-    // Numerator: H(z) = m0 + m1*z^-1 + m2*z^-2
-    // z^-1 = cos(ω) - j*sin(ω)
-    // z^-2 = cos(2ω) - j*sin(2ω)
-    let num_real = coeffs.m0 + coeffs.m1 * cos_w + coeffs.m2 * cos_2w;
-    let num_imag = -coeffs.m1 * sin_w - coeffs.m2 * sin_2w;
-    let num_mag_sq = num_real * num_real + num_imag * num_imag;
+    // Compute (1 + z^-1) = (1 + cos(ω) - j*sin(ω)) = (1 + cos(ω)) - j*sin(ω)
+    let one_plus_zinv_r = 1.0 + cos_w;
+    let one_plus_zinv_i = -sin_w;
 
-    let magnitude = if den_mag_sq > 1e-20 {
-        (num_mag_sq / den_mag_sq).sqrt()
+    // Compute (1 - z^-1) = (1 - cos(ω) + j*sin(ω))
+    let one_minus_zinv_r = 1.0 - cos_w;
+    let one_minus_zinv_i = sin_w;
+
+    // Compute z^-1 = cos(ω) - j*sin(ω)
+    let zinv_r = cos_w;
+    let zinv_i = -sin_w;
+
+    // Compute z^-2 = cos(2ω) - j*sin(2ω)
+    let z2inv_r = (2.0 * omega).cos();
+    let z2inv_i = -(2.0 * omega).sin();
+
+    // Denominator: D(z) = 1 + d1*z^-1 + d2*z^-2
+    // From SVF analysis: d1 = -(2 - a3 - 2*a2), d2 = 1 - 2*a2 + a3
+    // But actually for Simper's SVF the form is different.
+    //
+    // Let's use the correct form from state-space analysis:
+    // The SVF state update is:
+    //   ic1eq_new = 2*v1 - ic1eq_old
+    //   ic2eq_new = 2*v2 - ic2eq_old
+    // This gives us poles at specific locations.
+
+    // For direct frequency response, we can use the fact that at z = e^(jω):
+    // The trapezoidal integrator maps s = (2/T)(z-1)/(z+1), so:
+    // At the center frequency f0, g = tan(π*f0/fs), and s = jg maps to z such that
+    // jg = (2/T)(z-1)/(z+1)
+
+    // Simpler approach: reconstruct g from coefficients
+    // g = a2/a1 when a1 != 0
+    let g = if coeffs.a1.abs() > 1e-10 { coeffs.a2 / coeffs.a1 } else { 0.0 };
+
+    // k can be found from: a1 = 1/(1 + g*(g+k)), so:
+    // 1/a1 = 1 + g*g + g*k
+    // g*k = 1/a1 - 1 - g*g
+    // k = (1/a1 - 1 - g*g) / g
+    let k = if g.abs() > 1e-10 && coeffs.a1.abs() > 1e-10 {
+        (1.0 / coeffs.a1 - 1.0 - g * g) / g
     } else {
         1.0
     };
-    let phase = num_imag.atan2(num_real) - den_imag.atan2(den_real);
+
+    // Use bilinear transform: s = (z-1)/(z+1) scaled by 2/T = 2*fs
+    // But since g = tan(π*f0/fs), and we want to evaluate at f:
+    // The analog frequency is s_analog = j*w_a where w_a = tan(π*f/fs)
+    let w_a = (omega / 2.0).tan();
+
+    // The SVF transfer functions in s-domain (normalized so ω0 = g):
+    // H_lp(s) = g² / (s² + k*s + g²)
+    // H_bp(s) = k*s / (s² + k*s + g²)  -- note: this gives peak of 1 at resonance
+    // H_hp(s) = s² / (s² + k*s + g²)
+    //
+    // But Simper's BP uses different normalization. From his coefficients:
+    // The actual BP is: H_bp = (g/k) * s / (s² + (g/k)*s + g²)
+    // which has peak = k at resonance.
+
+    // At s = j*w_a:
+    let w = w_a;
+    let w2 = w * w;
+    let g2 = g * g;
+
+    // Denominator D(jw) = (g² - w²) + j*k*w  -- wait, need to use correct k normalization
+    // For Simper SVF: D(s) = s² + s*(g/Q) + g² where Q is defined differently
+    //
+    // Actually, from the coefficient formulas:
+    //   a1 = 1/(1 + g*(g + k))
+    // This means the continuous-time pole polynomial is s² + k*g*s + g² (renormalized)
+    // So D(jw) = g² - w² + j*k*g*w
+
+    let den_real = g2 - w2;
+    let den_imag = k * g * w;
+    let den_mag_sq = den_real * den_real + den_imag * den_imag;
+
+    if den_mag_sq < 1e-20 {
+        return (1.0, 0.0);
+    }
+
+    // H_lp(jw) = g² / D = g² * conj(D) / |D|²
+    let lp_real = g2 * den_real / den_mag_sq;
+    let lp_imag = -g2 * den_imag / den_mag_sq;
+
+    // H_bp(jw) = jw * k / D  -- but we need to match Simper's BP definition
+    // In Simper's formulation with output mixing:
+    // v1 is the bandpass output, and it has transfer function:
+    // H_v1(s) = a2 * s / (denominator) which normalizes differently
+    //
+    // Let's compute H_bp = j*w / D (standard 2nd order BP, unity peak at resonance)
+    // Then multiply by appropriate scaling based on m1
+
+    // Standard normalized BP: H_bp = j*w / D
+    // j*w / D = j*w * conj(D) / |D|² = j*w * (den_real - j*den_imag) / |D|²
+    //         = (w*den_imag + j*w*den_real) / |D|²
+    let bp_real = w * den_imag / den_mag_sq;
+    let bp_imag = w * den_real / den_mag_sq;
+
+    // For bell filter, the output is: m0*input + m1*v1 + m2*v2
+    // The v1 output (bandpass) in Simper's SVF has gain factor related to g and k
+    // v1 = a2 * v3 + a1 * ic1eq where a2 = g*a1
+    //
+    // The effective bandpass transfer from input to v1 is:
+    // H_v1 = g / (s + g/k + g*s/(...)) -- complex
+    //
+    // Alternative: since we know the bell filter should give +6dB at center freq
+    // with Q=1 and gain_db=6, let's verify the m1 coefficient
+    //
+    // For bell: m1 = k * (A² - 1) where A = 10^(gain_db/40), k = 1/(Q*A)
+    // At center frequency (w = g), the BP response should contribute m1 * (something)
+    //
+    // With standard BP at resonance: |H_bp(jg)| = g / (k*g) = 1/k
+    // So bell response at center = m0 + m1 * (1/k) = 1 + k*(A²-1) / k = 1 + A² - 1 = A²
+    // |H| = A² => 20*log10(A²) = 40*log10(A) = gain_db ✓
+
+    // The issue is our BP calculation. At w = g:
+    // den_real = g² - g² = 0
+    // den_imag = k * g * g = k * g²
+    // |D| = k * g²
+    // BP = j*g / (j*k*g²) = 1/(k*g)
+
+    // Hmm, that's 1/(k*g), not 1/k. Let me reconsider...
+    //
+    // Actually in Simper's SVF, the bandpass is scaled by g, so:
+    // H_bp = g * j*w / D = j*g*w / D
+    // At w = g: H_bp = j*g² / (j*k*g²) = 1/k ✓
+
+    // So we need to scale BP by g:
+    let bp_scaled_real = g * bp_real;
+    let bp_scaled_imag = g * bp_imag;
+
+    // Output: H = m0 + m1*H_bp_scaled + m2*H_lp
+    let h_real = coeffs.m0 + coeffs.m1 * bp_scaled_real + coeffs.m2 * lp_real;
+    let h_imag = coeffs.m1 * bp_scaled_imag + coeffs.m2 * lp_imag;
+
+    let magnitude = (h_real * h_real + h_imag * h_imag).sqrt();
+    let phase = h_imag.atan2(h_real);
 
     (magnitude.max(0.001), phase)
 }
@@ -1792,7 +1924,7 @@ mod tests {
         // At center frequency, should boost
         let (mag, _) = band.frequency_response(1000.0);
         let db = 20.0 * mag.log10();
-        assert!(db > 5.0 && db < 7.0);
+        assert!(db > 5.0 && db < 7.0, "Expected 5-7dB boost, got {}dB", db);
     }
 
     #[test]

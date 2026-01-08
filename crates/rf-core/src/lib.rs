@@ -17,6 +17,8 @@ mod routing;
 mod channel_strip;
 mod comping;
 mod piano_roll;
+mod theme;
+mod widgets;
 
 pub use sample::*;
 pub use time::*;
@@ -31,6 +33,8 @@ pub use routing::*;
 pub use channel_strip::*;
 pub use comping::*;
 pub use piano_roll::*;
+pub use theme::*;
+pub use widgets::*;
 
 /// Standard sample rate options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

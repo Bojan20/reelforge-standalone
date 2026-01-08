@@ -26,6 +26,8 @@ mod error;
 mod engine;
 mod ringbuf;
 pub mod thread_priority;
+pub mod aoip;
+pub mod dsd_output;
 
 #[cfg(target_os = "macos")]
 pub mod coreaudio;
@@ -39,6 +41,8 @@ pub use error::*;
 pub use engine::*;
 pub use ringbuf::*;
 pub use thread_priority::{set_realtime_priority, PriorityResult};
+pub use aoip::*;
+pub use dsd_output::*;
 
 #[cfg(target_os = "macos")]
 pub use coreaudio::{

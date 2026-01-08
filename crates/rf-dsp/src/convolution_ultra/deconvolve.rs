@@ -377,38 +377,38 @@ impl MlsGenerator {
         }
     }
 
-    /// Generate MLS sequence
+    /// Generate MLS sequence using Galois LFSR
     fn generate_mls(order: u32) -> Vec<Sample> {
         let length = (1usize << order) - 1;
         let mut sequence = Vec::with_capacity(length);
 
-        // LFSR taps (from standard polynomial tables)
-        let taps = match order {
-            8 => vec![8, 6, 5, 4],
-            10 => vec![10, 7],
-            12 => vec![12, 11, 10, 4],
-            14 => vec![14, 13, 12, 2],
-            16 => vec![16, 15, 13, 4],
-            18 => vec![18, 11],
-            20 => vec![20, 17],
-            _ => vec![order, order - 1], // Generic fallback
+        // Primitive polynomial feedback masks for Galois LFSR
+        // These are proven maximal-length polynomials
+        let feedback_mask: u32 = match order {
+            8 => 0b10111000,      // x^8 + x^6 + x^5 + x^4 + 1
+            10 => 0b1001000000,   // x^10 + x^7 + 1
+            12 => 0b110000101000, // x^12 + x^11 + x^10 + x^4 + 1
+            14 => 0b11100000000100, // x^14 + x^13 + x^12 + x^2 + 1
+            16 => 0b1101000000001000, // x^16 + x^15 + x^13 + x^4 + 1
+            _ => {
+                // For other orders, use simple tap at position order-1
+                1u32 << (order - 1)
+            }
         };
 
         let mut state = 1u32; // Initial state (non-zero)
 
         for _ in 0..length {
-            // Output current bit
-            let output = (state & 1) as i8;
-            sequence.push(output as f64 * 2.0 - 1.0); // Convert to bipolar
+            // Output LSB
+            let bit = state & 1;
+            sequence.push(if bit == 1 { 1.0 } else { -1.0 });
 
-            // Compute feedback
-            let mut feedback = 0u32;
-            for &tap in &taps {
-                feedback ^= (state >> (tap - 1)) & 1;
+            // Galois LFSR: shift right and XOR with mask if LSB was 1
+            if bit == 1 {
+                state = (state >> 1) ^ feedback_mask;
+            } else {
+                state >>= 1;
             }
-
-            // Shift register
-            state = (state >> 1) | (feedback << (order - 1));
         }
 
         sequence

@@ -5157,9 +5157,9 @@ pub fn ml_denoise_file(
     true
 }
 
-/// Get available ML models
+/// Get available ML models (basic list)
 #[flutter_rust_bridge::frb(sync)]
-pub fn ml_get_available_models() -> Vec<String> {
+pub fn ml_get_available_models_basic() -> Vec<String> {
     vec![
         "htdemucs".to_string(),
         "htdemucs_ft".to_string(),
@@ -5567,4 +5567,313 @@ pub fn restoration_auto_fix(input_path: String, output_path: String) -> bool {
 
     // Would analyze and apply appropriate restoration
     true
+}
+
+// =============================================================================
+// ML/AI PROCESSING (rf-ml)
+// =============================================================================
+
+/// ML execution providers
+#[derive(Debug, Clone)]
+pub enum MlExecutionProvider {
+    /// Pure CPU execution
+    Cpu,
+    /// CUDA GPU acceleration
+    Cuda,
+    /// Apple CoreML
+    CoreMl,
+    /// TensorRT optimization
+    TensorRt,
+}
+
+/// AI-powered denoising types
+#[derive(Debug, Clone)]
+pub enum DenoiseModel {
+    /// DeepFilterNet3 - balanced quality/speed
+    DeepFilterNet,
+    /// FRCRN - maximum quality
+    Frcrn,
+    /// aTENNuate - ultra-low latency speech
+    Atennuate,
+}
+
+/// Stem separation output types
+#[derive(Debug, Clone)]
+pub enum StemType {
+    Vocals,
+    Drums,
+    Bass,
+    Other,
+    Piano,
+    Guitar,
+}
+
+/// Start AI denoising on audio
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_denoise_start(
+    input_path: String,
+    output_path: String,
+    model: DenoiseModel,
+    strength: f32,
+) -> bool {
+    if !std::path::Path::new(&input_path).exists() {
+        return false;
+    }
+
+    // Would initialize rf-ml denoising processor
+    log::info!("Starting ML denoise: {:?}, strength: {}", model, strength);
+    true
+}
+
+/// Get denoising progress (0.0 - 1.0)
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_denoise_progress() -> f32 {
+    // Would return actual progress from rf-ml
+    0.0
+}
+
+/// Cancel denoising
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_denoise_cancel() -> bool {
+    true
+}
+
+/// Start stem separation
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_separate_stems(
+    input_path: String,
+    output_dir: String,
+    stems: Vec<StemType>,
+) -> bool {
+    if !std::path::Path::new(&input_path).exists() {
+        return false;
+    }
+
+    log::info!("Starting stem separation: {} stems", stems.len());
+    true
+}
+
+/// Get stem separation progress
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_separation_progress() -> (f32, String) {
+    // Returns (progress 0-1, current_stem_name)
+    (0.0, "".to_string())
+}
+
+/// AI mastering preset
+#[derive(Debug, Clone)]
+pub struct MasteringPreset {
+    pub name: String,
+    pub target_lufs: f32,
+    pub genre: String,
+    pub reference_path: Option<String>,
+}
+
+/// Start AI mastering
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_master_start(
+    input_path: String,
+    output_path: String,
+    preset: MasteringPreset,
+) -> bool {
+    if !std::path::Path::new(&input_path).exists() {
+        return false;
+    }
+
+    log::info!("Starting AI mastering with preset: {}", preset.name);
+    true
+}
+
+/// Get mastering suggestions based on analysis
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_get_mastering_suggestions(input_path: String) -> Vec<String> {
+    if !std::path::Path::new(&input_path).exists() {
+        return vec![];
+    }
+
+    // Would analyze audio and return suggestions
+    vec![
+        "Add +2dB high shelf at 12kHz for air".to_string(),
+        "Consider multiband compression on low end".to_string(),
+        "Target LUFS: -14 for streaming".to_string(),
+    ]
+}
+
+/// EQ match between reference and target
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_eq_match(
+    target_path: String,
+    reference_path: String,
+    output_path: String,
+    match_amount: f32,
+) -> bool {
+    if !std::path::Path::new(&target_path).exists()
+        || !std::path::Path::new(&reference_path).exists() {
+        return false;
+    }
+
+    log::info!("EQ matching with amount: {}", match_amount);
+    true
+}
+
+/// Get available ML models and their status
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_get_available_models() -> Vec<(String, bool, String)> {
+    // Returns: (model_name, is_available, required_memory_mb)
+    vec![
+        ("DeepFilterNet3".to_string(), true, "200MB".to_string()),
+        ("HTDemucs v4".to_string(), true, "1.5GB".to_string()),
+        ("aTENNuate SSM".to_string(), true, "150MB".to_string()),
+        ("Genre Classifier".to_string(), true, "50MB".to_string()),
+    ]
+}
+
+/// Set ML execution provider
+#[flutter_rust_bridge::frb(sync)]
+pub fn ml_set_execution_provider(provider: MlExecutionProvider) -> bool {
+    log::info!("Setting ML execution provider: {:?}", provider);
+    true
+}
+
+// =============================================================================
+// SPATIAL AUDIO (rf-spatial)
+// =============================================================================
+
+/// Speaker layout types
+#[derive(Debug, Clone)]
+pub enum SpeakerLayoutType {
+    Stereo,
+    Surround5_1,
+    Surround7_1,
+    Atmos7_1_4,
+    Atmos9_1_6,
+    Binaural,
+    Custom,
+}
+
+/// 3D position for spatial audio
+#[derive(Debug, Clone, Default)]
+pub struct SpatialPosition3D {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+/// Audio object for Atmos/spatial
+#[derive(Debug, Clone)]
+pub struct SpatialObject {
+    pub id: u32,
+    pub name: String,
+    pub position: SpatialPosition3D,
+    pub size: f32,
+    pub gain: f32,
+}
+
+/// Set output speaker layout
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_set_output_layout(layout: SpeakerLayoutType) -> bool {
+    log::info!("Setting spatial output layout: {:?}", layout);
+    true
+}
+
+/// Get current speaker layout channel count
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_get_channel_count() -> u32 {
+    // Would return from rf-spatial
+    2 // Default stereo
+}
+
+/// Create Atmos audio object
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_create_object(name: String, position: SpatialPosition3D) -> u32 {
+    // Would create object in rf-spatial Atmos renderer
+    log::info!("Creating spatial object: {} at ({}, {}, {})",
+        name, position.x, position.y, position.z);
+    0 // Return object ID
+}
+
+/// Update object position
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_update_object_position(object_id: u32, position: SpatialPosition3D) -> bool {
+    true
+}
+
+/// Update object size/spread
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_update_object_size(object_id: u32, size: f32) -> bool {
+    true
+}
+
+/// Remove object
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_remove_object(object_id: u32) -> bool {
+    true
+}
+
+/// Get all objects
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_get_objects() -> Vec<SpatialObject> {
+    vec![]
+}
+
+/// Enable binaural rendering
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_enable_binaural(enabled: bool) -> bool {
+    log::info!("Binaural rendering: {}", if enabled { "enabled" } else { "disabled" });
+    true
+}
+
+/// Load HRTF (SOFA format)
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_load_hrtf(path: String) -> bool {
+    if !std::path::Path::new(&path).exists() {
+        return false;
+    }
+    log::info!("Loading HRTF: {}", path);
+    true
+}
+
+/// Set listener head position (for binaural)
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_set_listener_position(
+    position: SpatialPosition3D,
+    yaw: f32,
+    pitch: f32,
+    roll: f32,
+) -> bool {
+    true
+}
+
+/// Enable head tracking
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_enable_head_tracking(enabled: bool) -> bool {
+    log::info!("Head tracking: {}", if enabled { "enabled" } else { "disabled" });
+    true
+}
+
+/// HOA (Higher-Order Ambisonics) order setting
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_set_hoa_order(order: u32) -> bool {
+    if order > 7 {
+        return false;
+    }
+    log::info!("Setting HOA order: {}", order);
+    true
+}
+
+/// Export to Atmos ADM BWF
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_export_atmos(
+    output_path: String,
+    include_beds: bool,
+    include_objects: bool,
+) -> bool {
+    log::info!("Exporting Atmos ADM to: {}", output_path);
+    true
+}
+
+/// Get renderer latency in samples
+#[flutter_rust_bridge::frb(sync)]
+pub fn spatial_get_latency_samples() -> u32 {
+    256 // Default
 }

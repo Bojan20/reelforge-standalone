@@ -1,0 +1,272 @@
+# ReelForge CI/CD Pipeline
+# Ultimate cross-platform build, test, and release workflow
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ============================================
+  # Code Quality
+  # ============================================
+  check:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy lints
+        run: cargo clippy --workspace -- -D warnings
+
+  # ============================================
+  # Build & Test Matrix
+  # ============================================
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.target }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS ARM64 (Apple Silicon)
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact: reelforge-macos-arm64
+
+          # macOS x86_64 (Intel)
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact: reelforge-macos-x64
+
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: reelforge-windows-x64
+
+          # Linux x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: reelforge-linux-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@nightly
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libjack-jackd2-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libgl1-mesa-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Run tests
+        run: cargo test --release --target ${{ matrix.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/
+          retention-days: 7
+
+  # ============================================
+  # macOS Universal Binary
+  # ============================================
+  macos-universal:
+    name: macOS Universal Binary
+    needs: build
+    runs-on: macos-14
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download ARM64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: reelforge-macos-arm64
+          path: arm64/
+
+      - name: Download x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: reelforge-macos-x64
+          path: x64/
+
+      - name: Create Universal Binary
+        run: |
+          mkdir -p universal
+          # Create universal binaries using lipo
+          for binary in $(find arm64 -type f -perm +111 -name "*.dylib" -o -name "librf*"); do
+            name=$(basename "$binary")
+            if [ -f "x64/$name" ]; then
+              lipo -create "arm64/$name" "x64/$name" -output "universal/$name"
+            fi
+          done
+
+      - name: Upload Universal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reelforge-macos-universal
+          path: universal/
+          retention-days: 30
+
+  # ============================================
+  # Benchmarks
+  # ============================================
+  bench:
+    name: Performance Benchmarks
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@nightly
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-bench-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run benchmarks
+        run: cargo bench --workspace -- --output-format bencher | tee bench-results.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench-results.txt
+          retention-days: 30
+
+  # ============================================
+  # Security Audit
+  # ============================================
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        run: cargo audit
+
+  # ============================================
+  # Documentation
+  # ============================================
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@nightly
+
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps
+
+      - name: Upload docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: target/doc/
+          retention-days: 7
+
+  # ============================================
+  # Release
+  # ============================================
+  release:
+    name: Create Release
+    needs: [build, macos-universal, security]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create release archives
+        run: |
+          cd artifacts
+          for dir in reelforge-*; do
+            if [ -d "$dir" ]; then
+              tar -czvf "$dir.tar.gz" "$dir"
+            fi
+          done
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1801,14 +1801,21 @@ mod tests {
 
     #[test]
     fn test_soft_clip() {
-        let clip = SoftClip::new();
+        let mut clip = SoftClip::new();
 
-        // Below threshold: pass through
+        // Default is tanh - verify it produces tanh output
         let out = clip.process(0.5);
-        assert!((out - 0.5).abs() < 0.01);
+        let expected = 0.5_f64.tanh();
+        assert!((out - expected).abs() < 0.01, "Expected tanh(0.5) ≈ {}, got {}", expected, out);
 
-        // Way above threshold: clamped
+        // Way above threshold: should be soft clipped close to 1.0
         let out = clip.process(10.0);
-        assert!(out.abs() <= 1.0, "Should be soft clipped");
+        assert!(out.abs() <= 1.0, "Should be soft clipped to ≤1.0, got {}", out);
+        assert!(out > 0.99, "For large input, tanh should approach 1.0, got {}", out);
+
+        // Test SoftKnee mode: below threshold should pass through
+        clip.set_type(SoftClipType::SoftKnee);
+        let out = clip.process(0.5);  // 0.5 < threshold (0.9)
+        assert!((out - 0.5).abs() < 0.01, "Below threshold should pass through, got {}", out);
     }
 }
