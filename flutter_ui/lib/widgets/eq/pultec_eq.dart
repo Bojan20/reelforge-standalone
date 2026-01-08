@@ -8,6 +8,8 @@
 // - Tube glow effect
 // - True passive filter modeling in backend
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Pultec EQP-1A parameter set
