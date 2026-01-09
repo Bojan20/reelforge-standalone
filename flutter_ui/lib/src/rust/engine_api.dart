@@ -3014,3 +3014,192 @@ void recordingClearAll() {
     // FFI not available
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Export/Bounce System
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Audio export format
+enum ExportFormat {
+  wav(0),
+  flac(1),
+  mp3(2);
+
+  final int value;
+  const ExportFormat(this.value);
+}
+
+/// Audio bit depth
+enum ExportBitDepth {
+  int16(16),
+  int24(24),
+  float32(32);
+
+  final int bits;
+  const ExportBitDepth(this.bits);
+}
+
+/// Bounce progress information
+class BounceProgress {
+  final double percent;
+  final double speedFactor;
+  final double etaSecs;
+  final double peakLevel;
+  final bool isComplete;
+  final bool wasCancelled;
+
+  const BounceProgress({
+    required this.percent,
+    required this.speedFactor,
+    required this.etaSecs,
+    required this.peakLevel,
+    required this.isComplete,
+    required this.wasCancelled,
+  });
+
+  @override
+  String toString() =>
+      'BounceProgress(percent: ${percent.toStringAsFixed(1)}%, speed: ${speedFactor.toStringAsFixed(1)}x, eta: ${etaSecs.toStringAsFixed(1)}s, peak: ${peakLevel.toStringAsFixed(3)})';
+}
+
+/// Start export/bounce
+/// Returns true on success
+bool bounceStart({
+  required String outputPath,
+  ExportFormat format = ExportFormat.wav,
+  ExportBitDepth bitDepth = ExportBitDepth.int24,
+  int sampleRate = 0, // 0 = project rate
+  required double startTime,
+  required double endTime,
+  bool normalize = false,
+  double normalizeTarget = -0.1,
+}) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+
+    final result = ffi.bounceStart(
+      outputPath,
+      format.value,
+      bitDepth.bits,
+      sampleRate,
+      startTime,
+      endTime,
+      normalize,
+      normalizeTarget,
+    );
+
+    return result != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Get current bounce progress
+BounceProgress bounceGetProgress() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) {
+      return const BounceProgress(
+        percent: 0,
+        speedFactor: 1.0,
+        etaSecs: 0,
+        peakLevel: 0,
+        isComplete: false,
+        wasCancelled: false,
+      );
+    }
+
+    return BounceProgress(
+      percent: ffi.bounceGetProgress(),
+      speedFactor: ffi.bounceGetSpeedFactor(),
+      etaSecs: ffi.bounceGetEta(),
+      peakLevel: ffi.bounceGetPeakLevel(),
+      isComplete: ffi.bounceIsComplete(),
+      wasCancelled: ffi.bounceWasCancelled(),
+    );
+  } catch (e) {
+    return const BounceProgress(
+      percent: 0,
+      speedFactor: 1.0,
+      etaSecs: 0,
+      peakLevel: 0,
+      isComplete: false,
+      wasCancelled: false,
+    );
+  }
+}
+
+/// Check if bounce is complete
+bool bounceIsComplete() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.bounceIsComplete();
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Check if bounce was cancelled
+bool bounceWasCancelled() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.bounceWasCancelled();
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Cancel active bounce
+void bounceCancel() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.bounceCancel();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+/// Check if bounce is active
+bool bounceIsActive() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.bounceIsActive();
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Clear bounce state (call after complete/cancelled)
+void bounceClear() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.bounceClear();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+/// Get output path from last bounce
+String? bounceGetOutputPath() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final pathPtr = ffi.bounceGetOutputPath();
+    if (pathPtr == nullptr) return null;
+
+    final path = pathPtr.cast<Utf8>().toDartString();
+    calloc.free(pathPtr);
+    return path;
+  } catch (e) {
+    return null;
+  }
+}

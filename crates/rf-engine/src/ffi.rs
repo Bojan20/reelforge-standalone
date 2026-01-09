@@ -12415,6 +12415,216 @@ pub extern "C" fn audio_refresh_devices() -> i32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EXPORT/BOUNCE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+use std::sync::Mutex;
+
+lazy_static::lazy_static! {
+    static ref BOUNCE_RENDERER: Mutex<Option<rf_file::OfflineRenderer>> = Mutex::new(None);
+    static ref BOUNCE_OUTPUT_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+}
+
+/// Start bounce/export
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_start(
+    output_path: *const c_char,
+    format: u8,         // 0=WAV, 1=FLAC, 2=MP3
+    bit_depth: u8,      // 16, 24, 32
+    sample_rate: u32,   // 0 = project rate
+    start_time: f64,    // seconds
+    end_time: f64,      // seconds
+    normalize: i32,     // 1=true, 0=false
+    normalize_target: f64, // dBFS (e.g., -0.1)
+) -> i32 {
+    if output_path.is_null() {
+        return 0;
+    }
+
+    let path_str = unsafe {
+        match CStr::from_ptr(output_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let path = PathBuf::from(path_str);
+
+    // Convert format
+    let audio_format = match format {
+        0 => rf_file::AudioFormat::Wav,
+        1 => rf_file::AudioFormat::Flac,
+        2 => rf_file::AudioFormat::Mp3,
+        _ => rf_file::AudioFormat::Wav,
+    };
+
+    // Convert bit depth
+    let bit_depth_enum = match bit_depth {
+        16 => rf_file::BitDepth::Int16,
+        24 => rf_file::BitDepth::Int24,
+        32 => rf_file::BitDepth::Float32,
+        _ => rf_file::BitDepth::Int24,
+    };
+
+    // Get sample rate from playback engine if 0
+    let source_sample_rate = if sample_rate == 0 {
+        PLAYBACK_ENGINE.sample_rate()
+    } else {
+        sample_rate
+    };
+
+    // Convert time to samples
+    let start_samples = (start_time * source_sample_rate as f64) as u64;
+    let end_samples = (end_time * source_sample_rate as f64) as u64;
+
+    let export_format = rf_file::ExportFormat {
+        format: audio_format,
+        bit_depth: bit_depth_enum,
+        sample_rate: if sample_rate == 0 {
+            0
+        } else {
+            sample_rate
+        },
+        bitrate: 320, // High quality MP3
+        dither: rf_file::DitherType::Triangular,
+        noise_shape: rf_file::NoiseShapeType::ModifiedE,
+        normalize: normalize != 0,
+        normalize_target,
+        allow_clip: false,
+    };
+
+    let config = rf_file::BounceConfig {
+        output_path: path.clone(),
+        export_format,
+        region: rf_file::BounceRegion {
+            start_samples,
+            end_samples,
+            include_tail: true,
+            tail_secs: 2.0,
+        },
+        source_sample_rate,
+        num_channels: 2,
+        offline: true,
+        block_size: 1024,
+    };
+
+    let renderer = rf_file::OfflineRenderer::new(config);
+
+    // Store renderer
+    *BOUNCE_RENDERER.lock().unwrap() = Some(renderer);
+    *BOUNCE_OUTPUT_PATH.lock().unwrap() = Some(path);
+
+    1
+}
+
+/// Get bounce progress (0.0 - 100.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_get_progress() -> f32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| r.progress().percent)
+        .unwrap_or(0.0)
+}
+
+/// Check if bounce is complete
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_is_complete() -> i32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| if r.progress().is_complete { 1 } else { 0 })
+        .unwrap_or(0)
+}
+
+/// Check if bounce was cancelled
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_was_cancelled() -> i32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| if r.progress().was_cancelled { 1 } else { 0 })
+        .unwrap_or(0)
+}
+
+/// Get bounce speed factor (x realtime)
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_get_speed_factor() -> f32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| r.progress().speed_factor)
+        .unwrap_or(1.0)
+}
+
+/// Get bounce ETA (seconds remaining)
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_get_eta() -> f32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| r.progress().eta_secs)
+        .unwrap_or(0.0)
+}
+
+/// Get bounce peak level
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_get_peak_level() -> f32 {
+    BOUNCE_RENDERER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|r| r.progress().peak_level)
+        .unwrap_or(0.0)
+}
+
+/// Cancel bounce
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_cancel() {
+    if let Some(ref renderer) = *BOUNCE_RENDERER.lock().unwrap() {
+        renderer.cancel();
+    }
+}
+
+/// Check if bounce is active
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_is_active() -> i32 {
+    if BOUNCE_RENDERER.lock().unwrap().is_some() {
+        1
+    } else {
+        0
+    }
+}
+
+/// Clear bounce state (call after complete/cancelled)
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_clear() {
+    *BOUNCE_RENDERER.lock().unwrap() = None;
+    *BOUNCE_OUTPUT_PATH.lock().unwrap() = None;
+}
+
+/// Get output path from last bounce
+/// Returns null-terminated string or null if none
+/// Caller must free the returned string
+#[unsafe(no_mangle)]
+pub extern "C" fn bounce_get_output_path() -> *mut c_char {
+    BOUNCE_OUTPUT_PATH
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|p| p.to_str())
+        .and_then(|s| CString::new(s).ok())
+        .map(|cs| cs.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RECORDING SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 

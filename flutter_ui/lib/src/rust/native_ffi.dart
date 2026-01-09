@@ -3890,6 +3890,74 @@ class NativeFFI {
   int recordingArmedCount() => _recordingArmedCount();
   int recordingRecordingCount() => _recordingRecordingCount();
   void recordingClearAll() => _recordingClearAll();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Export/Bounce System
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _bounceStart = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>, Uint8, Uint8, Uint32, Double, Double, Int32, Double),
+      int Function(Pointer<Utf8>, int, int, int, double, double, int, double)>('bounce_start');
+
+  late final _bounceGetProgress = _lib.lookupFunction<
+      Float Function(),
+      double Function()>('bounce_get_progress');
+
+  late final _bounceIsComplete = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('bounce_is_complete');
+
+  late final _bounceWasCancelled = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('bounce_was_cancelled');
+
+  late final _bounceGetSpeedFactor = _lib.lookupFunction<
+      Float Function(),
+      double Function()>('bounce_get_speed_factor');
+
+  late final _bounceGetEta = _lib.lookupFunction<
+      Float Function(),
+      double Function()>('bounce_get_eta');
+
+  late final _bounceGetPeakLevel = _lib.lookupFunction<
+      Float Function(),
+      double Function()>('bounce_get_peak_level');
+
+  late final _bounceCancel = _lib.lookupFunction<
+      Void Function(),
+      void Function()>('bounce_cancel');
+
+  late final _bounceIsActive = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('bounce_is_active');
+
+  late final _bounceClear = _lib.lookupFunction<
+      Void Function(),
+      void Function()>('bounce_clear');
+
+  late final _bounceGetOutputPath = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('bounce_get_output_path');
+
+  int bounceStart(String outputPath, int format, int bitDepth, int sampleRate,
+      double startTime, double endTime, bool normalize, double normalizeTarget) {
+    final pathPtr = outputPath.toNativeUtf8();
+    final result = _bounceStart(pathPtr, format, bitDepth, sampleRate, startTime,
+        endTime, normalize ? 1 : 0, normalizeTarget);
+    calloc.free(pathPtr);
+    return result;
+  }
+
+  double bounceGetProgress() => _bounceGetProgress();
+  bool bounceIsComplete() => _bounceIsComplete() != 0;
+  bool bounceWasCancelled() => _bounceWasCancelled() != 0;
+  double bounceGetSpeedFactor() => _bounceGetSpeedFactor();
+  double bounceGetEta() => _bounceGetEta();
+  double bounceGetPeakLevel() => _bounceGetPeakLevel();
+  void bounceCancel() => _bounceCancel();
+  bool bounceIsActive() => _bounceIsActive() != 0;
+  void bounceClear() => _bounceClear();
+  Pointer<Utf8> bounceGetOutputPath() => _bounceGetOutputPath();
 }
 
 /// Piano roll note data
