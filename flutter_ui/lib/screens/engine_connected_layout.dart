@@ -2304,6 +2304,63 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }).toList();
         });
       },
+      onClipOpenAudioEditor: (clipId) {
+        // Find clip and open audio editor dialog
+        final clip = _clips.where((c) => c.id == clipId).firstOrNull;
+        if (clip == null) return;
+
+        // Open audio editor in dialog
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            backgroundColor: ReelForgeTheme.bgDeep,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: ClipEditor(
+                clip: ClipEditorClip(
+                  id: clip.id,
+                  name: clip.name,
+                  duration: clip.duration,
+                  sampleRate: 48000,
+                  channels: 2,
+                  bitDepth: 24,
+                  fadeIn: clip.fadeIn,
+                  fadeOut: clip.fadeOut,
+                  gain: clip.gain,
+                  color: clip.color,
+                  sourceOffset: clip.sourceOffset,
+                  sourceDuration: clip.sourceDuration ?? clip.duration,
+                ),
+                onFadeInChange: (id, fadeIn) {
+                  setState(() {
+                    _clips = _clips.map((c) {
+                      if (c.id == id) return c.copyWith(fadeIn: fadeIn);
+                      return c;
+                    }).toList();
+                  });
+                },
+                onFadeOutChange: (id, fadeOut) {
+                  setState(() {
+                    _clips = _clips.map((c) {
+                      if (c.id == id) return c.copyWith(fadeOut: fadeOut);
+                      return c;
+                    }).toList();
+                  });
+                },
+                onGainChange: (id, gain) {
+                  setState(() {
+                    _clips = _clips.map((c) {
+                      if (c.id == id) return c.copyWith(gain: gain);
+                      return c;
+                    }).toList();
+                  });
+                },
+              ),
+            ),
+          ),
+        );
+      },
       onClipSplit: (clipId) {
         // Split clip at playhead
         final clip = _clips.firstWhere((c) => c.id == clipId);

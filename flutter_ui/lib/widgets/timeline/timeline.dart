@@ -72,6 +72,7 @@ class Timeline extends StatefulWidget {
     double? newOffset,
   )? onClipResize;
   final void Function(String clipId, double newSourceOffset)? onClipSlipEdit;
+  final void Function(String clipId)? onClipOpenAudioEditor;
   final ValueChanged<double>? onZoomChange;
   final ValueChanged<double>? onScrollChange;
   final ValueChanged<LoopRegion?>? onLoopRegionChange;
@@ -174,6 +175,7 @@ class Timeline extends StatefulWidget {
     this.onClipMoveToNewTrack,
     this.onClipResize,
     this.onClipSlipEdit,
+    this.onClipOpenAudioEditor,
     this.onZoomChange,
     this.onScrollChange,
     this.onLoopRegionChange,
@@ -825,6 +827,7 @@ class _TimelineState extends State<Timeline> {
                     onClipResize: widget.onClipResize,
                     onClipRename: widget.onClipRename,
                     onClipSlipEdit: widget.onClipSlipEdit,
+                    onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
                     onCrossfadeDelete: widget.onCrossfadeDelete,
                     snapEnabled: widget.snapEnabled,

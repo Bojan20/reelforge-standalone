@@ -41,6 +41,7 @@ class ClipWidget extends StatefulWidget {
   final ValueChanged<String>? onRename;
   final ValueChanged<double>? onSlipEdit;
   final VoidCallback? onOpenFxEditor;
+  final VoidCallback? onOpenAudioEditor;
   /// Context menu callbacks
   final VoidCallback? onDelete;
   final VoidCallback? onDuplicate;
@@ -70,6 +71,7 @@ class ClipWidget extends StatefulWidget {
     this.onRename,
     this.onSlipEdit,
     this.onOpenFxEditor,
+    this.onOpenAudioEditor,
     this.onDelete,
     this.onDuplicate,
     this.onSplit,
@@ -146,6 +148,13 @@ class _ClipWidgetState extends State<ClipWidget> {
   }
 
   void _startEditing() {
+    // If double-click on audio clip with source file, open audio editor
+    if (widget.clip.sourceFile != null && widget.onOpenAudioEditor != null) {
+      widget.onOpenAudioEditor!();
+      return;
+    }
+
+    // Otherwise, rename editing (for MIDI clips or clips without source)
     setState(() {
       _isEditing = true;
       _nameController.text = widget.clip.name;
@@ -173,6 +182,20 @@ class _ClipWidgetState extends State<ClipWidget> {
         position.dy + 1,
       ),
       items: [
+        // Audio Editor (only for audio clips with source file)
+        if (clip.sourceFile != null && widget.onOpenAudioEditor != null)
+          PopupMenuItem(
+            value: 'audio_editor',
+            child: Row(
+              children: [
+                Icon(Icons.graphic_eq, size: 18, color: ReelForgeTheme.accentBlue),
+                const SizedBox(width: 8),
+                Text('Edit Audio', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+                const Spacer(),
+                Text('Double-Click', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+              ],
+            ),
+          ),
         PopupMenuItem(
           value: 'rename',
           child: Row(
@@ -249,6 +272,9 @@ class _ClipWidgetState extends State<ClipWidget> {
     ).then((value) {
       if (value == null) return;
       switch (value) {
+        case 'audio_editor':
+          widget.onOpenAudioEditor?.call();
+          break;
         case 'rename':
           _startEditing();
           break;
