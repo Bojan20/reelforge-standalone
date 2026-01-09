@@ -515,6 +515,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               // Fade in handle
               _FadeHandle(
                 width: (clip.fadeIn * widget.zoom).clamp(8.0, double.infinity),
+                fadeTime: clip.fadeIn,
                 isLeft: true,
                 isActive: _isDraggingFadeIn,
                 onDragStart: () => setState(() => _isDraggingFadeIn = true),
@@ -529,6 +530,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               // Fade out handle
               _FadeHandle(
                 width: (clip.fadeOut * widget.zoom).clamp(8.0, double.infinity),
+                fadeTime: clip.fadeOut,
                 isLeft: false,
                 isActive: _isDraggingFadeOut,
                 onDragStart: () => setState(() => _isDraggingFadeOut = true),
@@ -1166,10 +1168,11 @@ class _FadeOverlayPainter extends CustomPainter {
   bool shouldRepaint(_FadeOverlayPainter oldDelegate) => isLeft != oldDelegate.isLeft;
 }
 
-// ============ Fade Handle ============
+// ============ Fade Handle (Logic Pro + Cubase Style) ============
 
-class _FadeHandle extends StatelessWidget {
+class _FadeHandle extends StatefulWidget {
   final double width;
+  final double fadeTime;
   final bool isLeft;
   final bool isActive;
   final VoidCallback onDragStart;
@@ -1178,6 +1181,7 @@ class _FadeHandle extends StatelessWidget {
 
   const _FadeHandle({
     required this.width,
+    required this.fadeTime,
     required this.isLeft,
     required this.isActive,
     required this.onDragStart,
@@ -1186,41 +1190,172 @@ class _FadeHandle extends StatelessWidget {
   });
 
   @override
+  State<_FadeHandle> createState() => _FadeHandleState();
+}
+
+class _FadeHandleState extends State<_FadeHandle> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: isLeft ? 0 : null,
-      right: isLeft ? null : 0,
+      left: widget.isLeft ? 0 : null,
+      right: widget.isLeft ? null : 0,
       top: 0,
-      width: width,
-      height: 12,
-      child: GestureDetector(
-        onHorizontalDragStart: (_) => onDragStart(),
-        onHorizontalDragUpdate: (details) => onDragUpdate(details.localPosition.dx),
-        onHorizontalDragEnd: (_) => onDragEnd(),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isActive
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
-                : Colors.transparent,
-            borderRadius: BorderRadius.only(
-              topLeft: isLeft ? const Radius.circular(4) : Radius.zero,
-              topRight: isLeft ? Radius.zero : const Radius.circular(4),
-            ),
-          ),
-          child: Center(
-            child: Container(
-              width: 8,
-              height: 4,
-              decoration: BoxDecoration(
-                color: ReelForgeTheme.textPrimary.withValues(alpha: isActive ? 0.8 : 0.4),
-                borderRadius: BorderRadius.circular(2),
+      width: widget.width,
+      height: double.infinity,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.resizeColumn,
+        child: GestureDetector(
+          onHorizontalDragStart: (_) => widget.onDragStart(),
+          onHorizontalDragUpdate: (details) => widget.onDragUpdate(details.localPosition.dx),
+          onHorizontalDragEnd: (_) => widget.onDragEnd(),
+          child: Stack(
+            children: [
+              // Triangular fade overlay (like Logic Pro)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _FadeTrianglePainter(
+                    isLeft: widget.isLeft,
+                    isActive: widget.isActive || _isHovered,
+                  ),
+                ),
               ),
-            ),
+
+              // Drag handle at top corner (like Cubase)
+              Positioned(
+                left: widget.isLeft ? null : 0,
+                right: widget.isLeft ? 0 : null,
+                top: 0,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: (widget.isActive || _isHovered)
+                        ? ReelForgeTheme.accentBlue
+                        : ReelForgeTheme.textSecondary.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.only(
+                      topLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                      topRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
+                      bottomLeft: widget.isLeft ? const Radius.circular(4) : Radius.zero,
+                      bottomRight: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                    ),
+                    boxShadow: (widget.isActive || _isHovered) ? [
+                      BoxShadow(
+                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ] : null,
+                  ),
+                  child: Icon(
+                    widget.isLeft ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              // Fade time label (like Pro Tools)
+              if (_isHovered || widget.isActive)
+                Positioned(
+                  left: widget.isLeft ? 4 : null,
+                  right: widget.isLeft ? null : 4,
+                  bottom: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      _formatFadeTime(widget.width),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontFamily: 'JetBrains Mono',
+                        color: ReelForgeTheme.accentBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  String _formatFadeTime(double width) {
+    // Use actual fade time from widget
+    final seconds = widget.fadeTime;
+    if (seconds < 0.01) return '0ms';
+    if (seconds < 1.0) return '${(seconds * 1000).round()}ms';
+    if (seconds < 10.0) return '${seconds.toStringAsFixed(2)}s';
+    return '${seconds.toStringAsFixed(1)}s';
+  }
+}
+
+/// Triangular fade overlay painter (Logic Pro style)
+class _FadeTrianglePainter extends CustomPainter {
+  final bool isLeft;
+  final bool isActive;
+
+  _FadeTrianglePainter({required this.isLeft, required this.isActive});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isActive
+          ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
+          : ReelForgeTheme.textSecondary.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    if (isLeft) {
+      // Fade in: triangle from left
+      path.moveTo(0, 0);
+      path.lineTo(size.width, 0);
+      path.lineTo(0, size.height);
+      path.close();
+    } else {
+      // Fade out: triangle from right
+      path.moveTo(size.width, 0);
+      path.lineTo(0, 0);
+      path.lineTo(size.width, size.height);
+      path.close();
+    }
+
+    canvas.drawPath(path, paint);
+
+    // Draw fade curve line (like Cubase)
+    final curvePaint = Paint()
+      ..color = isActive
+          ? ReelForgeTheme.accentBlue.withValues(alpha: 0.6)
+          : ReelForgeTheme.textSecondary.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    final curvePath = Path();
+    if (isLeft) {
+      curvePath.moveTo(0, 0);
+      curvePath.lineTo(size.width, size.height);
+    } else {
+      curvePath.moveTo(size.width, 0);
+      curvePath.lineTo(0, size.height);
+    }
+
+    canvas.drawPath(curvePath, curvePaint);
+  }
+
+  @override
+  bool shouldRepaint(_FadeTrianglePainter oldDelegate) =>
+      isLeft != oldDelegate.isLeft || isActive != oldDelegate.isActive;
 }
 
 // ============ Edge Handle ============
