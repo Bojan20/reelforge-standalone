@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
+import 'gpu_spectrum.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FABFILTER-STYLE COLOR SYSTEM
@@ -253,6 +254,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
   // State
   int _rangeIndex = 2; // ±12dB default
   bool _analyzerOn = true;
+  bool _useGpuSpectrum = true; // GPU-accelerated spectrum rendering
   bool _globalBypass = false;
   double _outputGain = 0;
   int _phaseMode = 0; // 0=Zero Lat, 1=Natural, 2=Linear
@@ -956,35 +958,70 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
   }
 
   Widget _buildAnalyzerToggle() {
-    return GestureDetector(
-      onTap: () => setState(() => _analyzerOn = !_analyzerOn),
-      child: Container(
-        height: 26,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: _analyzerOn ? _Colors.curveMain.withOpacity(0.15) : _Colors.controlBg,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: _analyzerOn ? _Colors.curveMain.withOpacity(0.4) : _Colors.controlBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.graphic_eq, size: 14,
-                color: _analyzerOn ? _Colors.curveMain : _Colors.textDim),
-            const SizedBox(width: 6),
-            Text(
-              'ANALYZER',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: _analyzerOn ? _Colors.curveMain : _Colors.textDim,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Analyzer on/off toggle
+        GestureDetector(
+          onTap: () => setState(() => _analyzerOn = !_analyzerOn),
+          child: Container(
+            height: 26,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _analyzerOn ? _Colors.curveMain.withOpacity(0.15) : _Colors.controlBg,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: _analyzerOn ? _Colors.curveMain.withOpacity(0.4) : _Colors.controlBorder,
               ),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.graphic_eq, size: 14,
+                    color: _analyzerOn ? _Colors.curveMain : _Colors.textDim),
+                const SizedBox(width: 6),
+                Text(
+                  'ANALYZER',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: _analyzerOn ? _Colors.curveMain : _Colors.textDim,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 4),
+        // GPU/CPU toggle
+        GestureDetector(
+          onTap: () => setState(() => _useGpuSpectrum = !_useGpuSpectrum),
+          child: Tooltip(
+            message: _useGpuSpectrum ? 'GPU Accelerated' : 'CPU Rendering',
+            child: Container(
+              height: 26,
+              width: 26,
+              decoration: BoxDecoration(
+                color: _useGpuSpectrum ? const Color(0xFF40FF90).withOpacity(0.15) : _Colors.controlBg,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: _useGpuSpectrum ? const Color(0xFF40FF90).withOpacity(0.4) : _Colors.controlBorder,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  _useGpuSpectrum ? 'G' : 'C',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: _useGpuSpectrum ? const Color(0xFF40FF90) : _Colors.textDim,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1021,20 +1058,39 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               child: AnimatedBuilder(
                 animation: _glowController,
                 builder: (ctx, _) {
-                  return CustomPaint(
-                    size: Size(constraints.maxWidth, constraints.maxHeight),
-                    painter: _EQDisplayPainter(
-                      bands: _bands,
-                      selectedBand: _selectedBand,
-                      hoveredBand: _hoveredBand,
-                      range: _range,
-                      // Use temporally smoothed spectrum for display
-                      spectrum: _analyzerOn && _signalLevel > 0.01 && _smoothedSpectrum.isNotEmpty
-                          ? _smoothedSpectrum
-                          : null,
-                      signalLevel: _signalLevel,
-                      glowValue: _glowController.value,
-                    ),
+                  final showSpectrum = _analyzerOn && _signalLevel > 0.01 && _smoothedSpectrum.isNotEmpty;
+
+                  return Stack(
+                    children: [
+                      // GPU Spectrum layer (rendered first, behind EQ curve)
+                      if (showSpectrum && _useGpuSpectrum)
+                        Positioned.fill(
+                          child: GpuSpectrum(
+                            spectrumData: _smoothedSpectrum,
+                            width: constraints.maxWidth,
+                            height: constraints.maxHeight,
+                            dbRange: _range * 2, // Total range (e.g., ±12 = 24)
+                            glow: _glowController.value,
+                          ),
+                        ),
+
+                      // Main EQ display (curve, bands, grid)
+                      CustomPaint(
+                        size: Size(constraints.maxWidth, constraints.maxHeight),
+                        painter: _EQDisplayPainter(
+                          bands: _bands,
+                          selectedBand: _selectedBand,
+                          hoveredBand: _hoveredBand,
+                          range: _range,
+                          // Use CPU spectrum only if GPU is disabled
+                          spectrum: showSpectrum && !_useGpuSpectrum
+                              ? _smoothedSpectrum
+                              : null,
+                          signalLevel: _signalLevel,
+                          glowValue: _glowController.value,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
