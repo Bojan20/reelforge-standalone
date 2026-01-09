@@ -97,11 +97,13 @@ enum AudioPoolFilter {
 class AudioPoolPanel extends StatefulWidget {
   final void Function(AudioFileInfo file)? onFileSelected;
   final void Function(AudioFileInfo file)? onFileDragStart;
+  final void Function(AudioFileInfo file)? onFileDoubleClick;
 
   const AudioPoolPanel({
     super.key,
     this.onFileSelected,
     this.onFileDragStart,
+    this.onFileDoubleClick,
   });
 
   @override
@@ -541,7 +543,10 @@ class _AudioPoolPanelState extends State<AudioPoolPanel> {
           setState(() => _selectedFile = file);
           widget.onFileSelected?.call(file);
         },
-        onDoubleTap: () => _togglePreview(file),
+        onDoubleTap: () {
+          // Double-click creates track + clip in timeline
+          widget.onFileDoubleClick?.call(file);
+        },
         child: Container(
           margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.all(10),

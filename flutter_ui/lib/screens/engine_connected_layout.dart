@@ -93,6 +93,7 @@ import 'main_layout.dart';
 import '../widgets/project/track_templates_panel.dart';
 import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
+import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
 
 class EngineConnectedLayout extends StatefulWidget {
@@ -1132,6 +1133,76 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _activeLowerTab = 'clip-editor';
     });
     _showSnackBar('Clip FX: ${selectedClip.name}');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO POOL HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Handle double-click on audio file in pool
+  Future<void> _handleAudioPoolFileDoubleClick(AudioFileInfo file) async {
+    final engine = context.read<EngineProvider>();
+
+    // Create track if none exists
+    if (_tracks.isEmpty) {
+      _handleAddTrack();
+      // Wait for track creation to complete
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    // Get first track
+    final track = _tracks.first;
+
+    // Get playback position
+    final transport = engine.transport;
+    final startTime = transport.positionSeconds;
+
+    // Import audio file to engine and get clip info
+    try {
+      final clipInfo = await engine.importAudioFile(
+        filePath: file.path,
+        trackId: track.id,
+        startTime: startTime,
+      );
+
+      final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}';
+
+      // Get real waveform from engine
+      Float32List? waveform;
+      if (clipInfo != null) {
+        final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
+        if (peaks.isNotEmpty) {
+          waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+        }
+      }
+
+      // Create clip with real waveform
+      final newClip = timeline.TimelineClip(
+        id: clipId,
+        trackId: track.id,
+        name: file.name,
+        startTime: startTime,
+        duration: clipInfo?.duration ?? file.duration,
+        sourceDuration: clipInfo?.sourceDuration ?? file.duration,
+        sourceOffset: 0,
+        sourceFile: file.path,
+        color: track.color,
+        waveform: waveform,
+        gain: 1.0,
+        fadeIn: 0.01,
+        fadeOut: 0.01,
+        selected: false,
+      );
+
+      setState(() {
+        _clips.add(newClip);
+      });
+
+      _showSnackBar('Added "${file.name}" to timeline');
+    } catch (e) {
+      _showSnackBar('Error loading audio file: $e');
+      debugPrint('[AudioPool] Error loading file: $e');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -5912,7 +5983,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'audio-pool',
         label: 'Audio Pool',
         icon: Icons.library_music,
-        content: const AudioPoolTabPlaceholder(),
+        content: AudioPoolPanel(
+          onFileDoubleClick: _handleAudioPoolFileDoubleClick,
+        ),
         groupId: 'media',
       ),
       // ========== Project Management Tabs ==========

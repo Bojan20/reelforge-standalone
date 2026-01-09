@@ -107,7 +107,8 @@ class _TrackLaneState extends State<TrackLane> {
       height: widget.trackHeight,
       decoration: BoxDecoration(
         // Blend track color with dark background (Logic Pro style visible tint)
-        color: Color.lerp(ReelForgeTheme.bgDeep, trackColor, 0.18),
+        // Always show subtle color blend, even when empty
+        color: Color.lerp(ReelForgeTheme.bgDeep, trackColor, 0.12),
         border: Border(
           bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
         ),
