@@ -11,6 +11,9 @@
 - Kada kažem "da" → odmah radi
 - Ne objašnjavaj unapred šta ćeš raditi
 - Posle implementacije → samo lista promena
+- **NIKADA ne pitaj "da li A ili B?"** → UVEK biraj NAJBOLJE i PRAVO rešenje
+- **Nikakvi mockup-ovi, duplikati ili workaround-i** → samo konkretna, production-ready implementacija
+- **Dok korisnik ne kaže drugačije** → implementiraj ultimativno rešenje, ne privremeno
 
 ### 3. UVEK pretraži prvo
 ```
