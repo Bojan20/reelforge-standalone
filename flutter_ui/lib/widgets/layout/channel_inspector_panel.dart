@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/timeline_models.dart' as timeline;
+import '../../src/rust/native_ffi.dart';
 
 class ChannelInspectorPanel extends StatefulWidget {
   // Channel data
@@ -67,6 +68,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   bool _routingExpanded = false;
   bool _clipExpanded = true;
   bool _clipGainExpanded = true;
+  bool _clipTimeStretchExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +123,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             _buildClipSection(),
             const SizedBox(height: 6),
             _buildClipGainSection(),
+            const SizedBox(height: 6),
+            _buildClipTimeStretchSection(),
           ],
         ],
       ),
@@ -581,6 +585,204 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   double _dbToLinear(double db) {
     if (db <= -70) return 0;
     return math.pow(10, db / 20).toDouble();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP TIME STRETCH SECTION (RF-Elastic Pro)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildClipTimeStretchSection() {
+    final clip = widget.selectedClip!;
+    final clipId = int.tryParse(clip.id) ?? 0;
+
+    return _Section(
+      title: 'Time Stretch (RF-Elastic Pro)',
+      expanded: _clipTimeStretchExpanded,
+      onToggle: () => setState(() => _clipTimeStretchExpanded = !_clipTimeStretchExpanded),
+      child: _TimeStretchControls(
+        clipId: clipId,
+        onChanged: () {
+          // Notify parent that clip time stretch changed
+          // This would trigger waveform redraw in the timeline
+          if (widget.onClipChanged != null) {
+            widget.onClipChanged!(clip);
+          }
+        },
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIME STRETCH CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TimeStretchControls extends StatefulWidget {
+  final int clipId;
+  final VoidCallback? onChanged;
+
+  const _TimeStretchControls({required this.clipId, this.onChanged});
+
+  @override
+  State<_TimeStretchControls> createState() => _TimeStretchControlsState();
+}
+
+class _TimeStretchControlsState extends State<_TimeStretchControls> {
+  double _stretchRatio = 1.0;
+  double _pitchShift = 0.0;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initProcessor();
+  }
+
+  @override
+  void dispose() {
+    if (_initialized) {
+      NativeFFI.instance.elasticRemove(widget.clipId);
+    }
+    super.dispose();
+  }
+
+  void _initProcessor() {
+    try {
+      final sampleRate = NativeFFI.instance.getSampleRate().toDouble();
+      final success = NativeFFI.instance.elasticCreate(widget.clipId, sampleRate);
+      if (success) {
+        setState(() => _initialized = true);
+      }
+    } catch (e) {
+      // FFI not available or failed
+    }
+  }
+
+  void _setStretchRatio(double ratio) {
+    if (!_initialized) return;
+    setState(() => _stretchRatio = ratio);
+    NativeFFI.instance.elasticSetRatio(widget.clipId, ratio);
+    widget.onChanged?.call();
+  }
+
+  void _setPitchShift(double pitch) {
+    if (!_initialized) return;
+    setState(() => _pitchShift = pitch);
+    NativeFFI.instance.elasticSetPitch(widget.clipId, pitch);
+    widget.onChanged?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, size: 14, color: ReelForgeTheme.textTertiary),
+            const SizedBox(width: 8),
+            Text(
+              'Time stretch not available',
+              style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Stretch Ratio
+        _FaderRow(
+          label: 'Tempo',
+          value: _stretchRatio * 100,
+          min: 25,
+          max: 400,
+          defaultValue: 100,
+          formatValue: (v) => '${v.toStringAsFixed(0)}%',
+          color: ReelForgeTheme.accentBlue,
+          onChanged: (v) => _setStretchRatio(v / 100),
+        ),
+        const SizedBox(height: 10),
+
+        // Pitch Shift
+        _FaderRow(
+          label: 'Pitch',
+          value: _pitchShift,
+          min: -12,
+          max: 12,
+          defaultValue: 0,
+          formatValue: (v) {
+            if (v == 0) return '0 st';
+            return '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} st';
+          },
+          color: ReelForgeTheme.accentCyan,
+          onChanged: _setPitchShift,
+        ),
+        const SizedBox(height: 12),
+
+        // Quick presets
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _PresetButton('50%', 0.5, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            _PresetButton('75%', 0.75, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            _PresetButton('100%', 1.0, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            _PresetButton('150%', 1.5, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PresetButton extends StatelessWidget {
+  final String label;
+  final double targetRatio;
+  final double targetPitch;
+  final double currentRatio;
+  final double currentPitch;
+  final ValueChanged<double> onRatioChanged;
+  final ValueChanged<double> onPitchChanged;
+
+  const _PresetButton(
+    this.label,
+    this.targetRatio,
+    this.targetPitch,
+    this.currentRatio,
+    this.currentPitch,
+    this.onRatioChanged,
+    this.onPitchChanged,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = (currentRatio - targetRatio).abs() < 0.01 && (currentPitch - targetPitch).abs() < 0.01;
+
+    return GestureDetector(
+      onTap: () {
+        onRatioChanged(targetRatio);
+        onPitchChanged(targetPitch);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2) : ReelForgeTheme.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
   }
 }
 
