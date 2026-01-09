@@ -14,6 +14,7 @@ class TransportBar extends StatelessWidget {
   final bool metronomeEnabled;
   final bool snapEnabled;
   final double snapValue;
+  final int armedCount;
   final VoidCallback? onPlay;
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
@@ -33,6 +34,7 @@ class TransportBar extends StatelessWidget {
     this.metronomeEnabled = false,
     this.snapEnabled = true,
     this.snapValue = 1,
+    this.armedCount = 0,
     this.onPlay,
     this.onStop,
     this.onRecord,
@@ -65,12 +67,10 @@ class TransportBar extends StatelessWidget {
           isActive: isPlaying,
           activeColor: ReelForgeTheme.accentGreen,
         ),
-        _TransportButton(
-          icon: Icons.fiber_manual_record,
+        _RecordButton(
+          isRecording: isRecording,
+          armedCount: armedCount,
           onPressed: onRecord,
-          tooltip: 'Record (R)',
-          isActive: isRecording,
-          activeColor: ReelForgeTheme.errorRed,
         ),
         _TransportButton(
           icon: Icons.skip_next,
@@ -163,6 +163,131 @@ class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(width: 1, height: 24, color: ReelForgeTheme.borderSubtle);
+  }
+}
+
+class _RecordButton extends StatefulWidget {
+  final bool isRecording;
+  final int armedCount;
+  final VoidCallback? onPressed;
+
+  const _RecordButton({
+    required this.isRecording,
+    required this.armedCount,
+    this.onPressed,
+  });
+
+  @override
+  State<_RecordButton> createState() => _RecordButtonState();
+}
+
+class _RecordButtonState extends State<_RecordButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isRecording) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_RecordButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRecording && !oldWidget.isRecording) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.isRecording && oldWidget.isRecording) {
+      _controller.stop();
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDisabled = widget.armedCount == 0 && !widget.isRecording;
+
+    return Tooltip(
+      message: isDisabled
+          ? 'No tracks armed for recording'
+          : widget.isRecording
+              ? 'Stop Recording (R)\n${widget.armedCount} track(s) recording'
+              : 'Start Recording (R)\n${widget.armedCount} track(s) armed',
+      child: InkWell(
+        onTap: isDisabled ? null : widget.onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: widget.isRecording
+                    ? ReelForgeTheme.errorRed.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) {
+                  return Icon(
+                    Icons.fiber_manual_record,
+                    size: 20,
+                    color: isDisabled
+                        ? ReelForgeTheme.textSecondary.withValues(alpha: 0.4)
+                        : widget.isRecording
+                            ? ReelForgeTheme.errorRed.withValues(alpha: _animation.value)
+                            : widget.armedCount > 0
+                                ? ReelForgeTheme.errorRed.withValues(alpha: 0.7)
+                                : ReelForgeTheme.textSecondary,
+                  );
+                },
+              ),
+            ),
+            // Armed count badge
+            if (widget.armedCount > 0 && !widget.isRecording)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: ReelForgeTheme.errorRed,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                  child: Text(
+                    '${widget.armedCount}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
