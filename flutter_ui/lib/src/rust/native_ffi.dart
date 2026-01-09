@@ -3750,6 +3750,146 @@ class NativeFFI {
     if (!_loaded) return false;
     return _pianoRollCanRedo(clipId) == 1;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO DEVICE ENUMERATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _audioGetOutputDeviceCount = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_get_output_device_count');
+
+  late final _audioGetInputDeviceCount = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_get_input_device_count');
+
+  late final _audioGetOutputDeviceName = _lib.lookupFunction<
+      Pointer<Utf8> Function(Int32),
+      Pointer<Utf8> Function(int)>('audio_get_output_device_name');
+
+  late final _audioGetInputDeviceName = _lib.lookupFunction<
+      Pointer<Utf8> Function(Int32),
+      Pointer<Utf8> Function(int)>('audio_get_input_device_name');
+
+  late final _audioIsOutputDeviceDefault = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('audio_is_output_device_default');
+
+  late final _audioIsInputDeviceDefault = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('audio_is_input_device_default');
+
+  late final _audioGetOutputDeviceChannels = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('audio_get_output_device_channels');
+
+  late final _audioGetInputDeviceChannels = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('audio_get_input_device_channels');
+
+  late final _audioGetOutputDeviceSampleRateCount = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('audio_get_output_device_sample_rate_count');
+
+  late final _audioGetOutputDeviceSampleRate = _lib.lookupFunction<
+      Int32 Function(Int32, Int32),
+      int Function(int, int)>('audio_get_output_device_sample_rate');
+
+  late final _audioGetHostName = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_get_host_name');
+
+  late final _audioIsAsioAvailable = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_is_asio_available');
+
+  late final _audioRefreshDevices = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_refresh_devices');
+
+  int audioGetOutputDeviceCount() => _audioGetOutputDeviceCount();
+  int audioGetInputDeviceCount() => _audioGetInputDeviceCount();
+  Pointer<Utf8> audioGetOutputDeviceName(int index) => _audioGetOutputDeviceName(index);
+  Pointer<Utf8> audioGetInputDeviceName(int index) => _audioGetInputDeviceName(index);
+  int audioIsOutputDeviceDefault(int index) => _audioIsOutputDeviceDefault(index);
+  int audioIsInputDeviceDefault(int index) => _audioIsInputDeviceDefault(index);
+  int audioGetOutputDeviceChannels(int index) => _audioGetOutputDeviceChannels(index);
+  int audioGetInputDeviceChannels(int index) => _audioGetInputDeviceChannels(index);
+  int audioGetOutputDeviceSampleRateCount(int index) => _audioGetOutputDeviceSampleRateCount(index);
+  int audioGetOutputDeviceSampleRate(int deviceIndex, int rateIndex) => _audioGetOutputDeviceSampleRate(deviceIndex, rateIndex);
+  Pointer<Utf8> audioGetHostName() => _audioGetHostName();
+  int audioIsAsioAvailable() => _audioIsAsioAvailable();
+  int audioRefreshDevices() => _audioRefreshDevices();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RECORDING SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _recordingSetOutputDir = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('recording_set_output_dir');
+
+  late final _recordingGetOutputDir = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('recording_get_output_dir');
+
+  late final _recordingArmTrack = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint16),
+      int Function(int, int)>('recording_arm_track');
+
+  late final _recordingDisarmTrack = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('recording_disarm_track');
+
+  late final _recordingStartTrack = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('recording_start_track');
+
+  late final _recordingStopTrack = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('recording_stop_track');
+
+  late final _recordingStartAll = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('recording_start_all');
+
+  late final _recordingStopAll = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('recording_stop_all');
+
+  late final _recordingIsArmed = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('recording_is_armed');
+
+  late final _recordingIsRecording = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('recording_is_recording');
+
+  late final _recordingArmedCount = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('recording_armed_count');
+
+  late final _recordingRecordingCount = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('recording_recording_count');
+
+  late final _recordingClearAll = _lib.lookupFunction<
+      Void Function(),
+      void Function()>('recording_clear_all');
+
+  int recordingSetOutputDir(Pointer<Utf8> path) => _recordingSetOutputDir(path);
+  Pointer<Utf8> recordingGetOutputDir() => _recordingGetOutputDir();
+  int recordingArmTrack(int trackId, int numChannels) => _recordingArmTrack(trackId, numChannels);
+  int recordingDisarmTrack(int trackId) => _recordingDisarmTrack(trackId);
+  Pointer<Utf8> recordingStartTrack(int trackId) => _recordingStartTrack(trackId);
+  Pointer<Utf8> recordingStopTrack(int trackId) => _recordingStopTrack(trackId);
+  int recordingStartAll() => _recordingStartAll();
+  int recordingStopAll() => _recordingStopAll();
+  int recordingIsArmed(int trackId) => _recordingIsArmed(trackId);
+  int recordingIsRecording(int trackId) => _recordingIsRecording(trackId);
+  int recordingArmedCount() => _recordingArmedCount();
+  int recordingRecordingCount() => _recordingRecordingCount();
+  void recordingClearAll() => _recordingClearAll();
 }
 
 /// Piano roll note data

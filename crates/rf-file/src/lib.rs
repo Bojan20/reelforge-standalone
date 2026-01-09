@@ -18,7 +18,7 @@ mod audio_file;
 mod bounce;
 mod error;
 mod project;
-mod recording;
+pub mod recording;
 
 pub use audio_file::*;
 pub use bounce::*;

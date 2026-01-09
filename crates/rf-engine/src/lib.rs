@@ -53,6 +53,9 @@ pub mod dsp_wrappers;
 // Phase 8: Automation Engine
 pub mod automation;
 
+// Phase 10: Recording
+pub mod recording_manager;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;
@@ -166,6 +169,9 @@ pub use automation::{
 pub use control_room::{
     ControlRoom, CueMix, CueSend, MonitorSource, SoloMode, SpeakerSet, Talkback,
 };
+
+// Re-exports: Phase 10 - Recording
+pub use recording_manager::RecordingManager;
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;

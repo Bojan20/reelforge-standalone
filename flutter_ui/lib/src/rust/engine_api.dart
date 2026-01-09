@@ -4,9 +4,11 @@
 /// Uses mock data when native library is not available.
 
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:ffi/ffi.dart';
 import 'native_ffi.dart';
 
 /// Audio Engine API
@@ -2702,6 +2704,311 @@ void advancedResetAll() {
     final ffi = NativeFFI.instance;
     if (ffi.isLoaded) {
       ffi.advancedResetAll();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO DEVICE ENUMERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Audio device information
+class AudioDeviceInfo {
+  final String name;
+  final bool isDefault;
+  final int channels;
+  final List<int> supportedSampleRates;
+
+  AudioDeviceInfo({
+    required this.name,
+    required this.isDefault,
+    required this.channels,
+    required this.supportedSampleRates,
+  });
+}
+
+/// Get list of available output devices
+List<AudioDeviceInfo> audioGetOutputDevices() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return [];
+
+    final count = ffi.audioGetOutputDeviceCount();
+    if (count <= 0) return [];
+
+    final devices = <AudioDeviceInfo>[];
+    for (int i = 0; i < count; i++) {
+      final namePtr = ffi.audioGetOutputDeviceName(i);
+      if (namePtr == nullptr) continue;
+
+      final name = namePtr.cast<Utf8>().toDartString();
+      calloc.free(namePtr);
+
+      final isDefault = ffi.audioIsOutputDeviceDefault(i) != 0;
+      final channels = ffi.audioGetOutputDeviceChannels(i);
+
+      // Get supported sample rates
+      final rateCount = ffi.audioGetOutputDeviceSampleRateCount(i);
+      final rates = <int>[];
+      for (int j = 0; j < rateCount; j++) {
+        final rate = ffi.audioGetOutputDeviceSampleRate(i, j);
+        if (rate > 0) rates.add(rate);
+      }
+
+      devices.add(AudioDeviceInfo(
+        name: name,
+        isDefault: isDefault,
+        channels: channels,
+        supportedSampleRates: rates,
+      ));
+    }
+
+    return devices;
+  } catch (e) {
+    return [];
+  }
+}
+
+/// Get list of available input devices
+List<AudioDeviceInfo> audioGetInputDevices() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return [];
+
+    final count = ffi.audioGetInputDeviceCount();
+    if (count <= 0) return [];
+
+    final devices = <AudioDeviceInfo>[];
+    for (int i = 0; i < count; i++) {
+      final namePtr = ffi.audioGetInputDeviceName(i);
+      if (namePtr == nullptr) continue;
+
+      final name = namePtr.cast<Utf8>().toDartString();
+      calloc.free(namePtr);
+
+      final isDefault = ffi.audioIsInputDeviceDefault(i) != 0;
+      final channels = ffi.audioGetInputDeviceChannels(i);
+
+      devices.add(AudioDeviceInfo(
+        name: name,
+        isDefault: isDefault,
+        channels: channels,
+        supportedSampleRates: [], // Input devices use output device sample rate
+      ));
+    }
+
+    return devices;
+  } catch (e) {
+    return [];
+  }
+}
+
+/// Get current audio host name (ASIO, CoreAudio, JACK, WASAPI)
+String audioGetHostName() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 'Unknown';
+
+    final namePtr = ffi.audioGetHostName();
+    if (namePtr == nullptr) return 'Unknown';
+
+    final name = namePtr.cast<Utf8>().toDartString();
+    calloc.free(namePtr);
+    return name;
+  } catch (e) {
+    return 'Unknown';
+  }
+}
+
+/// Check if ASIO is available (Windows only)
+bool audioIsAsioAvailable() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.audioIsAsioAvailable() != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Refresh device lists (hot-plug support)
+void audioRefreshDevices() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.audioRefreshDevices();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECORDING API
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set recording output directory
+bool recordingSetOutputDir(String path) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+
+    final pathPtr = path.toNativeUtf8();
+    final result = ffi.recordingSetOutputDir(pathPtr);
+    calloc.free(pathPtr);
+    return result == 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Get recording output directory
+String recordingGetOutputDir() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return '';
+
+    final pathPtr = ffi.recordingGetOutputDir();
+    if (pathPtr == nullptr) return '';
+
+    final path = pathPtr.cast<Utf8>().toDartString();
+    calloc.free(pathPtr);
+    return path;
+  } catch (e) {
+    return '';
+  }
+}
+
+/// Arm track for recording
+bool recordingArmTrack(int trackId, {int numChannels = 2}) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.recordingArmTrack(trackId, numChannels) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Disarm track
+bool recordingDisarmTrack(int trackId) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.recordingDisarmTrack(trackId) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Start recording on armed track
+String? recordingStartTrack(int trackId) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final pathPtr = ffi.recordingStartTrack(trackId);
+    if (pathPtr == nullptr) return null;
+
+    final path = pathPtr.cast<Utf8>().toDartString();
+    calloc.free(pathPtr);
+    return path;
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Stop recording on track
+String? recordingStopTrack(int trackId) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final pathPtr = ffi.recordingStopTrack(trackId);
+    if (pathPtr == nullptr) return null;
+
+    final path = pathPtr.cast<Utf8>().toDartString();
+    calloc.free(pathPtr);
+    return path;
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Start recording on all armed tracks
+int recordingStartAll() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.recordingStartAll();
+  } catch (e) {
+    return 0;
+  }
+}
+
+/// Stop recording on all tracks
+int recordingStopAll() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.recordingStopAll();
+  } catch (e) {
+    return 0;
+  }
+}
+
+/// Check if track is armed
+bool recordingIsArmed(int trackId) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.recordingIsArmed(trackId) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Check if track is recording
+bool recordingIsRecording(int trackId) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.recordingIsRecording(trackId) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Get number of armed tracks
+int recordingArmedCount() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.recordingArmedCount();
+  } catch (e) {
+    return 0;
+  }
+}
+
+/// Get number of recording tracks
+int recordingRecordingCount() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.recordingRecordingCount();
+  } catch (e) {
+    return 0;
+  }
+}
+
+/// Clear all recorders
+void recordingClearAll() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.recordingClearAll();
     }
   } catch (e) {
     // FFI not available

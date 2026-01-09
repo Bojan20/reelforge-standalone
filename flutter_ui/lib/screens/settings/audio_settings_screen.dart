@@ -9,21 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
-
-// Mock types until flutter_rust_bridge generates them
-class AudioDeviceInfo {
-  final String name;
-  final bool isDefault;
-  final int channels;
-  final List<int> sampleRates;
-
-  AudioDeviceInfo({
-    required this.name,
-    required this.isDefault,
-    required this.channels,
-    required this.sampleRates,
-  });
-}
+import '../../src/rust/engine_api.dart' as api;
 
 class AudioHostInfo {
   final String name;
@@ -63,8 +49,8 @@ class AudioSettingsScreen extends StatefulWidget {
 }
 
 class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
-  List<AudioDeviceInfo> _outputDevices = [];
-  List<AudioDeviceInfo> _inputDevices = [];
+  List<api.AudioDeviceInfo> _outputDevices = [];
+  List<api.AudioDeviceInfo> _inputDevices = [];
   AudioHostInfo? _hostInfo;
   AudioSettings? _currentSettings;
 
@@ -86,53 +72,27 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Call actual Rust functions when bridge is generated
-      // _outputDevices = await api.audioListOutputDevices();
-      // _inputDevices = await api.audioListInputDevices();
-      // _hostInfo = await api.audioGetHostInfo();
-      // _currentSettings = await api.audioGetCurrentSettings();
+      // Get devices from Rust FFI
+      _outputDevices = api.audioGetOutputDevices();
+      _inputDevices = api.audioGetInputDevices();
 
-      // Mock data for now
-      _outputDevices = [
-        AudioDeviceInfo(
-          name: 'MacBook Pro Speakers',
-          isDefault: true,
-          channels: 2,
-          sampleRates: [44100, 48000, 96000],
-        ),
-        AudioDeviceInfo(
-          name: 'External Audio Interface',
-          isDefault: false,
-          channels: 8,
-          sampleRates: [44100, 48000, 88200, 96000, 176400, 192000],
-        ),
-      ];
-
-      _inputDevices = [
-        AudioDeviceInfo(
-          name: 'MacBook Pro Microphone',
-          isDefault: true,
-          channels: 1,
-          sampleRates: [44100, 48000],
-        ),
-        AudioDeviceInfo(
-          name: 'External Audio Interface',
-          isDefault: false,
-          channels: 8,
-          sampleRates: [44100, 48000, 88200, 96000, 176400, 192000],
-        ),
-      ];
+      final hostName = api.audioGetHostName();
+      final isAsio = api.audioIsAsioAvailable();
 
       _hostInfo = AudioHostInfo(
-        name: 'CoreAudio',
-        isAsio: false,
-        isJack: false,
-        isCoreAudio: true,
+        name: hostName,
+        isAsio: isAsio,
+        isJack: hostName.toLowerCase().contains('jack'),
+        isCoreAudio: hostName.toLowerCase().contains('core'),
       );
 
+      // Set defaults
+      final defaultOutput = _outputDevices.where((d) => d.isDefault).firstOrNull;
+      final defaultInput = _inputDevices.where((d) => d.isDefault).firstOrNull;
+
       _currentSettings = AudioSettings(
-        outputDevice: _outputDevices.firstWhere((d) => d.isDefault).name,
-        inputDevice: _inputDevices.firstWhere((d) => d.isDefault).name,
+        outputDevice: defaultOutput?.name,
+        inputDevice: defaultInput?.name,
         sampleRate: 48000,
         bufferSize: 256,
         latencyMs: 5.3,
@@ -154,17 +114,15 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
     setState(() => _selectedOutputDevice = deviceName);
 
-    // TODO: Call Rust
+    // TODO: Call Rust to actually switch device
     // await api.audioSetOutputDevice(deviceName);
 
     // Update available sample rates
-    final device = _outputDevices.firstWhere(
-      (d) => d.name == deviceName,
-      orElse: () => _outputDevices.first,
-    );
-
-    if (!device.sampleRates.contains(_selectedSampleRate)) {
-      setState(() => _selectedSampleRate = device.sampleRates.first);
+    final device = _outputDevices.where((d) => d.name == deviceName).firstOrNull;
+    if (device != null && !device.supportedSampleRates.contains(_selectedSampleRate)) {
+      if (device.supportedSampleRates.isNotEmpty) {
+        setState(() => _selectedSampleRate = device.supportedSampleRates.first);
+      }
     }
   }
 
@@ -427,11 +385,9 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
   Widget _buildSampleRateSection() {
     final availableRates = _outputDevices
-        .firstWhere(
-          (d) => d.name == _selectedOutputDevice,
-          orElse: () => _outputDevices.first,
-        )
-        .sampleRates;
+        .where((d) => d.name == _selectedOutputDevice)
+        .firstOrNull
+        ?.supportedSampleRates ?? [];
 
     return _buildSection(
       title: 'Sample Rate',

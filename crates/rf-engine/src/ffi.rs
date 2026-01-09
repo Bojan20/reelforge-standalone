@@ -11,7 +11,7 @@
 
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::Arc;
 
@@ -12235,4 +12235,327 @@ pub extern "C" fn plugin_get_latency(instance_id: *const c_char) -> i32 {
     } else {
         0
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO DEVICE ENUMERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+use rf_audio::{list_input_devices, list_output_devices, get_host_info, DeviceInfo as AudioDeviceInfo};
+
+lazy_static::lazy_static! {
+    /// Cached device lists for FFI
+    static ref DEVICE_CACHE: RwLock<DeviceCache> = RwLock::new(DeviceCache::default());
+}
+
+#[derive(Default)]
+struct DeviceCache {
+    input_devices: Vec<AudioDeviceInfo>,
+    output_devices: Vec<AudioDeviceInfo>,
+}
+
+/// Get number of available output devices
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_output_device_count() -> i32 {
+    match list_output_devices() {
+        Ok(devices) => {
+            DEVICE_CACHE.write().output_devices = devices.clone();
+            devices.len() as i32
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Get number of available input devices
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_input_device_count() -> i32 {
+    match list_input_devices() {
+        Ok(devices) => {
+            DEVICE_CACHE.write().input_devices = devices.clone();
+            devices.len() as i32
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Get output device name by index
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_output_device_name(index: i32) -> *mut c_char {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.output_devices.len() as i32 {
+        return ptr::null_mut();
+    }
+
+    let device = &cache.output_devices[index as usize];
+    CString::new(device.name.as_str())
+        .ok()
+        .map(|s| s.into_raw())
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Get input device name by index
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_input_device_name(index: i32) -> *mut c_char {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.input_devices.len() as i32 {
+        return ptr::null_mut();
+    }
+
+    let device = &cache.input_devices[index as usize];
+    CString::new(device.name.as_str())
+        .ok()
+        .map(|s| s.into_raw())
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Check if output device is default
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_is_output_device_default(index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.output_devices.len() as i32 {
+        return 0;
+    }
+
+    if cache.output_devices[index as usize].is_default { 1 } else { 0 }
+}
+
+/// Check if input device is default
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_is_input_device_default(index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.input_devices.len() as i32 {
+        return 0;
+    }
+
+    if cache.input_devices[index as usize].is_default { 1 } else { 0 }
+}
+
+/// Get output device channel count
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_output_device_channels(index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.output_devices.len() as i32 {
+        return 0;
+    }
+
+    cache.output_devices[index as usize].output_channels as i32
+}
+
+/// Get input device channel count
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_input_device_channels(index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.input_devices.len() as i32 {
+        return 0;
+    }
+
+    cache.input_devices[index as usize].input_channels as i32
+}
+
+/// Get supported sample rates for output device (returns count)
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_output_device_sample_rate_count(index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if index < 0 || index >= cache.output_devices.len() as i32 {
+        return 0;
+    }
+
+    cache.output_devices[index as usize].sample_rates.len() as i32
+}
+
+/// Get supported sample rate for output device by index
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_output_device_sample_rate(device_index: i32, rate_index: i32) -> i32 {
+    let cache = DEVICE_CACHE.read();
+    if device_index < 0 || device_index >= cache.output_devices.len() as i32 {
+        return 0;
+    }
+
+    let rates = &cache.output_devices[device_index as usize].sample_rates;
+    if rate_index < 0 || rate_index >= rates.len() as i32 {
+        return 0;
+    }
+
+    rates[rate_index as usize] as i32
+}
+
+/// Get current audio host name (ASIO, CoreAudio, JACK, WASAPI, etc.)
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_host_name() -> *mut c_char {
+    let info = get_host_info();
+    CString::new(info.name.as_str())
+        .ok()
+        .map(|s| s.into_raw())
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Check if ASIO is available (Windows)
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_is_asio_available() -> i32 {
+    let info = get_host_info();
+    if info.is_asio { 1 } else { 0 }
+}
+
+/// Refresh device lists (hot-plug support)
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_refresh_devices() -> i32 {
+    let mut cache = DEVICE_CACHE.write();
+
+    match list_input_devices() {
+        Ok(devices) => cache.input_devices = devices,
+        Err(_) => return -1,
+    }
+
+    match list_output_devices() {
+        Ok(devices) => cache.output_devices = devices,
+        Err(_) => return -1,
+    }
+
+    0
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECORDING SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::recording_manager::RecordingManager;
+
+lazy_static::lazy_static! {
+    /// Global recording manager
+    static ref RECORDING_MANAGER: RecordingManager = RecordingManager::new(48000);
+}
+
+/// Set recording output directory
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_output_dir(path: *const c_char) -> i32 {
+    if path.is_null() {
+        return -1;
+    }
+
+    let path_str = unsafe {
+        match CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    RECORDING_MANAGER.set_output_dir(PathBuf::from(path_str));
+    0
+}
+
+/// Get recording output directory
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_output_dir() -> *mut c_char {
+    let path = RECORDING_MANAGER.output_dir();
+    CString::new(path.to_string_lossy().as_ref())
+        .ok()
+        .map(|s| s.into_raw())
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Arm track for recording
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_arm_track(track_id: u64, num_channels: u16) -> i32 {
+    let track_id = TrackId(track_id);
+
+    // Get track name
+    let track_name = {
+        let tracks = TRACK_MANAGER.tracks.read();
+        tracks
+            .get(&track_id)
+            .map(|t| t.name.clone())
+            .unwrap_or_else(|| format!("Track_{}", track_id.0))
+    };
+
+    if RECORDING_MANAGER.arm_track(track_id, num_channels, &track_name) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Disarm track
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_disarm_track(track_id: u64) -> i32 {
+    if RECORDING_MANAGER.disarm_track(TrackId(track_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Start recording on armed track
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_start_track(track_id: u64) -> *mut c_char {
+    match RECORDING_MANAGER.start_recording(TrackId(track_id)) {
+        Some(path) => CString::new(path.to_string_lossy().as_ref())
+            .ok()
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Stop recording on track
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_stop_track(track_id: u64) -> *mut c_char {
+    match RECORDING_MANAGER.stop_recording(TrackId(track_id)) {
+        Some(path) => CString::new(path.to_string_lossy().as_ref())
+            .ok()
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Start recording on all armed tracks
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_start_all() -> i32 {
+    let results = RECORDING_MANAGER.start_all();
+    results.len() as i32
+}
+
+/// Stop recording on all tracks
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_stop_all() -> i32 {
+    let results = RECORDING_MANAGER.stop_all();
+    results.len() as i32
+}
+
+/// Check if track is armed
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_is_armed(track_id: u64) -> i32 {
+    if RECORDING_MANAGER.is_armed(TrackId(track_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Check if track is recording
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_is_recording(track_id: u64) -> i32 {
+    if RECORDING_MANAGER.is_recording(TrackId(track_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get number of armed tracks
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_armed_count() -> i32 {
+    RECORDING_MANAGER.armed_count() as i32
+}
+
+/// Get number of recording tracks
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_recording_count() -> i32 {
+    RECORDING_MANAGER.recording_count() as i32
+}
+
+/// Clear all recorders
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_clear_all() {
+    RECORDING_MANAGER.clear();
 }

@@ -13,6 +13,7 @@ rf-core = { workspace = true }
 rf-dsp = { workspace = true }
 rf-audio = { workspace = true }
 rf-state = { workspace = true }
+rf-file = { path = "../rf-file" }
 rf-plugin = { path = "../rf-plugin" }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
