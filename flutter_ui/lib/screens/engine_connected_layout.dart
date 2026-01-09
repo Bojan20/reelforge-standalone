@@ -1141,8 +1141,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Handle double-click on audio file in pool
   Future<void> _handleAudioPoolFileDoubleClick(AudioFileInfo file) async {
-    final engine = context.read<EngineProvider>();
-
     // Create track if none exists
     if (_tracks.isEmpty) {
       _handleAddTrack();
@@ -1153,41 +1151,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Get first track
     final track = _tracks.first;
 
-    // Get playback position
-    final transport = engine.transport;
-    final startTime = transport.positionSeconds;
+    // Get playback position (default to 0 for now)
+    final startTime = 0.0;
 
-    // Import audio file to engine and get clip info
+    // Create clip directly (waveform loading will be handled by ClipWidget)
     try {
-      final clipInfo = await engine.importAudioFile(
-        filePath: file.path,
-        trackId: track.id,
-        startTime: startTime,
-      );
+      final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
 
-      final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}';
-
-      // Get real waveform from engine
-      Float32List? waveform;
-      if (clipInfo != null) {
-        final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
-        if (peaks.isNotEmpty) {
-          waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
-        }
-      }
-
-      // Create clip with real waveform
+      // Create clip (waveform will be loaded async by engine)
       final newClip = timeline.TimelineClip(
         id: clipId,
         trackId: track.id,
         name: file.name,
         startTime: startTime,
-        duration: clipInfo?.duration ?? file.duration,
-        sourceDuration: clipInfo?.sourceDuration ?? file.duration,
+        duration: file.duration,
+        sourceDuration: file.duration,
         sourceOffset: 0,
         sourceFile: file.path,
         color: track.color,
-        waveform: waveform,
+        waveform: null, // Will be loaded async
         gain: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,

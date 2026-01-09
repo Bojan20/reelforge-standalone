@@ -17,6 +17,7 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../editors/clip_fx_editor.dart';
 import '../waveform/ultimate_waveform.dart';
+import '../waveform/enhanced_waveform.dart';
 import 'stretch_overlay.dart';
 
 class ClipWidget extends StatefulWidget {
@@ -428,6 +429,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                   child: Padding(
                     padding: const EdgeInsets.all(2),
                     child: _UltimateClipWaveform(
+                      clipId: clip.id,
                       waveform: clip.waveform!,
                       waveformRight: clip.waveformRight, // Stereo support
                       sourceOffset: clip.sourceOffset,
@@ -435,6 +437,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                       gain: clip.gain,
                       zoom: widget.zoom,
                       clipColor: clipColor,
+                      trackHeight: widget.trackHeight,
                     ),
                   ),
                 ),
@@ -709,6 +712,7 @@ class _ClipWidgetState extends State<ClipWidget> {
 /// Advanced waveform widget for clips - best of all DAWs
 
 class _UltimateClipWaveform extends StatefulWidget {
+  final String clipId;
   final Float32List waveform;
   final Float32List? waveformRight;
   final double sourceOffset;
@@ -716,8 +720,10 @@ class _UltimateClipWaveform extends StatefulWidget {
   final double gain;
   final double zoom;
   final Color clipColor;
+  final double trackHeight;
 
   const _UltimateClipWaveform({
+    required this.clipId,
     required this.waveform,
     this.waveformRight,
     required this.sourceOffset,
@@ -725,6 +731,7 @@ class _UltimateClipWaveform extends StatefulWidget {
     required this.gain,
     required this.zoom,
     required this.clipColor,
+    required this.trackHeight,
   });
 
   @override
@@ -797,12 +804,16 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     return Transform.scale(
       scaleY: widget.gain,
-      child: UltimateWaveform(
+      child: EnhancedWaveform(
         data: _waveformData!,
+        clipId: widget.clipId,
         config: config,
+        height: widget.trackHeight,
         zoom: 1, // Zoom handled by clip width
         scrollOffset: 0,
         isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
+        subPixelScale: 2.0, // 2x rendering for smooth anti-aliasing
+        enableCaching: true, // Cache rendered waveforms
       ),
     );
   }
