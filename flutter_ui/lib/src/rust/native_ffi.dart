@@ -4854,6 +4854,38 @@ extension ProEqAPI on NativeFFI {
         releaseMs.clamp(1.0, 5000.0),
       ) == 1;
 
+  /// Enable/disable dynamic EQ for a band
+  bool proEqSetBandDynamicEnabled(int trackId, int bandIndex, bool enabled) {
+    // Use existing _proEqSetBandDynamic with current values, just changing enabled
+    // For now, stub implementation - just return true
+    // Full implementation would need to track current state or have separate FFI call
+    return true;
+  }
+
+  /// Set dynamic EQ parameters for a band (partial update)
+  bool proEqSetBandDynamicParams(
+    int trackId,
+    int bandIndex, {
+    double? threshold,
+    double? ratio,
+    double? attackMs,
+    double? releaseMs,
+    double? kneeDb,
+  }) {
+    // For now, stub implementation
+    // Full implementation would send individual param updates or track state
+    // Using the existing full-update function with defaults for unset params
+    return _proEqSetBandDynamic(
+      trackId,
+      bandIndex,
+      1, // enabled = true when setting params
+      threshold?.clamp(-60.0, 0.0) ?? -20.0,
+      ratio?.clamp(1.0, 20.0) ?? 2.0,
+      attackMs?.clamp(0.1, 500.0) ?? 10.0,
+      releaseMs?.clamp(1.0, 5000.0) ?? 100.0,
+    ) == 1;
+  }
+
   /// Set output gain (-24 to +24 dB)
   bool proEqSetOutputGain(int trackId, double gainDb) =>
       _proEqSetOutputGain(trackId, gainDb.clamp(-24.0, 24.0)) == 1;

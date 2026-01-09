@@ -90,6 +90,22 @@ impl From<u32> for OutputBus {
 // TRACK
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Track send slot configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TrackSendSlot {
+    /// Send level (0.0 to 1.0)
+    pub level: f64,
+    /// Pre-fader send (true) or post-fader (false)
+    pub pre_fader: bool,
+    /// Muted state
+    pub muted: bool,
+    /// Destination bus ID (None = disabled)
+    pub destination: Option<OutputBus>,
+}
+
+/// Maximum number of sends per track
+pub const MAX_TRACK_SENDS: usize = 8;
+
 /// Audio track with clips
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Track {
@@ -107,6 +123,9 @@ pub struct Track {
     pub frozen: bool,
     pub input_monitor: bool,
     pub order: usize, // Position in track list
+    /// Send effects routing
+    #[serde(default)]
+    pub sends: [TrackSendSlot; MAX_TRACK_SENDS],
 }
 
 impl Track {
@@ -126,6 +145,35 @@ impl Track {
             frozen: false,
             input_monitor: false,
             order: 0,
+            sends: Default::default(),
+        }
+    }
+
+    /// Set send level
+    pub fn set_send_level(&mut self, send_index: usize, level: f64) {
+        if send_index < MAX_TRACK_SENDS {
+            self.sends[send_index].level = level.clamp(0.0, 1.5);
+        }
+    }
+
+    /// Set send destination
+    pub fn set_send_destination(&mut self, send_index: usize, dest: Option<OutputBus>) {
+        if send_index < MAX_TRACK_SENDS {
+            self.sends[send_index].destination = dest;
+        }
+    }
+
+    /// Set send pre/post fader
+    pub fn set_send_pre_fader(&mut self, send_index: usize, pre_fader: bool) {
+        if send_index < MAX_TRACK_SENDS {
+            self.sends[send_index].pre_fader = pre_fader;
+        }
+    }
+
+    /// Mute/unmute send
+    pub fn set_send_muted(&mut self, send_index: usize, muted: bool) {
+        if send_index < MAX_TRACK_SENDS {
+            self.sends[send_index].muted = muted;
         }
     }
 
@@ -146,6 +194,7 @@ impl Track {
             frozen: false,
             input_monitor: false,
             order: 0,
+            sends: Default::default(),
         }
     }
 }

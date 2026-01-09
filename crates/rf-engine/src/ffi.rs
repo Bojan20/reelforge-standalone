@@ -285,6 +285,51 @@ pub extern "C" fn engine_set_track_bus(track_id: u64, bus_id: u32) -> i32 {
     1
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SEND EFFECTS ROUTING
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set send level for a track (0.0 to 1.5)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_send_level(track_id: u64, send_index: u32, level: f64) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_level(send_index as usize, level);
+    });
+    1
+}
+
+/// Set send destination bus (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux, 255=None)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_send_destination(track_id: u64, send_index: u32, bus_id: u32) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        let dest = if bus_id == 255 {
+            None
+        } else {
+            Some(OutputBus::from(bus_id))
+        };
+        track.set_send_destination(send_index as usize, dest);
+    });
+    1
+}
+
+/// Set send pre/post fader (0=post-fader, 1=pre-fader)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_send_pre_fader(track_id: u64, send_index: u32, pre_fader: i32) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_pre_fader(send_index as usize, pre_fader != 0);
+    });
+    1
+}
+
+/// Mute/unmute send
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_send_muted(track_id: u64, send_index: u32, muted: i32) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_muted(send_index as usize, muted != 0);
+    });
+    1
+}
+
 /// Reorder tracks
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_reorder_tracks(track_ids: *const u64, count: usize) -> i32 {

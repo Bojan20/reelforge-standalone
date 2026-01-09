@@ -105,6 +105,14 @@ class _Band {
   int slope; // dB/oct: 6, 12, 18, 24, 36, 48, 72, 96
   StereoMode stereo;
 
+  // Dynamic EQ parameters
+  bool dynamicEnabled;
+  double dynamicThreshold; // dB (-60 to 0)
+  double dynamicRatio;     // 1:1 to 20:1
+  double dynamicAttack;    // ms (0.1 to 500)
+  double dynamicRelease;   // ms (1 to 5000)
+  double dynamicKnee;      // dB (0 to 24)
+
   _Band({
     required this.id,
     this.enabled = true,
@@ -115,6 +123,13 @@ class _Band {
     this.q = 1.0,
     this.slope = 24,
     this.stereo = StereoMode.stereo,
+    // Dynamic EQ defaults
+    this.dynamicEnabled = false,
+    this.dynamicThreshold = -20.0,
+    this.dynamicRatio = 2.0,
+    this.dynamicAttack = 10.0,
+    this.dynamicRelease = 100.0,
+    this.dynamicKnee = 6.0,
   });
 
   _Band copy() => _Band(
@@ -127,6 +142,12 @@ class _Band {
     q: q,
     slope: slope,
     stereo: stereo,
+    dynamicEnabled: dynamicEnabled,
+    dynamicThreshold: dynamicThreshold,
+    dynamicRatio: dynamicRatio,
+    dynamicAttack: dynamicAttack,
+    dynamicRelease: dynamicRelease,
+    dynamicKnee: dynamicKnee,
   );
 
   Color get color => _Colors.bands[id % _Colors.bands.length];
@@ -192,6 +213,13 @@ class ProEqEditor extends StatefulWidget {
     double? gain,
     double? q,
     int? filterType,
+    // Dynamic EQ parameters
+    bool? dynamicEnabled,
+    double? dynamicThreshold,
+    double? dynamicRatio,
+    double? dynamicAttack,
+    double? dynamicRelease,
+    double? dynamicKnee,
   })? onBandChange;
   /// Callback when global bypass changes
   final void Function(bool bypass)? onBypassChange;
@@ -582,8 +610,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
     bool? gainChanged,
     bool? qChanged,
     bool? typeChanged,
+    bool? dynamicChanged,
   }) {
-    debugPrint('[ProEQ] _notifyBandChange: band=${band.id} enabled=$enabledChanged freq=$freqChanged gain=$gainChanged q=$qChanged type=$typeChanged');
+    debugPrint('[ProEQ] _notifyBandChange: band=${band.id} enabled=$enabledChanged freq=$freqChanged gain=$gainChanged q=$qChanged type=$typeChanged dynamic=$dynamicChanged');
     if (widget.onBandChange == null) {
       debugPrint('[ProEQ] ERROR: onBandChange callback is NULL!');
       return;
@@ -600,6 +629,13 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       gain: gainChanged == true ? band.gain : null,
       q: qChanged == true ? band.q : null,
       filterType: typeChanged == true ? filterType : null,
+      // Dynamic EQ parameters
+      dynamicEnabled: dynamicChanged == true ? band.dynamicEnabled : null,
+      dynamicThreshold: dynamicChanged == true ? band.dynamicThreshold : null,
+      dynamicRatio: dynamicChanged == true ? band.dynamicRatio : null,
+      dynamicAttack: dynamicChanged == true ? band.dynamicAttack : null,
+      dynamicRelease: dynamicChanged == true ? band.dynamicRelease : null,
+      dynamicKnee: dynamicChanged == true ? band.dynamicKnee : null,
     );
   }
 
@@ -612,6 +648,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         gainChanged: true,
         qChanged: true,
         typeChanged: true,
+        dynamicChanged: true,
       );
     }
   }
@@ -1248,7 +1285,12 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
 
                     _buildDivider(),
 
-                    // === SECTION 3: Navigation ===
+                    // === SECTION 3: Dynamic EQ ===
+                    _buildDynamicEqToggle(band),
+
+                    _buildDivider(),
+
+                    // === SECTION 4: Navigation ===
                     _buildMiniIconButton(icon: Icons.chevron_left, onTap: () {
                       if (_selectedBand! > 0) _selectBand(_selectedBand! - 1);
                     }),
@@ -1405,6 +1447,91 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DYNAMIC EQ CONTROLS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Dynamic EQ toggle button with expandable controls
+  Widget _buildDynamicEqToggle(_Band band) {
+    final isActive = band.dynamicEnabled;
+    final dynColor = isActive ? const Color(0xFFFF8C40) : _Colors.textDim;
+
+    return GestureDetector(
+      onTap: () {
+        _pushUndo();
+        band.dynamicEnabled = !band.dynamicEnabled;
+        _notifyBandChange(band, dynamicChanged: true);
+        setState(() {});
+      },
+      onLongPress: () {
+        // Long press opens detailed Dynamic EQ panel
+        _showDynamicEqPanel(band);
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: 'Dynamic EQ (long-press for settings)',
+          child: Container(
+            height: 26,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isActive ? dynColor.withOpacity(0.15) : _Colors.bg3,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: isActive ? dynColor.withOpacity(0.5) : _Colors.controlBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.graphic_eq,
+                  size: 12,
+                  color: dynColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'DYN',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: dynColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (isActive) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: dynColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show detailed Dynamic EQ panel as overlay
+  void _showDynamicEqPanel(_Band band) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => _DynamicEqPanel(
+        band: band,
+        onChanged: () {
+          _notifyBandChange(band, dynamicChanged: true);
+          setState(() {});
+        },
+        onClose: () => Navigator.of(ctx).pop(),
       ),
     );
   }
@@ -1896,6 +2023,319 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
 
   double _yToGain(double y, double h) {
     return (1 - y / h) * (_range * 2) - _range;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DYNAMIC EQ PANEL (Popup Dialog)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DynamicEqPanel extends StatefulWidget {
+  final _Band band;
+  final VoidCallback onChanged;
+  final VoidCallback onClose;
+
+  const _DynamicEqPanel({
+    required this.band,
+    required this.onChanged,
+    required this.onClose,
+  });
+
+  @override
+  State<_DynamicEqPanel> createState() => _DynamicEqPanelState();
+}
+
+class _DynamicEqPanelState extends State<_DynamicEqPanel> {
+  static const _dynColor = Color(0xFFFF8C40);
+
+  @override
+  Widget build(BuildContext context) {
+    final band = widget.band;
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 380,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_dynColor.withOpacity(0.4), _dynColor.withOpacity(0.1)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 30, offset: const Offset(0, 10)),
+            ],
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xF5181820),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: _Colors.bg2,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                    border: Border(bottom: BorderSide(color: _Colors.bg4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.graphic_eq, size: 16, color: _dynColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Dynamic EQ - Band ${band.id + 1}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _Colors.textBright,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Enable toggle
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => band.dynamicEnabled = !band.dynamicEnabled);
+                          widget.onChanged();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: band.dynamicEnabled ? _dynColor.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: band.dynamicEnabled ? _dynColor : _Colors.controlBorder,
+                            ),
+                          ),
+                          child: Text(
+                            band.dynamicEnabled ? 'ON' : 'OFF',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: band.dynamicEnabled ? _dynColor : _Colors.textDim,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: widget.onClose,
+                        child: Icon(Icons.close, size: 18, color: _Colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Controls
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Opacity(
+                    opacity: band.dynamicEnabled ? 1.0 : 0.4,
+                    child: Column(
+                      children: [
+                        // Row 1: Threshold & Ratio
+                        Row(
+                          children: [
+                            Expanded(child: _buildDynParam(
+                              'THRESHOLD',
+                              '${band.dynamicThreshold.toStringAsFixed(1)} dB',
+                              -60, 0, band.dynamicThreshold,
+                              (v) {
+                                setState(() => band.dynamicThreshold = v);
+                                widget.onChanged();
+                              },
+                            )),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildDynParam(
+                              'RATIO',
+                              '${band.dynamicRatio.toStringAsFixed(1)}:1',
+                              1, 20, band.dynamicRatio,
+                              (v) {
+                                setState(() => band.dynamicRatio = v);
+                                widget.onChanged();
+                              },
+                            )),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Row 2: Attack & Release
+                        Row(
+                          children: [
+                            Expanded(child: _buildDynParam(
+                              'ATTACK',
+                              '${band.dynamicAttack.toStringAsFixed(1)} ms',
+                              0.1, 500, band.dynamicAttack,
+                              (v) {
+                                setState(() => band.dynamicAttack = v);
+                                widget.onChanged();
+                              },
+                              logScale: true,
+                            )),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildDynParam(
+                              'RELEASE',
+                              '${band.dynamicRelease.toStringAsFixed(0)} ms',
+                              1, 5000, band.dynamicRelease,
+                              (v) {
+                                setState(() => band.dynamicRelease = v);
+                                widget.onChanged();
+                              },
+                              logScale: true,
+                            )),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Row 3: Knee
+                        Row(
+                          children: [
+                            Expanded(child: _buildDynParam(
+                              'KNEE',
+                              '${band.dynamicKnee.toStringAsFixed(1)} dB',
+                              0, 24, band.dynamicKnee,
+                              (v) {
+                                setState(() => band.dynamicKnee = v);
+                                widget.onChanged();
+                              },
+                            )),
+                            const Expanded(child: SizedBox()),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Info text
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Text(
+                    'Dynamic EQ adjusts gain based on input level.\n'
+                    'Below threshold: full boost/cut. Above threshold: reduced by ratio.',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: _Colors.textDim,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDynParam(
+    String label,
+    String value,
+    double min,
+    double max,
+    double current,
+    ValueChanged<double> onChanged, {
+    bool logScale = false,
+  }) {
+    // Normalize value for slider
+    double normalized;
+    if (logScale) {
+      normalized = (math.log(current) - math.log(min)) / (math.log(max) - math.log(min));
+    } else {
+      normalized = (current - min) / (max - min);
+    }
+    normalized = normalized.clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: _Colors.textDim,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+                color: _dynColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onHorizontalDragUpdate: (d) {
+            final delta = d.delta.dx / 150;
+            double newNorm = (normalized + delta).clamp(0.0, 1.0);
+            double newValue;
+            if (logScale) {
+              newValue = math.exp(math.log(min) + newNorm * (math.log(max) - math.log(min)));
+            } else {
+              newValue = min + newNorm * (max - min);
+            }
+            onChanged(newValue.clamp(min, max));
+          },
+          child: Container(
+            height: 24,
+            decoration: BoxDecoration(
+              color: _Colors.bg1,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: _Colors.controlBorder),
+            ),
+            child: Stack(
+              children: [
+                // Fill
+                FractionallySizedBox(
+                  widthFactor: normalized,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_dynColor.withOpacity(0.3), _dynColor.withOpacity(0.1)],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                // Handle
+                Positioned(
+                  left: normalized * 140 - 4, // Approximate width minus handle size
+                  top: 4,
+                  child: Container(
+                    width: 8,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: _dynColor,
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(color: _dynColor.withOpacity(0.5), blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

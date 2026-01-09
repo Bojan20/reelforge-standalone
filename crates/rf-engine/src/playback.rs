@@ -487,6 +487,25 @@ impl BusBuffers {
         }
     }
 
+    /// Get mutable bus buffers for send routing
+    pub fn get_bus_mut(&mut self, bus: OutputBus) -> (&mut [f64], &mut [f64]) {
+        let idx = match bus {
+            OutputBus::Master => 0,
+            OutputBus::Music => 1,
+            OutputBus::Sfx => 2,
+            OutputBus::Voice => 3,
+            OutputBus::Ambience => 4,
+            OutputBus::Aux => 5,
+        };
+
+        if idx < self.buffers.len() {
+            let (l, r) = &mut self.buffers[idx];
+            (l.as_mut_slice(), r.as_mut_slice())
+        } else {
+            (self.master_l.as_mut_slice(), self.master_r.as_mut_slice())
+        }
+    }
+
     pub fn sum_to_master(&mut self) {
         for (bus_l, bus_r) in &self.buffers {
             for i in 0..self.block_size {
@@ -1464,6 +1483,29 @@ impl PlaybackEngine {
             // This aligns all tracks in time regardless of plugin latency
             if let Some(mut dc) = self.delay_comp.try_write() {
                 dc.process(track.id.0 as u32, track_l, track_r);
+            }
+
+            // Process sends - route to send buses (Aux, Sfx, etc.)
+            // Pre-fader sends use pre-volume signal, post-fader use post-volume
+            for send_idx in 0..track.sends.len() {
+                let send = &track.sends[send_idx];
+                if send.muted || send.destination.is_none() || send.level <= 0.0 {
+                    continue;
+                }
+
+                let dest_bus = send.destination.unwrap();
+                let send_level = send.level;
+
+                // Route track signal to send destination
+                // Pre-fader sends would need different handling (pre-volume signal)
+                // For now, implement post-fader sends
+                if !send.pre_fader {
+                    let (dest_l, dest_r) = bus_buffers.get_bus_mut(dest_bus);
+                    for i in 0..frames {
+                        dest_l[i] += track_l[i] * send_level;
+                        dest_r[i] += track_r[i] * send_level;
+                    }
+                }
             }
 
             // Calculate per-track stereo metering (post-fader, post-insert)

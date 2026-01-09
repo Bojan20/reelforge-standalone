@@ -1532,6 +1532,45 @@ class EngineApi {
     return true;
   }
 
+  /// Enable/disable dynamic EQ for a band
+  bool proEqSetBandDynamicEnabled(String trackId, int bandIndex, bool enabled) {
+    print('[Engine] Pro EQ $trackId band $bandIndex dynamic enabled: $enabled');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandDynamicEnabled(nativeTrackId, bandIndex, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Set dynamic EQ parameters for a band (partial update)
+  bool proEqSetBandDynamicParams(
+    String trackId,
+    int bandIndex, {
+    double? threshold,
+    double? ratio,
+    double? attackMs,
+    double? releaseMs,
+    double? kneeDb,
+  }) {
+    print('[Engine] Pro EQ $trackId band $bandIndex dynamic params: thr=$threshold ratio=$ratio att=$attackMs rel=$releaseMs knee=$kneeDb');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetBandDynamicParams(
+          nativeTrackId, bandIndex,
+          threshold: threshold,
+          ratio: ratio,
+          attackMs: attackMs,
+          releaseMs: releaseMs,
+          kneeDb: kneeDb,
+        );
+      }
+    }
+    return true;
+  }
+
   /// Configure dynamic EQ for a band
   bool proEqSetBandDynamic(
     String trackId,

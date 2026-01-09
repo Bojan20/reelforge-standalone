@@ -4335,7 +4335,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     spectrumData: metering.spectrum.isNotEmpty
                         ? metering.spectrum.map((e) => e.toDouble()).toList()
                         : null,
-                    onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
+                    onBandChange: (bandIndex, {
+                      enabled, freq, gain, q, filterType,
+                      dynamicEnabled, dynamicThreshold, dynamicRatio,
+                      dynamicAttack, dynamicRelease, dynamicKnee,
+                    }) {
                       // UNIFIED EQ ROUTING: All EQ params go through insert chain
                       // Find which slot has the EQ for this channel, or auto-create one
                       var slotIndex = _findEqSlotForChannel(channelId);
@@ -4349,9 +4353,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         }
                       }
 
-                      // Use insert chain params: per band = 5 (freq=0, gain=1, q=2, enabled=3, shape=4)
+                      // Use insert chain params: per band = 11
+                      // (freq=0, gain=1, q=2, enabled=3, shape=4,
+                      //  dynEnabled=5, dynThreshold=6, dynRatio=7, dynAttack=8, dynRelease=9, dynKnee=10)
                       final trackId = _busIdToTrackId(channelId);
-                      final baseParam = bandIndex * 5;
+                      final baseParam = bandIndex * 11;
                       if (freq != null) {
                         NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
                       }
@@ -4366,6 +4372,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       }
                       if (filterType != null) {
                         NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 4, filterType.toDouble());
+                      }
+                      // Dynamic EQ parameters
+                      if (dynamicEnabled != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 5, dynamicEnabled ? 1.0 : 0.0);
+                      }
+                      if (dynamicThreshold != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 6, dynamicThreshold);
+                      }
+                      if (dynamicRatio != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 7, dynamicRatio);
+                      }
+                      if (dynamicAttack != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 8, dynamicAttack);
+                      }
+                      if (dynamicRelease != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 9, dynamicRelease);
+                      }
+                      if (dynamicKnee != null) {
+                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 10, dynamicKnee);
                       }
                     },
                     onBypassChange: (bypass) {
@@ -4417,7 +4442,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           width: constraints.maxWidth,
           height: constraints.maxHeight,
           signalLevel: signalLevel,
-          onBandChange: (bandIndex, {enabled, freq, gain, q, filterType}) {
+          onBandChange: (bandIndex, {
+            enabled, freq, gain, q, filterType,
+            dynamicEnabled, dynamicThreshold, dynamicRatio,
+            dynamicAttack, dynamicRelease, dynamicKnee,
+          }) {
             // Send EQ band changes to Pro EQ DSP engine (64-band SVF)
             const trackId = 'master';
             if (enabled != null) {
@@ -4436,6 +4465,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               // Map UI filter type to Pro EQ filter shape
               final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
               engineApi.proEqSetBandShape(trackId, bandIndex, shape);
+            }
+            // Dynamic EQ parameters - send to engine
+            if (dynamicEnabled != null) {
+              engineApi.proEqSetBandDynamicEnabled(trackId, bandIndex, dynamicEnabled);
+            }
+            if (dynamicThreshold != null || dynamicRatio != null ||
+                dynamicAttack != null || dynamicRelease != null || dynamicKnee != null) {
+              engineApi.proEqSetBandDynamicParams(
+                trackId, bandIndex,
+                threshold: dynamicThreshold,
+                ratio: dynamicRatio,
+                attackMs: dynamicAttack,
+                releaseMs: dynamicRelease,
+                kneeDb: dynamicKnee,
+              );
             }
           },
           onBypassChange: (bypass) {
