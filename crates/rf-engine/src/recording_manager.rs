@@ -25,7 +25,8 @@ pub struct RecordingManager {
     recorders: RwLock<HashMap<TrackId, Arc<AudioRecorder>>>,
     /// Global recording config
     config: RwLock<RecordingConfig>,
-    /// Sample rate
+    /// Sample rate (stored for future dynamic sample rate changes)
+    #[allow(dead_code)]
     sample_rate: u32,
 }
 
