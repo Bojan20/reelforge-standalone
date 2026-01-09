@@ -6,12 +6,246 @@
 //! - AU: /Library/Audio/Plug-Ins/Components (macOS)
 //!
 //! Caches plugin metadata for fast startup.
+//!
+//! ## Security
+//!
+//! Plugin loading is a security-sensitive operation. External plugins
+//! can execute arbitrary code. This module provides:
+//! - Path validation to prevent directory traversal
+//! - Code signature verification (when enabled)
+//! - Sandboxed plugin loading via separate process
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::PluginResult;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN SECURITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Plugin security verification status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PluginSecurityStatus {
+    /// Plugin has valid code signature from trusted vendor
+    Verified,
+    /// Plugin signature is valid but vendor not in trust list
+    SignedUntrusted,
+    /// Plugin has no signature (common for many plugins)
+    Unsigned,
+    /// Plugin signature verification failed (modified binary)
+    SignatureFailed,
+    /// Plugin path is invalid or contains traversal attempts
+    InvalidPath,
+    /// Plugin is internal (always trusted)
+    Internal,
+}
+
+/// Plugin security verification result
+#[derive(Debug, Clone)]
+pub struct PluginSecurityInfo {
+    /// Security status
+    pub status: PluginSecurityStatus,
+    /// Signing authority (if signed)
+    pub signer: Option<String>,
+    /// Verification timestamp
+    pub verified_at: Option<u64>,
+    /// Human-readable message
+    pub message: String,
+}
+
+impl PluginSecurityInfo {
+    /// Create verified status for internal plugins
+    pub fn internal() -> Self {
+        Self {
+            status: PluginSecurityStatus::Internal,
+            signer: Some("ReelForge".to_string()),
+            verified_at: Some(std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()),
+            message: "Internal plugin - always trusted".to_string(),
+        }
+    }
+
+    /// Create unsigned status (most plugins)
+    pub fn unsigned() -> Self {
+        Self {
+            status: PluginSecurityStatus::Unsigned,
+            signer: None,
+            verified_at: None,
+            message: "Plugin is not code-signed".to_string(),
+        }
+    }
+
+    /// Create invalid path status
+    pub fn invalid_path(reason: &str) -> Self {
+        Self {
+            status: PluginSecurityStatus::InvalidPath,
+            signer: None,
+            verified_at: None,
+            message: format!("Invalid plugin path: {}", reason),
+        }
+    }
+
+    /// Is this plugin safe to load?
+    pub fn is_loadable(&self) -> bool {
+        matches!(
+            self.status,
+            PluginSecurityStatus::Verified
+                | PluginSecurityStatus::SignedUntrusted
+                | PluginSecurityStatus::Unsigned
+                | PluginSecurityStatus::Internal
+        )
+    }
+}
+
+/// Verify plugin path is safe (no directory traversal, exists, correct extension)
+pub fn validate_plugin_path(path: &Path, expected_type: PluginType) -> Result<(), String> {
+    // Check for directory traversal
+    let path_str = path.to_string_lossy();
+    if path_str.contains("..") {
+        return Err("Path contains directory traversal".to_string());
+    }
+
+    // Check path exists
+    if !path.exists() {
+        return Err("Plugin path does not exist".to_string());
+    }
+
+    // Validate extension matches plugin type
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let valid_ext = match expected_type {
+        PluginType::Vst3 => ext == "vst3",
+        PluginType::Clap => ext == "clap",
+        PluginType::AudioUnit => ext == "component",
+        PluginType::Lv2 => ext == "lv2",
+        PluginType::Internal => true, // No extension check for internal
+    };
+
+    if !valid_ext {
+        return Err(format!(
+            "Invalid extension '{}' for {:?} plugin",
+            ext, expected_type
+        ));
+    }
+
+    Ok(())
+}
+
+/// Verify plugin code signature
+///
+/// # Platform Implementation
+/// - macOS: Uses `codesign -v` command to verify signature
+/// - Windows: Uses WinVerifyTrust API (placeholder)
+/// - Linux: No standard code signing (returns Unsigned)
+pub fn verify_plugin_signature(path: &Path) -> PluginSecurityInfo {
+    // Validate path first
+    let plugin_type = if path.extension().map_or(false, |e| e == "vst3") {
+        PluginType::Vst3
+    } else if path.extension().map_or(false, |e| e == "component") {
+        PluginType::AudioUnit
+    } else if path.extension().map_or(false, |e| e == "clap") {
+        PluginType::Clap
+    } else {
+        PluginType::Vst3 // Default for validation
+    };
+
+    if let Err(reason) = validate_plugin_path(path, plugin_type) {
+        return PluginSecurityInfo::invalid_path(&reason);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return verify_macos_signature(path);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows Authenticode verification would use WinVerifyTrust
+        log::debug!("Windows code signature verification not yet implemented");
+        return PluginSecurityInfo::unsigned();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux has no standard code signing for plugins
+        return PluginSecurityInfo::unsigned();
+    }
+
+    #[allow(unreachable_code)]
+    PluginSecurityInfo::unsigned()
+}
+
+/// Verify macOS code signature using codesign command
+#[cfg(target_os = "macos")]
+fn verify_macos_signature(path: &Path) -> PluginSecurityInfo {
+    use std::process::Command;
+
+    // Run codesign -v to verify signature
+    let output = Command::new("codesign")
+        .args(["-v", "--verbose=2"])
+        .arg(path)
+        .output();
+
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                // Signature valid, try to get signing identity
+                let identity_output = Command::new("codesign")
+                    .args(["-d", "--verbose=2"])
+                    .arg(path)
+                    .output();
+
+                let signing_authority = identity_output.ok().and_then(|o| {
+                    let stderr = String::from_utf8_lossy(&o.stderr);
+                    stderr
+                        .lines()
+                        .find(|l| l.contains("Authority="))
+                        .map(|l| l.replace("Authority=", "").trim().to_string())
+                });
+
+                // Check if it's from a known trusted authority
+                let is_trusted = signing_authority.as_ref().map_or(false, |auth| {
+                    auth.contains("Apple") ||
+                    auth.contains("Developer ID") ||
+                    auth.contains("Mac Developer")
+                });
+
+                PluginSecurityInfo {
+                    status: if is_trusted {
+                        PluginSecurityStatus::Verified
+                    } else {
+                        PluginSecurityStatus::SignedUntrusted
+                    },
+                    signer: signing_authority,
+                    verified_at: Some(std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()),
+                    message: "Valid code signature".to_string(),
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                if stderr.contains("not signed") || stderr.contains("no signature") {
+                    PluginSecurityInfo::unsigned()
+                } else {
+                    PluginSecurityInfo {
+                        status: PluginSecurityStatus::SignatureFailed,
+                        signer: None,
+                        verified_at: None,
+                        message: format!("Signature verification failed: {}", stderr.trim()),
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Failed to run codesign: {}", e);
+            PluginSecurityInfo::unsigned()
+        }
+    }
+}
 
 /// Plugin format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -22,6 +256,8 @@ pub enum PluginType {
     Clap,
     /// Audio Unit (macOS only)
     AudioUnit,
+    /// LV2 plugin (Linux/cross-platform)
+    Lv2,
     /// Internal rf-dsp processor
     Internal,
 }
@@ -165,6 +401,10 @@ impl PluginScanner {
                 PluginType::AudioUnit,
                 PathBuf::from("/Library/Audio/Plug-Ins/Components"),
             ));
+            self.scan_paths.push((
+                PluginType::Lv2,
+                PathBuf::from("/Library/Audio/Plug-Ins/LV2"),
+            ));
 
             // User-specific
             if let Some(home) = dirs_next::home_dir() {
@@ -175,6 +415,10 @@ impl PluginScanner {
                 self.scan_paths.push((
                     PluginType::AudioUnit,
                     home.join("Library/Audio/Plug-Ins/Components"),
+                ));
+                self.scan_paths.push((
+                    PluginType::Lv2,
+                    home.join("Library/Audio/Plug-Ins/LV2"),
                 ));
             }
         }
@@ -199,10 +443,15 @@ impl PluginScanner {
                 .push((PluginType::Vst3, PathBuf::from("/usr/lib/vst3")));
             self.scan_paths
                 .push((PluginType::Clap, PathBuf::from("/usr/lib/clap")));
+            self.scan_paths
+                .push((PluginType::Lv2, PathBuf::from("/usr/lib/lv2")));
+            self.scan_paths
+                .push((PluginType::Lv2, PathBuf::from("/usr/local/lib/lv2")));
 
             if let Some(home) = dirs_next::home_dir() {
                 self.scan_paths.push((PluginType::Vst3, home.join(".vst3")));
                 self.scan_paths.push((PluginType::Clap, home.join(".clap")));
+                self.scan_paths.push((PluginType::Lv2, home.join(".lv2")));
             }
         }
     }
@@ -300,6 +549,7 @@ impl PluginScanner {
             PluginType::Vst3 => "vst3",
             PluginType::Clap => "clap",
             PluginType::AudioUnit => "component",
+            PluginType::Lv2 => "lv2",
             PluginType::Internal => return Ok(()),
         };
 
@@ -339,6 +589,7 @@ impl PluginScanner {
                 PluginType::Vst3 => "vst3",
                 PluginType::Clap => "clap",
                 PluginType::AudioUnit => "au",
+                PluginType::Lv2 => "lv2",
                 PluginType::Internal => "internal",
             },
             name.to_lowercase().replace(' ', "_")
@@ -363,6 +614,10 @@ impl PluginScanner {
             }
             PluginType::AudioUnit => {
                 // AU components have Info.plist
+                info.category = PluginCategory::Effect;
+            }
+            PluginType::Lv2 => {
+                // LV2 bundles have manifest.ttl
                 info.category = PluginCategory::Effect;
             }
             PluginType::Internal => {}

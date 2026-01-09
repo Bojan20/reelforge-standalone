@@ -13,6 +13,7 @@ rf-core = { workspace = true }
 rf-dsp = { workspace = true }
 rf-audio = { workspace = true }
 rf-state = { workspace = true }
+rf-plugin = { path = "../rf-plugin" }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
 crossbeam-channel = { workspace = true }
@@ -29,3 +30,8 @@ cpal = { workspace = true }
 symphonia = { version = "0.5", default-features = false, features = [
     "mp3", "flac", "ogg", "vorbis", "wav", "pcm", "aac", "alac"
 ] }
+
+[features]
+default = []
+# Use unified RoutingGraph instead of legacy mixer.rs
+unified_routing = []

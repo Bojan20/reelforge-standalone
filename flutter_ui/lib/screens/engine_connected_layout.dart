@@ -73,6 +73,8 @@ import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
+import '../widgets/mixer/control_room_panel.dart' as control_room;
+import '../widgets/plugin/plugin_browser.dart';
 import '../widgets/metering/metering_bridge.dart';
 import '../widgets/meters/pdc_display.dart';
 import '../src/rust/engine_api.dart';
@@ -85,6 +87,7 @@ import '../dialogs/render_in_place_dialog.dart';
 import 'settings/audio_settings_screen.dart';
 import 'settings/midi_settings_screen.dart';
 import 'settings/plugin_manager_screen.dart';
+import 'settings/shortcuts_settings_screen.dart';
 import 'project/project_settings_screen.dart';
 import 'main_layout.dart';
 import '../widgets/project/track_templates_panel.dart';
@@ -164,6 +167,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // Loudness meter state
   LoudnessTarget _loudnessTarget = LoudnessTarget.streaming;
 
+  // Selected track for Channel tab (DAW mode)
+  String? _selectedTrackId;
+
   // Meter decay state - Cubase-style: meters decay to 0 when playback stops
   bool _wasPlaying = false;
   Timer? _meterDecayTimer;
@@ -184,6 +190,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   int _detectedMidi = -1;
   // ignore: unused_field
   List<int> _detectedTransients = [];
+
+  // Control Room state
+  control_room.ControlRoomState _controlRoomState = control_room.ControlRoomState();
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
   List<ProjectTreeNode> _buildProjectTree() {
@@ -556,70 +565,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Add pool file to a NEW track (double-click behavior)
+  /// Uses same logic as drag-drop for consistency
   Future<void> _addPoolFileToNewTrack(timeline.PoolAudioFile poolFile) async {
-    final engineProvider = context.read<EngineProvider>();
-    final transport = engineProvider.transport;
+    final transport = context.read<EngineProvider>().transport;
     final insertTime = transport.positionSeconds;
 
-    // Create new track with same name as audio file
-    final trackIndex = _tracks.length;
-    final color = _trackColors[trackIndex % _trackColors.length];
-    final trackId = 'track-${DateTime.now().millisecondsSinceEpoch}';
-    final trackName = poolFile.name.replaceAll(RegExp(r'\.[^.]+$'), ''); // Remove extension
-
-    // Use file's default bus
-    final bus = poolFile.defaultBus;
-
-    final newTrack = timeline.TimelineTrack(
-      id: trackId,
-      name: trackName,
-      color: color,
-      outputBus: bus,
-    );
-
-    // Import audio to native engine (this loads into playback cache and returns native clip ID)
-    final clipInfo = await EngineApi.instance.importAudioFile(
-      filePath: poolFile.path,
-      trackId: trackId,
-      startTime: insertTime,
-    );
-
-    // Use native clip ID for all operations (fade, gain, etc.)
-    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
-
-    // Get real waveform from engine (or fallback to pool waveform)
-    Float32List? waveform = poolFile.waveform;
-    if (clipInfo != null) {
-      final peaks = await EngineApi.instance.getWaveformPeaks(clipId: clipInfo.clipId);
-      if (peaks.isNotEmpty) {
-        waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
-      }
-    }
-
-    final newClip = timeline.TimelineClip(
-      id: clipId,
-      trackId: trackId,
-      name: poolFile.name,
-      startTime: insertTime,
-      duration: clipInfo?.duration ?? poolFile.duration,
-      sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
-      sourceFile: poolFile.path,
-      waveform: waveform,
-      color: color,
-    );
-
-    setState(() {
-      _tracks = [..._tracks, newTrack];
-      _clips = [..._clips, newClip];
-    });
-
-    // Create mixer channel for the new track
-    final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(trackId, trackName, color);
-
-    debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} (clipId: $clipId)');
-    _showSnackBar('Added ${poolFile.name} to new track');
-    _updateActiveBuses();
+    // Delegate to _createTrackWithClip which properly creates native track first
+    await _createTrackWithClip(poolFile, insertTime, poolFile.defaultBus);
   }
 
   /// Add a pool file to timeline (Cubase-style drag & drop behavior)
@@ -1374,6 +1326,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
+  /// Open Keyboard Shortcuts settings screen
+  void _handleKeyboardShortcuts() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ShortcutsSettingsScreen(),
+      ),
+    );
+  }
+
   /// Open Audio Export dialog
   void _handleExportAudio() async {
     final engine = context.read<EngineProvider>();
@@ -2006,6 +1967,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onAudioSettings: () => _handleAudioSettings(),
             onMidiSettings: () => _handleMidiSettings(),
             onPluginManager: () => _handlePluginManager(),
+            onKeyboardShortcuts: () => _handleKeyboardShortcuts(),
           ),
 
           // Left zone - mode-aware tree
@@ -2013,6 +1975,59 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           activeLeftTab: _activeLeftTab,
           onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
           onProjectDoubleClick: _handlePoolItemDoubleClick,
+
+          // Channel tab data (DAW mode)
+          channelData: _getSelectedChannelData(),
+          onChannelVolumeChange: (channelId, volume) {
+            final mixerProvider = context.read<MixerProvider>();
+            // Convert dB to linear: 0dB = 1.0, -60dB = 0.001, +12dB = ~4.0
+            final linear = volume <= -60 ? 0.0 : (10.0 * (volume / 20.0)).clamp(0.0, 1.5);
+            mixerProvider.setVolume(channelId, linear);
+          },
+          onChannelPanChange: (channelId, pan) {
+            final mixerProvider = context.read<MixerProvider>();
+            mixerProvider.setChannelPan(channelId, pan);
+          },
+          onChannelMuteToggle: (channelId) {
+            final mixerProvider = context.read<MixerProvider>();
+            mixerProvider.toggleMute(channelId);
+          },
+          onChannelSoloToggle: (channelId) {
+            final mixerProvider = context.read<MixerProvider>();
+            mixerProvider.toggleSolo(channelId);
+          },
+          onChannelInsertClick: (channelId, slotIndex) {
+            _onInsertClick(channelId, slotIndex);
+          },
+          onChannelSendLevelChange: (channelId, sendIndex, level) {
+            EngineApi.instance.setSendLevel(channelId, sendIndex, level);
+          },
+          onChannelEQToggle: (channelId) {
+            setState(() {
+              if (_openEqWindows.containsKey(channelId)) {
+                _openEqWindows.remove(channelId);
+              } else {
+                _openEqWindows[channelId] = true;
+              }
+            });
+          },
+          onChannelOutputClick: (channelId) {
+            _onOutputClick(channelId);
+          },
+          onChannelInputClick: (channelId) {
+            _onInputClick(channelId);
+          },
+          onChannelArmToggle: (channelId) {
+            final mixerProvider = context.read<MixerProvider>();
+            mixerProvider.toggleArm(channelId);
+          },
+          onChannelMonitorToggle: (channelId) {
+            final mixerProvider = context.read<MixerProvider>();
+            mixerProvider.toggleInputMonitor(channelId);
+          },
+          onChannelSendClick: (channelId, sendIndex) {
+            _onSendClick(channelId, sendIndex);
+          },
 
           // Center zone
           child: _buildCenterContent(transport, metering),
@@ -2459,6 +2474,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }).toList();
         });
       },
+      onTrackHideToggle: (trackId) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              return t.copyWith(hidden: !t.hidden);
+            }
+            return t;
+          }).toList();
+        });
+      },
       onTrackHeightChange: (trackId, height) {
         setState(() {
           _tracks = _tracks.map((t) {
@@ -2518,6 +2543,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Track duplicate/delete
       onTrackDuplicate: (trackId) => _handleDuplicateTrack(trackId),
       onTrackDelete: (trackId) => _handleDeleteTrackById(trackId),
+      // Track selection for Channel tab
+      onTrackSelect: (trackId) {
+        setState(() => _selectedTrackId = trackId);
+      },
       // Track context menu
       onTrackContextMenu: (trackId, position) {
         _showTrackContextMenu(trackId, position);
@@ -3354,6 +3383,94 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     return _busIdToTrackId(busId);
   }
 
+  /// Get ChannelStripData for selected track (used by Channel tab in LeftZone)
+  ChannelStripData? _getSelectedChannelData() {
+    if (_selectedTrackId == null) return null;
+
+    // Find track in timeline
+    final track = _tracks.cast<timeline.TimelineTrack?>().firstWhere(
+      (t) => t?.id == _selectedTrackId,
+      orElse: () => null,
+    );
+    if (track == null) return null;
+
+    // Get mixer channel data
+    final mixerProvider = context.read<MixerProvider>();
+    final channelId = 'ch_${track.id}';
+    final channel = mixerProvider.getChannel(channelId);
+
+    // Get insert chain
+    if (!_busInserts.containsKey(channelId)) {
+      _busInserts[channelId] = InsertChain(channelId: channelId);
+    }
+    final insertChain = _busInserts[channelId]!;
+
+    // Convert volume from linear (0-1.5) to dB
+    // Formula: dB = 20 * log10(linear), where linear=1.0 -> 0dB
+    final volumeLinear = channel?.volume ?? 1.0;
+    double volumeDb;
+    if (volumeLinear <= 0.001) {
+      volumeDb = -70.0; // Effectively -infinity
+    } else {
+      volumeDb = 20.0 * (volumeLinear > 0 ? (volumeLinear).clamp(0.001, 4.0) : 0.001);
+      // Proper log conversion: 20 * log10(linear)
+      volumeDb = 20.0 * _log10(volumeLinear.clamp(0.001, 4.0));
+    }
+    volumeDb = volumeDb.clamp(-70.0, 12.0);
+
+    // Build sends list from mixer channel
+    final sends = <SendSlot>[];
+    if (channel != null) {
+      for (int i = 0; i < 4; i++) {
+        if (i < channel.sends.length) {
+          final send = channel.sends[i];
+          sends.add(SendSlot(
+            id: '${channelId}_send_$i',
+            destination: send.auxId, // auxId is the destination
+            level: send.level,
+            preFader: send.preFader,
+            enabled: send.enabled,
+          ));
+        } else {
+          sends.add(SendSlot(id: '${channelId}_send_$i'));
+        }
+      }
+    } else {
+      // Empty sends
+      for (int i = 0; i < 4; i++) {
+        sends.add(SendSlot(id: '${channelId}_send_$i'));
+      }
+    }
+
+    return ChannelStripData(
+      id: channelId,
+      name: track.name,
+      type: 'audio',
+      color: track.color,
+      volume: volumeDb,
+      pan: channel?.pan ?? 0.0,
+      mute: channel?.muted ?? false,
+      solo: channel?.soloed ?? false,
+      armed: channel?.armed ?? false,
+      inputMonitor: channel?.monitorInput ?? false,
+      meterL: channel?.rmsL ?? 0.0,
+      meterR: channel?.rmsR ?? 0.0,
+      peakL: channel?.peakL ?? 0.0,
+      peakR: channel?.peakR ?? 0.0,
+      inserts: insertChain.slots.map((slot) => InsertSlot(
+        id: '${channelId}_${slot.index}',
+        name: slot.plugin?.displayName ?? '',
+        type: slot.plugin?.category.name ?? 'empty',
+        bypassed: slot.bypassed,
+      )).toList(),
+      sends: sends,
+      eqEnabled: _openEqWindows.containsKey(channelId),
+      eqBands: const [],
+      input: channel?.inputSource ?? 'Stereo In',
+      output: track.outputBus.name.substring(0, 1).toUpperCase() + track.outputBus.name.substring(1),
+    );
+  }
+
   Widget _buildMixerContent(dynamic metering, bool isPlaying) {
     // Cubase-style meter decay: when playback stops, meters decay to 0
     if (_wasPlaying && !isPlaying) {
@@ -3551,6 +3668,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
       rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
       correlation: metering.correlation,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
     );
 
     // All channels are audio tracks (no hardcoded buses)
@@ -3594,6 +3713,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onSendLevelChange: (channelId, sendIndex, level) {
         debugPrint('[UltimateMixer] Send level: channel=$channelId, send=$sendIndex, level=$level');
         engine.setSendLevel(channelId, sendIndex, level);
+      },
+      onSendMuteToggle: (channelId, sendIndex, muted) {
+        debugPrint('[UltimateMixer] Send mute: channel=$channelId, send=$sendIndex, muted=$muted');
+        engine.setSendMuted(channelId, sendIndex, muted);
+      },
+      onSendPreFaderToggle: (channelId, sendIndex, preFader) {
+        debugPrint('[UltimateMixer] Send pre-fader: channel=$channelId, send=$sendIndex, preFader=$preFader');
+        engine.setSendPreFader(channelId, sendIndex, preFader);
+      },
+      onSendDestChange: (channelId, sendIndex, destination) {
+        debugPrint('[UltimateMixer] Send destination: channel=$channelId, send=$sendIndex, dest=$destination');
+        engine.setSendDestinationById(channelId, sendIndex, destination);
+      },
+    );
+  }
+
+  /// Build Control Room panel content
+  Widget _buildControlRoomContent() {
+    return control_room.ControlRoomPanel(
+      state: _controlRoomState,
+      onStateChanged: (newState) {
+        setState(() {
+          _controlRoomState = newState;
+        });
+        // TODO: Sync to engine FFI
+        debugPrint('[ControlRoom] State changed: monitor=${newState.source}, solo=${newState.soloMode}');
       },
     );
   }
@@ -3879,6 +4024,92 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (result != null) {
       mixerProvider.setChannelOutput(channelId, result);
       debugPrint('[Mixer] Channel $channelId output set to $result');
+    }
+  }
+
+  /// Handle input routing click
+  void _onInputClick(String channelId) async {
+    final mixerProvider = context.read<MixerProvider>();
+
+    // Available input sources
+    final inputs = [
+      'None',
+      'Input 1',
+      'Input 2',
+      'Input 1-2 (Stereo)',
+      'Input 3',
+      'Input 4',
+      'Input 3-4 (Stereo)',
+      'Bus 1',
+      'Bus 2',
+    ];
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ReelForgeTheme.bgElevated,
+        title: Text('Input Source', style: ReelForgeTheme.label),
+        content: SizedBox(
+          width: 200,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: inputs.map((input) => ListTile(
+              dense: true,
+              title: Text(input, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              onTap: () => Navigator.pop(ctx, input),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      mixerProvider.setChannelInput(channelId, result);
+      debugPrint('[Mixer] Channel $channelId input set to $result');
+    }
+  }
+
+  /// Handle send slot click - show routing options
+  void _onSendClick(String channelId, int sendIndex) async {
+    // Available send destinations (FX buses)
+    final sends = [
+      'None',
+      'FX 1 - Reverb',
+      'FX 2 - Delay',
+      'FX 3 - Chorus',
+      'FX 4 - Aux',
+    ];
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ReelForgeTheme.bgElevated,
+        title: Text('Send ${sendIndex + 1} Destination', style: ReelForgeTheme.label),
+        content: SizedBox(
+          width: 200,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: sends.map((send) => ListTile(
+              dense: true,
+              title: Text(send, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              onTap: () => Navigator.pop(ctx, send),
+            )).toList(),
+          ),
+        ),
+      ),
+    );
+
+    if (result != null && result != 'None') {
+      // Extract FX bus index from "FX N - Name" format
+      final fxIndex = int.tryParse(result.split(' ')[1]) ?? 1;
+      final fromChannelId = _busIdToChannelId(channelId);
+      NativeFFI.instance.routingAddSend(fromChannelId, fxIndex, preFader: false);
+      debugPrint('[Mixer] Channel $channelId send $sendIndex routed to $result');
+    } else if (result == 'None') {
+      // Remove send
+      final fromChannelId = _busIdToChannelId(channelId);
+      NativeFFI.instance.routingRemoveSend(fromChannelId, sendIndex);
+      debugPrint('[Mixer] Channel $channelId send $sendIndex cleared');
     }
   }
 
@@ -4358,6 +4589,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       //  dynEnabled=5, dynThreshold=6, dynRatio=7, dynAttack=8, dynRelease=9, dynKnee=10)
                       final trackId = _busIdToTrackId(channelId);
                       final baseParam = bandIndex * 11;
+
+                      // DEBUG: Log EQ band changes
+                      debugPrint('[EQ] Band change: channel=$channelId -> trackId=$trackId, slot=$slotIndex, band=$bandIndex');
+                      debugPrint('[EQ]   freq=$freq, gain=$gain, q=$q, enabled=$enabled, filterType=$filterType');
                       if (freq != null) {
                         NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
                       }
@@ -4397,6 +4632,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       if (bypass) {
                         engineApi.proEqReset(channelId);
                       }
+                    },
+                    onPhaseModeChange: (mode) {
+                      // 0=ZeroLatency, 1=Natural, 2=Linear
+                      engineApi.proEqSetPhaseMode(channelId, mode);
                     },
                   ),
                 ),
@@ -4487,6 +4726,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             if (bypass) {
               engineApi.proEqReset('master');
             }
+          },
+          onPhaseModeChange: (mode) {
+            // 0=ZeroLatency, 1=Natural, 2=Linear
+            engineApi.proEqSetPhaseMode('master', mode);
           },
         );
       },
@@ -5206,6 +5449,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: _buildMeteringBridgeContent(metering, isPlaying),
         groupId: 'mixconsole',
       ),
+      LowerZoneTab(
+        id: 'control-room',
+        label: 'Control Room',
+        icon: Icons.headphones,
+        content: _buildControlRoomContent(),
+        groupId: 'mixconsole',
+      ),
       // ========== Clip Editor (Editor group) ==========
       LowerZoneTab(
         id: 'clip-editor',
@@ -5260,6 +5510,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Validation',
         icon: Icons.check_circle_outline,
         content: const ValidationTabPlaceholder(),
+        groupId: 'tools',
+      ),
+      // ========== Plugin Browser (Tools group) ==========
+      LowerZoneTab(
+        id: 'plugins',
+        label: 'Plugins',
+        icon: Icons.extension,
+        content: PluginBrowser(
+          onPluginLoad: (plugin) {
+            // TODO: Load plugin into selected track/bus insert slot
+            debugPrint('Load plugin: ${plugin.name}');
+          },
+        ),
         groupId: 'tools',
       ),
       // ========== Slot Audio Tabs ==========

@@ -370,6 +370,17 @@ pub struct ParamChange {
     pub time_samples: u64,
 }
 
+/// Automation change within a block (for sample-accurate processing)
+#[derive(Debug, Clone)]
+pub struct AutomationChange {
+    /// Sample offset within block (0 = start of block)
+    pub sample_offset: usize,
+    /// Parameter ID
+    pub param_id: ParamId,
+    /// Normalized value (0.0 - 1.0)
+    pub value: f64,
+}
+
 /// Trim info for automation trim mode
 #[derive(Debug, Clone)]
 pub struct TrimInfo {
@@ -792,6 +803,162 @@ impl AutomationEngine {
     /// Import lane
     pub fn import_lane(&self, lane: AutomationLane) {
         self.lanes.write().insert(lane.param_id.clone(), lane);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SAMPLE-ACCURATE BLOCK PROCESSING (Lock-Free for Audio Thread)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get all automation changes within a block for ALL parameters
+    /// Returns changes sorted by sample offset for sample-accurate processing
+    /// Uses try_read() for lock-free access - skips automation if lock contended
+    pub fn get_all_block_changes(
+        &self,
+        start_sample: u64,
+        block_size: usize,
+    ) -> Vec<AutomationChange> {
+        // Lock-free read - skip if contended
+        let lanes = match self.lanes.try_read() {
+            Some(l) => l,
+            None => return Vec::new(),
+        };
+
+        let end_sample = start_sample + block_size as u64;
+        let mut all_changes = Vec::with_capacity(32);
+
+        for (param_id, lane) in lanes.iter() {
+            if !lane.enabled || lane.points.is_empty() {
+                continue;
+            }
+
+            // Get value at block start
+            let start_value = lane.value_at(start_sample);
+            all_changes.push(AutomationChange {
+                sample_offset: 0,
+                param_id: param_id.clone(),
+                value: start_value,
+            });
+
+            // Find all points within block
+            for point in lane.points.iter() {
+                if point.time_samples > start_sample && point.time_samples < end_sample {
+                    all_changes.push(AutomationChange {
+                        sample_offset: (point.time_samples - start_sample) as usize,
+                        param_id: param_id.clone(),
+                        value: point.value,
+                    });
+                }
+            }
+        }
+
+        // Sort by sample offset for sequential processing
+        all_changes.sort_by_key(|c| c.sample_offset);
+        all_changes
+    }
+
+    /// Get automation changes for a specific parameter in a block
+    /// Returns None if no changes in block
+    pub fn get_param_block_changes(
+        &self,
+        param_id: &ParamId,
+        start_sample: u64,
+        block_size: usize,
+    ) -> Option<Vec<AutomationChange>> {
+        let lanes = self.lanes.try_read()?;
+        let lane = lanes.get(param_id)?;
+
+        if !lane.enabled || lane.points.is_empty() {
+            return None;
+        }
+
+        let end_sample = start_sample + block_size as u64;
+        let mut changes = Vec::with_capacity(8);
+
+        // Start value
+        changes.push(AutomationChange {
+            sample_offset: 0,
+            param_id: param_id.clone(),
+            value: lane.value_at(start_sample),
+        });
+
+        // Points within block
+        for point in lane.points.iter() {
+            if point.time_samples > start_sample && point.time_samples < end_sample {
+                changes.push(AutomationChange {
+                    sample_offset: (point.time_samples - start_sample) as usize,
+                    param_id: param_id.clone(),
+                    value: point.value,
+                });
+            }
+        }
+
+        if changes.len() <= 1 {
+            // Only start value, no changes within block
+            return None;
+        }
+
+        Some(changes)
+    }
+
+    /// Process block with sample-accurate automation
+    /// Callback is called for each sub-block with constant automation value
+    /// Returns number of sub-blocks processed
+    pub fn process_block_with_automation<F>(
+        &self,
+        param_id: &ParamId,
+        start_sample: u64,
+        block_size: usize,
+        mut process_fn: F,
+    ) -> usize
+    where
+        F: FnMut(usize, usize, f64), // (start_offset, length, value)
+    {
+        let changes = match self.get_param_block_changes(param_id, start_sample, block_size) {
+            Some(c) if c.len() > 1 => c,
+            _ => {
+                // No automation, process whole block
+                let value = self.get_value_at(param_id, start_sample).unwrap_or(0.5);
+                process_fn(0, block_size, value);
+                return 1;
+            }
+        };
+
+        let mut offset = 0;
+        let mut sub_blocks = 0;
+
+        for i in 0..changes.len() {
+            let current = &changes[i];
+            let next_offset = if i + 1 < changes.len() {
+                changes[i + 1].sample_offset
+            } else {
+                block_size
+            };
+
+            if next_offset > offset {
+                process_fn(offset, next_offset - offset, current.value);
+                offset = next_offset;
+                sub_blocks += 1;
+            }
+        }
+
+        sub_blocks
+    }
+
+    /// Get interpolated value at any sample within a block
+    /// Useful for per-sample automation (expensive, use sparingly)
+    pub fn get_interpolated_value(
+        &self,
+        param_id: &ParamId,
+        sample: u64,
+    ) -> Option<f64> {
+        let lanes = self.lanes.try_read()?;
+        let lane = lanes.get(param_id)?;
+
+        if !lane.enabled {
+            return None;
+        }
+
+        Some(lane.value_at(sample))
     }
 }
 

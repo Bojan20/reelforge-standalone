@@ -215,6 +215,7 @@ impl Default for ThumbnailGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decoder::PixelFormat;
 
     #[test]
     fn test_thumbnail_from_frame() {

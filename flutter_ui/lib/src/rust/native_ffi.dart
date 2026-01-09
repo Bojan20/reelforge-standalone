@@ -57,8 +57,13 @@ DynamicLibrary _loadNativeLibrary() {
     '../target/debug/$libName',
     '../../target/release/$libName',
     '../../target/debug/$libName',
-    // Absolute paths for macOS development
-    '/Users/vanvinklstudio/Desktop/reelforge-standalone/target/release/$libName',
+    // Development: Use environment variable or home directory
+    if (Platform.environment.containsKey('REELFORGE_LIB_PATH'))
+      '${Platform.environment['REELFORGE_LIB_PATH']}/$libName'
+    else if (Platform.environment.containsKey('HOME'))
+      '${Platform.environment['HOME']}/Desktop/reelforge-standalone/target/release/$libName'
+    else
+      'target/release/$libName',
   ];
 
   for (final path in paths) {
@@ -4749,6 +4754,8 @@ extension ProEqAPI on NativeFFI {
       int Function(int, int, int, double, double, double, double)>('pro_eq_set_band_dynamic');
   static final _proEqSetOutputGain = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint32, Double), int Function(int, double)>('pro_eq_set_output_gain');
+  static final _proEqSetPhaseMode = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('pro_eq_set_phase_mode');
   static final _proEqSetAnalyzerMode = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint32, Int32), int Function(int, int)>('pro_eq_set_analyzer_mode');
   static final _proEqSetAutoGain = _loadNativeLibrary().lookupFunction<
@@ -4889,6 +4896,10 @@ extension ProEqAPI on NativeFFI {
   /// Set output gain (-24 to +24 dB)
   bool proEqSetOutputGain(int trackId, double gainDb) =>
       _proEqSetOutputGain(trackId, gainDb.clamp(-24.0, 24.0)) == 1;
+
+  /// Set phase mode (0=ZeroLatency, 1=Natural, 2=Linear)
+  bool proEqSetPhaseMode(int trackId, int mode) =>
+      _proEqSetPhaseMode(trackId, mode.clamp(0, 2)) == 1;
 
   /// Set analyzer mode
   bool proEqSetAnalyzerMode(int trackId, ProEqAnalyzerMode mode) =>
@@ -6817,5 +6828,450 @@ extension SaturationAPI on NativeFFI {
     // TODO: Implement FFI binding when flutter_rust_bridge regenerates
     return null;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CONTROL ROOM
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
+  int controlRoomGetMonitorSource() {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Set monitor source
+  void controlRoomSetMonitorSource(int source) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get monitor level (dB)
+  double controlRoomGetMonitorLevel() {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set monitor level (dB)
+  void controlRoomSetMonitorLevel(double db) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get dim enabled
+  bool controlRoomGetDimEnabled() {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Set dim enabled
+  void controlRoomSetDimEnabled(bool enabled) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get dim level (dB)
+  double controlRoomGetDimLevel() {
+    // TODO: Implement actual FFI binding
+    return -20.0;
+  }
+
+  /// Set dim level (dB)
+  void controlRoomSetDimLevel(double db) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get mono enabled
+  bool controlRoomGetMonoEnabled() {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Set mono enabled
+  void controlRoomSetMonoEnabled(bool enabled) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
+  int controlRoomGetSoloMode() {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Set solo mode
+  void controlRoomSetSoloMode(int mode) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get active speaker set (0-3)
+  int controlRoomGetActiveSpeakerSet() {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Set active speaker set
+  void controlRoomSetActiveSpeakerSet(int index) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get speaker calibration (dB)
+  double controlRoomGetSpeakerCalibration(int index) {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set speaker calibration (dB)
+  void controlRoomSetSpeakerCalibration(int index, double db) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Solo a channel
+  void controlRoomSoloChannel(int channelId) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Unsolo a channel
+  void controlRoomUnsoloChannel(int channelId) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Clear all solos
+  void controlRoomClearAllSolos() {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Check if channel is soloed
+  bool controlRoomIsChannelSoloed(int channelId) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Get monitor peak meters (returns [peakL, peakR])
+  List<double> controlRoomGetMonitorPeak() {
+    // TODO: Implement actual FFI binding
+    return [0.0, 0.0];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CUE MIXES
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get cue mix enabled
+  bool cueMixGetEnabled(int cueIndex) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Set cue mix enabled
+  void cueMixSetEnabled(int cueIndex, bool enabled) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get cue mix level (dB)
+  double cueMixGetLevel(int cueIndex) {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set cue mix level (dB)
+  void cueMixSetLevel(int cueIndex, double db) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get cue mix pan (-1 to 1)
+  double cueMixGetPan(int cueIndex) {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set cue mix pan
+  void cueMixSetPan(int cueIndex, double pan) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get cue mix peak meters (returns [peakL, peakR])
+  List<double> cueMixGetPeak(int cueIndex) {
+    // TODO: Implement actual FFI binding
+    return [0.0, 0.0];
+  }
+
+  /// Set cue send for a channel
+  void cueMixSetChannelSend(int cueIndex, int channelId, double level, double pan) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get cue send for a channel (returns [level, pan] or null if not set)
+  List<double>? cueMixGetChannelSend(int cueIndex, int channelId) {
+    // TODO: Implement actual FFI binding
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TALKBACK
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Get talkback enabled
+  bool talkbackGetEnabled() {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Set talkback enabled
+  void talkbackSetEnabled(bool enabled) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get talkback level (dB)
+  double talkbackGetLevel() {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set talkback level (dB)
+  void talkbackSetLevel(double db) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get talkback destinations (bitmask)
+  int talkbackGetDestinations() {
+    // TODO: Implement actual FFI binding
+    return 0xF; // All 4 cues by default
+  }
+
+  /// Set talkback destinations (bitmask)
+  void talkbackSetDestinations(int mask) {
+    // TODO: Implement actual FFI binding
+  }
+
+  /// Get talkback dim main on talk
+  bool talkbackGetDimMainOnTalk() {
+    // TODO: Implement actual FFI binding
+    return true;
+  }
+
+  /// Set talkback dim main on talk
+  void talkbackSetDimMainOnTalk(bool enabled) {
+    // TODO: Implement actual FFI binding
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PHASE 5.1: PLUGIN SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /// Scan for all plugins
+  /// Returns number of plugins found, -1 on error
+  int pluginScanAll() {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Get number of discovered plugins
+  int pluginGetCount() {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Get plugin info by index
+  /// Returns null if index out of range
+  NativePluginInfo? pluginGetInfoByIndex(int index) {
+    // TODO: Implement actual FFI binding
+    return null;
+  }
+
+  /// Get all plugins
+  List<NativePluginInfo> pluginGetAll() {
+    final count = pluginGetCount();
+    final plugins = <NativePluginInfo>[];
+    for (int i = 0; i < count; i++) {
+      final info = pluginGetInfoByIndex(i);
+      if (info != null) {
+        plugins.add(info);
+      }
+    }
+    return plugins;
+  }
+
+  /// Get plugins by type
+  /// type: 0=VST3, 1=CLAP, 2=AU, 3=LV2, 4=Internal
+  List<int> pluginGetByType(int pluginType) {
+    // TODO: Implement actual FFI binding
+    return [];
+  }
+
+  /// Get plugins by category
+  /// category: 0=Effect, 1=Instrument, 2=Analyzer, 3=Utility
+  List<int> pluginGetByCategory(int category) {
+    // TODO: Implement actual FFI binding
+    return [];
+  }
+
+  /// Search plugins by name
+  List<int> pluginSearch(String query) {
+    // TODO: Implement actual FFI binding
+    return [];
+  }
+
+  /// Load a plugin instance
+  /// Returns instance ID on success, null on failure
+  String? pluginLoad(String pluginId) {
+    // TODO: Implement actual FFI binding
+    return null;
+  }
+
+  /// Unload a plugin instance
+  bool pluginUnload(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Get plugin parameter count
+  int pluginGetParamCount(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+
+  /// Get plugin parameter value (normalized 0-1)
+  double pluginGetParam(String instanceId, int paramId) {
+    // TODO: Implement actual FFI binding
+    return 0.0;
+  }
+
+  /// Set plugin parameter value (normalized 0-1)
+  bool pluginSetParam(String instanceId, int paramId, double value) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Get plugin parameter info
+  PluginParamInfo? pluginGetParamInfo(String instanceId, int paramIndex) {
+    // TODO: Implement actual FFI binding
+    return null;
+  }
+
+  /// Activate plugin for processing
+  bool pluginActivate(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Deactivate plugin
+  bool pluginDeactivate(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Check if plugin has editor
+  bool pluginHasEditor(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return false;
+  }
+
+  /// Get plugin latency in samples
+  int pluginGetLatency(String instanceId) {
+    // TODO: Implement actual FFI binding
+    return 0;
+  }
+}
+
+/// Native plugin type enum (from Rust FFI)
+enum NativePluginType {
+  vst3,
+  clap,
+  audioUnit,
+  lv2,
+  internal,
+}
+
+/// Native plugin category enum (from Rust FFI)
+enum NativePluginCategory {
+  effect,
+  instrument,
+  analyzer,
+  utility,
+  unknown,
+}
+
+/// Native plugin information (from Rust FFI)
+/// Use plugin_models.dart PluginInfo for UI display
+class NativePluginInfo {
+  final String id;
+  final String name;
+  final String vendor;
+  final NativePluginType type;
+  final NativePluginCategory category;
+  final bool hasEditor;
+
+  const NativePluginInfo({
+    required this.id,
+    required this.name,
+    required this.vendor,
+    required this.type,
+    required this.category,
+    required this.hasEditor,
+  });
+
+  /// Create from FFI data
+  factory NativePluginInfo.fromFfi({
+    required String id,
+    required String name,
+    required String vendor,
+    required int typeCode,
+    required int categoryCode,
+    required bool hasEditor,
+  }) {
+    return NativePluginInfo(
+      id: id,
+      name: name,
+      vendor: vendor,
+      type: NativePluginType.values[typeCode.clamp(0, 4)],
+      category: NativePluginCategory.values[categoryCode.clamp(0, 4)],
+      hasEditor: hasEditor,
+    );
+  }
+
+  /// Get icon for plugin type
+  String get typeIcon {
+    switch (type) {
+      case NativePluginType.vst3:
+        return 'VST3';
+      case NativePluginType.clap:
+        return 'CLAP';
+      case NativePluginType.audioUnit:
+        return 'AU';
+      case NativePluginType.lv2:
+        return 'LV2';
+      case NativePluginType.internal:
+        return 'RF';
+    }
+  }
+
+  /// Get color for plugin type
+  int get typeColor {
+    switch (type) {
+      case NativePluginType.vst3:
+        return 0xFF4A9EFF; // Blue
+      case NativePluginType.clap:
+        return 0xFFFF9040; // Orange
+      case NativePluginType.audioUnit:
+        return 0xFF40FF90; // Green
+      case NativePluginType.lv2:
+        return 0xFFFF4060; // Red
+      case NativePluginType.internal:
+        return 0xFF40C8FF; // Cyan
+    }
+  }
+}
+
+/// Plugin parameter information
+class PluginParamInfo {
+  final int id;
+  final String name;
+  final double min;
+  final double max;
+  final double defaultValue;
+
+  const PluginParamInfo({
+    required this.id,
+    required this.name,
+    required this.min,
+    required this.max,
+    required this.defaultValue,
+  });
 }
 

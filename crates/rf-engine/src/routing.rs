@@ -19,11 +19,240 @@
 //! - VCA: Level control only (no audio routing)
 //! - Master: Final output stage
 
+use rtrb::{Consumer, Producer, RingBuffer};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use rf_core::Sample;
+use rf_dsp::channel::ChannelStrip;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTING COMMANDS (lock-free UI → Audio thread communication)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Commands for modifying routing graph from UI thread
+/// Sent via lock-free ring buffer, processed on audio thread
+#[derive(Debug, Clone)]
+pub enum RoutingCommand {
+    // Channel management
+    /// Create new channel (audio thread allocates)
+    CreateChannel {
+        kind: ChannelKind,
+        name: String,
+        callback_id: u32,
+    },
+    /// Delete channel
+    DeleteChannel { id: ChannelId },
+
+    // Routing
+    /// Set channel output destination
+    SetOutput {
+        id: ChannelId,
+        destination: OutputDestination,
+    },
+    /// Add send from one channel to another
+    AddSend {
+        from: ChannelId,
+        to: ChannelId,
+        pre_fader: bool,
+    },
+    /// Remove send
+    RemoveSend { from: ChannelId, send_index: usize },
+    /// Set send level
+    SetSendLevel {
+        from: ChannelId,
+        send_index: usize,
+        level_db: f64,
+    },
+    /// Enable/disable send
+    SetSendEnabled {
+        from: ChannelId,
+        send_index: usize,
+        enabled: bool,
+    },
+
+    // Mixer state
+    /// Set volume (fader)
+    SetVolume { id: ChannelId, db: f64 },
+    /// Set pan
+    SetPan { id: ChannelId, pan: f64 },
+    /// Set mute
+    SetMute { id: ChannelId, mute: bool },
+    /// Set solo
+    SetSolo { id: ChannelId, solo: bool },
+
+    // DSP controls
+    /// Set input gain
+    SetInputGain { id: ChannelId, db: f64 },
+    /// Set output gain
+    SetOutputGain { id: ChannelId, db: f64 },
+    /// Enable/disable HPF
+    SetHpfEnabled { id: ChannelId, enabled: bool },
+    /// Set HPF frequency
+    SetHpfFreq { id: ChannelId, freq: f64 },
+    /// Enable/disable gate
+    SetGateEnabled { id: ChannelId, enabled: bool },
+    /// Set gate threshold
+    SetGateThreshold { id: ChannelId, db: f64 },
+    /// Enable/disable compressor
+    SetCompEnabled { id: ChannelId, enabled: bool },
+    /// Set compressor threshold
+    SetCompThreshold { id: ChannelId, db: f64 },
+    /// Set compressor ratio
+    SetCompRatio { id: ChannelId, ratio: f64 },
+    /// Set compressor attack
+    SetCompAttack { id: ChannelId, ms: f64 },
+    /// Set compressor release
+    SetCompRelease { id: ChannelId, ms: f64 },
+    /// Enable/disable EQ
+    SetEqEnabled { id: ChannelId, enabled: bool },
+    /// Set EQ low shelf
+    SetEqLow { id: ChannelId, freq: f64, gain_db: f64 },
+    /// Set EQ low-mid
+    SetEqLowMid {
+        id: ChannelId,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+    },
+    /// Set EQ high-mid
+    SetEqHighMid {
+        id: ChannelId,
+        freq: f64,
+        gain_db: f64,
+        q: f64,
+    },
+    /// Set EQ high shelf
+    SetEqHigh { id: ChannelId, freq: f64, gain_db: f64 },
+    /// Enable/disable limiter
+    SetLimiterEnabled { id: ChannelId, enabled: bool },
+    /// Set limiter threshold
+    SetLimiterThreshold { id: ChannelId, db: f64 },
+    /// Set stereo width
+    SetWidth { id: ChannelId, width: f64 },
+}
+
+/// Response from audio thread (for async operations)
+#[derive(Debug, Clone)]
+pub enum RoutingResponse {
+    /// Channel was created, returns new ID
+    ChannelCreated { callback_id: u32, channel_id: ChannelId },
+    /// Channel was deleted
+    ChannelDeleted { id: ChannelId },
+    /// Error occurred
+    Error { message: String },
+}
+
+/// Command queue capacity
+const COMMAND_QUEUE_SIZE: usize = 1024;
+/// Response queue capacity
+const RESPONSE_QUEUE_SIZE: usize = 256;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUFFER POOL (Pre-allocated, O(1) acquisition)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Pre-allocated buffer pool for dynamic bus allocation
+/// Eliminates heap allocation on audio thread
+#[derive(Debug)]
+pub struct BufferPool {
+    /// Pre-allocated stereo buffer pairs (left, right)
+    buffers: Vec<(Vec<Sample>, Vec<Sample>)>,
+    /// Indices of available buffers
+    available: Vec<usize>,
+    /// Block size for each buffer
+    block_size: usize,
+    /// Maximum buffers (capacity)
+    capacity: usize,
+}
+
+impl BufferPool {
+    /// Create new buffer pool with specified capacity
+    pub fn new(capacity: usize, block_size: usize) -> Self {
+        let mut buffers = Vec::with_capacity(capacity);
+        let mut available = Vec::with_capacity(capacity);
+
+        // Pre-allocate all buffers
+        for i in 0..capacity {
+            buffers.push((vec![0.0; block_size], vec![0.0; block_size]));
+            available.push(i);
+        }
+
+        Self {
+            buffers,
+            available,
+            block_size,
+            capacity,
+        }
+    }
+
+    /// Acquire a buffer pair (O(1), no allocation)
+    /// Returns buffer index if available
+    pub fn acquire(&mut self) -> Option<usize> {
+        self.available.pop()
+    }
+
+    /// Release a buffer back to the pool (O(1))
+    pub fn release(&mut self, idx: usize) {
+        if idx < self.buffers.len() && !self.available.contains(&idx) {
+            // Clear buffer before returning to pool
+            self.buffers[idx].0.fill(0.0);
+            self.buffers[idx].1.fill(0.0);
+            self.available.push(idx);
+        }
+    }
+
+    /// Get mutable reference to buffer pair
+    pub fn get_mut(&mut self, idx: usize) -> Option<(&mut [Sample], &mut [Sample])> {
+        self.buffers
+            .get_mut(idx)
+            .map(|(l, r)| (l.as_mut_slice(), r.as_mut_slice()))
+    }
+
+    /// Get immutable reference to buffer pair
+    pub fn get(&self, idx: usize) -> Option<(&[Sample], &[Sample])> {
+        self.buffers
+            .get(idx)
+            .map(|(l, r)| (l.as_slice(), r.as_slice()))
+    }
+
+    /// Available buffer count
+    pub fn available_count(&self) -> usize {
+        self.available.len()
+    }
+
+    /// Total capacity
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Resize all buffers (call when block size changes)
+    pub fn resize(&mut self, new_block_size: usize) {
+        self.block_size = new_block_size;
+        for (l, r) in &mut self.buffers {
+            l.resize(new_block_size, 0.0);
+            r.resize(new_block_size, 0.0);
+        }
+    }
+
+    /// Grow pool capacity (adds more pre-allocated buffers)
+    pub fn grow(&mut self, additional: usize) {
+        let new_capacity = self.capacity + additional;
+        for i in self.capacity..new_capacity {
+            self.buffers
+                .push((vec![0.0; self.block_size], vec![0.0; self.block_size]));
+            self.available.push(i);
+        }
+        self.capacity = new_capacity;
+    }
+}
+
+impl Default for BufferPool {
+    fn default() -> Self {
+        Self::new(64, 256) // 64 buffer pairs, 256 samples each
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHANNEL TYPES
@@ -223,6 +452,20 @@ pub struct Channel {
     /// Monitor state
     monitoring: AtomicBool,
 
+    // DSP processing (Phase 1.1: unify with mixer.rs)
+    /// Channel strip with full DSP chain (gate, comp, EQ, limiter, etc.)
+    pub strip: Option<ChannelStrip>,
+
+    // Metering (lock-free atomics for audio thread → UI thread)
+    /// Peak level left channel (f64 bits stored as u64)
+    pub peak_l: AtomicU64,
+    /// Peak level right channel (f64 bits stored as u64)
+    pub peak_r: AtomicU64,
+    /// RMS level left channel (f64 bits stored as u64)
+    pub rms_l: AtomicU64,
+    /// RMS level right channel (f64 bits stored as u64)
+    pub rms_r: AtomicU64,
+
     // Internal buffers
     input_left: Vec<Sample>,
     input_right: Vec<Sample>,
@@ -237,6 +480,17 @@ pub struct Channel {
 impl Channel {
     /// Create new channel
     pub fn new(id: ChannelId, kind: ChannelKind, name: &str, block_size: usize) -> Self {
+        Self::with_sample_rate(id, kind, name, block_size, 48000.0)
+    }
+
+    /// Create new channel with specific sample rate
+    pub fn with_sample_rate(
+        id: ChannelId,
+        kind: ChannelKind,
+        name: &str,
+        block_size: usize,
+        sample_rate: f64,
+    ) -> Self {
         Self {
             id,
             kind,
@@ -254,6 +508,17 @@ impl Channel {
             soloed: AtomicBool::new(false),
             armed: AtomicBool::new(false),
             monitoring: AtomicBool::new(false),
+            // Initialize DSP strip (all channels except VCA have processing)
+            strip: if kind != ChannelKind::Vca {
+                Some(ChannelStrip::new(sample_rate))
+            } else {
+                None
+            },
+            // Initialize metering to -infinity (0.0 in f64 bits)
+            peak_l: AtomicU64::new(0),
+            peak_r: AtomicU64::new(0),
+            rms_l: AtomicU64::new(0),
+            rms_r: AtomicU64::new(0),
             input_left: vec![0.0; block_size],
             input_right: vec![0.0; block_size],
             output_left: vec![0.0; block_size],
@@ -311,6 +576,75 @@ impl Channel {
         self.soloed.load(Ordering::Acquire)
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // METERING (lock-free audio thread → UI thread)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Get peak levels in dB (lock-free read)
+    pub fn peak_db(&self) -> (f64, f64) {
+        let l = f64::from_bits(self.peak_l.load(Ordering::Relaxed));
+        let r = f64::from_bits(self.peak_r.load(Ordering::Relaxed));
+        (Self::linear_to_db(l), Self::linear_to_db(r))
+    }
+
+    /// Get RMS levels in dB (lock-free read)
+    pub fn rms_db(&self) -> (f64, f64) {
+        let l = f64::from_bits(self.rms_l.load(Ordering::Relaxed));
+        let r = f64::from_bits(self.rms_r.load(Ordering::Relaxed));
+        (Self::linear_to_db(l), Self::linear_to_db(r))
+    }
+
+    /// Update peak meters (called from audio thread)
+    #[inline]
+    fn update_peak(&self, left: f64, right: f64) {
+        // Atomic store of f64 bits
+        self.peak_l.store(left.to_bits(), Ordering::Relaxed);
+        self.peak_r.store(right.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Update RMS meters (called from audio thread)
+    #[inline]
+    fn update_rms(&self, left: f64, right: f64) {
+        self.rms_l.store(left.to_bits(), Ordering::Relaxed);
+        self.rms_r.store(right.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Convert linear amplitude to dB
+    #[inline]
+    fn linear_to_db(linear: f64) -> f64 {
+        if linear <= 0.0 {
+            -144.0 // Floor
+        } else {
+            20.0 * linear.log10()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DSP ACCESS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Get mutable access to channel strip DSP
+    pub fn strip_mut(&mut self) -> Option<&mut ChannelStrip> {
+        self.strip.as_mut()
+    }
+
+    /// Get read access to channel strip DSP
+    pub fn strip_ref(&self) -> Option<&ChannelStrip> {
+        self.strip.as_ref()
+    }
+
+    /// Set sample rate for DSP chain
+    pub fn set_sample_rate(&mut self, sample_rate: f64) {
+        if let Some(strip) = &mut self.strip {
+            use rf_dsp::ProcessorConfig;
+            strip.set_sample_rate(sample_rate);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SENDS
+    // ─────────────────────────────────────────────────────────────────────────
+
     /// Add send
     pub fn add_send(&mut self, destination: ChannelId, pre_fader: bool) {
         let mut send = SendConfig::new(destination);
@@ -343,12 +677,15 @@ impl Channel {
         }
     }
 
-    /// Process channel (apply fader, pan, mute)
+    /// Process channel (apply DSP chain, fader, pan, mute)
     pub fn process(&mut self, global_solo_active: bool) {
         // Check mute/solo
         if self.is_muted() || (global_solo_active && !self.is_soloed()) {
             self.output_left.fill(0.0);
             self.output_right.fill(0.0);
+            // Update meters with silence
+            self.update_peak(0.0, 0.0);
+            self.update_rms(0.0, 0.0);
             return;
         }
 
@@ -359,9 +696,58 @@ impl Channel {
         let left_gain = gain * pan_angle.cos();
         let right_gain = gain * pan_angle.sin();
 
-        for i in 0..self.input_left.len().min(self.output_left.len()) {
-            self.output_left[i] = self.input_left[i] * left_gain;
-            self.output_right[i] = self.input_right[i] * right_gain;
+        // Track peak and RMS for metering
+        let mut peak_l = 0.0_f64;
+        let mut peak_r = 0.0_f64;
+        let mut sum_sq_l = 0.0_f64;
+        let mut sum_sq_r = 0.0_f64;
+
+        let len = self.input_left.len().min(self.output_left.len());
+
+        // Process with or without DSP strip
+        if let Some(strip) = &mut self.strip {
+            use rf_dsp::StereoProcessor;
+
+            for i in 0..len {
+                let (l, r) = strip.process_sample(self.input_left[i], self.input_right[i]);
+
+                // Apply fader and pan after DSP
+                let out_l = l * left_gain;
+                let out_r = r * right_gain;
+
+                self.output_left[i] = out_l;
+                self.output_right[i] = out_r;
+
+                // Update metering
+                peak_l = peak_l.max(out_l.abs());
+                peak_r = peak_r.max(out_r.abs());
+                sum_sq_l += out_l * out_l;
+                sum_sq_r += out_r * out_r;
+            }
+        } else {
+            // No DSP strip (VCA or passthrough mode)
+            for i in 0..len {
+                let out_l = self.input_left[i] * left_gain;
+                let out_r = self.input_right[i] * right_gain;
+
+                self.output_left[i] = out_l;
+                self.output_right[i] = out_r;
+
+                // Update metering
+                peak_l = peak_l.max(out_l.abs());
+                peak_r = peak_r.max(out_r.abs());
+                sum_sq_l += out_l * out_l;
+                sum_sq_r += out_r * out_r;
+            }
+        }
+
+        // Update atomic meters (lock-free)
+        self.update_peak(peak_l, peak_r);
+
+        if len > 0 {
+            let rms_l = (sum_sq_l / len as f64).sqrt();
+            let rms_r = (sum_sq_r / len as f64).sqrt();
+            self.update_rms(rms_l, rms_r);
         }
     }
 
@@ -414,15 +800,108 @@ pub struct RoutingGraph {
     dirty: AtomicBool,
     /// Block size
     block_size: usize,
+    /// Sample rate for DSP
+    sample_rate: f64,
+}
+
+/// RoutingGraph with integrated command queue for real-time audio thread
+/// NOTE: This struct is NOT Sync due to rtrb Consumer/Producer
+/// Use this in PlaybackEngine, NOT in lazy_static
+pub struct RoutingGraphRT {
+    /// The routing graph
+    pub graph: RoutingGraph,
+    /// Command receiver (consumed on audio thread)
+    command_rx: Consumer<RoutingCommand>,
+    /// Response sender (produced on audio thread)
+    response_tx: Producer<RoutingResponse>,
+}
+
+/// Handle for sending commands to RoutingGraph from UI thread
+pub struct RoutingCommandSender {
+    /// Command sender
+    command_tx: Producer<RoutingCommand>,
+    /// Response receiver
+    response_rx: Consumer<RoutingResponse>,
+}
+
+impl RoutingCommandSender {
+    /// Send command to routing graph (lock-free, non-blocking)
+    pub fn send(&mut self, cmd: RoutingCommand) -> bool {
+        self.command_tx.push(cmd).is_ok()
+    }
+
+    /// Try to receive response (non-blocking)
+    pub fn try_recv(&mut self) -> Option<RoutingResponse> {
+        self.response_rx.pop().ok()
+    }
+
+    /// Send volume change
+    pub fn set_volume(&mut self, id: ChannelId, db: f64) -> bool {
+        self.send(RoutingCommand::SetVolume { id, db })
+    }
+
+    /// Send pan change
+    pub fn set_pan(&mut self, id: ChannelId, pan: f64) -> bool {
+        self.send(RoutingCommand::SetPan { id, pan })
+    }
+
+    /// Send mute change
+    pub fn set_mute(&mut self, id: ChannelId, mute: bool) -> bool {
+        self.send(RoutingCommand::SetMute { id, mute })
+    }
+
+    /// Send solo change
+    pub fn set_solo(&mut self, id: ChannelId, solo: bool) -> bool {
+        self.send(RoutingCommand::SetSolo { id, solo })
+    }
+
+    /// Request channel creation
+    pub fn create_channel(&mut self, kind: ChannelKind, name: String, callback_id: u32) -> bool {
+        self.send(RoutingCommand::CreateChannel {
+            kind,
+            name,
+            callback_id,
+        })
+    }
+
+    /// Request channel deletion
+    pub fn delete_channel(&mut self, id: ChannelId) -> bool {
+        self.send(RoutingCommand::DeleteChannel { id })
+    }
+
+    /// Set output routing
+    pub fn set_output(&mut self, id: ChannelId, destination: OutputDestination) -> bool {
+        self.send(RoutingCommand::SetOutput { id, destination })
+    }
+
+    /// Add send
+    pub fn add_send(&mut self, from: ChannelId, to: ChannelId, pre_fader: bool) -> bool {
+        self.send(RoutingCommand::AddSend {
+            from,
+            to,
+            pre_fader,
+        })
+    }
 }
 
 impl RoutingGraph {
     /// Create new routing graph with master channel
     pub fn new(block_size: usize) -> Self {
+        Self::with_sample_rate(block_size, 48000.0)
+    }
+
+    /// Create new routing graph with specific sample rate
+    pub fn with_sample_rate(block_size: usize, sample_rate: f64) -> Self {
         let mut channels = HashMap::new();
 
         // Create master channel (always ID 0)
-        let master = Channel::new(ChannelId::MASTER, ChannelKind::Master, "Master", block_size);
+        let master = Channel::with_sample_rate(
+            ChannelId::MASTER,
+            ChannelKind::Master,
+            "Master",
+            block_size,
+            sample_rate,
+        );
         channels.insert(ChannelId::MASTER, master);
 
         Self {
@@ -432,6 +911,7 @@ impl RoutingGraph {
             global_solo_active: AtomicBool::new(false),
             dirty: AtomicBool::new(false),
             block_size,
+            sample_rate,
         }
     }
 
@@ -442,7 +922,8 @@ impl RoutingGraph {
             .map(String::from)
             .unwrap_or_else(|| format!("{} {}", kind.prefix(), id.0));
 
-        let channel = Channel::new(id, kind, &auto_name, self.block_size);
+        let channel =
+            Channel::with_sample_rate(id, kind, &auto_name, self.block_size, self.sample_rate);
         self.channels.insert(id, channel);
         self.dirty.store(true, Ordering::Release);
 
@@ -768,11 +1249,362 @@ impl RoutingGraph {
             channel.resize(block_size);
         }
     }
+
+    /// Set sample rate for all channels (updates DSP)
+    pub fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        for channel in self.channels.values_mut() {
+            channel.set_sample_rate(sample_rate);
+        }
+    }
+
+    /// Get current sample rate
+    pub fn sample_rate(&self) -> f64 {
+        self.sample_rate
+    }
+
+    /// Get bus count
+    pub fn bus_count(&self) -> usize {
+        self.channels
+            .values()
+            .filter(|c| c.kind == ChannelKind::Bus)
+            .count()
+    }
+
+    /// Get aux count
+    pub fn aux_count(&self) -> usize {
+        self.channels
+            .values()
+            .filter(|c| c.kind == ChannelKind::Aux)
+            .count()
+    }
+
+    /// Get iterator over all channels
+    pub fn iter_channels(&self) -> impl Iterator<Item = &Channel> {
+        self.channels.values()
+    }
+
+    /// Get mutable iterator over all channels
+    pub fn iter_channels_mut(&mut self) -> impl Iterator<Item = &mut Channel> {
+        self.channels.values_mut()
+    }
 }
 
 impl Default for RoutingGraph {
     fn default() -> Self {
         Self::new(256)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTING GRAPH RT (Real-Time version with command queue)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl RoutingGraphRT {
+    /// Create new real-time routing graph with command queue
+    /// Returns (graph_rt, command_sender) tuple
+    pub fn new(block_size: usize) -> (Self, RoutingCommandSender) {
+        Self::with_sample_rate(block_size, 48000.0)
+    }
+
+    /// Create new real-time routing graph with specific sample rate
+    pub fn with_sample_rate(block_size: usize, sample_rate: f64) -> (Self, RoutingCommandSender) {
+        let graph = RoutingGraph::with_sample_rate(block_size, sample_rate);
+
+        // Create lock-free ring buffers
+        let (command_tx, command_rx) = RingBuffer::new(COMMAND_QUEUE_SIZE);
+        let (response_tx, response_rx) = RingBuffer::new(RESPONSE_QUEUE_SIZE);
+
+        let graph_rt = Self {
+            graph,
+            command_rx,
+            response_tx,
+        };
+
+        let sender = RoutingCommandSender {
+            command_tx,
+            response_rx,
+        };
+
+        (graph_rt, sender)
+    }
+
+    /// Process all pending commands from UI thread
+    /// Call this at the START of each audio block
+    pub fn process_commands(&mut self) {
+        while let Ok(cmd) = self.command_rx.pop() {
+            self.execute_command(cmd);
+        }
+    }
+
+    /// Execute a single routing command
+    fn execute_command(&mut self, cmd: RoutingCommand) {
+        match cmd {
+            RoutingCommand::CreateChannel {
+                kind,
+                name,
+                callback_id,
+            } => {
+                let id = self.graph.create_channel(kind, Some(&name));
+                let _ = self.response_tx.push(RoutingResponse::ChannelCreated {
+                    callback_id,
+                    channel_id: id,
+                });
+            }
+
+            RoutingCommand::DeleteChannel { id } => {
+                if self.graph.delete_channel(id) {
+                    let _ = self.response_tx.push(RoutingResponse::ChannelDeleted { id });
+                }
+            }
+
+            RoutingCommand::SetOutput { id, destination } => {
+                if let Err(e) = self.graph.set_output(id, destination) {
+                    let _ = self.response_tx.push(RoutingResponse::Error {
+                        message: format!("{:?}", e),
+                    });
+                }
+            }
+
+            RoutingCommand::AddSend {
+                from,
+                to,
+                pre_fader,
+            } => {
+                if let Err(e) = self.graph.add_send(from, to, pre_fader) {
+                    let _ = self.response_tx.push(RoutingResponse::Error {
+                        message: format!("{:?}", e),
+                    });
+                }
+            }
+
+            RoutingCommand::RemoveSend { from, send_index } => {
+                if let Some(channel) = self.graph.get_mut(from) {
+                    channel.remove_send(send_index);
+                }
+            }
+
+            RoutingCommand::SetSendLevel {
+                from,
+                send_index,
+                level_db,
+            } => {
+                if let Some(channel) = self.graph.get_mut(from) {
+                    if let Some(send) = channel.sends.get_mut(send_index) {
+                        send.level_db = level_db.clamp(-60.0, 12.0);
+                    }
+                }
+            }
+
+            RoutingCommand::SetSendEnabled {
+                from,
+                send_index,
+                enabled,
+            } => {
+                if let Some(channel) = self.graph.get_mut(from) {
+                    if let Some(send) = channel.sends.get_mut(send_index) {
+                        send.enabled = enabled;
+                    }
+                }
+            }
+
+            RoutingCommand::SetVolume { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    channel.set_fader(db);
+                }
+            }
+
+            RoutingCommand::SetPan { id, pan } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    channel.set_pan(pan);
+                }
+            }
+
+            RoutingCommand::SetMute { id, mute } => {
+                if let Some(channel) = self.graph.get(id) {
+                    channel.set_mute(mute);
+                }
+            }
+
+            RoutingCommand::SetSolo { id, solo } => {
+                if let Some(channel) = self.graph.get(id) {
+                    channel.set_solo(solo);
+                }
+            }
+
+            // DSP commands
+            RoutingCommand::SetInputGain { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_input_gain_db(db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetOutputGain { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_output_gain_db(db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetHpfEnabled { id, enabled } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_hpf_enabled(enabled);
+                    }
+                }
+            }
+
+            RoutingCommand::SetHpfFreq { id, freq } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_hpf_freq(freq);
+                    }
+                }
+            }
+
+            RoutingCommand::SetGateEnabled { id, enabled } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_gate_enabled(enabled);
+                    }
+                }
+            }
+
+            RoutingCommand::SetGateThreshold { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_gate_threshold(db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetCompEnabled { id, enabled } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_comp_enabled(enabled);
+                    }
+                }
+            }
+
+            RoutingCommand::SetCompThreshold { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_comp_threshold(db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetCompRatio { id, ratio } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_comp_ratio(ratio);
+                    }
+                }
+            }
+
+            RoutingCommand::SetCompAttack { id, ms } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_comp_attack(ms);
+                    }
+                }
+            }
+
+            RoutingCommand::SetCompRelease { id, ms } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_comp_release(ms);
+                    }
+                }
+            }
+
+            RoutingCommand::SetEqEnabled { id, enabled } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_eq_enabled(enabled);
+                    }
+                }
+            }
+
+            RoutingCommand::SetEqLow { id, freq, gain_db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_eq_low(freq, gain_db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetEqLowMid {
+                id,
+                freq,
+                gain_db,
+                q,
+            } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_eq_low_mid(freq, gain_db, q);
+                    }
+                }
+            }
+
+            RoutingCommand::SetEqHighMid {
+                id,
+                freq,
+                gain_db,
+                q,
+            } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_eq_high_mid(freq, gain_db, q);
+                    }
+                }
+            }
+
+            RoutingCommand::SetEqHigh { id, freq, gain_db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_eq_high(freq, gain_db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetLimiterEnabled { id, enabled } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_limiter_enabled(enabled);
+                    }
+                }
+            }
+
+            RoutingCommand::SetLimiterThreshold { id, db } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_limiter_threshold(db);
+                    }
+                }
+            }
+
+            RoutingCommand::SetWidth { id, width } => {
+                if let Some(channel) = self.graph.get_mut(id) {
+                    if let Some(strip) = channel.strip_mut() {
+                        strip.set_width(width);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process audio through the routing graph
+    pub fn process(&mut self) {
+        self.graph.process();
+    }
+
+    /// Get final output from master
+    pub fn get_output(&self) -> (&[rf_core::Sample], &[rf_core::Sample]) {
+        self.graph.get_output()
     }
 }
 
@@ -856,7 +1688,7 @@ mod tests {
         let mut graph = RoutingGraph::new(256);
 
         let drums_bus = graph.create_bus("Drums");
-        let music_bus = graph.create_bus("Music");
+        let _music_bus = graph.create_bus("Music");
         let kick = graph.create_channel(ChannelKind::Audio, Some("Kick"));
         let snare = graph.create_channel(ChannelKind::Audio, Some("Snare"));
 
@@ -877,5 +1709,136 @@ mod tests {
 
         assert!(kick_order < drums_order);
         assert!(drums_order < master_order);
+    }
+
+    #[test]
+    fn test_command_queue_rt() {
+        let (mut graph_rt, mut sender) = RoutingGraphRT::new(256);
+
+        // Send command from "UI thread"
+        sender.set_volume(ChannelId::MASTER, -6.0);
+        sender.set_pan(ChannelId::MASTER, 0.5);
+
+        // Process commands on "audio thread"
+        graph_rt.process_commands();
+
+        // Verify changes applied
+        assert!((graph_rt.graph.master().fader_db() - (-6.0)).abs() < 0.001);
+        assert!((graph_rt.graph.master().pan() - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_create_channel_via_command() {
+        let (mut graph_rt, mut sender) = RoutingGraphRT::new(256);
+
+        // Request channel creation
+        sender.create_channel(ChannelKind::Bus, "Test Bus".to_string(), 42);
+
+        // Process command
+        graph_rt.process_commands();
+
+        // Check response
+        if let Some(response) = sender.try_recv() {
+            match response {
+                RoutingResponse::ChannelCreated {
+                    callback_id,
+                    channel_id,
+                } => {
+                    assert_eq!(callback_id, 42);
+                    assert!(graph_rt.graph.get(channel_id).is_some());
+                    assert_eq!(graph_rt.graph.get(channel_id).unwrap().name, "Test Bus");
+                }
+                _ => panic!("Expected ChannelCreated response"),
+            }
+        } else {
+            panic!("Expected response");
+        }
+    }
+
+    #[test]
+    fn test_channel_with_dsp() {
+        let mut graph = RoutingGraph::new(256);
+        let track = graph.create_channel(ChannelKind::Audio, Some("Test"));
+
+        // Audio channel should have DSP strip
+        assert!(graph.get(track).unwrap().strip_ref().is_some());
+
+        // VCA should NOT have DSP strip
+        let vca = graph.create_channel(ChannelKind::Vca, Some("VCA"));
+        assert!(graph.get(vca).unwrap().strip_ref().is_none());
+    }
+
+    #[test]
+    fn test_metering() {
+        let mut graph = RoutingGraph::new(256);
+        let track = graph.create_channel(ChannelKind::Audio, Some("Test"));
+
+        // Get initial metering (should be -infinity)
+        let (peak_l, peak_r) = graph.get(track).unwrap().peak_db();
+        assert!(peak_l < -100.0);
+        assert!(peak_r < -100.0);
+    }
+
+    #[test]
+    fn test_buffer_pool() {
+        let mut pool = BufferPool::new(4, 256);
+
+        assert_eq!(pool.capacity(), 4);
+        assert_eq!(pool.available_count(), 4);
+
+        // Acquire buffers
+        let buf1 = pool.acquire().unwrap();
+        let buf2 = pool.acquire().unwrap();
+        assert_eq!(pool.available_count(), 2);
+
+        // Write to buffer
+        if let Some((l, r)) = pool.get_mut(buf1) {
+            l[0] = 0.5;
+            r[0] = -0.5;
+        }
+
+        // Release buffer
+        pool.release(buf1);
+        assert_eq!(pool.available_count(), 3);
+
+        // Buffer should be cleared after release
+        if let Some((l, r)) = pool.get(buf1) {
+            assert_eq!(l[0], 0.0);
+            assert_eq!(r[0], 0.0);
+        }
+    }
+
+    #[test]
+    fn test_buffer_pool_grow() {
+        let mut pool = BufferPool::new(2, 128);
+        assert_eq!(pool.capacity(), 2);
+
+        pool.grow(3);
+        assert_eq!(pool.capacity(), 5);
+        assert_eq!(pool.available_count(), 5);
+    }
+
+    #[test]
+    fn test_dynamic_bus_creation() {
+        let mut graph = RoutingGraph::new(256);
+
+        // Create many buses dynamically
+        let mut bus_ids = Vec::new();
+        for i in 0..20 {
+            let id = graph.create_bus(&format!("Bus {}", i));
+            bus_ids.push(id);
+        }
+
+        // All should exist
+        assert_eq!(graph.bus_count(), 20);
+        for id in &bus_ids {
+            assert!(graph.get(*id).is_some());
+        }
+
+        // Delete half
+        for id in bus_ids.iter().take(10) {
+            graph.delete_channel(*id);
+        }
+        assert_eq!(graph.bus_count(), 10);
     }
 }

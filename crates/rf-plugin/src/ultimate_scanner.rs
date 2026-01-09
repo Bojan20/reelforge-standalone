@@ -350,6 +350,7 @@ impl UltimateScanner {
                 PluginType::Vst3 => "vst3",
                 PluginType::Clap => "clap",
                 PluginType::AudioUnit => "component",
+                PluginType::Lv2 => "lv2",
                 PluginType::Internal => continue,
             };
 
@@ -530,6 +531,7 @@ impl UltimateScanner {
                 PluginType::Vst3 => "vst3",
                 PluginType::Clap => "clap",
                 PluginType::AudioUnit => "au",
+                PluginType::Lv2 => "lv2",
                 PluginType::Internal => "internal",
             },
             name.to_lowercase().replace(' ', "_")

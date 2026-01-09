@@ -114,7 +114,14 @@ class InsertSlot {
     this.params,
   });
 
-  bool get isEmpty => type == 'empty';
+  /// Create an empty insert slot
+  factory InsertSlot.empty(int index) => InsertSlot(
+    id: 'empty_$index',
+    name: '',
+    type: 'empty',
+  );
+
+  bool get isEmpty => type == 'empty' || name.isEmpty;
 
   InsertSlot copyWith({
     String? id,
@@ -136,18 +143,36 @@ class InsertSlot {
 /// Send slot for mixer/channel strip
 class SendSlot {
   final String id;
-  final String destination; // bus id
+  final String? destination; // bus id or null if not assigned
   final double level; // 0-1
   final bool preFader;
   final bool enabled;
 
   const SendSlot({
     required this.id,
-    required this.destination,
+    this.destination,
     this.level = 0,
     this.preFader = false,
     this.enabled = true,
   });
+
+  bool get isEmpty => destination == null || destination!.isEmpty;
+
+  SendSlot copyWith({
+    String? id,
+    String? destination,
+    double? level,
+    bool? preFader,
+    bool? enabled,
+  }) {
+    return SendSlot(
+      id: id ?? this.id,
+      destination: destination ?? this.destination,
+      level: level ?? this.level,
+      preFader: preFader ?? this.preFader,
+      enabled: enabled ?? this.enabled,
+    );
+  }
 }
 
 /// EQ band for channel strip
@@ -179,6 +204,8 @@ class ChannelStripData {
   final double pan; // -1 to 1
   final bool mute;
   final bool solo;
+  final bool armed;
+  final bool inputMonitor;
   final double meterL;
   final double meterR;
   final double peakL;
@@ -199,6 +226,8 @@ class ChannelStripData {
     this.pan = 0,
     this.mute = false,
     this.solo = false,
+    this.armed = false,
+    this.inputMonitor = false,
     this.meterL = 0,
     this.meterR = 0,
     this.peakL = 0,
@@ -207,9 +236,55 @@ class ChannelStripData {
     this.sends = const [],
     this.eqEnabled = false,
     this.eqBands = const [],
-    this.input = 'No Input',
-    this.output = 'Stereo Out',
+    this.input = '',
+    this.output = 'Master',
   });
+
+  ChannelStripData copyWith({
+    String? id,
+    String? name,
+    String? type,
+    Color? color,
+    double? volume,
+    double? pan,
+    bool? mute,
+    bool? solo,
+    bool? armed,
+    bool? inputMonitor,
+    double? meterL,
+    double? meterR,
+    double? peakL,
+    double? peakR,
+    List<InsertSlot>? inserts,
+    List<SendSlot>? sends,
+    bool? eqEnabled,
+    List<EQBand>? eqBands,
+    String? input,
+    String? output,
+  }) {
+    return ChannelStripData(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      color: color ?? this.color,
+      volume: volume ?? this.volume,
+      pan: pan ?? this.pan,
+      mute: mute ?? this.mute,
+      solo: solo ?? this.solo,
+      armed: armed ?? this.armed,
+      inputMonitor: inputMonitor ?? this.inputMonitor,
+      meterL: meterL ?? this.meterL,
+      meterR: meterR ?? this.meterR,
+      peakL: peakL ?? this.peakL,
+      peakR: peakR ?? this.peakR,
+      inserts: inserts ?? this.inserts,
+      sends: sends ?? this.sends,
+      eqEnabled: eqEnabled ?? this.eqEnabled,
+      eqBands: eqBands ?? this.eqBands,
+      input: input ?? this.input,
+      output: output ?? this.output,
+    );
+  }
 }
 
 /// Editor mode enum
@@ -281,6 +356,7 @@ class MenuCallbacks {
   final VoidCallback? onAudioSettings;
   final VoidCallback? onMidiSettings;
   final VoidCallback? onPluginManager;
+  final VoidCallback? onKeyboardShortcuts;
 
   const MenuCallbacks({
     this.onNewProject,
@@ -319,6 +395,7 @@ class MenuCallbacks {
     this.onAudioSettings,
     this.onMidiSettings,
     this.onPluginManager,
+    this.onKeyboardShortcuts,
   });
 }
 

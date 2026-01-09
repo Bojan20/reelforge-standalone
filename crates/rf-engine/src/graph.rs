@@ -15,12 +15,19 @@ pub struct Connection {
     pub to_channel: usize,
 }
 
+/// Maximum channels per node for pre-allocated buffers
+const MAX_NODE_CHANNELS: usize = 8;
+
 /// Audio processing graph
 pub struct AudioGraph {
     nodes: HashMap<NodeId, Box<dyn AudioNode>>,
     connections: Vec<Connection>,
     processing_order: Vec<NodeId>,
     buffers: HashMap<NodeId, Vec<Vec<Sample>>>,
+    /// Pre-allocated input buffers to avoid allocation in process()
+    input_buffers: Vec<Vec<Sample>>,
+    /// Pre-allocated output buffers to avoid allocation in process()
+    output_buffers: Vec<Vec<Sample>>,
     block_size: usize,
     next_id: u32,
     dirty: bool,
@@ -28,11 +35,21 @@ pub struct AudioGraph {
 
 impl AudioGraph {
     pub fn new(block_size: usize) -> Self {
+        // Pre-allocate input/output buffers to avoid allocation in audio thread
+        let input_buffers: Vec<Vec<Sample>> = (0..MAX_NODE_CHANNELS)
+            .map(|_| vec![0.0; block_size])
+            .collect();
+        let output_buffers: Vec<Vec<Sample>> = (0..MAX_NODE_CHANNELS)
+            .map(|_| vec![0.0; block_size])
+            .collect();
+
         Self {
             nodes: HashMap::new(),
             connections: Vec::new(),
             processing_order: Vec::new(),
             buffers: HashMap::new(),
+            input_buffers,
+            output_buffers,
             block_size,
             next_id: 1, // 0 is reserved for master
             dirty: true,
@@ -162,68 +179,71 @@ impl AudioGraph {
     }
 
     /// Process the audio graph for one block
+    /// ZERO ALLOCATION in this function - uses pre-allocated buffers
     pub fn process(&mut self) {
         self.update_processing_order();
 
-        // Clear all buffers
+        // Clear all node output buffers
         for buffers in self.buffers.values_mut() {
             for buffer in buffers.iter_mut() {
                 buffer.fill(0.0);
             }
         }
 
-        // Process nodes in order
-        let order = self.processing_order.clone();
+        // Process nodes in order (iterate by reference, no clone!)
+        for idx in 0..self.processing_order.len() {
+            let node_id = self.processing_order[idx];
 
-        for node_id in order {
             // Gather inputs from connected nodes
-            let node = match self.nodes.get(&node_id) {
-                Some(n) => n,
+            let (num_inputs, num_outputs) = match self.nodes.get(&node_id) {
+                Some(n) => (n.num_inputs().min(MAX_NODE_CHANNELS), n.num_outputs().min(MAX_NODE_CHANNELS)),
                 None => continue,
             };
 
-            let num_inputs = node.num_inputs();
-            let num_outputs = node.num_outputs();
+            // Clear pre-allocated input buffers (only channels we need)
+            for i in 0..num_inputs {
+                self.input_buffers[i].fill(0.0);
+            }
 
-            // Create input buffers by copying from connected outputs
-            let mut inputs: Vec<Vec<Sample>> = (0..num_inputs)
-                .map(|_| vec![0.0; self.block_size])
-                .collect();
-
+            // Gather inputs from connections into pre-allocated buffers
             for conn in &self.connections {
                 if conn.to_node == node_id && conn.to_channel < num_inputs {
                     if let Some(from_buffers) = self.buffers.get(&conn.from_node) {
                         if conn.from_channel < from_buffers.len() {
                             // Add to input (allows summing multiple sources)
-                            for (i, sample) in from_buffers[conn.from_channel].iter().enumerate() {
-                                inputs[conn.to_channel][i] += *sample;
+                            let input_buf = &mut self.input_buffers[conn.to_channel];
+                            let from_buf = &from_buffers[conn.from_channel];
+                            for i in 0..self.block_size {
+                                input_buf[i] += from_buf[i];
                             }
                         }
                     }
                 }
             }
 
-            // Create output buffer references
-            let mut outputs: Vec<Vec<Sample>> = (0..num_outputs)
-                .map(|_| vec![0.0; self.block_size])
+            // Clear pre-allocated output buffers (only channels we need)
+            for i in 0..num_outputs {
+                self.output_buffers[i].fill(0.0);
+            }
+
+            // Process the node using pre-allocated buffers
+            let input_refs: Vec<&[Sample]> = self.input_buffers[..num_inputs]
+                .iter()
+                .map(|v| v.as_slice())
+                .collect();
+            let mut output_refs: Vec<&mut [Sample]> = self.output_buffers[..num_outputs]
+                .iter_mut()
+                .map(|v| v.as_mut_slice())
                 .collect();
 
-            // Process the node
-            let input_refs: Vec<&[Sample]> = inputs.iter().map(|v| v.as_slice()).collect();
-            let mut output_refs: Vec<&mut [Sample]> =
-                outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
-
-            // Need to get mutable access to node
             if let Some(node) = self.nodes.get_mut(&node_id) {
                 node.process(&input_refs, &mut output_refs);
             }
 
-            // Copy outputs to node buffers
+            // Copy outputs to node buffers (reuse existing allocations)
             if let Some(node_buffers) = self.buffers.get_mut(&node_id) {
-                for (i, output) in outputs.into_iter().enumerate() {
-                    if i < node_buffers.len() {
-                        node_buffers[i] = output;
-                    }
+                for i in 0..num_outputs.min(node_buffers.len()) {
+                    node_buffers[i].copy_from_slice(&self.output_buffers[i]);
                 }
             }
         }

@@ -169,6 +169,9 @@ class ProMixerStrip extends StatefulWidget {
   final VoidCallback? onSelect;
   final void Function(int index)? onInsertClick;
   final void Function(int index, double level)? onSendLevelChange;
+  final void Function(int index, bool muted)? onSendMuteToggle;
+  final void Function(int index, bool preFader)? onSendPreFaderToggle;
+  final void Function(int index, String? destination)? onSendDestinationChange;
   final VoidCallback? onOutputClick;
   final VoidCallback? onResetPeaks;
   // New: Insert/Aux/Bus selection
@@ -188,6 +191,9 @@ class ProMixerStrip extends StatefulWidget {
     this.onSelect,
     this.onInsertClick,
     this.onSendLevelChange,
+    this.onSendMuteToggle,
+    this.onSendPreFaderToggle,
+    this.onSendDestinationChange,
     this.onOutputClick,
     this.onResetPeaks,
     this.onSlotDestinationChange,
@@ -635,6 +641,12 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       return i < d.sends.length ? d.sends[i] : ProSendSlot(id: 'send-$i');
     });
 
+    // Get available FX buses for send destinations
+    final fxBuses = widget.availableBuses?.where((b) => b.isFx).toList() ?? [
+      const AvailableBus(id: 'fx1', name: 'FX 1 - Reverb', color: Color(0xFF9B59B6), isFx: true),
+      const AvailableBus(id: 'fx2', name: 'FX 2 - Delay', color: Color(0xFF3498DB), isFx: true),
+    ];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
       decoration: BoxDecoration(
@@ -654,20 +666,57 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               widget.onSendLevelChange!(i, newLevel);
             },
             child: Container(
-              height: 18,
+              height: 22,
               margin: const EdgeInsets.only(bottom: 1),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 color: slot.isEmpty
                     ? ReelForgeTheme.bgDeepest
-                    : ReelForgeTheme.bgSurface,
+                    : slot.muted
+                        ? ReelForgeTheme.bgDeepest.withValues(alpha: 0.7)
+                        : ReelForgeTheme.bgSurface,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Row(
                 children: [
+                  // Mute button
+                  GestureDetector(
+                    onTap: slot.isEmpty ? null : () {
+                      widget.onSendMuteToggle?.call(i, !slot.muted);
+                    },
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: slot.muted
+                            ? ReelForgeTheme.accentOrange.withValues(alpha: 0.8)
+                            : ReelForgeTheme.bgDeepest,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: slot.muted
+                              ? ReelForgeTheme.accentOrange
+                              : ReelForgeTheme.borderSubtle,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'M',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: slot.muted
+                                ? Colors.white
+                                : ReelForgeTheme.textTertiary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
                   // Send level indicator
                   Container(
-                    width: 14,
+                    width: 12,
                     height: 10,
                     decoration: BoxDecoration(
                       color: ReelForgeTheme.bgDeepest,
@@ -680,8 +729,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              ReelForgeTheme.accentCyan.withValues(alpha: 0.6),
-                              ReelForgeTheme.accentCyan,
+                              (slot.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan).withValues(alpha: 0.6),
+                              slot.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
                             ],
                           ),
                           borderRadius: BorderRadius.circular(2),
@@ -689,33 +738,99 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 2),
+                  // Destination selector (popup menu)
                   Expanded(
-                    child: Text(
-                      slot.isEmpty ? '' : slot.destination ?? '',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: ReelForgeTheme.textSecondary,
+                    child: PopupMenuButton<String>(
+                      enabled: true,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 120),
+                      offset: const Offset(0, 20),
+                      color: ReelForgeTheme.bgSurface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        side: BorderSide(color: ReelForgeTheme.borderSubtle),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (slot.preFader && !slot.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        'PRE',
-                        style: TextStyle(
-                          fontSize: 7,
-                          fontWeight: FontWeight.w600,
-                          color: ReelForgeTheme.accentCyan,
+                      onSelected: (dest) {
+                        widget.onSendDestinationChange?.call(i, dest == 'none' ? null : dest);
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem<String>(
+                          value: 'none',
+                          height: 24,
+                          child: Text(
+                            '-- None --',
+                            style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+                          ),
+                        ),
+                        ...fxBuses.map((bus) => PopupMenuItem<String>(
+                          value: bus.id,
+                          height: 24,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: bus.color,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              Text(
+                                bus.name,
+                                style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary),
+                              ),
+                            ],
+                          ),
+                        )),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Text(
+                          slot.isEmpty ? '' : (slot.destination ?? ''),
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: slot.muted
+                                ? ReelForgeTheme.textTertiary
+                                : ReelForgeTheme.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
+                  ),
+                  // Pre/Post toggle
+                  GestureDetector(
+                    onTap: slot.isEmpty ? null : () {
+                      widget.onSendPreFaderToggle?.call(i, !slot.preFader);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: slot.preFader
+                            ? ReelForgeTheme.accentCyan.withValues(alpha: 0.25)
+                            : ReelForgeTheme.bgDeepest,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: slot.preFader
+                              ? ReelForgeTheme.accentCyan.withValues(alpha: 0.5)
+                              : ReelForgeTheme.borderSubtle,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        slot.preFader ? 'PRE' : 'PST',
+                        style: TextStyle(
+                          fontSize: 6,
+                          fontWeight: FontWeight.w600,
+                          color: slot.preFader
+                              ? ReelForgeTheme.accentCyan
+                              : ReelForgeTheme.textTertiary,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -22,7 +22,8 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
-import 'track_header_ultimate.dart';
+import 'track_header_simple.dart';
+// import 'track_header_reelforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
 
@@ -89,6 +90,7 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onTrackMonitorToggle;
   final ValueChanged<String>? onTrackFreezeToggle;
   final ValueChanged<String>? onTrackLockToggle;
+  final ValueChanged<String>? onTrackHideToggle;
   /// Toggle folder expanded state
   final ValueChanged<String>? onTrackFolderToggle;
   final void Function(String trackId, double volume)? onTrackVolumeChange;
@@ -189,6 +191,7 @@ class Timeline extends StatefulWidget {
     this.onTrackMonitorToggle,
     this.onTrackFreezeToggle,
     this.onTrackLockToggle,
+    this.onTrackHideToggle,
     this.onTrackFolderToggle,
     this.onTrackVolumeChange,
     this.onTrackPanChange,
@@ -232,6 +235,9 @@ class _TimelineState extends State<Timeline> {
   static const double _defaultTrackHeight = 80;
   static const double _rulerHeight = 28;
 
+  // Selected track for highlighting
+  String? _selectedTrackId;
+
   bool _isDraggingPlayhead = false;
   bool _isDraggingLoopLeft = false;
   bool _isDraggingLoopRight = false;
@@ -258,6 +264,8 @@ class _TimelineState extends State<Timeline> {
   Offset? _ghostPosition;
   TimelineClip? _draggingClip;
   Offset _grabOffset = Offset.zero; // Where user grabbed the clip (local to clip)
+  // Snap preview state
+  double? _snapPreviewTime; // Time position where clip will snap to
 
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
@@ -281,6 +289,10 @@ class _TimelineState extends State<Timeline> {
   }
 
   double get _playheadX => (widget.playheadPosition - widget.scrollOffset) * widget.zoom;
+
+  /// Get visible tracks (filter out hidden)
+  List<TimelineTrack> get _visibleTracks =>
+      widget.tracks.where((t) => !t.hidden).toList();
 
   Map<String, List<TimelineClip>> get _clipsByTrack {
     final map = <String, List<TimelineClip>>{};
@@ -694,17 +706,33 @@ class _TimelineState extends State<Timeline> {
     });
   }
 
-  /// Update during drag - update ghost position
+  /// Update during drag - update ghost position and snap preview
   void _handleClipDragUpdate(Offset globalPosition) {
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     final localPos = renderBox?.globalToLocal(globalPosition) ?? globalPosition;
 
+    // Calculate snapped time for preview line
+    double? snapTime;
+    if (widget.snapEnabled && _draggingClip != null) {
+      // Calculate raw time from ghost position
+      final rawTime = (localPos.dx - _grabOffset.dx + widget.scrollOffset * widget.zoom) / widget.zoom;
+      // Apply snap
+      snapTime = applySnap(
+        rawTime,
+        widget.snapEnabled,
+        widget.snapValue,
+        widget.tempo,
+        widget.clips,
+      );
+    }
+
     setState(() {
       _ghostPosition = localPos;
+      _snapPreviewTime = snapTime;
     });
   }
 
-  /// End drag - clear ghost
+  /// End drag - clear ghost and snap preview
   void _handleClipDragEnd(Offset globalPosition) {
     debugPrint('[Timeline] _handleClipDragEnd called - clearing ghost');
     setState(() {
@@ -712,6 +740,7 @@ class _TimelineState extends State<Timeline> {
       _draggingClip = null;
       _ghostPosition = null;
       _grabOffset = Offset.zero;
+      _snapPreviewTime = null;
     });
   }
 
@@ -744,59 +773,26 @@ class _TimelineState extends State<Timeline> {
                 // Track header - ULTIMATE VERSION with per-track resizing
                 Builder(
                   builder: (context) {
-                    final trackId = int.tryParse(track.id) ?? 0;
-                    final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(trackId);
-                    // Get waveform preview from first clip (if any)
-                    final firstClipWaveform = trackClips.isNotEmpty ? trackClips.first.waveform : null;
-                    return TrackHeaderUltimate(
-                  track: track,
-                  width: _headerWidth,
-                  height: trackHeight,
-                  signalLevel: peakL,
-                  signalLevelR: peakR,
-                  waveformPreview: firstClipWaveform,
-                  waveformPreviewR: firstClipWaveform, // Use same for both channels if mono
-                  isEmpty: isEmpty,
-                  trackNumber: trackIndex + 1, // 1-based track numbers (Logic Pro style)
-                  isPlaying: widget.isPlaying, // For R button pulsing animation
-                  showPowerButton: trackHeight >= 100, // Show power button in Expanded+ layouts
-                  onMuteToggle: () =>
-                      widget.onTrackMuteToggle?.call(track.id),
-                  onSoloToggle: () =>
-                      widget.onTrackSoloToggle?.call(track.id),
-                  onArmToggle: () =>
-                      widget.onTrackArmToggle?.call(track.id),
-                  onMonitorToggle: () =>
-                      widget.onTrackMonitorToggle?.call(track.id),
-                  onFreezeToggle: () =>
-                      widget.onTrackFreezeToggle?.call(track.id),
-                  onLockToggle: () =>
-                      widget.onTrackLockToggle?.call(track.id),
-                  onFolderToggle: () =>
-                      widget.onTrackFolderToggle?.call(track.id),
-                  onAutomationToggle: () =>
-                      widget.onTrackAutomationToggle?.call(track.id),
-                  onVolumeChange: (v) =>
-                      widget.onTrackVolumeChange?.call(track.id, v),
-                  onPanChange: (p) =>
-                      widget.onTrackPanChange?.call(track.id, p),
-                  onClick: () =>
-                      widget.onTrackSelect?.call(track.id),
-                  onColorChange: (c) =>
-                      widget.onTrackColorChange?.call(track.id, c),
-                  onBusChange: (b) =>
-                      widget.onTrackBusChange?.call(track.id, b),
-                  onRename: (n) =>
-                      widget.onTrackRename?.call(track.id, n),
-                  onDuplicate: () =>
-                      widget.onTrackDuplicate?.call(track.id),
-                  onDelete: () =>
-                      widget.onTrackDelete?.call(track.id),
-                  onContextMenu: (pos) =>
-                      widget.onTrackContextMenu?.call(track.id, pos),
-                  onHeightChange: (h) =>
-                      widget.onTrackHeightChange?.call(track.id, h),
-                  onWidthChange: (w) => setState(() => _headerWidth = w.clamp(_headerWidthMin, _headerWidthMax)),
+                    final trackIdInt = int.tryParse(track.id) ?? 0;
+                    final (peakL, _) = EngineApi.instance.getTrackPeakStereo(trackIdInt);
+                    return TrackHeaderSimple(
+                      track: track,
+                      width: _headerWidth,
+                      height: trackHeight,
+                      trackNumber: trackIndex + 1,
+                      isSelected: track.id == _selectedTrackId,
+                      signalLevel: peakL,
+                      onMuteToggle: () => widget.onTrackMuteToggle?.call(track.id),
+                      onSoloToggle: () => widget.onTrackSoloToggle?.call(track.id),
+                      onArmToggle: () => widget.onTrackArmToggle?.call(track.id),
+                      onVolumeChange: (v) => widget.onTrackVolumeChange?.call(track.id, v),
+                      onClick: () {
+                        setState(() => _selectedTrackId = track.id);
+                        widget.onTrackSelect?.call(track.id);
+                      },
+                      onRename: (n) => widget.onTrackRename?.call(track.id, n),
+                      onContextMenu: (pos) => widget.onTrackContextMenu?.call(track.id, pos),
+                      onHeightChange: (h) => widget.onTrackHeightChange?.call(track.id, h),
                     );
                   },
                 ),
@@ -1005,14 +1001,14 @@ class _TimelineState extends State<Timeline> {
                       onTapDown: _handleTimelineClick,
                       child: Stack(
                         children: [
-                          // Track rows
+                          // Track rows (filter hidden tracks)
                           ListView.builder(
-                            itemCount: widget.tracks.length + 1, // +1 for new track zone
+                            itemCount: _visibleTracks.length + 1, // +1 for new track zone
                             itemBuilder: (context, index) {
-                              if (index == widget.tracks.length) {
+                              if (index == _visibleTracks.length) {
                                 // New track drop zone
                                 return SizedBox(
-                                  height: widget.tracks.isEmpty ? 100 : 40,
+                                  height: _visibleTracks.isEmpty ? 100 : 40,
                                   child: Row(
                                     children: [
                                       Container(
@@ -1037,7 +1033,7 @@ class _TimelineState extends State<Timeline> {
                                           ),
                                           child: Center(
                                             child: Text(
-                                              widget.tracks.isEmpty
+                                              _visibleTracks.isEmpty
                                                   ? 'Drop audio files here to create tracks'
                                                   : '+ Drop to add track',
                                               style: ReelForgeTheme.bodySmall.copyWith(
@@ -1052,7 +1048,7 @@ class _TimelineState extends State<Timeline> {
                                 );
                               }
 
-                              final track = widget.tracks[index];
+                              final track = _visibleTracks[index];
                               final trackClips = _clipsByTrack[track.id] ?? [];
                               final trackCrossfades =
                                   _crossfadesByTrack[track.id] ?? [];
@@ -1250,6 +1246,29 @@ class _TimelineState extends State<Timeline> {
                                         ],
                                       ),
                                     ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Snap preview line (vertical line showing snap position)
+                          if (_snapPreviewTime != null && widget.snapEnabled)
+                            Positioned(
+                              left: (_snapPreviewTime! - widget.scrollOffset) * widget.zoom,
+                              top: 0,
+                              bottom: 0,
+                              child: IgnorePointer(
+                                child: Container(
+                                  width: 2,
+                                  decoration: BoxDecoration(
+                                    color: ReelForgeTheme.accentCyan.withOpacity(0.8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: ReelForgeTheme.accentCyan.withOpacity(0.5),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

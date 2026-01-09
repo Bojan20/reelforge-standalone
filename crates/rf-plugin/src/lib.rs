@@ -53,6 +53,7 @@ pub mod scanner;
 pub mod vst3;
 
 // Phase 5.1 - Ultimate Plugin Ecosystem
+pub mod audio_unit;
 pub mod chain;
 pub mod clap;
 pub mod lv2;
@@ -70,6 +71,7 @@ pub use scanner::{PluginCategory, PluginInfo, PluginScanner, PluginType};
 pub use vst3::Vst3Host;
 
 // Re-exports - Phase 5.1
+pub use audio_unit::{AUComponentDescription, AUDescriptor, AUType, AudioUnitHost, AudioUnitInstance};
 pub use chain::{BufferPool, ChainSlot, PdcManager, ZeroCopyChain};
 pub use clap::{ClapFeature, ClapHost, ClapPluginInstance};
 pub use lv2::{Lv2Class, Lv2Host, Lv2PluginInstance};
@@ -335,15 +337,32 @@ impl PluginHost {
                 let host = Vst3Host::load(&info.path)?;
                 Box::new(host)
             }
+            PluginType::Clap => {
+                let instance = clap::ClapPluginInstance::load(&info.path)?;
+                Box::new(instance)
+            }
+            PluginType::AudioUnit => {
+                let instance = audio_unit::AudioUnitHost::load_from_path(&info.path)?;
+                Box::new(instance)
+            }
+            PluginType::Lv2 => {
+                // LV2 requires descriptor, create from path
+                let descriptor = lv2::Lv2Descriptor {
+                    uri: format!("file://{}", info.path.display()),
+                    name: info.name.clone(),
+                    author: info.vendor.clone(),
+                    license: String::new(),
+                    plugin_class: lv2::Lv2Class::Plugin,
+                    required_features: Vec::new(),
+                    optional_features: Vec::new(),
+                    bundle_path: info.path.clone(),
+                };
+                let instance = lv2::Lv2PluginInstance::new(descriptor)?;
+                Box::new(instance)
+            }
             PluginType::Internal => {
                 let host = internal::InternalPlugin::load(&info.path)?;
                 Box::new(host)
-            }
-            _ => {
-                return Err(PluginError::UnsupportedFormat(format!(
-                    "{:?}",
-                    info.plugin_type
-                )));
             }
         };
 

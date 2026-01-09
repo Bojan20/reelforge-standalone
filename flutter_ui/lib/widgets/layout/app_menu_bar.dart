@@ -117,6 +117,7 @@ class _AppMenuBarState extends State<AppMenuBar> {
             _MenuItem('MIDI Settings...', '⌥⌘M', widget.callbacks?.onMidiSettings),
             const _MenuSeparator(),
             _MenuItem('Plugin Manager...', '⌥⌘P', widget.callbacks?.onPluginManager),
+            _MenuItem('Keyboard Shortcuts...', '⌥⌘K', widget.callbacks?.onKeyboardShortcuts),
           ],
           onItemTap: _handleItemClick,
         ),

@@ -20,7 +20,6 @@ import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
 import '../widgets/mixer/pro_daw_mixer.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
-import '../widgets/panels/clip_inspector_panel.dart';
 
 class MainLayout extends StatefulWidget {
   // Control bar props
@@ -70,11 +69,15 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId, double pan)? onChannelPanChange;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
+  final void Function(String channelId)? onChannelArmToggle;
+  final void Function(String channelId)? onChannelMonitorToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
+  final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)?
       onChannelSendLevelChange;
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
+  final void Function(String channelId)? onChannelInputClick;
 
   // Center zone (main content)
   final Widget child;
@@ -150,10 +153,14 @@ class MainLayout extends StatefulWidget {
     this.onChannelPanChange,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
+    this.onChannelArmToggle,
+    this.onChannelMonitorToggle,
     this.onChannelInsertClick,
+    this.onChannelSendClick,
     this.onChannelSendLevelChange,
     this.onChannelEQToggle,
     this.onChannelOutputClick,
+    this.onChannelInputClick,
     // Center zone
     required this.child,
     // Right zone (Middleware)
@@ -343,7 +350,7 @@ class _MainLayoutState extends State<MainLayout>
             Expanded(
               child: Row(
                 children: [
-                  // Left Zone
+                  // Left Zone (includes Channel + Clip inspector in DAW mode)
                   LeftZone(
                     editorMode: widget.editorMode,
                     collapsed: !_leftVisible,
@@ -362,10 +369,18 @@ class _MainLayoutState extends State<MainLayout>
                     onChannelPanChange: widget.onChannelPanChange,
                     onChannelMuteToggle: widget.onChannelMuteToggle,
                     onChannelSoloToggle: widget.onChannelSoloToggle,
+                    onChannelArmToggle: widget.onChannelArmToggle,
+                    onChannelMonitorToggle: widget.onChannelMonitorToggle,
                     onChannelInsertClick: widget.onChannelInsertClick,
+                    onChannelSendClick: widget.onChannelSendClick,
                     onChannelSendLevelChange: widget.onChannelSendLevelChange,
                     onChannelEQToggle: widget.onChannelEQToggle,
                     onChannelOutputClick: widget.onChannelOutputClick,
+                    onChannelInputClick: widget.onChannelInputClick,
+                    // Pass clip data for combined inspector
+                    selectedClip: widget.selectedClip,
+                    selectedClipTrack: widget.selectedClipTrack,
+                    onClipChanged: widget.onClipChanged,
                   ),
 
                   // Center Zone + Lower Zone Container
@@ -408,15 +423,8 @@ class _MainLayoutState extends State<MainLayout>
                     ),
                   ),
 
-                  // Right Zone - DAW mode: ClipInspectorPanel, Middleware: RightZone
-                  if (widget.editorMode == EditorMode.daw && _rightVisible)
-                    ClipInspectorPanel(
-                      clip: widget.selectedClip,
-                      track: widget.selectedClipTrack,
-                      onClipChanged: widget.onClipChanged,
-                      onOpenFxEditor: widget.onOpenClipFxEditor,
-                    )
-                  else if (widget.editorMode != EditorMode.daw)
+                  // Right Zone - Only for Middleware/Slot modes (DAW uses left Channel tab)
+                  if (widget.editorMode != EditorMode.daw)
                     RightZone(
                       collapsed: !_rightVisible,
                       objectType: widget.inspectorType,

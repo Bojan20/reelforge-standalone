@@ -57,6 +57,7 @@ class MixerChannel {
 
   // Routing
   String? outputBus;  // Target bus ID (null = master)
+  String? inputSource; // Input source (None, Input 1, etc.)
   List<AuxSend> sends;
   String? vcaId;      // Assigned VCA
   String? groupId;    // Assigned group
@@ -83,6 +84,7 @@ class MixerChannel {
     this.armed = false,
     this.monitorInput = false,
     this.outputBus,
+    this.inputSource,
     this.sends = const [],
     this.vcaId,
     this.groupId,
@@ -106,6 +108,7 @@ class MixerChannel {
     bool? armed,
     bool? monitorInput,
     String? outputBus,
+    String? inputSource,
     List<AuxSend>? sends,
     String? vcaId,
     String? groupId,
@@ -128,6 +131,7 @@ class MixerChannel {
       armed: armed ?? this.armed,
       monitorInput: monitorInput ?? this.monitorInput,
       outputBus: outputBus ?? this.outputBus,
+      inputSource: inputSource ?? this.inputSource,
       sends: sends ?? this.sends,
       vcaId: vcaId ?? this.vcaId,
       groupId: groupId ?? this.groupId,
@@ -865,6 +869,25 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
 
     _channels[channelId] = channel.copyWith(outputBus: busId);
+    notifyListeners();
+  }
+
+  void setChannelInput(String channelId, String input) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    _channels[channelId] = channel.copyWith(inputSource: input);
+    notifyListeners();
+  }
+
+  /// Alias for toggleChannelArm
+  void toggleArm(String id) => toggleChannelArm(id);
+
+  void toggleInputMonitor(String id) {
+    final channel = _channels[id];
+    if (channel == null) return;
+
+    _channels[id] = channel.copyWith(monitorInput: !channel.monitorInput);
     notifyListeners();
   }
 

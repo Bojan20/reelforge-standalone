@@ -40,6 +40,8 @@ class TimelineClip {
   final double gain;
   /// Is muted
   final bool muted;
+  /// Is locked (prevent edits)
+  final bool locked;
   /// Is selected
   final bool selected;
   /// Clip FX chain (non-destructive per-clip processing)
@@ -61,6 +63,7 @@ class TimelineClip {
     this.fadeOut = 0,
     this.gain = 1,
     this.muted = false,
+    this.locked = false,
     this.selected = false,
     this.fxChain = const ClipFxChain(),
   });
@@ -86,6 +89,7 @@ class TimelineClip {
     double? fadeOut,
     double? gain,
     bool? muted,
+    bool? locked,
     bool? selected,
     ClipFxChain? fxChain,
   }) {
@@ -105,6 +109,7 @@ class TimelineClip {
       fadeOut: fadeOut ?? this.fadeOut,
       gain: gain ?? this.gain,
       muted: muted ?? this.muted,
+      locked: locked ?? this.locked,
       selected: selected ?? this.selected,
       fxChain: fxChain ?? this.fxChain,
     );
@@ -154,6 +159,10 @@ class TimelineTrack {
   final bool folderExpanded;
   /// Indent level (depth in folder hierarchy)
   final int indentLevel;
+  /// Whether track is hidden from view
+  final bool hidden;
+  /// Whether track content is expanded (for stereo waveform display)
+  final bool isExpanded;
 
   const TimelineTrack({
     required this.id,
@@ -176,6 +185,8 @@ class TimelineTrack {
     this.childTrackIds = const [],
     this.folderExpanded = true,
     this.indentLevel = 0,
+    this.hidden = false,
+    this.isExpanded = false,
   });
 
   /// Whether this is a folder track
@@ -215,6 +226,8 @@ class TimelineTrack {
     List<String>? childTrackIds,
     bool? folderExpanded,
     int? indentLevel,
+    bool? hidden,
+    bool? isExpanded,
   }) {
     return TimelineTrack(
       id: id ?? this.id,
@@ -237,6 +250,8 @@ class TimelineTrack {
       childTrackIds: childTrackIds ?? this.childTrackIds,
       folderExpanded: folderExpanded ?? this.folderExpanded,
       indentLevel: indentLevel ?? this.indentLevel,
+      hidden: hidden ?? this.hidden,
+      isExpanded: isExpanded ?? this.isExpanded,
     );
   }
 }

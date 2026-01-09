@@ -174,6 +174,161 @@ fn validate_array_count(count: usize, context: &str) -> bool {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// FFI PANIC GUARDS & VALIDATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Wrap FFI function body with panic guard
+/// Returns default value if panic occurs (prevents UB from unwinding into C)
+macro_rules! ffi_panic_guard {
+    ($default:expr, $body:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(result) => result,
+            Err(e) => {
+                // Log panic info without allocating in panic context
+                if let Some(s) = e.downcast_ref::<&str>() {
+                    log::error!("FFI panic caught: {}", s);
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    log::error!("FFI panic caught: {}", s);
+                } else {
+                    log::error!("FFI panic caught (unknown type)");
+                }
+                $default
+            }
+        }
+    };
+}
+
+/// Validate bus_id parameter (0-5 valid, others fallback to Master)
+#[inline]
+fn validate_bus_id(bus_id: u32) -> u32 {
+    if bus_id > 5 {
+        log::warn!("Invalid bus_id {}, defaulting to Master (0)", bus_id);
+        0
+    } else {
+        bus_id
+    }
+}
+
+/// Validate send_index parameter (0-7 valid)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_send_index(send_index: u32) -> Option<u32> {
+    if send_index > 7 {
+        log::warn!("Invalid send_index {}, max is 7", send_index);
+        None
+    } else {
+        Some(send_index)
+    }
+}
+
+/// Validate insert slot index (0-7 valid)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_slot_index(slot_index: u32) -> Option<u32> {
+    if slot_index > 7 {
+        log::warn!("Invalid slot_index {}, max is 7", slot_index);
+        None
+    } else {
+        Some(slot_index)
+    }
+}
+
+/// Validate volume parameter (clamped to safe range)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_volume(volume: f64) -> f64 {
+    if !volume.is_finite() {
+        log::warn!("Invalid volume {}, defaulting to 1.0", volume);
+        1.0
+    } else {
+        volume.clamp(0.0, 4.0) // Allow +12dB headroom
+    }
+}
+
+/// Validate pan parameter (clamped to -1.0..1.0)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_pan(pan: f64) -> f64 {
+    if !pan.is_finite() {
+        log::warn!("Invalid pan {}, defaulting to 0.0", pan);
+        0.0
+    } else {
+        pan.clamp(-1.0, 1.0)
+    }
+}
+
+/// Validate frequency parameter for EQ (20Hz - 20kHz)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_frequency(freq: f64) -> f64 {
+    if !freq.is_finite() || freq < 20.0 {
+        log::warn!("Invalid frequency {}, defaulting to 1000.0", freq);
+        1000.0
+    } else {
+        freq.clamp(20.0, 20000.0)
+    }
+}
+
+/// Validate Q parameter (0.1 - 100.0)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_q(q: f64) -> f64 {
+    if !q.is_finite() || q < 0.01 {
+        log::warn!("Invalid Q {}, defaulting to 1.0", q);
+        1.0
+    } else {
+        q.clamp(0.01, 100.0)
+    }
+}
+
+/// Validate gain in dB (-60 to +24)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_gain_db(gain: f64) -> f64 {
+    if !gain.is_finite() {
+        log::warn!("Invalid gain {}, defaulting to 0.0", gain);
+        0.0
+    } else {
+        gain.clamp(-60.0, 24.0)
+    }
+}
+
+/// Validate time in seconds (must be non-negative, finite)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_time(time: f64) -> f64 {
+    if !time.is_finite() || time < 0.0 {
+        log::warn!("Invalid time {}, defaulting to 0.0", time);
+        0.0
+    } else {
+        time
+    }
+}
+
+/// Validate EQ band index (0-63)
+#[inline]
+#[allow(dead_code)] // Reserved for future validation integration
+fn validate_band_index(band_index: u32) -> Option<u32> {
+    if band_index > 63 {
+        log::warn!("Invalid band_index {}, max is 63", band_index);
+        None
+    } else {
+        Some(band_index)
+    }
+}
+
+/// Validate EQ param index (0-15)
+#[inline]
+fn validate_param_index(param_index: u32) -> Option<u32> {
+    if param_index > 15 {
+        log::warn!("Invalid param_index {}, max is 15", param_index);
+        None
+    } else {
+        Some(param_index)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TRACK MANAGEMENT FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -182,11 +337,14 @@ fn validate_array_count(count: usize, context: &str) -> bool {
 /// Returns track ID (u64) or 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_create_track(name: *const c_char, color: u32, bus_id: u32) -> u64 {
-    let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Track".to_string());
-    let output_bus = OutputBus::from(bus_id);
+    ffi_panic_guard!(0, {
+        let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Track".to_string());
+        let bus_id = validate_bus_id(bus_id);
+        let output_bus = OutputBus::from(bus_id);
 
-    let track_id = TRACK_MANAGER.create_track(&name, color, output_bus);
-    track_id.0
+        let track_id = TRACK_MANAGER.create_track(&name, color, output_bus);
+        track_id.0
+    })
 }
 
 /// Delete a track
@@ -194,8 +352,10 @@ pub extern "C" fn engine_create_track(name: *const c_char, color: u32, bus_id: u
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_delete_track(track_id: u64) -> i32 {
-    TRACK_MANAGER.delete_track(TrackId(track_id));
-    1
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.delete_track(TrackId(track_id));
+        1
+    })
 }
 
 /// Get track name (caller must free result with engine_free_string)
@@ -1735,12 +1895,17 @@ lazy_static::lazy_static! {
 /// level: Linear gain (0.0 - 1.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_level(track_id: u64, send_index: u32, level: f64) {
+    // Update legacy SEND_BANKS (for backwards compatibility)
     let banks = SEND_BANKS.read();
     if let Some(bank) = banks.get(&track_id) {
         if let Some(send) = bank.get(send_index as usize) {
             send.set_level(level);
         }
     }
+    // Also update track sends in TRACK_MANAGER (for playback routing)
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_level(send_index as usize, level);
+    });
 }
 
 /// Set send level in dB
@@ -1752,6 +1917,11 @@ pub extern "C" fn send_set_level_db(track_id: u64, send_index: u32, db: f64) {
             send.set_level_db(db);
         }
     }
+    // Convert dB to linear and update TRACK_MANAGER
+    let linear = 10.0_f64.powf(db / 20.0);
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_level(send_index as usize, linear);
+    });
 }
 
 /// Set send destination (return bus index)
@@ -1763,6 +1933,11 @@ pub extern "C" fn send_set_destination(track_id: u64, send_index: u32, destinati
             send.set_destination(destination as usize);
         }
     }
+    // Update TRACK_MANAGER send destination
+    let dest_bus = OutputBus::from(destination);
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_destination(send_index as usize, Some(dest_bus));
+    });
 }
 
 /// Set send pan (-1.0 left, 0.0 center, 1.0 right)
@@ -1796,6 +1971,10 @@ pub extern "C" fn send_set_muted(track_id: u64, send_index: u32, muted: i32) {
             send.set_muted(muted != 0);
         }
     }
+    // Update TRACK_MANAGER
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_muted(send_index as usize, muted != 0);
+    });
 }
 
 /// Set send tap point
@@ -1815,6 +1994,11 @@ pub extern "C" fn send_set_tap_point(track_id: u64, send_index: u32, tap_point: 
             send.set_tap_point(tap);
         }
     }
+    // Update TRACK_MANAGER (pre_fader = tap_point == 0)
+    let pre_fader = tap_point == 0;
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_pre_fader(send_index as usize, pre_fader);
+    });
 }
 
 /// Create send bank for a track (call when track is created)
@@ -3191,69 +3375,161 @@ pub extern "C" fn track_expander_set_bypass(track_id: u32, bypass: i32) -> i32 {
 
 /// Load processor by name into specific slot
 /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_load_processor(track_id: u32, slot_index: u32, processor_name: *const c_char) -> i32 {
-    let name = match unsafe { cstr_to_string(processor_name) } {
-        Some(n) => n,
-        None => return 0,
-    };
+    ffi_panic_guard!(0, {
+        let name = match unsafe { cstr_to_string(processor_name) } {
+            Some(n) => n,
+            None => return 0,
+        };
 
-    let track_id = track_id as u64;
-    let slot_index = slot_index as usize;
-    let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        // Validate slot index
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
 
-    if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
-        PLAYBACK_ENGINE.load_track_insert(track_id, slot_index, processor);
-        log::info!("Loaded '{}' into track {} slot {}", name, track_id, slot_index);
-        1
-    } else {
-        log::warn!("Unknown processor: {}", name);
-        0
-    }
+        let track_id_u64 = track_id as u64;
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+
+        log::info!("[EQ FFI] insert_load_processor: track={}, slot={}, processor='{}'", track_id, slot_index, name);
+
+        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+            let success = if track_id == 0 {
+                // Master bus uses dedicated master_insert chain
+                PLAYBACK_ENGINE.load_master_insert(slot_index, processor)
+            } else {
+                // Audio tracks use per-track insert chains
+                PLAYBACK_ENGINE.load_track_insert(track_id_u64, slot_index, processor)
+            };
+            log::info!("[EQ FFI] Loaded '{}' into {} slot {} -> success={}",
+                name, if track_id == 0 { "master".to_string() } else { format!("track {}", track_id) }, slot_index, success);
+            1
+        } else {
+            log::warn!("[EQ FFI] Unknown processor: {}", name);
+            0
+        }
+    })
 }
 
 /// Unload processor from slot
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_unload_slot(track_id: u32, slot_index: u32) -> i32 {
-    let track_id = track_id as u64;
-    let slot_index = slot_index as usize;
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
 
-    if PLAYBACK_ENGINE.unload_track_insert(track_id, slot_index).is_some() {
-        log::info!("Unloaded processor from track {} slot {}", track_id, slot_index);
-        1
-    } else {
-        0
-    }
+        let result = if track_id == 0 {
+            PLAYBACK_ENGINE.unload_master_insert(slot_index).is_some()
+        } else {
+            PLAYBACK_ENGINE.unload_track_insert(track_id as u64, slot_index).is_some()
+        };
+
+        if result {
+            log::info!("Unloaded processor from {} slot {}",
+                if track_id == 0 { "master".to_string() } else { format!("track {}", track_id) }, slot_index);
+            1
+        } else {
+            0
+        }
+    })
 }
 
 /// Set parameter on any insert slot
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_set_param(track_id: u32, slot_index: u32, param_index: u32, value: f64) -> i32 {
-    let track_id = track_id as u64;
-    PLAYBACK_ENGINE.set_track_insert_param(track_id, slot_index as usize, param_index as usize, value);
-    1
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        let param_index = match validate_param_index(param_index) {
+            Some(p) => p as usize,
+            None => return 0,
+        };
+        // Validate value is finite
+        let value = if !value.is_finite() {
+            log::warn!("Invalid param value {}, defaulting to 0.0", value);
+            0.0
+        } else {
+            value
+        };
+
+        log::debug!("[EQ FFI] insert_set_param: track={}, slot={}, param={}, value={:.3}", track_id, slot_index, param_index, value);
+        if track_id == 0 {
+            // Master bus uses dedicated master_insert chain
+            PLAYBACK_ENGINE.set_master_insert_param(slot_index, param_index, value);
+        } else {
+            // Audio tracks use per-track insert chains
+            PLAYBACK_ENGINE.set_track_insert_param(track_id as u64, slot_index, param_index, value);
+        }
+        1
+    })
 }
 
 /// Get parameter from any insert slot
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: u32) -> f64 {
-    let track_id = track_id as u64;
-    PLAYBACK_ENGINE.get_track_insert_param(track_id, slot_index as usize, param_index as usize)
+    ffi_panic_guard!(0.0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0.0,
+        };
+        let param_index = match validate_param_index(param_index) {
+            Some(p) => p as usize,
+            None => return 0.0,
+        };
+
+        if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_param(slot_index, param_index)
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_param(track_id as u64, slot_index, param_index)
+        }
+    })
 }
 
 /// Set bypass on any insert slot
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn track_insert_set_bypass(track_id: u32, slot_index: u32, bypass: i32) -> i32 {
-    let track_id = track_id as u64;
-    PLAYBACK_ENGINE.set_track_insert_bypass(track_id, slot_index as usize, bypass != 0);
-    1
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        if track_id == 0 {
+            PLAYBACK_ENGINE.set_master_insert_bypass(slot_index, bypass != 0);
+        } else {
+            PLAYBACK_ENGINE.set_track_insert_bypass(track_id as u64, slot_index, bypass != 0);
+        }
+        1
+    })
 }
 
 /// Check if slot has a processor loaded
+/// track_id=0 means master bus, others are audio track IDs
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_is_loaded(track_id: u32, slot_index: u32) -> i32 {
-    let track_id = track_id as u64;
-    if PLAYBACK_ENGINE.has_track_insert(track_id, slot_index as usize) { 1 } else { 0 }
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let loaded = if track_id == 0 {
+            PLAYBACK_ENGINE.has_master_insert(slot_index)
+        } else {
+            PLAYBACK_ENGINE.has_track_insert(track_id as u64, slot_index)
+        };
+        if loaded { 1 } else { 0 }
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7417,6 +7693,24 @@ pub extern "C" fn pro_eq_set_output_gain(track_id: u32, gain_db: f64) -> i32 {
     }
 }
 
+/// Set phase mode
+/// mode: 0=ZeroLatency, 1=Natural, 2=Linear
+#[unsafe(no_mangle)]
+pub extern "C" fn pro_eq_set_phase_mode(track_id: u32, mode: i32) -> i32 {
+    let mut eqs = PRO_EQS.write();
+    if let Some(eq) = eqs.get_mut(&track_id) {
+        eq.global_phase_mode = match mode {
+            0 => rf_dsp::eq_pro::PhaseMode::ZeroLatency,
+            1 => rf_dsp::eq_pro::PhaseMode::Natural,
+            2 => rf_dsp::eq_pro::PhaseMode::Linear,
+            _ => return 0,
+        };
+        1
+    } else {
+        0
+    }
+}
+
 /// Set analyzer mode
 /// mode: 0=Off, 1=PreEq, 2=PostEq, 3=Sidechain, 4=Delta
 #[unsafe(no_mangle)]
@@ -11156,4 +11450,789 @@ pub extern "C" fn version_set_max_count(max: u32) {
 #[unsafe(no_mangle)]
 pub extern "C" fn version_refresh() {
     VERSION_MANAGER.read().refresh_versions();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTROL ROOM FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::control_room::{ControlRoom, MonitorSource, SoloMode};
+
+lazy_static::lazy_static! {
+    static ref CONTROL_ROOM: RwLock<ControlRoom> = RwLock::new(ControlRoom::new(256));
+}
+
+/// Get monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_monitor_source() -> u8 {
+    CONTROL_ROOM.read().monitor_source().to_u8()
+}
+
+/// Set monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_monitor_source(source: u8) {
+    if let Some(src) = MonitorSource::from_u8(source) {
+        CONTROL_ROOM.write().set_monitor_source(src);
+    }
+}
+
+/// Get monitor level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_monitor_level() -> f64 {
+    CONTROL_ROOM.read().monitor_level_db()
+}
+
+/// Set monitor level (dB, -inf to +12)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_monitor_level(db: f64) {
+    CONTROL_ROOM.write().set_monitor_level_db(db);
+}
+
+/// Get dim enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_dim_enabled() -> i32 {
+    if CONTROL_ROOM.read().dim_enabled() { 1 } else { 0 }
+}
+
+/// Set dim enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_dim_enabled(enabled: i32) {
+    CONTROL_ROOM.write().set_dim_enabled(enabled != 0);
+}
+
+/// Get dim level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_dim_level() -> f64 {
+    CONTROL_ROOM.read().dim_level_db()
+}
+
+/// Set dim level (dB, typically -20)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_dim_level(db: f64) {
+    CONTROL_ROOM.write().set_dim_level_db(db);
+}
+
+/// Get mono enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_mono_enabled() -> i32 {
+    if CONTROL_ROOM.read().mono_enabled() { 1 } else { 0 }
+}
+
+/// Set mono enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_mono_enabled(enabled: i32) {
+    CONTROL_ROOM.write().set_mono_enabled(enabled != 0);
+}
+
+/// Get solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_solo_mode() -> u8 {
+    CONTROL_ROOM.read().solo_mode().to_u8()
+}
+
+/// Set solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_solo_mode(mode: u8) {
+    if let Some(m) = SoloMode::from_u8(mode) {
+        CONTROL_ROOM.write().set_solo_mode(m);
+    }
+}
+
+/// Get active speaker set (0-3)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_active_speaker_set() -> u8 {
+    CONTROL_ROOM.read().active_speaker_set_index()
+}
+
+/// Set active speaker set (0-3)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_active_speaker_set(index: u8) {
+    CONTROL_ROOM.write().set_active_speaker_set(index);
+}
+
+/// Get speaker set calibration (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_speaker_calibration(index: u8) -> f64 {
+    CONTROL_ROOM.read().speaker_calibration(index as usize)
+}
+
+/// Set speaker set calibration (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_speaker_calibration(index: u8, db: f64) {
+    CONTROL_ROOM.write().set_speaker_calibration(index as usize, db);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CUE MIX FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get cue mix enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_get_enabled(cue_index: u8) -> i32 {
+    if CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(false, |c| c.is_enabled()) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set cue mix enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_set_enabled(cue_index: u8, enabled: i32) {
+    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
+        cue.set_enabled(enabled != 0);
+    }
+}
+
+/// Get cue mix level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_get_level(cue_index: u8) -> f64 {
+    CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(-144.0, |c| c.level_db())
+}
+
+/// Set cue mix level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_set_level(cue_index: u8, db: f64) {
+    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
+        cue.set_level_db(db);
+    }
+}
+
+/// Get cue mix pan (-1.0 to 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_get_pan(cue_index: u8) -> f64 {
+    CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(0.0, |c| c.pan())
+}
+
+/// Set cue mix pan (-1.0 to 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_set_pan(cue_index: u8, pan: f64) {
+    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
+        cue.set_pan(pan);
+    }
+}
+
+/// Get cue mix peak meters (L, R)
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_get_peak(cue_index: u8, out_l: *mut f64, out_r: *mut f64) {
+    if let Some(cue) = CONTROL_ROOM.read().cue_mix(cue_index as usize) {
+        let (l, r) = cue.peak();
+        if !out_l.is_null() {
+            unsafe { *out_l = l; }
+        }
+        if !out_r.is_null() {
+            unsafe { *out_r = r; }
+        }
+    }
+}
+
+/// Set cue send level for a channel
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_set_channel_send(cue_index: u8, channel_id: u32, level: f64, pan: f64) {
+    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
+        cue.set_send(crate::routing::ChannelId(channel_id), level, pan);
+    }
+}
+
+/// Get cue send level for a channel
+#[unsafe(no_mangle)]
+pub extern "C" fn cue_mix_get_channel_send(cue_index: u8, channel_id: u32, out_level: *mut f64, out_pan: *mut f64) -> i32 {
+    if let Some(cue) = CONTROL_ROOM.read().cue_mix(cue_index as usize) {
+        if let Some(send) = cue.get_send(crate::routing::ChannelId(channel_id)) {
+            if !out_level.is_null() {
+                unsafe { *out_level = send.level; }
+            }
+            if !out_pan.is_null() {
+                unsafe { *out_pan = send.pan; }
+            }
+            return 1;
+        }
+    }
+    0
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TALKBACK FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get talkback enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_get_enabled() -> i32 {
+    if CONTROL_ROOM.read().talkback_enabled() { 1 } else { 0 }
+}
+
+/// Set talkback enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_set_enabled(enabled: i32) {
+    CONTROL_ROOM.write().set_talkback_enabled(enabled != 0);
+}
+
+/// Get talkback level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_get_level() -> f64 {
+    CONTROL_ROOM.read().talkback_level_db()
+}
+
+/// Set talkback level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_set_level(db: f64) {
+    CONTROL_ROOM.write().set_talkback_level_db(db);
+}
+
+/// Get talkback destinations (bitmask: bit0=cue1, bit1=cue2, etc.)
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_get_destinations() -> u8 {
+    CONTROL_ROOM.read().talkback_destinations()
+}
+
+/// Set talkback destinations (bitmask: bit0=cue1, bit1=cue2, etc.)
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_set_destinations(mask: u8) {
+    CONTROL_ROOM.write().set_talkback_destinations(mask);
+}
+
+/// Get talkback dim main on talk state
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_get_dim_main_on_talk() -> i32 {
+    if CONTROL_ROOM.read().talkback_dim_main_on_talk() { 1 } else { 0 }
+}
+
+/// Set talkback dim main on talk state
+#[unsafe(no_mangle)]
+pub extern "C" fn talkback_set_dim_main_on_talk(enabled: i32) {
+    CONTROL_ROOM.write().set_talkback_dim_main_on_talk(enabled != 0);
+}
+
+/// Solo a channel
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_solo_channel(channel_id: u32) {
+    CONTROL_ROOM.write().solo_channel(crate::routing::ChannelId(channel_id));
+}
+
+/// Unsolo a channel
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_unsolo_channel(channel_id: u32) {
+    CONTROL_ROOM.write().unsolo_channel(crate::routing::ChannelId(channel_id));
+}
+
+/// Clear all solos
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_clear_all_solos() {
+    CONTROL_ROOM.write().clear_all_solos();
+}
+
+/// Check if channel is soloed
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_is_channel_soloed(channel_id: u32) -> i32 {
+    if CONTROL_ROOM.read().is_soloed(crate::routing::ChannelId(channel_id)) { 1 } else { 0 }
+}
+
+/// Get monitor peak meters
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_monitor_peak(out_l: *mut f64, out_r: *mut f64) {
+    let (l, r) = CONTROL_ROOM.read().monitor_peak();
+    if !out_l.is_null() {
+        unsafe { *out_l = l; }
+    }
+    if !out_r.is_null() {
+        unsafe { *out_r = r; }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5.1: PLUGIN SYSTEM FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+use rf_plugin::{PluginHost, PluginScanner, PluginType, PluginCategory};
+
+/// Global plugin host instance
+static PLUGIN_HOST: std::sync::LazyLock<parking_lot::RwLock<PluginHost>> =
+    std::sync::LazyLock::new(|| parking_lot::RwLock::new(PluginHost::new()));
+
+/// Global plugin scanner instance
+static PLUGIN_SCANNER: std::sync::LazyLock<parking_lot::RwLock<PluginScanner>> =
+    std::sync::LazyLock::new(|| parking_lot::RwLock::new(PluginScanner::new()));
+
+/// Scan for all plugins
+/// Returns number of plugins found
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_scan_all() -> i32 {
+    match PLUGIN_SCANNER.write().scan_all() {
+        Ok(plugins) => plugins.len() as i32,
+        Err(e) => {
+            log::error!("Plugin scan failed: {}", e);
+            -1
+        }
+    }
+}
+
+/// Get number of discovered plugins
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_count() -> u32 {
+    PLUGIN_SCANNER.read().plugins().len() as u32
+}
+
+/// Get plugin info by index
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_info_by_index(
+    index: u32,
+    out_id: *mut u8,
+    id_len: u32,
+    out_name: *mut u8,
+    name_len: u32,
+    out_vendor: *mut u8,
+    vendor_len: u32,
+    out_plugin_type: *mut u8,
+    out_category: *mut u8,
+    out_has_editor: *mut i32,
+) -> i32 {
+    let scanner = PLUGIN_SCANNER.read();
+    let plugins = scanner.plugins();
+
+    if let Some(info) = plugins.get(index as usize) {
+        // Copy ID
+        if !out_id.is_null() && id_len > 0 {
+            let bytes = info.id.as_bytes();
+            let copy_len = bytes.len().min((id_len - 1) as usize);
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_id, copy_len);
+                *out_id.add(copy_len) = 0; // null terminate
+            }
+        }
+
+        // Copy name
+        if !out_name.is_null() && name_len > 0 {
+            let bytes = info.name.as_bytes();
+            let copy_len = bytes.len().min((name_len - 1) as usize);
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_name, copy_len);
+                *out_name.add(copy_len) = 0;
+            }
+        }
+
+        // Copy vendor
+        if !out_vendor.is_null() && vendor_len > 0 {
+            let bytes = info.vendor.as_bytes();
+            let copy_len = bytes.len().min((vendor_len - 1) as usize);
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_vendor, copy_len);
+                *out_vendor.add(copy_len) = 0;
+            }
+        }
+
+        // Plugin type
+        if !out_plugin_type.is_null() {
+            unsafe {
+                *out_plugin_type = match info.plugin_type {
+                    PluginType::Vst3 => 0,
+                    PluginType::Clap => 1,
+                    PluginType::AudioUnit => 2,
+                    PluginType::Lv2 => 3,
+                    PluginType::Internal => 4,
+                };
+            }
+        }
+
+        // Category
+        if !out_category.is_null() {
+            unsafe {
+                *out_category = match info.category {
+                    PluginCategory::Effect => 0,
+                    PluginCategory::Instrument => 1,
+                    PluginCategory::Analyzer => 2,
+                    PluginCategory::Utility => 3,
+                    PluginCategory::Unknown => 4,
+                };
+            }
+        }
+
+        // Has editor
+        if !out_has_editor.is_null() {
+            unsafe { *out_has_editor = if info.has_editor { 1 } else { 0 }; }
+        }
+
+        1
+    } else {
+        0
+    }
+}
+
+/// Get plugins by type
+/// Returns count, fills out_indices with plugin indices
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_by_type(
+    plugin_type: u8,
+    out_indices: *mut u32,
+    max_indices: u32,
+) -> u32 {
+    let scanner = PLUGIN_SCANNER.read();
+
+    let target_type = match plugin_type {
+        0 => PluginType::Vst3,
+        1 => PluginType::Clap,
+        2 => PluginType::AudioUnit,
+        3 => PluginType::Lv2,
+        4 => PluginType::Internal,
+        _ => return 0,
+    };
+
+    let plugins = scanner.plugins();
+    let mut count = 0u32;
+
+    for (i, info) in plugins.iter().enumerate() {
+        if info.plugin_type == target_type {
+            if count < max_indices && !out_indices.is_null() {
+                unsafe { *out_indices.add(count as usize) = i as u32; }
+            }
+            count += 1;
+        }
+    }
+
+    count
+}
+
+/// Get plugins by category
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_by_category(
+    category: u8,
+    out_indices: *mut u32,
+    max_indices: u32,
+) -> u32 {
+    let scanner = PLUGIN_SCANNER.read();
+
+    let target_category = match category {
+        0 => PluginCategory::Effect,
+        1 => PluginCategory::Instrument,
+        2 => PluginCategory::Analyzer,
+        3 => PluginCategory::Utility,
+        _ => PluginCategory::Unknown,
+    };
+
+    let plugins = scanner.plugins();
+    let mut count = 0u32;
+
+    for (i, info) in plugins.iter().enumerate() {
+        if info.category == target_category {
+            if count < max_indices && !out_indices.is_null() {
+                unsafe { *out_indices.add(count as usize) = i as u32; }
+            }
+            count += 1;
+        }
+    }
+
+    count
+}
+
+/// Search plugins by name
+/// Returns count of matches
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_search(
+    query: *const c_char,
+    out_indices: *mut u32,
+    max_indices: u32,
+) -> u32 {
+    if query.is_null() {
+        return 0;
+    }
+
+    let query_str = unsafe {
+        match std::ffi::CStr::from_ptr(query).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let scanner = PLUGIN_SCANNER.read();
+    let results = scanner.search(query_str);
+    let plugins = scanner.plugins();
+
+    let mut count = 0u32;
+    for result in results {
+        // Find index of this plugin
+        if let Some(idx) = plugins.iter().position(|p| p.id == result.id) {
+            if count < max_indices && !out_indices.is_null() {
+                unsafe { *out_indices.add(count as usize) = idx as u32; }
+            }
+            count += 1;
+        }
+    }
+
+    count
+}
+
+/// Load a plugin instance
+/// Returns instance ID length on success, 0 on failure
+/// Instance ID is written to out_instance_id
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_load(
+    plugin_id: *const c_char,
+    out_instance_id: *mut u8,
+    max_len: u32,
+) -> i32 {
+    if plugin_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(plugin_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    match PLUGIN_HOST.write().load_plugin(id_str) {
+        Ok(instance_id) => {
+            if !out_instance_id.is_null() && max_len > 0 {
+                let bytes = instance_id.as_bytes();
+                let copy_len = bytes.len().min((max_len - 1) as usize);
+                unsafe {
+                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_instance_id, copy_len);
+                    *out_instance_id.add(copy_len) = 0;
+                }
+            }
+            instance_id.len() as i32
+        }
+        Err(e) => {
+            log::error!("Failed to load plugin {}: {}", id_str, e);
+            0
+        }
+    }
+}
+
+/// Unload a plugin instance
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_unload(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    match PLUGIN_HOST.write().unload_plugin(id_str) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Get plugin parameter count
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_param_count(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return -1;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        instance.read().parameter_count() as i32
+    } else {
+        -1
+    }
+}
+
+/// Get plugin parameter value
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_param(
+    instance_id: *const c_char,
+    param_id: u32,
+) -> f64 {
+    if instance_id.is_null() {
+        return 0.0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0.0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        instance.read().get_parameter(param_id).unwrap_or(0.0)
+    } else {
+        0.0
+    }
+}
+
+/// Set plugin parameter value (normalized 0-1)
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_set_param(
+    instance_id: *const c_char,
+    param_id: u32,
+    value: f64,
+) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().set_parameter(param_id, value) {
+            Ok(_) => 1,
+            Err(_) => 0,
+        }
+    } else {
+        0
+    }
+}
+
+/// Get plugin parameter info
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_param_info(
+    instance_id: *const c_char,
+    param_index: u32,
+    out_id: *mut u32,
+    out_name: *mut u8,
+    name_len: u32,
+    out_min: *mut f64,
+    out_max: *mut f64,
+    out_default: *mut f64,
+) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        if let Some(info) = instance.read().parameter_info(param_index as usize) {
+            if !out_id.is_null() {
+                unsafe { *out_id = info.id; }
+            }
+            if !out_name.is_null() && name_len > 0 {
+                let bytes = info.name.as_bytes();
+                let copy_len = bytes.len().min((name_len - 1) as usize);
+                unsafe {
+                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_name, copy_len);
+                    *out_name.add(copy_len) = 0;
+                }
+            }
+            if !out_min.is_null() {
+                unsafe { *out_min = info.min; }
+            }
+            if !out_max.is_null() {
+                unsafe { *out_max = info.max; }
+            }
+            if !out_default.is_null() {
+                unsafe { *out_default = info.default; }
+            }
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+/// Activate plugin for processing
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_activate(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().activate() {
+            Ok(_) => 1,
+            Err(_) => 0,
+        }
+    } else {
+        0
+    }
+}
+
+/// Deactivate plugin
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_deactivate(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().deactivate() {
+            Ok(_) => 1,
+            Err(_) => 0,
+        }
+    } else {
+        0
+    }
+}
+
+/// Check if plugin has editor
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_has_editor(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        if instance.read().has_editor() { 1 } else { 0 }
+    } else {
+        0
+    }
+}
+
+/// Get plugin latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_latency(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        instance.read().latency() as i32
+    } else {
+        0
+    }
 }

@@ -402,8 +402,22 @@ impl Project {
         self.save_json(path)
     }
 
+    /// Maximum allowed project file size (100MB)
+    /// Prevents DoS via maliciously large files
+    const MAX_PROJECT_FILE_SIZE: u64 = 100 * 1024 * 1024;
+
     /// Load project from file
     pub fn load(path: &Path) -> Result<Self, ProjectError> {
+        // Security: Check file size before loading
+        let metadata = std::fs::metadata(path)?;
+        if metadata.len() > Self::MAX_PROJECT_FILE_SIZE {
+            return Err(ProjectError::Invalid(format!(
+                "Project file too large: {} bytes (max {} bytes)",
+                metadata.len(),
+                Self::MAX_PROJECT_FILE_SIZE
+            )));
+        }
+
         // Detect format from file
         let mut file = std::fs::File::open(path)?;
         let mut magic = [0u8; 4];
@@ -452,6 +466,15 @@ impl Project {
         let mut len_bytes = [0u8; 8];
         file.read_exact(&mut len_bytes)?;
         let json_len = u64::from_le_bytes(len_bytes) as usize;
+
+        // Security: Validate JSON payload size
+        if json_len > Self::MAX_PROJECT_FILE_SIZE as usize {
+            return Err(ProjectError::Invalid(format!(
+                "JSON payload too large: {} bytes (max {} bytes)",
+                json_len,
+                Self::MAX_PROJECT_FILE_SIZE
+            )));
+        }
 
         // Read JSON
         let mut json_bytes = vec![0u8; json_len];
@@ -502,8 +525,53 @@ impl Project {
         Self::validate_and_migrate(project)
     }
 
+    /// Maximum allowed number of tracks (prevents DoS)
+    const MAX_TRACKS: usize = 1000;
+    /// Maximum allowed number of clips per track
+    const MAX_CLIPS_PER_TRACK: usize = 10000;
+    /// Maximum allowed number of markers
+    const MAX_MARKERS: usize = 10000;
+    /// Maximum allowed embedded assets
+    const MAX_EMBEDDED_ASSETS: usize = 1000;
+
     /// Validate and migrate project
     fn validate_and_migrate(mut project: Project) -> Result<Project, ProjectError> {
+        // Security: Validate project size limits to prevent DoS
+        if project.tracks.len() > Self::MAX_TRACKS {
+            return Err(ProjectError::Invalid(format!(
+                "Too many tracks: {} (max {})",
+                project.tracks.len(),
+                Self::MAX_TRACKS
+            )));
+        }
+
+        for (idx, track) in project.tracks.iter().enumerate() {
+            if track.regions.len() > Self::MAX_CLIPS_PER_TRACK {
+                return Err(ProjectError::Invalid(format!(
+                    "Track {} has too many clips: {} (max {})",
+                    idx,
+                    track.regions.len(),
+                    Self::MAX_CLIPS_PER_TRACK
+                )));
+            }
+        }
+
+        if project.marker_track.markers.len() > Self::MAX_MARKERS {
+            return Err(ProjectError::Invalid(format!(
+                "Too many markers: {} (max {})",
+                project.marker_track.markers.len(),
+                Self::MAX_MARKERS
+            )));
+        }
+
+        if project.embedded_assets.len() > Self::MAX_EMBEDDED_ASSETS {
+            return Err(ProjectError::Invalid(format!(
+                "Too many embedded assets: {} (max {})",
+                project.embedded_assets.len(),
+                Self::MAX_EMBEDDED_ASSETS
+            )));
+        }
+
         // Migrate from older versions
         if project.meta.version < PROJECT_VERSION {
             project = migrate_project(project)?;

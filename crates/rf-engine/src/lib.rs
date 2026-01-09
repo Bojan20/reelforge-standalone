@@ -41,6 +41,9 @@ pub mod waveform;
 // Phase 5: Dynamic Routing System
 pub mod routing;
 
+// Phase 9: Control Room
+pub mod control_room;
+
 // Phase 6: DAW Integration
 pub mod link;
 
@@ -155,8 +158,13 @@ pub use dsp_wrappers::{
 
 // Re-exports: Phase 8 - Automation
 pub use automation::{
-    AutomationBlock, AutomationEngine, AutomationLane, AutomationMode, AutomationPoint, CurveType,
-    ParamChange, ParamId, TargetType,
+    AutomationBlock, AutomationChange, AutomationEngine, AutomationLane, AutomationMode,
+    AutomationPoint, CurveType, ParamChange, ParamId, TargetType,
+};
+
+// Re-exports: Phase 9 - Control Room
+pub use control_room::{
+    ControlRoom, CueMix, CueSend, MonitorSource, SoloMode, SpeakerSet, Talkback,
 };
 
 // Re-exports: Freeze additions

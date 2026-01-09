@@ -17,8 +17,12 @@ use parking_lot::RwLock;
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::automation::{AutomationEngine, ParamId};
+use crate::control_room::{ControlRoom, SoloMode};
 use crate::groups::{GroupManager, VcaId};
 use crate::insert_chain::InsertChain;
+use crate::routing::ChannelId;
+#[cfg(feature = "unified_routing")]
+use crate::routing::{ChannelKind, OutputDestination, RoutingCommandSender, RoutingGraphRT};
 use crate::track_manager::{
     Clip, ClipFxChain, ClipFxSlot, ClipFxType, Crossfade, OutputBus, Track, TrackId, TrackManager,
 };
@@ -687,6 +691,27 @@ pub struct PlaybackEngine {
     current_block_size: AtomicUsize,
     /// Delay compensation manager for automatic plugin delay compensation
     delay_comp: RwLock<DelayCompensationManager>,
+    /// Control room for monitoring (AFL/PFL, cue mixes, talkback)
+    control_room: Arc<ControlRoom>,
+    /// Pre-fader buffer left (for PFL tap)
+    /// Note: Used by control_room for PFL/AFL solo monitoring
+    #[allow(dead_code)] // Reserved for PFL monitoring implementation
+    prefader_buffer_l: RwLock<Vec<f64>>,
+    /// Pre-fader buffer right (for PFL tap)
+    #[allow(dead_code)] // Reserved for PFL monitoring implementation
+    prefader_buffer_r: RwLock<Vec<f64>>,
+
+    // === UNIFIED ROUTING (Phase 1.3) ===
+    // Note: RoutingGraphRT is NOT Sync (contains rtrb Consumer/Producer)
+    // Instead of storing it here, we use a separate initialization pattern:
+    // - RoutingGraph (Sync) can be stored for read-only state queries
+    // - RoutingGraphRT is created and owned by the audio thread directly
+    // - RoutingCommandSender is used by UI thread
+
+    /// Routing command sender (UI thread → audio thread)
+    /// Wrapped in parking_lot::Mutex which IS Sync
+    #[cfg(feature = "unified_routing")]
+    routing_sender: parking_lot::Mutex<Option<RoutingCommandSender>>,
 }
 
 impl PlaybackEngine {
@@ -730,7 +755,75 @@ impl PlaybackEngine {
             spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
             current_block_size: AtomicUsize::new(8192),
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
+            control_room: Arc::new(ControlRoom::new(256)),
+            prefader_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
+            prefader_buffer_r: RwLock::new(vec![0.0_f64; 8192]),
+            // Routing sender initialized to None - call init_unified_routing() to setup
+            #[cfg(feature = "unified_routing")]
+            routing_sender: parking_lot::Mutex::new(None),
         }
+    }
+
+    /// Get control room reference
+    pub fn control_room(&self) -> &Arc<ControlRoom> {
+        &self.control_room
+    }
+
+    /// Initialize unified routing and return the RoutingGraphRT for audio thread
+    /// The returned RoutingGraphRT should be owned by the audio callback directly
+    /// (it's NOT Sync and cannot be stored in PlaybackEngine)
+    #[cfg(feature = "unified_routing")]
+    pub fn init_unified_routing(&self, block_size: usize, sample_rate: f64) -> RoutingGraphRT {
+        let (graph_rt, sender) = RoutingGraphRT::with_sample_rate(block_size, sample_rate);
+        *self.routing_sender.lock() = Some(sender);
+        graph_rt
+    }
+
+    /// Get routing command sender (for UI thread to control routing)
+    /// Returns None if unified routing hasn't been initialized
+    #[cfg(feature = "unified_routing")]
+    pub fn routing_sender(&self) -> Option<parking_lot::MutexGuard<'_, Option<RoutingCommandSender>>> {
+        let guard = self.routing_sender.lock();
+        if guard.is_some() {
+            Some(guard)
+        } else {
+            None
+        }
+    }
+
+    /// Send routing command (convenience method)
+    #[cfg(feature = "unified_routing")]
+    pub fn send_routing_command(&self, cmd: crate::routing::RoutingCommand) -> bool {
+        if let Some(mut guard) = self.routing_sender() {
+            if let Some(sender) = guard.as_mut() {
+                return sender.send(cmd);
+            }
+        }
+        false
+    }
+
+    /// Create channel in routing graph
+    #[cfg(feature = "unified_routing")]
+    pub fn create_routing_channel(&self, kind: ChannelKind, name: &str) -> bool {
+        static CALLBACK_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let id = CALLBACK_ID.fetch_add(1, Ordering::Relaxed);
+        if let Some(mut guard) = self.routing_sender() {
+            if let Some(sender) = guard.as_mut() {
+                return sender.create_channel(kind, name.to_string(), id);
+            }
+        }
+        false
+    }
+
+    /// Set channel output in routing graph
+    #[cfg(feature = "unified_routing")]
+    pub fn set_routing_output(&self, channel: ChannelId, dest: OutputDestination) -> bool {
+        if let Some(mut guard) = self.routing_sender() {
+            if let Some(sender) = guard.as_mut() {
+                return sender.set_output(channel, dest);
+            }
+        }
+        false
     }
 
     /// Attach automation engine
@@ -942,6 +1035,17 @@ impl PlaybackEngine {
         self.master_insert.read().total_latency()
     }
 
+    /// Set parameter on master insert processor
+    pub fn set_master_insert_param(&self, slot_index: usize, param_index: usize, value: f64) {
+        let mut chain = self.master_insert.write();
+        chain.set_slot_param(slot_index, param_index, value);
+    }
+
+    /// Get parameter from master insert processor
+    pub fn get_master_insert_param(&self, slot_index: usize, param_index: usize) -> f64 {
+        self.master_insert.read().get_slot_param(slot_index, param_index)
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // DELAY COMPENSATION
     // ═══════════════════════════════════════════════════════════════════════
@@ -1010,7 +1114,10 @@ impl PlaybackEngine {
     ) {
         let mut chains = self.insert_chains.write();
         if let Some(chain) = chains.get_mut(&track_id) {
+            log::debug!("[EQ] set_track_insert_param: track={}, slot={}, param={}, value={:.3} -> chain found", track_id, slot_index, param_index, value);
             chain.set_slot_param(slot_index, param_index, value);
+        } else {
+            log::warn!("[EQ] set_track_insert_param: track={} NOT FOUND in insert_chains! Available: {:?}", track_id, chains.keys().collect::<Vec<_>>());
         }
     }
 
@@ -1034,6 +1141,15 @@ impl PlaybackEngine {
             .read()
             .get(&track_id)
             .and_then(|chain| chain.slot(slot_index))
+            .map(|slot| slot.is_loaded())
+            .unwrap_or(false)
+    }
+
+    /// Check if master has insert loaded in slot
+    pub fn has_master_insert(&self, slot_index: usize) -> bool {
+        self.master_insert
+            .read()
+            .slot(slot_index)
             .map(|slot| slot.is_loaded())
             .unwrap_or(false)
     }
@@ -1344,6 +1460,14 @@ impl PlaybackEngine {
         // Clear bus buffers
         bus_buffers.clear();
 
+        // Clear control room buffers (solo bus, cue mixes)
+        self.control_room.clear_all_buffers();
+
+        // Resize control room buffers if needed
+        if self.control_room.solo_bus_l.try_read().map(|b| b.len()).unwrap_or(0) != frames {
+            self.control_room.resize_buffers(frames);
+        }
+
         // Get tracks (try to read, skip if locked)
         let tracks = match self.track_manager.tracks.try_read() {
             Some(t) => t,
@@ -1455,6 +1579,30 @@ impl PlaybackEngine {
                 }
             }
 
+            // === PFL TAP POINT (Pre-Fade Listen) ===
+            // Capture pre-fader signal for PFL monitoring
+            let channel_id = ChannelId(track.id.0 as u32);
+            let solo_mode = self.control_room.solo_mode();
+            let is_soloed = self.control_room.is_soloed(channel_id);
+
+            if solo_mode == SoloMode::PFL && is_soloed {
+                // Route pre-fader signal to monitor bus
+                self.control_room.add_to_solo_bus(track_l, track_r);
+            }
+
+            // === CUE MIX SENDS (Pre-Fader) ===
+            // Independent headphone mixes are typically pre-fader
+            for (_cue_idx, cue_mix) in self.control_room.cue_mixes.iter().enumerate() {
+                if !cue_mix.enabled.load(Ordering::Relaxed) {
+                    continue;
+                }
+                if let Some(send) = cue_mix.get_send(channel_id) {
+                    if send.pre_fader {
+                        cue_mix.add_signal(track_l, track_r, &send);
+                    }
+                }
+            }
+
             // Apply track volume and pan (fader stage)
             let track_volume = self.get_track_volume_with_automation(track);
             let vca_gain = self.get_vca_gain(track.id.0);
@@ -1485,15 +1633,36 @@ impl PlaybackEngine {
                 dc.process(track.id.0 as u32, track_l, track_r);
             }
 
+            // === AFL TAP POINT (After-Fade Listen) ===
+            // Capture post-fader signal for AFL monitoring
+            if solo_mode == SoloMode::AFL && is_soloed {
+                // Route post-fader signal to monitor bus
+                self.control_room.add_to_solo_bus(track_l, track_r);
+            }
+
+            // === CUE MIX SENDS (Post-Fader) ===
+            for (_cue_idx, cue_mix) in self.control_room.cue_mixes.iter().enumerate() {
+                if !cue_mix.enabled.load(Ordering::Relaxed) {
+                    continue;
+                }
+                if let Some(send) = cue_mix.get_send(channel_id) {
+                    if !send.pre_fader {
+                        cue_mix.add_signal(track_l, track_r, &send);
+                    }
+                }
+            }
+
             // Process sends - route to send buses (Aux, Sfx, etc.)
             // Pre-fader sends use pre-volume signal, post-fader use post-volume
             for send_idx in 0..track.sends.len() {
                 let send = &track.sends[send_idx];
-                if send.muted || send.destination.is_none() || send.level <= 0.0 {
+                // Early exit conditions - skip muted, no destination, or zero level
+                let Some(dest_bus) = send.destination else {
+                    continue;
+                };
+                if send.muted || send.level <= 0.0 {
                     continue;
                 }
-
-                let dest_bus = send.destination.unwrap();
                 let send_level = send.level;
 
                 // Route track signal to send destination
@@ -1513,6 +1682,14 @@ impl PlaybackEngine {
             if let Some(mut meters) = self.track_meters.try_write() {
                 let meter = meters.entry(track.id.0).or_insert_with(TrackMeter::empty);
                 meter.update(&track_l[..frames], &track_r[..frames], decay);
+            }
+
+            // === SIP (Solo In Place) ===
+            // If SIP mode and another track is soloed, mute this track
+            let any_solo = self.control_room.has_solo();
+            if solo_mode == SoloMode::SIP && any_solo && !is_soloed {
+                // Mute this track (don't route to bus)
+                continue;
             }
 
             // Route track to its output bus
@@ -1706,12 +1883,195 @@ impl PlaybackEngine {
             }
         }
 
+        // === CONTROL ROOM MONITOR PROCESSING ===
+        // Process monitor output (applies dim, mono, speaker cal, routes solo/cue)
+        self.control_room.process_monitor_output(output_l, output_r);
+
+        // Update cue mix meters
+        for cue in &self.control_room.cue_mixes {
+            cue.update_peaks();
+        }
+
         // Advance position
         self.position.advance(frames as u64);
 
         // Sync automation position
         if let Some(automation) = &self.automation {
             automation.set_position(self.position.samples());
+        }
+    }
+
+    /// Process audio using unified RoutingGraph (Phase 1.3)
+    /// This replaces the legacy bus system with dynamic routing.
+    ///
+    /// NOTE: RoutingGraphRT is passed as parameter because it's NOT Sync
+    /// (contains rtrb Consumer/Producer) and cannot be stored in PlaybackEngine.
+    /// The audio thread should own and pass this reference each call.
+    #[cfg(feature = "unified_routing")]
+    pub fn process_unified(&self, routing: &mut RoutingGraphRT, output_l: &mut [f64], output_r: &mut [f64]) {
+        let frames = output_l.len();
+
+        // Clear output buffers
+        output_l.fill(0.0);
+        output_r.fill(0.0);
+
+        // Check if playing
+        if !self.position.is_playing() {
+            return;
+        }
+
+        // Process pending commands from UI thread
+        routing.process_commands();
+
+        let sample_rate = self.position.sample_rate() as f64;
+        let start_sample = self.position.samples();
+        let start_time = start_sample as f64 / sample_rate;
+        let end_time = (start_sample + frames as u64) as f64 / sample_rate;
+
+        // Get tracks (try to read, skip if locked)
+        let tracks = match self.track_manager.tracks.try_read() {
+            Some(t) => t,
+            None => return,
+        };
+
+        let clips = match self.track_manager.clips.try_read() {
+            Some(c) => c,
+            None => return,
+        };
+
+        // Pre-allocated track buffers
+        let mut track_l_guard = match self.track_buffer_l.try_write() {
+            Some(g) => g,
+            None => return,
+        };
+        let mut track_r_guard = match self.track_buffer_r.try_write() {
+            Some(g) => g,
+            None => return,
+        };
+
+        if track_l_guard.len() < frames {
+            track_l_guard.resize(frames, 0.0);
+            track_r_guard.resize(frames, 0.0);
+        }
+
+        let track_l = &mut track_l_guard[..frames];
+        let track_r = &mut track_r_guard[..frames];
+
+        // Clear all channel inputs in routing graph
+        for channel in routing.graph.iter_channels_mut() {
+            channel.clear_input();
+        }
+
+        // Process each track → feed to routing graph channel
+        for track in tracks.values() {
+            if track.muted {
+                continue;
+            }
+
+            track_l.fill(0.0);
+            track_r.fill(0.0);
+
+            // Get clips for this track that overlap with current time range
+            for clip in clips.values() {
+                if clip.track_id != track.id || clip.muted {
+                    continue;
+                }
+
+                if !clip.overlaps(start_time, end_time) {
+                    continue;
+                }
+
+                // Get cached audio
+                let audio = match self.cache.get(&clip.source_file) {
+                    Some(a) => a,
+                    None => continue,
+                };
+
+                // Process clip into track buffer
+                self.process_clip_simple(
+                    clip,
+                    &audio,
+                    start_sample,
+                    sample_rate,
+                    track_l,
+                    track_r,
+                );
+            }
+
+            // Feed track audio to its routing graph channel
+            // Channel ID maps to track ID (will be created on demand)
+            let channel_id = ChannelId(track.id.0 as u32);
+            if let Some(channel) = routing.graph.get_mut(channel_id) {
+                channel.add_to_input(track_l, track_r);
+            }
+        }
+
+        // Process routing graph (topological order, DSP, fader, pan)
+        routing.process();
+
+        // Get master output
+        let (master_l, master_r) = routing.get_output();
+
+        // Copy to output
+        let len = frames.min(master_l.len()).min(master_r.len());
+        output_l[..len].copy_from_slice(&master_l[..len]);
+        output_r[..len].copy_from_slice(&master_r[..len]);
+
+        // Process control room monitoring
+        self.control_room.process_monitor_output(output_l, output_r);
+
+        // Advance position
+        self.position.advance(frames as u64);
+
+        // Sync automation position
+        if let Some(automation) = &self.automation {
+            automation.set_position(self.position.samples());
+        }
+    }
+
+    /// Simple clip processing (no crossfades) for unified routing
+    #[cfg(feature = "unified_routing")]
+    fn process_clip_simple(
+        &self,
+        clip: &Clip,
+        audio: &ImportedAudio,
+        start_sample: u64,
+        sample_rate: f64,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
+        let frames = output_l.len();
+        let clip_start_sample = (clip.start_time * sample_rate) as u64;
+        let clip_end_sample = (clip.end_time() * sample_rate) as u64;
+
+        // Convert source_offset (seconds) to samples
+        let source_offset_samples = (clip.source_offset * sample_rate) as u64;
+
+        for frame_idx in 0..frames {
+            let global_sample = start_sample + frame_idx as u64;
+
+            if global_sample < clip_start_sample || global_sample >= clip_end_sample {
+                continue;
+            }
+
+            // Sample position within clip's source
+            let clip_offset = global_sample - clip_start_sample;
+            let source_sample = source_offset_samples + clip_offset;
+
+            if source_sample >= audio.samples.len() as u64 / audio.channels as u64 {
+                continue;
+            }
+
+            let source_idx = source_sample as usize * audio.channels as usize;
+
+            if audio.channels >= 2 && source_idx + 1 < audio.samples.len() {
+                output_l[frame_idx] += audio.samples[source_idx] as f64 * clip.gain;
+                output_r[frame_idx] += audio.samples[source_idx + 1] as f64 * clip.gain;
+            } else if source_idx < audio.samples.len() {
+                let mono = audio.samples[source_idx] as f64 * clip.gain;
+                output_l[frame_idx] += mono;
+                output_r[frame_idx] += mono;
+            }
         }
     }
 

@@ -523,6 +523,7 @@ fn crc32_hash(data: &[u8]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_version_creation() {

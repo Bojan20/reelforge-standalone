@@ -10,8 +10,9 @@
 import 'package:flutter/material.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/layout_models.dart' show ChannelStripData, EditorMode;
+import '../../models/timeline_models.dart' as timeline;
 import 'project_tree.dart';
-import 'channel_panel.dart';
+import 'channel_inspector_panel.dart';
 
 /// Left zone tabs (matches React: 'project' | 'channel')
 enum LeftZoneTab {
@@ -42,9 +43,18 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
+  final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)? onChannelSendLevelChange;
+  final void Function(String channelId)? onChannelArmToggle;
+  final void Function(String channelId)? onChannelMonitorToggle;
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
+  final void Function(String channelId)? onChannelInputClick;
+
+  // Clip inspector (combined with Channel)
+  final timeline.TimelineClip? selectedClip;
+  final timeline.TimelineTrack? selectedClipTrack;
+  final ValueChanged<timeline.TimelineClip>? onClipChanged;
 
   const LeftZone({
     super.key,
@@ -66,9 +76,16 @@ class LeftZone extends StatefulWidget {
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelInsertClick,
+    this.onChannelSendClick,
     this.onChannelSendLevelChange,
+    this.onChannelArmToggle,
+    this.onChannelMonitorToggle,
     this.onChannelEQToggle,
     this.onChannelOutputClick,
+    this.onChannelInputClick,
+    this.selectedClip,
+    this.selectedClipTrack,
+    this.onClipChanged,
   });
 
   @override
@@ -241,19 +258,24 @@ class _LeftZoneState extends State<LeftZone> {
   }
 
   Widget _buildChannelPanel() {
-    final channel = widget.channelData;
-    if (channel == null) return const ChannelPanelEmpty();
-
-    return ChannelPanel(
-      channel: channel,
+    // Use combined Channel + Clip inspector panel
+    return ChannelInspectorPanel(
+      channel: widget.channelData,
       onVolumeChange: widget.onChannelVolumeChange,
       onPanChange: widget.onChannelPanChange,
       onMuteToggle: widget.onChannelMuteToggle,
       onSoloToggle: widget.onChannelSoloToggle,
+      onArmToggle: widget.onChannelArmToggle,
+      onMonitorToggle: widget.onChannelMonitorToggle,
       onInsertClick: widget.onChannelInsertClick,
+      onSendClick: widget.onChannelSendClick,
       onSendLevelChange: widget.onChannelSendLevelChange,
-      onEQToggle: widget.onChannelEQToggle,
+      onEqClick: widget.onChannelEQToggle,
       onOutputClick: widget.onChannelOutputClick,
+      onInputClick: widget.onChannelInputClick,
+      selectedClip: widget.selectedClip,
+      selectedClipTrack: widget.selectedClipTrack,
+      onClipChanged: widget.onClipChanged,
     );
   }
 }

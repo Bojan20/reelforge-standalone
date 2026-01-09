@@ -253,6 +253,177 @@ class ReelForgeTheme {
   ];
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ULTIMATE VISUAL EFFECTS (Pro Audio Polish)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Active EQ band glow (pulsing effect)
+  static List<BoxShadow> eqBandGlow(Color color, {double intensity = 1.0}) => [
+    BoxShadow(
+      color: color.withValues(alpha: 0.6 * intensity),
+      blurRadius: 12,
+      spreadRadius: 2,
+    ),
+    BoxShadow(
+      color: color.withValues(alpha: 0.3 * intensity),
+      blurRadius: 24,
+      spreadRadius: 4,
+    ),
+  ];
+
+  /// Meter over-threshold glow (warning state)
+  static List<BoxShadow> meterHotGlow(double level) {
+    final intensity = ((level + 6) / 6).clamp(0.0, 1.0); // -6dB to 0dB
+    if (intensity <= 0) return [];
+    return [
+      BoxShadow(
+        color: accentOrange.withValues(alpha: 0.4 * intensity),
+        blurRadius: 8 * intensity,
+        spreadRadius: 1,
+      ),
+    ];
+  }
+
+  /// Clip indicator glow (danger state)
+  static List<BoxShadow> get clipGlow => [
+    BoxShadow(
+      color: clipRed.withValues(alpha: 0.8),
+      blurRadius: 16,
+      spreadRadius: 2,
+    ),
+    BoxShadow(
+      color: clipRed.withValues(alpha: 0.4),
+      blurRadius: 32,
+      spreadRadius: 4,
+    ),
+  ];
+
+  /// Knob ring LED glow (hardware-style)
+  static List<BoxShadow> knobLedGlow(Color color) => [
+    BoxShadow(
+      color: color.withValues(alpha: 0.8),
+      blurRadius: 4,
+      spreadRadius: 0,
+    ),
+    BoxShadow(
+      color: color.withValues(alpha: 0.4),
+      blurRadius: 8,
+      spreadRadius: 0,
+    ),
+  ];
+
+  /// Active button glow
+  static List<BoxShadow> activeButtonGlow(Color color) => [
+    BoxShadow(
+      color: color.withValues(alpha: 0.5),
+      blurRadius: 8,
+      spreadRadius: -2,
+    ),
+  ];
+
+  /// Spectrum peak glow (decay effect)
+  static List<BoxShadow> spectrumPeakGlow(double decay) => [
+    BoxShadow(
+      color: accentCyan.withValues(alpha: 0.3 * decay),
+      blurRadius: 4,
+      spreadRadius: 0,
+    ),
+  ];
+
+  /// Solo button glow (yellow pulse)
+  static List<BoxShadow> get soloGlow => [
+    BoxShadow(
+      color: accentYellow.withValues(alpha: 0.6),
+      blurRadius: 8,
+      spreadRadius: 0,
+    ),
+    BoxShadow(
+      color: accentYellow.withValues(alpha: 0.3),
+      blurRadius: 16,
+      spreadRadius: 2,
+    ),
+  ];
+
+  /// Record arm glow (red pulse)
+  static List<BoxShadow> get recordGlow => [
+    BoxShadow(
+      color: accentRed.withValues(alpha: 0.6),
+      blurRadius: 8,
+      spreadRadius: 0,
+    ),
+    BoxShadow(
+      color: accentRed.withValues(alpha: 0.3),
+      blurRadius: 16,
+      spreadRadius: 2,
+    ),
+  ];
+
+  /// Mute button glow (orange dim)
+  static List<BoxShadow> get muteGlow => [
+    BoxShadow(
+      color: accentOrange.withValues(alpha: 0.4),
+      blurRadius: 6,
+      spreadRadius: 0,
+    ),
+  ];
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // METALLIC KNOB GRADIENTS (Hardware-style)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Metallic knob surface gradient
+  static LinearGradient get knobMetallicGradient => const LinearGradient(
+    begin: Alignment(-0.5, -1.0),
+    end: Alignment(0.5, 1.0),
+    colors: [
+      Color(0xFF4A4A5A),
+      Color(0xFF2A2A38),
+      Color(0xFF1A1A24),
+      Color(0xFF2A2A38),
+      Color(0xFF3A3A4A),
+    ],
+    stops: [0.0, 0.3, 0.5, 0.7, 1.0],
+  );
+
+  /// Knob indicator line gradient
+  static LinearGradient knobIndicatorGradient(Color color) => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      color,
+      color.withValues(alpha: 0.7),
+    ],
+  );
+
+  /// Fader cap gradient (3D effect)
+  static LinearGradient get faderCapGradient => const LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF5A5A6A),
+      Color(0xFF3A3A48),
+      Color(0xFF2A2A38),
+      Color(0xFF3A3A48),
+    ],
+    stops: [0.0, 0.4, 0.6, 1.0],
+  );
+
+  /// LED segment meter gradient
+  static LinearGradient ledSegmentGradient(Color color, bool active) =>
+    LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: active ? [
+        color,
+        color.withValues(alpha: 0.8),
+        color.withValues(alpha: 0.6),
+      ] : [
+        color.withValues(alpha: 0.15),
+        color.withValues(alpha: 0.1),
+        color.withValues(alpha: 0.05),
+      ],
+    );
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DECORATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 

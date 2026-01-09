@@ -117,6 +117,9 @@ class UltimateMixerChannel {
   final double rmsL;
   final double rmsR;
   final double correlation;
+  // LUFS metering (master only)
+  final double lufsShort;
+  final double lufsIntegrated;
 
   const UltimateMixerChannel({
     required this.id,
@@ -138,6 +141,8 @@ class UltimateMixerChannel {
     this.rmsL = 0.0,
     this.rmsR = 0.0,
     this.correlation = 1.0,
+    this.lufsShort = -70.0,
+    this.lufsIntegrated = -70.0,
   });
 
   bool get isMaster => type == ChannelType.master;
@@ -167,6 +172,8 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onArmToggle;
   final void Function(String channelId, int sendIndex, double level)? onSendLevelChange;
+  final void Function(String channelId, int sendIndex, bool muted)? onSendMuteToggle;
+  final void Function(String channelId, int sendIndex, bool preFader)? onSendPreFaderToggle;
   final void Function(String channelId, int sendIndex, String? destination)? onSendDestChange;
   final void Function(String channelId, int insertIndex)? onInsertClick;
   final void Function(String channelId, String outputBus)? onOutputChange;
@@ -189,6 +196,8 @@ class UltimateMixer extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onSendLevelChange,
+    this.onSendMuteToggle,
+    this.onSendPreFaderToggle,
     this.onSendDestChange,
     this.onInsertClick,
     this.onOutputChange,
@@ -248,6 +257,9 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       onArmToggle: () => widget.onArmToggle?.call(ch.id),
                       onSelect: () => widget.onChannelSelect?.call(ch.id),
                       onSendLevelChange: (idx, lvl) => widget.onSendLevelChange?.call(ch.id, idx, lvl),
+                      onSendMuteToggle: (idx, muted) => widget.onSendMuteToggle?.call(ch.id, idx, muted),
+                      onSendPreFaderToggle: (idx, pre) => widget.onSendPreFaderToggle?.call(ch.id, idx, pre),
+                      onSendDestChange: (idx, dest) => widget.onSendDestChange?.call(ch.id, idx, dest),
                       onInsertClick: (idx) => widget.onInsertClick?.call(ch.id, idx),
                     )),
                     const _SectionDivider(),
@@ -382,6 +394,9 @@ class _UltimateChannelStrip extends StatefulWidget {
   final VoidCallback? onArmToggle;
   final VoidCallback? onSelect;
   final void Function(int index, double level)? onSendLevelChange;
+  final void Function(int index, bool muted)? onSendMuteToggle;
+  final void Function(int index, bool preFader)? onSendPreFaderToggle;
+  final void Function(int index, String? destination)? onSendDestChange;
   final void Function(int index)? onInsertClick;
 
   const _UltimateChannelStrip({
@@ -400,6 +415,9 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onArmToggle,
     this.onSelect,
     this.onSendLevelChange,
+    this.onSendMuteToggle,
+    this.onSendPreFaderToggle,
+    this.onSendDestChange,
     this.onInsertClick,
   });
 
@@ -521,6 +539,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           return _SendSlot(
             send: send,
             onLevelChange: (lvl) => widget.onSendLevelChange?.call(i, lvl),
+            onMuteToggle: (muted) => widget.onSendMuteToggle?.call(i, muted),
+            onPreFaderToggle: (pre) => widget.onSendPreFaderToggle?.call(i, pre),
+            onDestChange: (dest) => widget.onSendDestChange?.call(i, dest),
           );
         }),
       ),
@@ -1023,44 +1044,120 @@ class _InsertSlot extends StatelessWidget {
 class _SendSlot extends StatelessWidget {
   final SendData send;
   final ValueChanged<double>? onLevelChange;
+  final ValueChanged<bool>? onMuteToggle;
+  final ValueChanged<bool>? onPreFaderToggle;
+  final ValueChanged<String?>? onDestChange;
 
-  const _SendSlot({required this.send, this.onLevelChange});
+  const _SendSlot({
+    required this.send,
+    this.onLevelChange,
+    this.onMuteToggle,
+    this.onPreFaderToggle,
+    this.onDestChange,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 14,
+      height: 18,
       margin: const EdgeInsets.only(bottom: 1),
       child: Row(
         children: [
-          // Send destination
-          Expanded(
+          // Mute button
+          GestureDetector(
+            onTap: send.isEmpty ? null : () => onMuteToggle?.call(!send.muted),
             child: Container(
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
-                color: send.isEmpty
-                    ? ReelForgeTheme.bgVoid.withOpacity(0.3)
-                    : ReelForgeTheme.accentPurple.withOpacity(0.3),
+                color: send.muted
+                    ? ReelForgeTheme.accentOrange.withOpacity(0.8)
+                    : ReelForgeTheme.bgVoid.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
+                border: Border.all(
+                  color: send.muted
+                      ? ReelForgeTheme.accentOrange
+                      : ReelForgeTheme.borderSubtle,
+                  width: 0.5,
+                ),
               ),
               child: Center(
                 child: Text(
-                  send.destination ?? '—',
+                  'M',
                   style: TextStyle(
-                    color: send.isEmpty
-                        ? ReelForgeTheme.textTertiary
-                        : ReelForgeTheme.textPrimary,
-                    fontSize: 7,
+                    fontSize: 6,
+                    fontWeight: FontWeight.w700,
+                    color: send.muted ? Colors.white : ReelForgeTheme.textTertiary,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 1),
+          // Send destination (tappable for selection)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showDestinationMenu(context),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: send.isEmpty
+                      ? ReelForgeTheme.bgVoid.withOpacity(0.3)
+                      : send.muted
+                          ? ReelForgeTheme.bgVoid.withOpacity(0.5)
+                          : ReelForgeTheme.accentPurple.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Center(
+                  child: Text(
+                    send.destination ?? '—',
+                    style: TextStyle(
+                      color: send.isEmpty || send.muted
+                          ? ReelForgeTheme.textTertiary
+                          : ReelForgeTheme.textPrimary,
+                      fontSize: 7,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 1),
+          // Pre/Post toggle
+          GestureDetector(
+            onTap: send.isEmpty ? null : () => onPreFaderToggle?.call(!send.preFader),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: send.preFader
+                    ? ReelForgeTheme.accentCyan.withOpacity(0.3)
+                    : ReelForgeTheme.bgVoid.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(
+                  color: send.preFader
+                      ? ReelForgeTheme.accentCyan.withOpacity(0.5)
+                      : ReelForgeTheme.borderSubtle,
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                send.preFader ? 'PRE' : 'PST',
+                style: TextStyle(
+                  fontSize: 5,
+                  fontWeight: FontWeight.w600,
+                  color: send.preFader
+                      ? ReelForgeTheme.accentCyan
+                      : ReelForgeTheme.textTertiary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 1),
           // Send level mini-fader
           SizedBox(
-            width: 20,
+            width: 18,
             child: _MiniSendLevel(
               level: send.level,
+              muted: send.muted,
               onChanged: onLevelChange,
             ),
           ),
@@ -1068,13 +1165,58 @@ class _SendSlot extends StatelessWidget {
       ),
     );
   }
+
+  void _showDestinationMenu(BuildContext context) {
+    final fxBuses = [
+      ('fx1', 'FX 1', const Color(0xFF9B59B6)),
+      ('fx2', 'FX 2', const Color(0xFF3498DB)),
+      ('fx3', 'FX 3', const Color(0xFF27AE60)),
+      ('fx4', 'FX 4', const Color(0xFFE67E22)),
+    ];
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(0, 0, 0, 0),
+      color: ReelForgeTheme.bgSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: '',
+          height: 20,
+          child: Text('-- None --', style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary)),
+        ),
+        ...fxBuses.map((bus) => PopupMenuItem<String>(
+          value: bus.$1,
+          height: 20,
+          child: Row(
+            children: [
+              Container(
+                width: 6, height: 6,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: BoxDecoration(color: bus.$3, borderRadius: BorderRadius.circular(1)),
+              ),
+              Text(bus.$2, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textPrimary)),
+            ],
+          ),
+        )),
+      ],
+    ).then((value) {
+      if (value != null) {
+        onDestChange?.call(value.isEmpty ? null : value);
+      }
+    });
+  }
 }
 
 class _MiniSendLevel extends StatelessWidget {
   final double level;
+  final bool muted;
   final ValueChanged<double>? onChanged;
 
-  const _MiniSendLevel({required this.level, this.onChanged});
+  const _MiniSendLevel({required this.level, this.muted = false, this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -1096,7 +1238,7 @@ class _MiniSendLevel extends StatelessWidget {
           heightFactor: level,
           child: Container(
             decoration: BoxDecoration(
-              color: ReelForgeTheme.accentPurple,
+              color: muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentPurple,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1363,13 +1505,14 @@ class _MasterStrip extends StatelessWidget {
               color: ReelForgeTheme.bgVoid.withOpacity(0.4),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                '-14.0 LUFS',
+                _formatLufs(channel.lufsIntegrated),
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: _getLufsColor(channel.lufsIntegrated),
                   fontSize: 9,
                   fontFamily: 'monospace',
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -1393,6 +1536,25 @@ class _MasterStrip extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUFS HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Format LUFS value for display
+String _formatLufs(double lufs) {
+  if (lufs <= -70.0) return '-∞ LUFS';
+  return '${lufs.toStringAsFixed(1)} LUFS';
+}
+
+/// Get color based on LUFS value relative to streaming target (-14 LUFS)
+Color _getLufsColor(double lufs) {
+  if (lufs <= -70.0) return ReelForgeTheme.textMuted;
+  if (lufs > -12.0) return ReelForgeTheme.accentRed; // Too loud
+  if (lufs > -14.0) return ReelForgeTheme.warningOrange; // Slightly loud
+  if (lufs < -16.0) return ReelForgeTheme.accentCyan; // Quiet
+  return ReelForgeTheme.accentGreen; // On target (-14 to -16 LUFS)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

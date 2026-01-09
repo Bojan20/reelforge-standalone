@@ -1401,6 +1401,177 @@ class EngineApi {
     }
   }
 
+  /// Set send muted state
+  void setSendMuted(String trackId, int sendIndex, bool muted) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.sendSetMuted(nativeTrackId, sendIndex, muted);
+      }
+    }
+  }
+
+  /// Set send pre/post fader (tap point)
+  /// preFader: true = pre-fader (tap point 0), false = post-fader (tap point 1)
+  void setSendPreFader(String trackId, int sendIndex, bool preFader) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        // TapPoint: 0=PreFader, 1=PostFader, 2=PostPan
+        _ffi.sendSetTapPoint(nativeTrackId, sendIndex, preFader ? 0 : 1);
+      }
+    }
+  }
+
+  /// Set send destination (FX bus index)
+  /// destination: 0-3 for FX returns
+  void setSendDestination(String trackId, int sendIndex, int destination) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.sendSetDestination(nativeTrackId, sendIndex, destination);
+      }
+    }
+  }
+
+  /// Set send destination by bus ID string
+  void setSendDestinationById(String trackId, int sendIndex, String? destinationId) {
+    if (destinationId == null) {
+      // Clear destination - set to invalid index
+      setSendDestination(trackId, sendIndex, -1);
+      return;
+    }
+    // Parse FX bus ID: "fx1" -> 0, "fx2" -> 1, etc.
+    final match = RegExp(r'^fx(\d+)$').firstMatch(destinationId);
+    if (match != null) {
+      final fxIndex = int.parse(match.group(1)!) - 1; // fx1 = index 0
+      setSendDestination(trackId, sendIndex, fxIndex);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INSERT EFFECTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create insert chain for a track
+  void insertCreateChain(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.insertCreateChain(nativeTrackId);
+      }
+    }
+  }
+
+  /// Remove insert chain from a track
+  void insertRemoveChain(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.insertRemoveChain(nativeTrackId);
+      }
+    }
+  }
+
+  /// Set insert slot bypass state
+  void insertSetBypass(String trackId, int slotIndex, bool bypass) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.insertSetBypass(nativeTrackId, slotIndex, bypass);
+      }
+    }
+  }
+
+  /// Set insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+  void insertSetMix(String trackId, int slotIndex, double mix) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.insertSetMix(nativeTrackId, slotIndex, mix.clamp(0.0, 1.0));
+      }
+    }
+  }
+
+  /// Bypass all inserts on a track
+  void insertBypassAll(String trackId, bool bypass) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.insertBypassAll(nativeTrackId, bypass);
+      }
+    }
+  }
+
+  /// Get total latency of insert chain (in samples)
+  int insertGetTotalLatency(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertGetTotalLatency(nativeTrackId);
+      }
+    }
+    return 0;
+  }
+
+  /// Load processor into insert slot
+  /// Returns 1 on success, 0 on failure
+  int insertLoadProcessor(String trackId, int slotIndex, String processorName) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertLoadProcessor(nativeTrackId, slotIndex, processorName);
+      }
+    }
+    return 0;
+  }
+
+  /// Unload processor from insert slot
+  /// Returns 1 on success, 0 on failure
+  int insertUnloadSlot(String trackId, int slotIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertUnloadSlot(nativeTrackId, slotIndex);
+      }
+    }
+    return 0;
+  }
+
+  /// Set parameter on insert slot processor
+  /// Returns 1 on success, 0 on failure
+  int insertSetParam(String trackId, int slotIndex, int paramIndex, double value) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertSetParam(nativeTrackId, slotIndex, paramIndex, value);
+      }
+    }
+    return 0;
+  }
+
+  /// Get parameter from insert slot processor
+  double insertGetParam(String trackId, int slotIndex, int paramIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertGetParam(nativeTrackId, slotIndex, paramIndex);
+      }
+    }
+    return 0.0;
+  }
+
+  /// Check if insert slot has a processor loaded
+  bool insertIsLoaded(String trackId, int slotIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertIsLoaded(nativeTrackId, slotIndex);
+      }
+    }
+    return false;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PRO EQ - 64-Band Professional Parametric EQ
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1605,6 +1776,18 @@ class EngineApi {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         return _ffi.proEqSetOutputGain(nativeTrackId, gainDb);
+      }
+    }
+    return true;
+  }
+
+  /// Set Pro EQ phase mode (0=ZeroLatency, 1=Natural, 2=Linear)
+  bool proEqSetPhaseMode(String trackId, int mode) {
+    print('[Engine] Pro EQ $trackId phase mode: $mode');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetPhaseMode(nativeTrackId, mode);
       }
     }
     return true;

@@ -63,6 +63,25 @@ pub enum FilterShape {
     Brickwall,
 }
 
+impl FilterShape {
+    /// Convert from index to FilterShape
+    pub fn from_index(index: usize) -> Self {
+        match index {
+            0 => FilterShape::Bell,
+            1 => FilterShape::LowShelf,
+            2 => FilterShape::HighShelf,
+            3 => FilterShape::LowCut,
+            4 => FilterShape::HighCut,
+            5 => FilterShape::Notch,
+            6 => FilterShape::Bandpass,
+            7 => FilterShape::TiltShelf,
+            8 => FilterShape::Allpass,
+            9 => FilterShape::Brickwall,
+            _ => FilterShape::Bell,
+        }
+    }
+}
+
 /// Filter slope for cuts
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Slope {
@@ -205,10 +224,39 @@ pub struct SvfCoeffs {
 }
 
 impl SvfCoeffs {
+    /// Identity filter (passthrough) - used as fallback for invalid params
+    #[inline]
+    pub fn identity() -> Self {
+        Self {
+            a1: 1.0,
+            a2: 0.0,
+            a3: 0.0,
+            m0: 1.0,
+            m1: 0.0,
+            m2: 0.0,
+        }
+    }
+
     /// Bell/Peaking filter
     pub fn bell(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        // Defensive parameter validation
+        let q = q.max(0.01); // Prevent division by zero
+        let freq = freq.clamp(1.0, sample_rate * 0.499); // Nyquist limit
+
         let a = 10.0_f64.powf(gain_db / 40.0);
+
+        // Check for NaN/Inf after powf
+        if !a.is_finite() || a < 1e-10 {
+            return Self::identity();
+        }
+
         let g = (PI * freq / sample_rate).tan();
+
+        // Check for NaN/Inf from tan (can happen near Nyquist)
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / (q * a);
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -231,8 +279,19 @@ impl SvfCoeffs {
 
     /// Low shelf
     pub fn low_shelf(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let a = 10.0_f64.powf(gain_db / 40.0);
+        if !a.is_finite() || a < 1e-10 {
+            return Self::identity();
+        }
+
         let g = (PI * freq / sample_rate).tan() / a.sqrt();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -255,8 +314,19 @@ impl SvfCoeffs {
 
     /// High shelf
     pub fn high_shelf(freq: f64, q: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let a = 10.0_f64.powf(gain_db / 40.0);
+        if !a.is_finite() || a < 1e-10 {
+            return Self::identity();
+        }
+
         let g = (PI * freq / sample_rate).tan() * a.sqrt();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -279,7 +349,14 @@ impl SvfCoeffs {
 
     /// Highpass (lowcut)
     pub fn highpass(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let g = (PI * freq / sample_rate).tan();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -302,7 +379,14 @@ impl SvfCoeffs {
 
     /// Lowpass (highcut)
     pub fn lowpass(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let g = (PI * freq / sample_rate).tan();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -325,7 +409,14 @@ impl SvfCoeffs {
 
     /// Notch
     pub fn notch(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let g = (PI * freq / sample_rate).tan();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -348,7 +439,14 @@ impl SvfCoeffs {
 
     /// Bandpass
     pub fn bandpass(freq: f64, q: f64, sample_rate: f64) -> Self {
+        let q = q.max(0.01);
+        let freq = freq.clamp(1.0, sample_rate * 0.499);
+
         let g = (PI * freq / sample_rate).tan();
+        if !g.is_finite() {
+            return Self::identity();
+        }
+
         let k = 1.0 / q;
 
         let a1 = 1.0 / (1.0 + g * (g + k));
@@ -747,7 +845,7 @@ impl EqBand {
 
         // Calculate coefficients
         self.svf_coeffs.clear();
-        for _ in 0..num_stages {
+        for stage_idx in 0..num_stages {
             let coeffs = match self.shape {
                 FilterShape::Bell => {
                     SvfCoeffs::bell(self.frequency, self.q, self.gain_db, self.sample_rate)
@@ -759,12 +857,14 @@ impl EqBand {
                     SvfCoeffs::high_shelf(self.frequency, self.q, self.gain_db, self.sample_rate)
                 }
                 FilterShape::LowCut => {
-                    // Butterworth Q for cascaded sections
-                    let stage_q = self.butterworth_q(num_stages);
+                    // Butterworth Q for each cascaded section (different Q per stage!)
+                    let order = num_stages * 2; // Convert stages to filter order
+                    let stage_q = Self::butterworth_q(order, stage_idx);
                     SvfCoeffs::highpass(self.frequency, stage_q, self.sample_rate)
                 }
                 FilterShape::HighCut => {
-                    let stage_q = self.butterworth_q(num_stages);
+                    let order = num_stages * 2;
+                    let stage_q = Self::butterworth_q(order, stage_idx);
                     SvfCoeffs::lowpass(self.frequency, stage_q, self.sample_rate)
                 }
                 FilterShape::Notch => SvfCoeffs::notch(self.frequency, self.q, self.sample_rate),
@@ -802,10 +902,85 @@ impl EqBand {
         self.needs_update = false;
     }
 
-    /// Butterworth Q for cascaded second-order sections
-    fn butterworth_q(&self, _num_stages: usize) -> f64 {
-        // Simplified - use constant Q for each stage
-        0.7071067811865476 // 1/sqrt(2)
+    /// Butterworth Q values for cascaded second-order sections
+    /// Returns the Q value for a specific stage in an N-th order Butterworth filter
+    /// For 2N-th order filter, we need N second-order sections with specific Q values
+    fn butterworth_q(order: usize, stage: usize) -> f64 {
+        // Butterworth pole angles: theta_k = PI * (2k + order - 1) / (2 * order)
+        // For each conjugate pole pair, Q = 1 / (2 * cos(theta_k))
+        //
+        // Pre-computed Q values for common orders:
+        match order {
+            1 => 0.7071067811865476, // 6dB/oct - single pole, Q=1/sqrt(2)
+            2 => 0.7071067811865476, // 12dB/oct - Q = 1/sqrt(2)
+            3 => {
+                // 18dB/oct - 1 real pole + 1 conjugate pair
+                match stage {
+                    0 => 1.0, // First-order section (real pole)
+                    _ => 1.0, // Second-order section
+                }
+            }
+            4 => {
+                // 24dB/oct - 2 conjugate pairs
+                match stage {
+                    0 => 0.5411961001461969, // Q1
+                    _ => 1.3065629648763764, // Q2
+                }
+            }
+            6 => {
+                // 36dB/oct - 3 conjugate pairs
+                match stage {
+                    0 => 0.5176380902050415, // Q1
+                    1 => 0.7071067811865476, // Q2
+                    _ => 1.9318516525781366, // Q3
+                }
+            }
+            8 => {
+                // 48dB/oct - 4 conjugate pairs
+                match stage {
+                    0 => 0.5097955791041592, // Q1
+                    1 => 0.6013448869350453, // Q2
+                    2 => 0.8999446650072116, // Q3
+                    _ => 2.5629154477415055, // Q4
+                }
+            }
+            12 => {
+                // 72dB/oct - 6 conjugate pairs
+                match stage {
+                    0 => 0.5044330855892026,
+                    1 => 0.5411961001461969,
+                    2 => 0.6305475968877769,
+                    3 => 0.8211172650655689,
+                    4 => 1.2247448713915890,
+                    _ => 3.8306488521484588,
+                }
+            }
+            16 => {
+                // 96dB/oct - 8 conjugate pairs
+                match stage {
+                    0 => 0.5024192861881557,
+                    1 => 0.5224985647578857,
+                    2 => 0.5660035832651752,
+                    3 => 0.6439569529474891,
+                    4 => 0.7816437780945893,
+                    5 => 1.0606601717798212,
+                    6 => 1.7224470982383280,
+                    _ => 5.1011486186891553,
+                }
+            }
+            _ => {
+                // Fallback: compute Q dynamically for any order
+                let n = order as f64;
+                let k = stage as f64;
+                let theta = std::f64::consts::PI * (2.0 * k + n - 1.0) / (2.0 * n);
+                let cos_theta = theta.cos();
+                if cos_theta.abs() < 1e-10 {
+                    100.0 // Very high Q for near-zero cosine
+                } else {
+                    1.0 / (2.0 * cos_theta.abs())
+                }
+            }
+        }
     }
 
     /// Process stereo sample
@@ -821,10 +996,28 @@ impl EqBand {
 
         // Calculate dynamic gain if enabled
         let (dyn_gain_l, dyn_gain_r) = if self.dynamic.enabled {
-            let level_l = left.abs();
-            let level_r = right.abs();
-            self.envelope_l.process(level_l);
-            self.envelope_r.process(level_r);
+            // Apply sidechain filter if configured (filter the detector input, not audio)
+            let (detect_l, detect_r) =
+                if self.sidechain_svf.is_some() && self.sidechain_coeffs.is_some() {
+                    let sc_svf = self.sidechain_svf.as_mut().unwrap();
+                    let sc_coeffs = self.sidechain_coeffs.as_ref().unwrap();
+                    // Filter the sidechain signal for frequency-focused detection
+                    let filtered = sc_svf.process(
+                        (left + right) * 0.5, // Use mono for sidechain
+                        sc_coeffs.a1,
+                        sc_coeffs.a2,
+                        sc_coeffs.a3,
+                        sc_coeffs.m0,
+                        sc_coeffs.m1,
+                        sc_coeffs.m2,
+                    );
+                    (filtered.abs(), filtered.abs())
+                } else {
+                    (left.abs(), right.abs())
+                };
+
+            self.envelope_l.process(detect_l);
+            self.envelope_r.process(detect_r);
             (
                 self.envelope_l.calculate_gain(&self.dynamic),
                 self.envelope_r.calculate_gain(&self.dynamic),
@@ -1040,7 +1233,8 @@ fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
     let den_imag = k * g * w;
     let den_mag_sq = den_real * den_real + den_imag * den_imag;
 
-    if den_mag_sq < 1e-20 {
+    // NaN/Inf protection - check for invalid values
+    if den_mag_sq < 1e-20 || !den_mag_sq.is_finite() || den_mag_sq.is_nan() {
         return (1.0, 0.0);
     }
 
@@ -1102,7 +1296,19 @@ fn svf_frequency_response(coeffs: &SvfCoeffs, omega: f64) -> (f64, f64) {
     let magnitude = (h_real * h_real + h_imag * h_imag).sqrt();
     let phase = h_imag.atan2(h_real);
 
-    (magnitude.max(0.001), phase)
+    // Final NaN protection
+    let safe_mag = if magnitude.is_finite() && !magnitude.is_nan() {
+        magnitude.max(0.001)
+    } else {
+        1.0
+    };
+    let safe_phase = if phase.is_finite() && !phase.is_nan() {
+        phase
+    } else {
+        0.0
+    };
+
+    (safe_mag, safe_phase)
 }
 
 // ============================================================================
@@ -1789,7 +1995,16 @@ impl ProEq {
             AnalyzerMode::PreEq => self.analyzer_pre.get_spectrum_data(256),
             AnalyzerMode::PostEq => self.analyzer_post.get_spectrum_data(256),
             AnalyzerMode::Sidechain => self.analyzer_sidechain.get_spectrum_data(256),
-            AnalyzerMode::Delta | AnalyzerMode::Off => vec![0.0; 256],
+            AnalyzerMode::Delta => {
+                // Calculate difference between post and pre EQ spectrum
+                let pre = self.analyzer_pre.get_spectrum_data(256);
+                let post = self.analyzer_post.get_spectrum_data(256);
+                pre.iter()
+                    .zip(post.iter())
+                    .map(|(pre_val, post_val)| post_val - pre_val)
+                    .collect()
+            }
+            AnalyzerMode::Off => vec![0.0; 256],
         }
     }
 

@@ -15,10 +15,13 @@ struct Config {
     fft_size: u32,
     time: f32,
     bar_width: f32,
+    peak_hold_enabled: u32,
+    _padding: u32,
 }
 
 @group(0) @binding(0) var<storage, read> magnitudes: array<f32>;
 @group(0) @binding(1) var<uniform> config: Config;
+@group(0) @binding(2) var<storage, read> peak_holds: array<f32>;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -98,6 +101,24 @@ fn get_magnitude_smooth(bin_f: f32) -> f32 {
     let p1 = magnitudes[min(bin, max_bin)];
     let p2 = magnitudes[min(bin + 1u, max_bin)];
     let p3 = magnitudes[min(bin + 2u, max_bin)];
+
+    return catmull_rom(p0, p1, p2, p3, frac);
+}
+
+// Get interpolated peak hold at fractional bin
+fn get_peak_hold_smooth(bin_f: f32) -> f32 {
+    let bin = u32(bin_f);
+    let frac = fract(bin_f);
+    let max_bin = arrayLength(&peak_holds) - 1u;
+
+    if max_bin == 0u {
+        return 0.0;
+    }
+
+    let p0 = peak_holds[max(bin, 1u) - 1u];
+    let p1 = peak_holds[min(bin, max_bin)];
+    let p2 = peak_holds[min(bin + 1u, max_bin)];
+    let p3 = peak_holds[min(bin + 2u, max_bin)];
 
     return catmull_rom(p0, p1, p2, p3, frac);
 }
@@ -209,6 +230,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     if y_pos < normalized + 0.03 && y_pos > normalized {
         let glow_amount = glow(y_pos - normalized, 0.015, 0.3);
         color = color + get_freq_color(freq, normalized) * glow_amount;
+    }
+
+    // Draw peak hold indicator (white line with glow)
+    if config.peak_hold_enabled != 0u {
+        let peak_magnitude = get_peak_hold_smooth(bin_f);
+        let peak_db = 20.0 * log10(max(peak_magnitude, 1e-10));
+        let peak_normalized = clamp((peak_db - config.min_db) / (config.max_db - config.min_db), 0.0, 1.0);
+
+        // Draw thin white line at peak position
+        let peak_dist = abs(y_pos - peak_normalized);
+        if peak_dist < 0.004 {
+            // White peak line with slight transparency
+            let peak_alpha = smoothstep(0.004, 0.001, peak_dist);
+            let peak_color = vec3<f32>(1.0, 1.0, 1.0);
+            color = mix(color, peak_color, peak_alpha * 0.9);
+        }
+
+        // Add subtle glow below peak line
+        if peak_dist < 0.02 && y_pos < peak_normalized {
+            let peak_glow = glow(peak_dist, 0.01, 0.2);
+            color = color + vec3<f32>(0.8, 0.8, 1.0) * peak_glow;
+        }
     }
 
     return vec4<f32>(color, 1.0);

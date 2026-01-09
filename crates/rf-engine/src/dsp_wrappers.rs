@@ -140,12 +140,13 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn num_params(&self) -> usize {
-        // freq, gain, q, enabled, shape per band + global params
-        rf_dsp::PRO_EQ_MAX_BANDS * 5 + 3
+        // 11 params per band: freq, gain, q, enabled, shape, dynEnabled, dynThreshold, dynRatio, dynAttack, dynRelease, dynKnee
+        // + 3 global params
+        rf_dsp::PRO_EQ_MAX_BANDS * 11 + 3
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        let per_band = 5;
+        let per_band = 11;
         let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
 
         if index < max_bands * per_band {
@@ -164,6 +165,13 @@ impl InsertProcessor for ProEqWrapper {
                         }
                     }
                     4 => band.shape as u8 as f64,
+                    // Dynamic EQ params
+                    5 => if band.dynamic.enabled { 1.0 } else { 0.0 },
+                    6 => band.dynamic.threshold_db,
+                    7 => band.dynamic.ratio,
+                    8 => band.dynamic.attack_ms,
+                    9 => band.dynamic.release_ms,
+                    10 => band.dynamic.knee_db,
                     _ => 0.0,
                 }
             } else {
@@ -175,37 +183,48 @@ impl InsertProcessor for ProEqWrapper {
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        let per_band = 5;
+        let per_band = 11;
         let max_bands = rf_dsp::PRO_EQ_MAX_BANDS;
 
         if index < max_bands * per_band {
             let band_idx = index / per_band;
             let param_idx = index % per_band;
 
-            // Get current values and update
-            if let Some(band) = self.eq.band(band_idx) {
-                let mut freq = band.frequency;
-                let mut gain = band.gain_db;
-                let mut q = band.q;
-                let shape = band.shape;
+            // For params 0-4 that need set_band, read values first then drop borrow
+            if param_idx <= 4 {
+                let (freq, gain, q, shape) = if let Some(band) = self.eq.band(band_idx) {
+                    (band.frequency, band.gain_db, band.q, band.shape)
+                } else {
+                    return;
+                };
 
                 match param_idx {
-                    0 => freq = value.clamp(10.0, 30000.0),
-                    1 => gain = value.clamp(-30.0, 30.0),
-                    2 => q = value.clamp(0.05, 50.0),
-                    3 => {
-                        self.eq.enable_band(band_idx, value > 0.5);
-                        return;
-                    }
-                    _ => return,
+                    0 => self.eq.set_band(band_idx, value.clamp(10.0, 30000.0), gain, q, shape),
+                    1 => self.eq.set_band(band_idx, freq, value.clamp(-30.0, 30.0), q, shape),
+                    2 => self.eq.set_band(band_idx, freq, gain, value.clamp(0.05, 50.0), shape),
+                    3 => self.eq.enable_band(band_idx, value > 0.5),
+                    4 => self.eq.set_band(band_idx, freq, gain, q, FilterShape::from_index(value as usize)),
+                    _ => {}
                 }
-                self.eq.set_band(band_idx, freq, gain, q, shape);
+            } else {
+                // Dynamic EQ params - can use mutable borrow
+                if let Some(band) = self.eq.band_mut(band_idx) {
+                    match param_idx {
+                        5 => band.dynamic.enabled = value > 0.5,
+                        6 => band.dynamic.threshold_db = value.clamp(-60.0, 0.0),
+                        7 => band.dynamic.ratio = value.clamp(1.0, 20.0),
+                        8 => band.dynamic.attack_ms = value.clamp(0.1, 500.0),
+                        9 => band.dynamic.release_ms = value.clamp(1.0, 5000.0),
+                        10 => band.dynamic.knee_db = value.clamp(0.0, 24.0),
+                        _ => {}
+                    }
+                }
             }
         }
     }
 
     fn param_name(&self, index: usize) -> &str {
-        let per_band = 5;
+        let per_band = 11;
         let param_idx = index % per_band;
         match param_idx {
             0 => "Frequency",
@@ -213,6 +232,12 @@ impl InsertProcessor for ProEqWrapper {
             2 => "Q",
             3 => "Enabled",
             4 => "Shape",
+            5 => "Dynamic Enabled",
+            6 => "Dynamic Threshold",
+            7 => "Dynamic Ratio",
+            8 => "Dynamic Attack",
+            9 => "Dynamic Release",
+            10 => "Dynamic Knee",
             _ => "",
         }
     }

@@ -224,6 +224,8 @@ class ProEqEditor extends StatefulWidget {
   })? onBandChange;
   /// Callback when global bypass changes
   final void Function(bool bypass)? onBypassChange;
+  /// Callback when phase mode changes (0=ZeroLatency, 1=Natural, 2=Linear)
+  final void Function(int mode)? onPhaseModeChange;
 
   const ProEqEditor({
     super.key,
@@ -234,6 +236,7 @@ class ProEqEditor extends StatefulWidget {
     this.spectrumData,
     this.onBandChange,
     this.onBypassChange,
+    this.onPhaseModeChange,
   });
 
   @override
@@ -591,6 +594,13 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         gain: band.gain,
         q: band.q,
         filterType: band.shape.index,
+        // Include dynamic EQ params
+        dynamicEnabled: band.dynamicEnabled,
+        dynamicThreshold: band.dynamicThreshold,
+        dynamicRatio: band.dynamicRatio,
+        dynamicAttack: band.dynamicAttack,
+        dynamicRelease: band.dynamicRelease,
+        dynamicKnee: band.dynamicKnee,
       );
     }
   }
@@ -2020,7 +2030,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         children: List.generate(3, (i) {
           final active = i == _phaseMode;
           return GestureDetector(
-            onTap: () => setState(() => _phaseMode = i),
+            onTap: () {
+              setState(() => _phaseMode = i);
+              widget.onPhaseModeChange?.call(i);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
