@@ -17,7 +17,6 @@ import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../editors/clip_fx_editor.dart';
 import '../waveform/ultimate_waveform.dart';
-import '../waveform/enhanced_waveform.dart';
 import 'stretch_overlay.dart';
 
 class ClipWidget extends StatefulWidget {
@@ -804,16 +803,13 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     return Transform.scale(
       scaleY: widget.gain,
-      child: EnhancedWaveform(
+      child: UltimateWaveform(
         data: _waveformData!,
-        clipId: widget.clipId,
         config: config,
         height: widget.trackHeight,
         zoom: 1, // Zoom handled by clip width
         scrollOffset: 0,
         isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
-        subPixelScale: 2.0, // 2x rendering for smooth anti-aliasing
-        enableCaching: true, // Cache rendered waveforms
       ),
     );
   }

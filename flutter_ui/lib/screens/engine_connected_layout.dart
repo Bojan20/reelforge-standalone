@@ -1154,11 +1154,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Get playback position (default to 0 for now)
     final startTime = 0.0;
 
-    // Create clip directly (waveform loading will be handled by ClipWidget)
+    // Generate demo waveform
+    final waveform = timeline.generateDemoWaveform(samples: 2000);
+
     try {
       final clipId = 'clip-${DateTime.now().millisecondsSinceEpoch}';
 
-      // Create clip (waveform will be loaded async by engine)
       final newClip = timeline.TimelineClip(
         id: clipId,
         trackId: track.id,
@@ -1169,7 +1170,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         sourceOffset: 0,
         sourceFile: file.path,
         color: track.color,
-        waveform: null, // Will be loaded async
+        waveform: waveform,
         gain: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,
