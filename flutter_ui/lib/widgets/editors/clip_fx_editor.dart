@@ -26,6 +26,7 @@ class ClipFxEditor extends StatefulWidget {
 class _ClipFxEditorState extends State<ClipFxEditor> {
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final chain = widget.clip.fxChain;
 
     return Container(
@@ -306,6 +307,7 @@ class _FxSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: slot.bypass
@@ -388,6 +390,7 @@ class _GainParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final params = slot.gainParams ?? const GainFxParams();
     return Column(
       children: [
@@ -431,6 +434,7 @@ class _CompressorParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final params = slot.compressorParams ?? const CompressorFxParams();
     return Column(
       children: [
@@ -529,6 +533,7 @@ class _LimiterParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final params = slot.limiterParams ?? const LimiterFxParams();
     return _ParamSlider(
       label: 'Ceiling',
@@ -558,6 +563,7 @@ class _GateParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final params = slot.gateParams ?? const GateFxParams();
     return Column(
       children: [
@@ -634,6 +640,7 @@ class _SaturationParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     final params = slot.saturationParams ?? const SaturationFxParams();
     return Column(
       children: [
@@ -686,6 +693,7 @@ class _DefaultParamsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final engine = EngineApi.instance;
     return _ParamSlider(
       label: 'Mix',
       value: slot.wetDry,
