@@ -3057,12 +3057,14 @@ pub extern "C" fn engine_get_memory_usage() -> f32 {
 /// EQ insert slot index (slot 0 = pre-fader, first slot)
 const EQ_SLOT_INDEX: usize = 0;
 
-/// ProEQ parameter indices per band (5 params per band):
-/// - band * 5 + 0 = frequency
-/// - band * 5 + 1 = gain_db
-/// - band * 5 + 2 = q
-/// - band * 5 + 3 = enabled (1.0 or 0.0)
-/// - band * 5 + 4 = shape
+/// ProEQ parameter indices per band (11 params per band to match ProEqWrapper):
+/// - band * 11 + 0 = frequency
+/// - band * 11 + 1 = gain_db
+/// - band * 11 + 2 = q
+/// - band * 11 + 3 = enabled (1.0 or 0.0)
+/// - band * 11 + 4 = shape
+/// - band * 11 + 5..10 = dynamic EQ params (threshold, ratio, attack, release, knee)
+const EQ_PARAMS_PER_BAND: usize = 11;
 
 /// Ensure EQ is loaded into track's insert chain
 fn ensure_eq_loaded(track_id: u64) {
@@ -3080,8 +3082,8 @@ pub extern "C" fn eq_set_band_enabled(track_id: u32, band_index: u8, enabled: i3
     let track_id = track_id as u64;
     ensure_eq_loaded(track_id);
 
-    // param index: band * 5 + 3 = enabled
-    let param_index = (band_index as usize) * 5 + 3;
+    // param index: band * 11 + 3 = enabled
+    let param_index = (band_index as usize) * EQ_PARAMS_PER_BAND + 3;
     let value = if enabled != 0 { 1.0 } else { 0.0 };
 
     PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, value);
@@ -3100,8 +3102,8 @@ pub extern "C" fn eq_set_band_frequency(track_id: u32, band_index: u8, frequency
     let track_id = track_id as u64;
     ensure_eq_loaded(track_id);
 
-    // param index: band * 5 + 0 = frequency
-    let param_index = (band_index as usize) * 5;
+    // param index: band * 11 + 0 = frequency
+    let param_index = (band_index as usize) * EQ_PARAMS_PER_BAND;
 
     PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, frequency);
     log::debug!(
@@ -3119,8 +3121,8 @@ pub extern "C" fn eq_set_band_gain(track_id: u32, band_index: u8, gain: f64) -> 
     let track_id = track_id as u64;
     ensure_eq_loaded(track_id);
 
-    // param index: band * 5 + 1 = gain_db
-    let param_index = (band_index as usize) * 5 + 1;
+    // param index: band * 11 + 1 = gain_db
+    let param_index = (band_index as usize) * EQ_PARAMS_PER_BAND + 1;
 
     PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, gain);
     log::debug!(
@@ -3138,11 +3140,26 @@ pub extern "C" fn eq_set_band_q(track_id: u32, band_index: u8, q: f64) -> i32 {
     let track_id = track_id as u64;
     ensure_eq_loaded(track_id);
 
-    // param index: band * 5 + 2 = q
-    let param_index = (band_index as usize) * 5 + 2;
+    // param index: band * 11 + 2 = q
+    let param_index = (band_index as usize) * EQ_PARAMS_PER_BAND + 2;
 
     PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, q);
     log::debug!("EQ track {} band {} Q: {}", track_id, band_index, q);
+    1
+}
+
+/// Set EQ band filter shape
+/// shape: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall
+#[unsafe(no_mangle)]
+pub extern "C" fn eq_set_band_shape(track_id: u32, band_index: u8, shape: i32) -> i32 {
+    let track_id = track_id as u64;
+    ensure_eq_loaded(track_id);
+
+    // param index: band * 11 + 4 = shape
+    let param_index = (band_index as usize) * EQ_PARAMS_PER_BAND + 4;
+
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, EQ_SLOT_INDEX, param_index, shape as f64);
+    log::debug!("EQ track {} band {} shape: {}", track_id, band_index, shape);
     1
 }
 

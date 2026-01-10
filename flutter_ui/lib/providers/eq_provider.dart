@@ -374,6 +374,7 @@ class EqProvider extends ChangeNotifier {
       ffi.eqSetBandFrequency(trackId, i, band.frequency);
       ffi.eqSetBandGain(trackId, i, band.gainDb);
       ffi.eqSetBandQ(trackId, i, band.q);
+      ffi.eqSetBandShape(trackId, i, band.filterType.index);
     }
 
     debugPrint('[EQ] Synced ${bands.length} bands to engine for $busId');

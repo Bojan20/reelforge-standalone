@@ -349,6 +349,9 @@ typedef EngineEqSetBandGainDart = int Function(int trackId, int bandIndex, doubl
 typedef EngineEqSetBandQNative = Int32 Function(Uint32 trackId, Uint8 bandIndex, Double q);
 typedef EngineEqSetBandQDart = int Function(int trackId, int bandIndex, double q);
 
+typedef EngineEqSetBandShapeNative = Int32 Function(Uint32 trackId, Uint8 bandIndex, Int32 shape);
+typedef EngineEqSetBandShapeDart = int Function(int trackId, int bandIndex, int shape);
+
 typedef EngineEqSetBypassNative = Int32 Function(Uint32 trackId, Int32 bypass);
 typedef EngineEqSetBypassDart = int Function(int trackId, int bypass);
 
@@ -775,6 +778,7 @@ class NativeFFI {
   late final EngineEqSetBandFrequencyDart _eqSetBandFrequency;
   late final EngineEqSetBandGainDart _eqSetBandGain;
   late final EngineEqSetBandQDart _eqSetBandQ;
+  late final EngineEqSetBandShapeDart _eqSetBandShape;
   late final EngineEqSetBypassDart _eqSetBypass;
 
   // Mixer buses
@@ -1028,6 +1032,7 @@ class NativeFFI {
     _eqSetBandFrequency = _lib.lookupFunction<EngineEqSetBandFrequencyNative, EngineEqSetBandFrequencyDart>('eq_set_band_frequency');
     _eqSetBandGain = _lib.lookupFunction<EngineEqSetBandGainNative, EngineEqSetBandGainDart>('eq_set_band_gain');
     _eqSetBandQ = _lib.lookupFunction<EngineEqSetBandQNative, EngineEqSetBandQDart>('eq_set_band_q');
+    _eqSetBandShape = _lib.lookupFunction<EngineEqSetBandShapeNative, EngineEqSetBandShapeDart>('eq_set_band_shape');
     _eqSetBypass = _lib.lookupFunction<EngineEqSetBypassNative, EngineEqSetBypassDart>('eq_set_bypass');
 
     // Mixer buses
@@ -1882,6 +1887,13 @@ class NativeFFI {
   bool eqSetBandQ(int trackId, int bandIndex, double q) {
     if (!_loaded) return false;
     return _eqSetBandQ(trackId, bandIndex, q) != 0;
+  }
+
+  /// Set EQ band shape
+  /// shape: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall
+  bool eqSetBandShape(int trackId, int bandIndex, int shape) {
+    if (!_loaded) return false;
+    return _eqSetBandShape(trackId, bandIndex, shape) != 0;
   }
 
   /// Set EQ bypass

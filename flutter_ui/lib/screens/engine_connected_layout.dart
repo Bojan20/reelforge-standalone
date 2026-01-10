@@ -4732,7 +4732,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
         // Load EQ into Rust engine insert chain
         final trackId = _busIdToTrackId(channelId);
-        NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro_eq');
+        NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro-eq');
 
         debugPrint('[EQ] Auto-created Pro EQ in slot $i for $channelId (trackId: $trackId)');
         return i;
@@ -4861,6 +4861,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         if (slotIndex < 0) {
                           debugPrint('[EQ] Failed to create EQ slot for $channelId');
                           return;
+                        }
+                      } else {
+                        // Slot exists in UI state but processor may not be loaded in engine
+                        // Only load if not already loaded (check first)
+                        final trackId = _busIdToTrackId(channelId);
+                        if (NativeFFI.instance.insertIsLoaded(trackId, slotIndex) == 0) {
+                          debugPrint('[EQ] Processor not loaded in engine, loading now...');
+                          NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
                         }
                       }
 

@@ -1376,6 +1376,19 @@ class EngineApi {
     return true;
   }
 
+  /// Set EQ band filter shape
+  /// shape: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall
+  bool eqSetBandShape(String trackId, int bandIndex, int shape) {
+    print('[Engine] EQ track $trackId band $bandIndex shape: $shape');
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.eqSetBandShape(nativeTrackId, bandIndex, shape);
+      }
+    }
+    return true;
+  }
+
   /// Set EQ bypass
   bool eqSetBypass(String trackId, bool bypass) {
     print('[Engine] EQ track $trackId bypass: $bypass');

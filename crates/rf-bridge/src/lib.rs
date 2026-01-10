@@ -230,3 +230,12 @@ impl EngineBridge {
         &self.group_manager
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// C FFI RE-EXPORTS FROM RF-ENGINE
+// These functions are defined in rf-engine/src/ffi.rs and need to be accessible
+// through librf_bridge.dylib for Flutter dart:ffi direct calls.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Re-export all C FFI symbols from rf-engine
+pub use rf_engine::ffi::*;
