@@ -7278,6 +7278,32 @@ extension AudioPoolAPI on NativeFFI {
     return _audioPoolMemoryUsage();
   }
 
+  // FFI for audio metadata
+  static final _audioGetMetadata = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('audio_get_metadata');
+
+  /// Get audio file metadata (duration, sample_rate, channels, bit_depth) without full import
+  /// Returns JSON string or empty string on error
+  String audioGetMetadata(String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final ptr = _audioGetMetadata(pathPtr);
+      if (ptr == nullptr || ptr.address == 0) return '';
+      final json = ptr.toDartString();
+      if (json.isEmpty) {
+        _freeRustString(ptr);
+        return '';
+      }
+      _freeRustString(ptr);
+      return json;
+    } catch (e) {
+      return '';
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
   /// Play audio file preview (through master bus)
   void audioPoolPlayPreview(int clipId) {
     // Preview not implemented - would need separate playback path

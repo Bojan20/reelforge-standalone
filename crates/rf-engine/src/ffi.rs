@@ -9,6 +9,8 @@
 //! - Crossfade management
 //! - Marker management
 
+#![allow(clippy::not_unsafe_ptr_arg_deref)] // FFI functions receive raw pointers from C/Dart
+
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::path::{Path, PathBuf};
@@ -1491,7 +1493,7 @@ pub extern "C" fn engine_sync_loop_from_region() {
 /// Set bus volume (bus_idx: 0=UI, 1=Reels, 2=FX, 3=VO, 4=Music, 5=Ambient)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_volume(bus_idx: i32, volume: f64) {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE.set_bus_volume(bus_idx as usize, volume);
     }
 }
@@ -1499,7 +1501,7 @@ pub extern "C" fn engine_set_bus_volume(bus_idx: i32, volume: f64) {
 /// Set bus pan (-1.0 to 1.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_pan(bus_idx: i32, pan: f64) {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE.set_bus_pan(bus_idx as usize, pan);
     }
 }
@@ -1507,7 +1509,7 @@ pub extern "C" fn engine_set_bus_pan(bus_idx: i32, pan: f64) {
 /// Set bus mute
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_mute(bus_idx: i32, muted: i32) {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE.set_bus_mute(bus_idx as usize, muted != 0);
     }
 }
@@ -1515,7 +1517,7 @@ pub extern "C" fn engine_set_bus_mute(bus_idx: i32, muted: i32) {
 /// Set bus solo
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE.set_bus_solo(bus_idx as usize, soloed != 0);
     }
 }
@@ -1523,7 +1525,7 @@ pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
 /// Get bus volume
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_volume(bus_idx: i32) -> f64 {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE
             .get_bus_state(bus_idx as usize)
             .map(|s| s.volume)
@@ -1536,7 +1538,7 @@ pub extern "C" fn engine_get_bus_volume(bus_idx: i32) -> f64 {
 /// Get bus mute state
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_mute(bus_idx: i32) -> i32 {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         if PLAYBACK_ENGINE
             .get_bus_state(bus_idx as usize)
             .map(|s| s.muted)
@@ -1554,7 +1556,7 @@ pub extern "C" fn engine_get_bus_mute(bus_idx: i32) -> i32 {
 /// Get bus solo state
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_solo(bus_idx: i32) -> i32 {
-    if bus_idx >= 0 && bus_idx < 6 {
+    if (0..6).contains(&bus_idx) {
         if PLAYBACK_ENGINE
             .get_bus_state(bus_idx as usize)
             .map(|s| s.soloed)
@@ -2037,11 +2039,10 @@ lazy_static::lazy_static! {
 pub extern "C" fn send_set_level(track_id: u64, send_index: u32, level: f64) {
     // Update legacy SEND_BANKS (for backwards compatibility)
     let banks = SEND_BANKS.read();
-    if let Some(bank) = banks.get(&track_id) {
-        if let Some(send) = bank.get(send_index as usize) {
+    if let Some(bank) = banks.get(&track_id)
+        && let Some(send) = bank.get(send_index as usize) {
             send.set_level(level);
         }
-    }
     // Also update track sends in TRACK_MANAGER (for playback routing)
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.set_send_level(send_index as usize, level);
@@ -2052,11 +2053,10 @@ pub extern "C" fn send_set_level(track_id: u64, send_index: u32, level: f64) {
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_level_db(track_id: u64, send_index: u32, db: f64) {
     let banks = SEND_BANKS.read();
-    if let Some(bank) = banks.get(&track_id) {
-        if let Some(send) = bank.get(send_index as usize) {
+    if let Some(bank) = banks.get(&track_id)
+        && let Some(send) = bank.get(send_index as usize) {
             send.set_level_db(db);
         }
-    }
     // Convert dB to linear and update TRACK_MANAGER
     let linear = 10.0_f64.powf(db / 20.0);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -2068,11 +2068,10 @@ pub extern "C" fn send_set_level_db(track_id: u64, send_index: u32, db: f64) {
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_destination(track_id: u64, send_index: u32, destination: u32) {
     let mut banks = SEND_BANKS.write();
-    if let Some(bank) = banks.get_mut(&track_id) {
-        if let Some(send) = bank.get_mut(send_index as usize) {
+    if let Some(bank) = banks.get_mut(&track_id)
+        && let Some(send) = bank.get_mut(send_index as usize) {
             send.set_destination(destination as usize);
         }
-    }
     // Update TRACK_MANAGER send destination
     let dest_bus = OutputBus::from(destination);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -2084,33 +2083,30 @@ pub extern "C" fn send_set_destination(track_id: u64, send_index: u32, destinati
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_pan(track_id: u64, send_index: u32, pan: f64) {
     let banks = SEND_BANKS.read();
-    if let Some(bank) = banks.get(&track_id) {
-        if let Some(send) = bank.get(send_index as usize) {
+    if let Some(bank) = banks.get(&track_id)
+        && let Some(send) = bank.get(send_index as usize) {
             send.set_pan(pan);
         }
-    }
 }
 
 /// Enable/disable send
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_enabled(track_id: u64, send_index: u32, enabled: i32) {
     let banks = SEND_BANKS.read();
-    if let Some(bank) = banks.get(&track_id) {
-        if let Some(send) = bank.get(send_index as usize) {
+    if let Some(bank) = banks.get(&track_id)
+        && let Some(send) = bank.get(send_index as usize) {
             send.set_enabled(enabled != 0);
         }
-    }
 }
 
 /// Mute/unmute send
 #[unsafe(no_mangle)]
 pub extern "C" fn send_set_muted(track_id: u64, send_index: u32, muted: i32) {
     let banks = SEND_BANKS.read();
-    if let Some(bank) = banks.get(&track_id) {
-        if let Some(send) = bank.get(send_index as usize) {
+    if let Some(bank) = banks.get(&track_id)
+        && let Some(send) = bank.get(send_index as usize) {
             send.set_muted(muted != 0);
         }
-    }
     // Update TRACK_MANAGER
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.set_send_muted(send_index as usize, muted != 0);
@@ -2129,11 +2125,10 @@ pub extern "C" fn send_set_tap_point(track_id: u64, send_index: u32, tap_point: 
         _ => SendTapPoint::PostFader,
     };
     let mut banks = SEND_BANKS.write();
-    if let Some(bank) = banks.get_mut(&track_id) {
-        if let Some(send) = bank.get_mut(send_index as usize) {
+    if let Some(bank) = banks.get_mut(&track_id)
+        && let Some(send) = bank.get_mut(send_index as usize) {
             send.set_tap_point(tap);
         }
-    }
     // Update TRACK_MANAGER (pre_fader = tap_point == 0)
     let pre_fader = tap_point == 0;
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
@@ -2145,9 +2140,7 @@ pub extern "C" fn send_set_tap_point(track_id: u64, send_index: u32, tap_point: 
 #[unsafe(no_mangle)]
 pub extern "C" fn send_create_bank(track_id: u64) {
     let mut banks = SEND_BANKS.write();
-    if !banks.contains_key(&track_id) {
-        banks.insert(track_id, crate::send_return::SendBank::new(48000.0));
-    }
+    banks.entry(track_id).or_insert_with(|| crate::send_return::SendBank::new(48000.0));
 }
 
 /// Remove send bank (call when track is deleted)
@@ -2241,12 +2234,7 @@ pub extern "C" fn sidechain_remove_route(route_id: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sidechain_create_input(processor_id: u32) {
     let mut inputs = SIDECHAIN_INPUTS.write();
-    if !inputs.contains_key(&processor_id) {
-        inputs.insert(
-            processor_id,
-            crate::sidechain::SidechainInput::new(48000.0, 512),
-        );
-    }
+    inputs.entry(processor_id).or_insert_with(|| crate::sidechain::SidechainInput::new(48000.0, 512));
 }
 
 /// Remove sidechain input
@@ -2569,9 +2557,7 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_create_chain(track_id: u64) {
     let mut chains = INSERT_CHAINS.write();
-    if !chains.contains_key(&track_id) {
-        chains.insert(track_id, crate::insert_chain::InsertChain::new(48000.0));
-    }
+    chains.entry(track_id).or_insert_with(|| crate::insert_chain::InsertChain::new(48000.0));
 }
 
 /// Remove insert chain
@@ -2585,22 +2571,20 @@ pub extern "C" fn insert_remove_chain(track_id: u64) {
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_set_bypass(track_id: u64, slot: u32, bypass: i32) {
     let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id) {
-        if let Some(slot_ref) = chain.slot(slot as usize) {
+    if let Some(chain) = chains.get(&track_id)
+        && let Some(slot_ref) = chain.slot(slot as usize) {
             slot_ref.set_bypass(bypass != 0);
         }
-    }
 }
 
 /// Set insert slot wet/dry mix
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_set_mix(track_id: u64, slot: u32, mix: f64) {
     let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id) {
-        if let Some(slot_ref) = chain.slot(slot as usize) {
+    if let Some(chain) = chains.get(&track_id)
+        && let Some(slot_ref) = chain.slot(slot as usize) {
             slot_ref.set_mix(mix);
         }
-    }
 }
 
 /// Bypass all inserts on track
@@ -4877,9 +4861,7 @@ lazy_static::lazy_static! {
 #[unsafe(no_mangle)]
 pub extern "C" fn piano_roll_create(clip_id: u32) -> i32 {
     let mut states = PIANO_ROLL_STATES.write();
-    if !states.contains_key(&clip_id) {
-        states.insert(clip_id, rf_core::PianoRollState::new(clip_id));
-    }
+    states.entry(clip_id).or_insert_with(|| rf_core::PianoRollState::new(clip_id));
     1
 }
 
@@ -12503,7 +12485,7 @@ impl AdvancedMeters {
 /// Initialize advanced meters with sample rate
 #[unsafe(no_mangle)]
 pub extern "C" fn advanced_meters_init(sample_rate: f64) -> i32 {
-    if !sample_rate.is_finite() || sample_rate < 8000.0 || sample_rate > 384000.0 {
+    if !sample_rate.is_finite() || !(8000.0..=384000.0).contains(&sample_rate) {
         return 0;
     }
     if let Some(mut meters) = ADVANCED_METERS.try_write() {
@@ -12665,25 +12647,41 @@ pub extern "C" fn advanced_meters_get_roughness_l() -> f64 {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Get list of imported audio files as JSON
-/// Returns: JSON array of {id, path, duration, channels, sample_rate}
+/// Returns: JSON array of {id, name, path, duration, channels, sample_rate, file_size, bit_depth}
 #[unsafe(no_mangle)]
 pub extern "C" fn audio_pool_list() -> *mut c_char {
     let audio_map = IMPORTED_AUDIO.read();
 
+    eprintln!("[audio_pool_list] Found {} entries in IMPORTED_AUDIO", audio_map.len());
+
     let mut entries = Vec::new();
     for (clip_id, audio) in audio_map.iter() {
+        // Get file size (0 if can't read)
+        let file_size = std::fs::metadata(&audio.source_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        eprintln!(
+            "[audio_pool_list] clip_id={}, name={}, duration={:.3}s, sample_count={}, sample_rate={}, channels={}",
+            clip_id.0, audio.name, audio.duration_secs, audio.sample_count, audio.sample_rate, audio.channels
+        );
+
         let entry = format!(
-            r#"{{"id":{},"path":"{}","duration":{},"channels":{},"sample_rate":{}}}"#,
+            r#"{{"id":{},"name":"{}","path":"{}","duration":{},"channels":{},"sample_rate":{},"file_size":{},"bit_depth":{}}}"#,
             clip_id.0,
+            audio.name.replace('\\', "\\\\").replace('"', "\\\""),
             audio.source_path.replace('\\', "\\\\").replace('"', "\\\""),
             audio.duration_secs,
             audio.channels,
-            audio.sample_rate
+            audio.sample_rate,
+            file_size,
+            audio.bit_depth.unwrap_or(24)
         );
         entries.push(entry);
     }
 
     let json = format!("[{}]", entries.join(","));
+    eprintln!("[audio_pool_list] Returning JSON: {}", &json[..json.len().min(500)]);
     CString::new(json).unwrap_or_default().into_raw()
 }
 
@@ -12749,6 +12747,61 @@ pub extern "C" fn audio_pool_memory_usage() -> u64 {
         total += audio.samples.len() * std::mem::size_of::<f32>();
     }
     total as u64
+}
+
+/// Get audio file metadata without full import (fast, reads header only)
+/// Returns JSON: {"duration": 45.47, "sample_rate": 48000, "channels": 2, "bit_depth": 24}
+/// Returns empty string on error
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
+    let path_str = match unsafe { cstr_to_string(path) } {
+        Some(s) => s,
+        None => return CString::new("").unwrap().into_raw(),
+    };
+
+    // Use symphonia to read metadata without decoding full audio
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::probe::Hint;
+    use std::fs::File;
+
+    let file = match File::open(&path_str) {
+        Ok(f) => f,
+        Err(_) => return CString::new("").unwrap().into_raw(),
+    };
+
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = std::path::Path::new(&path_str).extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = match symphonia::default::get_probe().format(&hint, mss, &Default::default(), &Default::default()) {
+        Ok(p) => p,
+        Err(_) => return CString::new("").unwrap().into_raw(),
+    };
+
+    let format = probed.format;
+    let track = match format.default_track() {
+        Some(t) => t,
+        None => return CString::new("").unwrap().into_raw(),
+    };
+
+    let codec_params = &track.codec_params;
+    let sample_rate = codec_params.sample_rate.unwrap_or(48000);
+    let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
+    let bit_depth = codec_params.bits_per_sample.unwrap_or(24);
+
+    // Calculate duration from n_frames and sample_rate
+    let duration_secs = codec_params.n_frames
+        .map(|frames| frames as f64 / sample_rate as f64)
+        .unwrap_or(0.0);
+
+    let json = format!(
+        r#"{{"duration":{},"sample_rate":{},"channels":{},"bit_depth":{}}}"#,
+        duration_secs, sample_rate, channels, bit_depth
+    );
+
+    CString::new(json).unwrap_or_default().into_raw()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

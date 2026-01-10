@@ -26,6 +26,7 @@ import 'track_header_simple.dart';
 // import 'track_header_reelforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
+import 'clip_widget.dart' show fadeHandleActiveGlobal;
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -366,6 +367,11 @@ class _TimelineState extends State<Timeline> {
   void _handleTimelineClick(TapDownDetails details) {
     // Request focus for keyboard shortcuts (G, H, L, etc.)
     _focusNode.requestFocus();
+
+    // IGNORE click if fade handle is active (prevents playhead jumping)
+    if (fadeHandleActiveGlobal) {
+      return;
+    }
 
     final x = details.localPosition.dx - _headerWidth;
     if (x < 0) return;
@@ -1001,6 +1007,9 @@ class _TimelineState extends State<Timeline> {
                   // Tracks
                   Expanded(
                     child: GestureDetector(
+                      // IMPORTANT: deferToChild allows child widgets (clips, fade handles)
+                      // to handle taps first. Only unhandled taps move the playhead.
+                      behavior: HitTestBehavior.deferToChild,
                       onTapDown: _handleTimelineClick,
                       child: Stack(
                         children: [

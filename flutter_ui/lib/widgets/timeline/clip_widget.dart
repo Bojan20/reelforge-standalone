@@ -16,8 +16,13 @@ import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../editors/clip_fx_editor.dart';
+
 import '../waveform/ultimate_waveform.dart';
 import 'stretch_overlay.dart';
+
+/// Global flag to prevent playhead movement when interacting with fade handles
+/// Set to true when pointer down on fade handle, cleared on pointer up
+bool fadeHandleActiveGlobal = false;
 
 class ClipWidget extends StatefulWidget {
   final TimelineClip clip;
@@ -324,6 +329,11 @@ class _ClipWidgetState extends State<ClipWidget> {
           _showContextMenu(context, details.globalPosition);
         },
         onPanStart: (details) {
+          // IGNORE if fade handle is being dragged
+          if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
+            return;
+          }
+
           // Check for modifier keys for slip edit
           if (HardwareKeyboard.instance.isMetaPressed ||
               HardwareKeyboard.instance.isControlPressed) {
@@ -345,6 +355,11 @@ class _ClipWidgetState extends State<ClipWidget> {
           }
         },
         onPanUpdate: (details) {
+          // IGNORE if fade handle is being dragged
+          if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
+            return;
+          }
+
           final deltaX = details.globalPosition.dx - _dragStartMouseX;
           final deltaY = details.globalPosition.dy - _dragStartMouseY;
           final deltaTime = deltaX / widget.zoom;
@@ -1199,6 +1214,8 @@ class _FadeHandle extends StatefulWidget {
 
 class _FadeHandleState extends State<_FadeHandle> {
   bool _isHovered = false;
+  bool _isDragging = false;
+  double _dragStartX = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -1206,22 +1223,49 @@ class _FadeHandleState extends State<_FadeHandle> {
       left: widget.isLeft ? 0 : null,
       right: widget.isLeft ? null : 0,
       top: 0,
+      bottom: 0,
       width: widget.width,
-      height: double.infinity,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.resizeColumn,
-        child: GestureDetector(
-          onHorizontalDragStart: (_) => widget.onDragStart(),
-          onHorizontalDragUpdate: (details) {
-            // Send delta (pixels moved), not absolute position
-            widget.onDragUpdate(details.delta.dx);
-          },
-          onHorizontalDragEnd: (_) => widget.onDragEnd(),
+      // Listener with opaque behavior + global flag to block playhead movement
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          // Set global flag IMMEDIATELY to block timeline click handler
+          fadeHandleActiveGlobal = true;
+          _isDragging = true;
+          _dragStartX = event.localPosition.dx;
+          widget.onDragStart();
+        },
+        onPointerMove: (event) {
+          if (_isDragging) {
+            final delta = event.localPosition.dx - _dragStartX;
+            _dragStartX = event.localPosition.dx;
+            widget.onDragUpdate(delta);
+          }
+        },
+        onPointerUp: (event) {
+          // Clear global flag
+          fadeHandleActiveGlobal = false;
+          if (_isDragging) {
+            _isDragging = false;
+            widget.onDragEnd();
+          }
+        },
+        onPointerCancel: (event) {
+          // Clear global flag
+          fadeHandleActiveGlobal = false;
+          if (_isDragging) {
+            _isDragging = false;
+            widget.onDragEnd();
+          }
+        },
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.resizeColumn,
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              // Triangular fade overlay (like Logic Pro)
+              // Triangular fade overlay
               Positioned.fill(
                 child: CustomPaint(
                   painter: _FadeTrianglePainter(
@@ -1230,32 +1274,35 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-
-              // Drag handle at top corner (like Cubase)
+              // Drag handle at corner - INSIDE the clip
               Positioned(
-                left: widget.isLeft ? null : 0,
-                right: widget.isLeft ? 0 : null,
+                // Fade IN: handle on LEFT side (inside clip)
+                // Fade OUT: handle on RIGHT side (inside clip)
+                left: widget.isLeft ? 0 : null,
+                right: widget.isLeft ? null : 0,
                 top: 0,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  width: 18,
+                  height: 18,
                   decoration: BoxDecoration(
                     color: (widget.isActive || _isHovered)
                         ? ReelForgeTheme.accentBlue
                         : ReelForgeTheme.textSecondary.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.only(
-                      topLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
-                      topRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
-                      bottomLeft: widget.isLeft ? const Radius.circular(4) : Radius.zero,
-                      bottomRight: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                      topLeft: widget.isLeft ? const Radius.circular(4) : Radius.zero,
+                      topRight: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                      bottomLeft: Radius.zero,
+                      bottomRight: Radius.zero,
                     ),
-                    boxShadow: (widget.isActive || _isHovered) ? [
-                      BoxShadow(
-                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ] : null,
+                    boxShadow: (widget.isActive || _isHovered)
+                        ? [
+                            BoxShadow(
+                              color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Icon(
                     widget.isLeft ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
@@ -1264,33 +1311,42 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-
-              // Fade time label (like Pro Tools)
-              if (_isHovered || widget.isActive)
-                Positioned(
-                  left: widget.isLeft ? 4 : null,
-                  right: widget.isLeft ? null : 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5),
-                      ),
+              // Fade time label - bottom-left for fadeIn, bottom-right for fadeOut
+              Positioned(
+                left: widget.isLeft ? 4 : null,
+                right: widget.isLeft ? null : 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: (_isHovered || widget.isActive)
+                          ? ReelForgeTheme.accentBlue
+                          : ReelForgeTheme.borderSubtle,
                     ),
-                    child: Text(
-                      _formatFadeTime(widget.width),
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontFamily: 'JetBrains Mono',
-                        color: ReelForgeTheme.accentBlue,
-                        fontWeight: FontWeight.w600,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
                       ),
+                    ],
+                  ),
+                  child: Text(
+                    _formatFadeTime(widget.width),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontFamily: 'JetBrains Mono',
+                      color: (_isHovered || widget.isActive)
+                          ? ReelForgeTheme.accentBlue
+                          : Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
+              ),
             ],
           ),
         ),
@@ -1299,7 +1355,6 @@ class _FadeHandleState extends State<_FadeHandle> {
   }
 
   String _formatFadeTime(double width) {
-    // Use actual fade time from widget
     final seconds = widget.fadeTime;
     if (seconds < 0.01) return '0ms';
     if (seconds < 1.0) return '${(seconds * 1000).round()}ms';
@@ -1339,25 +1394,7 @@ class _FadeTrianglePainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
-
-    // Draw fade curve line (like Cubase)
-    final curvePaint = Paint()
-      ..color = isActive
-          ? ReelForgeTheme.accentBlue.withValues(alpha: 0.6)
-          : ReelForgeTheme.textSecondary.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    final curvePath = Path();
-    if (isLeft) {
-      curvePath.moveTo(0, 0);
-      curvePath.lineTo(size.width, size.height);
-    } else {
-      curvePath.moveTo(size.width, 0);
-      curvePath.lineTo(0, size.height);
-    }
-
-    canvas.drawPath(curvePath, curvePaint);
+    // Note: Diagonal fade line removed per user request (was causing X pattern)
   }
 
   @override

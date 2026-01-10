@@ -38,6 +38,7 @@ import '../widgets/meters/pro_metering_panel.dart';
 import '../widgets/meters/advanced_metering_panel.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
+import '../widgets/debug/debug_console.dart';
 import '../widgets/eq/neve1073_eq.dart';
 import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart';
@@ -110,6 +111,9 @@ class EngineConnectedLayout extends StatefulWidget {
 }
 
 class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
+  // Debug console state
+  bool _showDebugConsole = false;
+
   // Zone state
   bool _leftVisible = true;
   bool _rightVisible = true;
@@ -655,6 +659,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     debugPrint('[UI] Added ${poolFile.name} to track ${track.name} at $insertTime');
     _showSnackBar('Added ${poolFile.name} to ${track.name}');
     _updateActiveBuses();
+
+    // Refresh Audio Pool panel to show correct duration
+    triggerAudioPoolRefresh();
   }
 
   /// Create a new track with a clip (used for empty space drops and double-click)
@@ -717,6 +724,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     setState(() {
       _tracks = [..._tracks, newTrack];
       _clips = [..._clips, newClip];
+
+      // Update _audioPool with real duration from engine
+      if (clipInfo != null) {
+        final poolIndex = _audioPool.indexWhere((f) => f.path == poolFile.path);
+        if (poolIndex >= 0) {
+          _audioPool[poolIndex] = _audioPool[poolIndex].copyWith(
+            duration: clipInfo.duration,
+          );
+        }
+      }
     });
 
     // Create mixer channel for the new track (Cubase-style: track = fader)
@@ -726,6 +743,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
     _updateActiveBuses();
+
+    // Refresh Audio Pool panel to show correct duration
+    triggerAudioPoolRefresh();
   }
 
   /// Update engine active buses based on current playhead position and clips
@@ -820,6 +840,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ),
       ];
     });
+
+    // Refresh Audio Pool panel to show newly imported file
+    triggerAudioPoolRefresh();
   }
 
   /// Handle file drop on timeline
@@ -1602,6 +1625,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final ext = fileName.split('.').last.toLowerCase();
     final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
 
+    // Get actual audio metadata from engine (reads header only, very fast)
+    double duration = 0.0;
+    int sampleRate = 48000;
+    int channels = 2;
+
+    final metadataJson = NativeFFI.instance.audioGetMetadata(filePath);
+    if (metadataJson.isNotEmpty) {
+      try {
+        final metadata = jsonDecode(metadataJson);
+        duration = (metadata['duration'] as num?)?.toDouble() ?? 0.0;
+        sampleRate = (metadata['sample_rate'] as num?)?.toInt() ?? 48000;
+        channels = (metadata['channels'] as num?)?.toInt() ?? 2;
+        debugPrint('[UI] Audio metadata: duration=$duration, sampleRate=$sampleRate, channels=$channels');
+      } catch (e) {
+        debugPrint('[UI] Failed to parse audio metadata: $e');
+      }
+    }
+
     // Generate demo waveform (real waveform would come from engine)
     final waveform = timeline.generateDemoWaveform();
 
@@ -1610,9 +1651,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: fileId,
         path: filePath,
         name: fileName,
-        duration: 5.0, // TODO: Get actual duration from engine
-        sampleRate: 48000,
-        channels: 2,
+        duration: duration,
+        sampleRate: sampleRate,
+        channels: channels,
         format: ext,
         waveform: waveform,
         importedAt: DateTime.now(),
@@ -1914,7 +1955,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }
         });
 
-        return Stack(
+        return Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            // Ctrl+Shift+D toggles debug console
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.keyD &&
+                HardwareKeyboard.instance.isControlPressed &&
+                HardwareKeyboard.instance.isShiftPressed) {
+              setState(() => _showDebugConsole = !_showDebugConsole);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Stack(
           children: [
             MainLayout(
           // Control bar - connected to engine
@@ -2118,7 +2172,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ),
         // Floating EQ windows
         ..._buildFloatingEqWindows(metering, transport.isPlaying),
+
+        // Debug Console (toggle with Ctrl+Shift+D)
+        if (_showDebugConsole)
+          Positioned.fill(
+            child: DebugConsole(
+              onClose: () => setState(() => _showDebugConsole = false),
+            ),
+          ),
           ],
+        ),
         );
       },
     );
@@ -6141,6 +6204,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Audio Pool',
         icon: Icons.library_music,
         content: AudioPoolPanel(
+          key: AudioPoolPanelState.globalKey,
           onFileDoubleClick: _handleAudioPoolFileDoubleClick,
         ),
         groupId: 'media',

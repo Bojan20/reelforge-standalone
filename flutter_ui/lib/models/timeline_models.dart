@@ -970,11 +970,9 @@ class PoolAudioFile {
     );
   }
 
-  /// Format duration as MM:SS
+  /// Format duration as seconds with decimals (e.g., "45.47s")
   String get durationFormatted {
-    final mins = (duration / 60).floor();
-    final secs = (duration % 60).floor();
-    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    return '${duration.toStringAsFixed(2)}s';
   }
 
   /// Format file size info

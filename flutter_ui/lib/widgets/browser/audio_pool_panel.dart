@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/reelforge_theme.dart';
+import '../debug/debug_console.dart';
 
 /// Audio file metadata
 class AudioFileInfo {
@@ -44,11 +45,25 @@ class AudioFileInfo {
   });
 
   factory AudioFileInfo.fromJson(Map<String, dynamic> json) {
+    // Extract name from path if not provided
+    final path = json['path']?.toString() ?? '';
+    final name = json['name']?.toString() ??
+        (path.isNotEmpty ? path.split('/').last.split('\\').last : 'Unknown');
+
+    // Parse duration - handle both int and double from JSON
+    final rawDuration = json['duration'];
+    final duration = rawDuration is int
+        ? rawDuration.toDouble()
+        : (rawDuration as num?)?.toDouble() ?? 0.0;
+
+    // Debug log to verify duration parsing
+    debugLog('Parsing: $name, duration=$duration (raw=$rawDuration)', source: 'AudioPool');
+
     return AudioFileInfo(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      path: json['path'] ?? '',
-      duration: (json['duration'] ?? 0).toDouble(),
+      id: json['id']?.toString() ?? '',
+      name: name,
+      path: path,
+      duration: duration,
       sampleRate: json['sample_rate'] ?? 48000,
       channels: json['channels'] ?? 2,
       bitDepth: json['bit_depth'] ?? 24,
@@ -93,6 +108,15 @@ enum AudioPoolFilter {
   missing,
 }
 
+/// Global notifier to trigger audio pool refresh from anywhere
+/// Increment the value to trigger refresh in all listening AudioPoolPanels
+final audioPoolRefreshNotifier = ValueNotifier<int>(0);
+
+/// Call this to refresh all audio pool panels
+void triggerAudioPoolRefresh() {
+  audioPoolRefreshNotifier.value++;
+}
+
 /// Audio Pool Panel Widget
 class AudioPoolPanel extends StatefulWidget {
   final void Function(AudioFileInfo file)? onFileSelected;
@@ -107,10 +131,10 @@ class AudioPoolPanel extends StatefulWidget {
   });
 
   @override
-  State<AudioPoolPanel> createState() => _AudioPoolPanelState();
+  State<AudioPoolPanel> createState() => AudioPoolPanelState();
 }
 
-class _AudioPoolPanelState extends State<AudioPoolPanel> {
+class AudioPoolPanelState extends State<AudioPoolPanel> {
   final _ffi = NativeFFI.instance;
   List<AudioFileInfo> _files = [];
   String _searchQuery = '';
@@ -120,15 +144,38 @@ class _AudioPoolPanelState extends State<AudioPoolPanel> {
   bool _isPlaying = false;
   bool _showPreview = true;
 
+  // Global key for external refresh access
+  static final globalKey = GlobalKey<AudioPoolPanelState>();
+
   @override
   void initState() {
     super.initState();
+    _loadFiles();
+    // Listen for refresh signals
+    audioPoolRefreshNotifier.addListener(_onRefreshSignal);
+  }
+
+  @override
+  void dispose() {
+    audioPoolRefreshNotifier.removeListener(_onRefreshSignal);
+    super.dispose();
+  }
+
+  void _onRefreshSignal() {
+    _loadFiles();
+  }
+
+  /// Public method to refresh the audio pool list
+  void refresh() {
+    debugLog('AudioPoolPanel.refresh() called', source: 'AudioPool');
     _loadFiles();
   }
 
   void _loadFiles() {
     final json = _ffi.audioPoolList();
+    debugLog('AudioPool JSON: $json', source: 'AudioPool');
     final list = jsonDecode(json) as List;
+    debugLog('AudioPool parsed ${list.length} entries', source: 'AudioPool');
     setState(() {
       _files = list.map((e) => AudioFileInfo.fromJson(e)).toList();
     });
