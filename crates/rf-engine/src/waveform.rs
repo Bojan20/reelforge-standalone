@@ -300,6 +300,25 @@ impl WaveformCache {
         self.cache.write().remove(key);
     }
 
+    /// Remove by ClipId (convenience method)
+    pub fn remove(&self, clip_id: crate::track_manager::ClipId) {
+        let key = format!("clip_{}", clip_id.0);
+        self.cache.write().remove(&key);
+    }
+
+    /// Get source path for clip (from cache key pattern)
+    pub fn get_source_path(&self, clip_id: crate::track_manager::ClipId) -> Option<String> {
+        // Try to find a key that matches this clip_id
+        // Keys are typically file paths or clip identifiers
+        let cache = self.cache.read();
+        for key in cache.keys() {
+            if key.contains(&clip_id.0.to_string()) {
+                return Some(key.clone());
+            }
+        }
+        None
+    }
+
     /// Clear entire cache
     pub fn clear(&self) {
         self.cache.write().clear();

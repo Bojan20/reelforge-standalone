@@ -293,7 +293,6 @@ enum ClipFxType {
   pultec,
   api550,
   neve1073,
-  morphEq,
   roomCorrection,
   external,
 }
@@ -325,8 +324,6 @@ String clipFxTypeName(ClipFxType type) {
       return 'API 550';
     case ClipFxType.neve1073:
       return 'Neve 1073';
-    case ClipFxType.morphEq:
-      return 'Morph EQ';
     case ClipFxType.roomCorrection:
       return 'Room Correction';
     case ClipFxType.external:
@@ -356,7 +353,6 @@ IconData clipFxTypeIcon(ClipFxType type) {
     case ClipFxType.pultec:
     case ClipFxType.api550:
     case ClipFxType.neve1073:
-    case ClipFxType.morphEq:
     case ClipFxType.roomCorrection:
       return Icons.equalizer;
     case ClipFxType.external:
@@ -383,7 +379,6 @@ Color clipFxTypeColor(ClipFxType type) {
     case ClipFxType.pultec:
     case ClipFxType.api550:
     case ClipFxType.neve1073:
-    case ClipFxType.morphEq:
     case ClipFxType.roomCorrection:
       return const Color(0xFF51CF66);
     case ClipFxType.external:

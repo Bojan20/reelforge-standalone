@@ -860,7 +860,17 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[id];
     if (channel == null) return;
 
-    _channels[id] = channel.copyWith(armed: !channel.armed);
+    final newArmed = !channel.armed;
+    _channels[id] = channel.copyWith(armed: newArmed);
+
+    // Sync with recording system via FFI
+    final trackId = int.tryParse(id) ?? 0;
+    if (newArmed) {
+      recordingArmTrack(trackId);
+    } else {
+      recordingDisarmTrack(trackId);
+    }
+
     notifyListeners();
   }
 

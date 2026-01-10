@@ -5,8 +5,14 @@
 //! - True peak limiting with oversampling
 //! - Program-dependent attack/release
 //! - Soft-knee compression
+//! - SIMD-optimized envelope following (AVX2/AVX-512)
 
 use rf_core::Sample;
+
+#[cfg(target_arch = "x86_64")]
+use std::simd::{f64x4, f64x8};
+#[cfg(target_arch = "x86_64")]
+use std::simd::prelude::SimdFloat;
 
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
@@ -51,6 +57,105 @@ impl EnvelopeFollower {
         };
         self.envelope = abs_input + coeff * (self.envelope - abs_input);
         self.envelope
+    }
+
+    /// Process block with SIMD optimization (4 samples at once)
+    #[cfg(target_arch = "x86_64")]
+    pub fn process_block_simd4(&mut self, input: &[Sample], output: &mut [f64]) {
+        assert_eq!(input.len(), output.len());
+
+        let len = input.len();
+        let simd_len = len - (len % 4);
+
+        let attack_simd = f64x4::splat(self.attack_coeff);
+        let release_simd = f64x4::splat(self.release_coeff);
+        let mut envelope_simd = f64x4::splat(self.envelope);
+
+        // Process 4 samples at a time
+        for i in (0..simd_len).step_by(4) {
+            let input_simd = f64x4::from_slice(&input[i..]);
+            let abs_input = input_simd.abs();
+
+            // Select attack or release coefficient per lane
+            let mask = abs_input.simd_gt(envelope_simd);
+            let coeff = mask.select(attack_simd, release_simd);
+
+            // Envelope smoothing: env = abs + coeff * (env - abs)
+            envelope_simd = abs_input + coeff * (envelope_simd - abs_input);
+
+            // Store result
+            output[i..i + 4].copy_from_slice(&envelope_simd.to_array());
+        }
+
+        // Update scalar state from last SIMD lane
+        self.envelope = envelope_simd[3];
+
+        // Process remaining samples (0-3) with scalar
+        for i in simd_len..len {
+            output[i] = self.process(input[i]);
+        }
+    }
+
+    /// Process block with AVX-512 SIMD optimization (8 samples at once)
+    #[cfg(target_arch = "x86_64")]
+    pub fn process_block_simd8(&mut self, input: &[Sample], output: &mut [f64]) {
+        assert_eq!(input.len(), output.len());
+
+        let len = input.len();
+        let simd_len = len - (len % 8);
+
+        let attack_simd = f64x8::splat(self.attack_coeff);
+        let release_simd = f64x8::splat(self.release_coeff);
+        let mut envelope_simd = f64x8::splat(self.envelope);
+
+        // Process 8 samples at a time
+        for i in (0..simd_len).step_by(8) {
+            let input_simd = f64x8::from_slice(&input[i..]);
+            let abs_input = input_simd.abs();
+
+            // Select attack or release coefficient per lane
+            let mask = abs_input.simd_gt(envelope_simd);
+            let coeff = mask.select(attack_simd, release_simd);
+
+            // Envelope smoothing: env = abs + coeff * (env - abs)
+            envelope_simd = abs_input + coeff * (envelope_simd - abs_input);
+
+            // Store result
+            output[i..i + 8].copy_from_slice(&envelope_simd.to_array());
+        }
+
+        // Update scalar state from last SIMD lane
+        self.envelope = envelope_simd[7];
+
+        // Process remaining samples (0-7) with scalar
+        for i in simd_len..len {
+            output[i] = self.process(input[i]);
+        }
+    }
+
+    /// Process block with runtime SIMD dispatch
+    pub fn process_block(&mut self, input: &[Sample], output: &mut [f64]) {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx512f") {
+                self.process_block_simd8(input, output);
+            } else if is_x86_feature_detected!("avx2") {
+                self.process_block_simd4(input, output);
+            } else {
+                self.process_block_scalar(input, output);
+            }
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            self.process_block_scalar(input, output);
+        }
+    }
+
+    /// Scalar fallback for block processing
+    fn process_block_scalar(&mut self, input: &[Sample], output: &mut [f64]) {
+        for (i, &sample) in input.iter().enumerate() {
+            output[i] = self.process(sample);
+        }
     }
 
     pub fn reset(&mut self) {
@@ -1075,5 +1180,81 @@ mod tests {
         // Both channels should have same gain reduction when linked
         let (gr_l, gr_r) = comp.gain_reduction_db();
         assert!((gr_l - gr_r).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_envelope_simd_vs_scalar() {
+        let mut envelope_scalar = EnvelopeFollower::new(48000.0);
+        envelope_scalar.set_times(10.0, 100.0);
+
+        let mut envelope_simd = EnvelopeFollower::new(48000.0);
+        envelope_simd.set_times(10.0, 100.0);
+
+        // Generate test signal (sine wave with attack/release)
+        let input: Vec<f64> = (0..1024)
+            .map(|i| (i as f64 * 0.01).sin() * 0.5)
+            .collect();
+
+        // Process with scalar
+        let mut output_scalar = vec![0.0; 1024];
+        for (i, &sample) in input.iter().enumerate() {
+            output_scalar[i] = envelope_scalar.process(sample);
+        }
+
+        // Process with SIMD
+        envelope_simd.reset();
+        let mut output_simd = vec![0.0; 1024];
+        envelope_simd.process_block(&input, &mut output_simd);
+
+        // Compare results (should be nearly identical)
+        for (i, (&scalar, &simd)) in output_scalar.iter().zip(output_simd.iter()).enumerate() {
+            assert!(
+                (scalar - simd).abs() < 1e-10,
+                "Mismatch at sample {}: scalar={}, simd={}",
+                i,
+                scalar,
+                simd
+            );
+        }
+    }
+
+    #[test]
+    fn test_envelope_simd_performance() {
+        let mut envelope = EnvelopeFollower::new(48000.0);
+        envelope.set_times(5.0, 50.0);
+
+        // Large block for performance testing
+        let input: Vec<f64> = (0..8192)
+            .map(|i| (i as f64 * 0.001).sin())
+            .collect();
+        let mut output = vec![0.0; 8192];
+
+        // Process block (should use SIMD on x86_64)
+        envelope.process_block(&input, &mut output);
+
+        // Verify envelope is computed
+        assert!(output.iter().all(|&x| x.is_finite()));
+        assert!(output.iter().any(|&x| x > 0.0));
+    }
+
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn test_envelope_avx512() {
+        if !is_x86_feature_detected!("avx512f") {
+            println!("AVX-512 not available, skipping test");
+            return;
+        }
+
+        let mut envelope = EnvelopeFollower::new(48000.0);
+        envelope.set_times(10.0, 100.0);
+
+        let input: Vec<f64> = (0..1024)
+            .map(|i| (i as f64 * 0.01).sin())
+            .collect();
+        let mut output = vec![0.0; 1024];
+
+        envelope.process_block_simd8(&input, &mut output);
+
+        assert!(output.iter().all(|&x| x.is_finite()));
     }
 }

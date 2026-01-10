@@ -34,6 +34,8 @@ mod fx_container;
 // Phase 4: Timeline & Track Management
 pub mod audio_import;
 pub mod ffi;
+pub mod ffi_routing;
+pub mod ffi_control_room;
 pub mod playback;
 pub mod track_manager;
 pub mod waveform;
@@ -52,9 +54,16 @@ pub mod dsp_wrappers;
 
 // Phase 8: Automation Engine
 pub mod automation;
+pub mod param_smoother;
 
 // Phase 10: Recording
 pub mod recording_manager;
+
+// Phase 11: Input Bus System
+pub mod input_bus;
+
+// Phase 12: Audio Export
+pub mod export;
 
 // Re-exports: Core
 pub use bus::*;
@@ -154,7 +163,7 @@ pub use link::{LinkBeat, LinkConfig, LinkEvent, LinkHost, LinkSession, LinkState
 
 // Re-exports: Phase 7 - DSP Wrappers
 pub use dsp_wrappers::{
-    Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper, MorphEqWrapper,
+    Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper,
     Neve1073Wrapper, ProEqWrapper, PultecWrapper, RoomCorrectionWrapper, TruePeakLimiterWrapper,
     UltraEqWrapper, available_processors, create_processor, create_processor_extended,
 };
@@ -172,6 +181,12 @@ pub use control_room::{
 
 // Re-exports: Phase 10 - Recording
 pub use recording_manager::RecordingManager;
+
+// Re-exports: Phase 11 - Input Bus System
+pub use input_bus::{InputBus, InputBusConfig, InputBusId, InputBusManager, MonitorMode};
+
+// Re-exports: Phase 12 - Audio Export
+pub use export::{ExportConfig, ExportEngine, ExportError, ExportFormat};
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;

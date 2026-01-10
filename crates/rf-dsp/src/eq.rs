@@ -11,6 +11,7 @@ use rf_core::Sample;
 use std::f64::consts::PI;
 
 use crate::biquad::{BiquadCoeffs, BiquadTDF2};
+use crate::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
 /// Maximum number of EQ bands
@@ -142,6 +143,9 @@ impl Default for DynamicEqParams {
     }
 }
 
+/// Maximum biquad stages (for Db96 slope)
+const MAX_FILTER_STAGES: usize = 8;
+
 /// Single EQ band
 #[derive(Debug, Clone)]
 pub struct EqBand {
@@ -155,9 +159,10 @@ pub struct EqBand {
     pub stereo_mode: StereoMode,
     pub dynamic: DynamicEqParams,
 
-    // Processing state - cascaded biquads for steep slopes
-    filters_l: Vec<BiquadTDF2>,
-    filters_r: Vec<BiquadTDF2>,
+    // Processing state - fixed-size array (no heap allocation)
+    filters_l: [BiquadTDF2; MAX_FILTER_STAGES],
+    filters_r: [BiquadTDF2; MAX_FILTER_STAGES],
+    active_stages: usize, // Number of stages currently in use
 
     // Dynamic EQ state
     envelope: f64,
@@ -178,6 +183,20 @@ impl EqBand {
         } else {
             DEFAULT_SAMPLE_RATE
         };
+
+        // Pre-allocate all filter stages (no heap allocation later)
+        let filters_l = [
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+            BiquadTDF2::new(sr),
+        ];
+        let filters_r = filters_l.clone();
+
         Self {
             enabled: false,
             filter_type: EqFilterType::Bell,
@@ -187,8 +206,9 @@ impl EqBand {
             slope: FilterSlope::Db12,
             stereo_mode: StereoMode::Stereo,
             dynamic: DynamicEqParams::default(),
-            filters_l: vec![BiquadTDF2::new(sr)],
-            filters_r: vec![BiquadTDF2::new(sr)],
+            filters_l,
+            filters_r,
+            active_stages: 1, // Start with 1 stage
             envelope: 0.0,
             sample_rate: sr,
             needs_update: true,
@@ -215,15 +235,8 @@ impl EqBand {
             _ => 1,
         };
 
-        // Ensure we have the right number of filter stages
-        while self.filters_l.len() < stages {
-            self.filters_l.push(BiquadTDF2::new(self.sample_rate));
-            self.filters_r.push(BiquadTDF2::new(self.sample_rate));
-        }
-        while self.filters_l.len() > stages {
-            self.filters_l.pop();
-            self.filters_r.pop();
-        }
+        // Update active stages count (no heap allocation)
+        self.active_stages = stages.min(MAX_FILTER_STAGES);
 
         match self.filter_type {
             EqFilterType::Bell => {
@@ -252,7 +265,7 @@ impl EqBand {
                 let qs = self.slope.butterworth_qs();
                 for (i, &q) in qs.iter().enumerate() {
                     let coeffs = BiquadCoeffs::highpass(self.frequency, q, self.sample_rate);
-                    if i < self.filters_l.len() {
+                    if i < self.active_stages {
                         self.filters_l[i].set_coeffs(coeffs);
                         self.filters_r[i].set_coeffs(coeffs);
                     }
@@ -262,7 +275,7 @@ impl EqBand {
                 let qs = self.slope.butterworth_qs();
                 for (i, &q) in qs.iter().enumerate() {
                     let coeffs = BiquadCoeffs::lowpass(self.frequency, q, self.sample_rate);
-                    if i < self.filters_l.len() {
+                    if i < self.active_stages {
                         self.filters_l[i].set_coeffs(coeffs);
                         self.filters_r[i].set_coeffs(coeffs);
                     }
@@ -315,30 +328,28 @@ impl EqBand {
             1.0
         };
 
-        // Process based on stereo mode
+        // Process based on stereo mode (only process active stages)
         match self.stereo_mode {
             StereoMode::Stereo => {
                 let mut out_l = left;
                 let mut out_r = right;
-                for filter in &mut self.filters_l {
-                    out_l = filter.process_sample(out_l);
-                }
-                for filter in &mut self.filters_r {
-                    out_r = filter.process_sample(out_r);
+                for i in 0..self.active_stages {
+                    out_l = self.filters_l[i].process_sample(out_l);
+                    out_r = self.filters_r[i].process_sample(out_r);
                 }
                 (out_l * dynamic_gain, out_r * dynamic_gain)
             }
             StereoMode::Left => {
                 let mut out_l = left;
-                for filter in &mut self.filters_l {
-                    out_l = filter.process_sample(out_l);
+                for i in 0..self.active_stages {
+                    out_l = self.filters_l[i].process_sample(out_l);
                 }
                 (out_l * dynamic_gain, right)
             }
             StereoMode::Right => {
                 let mut out_r = right;
-                for filter in &mut self.filters_r {
-                    out_r = filter.process_sample(out_r);
+                for i in 0..self.active_stages {
+                    out_r = self.filters_r[i].process_sample(out_r);
                 }
                 (left, out_r * dynamic_gain)
             }
@@ -349,8 +360,8 @@ impl EqBand {
 
                 // Process mid
                 let mut out_mid = mid;
-                for filter in &mut self.filters_l {
-                    out_mid = filter.process_sample(out_mid);
+                for i in 0..self.active_stages {
+                    out_mid = self.filters_l[i].process_sample(out_mid);
                 }
                 out_mid *= dynamic_gain;
 
@@ -364,8 +375,8 @@ impl EqBand {
 
                 // Process side
                 let mut out_side = side;
-                for filter in &mut self.filters_l {
-                    out_side = filter.process_sample(out_side);
+                for i in 0..self.active_stages {
+                    out_side = self.filters_l[i].process_sample(out_side);
                 }
                 out_side *= dynamic_gain;
 
@@ -417,6 +428,79 @@ impl EqBand {
 
         // Convert to linear gain
         10.0_f64.powf(-gain_reduction_db / 20.0)
+    }
+
+    /// Process stereo block (SIMD-optimized)
+    pub fn process_block_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        debug_assert_eq!(left.len(), right.len());
+
+        if !self.enabled {
+            return;
+        }
+
+        // Update coefficients if needed
+        if self.needs_update {
+            self.update_coeffs();
+        }
+
+        // Dynamic EQ: Calculate gain for entire block (simplified - using first sample)
+        let dynamic_gain = if self.dynamic.enabled && !left.is_empty() {
+            self.calculate_dynamic_gain(left[0], right[0])
+        } else {
+            1.0
+        };
+
+        // Process based on stereo mode
+        match self.stereo_mode {
+            StereoMode::Stereo => {
+                // Optimized: Process all stages sample-by-sample (better cache locality)
+                // Instead of: band1.process_all() then band2.process_all()
+                // Do: for each sample: process through all bands
+                for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+                    let mut out_l = *l;
+                    let mut out_r = *r;
+
+                    for i in 0..self.active_stages {
+                        out_l = self.filters_l[i].process_sample(out_l);
+                        out_r = self.filters_r[i].process_sample(out_r);
+                    }
+
+                    *l = out_l * dynamic_gain;
+                    *r = out_r * dynamic_gain;
+                }
+            }
+            StereoMode::Left => {
+                // Only process left channel
+                for i in 0..self.active_stages {
+                    self.filters_l[i].process_block(left);
+                }
+
+                if (dynamic_gain - 1.0).abs() > 1e-10 {
+                    for l in left.iter_mut() {
+                        *l *= dynamic_gain;
+                    }
+                }
+            }
+            StereoMode::Right => {
+                // Only process right channel
+                for i in 0..self.active_stages {
+                    self.filters_r[i].process_block(right);
+                }
+
+                if (dynamic_gain - 1.0).abs() > 1e-10 {
+                    for r in right.iter_mut() {
+                        *r *= dynamic_gain;
+                    }
+                }
+            }
+            StereoMode::Mid | StereoMode::Side => {
+                // M/S processing requires sample-by-sample (can't vectorize efficiently)
+                // Fall back to scalar processing
+                for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+                    (*l, *r) = self.process(*l, *r);
+                }
+            }
+        }
     }
 
     /// Reset filter state
@@ -483,7 +567,6 @@ fn biquad_frequency_response(coeffs: &BiquadCoeffs, freq: f64, sample_rate: f64)
 }
 
 /// 64-Band Parametric EQ
-#[derive(Debug)]
 pub struct ParametricEq {
     bands: Vec<EqBand>,
     sample_rate: f64,
@@ -494,7 +577,8 @@ pub struct ParametricEq {
     pub output_gain_db: f64,
 
     // Linear phase processing (when enabled)
-    linear_phase_latency: usize,
+    linear_phase_eq: Option<LinearPhaseEQ>,
+    linear_phase_dirty: bool,
 
     // Auto-gain state
     input_loudness: f64,
@@ -517,9 +601,84 @@ impl ParametricEq {
             auto_gain: false,
             phase_mode: PhaseMode::Minimum,
             output_gain_db: 0.0,
-            linear_phase_latency: 0,
+            linear_phase_eq: None,
+            linear_phase_dirty: false,
             input_loudness: 0.0,
             output_loudness: 0.0,
+        }
+    }
+
+    /// Set phase mode (Minimum, Linear, or Hybrid)
+    pub fn set_phase_mode(&mut self, mode: PhaseMode) {
+        if self.phase_mode != mode {
+            self.phase_mode = mode;
+
+            match mode {
+                PhaseMode::Linear | PhaseMode::Hybrid { .. } => {
+                    // Initialize linear phase EQ if needed
+                    if self.linear_phase_eq.is_none() {
+                        self.linear_phase_eq = Some(LinearPhaseEQ::new(self.sample_rate));
+                    }
+                    self.sync_linear_phase_bands();
+                }
+                PhaseMode::Minimum => {
+                    // Keep linear_phase_eq allocated for fast switching
+                }
+            }
+        }
+    }
+
+    /// Sync enabled bands to linear phase EQ
+    fn sync_linear_phase_bands(&mut self) {
+        if let Some(ref mut linear_eq) = self.linear_phase_eq {
+            // Clear existing bands
+            while linear_eq.band_count() > 0 {
+                linear_eq.remove_band(0);
+            }
+
+            // Add all enabled bands
+            for band in &self.bands {
+                if band.enabled {
+                    let linear_band = Self::convert_to_linear_phase_band(band);
+                    linear_eq.add_band(linear_band);
+                }
+            }
+            self.linear_phase_dirty = false;
+        }
+    }
+
+    /// Convert EqBand to LinearPhaseBand
+    fn convert_to_linear_phase_band(band: &EqBand) -> LinearPhaseBand {
+        let filter_type = match band.filter_type {
+            EqFilterType::Bell => LinearPhaseFilterType::Bell,
+            EqFilterType::LowShelf => LinearPhaseFilterType::LowShelf,
+            EqFilterType::HighShelf => LinearPhaseFilterType::HighShelf,
+            EqFilterType::LowCut => LinearPhaseFilterType::LowCut,
+            EqFilterType::HighCut => LinearPhaseFilterType::HighCut,
+            EqFilterType::Notch => LinearPhaseFilterType::Notch,
+            EqFilterType::Bandpass => LinearPhaseFilterType::BandPass,
+            EqFilterType::TiltShelf => LinearPhaseFilterType::Tilt,
+            EqFilterType::Allpass => LinearPhaseFilterType::Bell, // Allpass doesn't make sense for linear phase
+        };
+
+        let slope = match band.slope {
+            FilterSlope::Db6 => 6.0,
+            FilterSlope::Db12 => 12.0,
+            FilterSlope::Db18 => 18.0,
+            FilterSlope::Db24 => 24.0,
+            FilterSlope::Db36 => 36.0,
+            FilterSlope::Db48 => 48.0,
+            FilterSlope::Db72 => 72.0,
+            FilterSlope::Db96 => 96.0,
+        };
+
+        LinearPhaseBand {
+            filter_type,
+            frequency: band.frequency,
+            gain: band.gain_db,
+            q: band.q,
+            slope,
+            enabled: band.enabled,
         }
     }
 
@@ -546,6 +705,7 @@ impl ParametricEq {
     pub fn enable_band(&mut self, index: usize, enabled: bool) {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = enabled;
+            self.linear_phase_dirty = true;
         }
     }
 
@@ -561,6 +721,7 @@ impl ParametricEq {
         if let Some(band) = self.bands.get_mut(index) {
             band.enabled = true;
             band.set_params(freq, gain_db, q, filter_type);
+            self.linear_phase_dirty = true;
         }
     }
 
@@ -569,6 +730,7 @@ impl ParametricEq {
         if let Some(band) = self.bands.get_mut(index) {
             band.slope = slope;
             band.needs_update = true;
+            self.linear_phase_dirty = true;
         }
     }
 
@@ -641,11 +803,13 @@ impl ParametricEq {
         // Pre-compute output gain (moved outside loop - was computing pow() every sample!)
         let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
 
-        // Process each sample
+        // Optimized: Process all bands sample-by-sample (better cache locality)
+        // This avoids repeated buffer traversals and keeps filter state hot in L1 cache
         for (l, r) in left.iter_mut().zip(right.iter_mut()) {
-            // Process through all enabled bands
-            let (mut out_l, mut out_r) = (*l, *r);
+            let mut out_l = *l;
+            let mut out_r = *r;
 
+            // Process through all enabled bands
             for band in &mut self.bands {
                 if band.enabled {
                     (out_l, out_r) = band.process(out_l, out_r);
@@ -664,31 +828,108 @@ impl Processor for ParametricEq {
         for band in &mut self.bands {
             band.reset();
         }
+        if let Some(ref mut linear_eq) = self.linear_phase_eq {
+            linear_eq.reset();
+        }
         self.input_loudness = 0.0;
         self.output_loudness = 0.0;
     }
 
     fn latency(&self) -> usize {
         match self.phase_mode {
-            PhaseMode::Linear => self.linear_phase_latency,
-            _ => 0,
+            PhaseMode::Linear => {
+                // Linear phase EQ latency comes from the FIR filter
+                if let Some(ref linear_eq) = self.linear_phase_eq {
+                    linear_eq.latency()
+                } else {
+                    0
+                }
+            }
+            PhaseMode::Hybrid { blend } => {
+                // Hybrid mode: latency only when blend > 0
+                if blend > 0.0 {
+                    if let Some(ref linear_eq) = self.linear_phase_eq {
+                        linear_eq.latency()
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            }
+            PhaseMode::Minimum => 0,
         }
     }
 }
 
 impl StereoProcessor for ParametricEq {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
-        let mut out_l = left;
-        let mut out_r = right;
+        let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
 
-        for band in &mut self.bands {
-            if band.enabled {
-                (out_l, out_r) = band.process(out_l, out_r);
+        match self.phase_mode {
+            PhaseMode::Minimum => {
+                // Minimum phase: use IIR biquad filters (zero latency)
+                let mut out_l = left;
+                let mut out_r = right;
+
+                for band in &mut self.bands {
+                    if band.enabled {
+                        (out_l, out_r) = band.process(out_l, out_r);
+                    }
+                }
+
+                (out_l * gain, out_r * gain)
+            }
+            PhaseMode::Linear => {
+                // Linear phase: use FIR convolution (adds latency)
+                // Sync bands if dirty
+                if self.linear_phase_dirty {
+                    self.sync_linear_phase_bands();
+                }
+
+                if let Some(ref mut linear_eq) = self.linear_phase_eq {
+                    use crate::StereoProcessor as SP;
+                    let (out_l, out_r) = SP::process_sample(linear_eq, left, right);
+                    (out_l * gain, out_r * gain)
+                } else {
+                    // Fallback if linear EQ not initialized
+                    (left * gain, right * gain)
+                }
+            }
+            PhaseMode::Hybrid { blend } => {
+                // Hybrid: blend between minimum and linear phase
+                // This requires delay compensation for proper mixing
+                if self.linear_phase_dirty {
+                    self.sync_linear_phase_bands();
+                }
+
+                // Process minimum phase
+                let mut min_l = left;
+                let mut min_r = right;
+                for band in &mut self.bands {
+                    if band.enabled {
+                        (min_l, min_r) = band.process(min_l, min_r);
+                    }
+                }
+
+                // Process linear phase
+                let (lin_l, lin_r) = if let Some(ref mut linear_eq) = self.linear_phase_eq {
+                    use crate::StereoProcessor as SP;
+                    SP::process_sample(linear_eq, left, right)
+                } else {
+                    (left, right)
+                };
+
+                // Blend (note: minimum phase output is instant, linear is delayed)
+                // For proper hybrid, we'd need a delay line for minimum phase
+                // This is a simplified blend that works best at mix extremes
+                let blend_f64 = blend as f64;
+                let out_l = min_l * (1.0 - blend_f64) + lin_l * blend_f64;
+                let out_r = min_r * (1.0 - blend_f64) + lin_r * blend_f64;
+
+                (out_l * gain, out_r * gain)
             }
         }
-
-        let gain = 10.0_f64.powf(self.output_gain_db / 20.0);
-        (out_l * gain, out_r * gain)
     }
 }
 
@@ -704,6 +945,13 @@ impl ProcessorConfig for ParametricEq {
             for filter in &mut band.filters_r {
                 filter.set_sample_rate(sample_rate);
             }
+        }
+
+        // Update linear phase EQ sample rate
+        if let Some(ref mut linear_eq) = self.linear_phase_eq {
+            use crate::ProcessorConfig as PC;
+            PC::set_sample_rate(linear_eq, sample_rate);
+            self.linear_phase_dirty = true;
         }
     }
 }
@@ -781,5 +1029,64 @@ mod tests {
 
         // Dynamic gain should have kicked in
         // (exact behavior depends on input level)
+    }
+
+    #[test]
+    fn test_linear_phase_mode() {
+        let mut eq = ParametricEq::new(48000.0);
+
+        // Set up bands in minimum phase mode first
+        eq.set_band(0, 100.0, 6.0, 1.0, EqFilterType::Bell);
+        eq.set_band(1, 1000.0, -3.0, 2.0, EqFilterType::Bell);
+
+        // Switch to linear phase mode
+        eq.set_phase_mode(PhaseMode::Linear);
+
+        // Verify latency is reported
+        let latency = eq.latency();
+        assert!(latency > 0, "Linear phase should report latency");
+
+        // Process some samples
+        for _ in 0..10000 {
+            let _ = eq.process_sample(0.5, 0.5);
+        }
+    }
+
+    #[test]
+    fn test_hybrid_phase_mode() {
+        let mut eq = ParametricEq::new(48000.0);
+
+        // Set up bands
+        eq.set_band(0, 500.0, 4.0, 1.0, EqFilterType::Bell);
+
+        // Switch to hybrid mode (50% blend)
+        eq.set_phase_mode(PhaseMode::Hybrid { blend: 0.5 });
+
+        // Process samples
+        for _ in 0..10000 {
+            let _ = eq.process_sample(0.5, 0.5);
+        }
+    }
+
+    #[test]
+    fn test_phase_mode_switching() {
+        let mut eq = ParametricEq::new(48000.0);
+        eq.set_band(0, 1000.0, 3.0, 1.0, EqFilterType::Bell);
+
+        // Start in minimum phase
+        assert_eq!(eq.latency(), 0);
+
+        // Switch to linear
+        eq.set_phase_mode(PhaseMode::Linear);
+        assert!(eq.latency() > 0);
+
+        // Switch back to minimum
+        eq.set_phase_mode(PhaseMode::Minimum);
+        assert_eq!(eq.latency(), 0);
+
+        // Process should still work
+        let (l, r) = eq.process_sample(0.5, 0.5);
+        assert!(l.is_finite());
+        assert!(r.is_finite());
     }
 }

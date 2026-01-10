@@ -79,10 +79,8 @@ pub mod eq_ultra;
 
 // Advanced EQ modules
 pub mod eq_analog; // Pultec, API, Neve emulations
-pub mod eq_minimum_phase; // Hilbert transform, zero-latency
-pub mod eq_morph;
 pub mod eq_room; // Room correction, target curves
-pub mod eq_stereo; // Bass mono, M/S, per-band stereo // Preset interpolation
+pub mod eq_stereo; // Bass mono, M/S, per-band stereo
 
 // Audio analysis & manipulation
 pub mod elastic;
@@ -134,12 +132,6 @@ pub use eq_analog::{
     StereoApi550, StereoNeve1073, StereoPultec, TubeSaturation,
 };
 
-// Re-export Minimum Phase EQ
-pub use eq_minimum_phase::{
-    HilbertTransform, LinearToMinPhase, MIN_PHASE_MAX_BANDS, MinPhaseEq, MinPhaseEqBand,
-    MinPhaseFilterType, MinimumPhaseReconstructor,
-};
-
 // Re-export Stereo EQ
 pub use eq_stereo::{
     BassMono, CrossoverSlope, STEREO_EQ_MAX_BANDS, StereoCorrector, StereoEq, StereoEqBand,
@@ -148,9 +140,6 @@ pub use eq_stereo::{
 
 // Re-export Room Correction
 pub use eq_room::{RoomCorrectionEq, RoomMeasurement, RoomMode, RoomModeType, TargetCurve};
-
-// Re-export Morphing EQ
-pub use eq_morph::{BandSnapshot, EqPreset, MorphFilterType, MorphingEq, PRESET_MAX_BANDS};
 
 // Re-export Wavelet/CQT analysis
 pub use wavelet::{
@@ -170,6 +159,12 @@ pub use metering::{
     BalanceMeter, BroadcastMeter, CorrelationMeter as StereoCorrelationMeter, DynamicRangeMeter,
     KMeter, KSystem, LufsMeter, PhasePoint, PhaseScope, PpmMeter, PpmType, StereoMeter,
     StereoPpmMeter, TruePeakMeter, VuMeter,
+};
+
+// Re-export SIMD-optimized metering (8x True Peak, PSR, vectorized RMS)
+pub use metering_simd::{
+    TruePeak8x, PsrMeter, CrestFactorMeter,
+    calculate_rms_simd, find_peak_simd, calculate_correlation_simd,
 };
 
 // Re-exports for convenience

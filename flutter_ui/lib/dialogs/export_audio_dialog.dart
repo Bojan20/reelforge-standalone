@@ -12,7 +12,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/reelforge_theme.dart';
-// TODO: import '../src/rust/engine_api.dart' as api;
+import '../src/rust/engine_api.dart' as api;
 
 /// Export format options
 enum ExportFormat { wav, flac, mp3, aac, ogg }
@@ -171,25 +171,43 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
     });
 
     try {
-      // TODO: Call Rust API
-      // final config = api.ExportConfig(
-      //   outputPath: _outputPath,
-      //   format: _format.index,
-      //   sampleRate: _sampleRate,
-      //   bitDepth: _bitDepth,
-      //   channels: 2,
-      //   normalize: _normalize,
-      //   normalizeTargetDb: _normalizeTarget,
-      //   dither: _dither.index,
-      //   startSec: _exportWholeProject ? 0 : _startSec,
-      //   endSec: _exportWholeProject ? 0 : _endSec,
-      //   includeMasterFx: _includeMasterFx,
-      //   realTime: _realTime,
-      // );
-      // await api.exportStart(config);
+      // Map format to Rust enum (0=Wav16, 1=Wav24, 2=Wav32Float)
+      int rustFormat;
+      if (_format == ExportFormat.wav) {
+        if (_bitDepth == 16) {
+          rustFormat = 0; // Wav16
+        } else if (_bitDepth == 24) {
+          rustFormat = 1; // Wav24
+        } else {
+          rustFormat = 2; // Wav32Float
+        }
+      } else {
+        // For now, only WAV is supported in Rust
+        rustFormat = 1; // Default to Wav24
+      }
 
-      // Simulate export for now
-      await Future.delayed(const Duration(seconds: 5));
+      final startTime = _exportWholeProject ? 0.0 : _startSec;
+      final endTime = _exportWholeProject ? widget.projectDuration : _endSec;
+
+      // Call Rust export API
+      final success = api.exportAudio(
+        _outputPath,
+        rustFormat,
+        _sampleRate,
+        startTime,
+        endTime,
+        normalize: _normalize,
+      );
+
+      if (!success) {
+        throw Exception('Export failed to start');
+      }
+
+      // Wait for export to complete
+      while (api.exportIsExporting()) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (!mounted) break;
+      }
 
       if (mounted) {
         _progressTimer?.cancel();
@@ -209,22 +227,19 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   }
 
   void _updateProgress() {
-    // TODO: Poll from Rust
-    // final progress = api.exportGetProgress();
-    // setState(() {
-    //   _progress = progress.progress;
-    //   _phase = progress.phase;
-    // });
+    // Poll progress from Rust (0.0 - 100.0)
+    final progressPercent = api.exportGetProgress();
 
-    // Simulate progress
     setState(() {
-      _progress = (_progress + 0.02).clamp(0, 1);
+      _progress = (progressPercent / 100.0).clamp(0.0, 1.0);
+
+      // Update phase based on progress
       if (_progress < 0.8) {
         _phase = 'Rendering';
-      } else if (_progress < 0.95) {
+      } else if (_progress < 0.95 && _normalize) {
         _phase = 'Normalizing';
       } else {
-        _phase = 'Encoding';
+        _phase = 'Writing';
       }
     });
   }

@@ -24,6 +24,9 @@ import 'providers/project_history_provider.dart';
 import 'providers/auto_save_provider.dart';
 import 'providers/audio_export_provider.dart';
 import 'providers/session_persistence_provider.dart';
+import 'providers/input_bus_provider.dart';
+import 'providers/recording_provider.dart';
+import 'providers/routing_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,6 +72,15 @@ class ReelForgeApp extends StatelessWidget {
 
         // Session persistence
         ChangeNotifierProvider(create: (_) => SessionPersistenceProvider()),
+
+        // Input Bus System
+        ChangeNotifierProvider(create: (_) => InputBusProvider()),
+
+        // Recording System
+        ChangeNotifierProvider(create: (_) => RecordingProvider()),
+
+        // Unified Routing System
+        ChangeNotifierProvider(create: (_) => RoutingProvider()),
       ],
       child: MaterialApp(
         title: 'ReelForge',

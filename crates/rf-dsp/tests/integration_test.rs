@@ -8,7 +8,8 @@
 //! - Phase coherence
 //! - Latency compensation
 
-use rf_dsp::analysis::{LufsMeter, PeakMeter, RmsMeter};
+use rf_dsp::analysis::{PeakMeter, RmsMeter};
+use rf_dsp::LufsMeter; // Now from metering.rs
 use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::channel::ChannelStrip;
 use rf_dsp::delay::Delay;
@@ -525,10 +526,11 @@ fn test_lufs_meter_silence() {
     let mut lufs = LufsMeter::new(SAMPLE_RATE);
 
     // Silence should result in very low LUFS
-    let input = vec![0.0; BLOCK_SIZE * 100];
-    lufs.process_block(&input);
+    let input_l = vec![0.0; BLOCK_SIZE * 100];
+    let input_r = vec![0.0; BLOCK_SIZE * 100];
+    lufs.process_block(&input_l, &input_r);
 
-    let measured = lufs.integrated();
+    let measured = lufs.integrated_loudness();
     assert!(
         measured < -70.0,
         "Silence should be very quiet: {} LUFS",

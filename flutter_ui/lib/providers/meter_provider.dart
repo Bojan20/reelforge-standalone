@@ -126,6 +126,8 @@ class MeterProvider extends ChangeNotifier {
   bool _isActive = true;
   bool _isPlaying = false;
   DateTime _lastMeteringUpdate = DateTime.now();
+  DateTime? _lastNotify; // Throttling for notifyListeners()
+  static const _throttleMs = 33; // 30fps max update rate
 
   // Master meter state (from engine)
   MeterState _masterState = MeterState.zero;
@@ -137,6 +139,17 @@ class MeterProvider extends ChangeNotifier {
     _subscribeToEngine();
     _subscribeToTransport();
     _startSilenceDetection();
+  }
+
+  /// Throttled notify - max 30fps to prevent rebuild storm
+  void _throttledNotify() {
+    final now = DateTime.now();
+    if (_lastNotify != null &&
+        now.difference(_lastNotify!).inMilliseconds < _throttleMs) {
+      return; // Skip this update
+    }
+    _lastNotify = now;
+    notifyListeners();
   }
 
   /// Subscribe to transport state to detect playback stop
@@ -253,7 +266,7 @@ class MeterProvider extends ChangeNotifier {
       }
     }
 
-    notifyListeners();
+    _throttledNotify(); // Throttled to 30fps
   }
 
   /// Convert dB values from engine to normalized MeterState
@@ -371,7 +384,7 @@ class MeterProvider extends ChangeNotifier {
       );
     }
 
-    notifyListeners();
+    _throttledNotify(); // Throttled to 30fps
 
     if (!hasActivity) {
       _stopDecayLoop();

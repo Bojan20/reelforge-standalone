@@ -301,6 +301,26 @@ impl TruePeak8x {
         20.0 * self.max_l.max(self.max_r).max(1e-10).log10()
     }
 
+    /// Get current true peak left channel in dBTP
+    pub fn peak_dbtp_l(&self) -> f64 {
+        20.0 * self.peak_l.max(1e-10).log10()
+    }
+
+    /// Get current true peak right channel in dBTP
+    pub fn peak_dbtp_r(&self) -> f64 {
+        20.0 * self.peak_r.max(1e-10).log10()
+    }
+
+    /// Get max true peak left channel in dBTP
+    pub fn max_dbtp_l(&self) -> f64 {
+        20.0 * self.max_l.max(1e-10).log10()
+    }
+
+    /// Get max true peak right channel in dBTP
+    pub fn max_dbtp_r(&self) -> f64 {
+        20.0 * self.max_r.max(1e-10).log10()
+    }
+
     /// Get held peak in dBTP
     pub fn hold_dbtp(&self) -> f64 {
         20.0 * self.hold_l.max(self.hold_r).max(1e-10).log10()

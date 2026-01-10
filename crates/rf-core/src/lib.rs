@@ -61,6 +61,22 @@ impl SampleRate {
     pub fn as_u32(self) -> u32 {
         self as u32
     }
+
+    /// Convert from u32 (for atomic load)
+    #[inline]
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            44100 => Some(Self::Hz44100),
+            48000 => Some(Self::Hz48000),
+            88200 => Some(Self::Hz88200),
+            96000 => Some(Self::Hz96000),
+            176400 => Some(Self::Hz176400),
+            192000 => Some(Self::Hz192000),
+            352800 => Some(Self::Hz352800),
+            384000 => Some(Self::Hz384000),
+            _ => None,
+        }
+    }
 }
 
 impl Default for SampleRate {
@@ -87,6 +103,27 @@ impl BufferSize {
     #[inline]
     pub fn as_usize(self) -> usize {
         self as u32 as usize
+    }
+
+    #[inline]
+    pub fn as_u32(self) -> u32 {
+        self as u32
+    }
+
+    /// Convert from u32 (for atomic load)
+    #[inline]
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            32 => Some(Self::Samples32),
+            64 => Some(Self::Samples64),
+            128 => Some(Self::Samples128),
+            256 => Some(Self::Samples256),
+            512 => Some(Self::Samples512),
+            1024 => Some(Self::Samples1024),
+            2048 => Some(Self::Samples2048),
+            4096 => Some(Self::Samples4096),
+            _ => None,
+        }
     }
 
     /// Calculate latency in milliseconds

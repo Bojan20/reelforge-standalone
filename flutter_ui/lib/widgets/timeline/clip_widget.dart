@@ -514,59 +514,6 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
-              // Fade in handle
-              _FadeHandle(
-                width: (clip.fadeIn * widget.zoom).clamp(8.0, double.infinity),
-                fadeTime: clip.fadeIn,
-                isLeft: true,
-                isActive: _isDraggingFadeIn,
-                onDragStart: () => setState(() => _isDraggingFadeIn = true),
-                onDragUpdate: (localX) {
-                  final newFadeIn =
-                      (localX / widget.zoom).clamp(0.0, clip.duration * 0.5);
-                  widget.onFadeChange?.call(newFadeIn, clip.fadeOut);
-                },
-                onDragEnd: () => setState(() => _isDraggingFadeIn = false),
-              ),
-
-              // Fade out handle
-              _FadeHandle(
-                width: (clip.fadeOut * widget.zoom).clamp(8.0, double.infinity),
-                fadeTime: clip.fadeOut,
-                isLeft: false,
-                isActive: _isDraggingFadeOut,
-                onDragStart: () => setState(() => _isDraggingFadeOut = true),
-                onDragUpdate: (localX) {
-                  final distFromRight = width - localX;
-                  final newFadeOut =
-                      (distFromRight / widget.zoom).clamp(0.0, clip.duration * 0.5);
-                  widget.onFadeChange?.call(clip.fadeIn, newFadeOut);
-                },
-                onDragEnd: () => setState(() => _isDraggingFadeOut = false),
-              ),
-
-              // Fade visualizations
-              if (clip.fadeIn > 0)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: clip.fadeIn * widget.zoom,
-                  child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: true),
-                  ),
-                ),
-              if (clip.fadeOut > 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: clip.fadeOut * widget.zoom,
-                  child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: false),
-                  ),
-                ),
-
               // Left edge resize handle
               _EdgeHandle(
                 isLeft: true,
@@ -663,6 +610,62 @@ class _ClipWidgetState extends State<ClipWidget> {
                   widget.onResize?.call(clip.startTime, newDuration, null);
                 },
                 onDragEnd: () => setState(() => _isDraggingRightEdge = false),
+              ),
+
+              // Fade visualizations (BEFORE handles so they are behind)
+              if (clip.fadeIn > 0)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: clip.fadeIn * widget.zoom,
+                  child: CustomPaint(
+                    painter: _FadeOverlayPainter(isLeft: true),
+                  ),
+                ),
+              if (clip.fadeOut > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: clip.fadeOut * widget.zoom,
+                  child: CustomPaint(
+                    painter: _FadeOverlayPainter(isLeft: false),
+                  ),
+                ),
+
+              // Fade in handle (ON TOP of edge handle)
+              _FadeHandle(
+                width: (clip.fadeIn * widget.zoom).clamp(8.0, double.infinity),
+                fadeTime: clip.fadeIn,
+                isLeft: true,
+                isActive: _isDraggingFadeIn,
+                onDragStart: () => setState(() => _isDraggingFadeIn = true),
+                onDragUpdate: (deltaPixels) {
+                  // Convert delta pixels to seconds
+                  final deltaSeconds = deltaPixels / widget.zoom;
+                  final newFadeIn = (clip.fadeIn + deltaSeconds)
+                      .clamp(0.0, clip.duration * 0.5);
+                  widget.onFadeChange?.call(newFadeIn, clip.fadeOut);
+                },
+                onDragEnd: () => setState(() => _isDraggingFadeIn = false),
+              ),
+
+              // Fade out handle (ON TOP of edge handle)
+              _FadeHandle(
+                width: (clip.fadeOut * widget.zoom).clamp(8.0, double.infinity),
+                fadeTime: clip.fadeOut,
+                isLeft: false,
+                isActive: _isDraggingFadeOut,
+                onDragStart: () => setState(() => _isDraggingFadeOut = true),
+                onDragUpdate: (deltaPixels) {
+                  // Convert delta pixels to seconds (negative delta = increase fade out)
+                  final deltaSeconds = -deltaPixels / widget.zoom;
+                  final newFadeOut = (clip.fadeOut + deltaSeconds)
+                      .clamp(0.0, clip.duration * 0.5);
+                  widget.onFadeChange?.call(clip.fadeIn, newFadeOut);
+                },
+                onDragEnd: () => setState(() => _isDraggingFadeOut = false),
               ),
 
               // FX badge (bottom-right corner)
@@ -779,7 +782,6 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final isStereo = widget.waveformRight != null;
 
     // Logic Pro style: CLEAN WHITE waveform on BLUE background
-    // No transients, no clipping markers, no extra colors - JUST CLEAN WHITE WAVE
     const waveColor = Color(0xFFFFFFFF); // Pure white
     const rmsWaveColor = Color(0xDDFFFFFF); // Slightly transparent white
 
@@ -787,18 +789,13 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       style: WaveformStyle.filled,
       primaryColor: waveColor,
       rmsColor: rmsWaveColor,
-      transientColor: waveColor,
-      clippingColor: waveColor,
-      zeroCrossingColor: waveColor,
       showRms: true,
       showTransients: false,
       showClipping: false,
       showZeroCrossings: false,
       showSampleDots: false,
-      use3dEffect: false,
-      antiAlias: true,
       lineWidth: 1.0,
-      transparentBackground: true, // Use clip's background color instead
+      transparentBackground: true,
     );
 
     return Transform.scale(
@@ -1183,7 +1180,7 @@ class _FadeHandle extends StatefulWidget {
   final bool isLeft;
   final bool isActive;
   final VoidCallback onDragStart;
-  final ValueChanged<double> onDragUpdate;
+  final ValueChanged<double> onDragUpdate; // Now receives delta, not absolute position
   final VoidCallback onDragEnd;
 
   const _FadeHandle({
@@ -1217,7 +1214,10 @@ class _FadeHandleState extends State<_FadeHandle> {
         cursor: SystemMouseCursors.resizeColumn,
         child: GestureDetector(
           onHorizontalDragStart: (_) => widget.onDragStart(),
-          onHorizontalDragUpdate: (details) => widget.onDragUpdate(details.localPosition.dx),
+          onHorizontalDragUpdate: (details) {
+            // Send delta (pixels moved), not absolute position
+            widget.onDragUpdate(details.delta.dx);
+          },
           onHorizontalDragEnd: (_) => widget.onDragEnd(),
           child: Stack(
             children: [

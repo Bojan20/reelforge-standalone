@@ -4,7 +4,8 @@
 //! Target: < 20% CPU @ 48kHz stereo on modern hardware
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use rf_dsp::analysis::{FftAnalyzer, LufsMeter, PeakMeter, RmsMeter, TruePeakMeter};
+use rf_dsp::analysis::{FftAnalyzer, PeakMeter, RmsMeter};
+use rf_dsp::{LufsMeter, TruePeakMeter}; // Now from metering.rs
 use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::delay::{Delay, ModulatedDelay, PingPongDelay};
 use rf_dsp::dynamics::{
@@ -247,9 +248,9 @@ fn bench_metering(c: &mut Criterion) {
 
                 b.iter(|| {
                     for &s in &input {
-                        true_peak.process(black_box(s));
+                        true_peak.process(black_box(s), black_box(s)); // Stereo
                     }
-                    black_box(true_peak.current_dbtp())
+                    black_box(true_peak.peak_dbtp_l())
                 });
             },
         );
@@ -263,8 +264,8 @@ fn bench_metering(c: &mut Criterion) {
                 let mut lufs = LufsMeter::new(SAMPLE_RATE);
 
                 b.iter(|| {
-                    lufs.process_block(black_box(&input));
-                    black_box(lufs.integrated())
+                    lufs.process_block(black_box(&input), black_box(&input));
+                    black_box(lufs.integrated_loudness())
                 });
             },
         );

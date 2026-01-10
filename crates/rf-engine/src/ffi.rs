@@ -33,12 +33,17 @@ lazy_static::lazy_static! {
     static ref WAVEFORM_CACHE: WaveformCache = WaveformCache::new();
     static ref IMPORTED_AUDIO: RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>> =
         RwLock::new(std::collections::HashMap::new());
-    static ref PLAYBACK_ENGINE: PlaybackEngine = PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000);
+    static ref PLAYBACK_ENGINE: Arc<PlaybackEngine> = Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000));
     static ref UNDO_MANAGER: RwLock<UndoManager> = RwLock::new(UndoManager::new(500));
     /// Project dirty state tracking
     static ref PROJECT_STATE: ProjectState = ProjectState::new();
     /// Click track / metronome
     static ref CLICK_TRACK: RwLock<crate::click::ClickTrack> = RwLock::new(crate::click::ClickTrack::new(48000));
+    /// Export engine (Phase 12)
+    static ref EXPORT_ENGINE: crate::export::ExportEngine = crate::export::ExportEngine::new(
+        Arc::clone(&PLAYBACK_ENGINE),
+        Arc::clone(&TRACK_MANAGER),
+    );
 }
 
 /// Project dirty state for FFI
@@ -170,6 +175,83 @@ fn validate_array_count(count: usize, context: &str) -> bool {
         );
         return false;
     }
+    true
+}
+
+/// Validate and sanitize file path to prevent path traversal attacks
+/// Returns canonicalized path if valid, None if suspicious
+fn validate_file_path(path_str: &str) -> Option<PathBuf> {
+    // Reject obvious path traversal attempts
+    if path_str.contains("..") {
+        log::warn!("FFI path traversal attempt detected: {}", path_str);
+        return None;
+    }
+
+    // Reject paths with null bytes
+    if path_str.contains('\0') {
+        log::warn!("FFI path contains null byte");
+        return None;
+    }
+
+    let path = Path::new(path_str);
+
+    // Try to canonicalize - this resolves symlinks and validates existence
+    match std::fs::canonicalize(path) {
+        Ok(canonical) => {
+            // Additional check: ensure it's a file, not a directory
+            if canonical.is_file() {
+                Some(canonical)
+            } else {
+                log::warn!("FFI path is not a file: {:?}", canonical);
+                None
+            }
+        }
+        Err(e) => {
+            // Path doesn't exist or can't be resolved
+            log::warn!("FFI path validation failed for '{}': {}", path_str, e);
+            None
+        }
+    }
+}
+
+/// Validate floating point value for DSP parameters
+/// Returns true if finite and within reasonable audio range
+#[inline]
+fn validate_dsp_float(value: f64, min: f64, max: f64, context: &str) -> bool {
+    if !value.is_finite() {
+        log::warn!("FFI {} received non-finite value: {}", context, value);
+        return false;
+    }
+    if value < min || value > max {
+        log::warn!("FFI {} value {} out of range [{}, {}]", context, value, min, max);
+        return false;
+    }
+    true
+}
+
+/// Validate audio buffer pointers before creating slices
+/// MUST be called BEFORE from_raw_parts
+#[inline]
+fn validate_audio_buffer(ptr: *const f64, frames: usize, context: &str) -> bool {
+    if ptr.is_null() {
+        log::warn!("FFI {} received null pointer", context);
+        return false;
+    }
+
+    // Check for reasonable frame count (max 1M samples = ~20 sec @ 48kHz)
+    const MAX_FRAMES: usize = 1_000_000;
+    if frames == 0 || frames > MAX_FRAMES {
+        log::warn!("FFI {} invalid frame count: {}", context, frames);
+        return false;
+    }
+
+    // Check for potential overflow
+    let byte_size = frames.checked_mul(std::mem::size_of::<f64>());
+    if byte_size.is_none() || byte_size.unwrap() > MAX_FFI_BUFFER_SIZE {
+        log::warn!("FFI {} buffer size overflow", context);
+        return false;
+    }
+
     true
 }
 
@@ -329,6 +411,20 @@ fn validate_param_index(param_index: u32) -> Option<u32> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STRING MEMORY MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Free a Rust-allocated string (must be called from Dart for every returned *mut c_char)
+#[unsafe(no_mangle)]
+pub extern "C" fn free_rust_string(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TRACK MANAGEMENT FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -412,9 +508,27 @@ pub extern "C" fn engine_set_track_solo(track_id: u64, solo: i32) -> i32 {
 /// Set track armed state
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
-    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-        track.armed = armed != 0;
+    let is_armed = armed != 0;
+    let tid = TrackId(track_id);
+
+    // Get track name for recording (before updating state)
+    let track_name = TRACK_MANAGER
+        .get_track(tid)
+        .map(|t| t.name.clone())
+        .unwrap_or_else(|| format!("Track_{}", track_id));
+
+    // Update track state
+    TRACK_MANAGER.update_track(tid, |track| {
+        track.armed = is_armed;
     });
+
+    // Sync with recording system
+    if is_armed {
+        RECORDING_MANAGER.arm_track(tid, 2, &track_name); // Default stereo
+    } else {
+        RECORDING_MANAGER.disarm_track(tid);
+    }
+
     1
 }
 
@@ -696,13 +810,28 @@ pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_
         }
     };
 
+    // SECURITY: Validate path to prevent path traversal attacks
+    let validated_path = match validate_file_path(&path_str) {
+        Some(p) => p,
+        None => {
+            eprintln!("[FFI Import] ERROR: Path validation failed (possible path traversal): {}", path_str);
+            return 0;
+        }
+    };
+
+    // SECURITY: Validate start_time
+    if !validate_dsp_float(start_time, 0.0, 86400.0, "import_start_time") {
+        eprintln!("[FFI Import] ERROR: Invalid start_time: {}", start_time);
+        return 0;
+    }
+
     eprintln!(
-        "[FFI Import] Importing: {} to track {} at {:.2}s",
-        path_str, track_id, start_time
+        "[FFI Import] Importing: {:?} to track {} at {:.2}s",
+        validated_path, track_id, start_time
     );
 
-    // Import audio file
-    let imported = match AudioImporter::import(Path::new(&path_str)) {
+    // Import audio file using validated path
+    let imported = match AudioImporter::import(&validated_path) {
         Ok(audio) => {
             eprintln!(
                 "[FFI Import] SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
@@ -1291,6 +1420,18 @@ pub extern "C" fn engine_get_master_volume() -> f64 {
     PLAYBACK_ENGINE.master_volume()
 }
 
+/// Get current playback position in seconds (sample-accurate)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_playback_position_seconds() -> f64 {
+    PLAYBACK_ENGINE.position_seconds()
+}
+
+/// Get current playback position in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_playback_position_samples() -> u64 {
+    PLAYBACK_ENGINE.position_samples()
+}
+
 /// Preload all audio files for playback
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_preload_all() {
@@ -1313,16 +1454,15 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
 /// - frames must not exceed MAX_FFI_BUFFER_SIZE / sizeof(f64)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_process_audio(output_l: *mut f64, output_r: *mut f64, frames: usize) {
-    if output_l.is_null() || output_r.is_null() || frames == 0 {
+    // SECURITY: Validate ALL inputs BEFORE creating any slices
+    if !validate_audio_buffer(output_l as *const f64, frames, "process_audio_l") {
+        return;
+    }
+    if !validate_audio_buffer(output_r as *const f64, frames, "process_audio_r") {
         return;
     }
 
-    // Security: Validate buffer size (frames * sizeof(f64))
-    let buffer_bytes = frames.saturating_mul(std::mem::size_of::<f64>());
-    if !validate_buffer_size(buffer_bytes, "audio_process") {
-        return;
-    }
-
+    // SAFETY: Pointers and frames validated above
     let out_l = unsafe { std::slice::from_raw_parts_mut(output_l, frames) };
     let out_r = unsafe { std::slice::from_raw_parts_mut(output_r, frames) };
 
@@ -3971,250 +4111,8 @@ pub extern "C" fn track_set_color(track_id: u64, color: u32) -> i32 {
 // DYNAMIC ROUTING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use crate::routing::{ChannelId, ChannelKind, OutputDestination, RoutingGraph};
+// Routing types imported in ffi_routing.rs
 
-lazy_static::lazy_static! {
-    static ref ROUTING_GRAPH: RwLock<RoutingGraph> = RwLock::new(RoutingGraph::new(256));
-}
-
-/// Create a new bus channel
-/// Returns channel ID
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_create_bus(name: *const c_char) -> u32 {
-    let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Bus".to_string());
-    ROUTING_GRAPH.write().create_bus(&name).0
-}
-
-/// Create a new aux channel (for sends/effects)
-/// Returns channel ID
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_create_aux(name: *const c_char) -> u32 {
-    let name = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Aux".to_string());
-    ROUTING_GRAPH.write().create_aux(&name).0
-}
-
-/// Create a new audio track channel
-/// Returns channel ID
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_create_audio(name: *const c_char) -> u32 {
-    let name = unsafe { cstr_to_string(name) };
-    ROUTING_GRAPH
-        .write()
-        .create_channel(ChannelKind::Audio, name.as_deref())
-        .0
-}
-
-/// Delete a channel
-/// Returns 1 on success, 0 if channel not found or is master
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_delete_channel(channel_id: u32) -> i32 {
-    if ROUTING_GRAPH.write().delete_channel(ChannelId(channel_id)) {
-        1
-    } else {
-        0
-    }
-}
-
-/// Set channel output to master
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_output_master(channel_id: u32) -> i32 {
-    match ROUTING_GRAPH
-        .write()
-        .set_output(ChannelId(channel_id), OutputDestination::Master)
-    {
-        Ok(_) => 1,
-        Err(_) => 0,
-    }
-}
-
-/// Set channel output to another channel (bus/aux)
-/// Returns 1 on success, 0 on error (cycle, not found, etc)
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_output_channel(from_id: u32, to_id: u32) -> i32 {
-    match ROUTING_GRAPH.write().set_output(
-        ChannelId(from_id),
-        OutputDestination::Channel(ChannelId(to_id)),
-    ) {
-        Ok(_) => 1,
-        Err(_) => 0,
-    }
-}
-
-/// Add send from channel to aux/bus
-/// Returns 1 on success, 0 on error
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_add_send(from_id: u32, to_id: u32, pre_fader: i32) -> i32 {
-    match ROUTING_GRAPH
-        .write()
-        .add_send(ChannelId(from_id), ChannelId(to_id), pre_fader != 0)
-    {
-        Ok(_) => 1,
-        Err(_) => 0,
-    }
-}
-
-/// Remove send by index
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_remove_send(channel_id: u32, send_index: usize) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.write().get_mut(ChannelId(channel_id)) {
-        channel.remove_send(send_index);
-        1
-    } else {
-        0
-    }
-}
-
-/// Set channel fader level in dB
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_fader(channel_id: u32, db: f64) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.write().get_mut(ChannelId(channel_id)) {
-        channel.set_fader(db);
-        1
-    } else {
-        0
-    }
-}
-
-/// Get channel fader level in dB
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_get_fader(channel_id: u32) -> f64 {
-    ROUTING_GRAPH
-        .read()
-        .get(ChannelId(channel_id))
-        .map(|c| c.fader_db())
-        .unwrap_or(0.0)
-}
-
-/// Set channel pan (-1.0 to 1.0)
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_pan(channel_id: u32, pan: f64) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.write().get_mut(ChannelId(channel_id)) {
-        channel.set_pan(pan);
-        1
-    } else {
-        0
-    }
-}
-
-/// Set channel mute
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_mute(channel_id: u32, muted: i32) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.read().get(ChannelId(channel_id)) {
-        channel.set_mute(muted != 0);
-        1
-    } else {
-        0
-    }
-}
-
-/// Set channel solo
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_solo(channel_id: u32, soloed: i32) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.read().get(ChannelId(channel_id)) {
-        channel.set_solo(soloed != 0);
-        1
-    } else {
-        0
-    }
-}
-
-/// Get channel count (excluding master)
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_get_channel_count() -> usize {
-    ROUTING_GRAPH.read().channel_count()
-}
-
-/// Get all channel IDs (fills buffer)
-/// Returns actual count written
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_get_all_channels(out_ids: *mut u32, max_count: usize) -> usize {
-    if out_ids.is_null() {
-        return 0;
-    }
-
-    let graph = ROUTING_GRAPH.read();
-    let ids = graph.all_channel_ids();
-    let count = ids.len().min(max_count);
-
-    unsafe {
-        for (i, id) in ids.iter().take(count).enumerate() {
-            *out_ids.add(i) = id.0;
-        }
-    }
-    count
-}
-
-/// Get channel kind (0=Audio, 1=Bus, 2=Aux, 3=VCA, 4=Master)
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_get_channel_kind(channel_id: u32) -> u8 {
-    ROUTING_GRAPH
-        .read()
-        .get(ChannelId(channel_id))
-        .map(|c| match c.kind {
-            ChannelKind::Audio => 0,
-            ChannelKind::Bus => 1,
-            ChannelKind::Aux => 2,
-            ChannelKind::Vca => 3,
-            ChannelKind::Master => 4,
-        })
-        .unwrap_or(255)
-}
-
-/// Set channel name
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_name(channel_id: u32, name: *const c_char) -> i32 {
-    let name = match unsafe { cstr_to_string(name) } {
-        Some(n) => n,
-        None => return 0,
-    };
-
-    if let Some(channel) = ROUTING_GRAPH.write().get_mut(ChannelId(channel_id)) {
-        channel.name = name;
-        1
-    } else {
-        0
-    }
-}
-
-/// Set channel color
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_set_color(channel_id: u32, color: u32) -> i32 {
-    if let Some(channel) = ROUTING_GRAPH.write().get_mut(ChannelId(channel_id)) {
-        channel.color = color;
-        1
-    } else {
-        0
-    }
-}
-
-/// Process routing graph (updates topological sort if needed)
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_process() {
-    ROUTING_GRAPH.write().process();
-}
-
-/// Get master channel output (fills stereo buffers)
-/// Returns number of samples written
-#[unsafe(no_mangle)]
-pub extern "C" fn routing_get_output(
-    out_left: *mut f64,
-    out_right: *mut f64,
-    max_samples: usize,
-) -> usize {
-    if out_left.is_null() || out_right.is_null() {
-        return 0;
-    }
-
-    let graph = ROUTING_GRAPH.read();
-    let (left, right) = graph.get_output();
-    let count = left.len().min(right.len()).min(max_samples);
-
-    unsafe {
-        std::ptr::copy_nonoverlapping(left.as_ptr(), out_left, count);
-        std::ptr::copy_nonoverlapping(right.as_ptr(), out_right, count);
-    }
-    count
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VCA FADER FFI
@@ -9040,119 +8938,6 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MORPHING EQ - Preset Interpolation
-// ═══════════════════════════════════════════════════════════════════════════
-
-lazy_static::lazy_static! {
-    static ref MORPH_EQS: RwLock<std::collections::HashMap<u32, rf_dsp::eq_morph::MorphingEq>> =
-        RwLock::new(std::collections::HashMap::new());
-}
-
-/// Create MorphingEq instance
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_create(track_id: u32, sample_rate: f64) -> i32 {
-    let eq = rf_dsp::eq_morph::MorphingEq::new(sample_rate);
-    MORPH_EQS.write().insert(track_id, eq);
-    1
-}
-
-/// Destroy MorphingEq instance
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_destroy(track_id: u32) -> i32 {
-    if MORPH_EQS.write().remove(&track_id).is_some() {
-        1
-    } else {
-        0
-    }
-}
-
-/// Set morph position (0.0 = Preset A, 1.0 = Preset B)
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_set_position(track_id: u32, position: f64) -> i32 {
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_morph(position);
-        1
-    } else {
-        0
-    }
-}
-
-/// Morph to preset A
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_to_a(track_id: u32) -> i32 {
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.morph_to_a();
-        1
-    } else {
-        0
-    }
-}
-
-/// Morph to preset B
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_to_b(track_id: u32) -> i32 {
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.morph_to_b();
-        1
-    } else {
-        0
-    }
-}
-
-/// Toggle A/B instantly
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_toggle_ab(track_id: u32) -> i32 {
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.toggle_ab();
-        1
-    } else {
-        0
-    }
-}
-
-/// Set morph speed (time in seconds)
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_set_speed(track_id: u32, speed_seconds: f64) -> i32 {
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        // Convert to per-sample rate (assuming 48kHz)
-        eq.morph_speed = 1.0 / (speed_seconds * 48000.0).max(1.0);
-        1
-    } else {
-        0
-    }
-}
-
-/// Get current morph position
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_get_position(track_id: u32) -> f64 {
-    let eqs = MORPH_EQS.read();
-    if let Some(eq) = eqs.get(&track_id) {
-        eq.morph_position
-    } else {
-        0.0
-    }
-}
-
-/// Reset MorphingEq
-#[unsafe(no_mangle)]
-pub extern "C" fn morph_eq_reset(track_id: u32) -> i32 {
-    use rf_dsp::Processor;
-    let mut eqs = MORPH_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.reset();
-        1
-    } else {
-        0
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // ROOM CORRECTION EQ
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -9348,154 +9133,6 @@ pub extern "C" fn wavelet_cqt_destroy(track_id: u32) -> i32 {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MINIMUM PHASE EQ FFI
-// ═══════════════════════════════════════════════════════════════════════════
-
-lazy_static::lazy_static! {
-    static ref MIN_PHASE_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_minimum_phase::MinPhaseEq>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
-
-/// Create minimum phase EQ
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_create(track_id: u32, sample_rate: f64) -> i32 {
-    let eq = rf_dsp::eq_minimum_phase::MinPhaseEq::new(sample_rate);
-    MIN_PHASE_EQS.write().insert(track_id, eq);
-    1
-}
-
-/// Remove minimum phase EQ
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_remove(track_id: u32) -> i32 {
-    if MIN_PHASE_EQS.write().remove(&track_id).is_some() {
-        1
-    } else {
-        0
-    }
-}
-
-/// Add band to minimum phase EQ
-/// filter_type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch
-/// Returns band index
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_add_band(
-    track_id: u32,
-    freq: f64,
-    gain_db: f64,
-    q: f64,
-    filter_type: u32,
-) -> i32 {
-    let ft = match filter_type {
-        0 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::Bell,
-        1 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::LowShelf,
-        2 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::HighShelf,
-        3 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::LowCut,
-        4 => rf_dsp::eq_minimum_phase::MinPhaseFilterType::HighCut,
-        _ => rf_dsp::eq_minimum_phase::MinPhaseFilterType::Notch,
-    };
-    let mut eqs = MIN_PHASE_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.add_band(freq, gain_db, q, ft) as i32
-    } else {
-        -1
-    }
-}
-
-/// Set band parameters
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_set_band(
-    track_id: u32,
-    band_index: u32,
-    freq: f64,
-    gain_db: f64,
-    q: f64,
-) -> i32 {
-    let mut eqs = MIN_PHASE_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band(band_index as usize, freq, gain_db, q);
-        1
-    } else {
-        0
-    }
-}
-
-/// Enable/disable band
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_set_band_enabled(
-    track_id: u32,
-    band_index: u32,
-    enabled: i32,
-) -> i32 {
-    let mut eqs = MIN_PHASE_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.set_band_enabled(band_index as usize, enabled != 0);
-        1
-    } else {
-        0
-    }
-}
-
-/// Remove band
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_remove_band(track_id: u32, band_index: u32) -> i32 {
-    let mut eqs = MIN_PHASE_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.remove_band(band_index as usize);
-        1
-    } else {
-        0
-    }
-}
-
-/// Get magnitude at frequency in dB
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_get_magnitude_at(track_id: u32, freq: f64) -> f64 {
-    let eqs = MIN_PHASE_EQS.read();
-    if let Some(eq) = eqs.get(&track_id) {
-        let mag = eq.magnitude_at(freq);
-        20.0 * mag.log10()
-    } else {
-        0.0
-    }
-}
-
-/// Get group delay at frequency in ms
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_get_group_delay_at(track_id: u32, freq: f64) -> f64 {
-    let eqs = MIN_PHASE_EQS.read();
-    if let Some(eq) = eqs.get(&track_id) {
-        eq.group_delay_at(freq) * 1000.0
-    } else {
-        0.0
-    }
-}
-
-/// Get number of bands
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_get_num_bands(track_id: u32) -> u32 {
-    let eqs = MIN_PHASE_EQS.read();
-    if let Some(eq) = eqs.get(&track_id) {
-        eq.num_bands() as u32
-    } else {
-        0
-    }
-}
-
-/// Reset minimum phase EQ
-#[unsafe(no_mangle)]
-pub extern "C" fn min_phase_eq_reset(track_id: u32) -> i32 {
-    use rf_dsp::Processor;
-    let mut eqs = MIN_PHASE_EQS.write();
-    if let Some(eq) = eqs.get_mut(&track_id) {
-        eq.reset();
-        1
-    } else {
-        0
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // STEREO EQ FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -11456,288 +11093,12 @@ pub extern "C" fn version_refresh() {
 // CONTROL ROOM FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use crate::control_room::{ControlRoom, MonitorSource, SoloMode};
+use crate::control_room::ControlRoom;
 
 lazy_static::lazy_static! {
     static ref CONTROL_ROOM: RwLock<ControlRoom> = RwLock::new(ControlRoom::new(256));
 }
 
-/// Get monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_monitor_source() -> u8 {
-    CONTROL_ROOM.read().monitor_source().to_u8()
-}
-
-/// Set monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_monitor_source(source: u8) {
-    if let Some(src) = MonitorSource::from_u8(source) {
-        CONTROL_ROOM.write().set_monitor_source(src);
-    }
-}
-
-/// Get monitor level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_monitor_level() -> f64 {
-    CONTROL_ROOM.read().monitor_level_db()
-}
-
-/// Set monitor level (dB, -inf to +12)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_monitor_level(db: f64) {
-    CONTROL_ROOM.write().set_monitor_level_db(db);
-}
-
-/// Get dim enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_dim_enabled() -> i32 {
-    if CONTROL_ROOM.read().dim_enabled() { 1 } else { 0 }
-}
-
-/// Set dim enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_dim_enabled(enabled: i32) {
-    CONTROL_ROOM.write().set_dim_enabled(enabled != 0);
-}
-
-/// Get dim level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_dim_level() -> f64 {
-    CONTROL_ROOM.read().dim_level_db()
-}
-
-/// Set dim level (dB, typically -20)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_dim_level(db: f64) {
-    CONTROL_ROOM.write().set_dim_level_db(db);
-}
-
-/// Get mono enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_mono_enabled() -> i32 {
-    if CONTROL_ROOM.read().mono_enabled() { 1 } else { 0 }
-}
-
-/// Set mono enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_mono_enabled(enabled: i32) {
-    CONTROL_ROOM.write().set_mono_enabled(enabled != 0);
-}
-
-/// Get solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_solo_mode() -> u8 {
-    CONTROL_ROOM.read().solo_mode().to_u8()
-}
-
-/// Set solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_solo_mode(mode: u8) {
-    if let Some(m) = SoloMode::from_u8(mode) {
-        CONTROL_ROOM.write().set_solo_mode(m);
-    }
-}
-
-/// Get active speaker set (0-3)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_active_speaker_set() -> u8 {
-    CONTROL_ROOM.read().active_speaker_set_index()
-}
-
-/// Set active speaker set (0-3)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_active_speaker_set(index: u8) {
-    CONTROL_ROOM.write().set_active_speaker_set(index);
-}
-
-/// Get speaker set calibration (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_speaker_calibration(index: u8) -> f64 {
-    CONTROL_ROOM.read().speaker_calibration(index as usize)
-}
-
-/// Set speaker set calibration (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_set_speaker_calibration(index: u8, db: f64) {
-    CONTROL_ROOM.write().set_speaker_calibration(index as usize, db);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CUE MIX FFI
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Get cue mix enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_get_enabled(cue_index: u8) -> i32 {
-    if CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(false, |c| c.is_enabled()) {
-        1
-    } else {
-        0
-    }
-}
-
-/// Set cue mix enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_set_enabled(cue_index: u8, enabled: i32) {
-    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
-        cue.set_enabled(enabled != 0);
-    }
-}
-
-/// Get cue mix level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_get_level(cue_index: u8) -> f64 {
-    CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(-144.0, |c| c.level_db())
-}
-
-/// Set cue mix level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_set_level(cue_index: u8, db: f64) {
-    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
-        cue.set_level_db(db);
-    }
-}
-
-/// Get cue mix pan (-1.0 to 1.0)
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_get_pan(cue_index: u8) -> f64 {
-    CONTROL_ROOM.read().cue_mix(cue_index as usize).map_or(0.0, |c| c.pan())
-}
-
-/// Set cue mix pan (-1.0 to 1.0)
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_set_pan(cue_index: u8, pan: f64) {
-    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
-        cue.set_pan(pan);
-    }
-}
-
-/// Get cue mix peak meters (L, R)
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_get_peak(cue_index: u8, out_l: *mut f64, out_r: *mut f64) {
-    if let Some(cue) = CONTROL_ROOM.read().cue_mix(cue_index as usize) {
-        let (l, r) = cue.peak();
-        if !out_l.is_null() {
-            unsafe { *out_l = l; }
-        }
-        if !out_r.is_null() {
-            unsafe { *out_r = r; }
-        }
-    }
-}
-
-/// Set cue send level for a channel
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_set_channel_send(cue_index: u8, channel_id: u32, level: f64, pan: f64) {
-    if let Some(cue) = CONTROL_ROOM.write().cue_mix_mut(cue_index as usize) {
-        cue.set_send(crate::routing::ChannelId(channel_id), level, pan);
-    }
-}
-
-/// Get cue send level for a channel
-#[unsafe(no_mangle)]
-pub extern "C" fn cue_mix_get_channel_send(cue_index: u8, channel_id: u32, out_level: *mut f64, out_pan: *mut f64) -> i32 {
-    if let Some(cue) = CONTROL_ROOM.read().cue_mix(cue_index as usize) {
-        if let Some(send) = cue.get_send(crate::routing::ChannelId(channel_id)) {
-            if !out_level.is_null() {
-                unsafe { *out_level = send.level; }
-            }
-            if !out_pan.is_null() {
-                unsafe { *out_pan = send.pan; }
-            }
-            return 1;
-        }
-    }
-    0
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TALKBACK FFI
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Get talkback enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_get_enabled() -> i32 {
-    if CONTROL_ROOM.read().talkback_enabled() { 1 } else { 0 }
-}
-
-/// Set talkback enabled state
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_set_enabled(enabled: i32) {
-    CONTROL_ROOM.write().set_talkback_enabled(enabled != 0);
-}
-
-/// Get talkback level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_get_level() -> f64 {
-    CONTROL_ROOM.read().talkback_level_db()
-}
-
-/// Set talkback level (dB)
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_set_level(db: f64) {
-    CONTROL_ROOM.write().set_talkback_level_db(db);
-}
-
-/// Get talkback destinations (bitmask: bit0=cue1, bit1=cue2, etc.)
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_get_destinations() -> u8 {
-    CONTROL_ROOM.read().talkback_destinations()
-}
-
-/// Set talkback destinations (bitmask: bit0=cue1, bit1=cue2, etc.)
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_set_destinations(mask: u8) {
-    CONTROL_ROOM.write().set_talkback_destinations(mask);
-}
-
-/// Get talkback dim main on talk state
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_get_dim_main_on_talk() -> i32 {
-    if CONTROL_ROOM.read().talkback_dim_main_on_talk() { 1 } else { 0 }
-}
-
-/// Set talkback dim main on talk state
-#[unsafe(no_mangle)]
-pub extern "C" fn talkback_set_dim_main_on_talk(enabled: i32) {
-    CONTROL_ROOM.write().set_talkback_dim_main_on_talk(enabled != 0);
-}
-
-/// Solo a channel
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_solo_channel(channel_id: u32) {
-    CONTROL_ROOM.write().solo_channel(crate::routing::ChannelId(channel_id));
-}
-
-/// Unsolo a channel
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_unsolo_channel(channel_id: u32) {
-    CONTROL_ROOM.write().unsolo_channel(crate::routing::ChannelId(channel_id));
-}
-
-/// Clear all solos
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_clear_all_solos() {
-    CONTROL_ROOM.write().clear_all_solos();
-}
-
-/// Check if channel is soloed
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_is_channel_soloed(channel_id: u32) -> i32 {
-    if CONTROL_ROOM.read().is_soloed(crate::routing::ChannelId(channel_id)) { 1 } else { 0 }
-}
-
-/// Get monitor peak meters
-#[unsafe(no_mangle)]
-pub extern "C" fn control_room_get_monitor_peak(out_l: *mut f64, out_r: *mut f64) {
-    let (l, r) = CONTROL_ROOM.read().monitor_peak();
-    if !out_l.is_null() {
-        unsafe { *out_l = l; }
-    }
-    if !out_r.is_null() {
-        unsafe { *out_r = r; }
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHASE 5.1: PLUGIN SYSTEM FFI
@@ -12768,4 +12129,750 @@ pub extern "C" fn recording_recording_count() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn recording_clear_all() {
     RECORDING_MANAGER.clear();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUT BUS MANAGEMENT (Phase 11)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Create stereo input bus
+/// Returns bus ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_create_stereo(name: *const c_char) -> u32 {
+    let name_str = match unsafe { cstr_to_string(name) } {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let config = crate::input_bus::InputBusConfig {
+        name: name_str,
+        channels: 2,
+        hardware_channels: vec![0, 1],
+        enabled: true,
+    };
+
+    PLAYBACK_ENGINE.input_bus_manager().create_bus(config)
+}
+
+/// Create mono input bus
+/// Returns bus ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_create_mono(name: *const c_char, hw_channel: i32) -> u32 {
+    let name_str = match unsafe { cstr_to_string(name) } {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    if hw_channel < 0 {
+        return 0;
+    }
+
+    let config = crate::input_bus::InputBusConfig {
+        name: name_str,
+        channels: 1,
+        hardware_channels: vec![hw_channel as usize],
+        enabled: true,
+    };
+
+    PLAYBACK_ENGINE.input_bus_manager().create_bus(config)
+}
+
+/// Delete input bus
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_delete(bus_id: u32) -> i32 {
+    if PLAYBACK_ENGINE.input_bus_manager().delete_bus(bus_id) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get input bus count
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_count() -> i32 {
+    PLAYBACK_ENGINE.input_bus_manager().bus_count() as i32
+}
+
+/// Get input bus name
+/// Returns null-terminated string or nullptr on failure
+/// Caller must free with cstring_free()
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_get_name(bus_id: u32) -> *mut c_char {
+    if let Some(bus) = PLAYBACK_ENGINE.input_bus_manager().get_bus(bus_id) {
+        let name = bus.name();
+        match CString::new(name) {
+            Ok(s) => s.into_raw(),
+            Err(_) => ptr::null_mut(),
+        }
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Get input bus channel count
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_get_channels(bus_id: u32) -> i32 {
+    if let Some(bus) = PLAYBACK_ENGINE.input_bus_manager().get_bus(bus_id) {
+        bus.channels() as i32
+    } else {
+        0
+    }
+}
+
+/// Get input bus enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_is_enabled(bus_id: u32) -> i32 {
+    if let Some(bus) = PLAYBACK_ENGINE.input_bus_manager().get_bus(bus_id) {
+        if bus.is_enabled() { 1 } else { 0 }
+    } else {
+        0
+    }
+}
+
+/// Set input bus enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_set_enabled(bus_id: u32, enabled: i32) {
+    if let Some(bus) = PLAYBACK_ENGINE.input_bus_manager().get_bus(bus_id) {
+        bus.set_enabled(enabled != 0);
+    }
+}
+
+/// Get input bus peak level for channel (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn input_bus_get_peak(bus_id: u32, channel: i32) -> f32 {
+    if channel < 0 {
+        return 0.0;
+    }
+
+    if let Some(bus) = PLAYBACK_ENGINE.input_bus_manager().get_bus(bus_id) {
+        bus.peak(channel as usize)
+    } else {
+        0.0
+    }
+}
+
+/// Set track input bus routing
+/// bus_id=0 means no input routing (disable)
+#[unsafe(no_mangle)]
+pub extern "C" fn track_set_input_bus(track_id: u64, bus_id: u32) {
+    let mut tracks = TRACK_MANAGER.tracks.write();
+    if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
+        track.input_bus = if bus_id == 0 {
+            None
+        } else {
+            Some(bus_id)
+        };
+        PROJECT_STATE.mark_dirty();
+    }
+}
+
+/// Get track input bus routing
+/// Returns 0 if no input routing
+#[unsafe(no_mangle)]
+pub extern "C" fn track_get_input_bus(track_id: u64) -> u32 {
+    let tracks = TRACK_MANAGER.tracks.read();
+    if let Some(track) = tracks.get(&TrackId(track_id)) {
+        track.input_bus.unwrap_or(0)
+    } else {
+        0
+    }
+}
+
+/// Set track monitor mode
+/// mode: 0=Auto, 1=Manual, 2=Off
+#[unsafe(no_mangle)]
+pub extern "C" fn track_set_monitor_mode(track_id: u64, mode: i32) {
+    let monitor_mode = match mode {
+        1 => crate::input_bus::MonitorMode::Manual,
+        2 => crate::input_bus::MonitorMode::Off,
+        _ => crate::input_bus::MonitorMode::Auto,
+    };
+
+    let mut tracks = TRACK_MANAGER.tracks.write();
+    if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
+        track.monitor_mode = monitor_mode;
+        PROJECT_STATE.mark_dirty();
+    }
+}
+
+/// Get track monitor mode
+/// Returns: 0=Auto, 1=Manual, 2=Off
+#[unsafe(no_mangle)]
+pub extern "C" fn track_get_monitor_mode(track_id: u64) -> i32 {
+    let tracks = TRACK_MANAGER.tracks.read();
+    if let Some(track) = tracks.get(&TrackId(track_id)) {
+        match track.monitor_mode {
+            crate::input_bus::MonitorMode::Auto => 0,
+            crate::input_bus::MonitorMode::Manual => 1,
+            crate::input_bus::MonitorMode::Off => 2,
+        }
+    } else {
+        0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO EXPORT (Phase 12)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Export audio to WAV file
+/// format: 0=16-bit, 1=24-bit, 2=32-bit float
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn export_audio(
+    output_path: *const c_char,
+    format: i32,
+    sample_rate: u32,
+    start_time: f64,
+    end_time: f64,
+    normalize: i32,
+) -> i32 {
+    let path_str = match unsafe { cstr_to_string(output_path) } {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let export_format = match format {
+        0 => crate::export::ExportFormat::Wav16,
+        1 => crate::export::ExportFormat::Wav24,
+        2 => crate::export::ExportFormat::Wav32Float,
+        _ => crate::export::ExportFormat::Wav24,
+    };
+
+    let config = crate::export::ExportConfig {
+        output_path: PathBuf::from(path_str),
+        format: export_format,
+        sample_rate,
+        start_time,
+        end_time,
+        include_tail: true,
+        tail_seconds: 3.0,
+        normalize: normalize != 0,
+        block_size: 512,
+    };
+
+    match EXPORT_ENGINE.export(config) {
+        Ok(_) => 1,
+        Err(e) => {
+            log::error!("Export failed: {}", e);
+            0
+        }
+    }
+}
+
+/// Get export progress (0.0 - 100.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn export_get_progress() -> f32 {
+    EXPORT_ENGINE.progress()
+}
+
+/// Check if export is in progress
+#[unsafe(no_mangle)]
+pub extern "C" fn export_is_exporting() -> i32 {
+    if EXPORT_ENGINE.is_exporting() { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN INSERT CHAIN FFI (Phase 2: Channel Insert FX)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load plugin instance into a channel's insert chain
+/// Returns slot index on success, -1 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_load(
+    _channel_id: u64,
+    plugin_id: *const c_char,
+) -> i32 {
+    let plugin_id_str = match unsafe { cstr_to_string(plugin_id) } {
+        Some(s) if s.len() <= MAX_FFI_STRING_LEN => s,
+        _ => return -1,
+    };
+
+    // Load plugin instance via existing PLUGIN_HOST (from scanner.rs FFI)
+    let instance_id = match PLUGIN_HOST.read().load_plugin(&plugin_id_str) {
+        Ok(id) => id,
+        Err(e) => {
+            log::error!("Failed to load plugin insert: {}", e);
+            return -1;
+        }
+    };
+
+    log::info!("Plugin insert {} loaded with instance ID {}", plugin_id_str, instance_id);
+
+    // TODO: Integrate with RoutingGraph to actually add to chain
+    // Requires PlaybackEngine access to RoutingGraphRT
+    0 // Placeholder - will be slot index when integrated
+}
+
+/// Remove plugin from insert chain
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_remove(
+    _channel_id: u64,
+    _slot_index: u32,
+) -> i32 {
+    // TODO: Integrate with RoutingGraph
+    1
+}
+
+/// Bypass/unbypass plugin insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_set_bypass(
+    _channel_id: u64,
+    _slot_index: u32,
+    _bypass: i32,
+) -> i32 {
+    // TODO: Integrate with RoutingGraph
+    1
+}
+
+/// Set plugin insert wet/dry mix (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_set_mix(
+    _channel_id: u64,
+    _slot_index: u32,
+    _mix: f32,
+) -> i32 {
+    // TODO: Integrate with RoutingGraph
+    1
+}
+
+/// Get plugin insert slot latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_get_latency(
+    _channel_id: u64,
+    _slot_index: u32,
+) -> i32 {
+    // TODO: Integrate with RoutingGraph
+    0
+}
+
+/// Get total insert chain latency for a channel
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_chain_latency(_channel_id: u64) -> i32 {
+    // TODO: Integrate with RoutingGraph to get chain.latency()
+    0
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADVANCED METERS (True Peak 8x, PSR, Crest Factor, Psychoacoustic)
+// ═══════════════════════════════════════════════════════════════════════════
+
+use rf_dsp::metering_simd::{TruePeak8x, PsrMeter, CrestFactorMeter};
+use rf_dsp::loudness_advanced::PsychoacousticMeter;
+
+lazy_static::lazy_static! {
+    /// Advanced meters instance
+    static ref ADVANCED_METERS: RwLock<AdvancedMeters> = RwLock::new(AdvancedMeters::new(48000.0));
+}
+
+/// Combined advanced meters for broadcast/mastering
+struct AdvancedMeters {
+    true_peak_8x: TruePeak8x,
+    psr: PsrMeter,
+    crest_factor_l: CrestFactorMeter,
+    crest_factor_r: CrestFactorMeter,
+    psychoacoustic_l: PsychoacousticMeter,
+    psychoacoustic_r: PsychoacousticMeter,
+    sample_rate: f64,
+}
+
+impl AdvancedMeters {
+    fn new(sample_rate: f64) -> Self {
+        Self {
+            true_peak_8x: TruePeak8x::new(sample_rate),
+            psr: PsrMeter::new(sample_rate),
+            crest_factor_l: CrestFactorMeter::new(sample_rate, 300.0), // 300ms window
+            crest_factor_r: CrestFactorMeter::new(sample_rate, 300.0),
+            psychoacoustic_l: PsychoacousticMeter::new(sample_rate),
+            psychoacoustic_r: PsychoacousticMeter::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.true_peak_8x.reset();
+        self.psr.reset();
+        self.crest_factor_l = CrestFactorMeter::new(self.sample_rate, 300.0);
+        self.crest_factor_r = CrestFactorMeter::new(self.sample_rate, 300.0);
+        self.psychoacoustic_l.reset();
+        self.psychoacoustic_r.reset();
+    }
+}
+
+/// Initialize advanced meters with sample rate
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_init(sample_rate: f64) -> i32 {
+    if !sample_rate.is_finite() || sample_rate < 8000.0 || sample_rate > 384000.0 {
+        return 0;
+    }
+    if let Some(mut meters) = ADVANCED_METERS.try_write() {
+        *meters = AdvancedMeters::new(sample_rate);
+        1
+    } else {
+        0
+    }
+}
+
+/// Reset all advanced meters
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_reset() -> i32 {
+    if let Some(mut meters) = ADVANCED_METERS.try_write() {
+        meters.reset();
+        1
+    } else {
+        0
+    }
+}
+
+/// Process stereo samples through advanced meters (call from audio callback)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_process(left: f64, right: f64) {
+    if let Some(mut meters) = ADVANCED_METERS.try_write() {
+        // True Peak 8x
+        meters.true_peak_8x.process(left, right);
+
+        // PSR needs K-weighted input - simplified: use raw for now
+        // In real use, apply K-weighting filter first
+        meters.psr.process(left, right, left, right);
+
+        // Crest factor
+        meters.crest_factor_l.process(left);
+        meters.crest_factor_r.process(right);
+
+        // Psychoacoustic
+        meters.psychoacoustic_l.process(left);
+        meters.psychoacoustic_r.process(right);
+    }
+}
+
+/// Get True Peak 8x left channel (dBTP)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_true_peak_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.true_peak_8x.peak_dbtp_l())
+        .unwrap_or(-144.0)
+}
+
+/// Get True Peak 8x right channel (dBTP)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_true_peak_r() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.true_peak_8x.peak_dbtp_r())
+        .unwrap_or(-144.0)
+}
+
+/// Get True Peak 8x max (dBTP)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_true_peak_max() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.true_peak_8x.max_dbtp())
+        .unwrap_or(-144.0)
+}
+
+/// Get PSR (Peak-to-Short-term Ratio) in dB
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_psr() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psr.psr())
+        .unwrap_or(0.0)
+}
+
+/// Get short-term loudness in LUFS
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_short_term_lufs() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psr.short_term_lufs())
+        .unwrap_or(-144.0)
+}
+
+/// Get PSR dynamic assessment string
+/// Returns: 0=Severely Over-compressed, 1=Over-compressed, 2=Moderate, 3=Good, 4=High
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_psr_assessment() -> i32 {
+    ADVANCED_METERS.try_read()
+        .map(|m| {
+            match m.psr.dynamic_assessment() {
+                "Severely Over-compressed" => 0,
+                "Over-compressed" => 1,
+                "Moderate Compression" => 2,
+                "Good Dynamic Range" => 3,
+                "High Dynamic Range" => 4,
+                _ => 2,
+            }
+        })
+        .unwrap_or(2)
+}
+
+/// Get Crest Factor left channel (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_crest_factor_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.crest_factor_l.crest_factor_db())
+        .unwrap_or(0.0)
+}
+
+/// Get Crest Factor right channel (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_crest_factor_r() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.crest_factor_r.crest_factor_db())
+        .unwrap_or(0.0)
+}
+
+/// Get Psychoacoustic loudness in Sones (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_loudness_sones_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psychoacoustic_l.loudness.loudness_sones())
+        .unwrap_or(0.0)
+}
+
+/// Get Psychoacoustic loudness in Phons (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_loudness_phons_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psychoacoustic_l.loudness.loudness_phons())
+        .unwrap_or(0.0)
+}
+
+/// Get Sharpness in Acum (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_sharpness_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psychoacoustic_l.sharpness.sharpness())
+        .unwrap_or(0.0)
+}
+
+/// Get Fluctuation in Vacil (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_fluctuation_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psychoacoustic_l.fluctuation.fluctuation_strength())
+        .unwrap_or(0.0)
+}
+
+/// Get Roughness in Asper (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn advanced_meters_get_roughness_l() -> f64 {
+    ADVANCED_METERS.try_read()
+        .map(|m| m.psychoacoustic_l.roughness.roughness())
+        .unwrap_or(0.0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO POOL MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get list of imported audio files as JSON
+/// Returns: JSON array of {id, path, duration, channels, sample_rate}
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_list() -> *mut c_char {
+    let audio_map = IMPORTED_AUDIO.read();
+
+    let mut entries = Vec::new();
+    for (clip_id, audio) in audio_map.iter() {
+        let entry = format!(
+            r#"{{"id":{},"path":"{}","duration":{},"channels":{},"sample_rate":{}}}"#,
+            clip_id.0,
+            audio.source_path.replace('\\', "\\\\").replace('"', "\\\""),
+            audio.duration_secs,
+            audio.channels,
+            audio.sample_rate
+        );
+        entries.push(entry);
+    }
+
+    let json = format!("[{}]", entries.join(","));
+    CString::new(json).unwrap_or_default().into_raw()
+}
+
+/// Get audio pool count
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_count() -> u32 {
+    IMPORTED_AUDIO.read().len() as u32
+}
+
+/// Remove audio file from pool by clip ID
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_remove(clip_id: u64) -> i32 {
+    let mut audio_map = IMPORTED_AUDIO.write();
+    if audio_map.remove(&ClipId(clip_id)).is_some() {
+        WAVEFORM_CACHE.remove(ClipId(clip_id));
+        1
+    } else {
+        0
+    }
+}
+
+/// Clear entire audio pool
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_clear() -> i32 {
+    IMPORTED_AUDIO.write().clear();
+    WAVEFORM_CACHE.clear();
+    1
+}
+
+/// Check if audio file exists in pool
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_contains(clip_id: u64) -> i32 {
+    if IMPORTED_AUDIO.read().contains_key(&ClipId(clip_id)) { 1 } else { 0 }
+}
+
+/// Get audio file info as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_get_info(clip_id: u64) -> *mut c_char {
+    let audio_map = IMPORTED_AUDIO.read();
+    if let Some(audio) = audio_map.get(&ClipId(clip_id)) {
+        let json = format!(
+            r#"{{"id":{},"path":"{}","duration":{},"channels":{},"sample_rate":{},"samples":{}}}"#,
+            clip_id,
+            audio.source_path.replace('\\', "\\\\").replace('"', "\\\""),
+            audio.duration_secs,
+            audio.channels,
+            audio.sample_rate,
+            audio.sample_count
+        );
+        CString::new(json).unwrap_or_default().into_raw()
+    } else {
+        CString::new("null").unwrap().into_raw()
+    }
+}
+
+/// Get total audio pool memory usage in bytes
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_pool_memory_usage() -> u64 {
+    let audio_map = IMPORTED_AUDIO.read();
+    let mut total: usize = 0;
+    for audio in audio_map.values() {
+        // Each sample is f32 (4 bytes)
+        total += audio.samples.len() * std::mem::size_of::<f32>();
+    }
+    total as u64
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT PRESETS
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    /// Export presets storage
+    static ref EXPORT_PRESETS: RwLock<Vec<ExportPreset>> = RwLock::new(vec![
+        ExportPreset::broadcast(),
+        ExportPreset::streaming(),
+        ExportPreset::archival(),
+    ]);
+}
+
+/// Export preset configuration
+#[derive(Debug, Clone)]
+struct ExportPreset {
+    id: String,
+    name: String,
+    format: String,        // "wav", "flac", "mp3", "aac"
+    sample_rate: u32,
+    bit_depth: u8,
+    channels: u8,
+    normalize: bool,
+    target_lufs: f64,
+    true_peak_limit: f64,
+}
+
+impl ExportPreset {
+    fn broadcast() -> Self {
+        Self {
+            id: "broadcast".into(),
+            name: "Broadcast (EBU R128)".into(),
+            format: "wav".into(),
+            sample_rate: 48000,
+            bit_depth: 24,
+            channels: 2,
+            normalize: true,
+            target_lufs: -23.0,
+            true_peak_limit: -1.0,
+        }
+    }
+
+    fn streaming() -> Self {
+        Self {
+            id: "streaming".into(),
+            name: "Streaming (Spotify/YouTube)".into(),
+            format: "flac".into(),
+            sample_rate: 44100,
+            bit_depth: 16,
+            channels: 2,
+            normalize: true,
+            target_lufs: -14.0,
+            true_peak_limit: -1.0,
+        }
+    }
+
+    fn archival() -> Self {
+        Self {
+            id: "archival".into(),
+            name: "Archival (Lossless)".into(),
+            format: "flac".into(),
+            sample_rate: 96000,
+            bit_depth: 24,
+            channels: 2,
+            normalize: false,
+            target_lufs: 0.0,
+            true_peak_limit: 0.0,
+        }
+    }
+
+    fn to_json(&self) -> String {
+        format!(
+            r#"{{"id":"{}","name":"{}","format":"{}","sample_rate":{},"bit_depth":{},"channels":{},"normalize":{},"target_lufs":{},"true_peak_limit":{}}}"#,
+            self.id, self.name, self.format, self.sample_rate, self.bit_depth, self.channels,
+            self.normalize, self.target_lufs, self.true_peak_limit
+        )
+    }
+}
+
+/// List export presets as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn export_presets_list() -> *mut c_char {
+    let presets = EXPORT_PRESETS.read();
+    let json_array: Vec<String> = presets.iter().map(|p| p.to_json()).collect();
+    let json = format!("[{}]", json_array.join(","));
+    CString::new(json).unwrap_or_default().into_raw()
+}
+
+/// Get export preset count
+#[unsafe(no_mangle)]
+pub extern "C" fn export_presets_count() -> u32 {
+    EXPORT_PRESETS.read().len() as u32
+}
+
+/// Delete export preset by ID
+#[unsafe(no_mangle)]
+pub extern "C" fn export_preset_delete(preset_id: *const c_char) -> i32 {
+    if preset_id.is_null() {
+        return 0;
+    }
+
+    let id = match unsafe { CStr::from_ptr(preset_id) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let mut presets = EXPORT_PRESETS.write();
+    let original_len = presets.len();
+    presets.retain(|p| p.id != id);
+
+    if presets.len() < original_len { 1 } else { 0 }
+}
+
+/// Get default export path
+#[unsafe(no_mangle)]
+pub extern "C" fn export_get_default_path() -> *mut c_char {
+    // Use home directory or fallback to current directory
+    let path = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join("Documents").join("ReelForge Exports"))
+        .unwrap_or_else(|_| PathBuf::from("./exports"));
+
+    CString::new(path.to_string_lossy().into_owned())
+        .unwrap_or_default()
+        .into_raw()
 }

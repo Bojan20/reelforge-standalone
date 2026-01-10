@@ -26,6 +26,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use rf_core::Sample;
 use rf_dsp::channel::ChannelStrip;
+use rf_plugin::{AudioBuffer as PluginAudioBuffer, ZeroCopyChain};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTING COMMANDS (lock-free UI → Audio thread communication)
@@ -456,6 +457,10 @@ pub struct Channel {
     /// Channel strip with full DSP chain (gate, comp, EQ, limiter, etc.)
     pub strip: Option<ChannelStrip>,
 
+    // Plugin hosting (Phase 2: Plugin system foundation)
+    /// Plugin insert chain (VST3/CLAP/AU/LV2)
+    pub plugin_chain: Option<ZeroCopyChain>,
+
     // Metering (lock-free atomics for audio thread → UI thread)
     /// Peak level left channel (f64 bits stored as u64)
     pub peak_l: AtomicU64,
@@ -511,6 +516,12 @@ impl Channel {
             // Initialize DSP strip (all channels except VCA have processing)
             strip: if kind != ChannelKind::Vca {
                 Some(ChannelStrip::new(sample_rate))
+            } else {
+                None
+            },
+            // Initialize plugin chain (8 max insert slots, 2 channels, block_size)
+            plugin_chain: if kind != ChannelKind::Vca {
+                Some(ZeroCopyChain::new(8, 2, block_size))
             } else {
                 None
             },
@@ -704,12 +715,39 @@ impl Channel {
 
         let len = self.input_left.len().min(self.output_left.len());
 
-        // Process with or without DSP strip
+        // Copy input to output first (for in-place processing)
+        self.output_left[..len].copy_from_slice(&self.input_left[..len]);
+        self.output_right[..len].copy_from_slice(&self.input_right[..len]);
+
+        // Process through plugin chain first (if present)
+        if let Some(plugin_chain) = &mut self.plugin_chain {
+            if !plugin_chain.is_empty() {
+                // Convert f64 buffers to f32 for plugin API
+                let mut plugin_input = PluginAudioBuffer::new(2, len);
+                for i in 0..len {
+                    plugin_input.data[0][i] = self.output_left[i] as f32;
+                    plugin_input.data[1][i] = self.output_right[i] as f32;
+                }
+
+                let mut plugin_output = PluginAudioBuffer::new(2, len);
+
+                // Process through plugin chain
+                if plugin_chain.process(&plugin_input, &mut plugin_output).is_ok() {
+                    // Convert f32 back to f64
+                    for i in 0..len {
+                        self.output_left[i] = plugin_output.data[0][i] as f64;
+                        self.output_right[i] = plugin_output.data[1][i] as f64;
+                    }
+                }
+            }
+        }
+
+        // Process with DSP strip after plugins
         if let Some(strip) = &mut self.strip {
             use rf_dsp::StereoProcessor;
 
             for i in 0..len {
-                let (l, r) = strip.process_sample(self.input_left[i], self.input_right[i]);
+                let (l, r) = strip.process_sample(self.output_left[i], self.output_right[i]);
 
                 // Apply fader and pan after DSP
                 let out_l = l * left_gain;
@@ -762,6 +800,21 @@ impl Channel {
         self.input_right.resize(block_size, 0.0);
         self.output_left.resize(block_size, 0.0);
         self.output_right.resize(block_size, 0.0);
+
+        // Recreate plugin chain with new block size
+        if let Some(_) = &self.plugin_chain {
+            self.plugin_chain = Some(ZeroCopyChain::new(8, 2, block_size));
+        }
+    }
+
+    /// Get mutable access to plugin chain
+    pub fn plugin_chain_mut(&mut self) -> Option<&mut ZeroCopyChain> {
+        self.plugin_chain.as_mut()
+    }
+
+    /// Get read access to plugin chain
+    pub fn plugin_chain_ref(&self) -> Option<&ZeroCopyChain> {
+        self.plugin_chain.as_ref()
     }
 }
 

@@ -482,6 +482,166 @@ error!("Failed to open device: {}", err);
 
 ---
 
+## 🚀 Performance Optimization Guide
+
+**Detaljni guide:** `.claude/performance/OPTIMIZATION_GUIDE.md`
+**Cleanup checklist:** `.claude/performance/CODE_CLEANUP_CHECKLIST.md`
+
+### Critical Issues (Fix ASAP)
+
+#### 1. RwLock in Audio Thread → AtomicU8
+**File:** `rf-audio/src/engine.rs:166-172, 341`
+**Problem:** `transport.state.read()` blocks audio thread during UI writes
+**Fix:** Replace `RwLock<TransportState>` with `AtomicU8`
+**Gain:** 2-3ms latency reduction, zero dropouts
+
+```rust
+// Before (BLOCKING):
+pub struct Transport {
+    state: RwLock<TransportState>,  // ❌
+}
+
+// After (LOCK-FREE):
+pub struct Transport {
+    state: AtomicU8,  // ✅
+}
+
+impl Transport {
+    #[inline]
+    pub fn state(&self) -> TransportState {
+        TransportState::from_u8(self.state.load(Ordering::Relaxed))
+    }
+}
+```
+
+---
+
+#### 2. Vec Allocation in EQ Parameter Update
+**File:** `rf-dsp/src/eq.rs:190-191`
+**Problem:** `vec![BiquadTDF2::new()]` heap alloc on EVERY parameter change
+**Fix:** Pre-allocate filter array, use dirty-bit caching
+**Gain:** 3-5% CPU, zero latency spikes
+
+```rust
+// Before (HEAP ALLOC):
+pub fn set_params(&mut self, freq: f64, ...) {
+    self.filters_l = vec![BiquadTDF2::new(sr)];  // ❌ Alloc
+}
+
+// After (PRE-ALLOCATED):
+pub struct EqBand {
+    filters_l: [BiquadTDF2; 8],  // ✅ Stack array
+    num_stages: usize,
+    last_freq: f64,  // Cache for early exit
+}
+
+pub fn set_params(&mut self, freq: f64, ...) {
+    if freq == self.last_freq { return; }  // Cache hit
+    self.last_freq = freq;
+
+    // Only update active stages
+    for i in 0..self.num_stages {
+        self.filters_l[i].update_coeffs(...);
+    }
+}
+```
+
+---
+
+#### 3. Metering Over-Computation
+**File:** `rf-audio/src/engine.rs:369-395`
+**Problem:** Redundant abs() + full RMS on every callback
+**Fix:** SIMD single-pass peak+RMS
+**Gain:** 3-5% CPU in metering
+
+```rust
+// Before (SCALAR, REDUNDANT):
+for i in 0..frames {
+    let l = left_buf[i].abs();    // ❌ 2× abs per sample
+    let r = right_buf[i].abs();
+    peak_l = peak_l.max(l);
+    sum_sq_l += left_buf[i] * left_buf[i];  // ❌ Full RMS
+}
+
+// After (SIMD OPTIMIZED):
+use std::simd::f64x4;
+
+let mut peak = f64x4::splat(0.0);
+let mut sum_sq = f64x4::splat(0.0);
+
+for chunk in samples.chunks_exact(4) {
+    let vals = f64x4::from_slice(chunk);
+    let abs_vals = vals.abs();
+    peak = peak.simd_max(abs_vals);
+    sum_sq += vals * vals;  // Single pass
+}
+```
+
+---
+
+#### 4. Biquad SIMD Without Runtime Dispatch
+**File:** `rf-dsp/src/biquad.rs:494-528`
+**Problem:** Hardcoded f64x4, no AVX-512 (8-lane) support
+**Fix:** Runtime CPU detection + AVX-512 path
+**Gain:** 15-30% faster filtering on modern CPUs
+
+```rust
+// Before (FIXED 4-LANE):
+pub fn process_block(&mut self, buffer: &mut [Sample]) {
+    for i in (0..simd_len).step_by(4) {  // ❌ Always 4
+        let input = f64x4::from_slice(&buffer[i..]);
+        // ...
+    }
+}
+
+// After (RUNTIME DISPATCH):
+pub fn process_block(&mut self, buffer: &mut [Sample]) {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx512f") {
+            unsafe { self.process_avx512(buffer) }  // ✅ 8-lane
+        } else if is_x86_feature_detected!("avx2") {
+            unsafe { self.process_avx2(buffer) }    // ✅ 4-lane
+        } else {
+            self.process_scalar_loop(buffer)
+        }
+    }
+}
+```
+
+---
+
+### Quick Wins Checklist
+
+| Priority | Issue | File:Line | Effort | Gain |
+|----------|-------|-----------|--------|------|
+| 🔴 1 | RwLock audio thread | engine.rs:166 | 30min | 2-3ms latency |
+| 🔴 2 | EQ Vec alloc | eq.rs:190 | 45min | 3-5% CPU |
+| 🔴 3 | Peak decay pre-compute | engine.rs:323 | 5min | 0.5% CPU |
+| 🟠 4 | Biquad AVX-512 | biquad.rs:494 | 2h | 20-30% filter |
+| 🟠 5 | Dynamics SIMD | dynamics.rs:45 | 1.5h | 1-2% CPU |
+| 🟡 6 | Waveform LOD cache | waveform.rs:147 | 1h | 30-50% import |
+
+---
+
+### Anti-Patterns Discovered
+
+❌ **NEVER do this:**
+1. Locks in audio thread (RwLock, Mutex) → Use Atomic
+2. Vec::push in hot path → Pre-allocate
+3. Redundant log10/pow → Lookup tables
+4. Branch per-sample → SIMD branchless
+5. Intermediate Vec in loop → Direct compute
+6. Clone heavy structs → Use &references
+
+✅ **ALWAYS do this:**
+1. Profile BEFORE optimizing
+2. Benchmark BEFORE and AFTER
+3. Test audio playback after changes
+4. Verify zero allocations in hot paths
+
+---
+
 ## Checklist
 
 ### Performance

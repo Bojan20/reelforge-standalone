@@ -445,4 +445,44 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## 🚀 PERFORMANCE OPTIMIZATION
+
+**Detaljna analiza kompletnog koda:** `.claude/performance/OPTIMIZATION_GUIDE.md`
+
+### Quick Wins — Top Priority (< 2h ukupno)
+
+| Priority | Issue | File:Line | Effort | Gain |
+|----------|-------|-----------|--------|------|
+| 🔴 CRITICAL | RwLock audio thread | rf-audio/engine.rs:166 | 30min | 2-3ms latency |
+| 🔴 CRITICAL | EQ Vec alloc | rf-dsp/eq.rs:190 | 45min | 3-5% CPU |
+| 🟠 HIGH | Meter rebuild storm | meter_provider.dart:256 | 45min | 30% FPS |
+| 🟡 MEDIUM | Timeline vsync | timeline_playback.dart:175 | 1h | Smoothness |
+
+**Ukupan potencijal:**
+- Audio callback: **3-5% CPU redukcija**
+- DSP procesori: **20-40% brže** (SIMD dispatch)
+- Flutter UI: **40-60% manje frame drops**
+- Binary: **10-20% manji**
+
+### Implementacioni Plan
+
+**Faza 1 (Dan 1):** RwLock → AtomicU8, EQ alloc fix, Meter throttling
+**Faza 2 (Dan 2-3):** Biquad AVX-512, Dynamics SIMD, Timeline vsync
+**Faza 3 (Dan 4):** Waveform LOD cache, Binary reduction
+
+**Pre svake optimizacije:**
+1. Benchmark trenutno stanje
+2. Implementiraj fix
+3. Benchmark posle
+4. Verify no regression
+
+**Tools:**
+```bash
+cargo flamegraph --release     # CPU profiling
+cargo bench --package rf-dsp   # DSP benchmarks
+flutter run --profile          # UI performance
+```
+
+---
+
 Za detalje: `.claude/project/reelforge-standalone.md`

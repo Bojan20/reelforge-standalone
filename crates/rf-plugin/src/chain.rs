@@ -274,6 +274,16 @@ pub struct ZeroCopyChain {
     bypass: AtomicBool,
 }
 
+impl std::fmt::Debug for ZeroCopyChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ZeroCopyChain")
+            .field("slot_count", &self.slots.len())
+            .field("is_bypassed", &self.bypass.load(std::sync::atomic::Ordering::Relaxed))
+            .field("is_processing", &self.processing.load(std::sync::atomic::Ordering::Relaxed))
+            .finish()
+    }
+}
+
 impl ZeroCopyChain {
     pub fn new(max_slots: usize, channels: usize, buffer_size: usize) -> Self {
         // Pool needs at least max_slots * 2 buffers (input + output per slot)

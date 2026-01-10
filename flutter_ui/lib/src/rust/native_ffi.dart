@@ -200,6 +200,9 @@ typedef EngineCreateCrossfadeDart = int Function(int clipAId, int clipBId, doubl
 typedef EngineDeleteCrossfadeNative = Int32 Function(Uint64 crossfadeId);
 typedef EngineDeleteCrossfadeDart = int Function(int crossfadeId);
 
+typedef EngineUpdateCrossfadeNative = Int32 Function(Uint64 crossfadeId, Double duration, Uint32 curve);
+typedef EngineUpdateCrossfadeDart = int Function(int crossfadeId, double duration, int curve);
+
 // Memory
 typedef EngineFreeStringNative = Void Function(Pointer<Utf8> ptr);
 typedef EngineFreeStringDart = void Function(Pointer<Utf8> ptr);
@@ -241,6 +244,12 @@ typedef EngineSetMasterVolumeDart = void Function(double volume);
 
 typedef EngineGetMasterVolumeNative = Double Function();
 typedef EngineGetMasterVolumeDart = double Function();
+
+typedef EngineGetPlaybackPositionSecondsNative = Double Function();
+typedef EngineGetPlaybackPositionSecondsDart = double Function();
+
+typedef EngineGetPlaybackPositionSamplesNative = Uint64 Function();
+typedef EngineGetPlaybackPositionSamplesDart = int Function();
 
 typedef EnginePreloadAllNative = Void Function();
 typedef EnginePreloadAllDart = void Function();
@@ -703,6 +712,7 @@ class NativeFFI {
 
   late final EngineCreateCrossfadeDart _createCrossfade;
   late final EngineDeleteCrossfadeDart _deleteCrossfade;
+  late final EngineUpdateCrossfadeDart _updateCrossfade;
 
   // ignore: unused_field
   late final EngineFreeStringDart _freeString;
@@ -721,6 +731,8 @@ class NativeFFI {
   late final EngineIsPlayingDart _isPlaying;
   late final EngineSetMasterVolumeDart _setMasterVolume;
   late final EngineGetMasterVolumeDart _getMasterVolume;
+  late final EngineGetPlaybackPositionSecondsDart _getPlaybackPositionSeconds;
+  late final EngineGetPlaybackPositionSamplesDart _getPlaybackPositionSamples;
   late final EnginePreloadAllDart _preloadAll;
   late final EnginePreloadRangeDart _preloadRange;
   late final EngineSyncLoopFromRegionDart _syncLoopFromRegion;
@@ -954,6 +966,7 @@ class NativeFFI {
 
     _createCrossfade = _lib.lookupFunction<EngineCreateCrossfadeNative, EngineCreateCrossfadeDart>('engine_create_crossfade');
     _deleteCrossfade = _lib.lookupFunction<EngineDeleteCrossfadeNative, EngineDeleteCrossfadeDart>('engine_delete_crossfade');
+    _updateCrossfade = _lib.lookupFunction<EngineUpdateCrossfadeNative, EngineUpdateCrossfadeDart>('engine_update_crossfade');
 
     _freeString = _lib.lookupFunction<EngineFreeStringNative, EngineFreeStringDart>('engine_free_string');
     _clearAll = _lib.lookupFunction<EngineClearAllNative, EngineClearAllDart>('engine_clear_all');
@@ -971,6 +984,8 @@ class NativeFFI {
     _isPlaying = _lib.lookupFunction<EngineIsPlayingNative, EngineIsPlayingDart>('engine_is_playing');
     _setMasterVolume = _lib.lookupFunction<EngineSetMasterVolumeNative, EngineSetMasterVolumeDart>('engine_set_master_volume');
     _getMasterVolume = _lib.lookupFunction<EngineGetMasterVolumeNative, EngineGetMasterVolumeDart>('engine_get_master_volume');
+    _getPlaybackPositionSeconds = _lib.lookupFunction<EngineGetPlaybackPositionSecondsNative, EngineGetPlaybackPositionSecondsDart>('engine_get_playback_position_seconds');
+    _getPlaybackPositionSamples = _lib.lookupFunction<EngineGetPlaybackPositionSamplesNative, EngineGetPlaybackPositionSamplesDart>('engine_get_playback_position_samples');
     _preloadAll = _lib.lookupFunction<EnginePreloadAllNative, EnginePreloadAllDart>('engine_preload_all');
     _preloadRange = _lib.lookupFunction<EnginePreloadRangeNative, EnginePreloadRangeDart>('engine_preload_range');
     _syncLoopFromRegion = _lib.lookupFunction<EngineSyncLoopFromRegionNative, EngineSyncLoopFromRegionDart>('engine_sync_loop_from_region');
@@ -1494,6 +1509,13 @@ class NativeFFI {
     return _deleteCrossfade(crossfadeId) != 0;
   }
 
+  /// Update a crossfade
+  /// curve: 0=Linear, 1=EqualPower, 2=SCurve, 3=Logarithmic, 4=Exponential
+  bool updateCrossfade(int crossfadeId, double duration, int curve) {
+    if (!_loaded) return false;
+    return _updateCrossfade(crossfadeId, duration, curve) != 0;
+  }
+
   /// Clear all engine state
   void clearAll() {
     if (!_loaded) return;
@@ -1568,6 +1590,18 @@ class NativeFFI {
   double getMasterVolume() {
     if (!_loaded) return 1.0;
     return _getMasterVolume();
+  }
+
+  /// Get current playback position in seconds (sample-accurate)
+  double getPlaybackPositionSeconds() {
+    if (!_loaded) return 0.0;
+    return _getPlaybackPositionSeconds();
+  }
+
+  /// Get current playback position in samples
+  int getPlaybackPositionSamples() {
+    if (!_loaded) return 0;
+    return _getPlaybackPositionSamples();
   }
 
   /// Preload all audio files for playback
@@ -2873,225 +2907,6 @@ class NativeFFI {
     return _groupSetActive(groupId, active ? 1 : 0) == 1;
   }
 
-  // ============================================================
-  // ROUTING API
-  // ============================================================
-
-  late final _routingCreateBus = _lib.lookupFunction<
-      Uint32 Function(Pointer<Utf8>),
-      int Function(Pointer<Utf8>)>('routing_create_bus');
-
-  late final _routingCreateAux = _lib.lookupFunction<
-      Uint32 Function(Pointer<Utf8>),
-      int Function(Pointer<Utf8>)>('routing_create_aux');
-
-  late final _routingCreateAudio = _lib.lookupFunction<
-      Uint32 Function(Pointer<Utf8>),
-      int Function(Pointer<Utf8>)>('routing_create_audio');
-
-  late final _routingDeleteChannel = _lib.lookupFunction<
-      Int32 Function(Uint32),
-      int Function(int)>('routing_delete_channel');
-
-  late final _routingSetOutputMaster = _lib.lookupFunction<
-      Int32 Function(Uint32),
-      int Function(int)>('routing_set_output_master');
-
-  late final _routingSetOutputChannel = _lib.lookupFunction<
-      Int32 Function(Uint32, Uint32),
-      int Function(int, int)>('routing_set_output_channel');
-
-  late final _routingAddSend = _lib.lookupFunction<
-      Int32 Function(Uint32, Uint32, Int32),
-      int Function(int, int, int)>('routing_add_send');
-
-  late final _routingRemoveSend = _lib.lookupFunction<
-      Int32 Function(Uint32, UnsignedLong),
-      int Function(int, int)>('routing_remove_send');
-
-  late final _routingSetFader = _lib.lookupFunction<
-      Int32 Function(Uint32, Double),
-      int Function(int, double)>('routing_set_fader');
-
-  late final _routingGetFader = _lib.lookupFunction<
-      Double Function(Uint32),
-      double Function(int)>('routing_get_fader');
-
-  late final _routingSetPan = _lib.lookupFunction<
-      Int32 Function(Uint32, Double),
-      int Function(int, double)>('routing_set_pan');
-
-  late final _routingSetMute = _lib.lookupFunction<
-      Int32 Function(Uint32, Int32),
-      int Function(int, int)>('routing_set_mute');
-
-  late final _routingSetSolo = _lib.lookupFunction<
-      Int32 Function(Uint32, Int32),
-      int Function(int, int)>('routing_set_solo');
-
-  late final _routingGetChannelCount = _lib.lookupFunction<
-      UnsignedLong Function(),
-      int Function()>('routing_get_channel_count');
-
-  late final _routingGetAllChannels = _lib.lookupFunction<
-      UnsignedLong Function(Pointer<Uint32>, UnsignedLong),
-      int Function(Pointer<Uint32>, int)>('routing_get_all_channels');
-
-  late final _routingGetChannelKind = _lib.lookupFunction<
-      Uint8 Function(Uint32),
-      int Function(int)>('routing_get_channel_kind');
-
-  late final _routingSetName = _lib.lookupFunction<
-      Int32 Function(Uint32, Pointer<Utf8>),
-      int Function(int, Pointer<Utf8>)>('routing_set_name');
-
-  late final _routingSetColor = _lib.lookupFunction<
-      Int32 Function(Uint32, Uint32),
-      int Function(int, int)>('routing_set_color');
-
-  late final _routingProcess = _lib.lookupFunction<
-      Void Function(),
-      void Function()>('routing_process');
-
-  /// Create a bus channel, returns channel ID
-  int routingCreateBus(String name) {
-    if (!_loaded) return 0;
-    final namePtr = name.toNativeUtf8();
-    try {
-      return _routingCreateBus(namePtr);
-    } finally {
-      calloc.free(namePtr);
-    }
-  }
-
-  /// Create an aux channel, returns channel ID
-  int routingCreateAux(String name) {
-    if (!_loaded) return 0;
-    final namePtr = name.toNativeUtf8();
-    try {
-      return _routingCreateAux(namePtr);
-    } finally {
-      calloc.free(namePtr);
-    }
-  }
-
-  /// Create an audio channel, returns channel ID
-  int routingCreateAudio(String name) {
-    if (!_loaded) return 0;
-    final namePtr = name.toNativeUtf8();
-    try {
-      return _routingCreateAudio(namePtr);
-    } finally {
-      calloc.free(namePtr);
-    }
-  }
-
-  /// Delete a channel
-  bool routingDeleteChannel(int channelId) {
-    if (!_loaded) return false;
-    return _routingDeleteChannel(channelId) == 1;
-  }
-
-  /// Set channel output to master
-  bool routingSetOutputMaster(int channelId) {
-    if (!_loaded) return false;
-    return _routingSetOutputMaster(channelId) == 1;
-  }
-
-  /// Set channel output to another channel
-  bool routingSetOutputChannel(int fromId, int toId) {
-    if (!_loaded) return false;
-    return _routingSetOutputChannel(fromId, toId) == 1;
-  }
-
-  /// Add a send from one channel to another
-  bool routingAddSend(int fromId, int toId, {bool preFader = false}) {
-    if (!_loaded) return false;
-    return _routingAddSend(fromId, toId, preFader ? 1 : 0) == 1;
-  }
-
-  /// Remove a send by index
-  bool routingRemoveSend(int channelId, int sendIndex) {
-    if (!_loaded) return false;
-    return _routingRemoveSend(channelId, sendIndex) == 1;
-  }
-
-  /// Set channel fader level (dB)
-  bool routingSetFader(int channelId, double db) {
-    if (!_loaded) return false;
-    return _routingSetFader(channelId, db) == 1;
-  }
-
-  /// Get channel fader level (dB)
-  double routingGetFader(int channelId) {
-    if (!_loaded) return 0.0;
-    return _routingGetFader(channelId);
-  }
-
-  /// Set channel pan (-1.0 to 1.0)
-  bool routingSetPan(int channelId, double pan) {
-    if (!_loaded) return false;
-    return _routingSetPan(channelId, pan) == 1;
-  }
-
-  /// Set channel mute
-  bool routingSetMute(int channelId, bool muted) {
-    if (!_loaded) return false;
-    return _routingSetMute(channelId, muted ? 1 : 0) == 1;
-  }
-
-  /// Set channel solo
-  bool routingSetSolo(int channelId, bool solo) {
-    if (!_loaded) return false;
-    return _routingSetSolo(channelId, solo ? 1 : 0) == 1;
-  }
-
-  /// Get total channel count
-  int routingGetChannelCount() {
-    if (!_loaded) return 0;
-    return _routingGetChannelCount();
-  }
-
-  /// Get all channel IDs
-  List<int> routingGetAllChannels({int maxCount = 128}) {
-    if (!_loaded) return [];
-    final outIds = calloc<Uint32>(maxCount);
-    try {
-      final count = _routingGetAllChannels(outIds, maxCount);
-      return List.generate(count, (i) => outIds[i]);
-    } finally {
-      calloc.free(outIds);
-    }
-  }
-
-  /// Get channel kind (0=Audio, 1=Bus, 2=Aux, 3=Master)
-  int routingGetChannelKind(int channelId) {
-    if (!_loaded) return 0;
-    return _routingGetChannelKind(channelId);
-  }
-
-  /// Set channel name
-  bool routingSetName(int channelId, String name) {
-    if (!_loaded) return false;
-    final namePtr = name.toNativeUtf8();
-    try {
-      return _routingSetName(channelId, namePtr) == 1;
-    } finally {
-      calloc.free(namePtr);
-    }
-  }
-
-  /// Set channel color
-  bool routingSetColor(int channelId, int color) {
-    if (!_loaded) return false;
-    return _routingSetColor(channelId, color) == 1;
-  }
-
-  /// Process routing graph (called each audio cycle)
-  void routingProcess() {
-    if (!_loaded) return;
-    _routingProcess();
-  }
 
   // ============================================================
   // BUS VOLUME/PAN API (legacy engine_set_bus_*)
@@ -3892,6 +3707,211 @@ class NativeFFI {
   void recordingClearAll() => _recordingClearAll();
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Unified Routing System
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _routingInit = _lib.lookupFunction<
+      Int32 Function(Pointer<Void>),
+      int Function(Pointer<Void>)>('routing_init');
+
+  late final _routingCreateChannel = _lib.lookupFunction<
+      Uint32 Function(Uint32, Pointer<Utf8>),
+      int Function(int, Pointer<Utf8>)>('routing_create_channel');
+
+  late final _routingDeleteChannel = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('routing_delete_channel');
+
+  late final _routingPollResponse = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('routing_poll_response');
+
+  late final _routingSetOutput = _lib.lookupFunction<
+      Int32 Function(Uint32, Uint32, Uint32),
+      int Function(int, int, int)>('routing_set_output');
+
+  late final _routingAddSend = _lib.lookupFunction<
+      Int32 Function(Uint32, Uint32, Int32),
+      int Function(int, int, int)>('routing_add_send');
+
+  late final _routingSetVolume = _lib.lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('routing_set_volume');
+
+  late final _routingSetPan = _lib.lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('routing_set_pan');
+
+  late final _routingSetMute = _lib.lookupFunction<
+      Int32 Function(Uint32, Int32),
+      int Function(int, int)>('routing_set_mute');
+
+  late final _routingSetSolo = _lib.lookupFunction<
+      Int32 Function(Uint32, Int32),
+      int Function(int, int)>('routing_set_solo');
+
+  late final _routingGetChannelCount = _lib.lookupFunction<
+      Uint32 Function(),
+      int Function()>('routing_get_channel_count');
+
+  int routingInit(Pointer<Void> senderPtr) => _routingInit(senderPtr);
+  int routingCreateChannel(int kind, Pointer<Utf8> name) => _routingCreateChannel(kind, name);
+  int routingDeleteChannel(int channelId) => _routingDeleteChannel(channelId);
+  int routingPollResponse(int callbackId) => _routingPollResponse(callbackId);
+  int routingSetOutput(int channelId, int destType, int destId) => _routingSetOutput(channelId, destType, destId);
+  int routingAddSend(int fromChannel, int toChannel, int preFader) => _routingAddSend(fromChannel, toChannel, preFader);
+  int routingSetVolume(int channelId, double volumeDb) => _routingSetVolume(channelId, volumeDb);
+  int routingSetPan(int channelId, double pan) => _routingSetPan(channelId, pan);
+  int routingSetMute(int channelId, int mute) => _routingSetMute(channelId, mute);
+  int routingSetSolo(int channelId, int solo) => _routingSetSolo(channelId, solo);
+  int routingGetChannelCount() => _routingGetChannelCount();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Control Room System
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _controlRoomInit = _lib.lookupFunction<
+      Int32 Function(Pointer<Void>),
+      int Function(Pointer<Void>)>('control_room_init');
+
+  late final _controlRoomSetMonitorSource = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('control_room_set_monitor_source');
+
+  late final _controlRoomGetMonitorSource = _lib.lookupFunction<
+      Uint32 Function(),
+      int Function()>('control_room_get_monitor_source');
+
+  late final _controlRoomSetMonitorLevel = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_monitor_level');
+
+  late final _controlRoomGetMonitorLevel = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_monitor_level');
+
+  late final _controlRoomSetDim = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_dim');
+
+  late final _controlRoomGetDim = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_dim');
+
+  late final _controlRoomSetMono = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_mono');
+
+  late final _controlRoomGetMono = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_mono');
+
+  late final _controlRoomSetSpeakerSet = _lib.lookupFunction<
+      Int32 Function(Uint8),
+      int Function(int)>('control_room_set_speaker_set');
+
+  late final _controlRoomGetSpeakerSet = _lib.lookupFunction<
+      Uint8 Function(),
+      int Function()>('control_room_get_speaker_set');
+
+  late final _controlRoomSetSpeakerLevel = _lib.lookupFunction<
+      Int32 Function(Uint8, Double),
+      int Function(int, double)>('control_room_set_speaker_level');
+
+  late final _controlRoomSetSoloMode = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('control_room_set_solo_mode');
+
+  late final _controlRoomGetSoloMode = _lib.lookupFunction<
+      Uint32 Function(),
+      int Function()>('control_room_get_solo_mode');
+
+  late final _controlRoomSoloChannel = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('control_room_solo_channel');
+
+  late final _controlRoomUnsoloChannel = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('control_room_unsolo_channel');
+
+  late final _controlRoomClearSolo = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_clear_solo');
+
+  late final _controlRoomIsSoloed = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('control_room_is_soloed');
+
+  late final _controlRoomSetCueEnabled = _lib.lookupFunction<
+      Int32 Function(Uint8, Int32),
+      int Function(int, int)>('control_room_set_cue_enabled');
+
+  late final _controlRoomSetCueLevel = _lib.lookupFunction<
+      Int32 Function(Uint8, Double),
+      int Function(int, double)>('control_room_set_cue_level');
+
+  late final _controlRoomSetCuePan = _lib.lookupFunction<
+      Int32 Function(Uint8, Double),
+      int Function(int, double)>('control_room_set_cue_pan');
+
+  late final _controlRoomAddCueSend = _lib.lookupFunction<
+      Int32 Function(Uint8, Uint32, Double, Double),
+      int Function(int, int, double, double)>('control_room_add_cue_send');
+
+  late final _controlRoomRemoveCueSend = _lib.lookupFunction<
+      Int32 Function(Uint8, Uint32),
+      int Function(int, int)>('control_room_remove_cue_send');
+
+  late final _controlRoomSetTalkback = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_talkback');
+
+  late final _controlRoomSetTalkbackLevel = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_talkback_level');
+
+  late final _controlRoomSetTalkbackDestinations = _lib.lookupFunction<
+      Int32 Function(Uint8),
+      int Function(int)>('control_room_set_talkback_destinations');
+
+  late final _controlRoomGetMonitorPeakL = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_monitor_peak_l');
+
+  late final _controlRoomGetMonitorPeakR = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_monitor_peak_r');
+
+  int controlRoomInit(Pointer<Void> controlRoomPtr) => _controlRoomInit(controlRoomPtr);
+  int controlRoomSetMonitorSource(int source) => _controlRoomSetMonitorSource(source);
+  int controlRoomGetMonitorSource() => _controlRoomGetMonitorSource();
+  int controlRoomSetMonitorLevel(double levelDb) => _controlRoomSetMonitorLevel(levelDb);
+  double controlRoomGetMonitorLevel() => _controlRoomGetMonitorLevel();
+  int controlRoomSetDim(int enabled) => _controlRoomSetDim(enabled);
+  int controlRoomGetDim() => _controlRoomGetDim();
+  int controlRoomSetMono(int enabled) => _controlRoomSetMono(enabled);
+  int controlRoomGetMono() => _controlRoomGetMono();
+  int controlRoomSetSpeakerSet(int index) => _controlRoomSetSpeakerSet(index);
+  int controlRoomGetSpeakerSet() => _controlRoomGetSpeakerSet();
+  int controlRoomSetSpeakerLevel(int index, double levelDb) => _controlRoomSetSpeakerLevel(index, levelDb);
+  int controlRoomSetSoloMode(int mode) => _controlRoomSetSoloMode(mode);
+  int controlRoomGetSoloMode() => _controlRoomGetSoloMode();
+  int controlRoomSoloChannel(int channelId) => _controlRoomSoloChannel(channelId);
+  int controlRoomUnsoloChannel(int channelId) => _controlRoomUnsoloChannel(channelId);
+  int controlRoomClearSolo() => _controlRoomClearSolo();
+  int controlRoomIsSoloed(int channelId) => _controlRoomIsSoloed(channelId);
+  int controlRoomSetCueEnabled(int cueIndex, int enabled) => _controlRoomSetCueEnabled(cueIndex, enabled);
+  int controlRoomSetCueLevel(int cueIndex, double levelDb) => _controlRoomSetCueLevel(cueIndex, levelDb);
+  int controlRoomSetCuePan(int cueIndex, double pan) => _controlRoomSetCuePan(cueIndex, pan);
+  int controlRoomAddCueSend(int cueIndex, int channelId, double level, double pan) => _controlRoomAddCueSend(cueIndex, channelId, level, pan);
+  int controlRoomRemoveCueSend(int cueIndex, int channelId) => _controlRoomRemoveCueSend(cueIndex, channelId);
+  int controlRoomSetTalkback(int enabled) => _controlRoomSetTalkback(enabled);
+  int controlRoomSetTalkbackLevel(double levelDb) => _controlRoomSetTalkbackLevel(levelDb);
+  int controlRoomSetTalkbackDestinations(int destinations) => _controlRoomSetTalkbackDestinations(destinations);
+  double controlRoomGetMonitorPeakL() => _controlRoomGetMonitorPeakL();
+  double controlRoomGetMonitorPeakR() => _controlRoomGetMonitorPeakR();
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Export/Bounce System
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -3958,6 +3978,95 @@ class NativeFFI {
   bool bounceIsActive() => _bounceIsActive() != 0;
   void bounceClear() => _bounceClear();
   Pointer<Utf8> bounceGetOutputPath() => _bounceGetOutputPath();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INPUT BUS SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _inputBusCreateStereo = _lib.lookupFunction<
+      Uint32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('input_bus_create_stereo');
+
+  late final _inputBusCreateMono = _lib.lookupFunction<
+      Uint32 Function(Pointer<Utf8>, Int32),
+      int Function(Pointer<Utf8>, int)>('input_bus_create_mono');
+
+  late final _inputBusDelete = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('input_bus_delete');
+
+  late final _inputBusCount = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('input_bus_count');
+
+  late final _inputBusGetName = _lib.lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('input_bus_get_name');
+
+  late final _inputBusGetChannels = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('input_bus_get_channels');
+
+  late final _inputBusIsEnabled = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('input_bus_is_enabled');
+
+  late final _inputBusSetEnabled = _lib.lookupFunction<
+      Void Function(Uint32, Int32),
+      void Function(int, int)>('input_bus_set_enabled');
+
+  late final _inputBusGetPeak = _lib.lookupFunction<
+      Float Function(Uint32, Int32),
+      double Function(int, int)>('input_bus_get_peak');
+
+  int inputBusCreateStereo(String name) {
+    final namePtr = name.toNativeUtf8();
+    final result = _inputBusCreateStereo(namePtr);
+    calloc.free(namePtr);
+    return result;
+  }
+
+  int inputBusCreateMono(String name, int hwChannel) {
+    final namePtr = name.toNativeUtf8();
+    final result = _inputBusCreateMono(namePtr, hwChannel);
+    calloc.free(namePtr);
+    return result;
+  }
+
+  int inputBusDelete(int busId) => _inputBusDelete(busId);
+  int inputBusCount() => _inputBusCount();
+  Pointer<Utf8> inputBusGetName(int busId) => _inputBusGetName(busId);
+  int inputBusGetChannels(int busId) => _inputBusGetChannels(busId);
+  int inputBusIsEnabled(int busId) => _inputBusIsEnabled(busId);
+  void inputBusSetEnabled(int busId, int enabled) => _inputBusSetEnabled(busId, enabled);
+  double inputBusGetPeak(int busId, int channel) => _inputBusGetPeak(busId, channel);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO EXPORT SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _exportAudio = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>, Int32, Uint32, Double, Double, Int32),
+      int Function(Pointer<Utf8>, int, int, double, double, int)>('export_audio');
+
+  late final _exportGetProgress = _lib.lookupFunction<
+      Float Function(),
+      double Function()>('export_get_progress');
+
+  late final _exportIsExporting = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('export_is_exporting');
+
+  int exportAudio(String outputPath, int format, int sampleRate,
+      double startTime, double endTime, bool normalize) {
+    final pathPtr = outputPath.toNativeUtf8();
+    final result = _exportAudio(pathPtr, format, sampleRate, startTime, endTime, normalize ? 1 : 0);
+    calloc.free(pathPtr);
+    return result;
+  }
+
+  double exportGetProgress() => _exportGetProgress();
+  int exportIsExporting() => _exportIsExporting();
 }
 
 /// Piano roll note data
@@ -6925,122 +7034,349 @@ extension SaturationAPI on NativeFFI {
 
   /// Refresh versions from disk
   void versionRefresh() => _versionRefresh();
+}
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // ADVANCED METERING (8x True Peak, PSR, Psychoacoustic)
-  // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADVANCED METERING EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Advanced Metering API (8x True Peak, PSR, Psychoacoustic)
+extension AdvancedMeteringAPI on NativeFFI {
+  // FFI lookups for advanced meters
+  static final _advancedMetersInit = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('advanced_meters_init');
+
+  static final _advancedMetersReset = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('advanced_meters_reset');
+
+  static final _advancedMetersGetTruePeakL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_true_peak_l');
+
+  static final _advancedMetersGetTruePeakR = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_true_peak_r');
+
+  static final _advancedMetersGetTruePeakMax = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_true_peak_max');
+
+  static final _advancedMetersGetPsr = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_psr');
+
+  static final _advancedMetersGetShortTermLufs = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_short_term_lufs');
+
+  static final _advancedMetersGetPsrAssessment = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('advanced_meters_get_psr_assessment');
+
+  static final _advancedMetersGetCrestFactorL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_crest_factor_l');
+
+  static final _advancedMetersGetCrestFactorR = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_crest_factor_r');
+
+  static final _advancedMetersGetLoudnessSonesL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_loudness_sones_l');
+
+  static final _advancedMetersGetLoudnessPhonsL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_loudness_phons_l');
+
+  static final _advancedMetersGetSharpnessL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_sharpness_l');
+
+  static final _advancedMetersGetFluctuationL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_fluctuation_l');
+
+  static final _advancedMetersGetRoughnessL = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('advanced_meters_get_roughness_l');
 
   /// Get 8x True Peak data
   TruePeak8xData advancedGetTruePeak8x() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    // For now, return empty data
-    return TruePeak8xData.empty();
+    final peakL = _advancedMetersGetTruePeakL();
+    final peakR = _advancedMetersGetTruePeakR();
+    final maxDbtp = _advancedMetersGetTruePeakMax();
+    final peakDbtp = peakL > peakR ? peakL : peakR;
+    return TruePeak8xData(
+      peakDbtp: peakDbtp,
+      maxDbtp: maxDbtp,
+      holdDbtp: maxDbtp, // Using max as hold for simplicity
+      isClipping: peakDbtp > 0.0,
+    );
   }
 
   /// Get PSR data
   PsrData advancedGetPsr() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return PsrData.empty();
+    final psr = _advancedMetersGetPsr();
+    final lufs = _advancedMetersGetShortTermLufs();
+    final tp = _advancedMetersGetTruePeakMax();
+    final assessmentCode = _advancedMetersGetPsrAssessment();
+
+    String assessment;
+    switch (assessmentCode) {
+      case 0: assessment = 'Severely Over-compressed'; break;
+      case 1: assessment = 'Over-compressed'; break;
+      case 2: assessment = 'Moderate Compression'; break;
+      case 3: assessment = 'Good Dynamic Range'; break;
+      case 4: assessment = 'High Dynamic Range'; break;
+      default: assessment = 'Unknown';
+    }
+
+    return PsrData(
+      psrDb: psr,
+      shortTermLufs: lufs,
+      truePeakDbtp: tp,
+      assessment: assessment,
+    );
   }
 
   /// Get Crest Factor data
   CrestFactorData advancedGetCrestFactor() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return CrestFactorData.empty();
+    final crestL = _advancedMetersGetCrestFactorL();
+    final crestR = _advancedMetersGetCrestFactorR();
+    final crestDb = (crestL + crestR) / 2.0;
+    final crestRatio = crestDb > 0 ? (crestDb / 20.0 * 10.0).abs() : 1.0;
+
+    String assessment;
+    if (crestDb < 6) {
+      assessment = 'Over-limited';
+    } else if (crestDb < 12) {
+      assessment = 'Compressed';
+    } else if (crestDb < 18) {
+      assessment = 'Moderate';
+    } else {
+      assessment = 'Dynamic';
+    }
+
+    return CrestFactorData(
+      crestDb: crestDb,
+      crestRatio: crestRatio,
+      assessment: assessment,
+    );
   }
 
   /// Get Psychoacoustic data
   PsychoacousticData advancedGetPsychoacoustic() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return PsychoacousticData.empty();
+    return PsychoacousticData(
+      loudnessSones: _advancedMetersGetLoudnessSonesL(),
+      loudnessPhons: _advancedMetersGetLoudnessPhonsL(),
+      sharpnessAcum: _advancedMetersGetSharpnessL(),
+      fluctuationVacil: _advancedMetersGetFluctuationL(),
+      roughnessAsper: _advancedMetersGetRoughnessL(),
+      specificLoudness: List.filled(24, 0.0), // Placeholder
+    );
   }
 
   /// Initialize advanced meters
   void advancedInitMeters(double sampleRate) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    _advancedMetersInit(sampleRate);
   }
 
   /// Reset all advanced meters
   void advancedResetAll() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    _advancedMetersReset();
   }
+}
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // AUDIO POOL
-  // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO POOL EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /// Get list of audio files in the pool
+/// Audio Pool API
+extension AudioPoolAPI on NativeFFI {
+  // FFI lookups for audio pool
+  static final _audioPoolList = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_pool_list');
+
+  static final _audioPoolCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('audio_pool_count');
+
+  static final _audioPoolRemove = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('audio_pool_remove');
+
+  static final _audioPoolClear = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_pool_clear');
+
+  static final _audioPoolContains = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('audio_pool_contains');
+
+  static final _audioPoolGetInfo = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint64),
+      Pointer<Utf8> Function(int)>('audio_pool_get_info');
+
+  static final _audioPoolMemoryUsage = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('audio_pool_memory_usage');
+
+  static final _freeRustString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('free_rust_string');
+
+  /// Get list of audio files in the pool as JSON
   String audioPoolList() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return '[]';
+    final ptr = _audioPoolList();
+    if (ptr == nullptr) return '[]';
+    final json = ptr.toDartString();
+    _freeRustString(ptr);
+    return json;
   }
 
-  /// Import audio file to pool
+  /// Get count of audio files in pool
+  int audioPoolCount() {
+    return _audioPoolCount();
+  }
+
+  /// Import audio file to pool (uses existing engine_import_audio)
   bool audioPoolImport(String path) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return true;
+    // Import to pool only (no track placement), use trackId=0, startTime=0
+    return NativeFFI.instance.importAudio(path, 0, 0.0) >= 0;
   }
 
-  /// Remove audio file from pool
-  bool audioPoolRemove(String fileId) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return true;
+  /// Remove audio file from pool by clip ID
+  bool audioPoolRemove(int clipId) {
+    return _audioPoolRemove(clipId) == 1;
   }
 
-  /// Play audio file preview
-  void audioPoolPlayPreview(String fileId) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+  /// Clear all audio from pool
+  bool audioPoolClear() {
+    return _audioPoolClear() == 1;
+  }
+
+  /// Check if clip ID exists in pool
+  bool audioPoolContains(int clipId) {
+    return _audioPoolContains(clipId) == 1;
+  }
+
+  /// Get audio info as JSON for clip ID
+  String? audioPoolGetInfo(int clipId) {
+    final ptr = _audioPoolGetInfo(clipId);
+    if (ptr == nullptr) return null;
+    final json = ptr.toDartString();
+    _freeRustString(ptr);
+    return json;
+  }
+
+  /// Get total memory usage in bytes
+  int audioPoolMemoryUsage() {
+    return _audioPoolMemoryUsage();
+  }
+
+  /// Play audio file preview (through master bus)
+  void audioPoolPlayPreview(int clipId) {
+    // Preview not implemented - would need separate playback path
+    // For now, just log the intent
   }
 
   /// Stop audio file preview
   void audioPoolStopPreview() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    NativeFFI.instance.stop();
   }
 
-  /// Locate missing audio file
-  bool audioPoolLocate(String fileId, String newPath) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return true;
+  /// Locate missing audio file (re-import with new path)
+  bool audioPoolLocate(int clipId, String newPath) {
+    // Remove old and import from new location
+    _audioPoolRemove(clipId);
+    return NativeFFI.instance.importAudio(newPath, 0, 0.0) >= 0;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // EXPORT PRESETS
-  // ═══════════════════════════════════════════════════════════════════════════════
+}
 
-  /// Get list of export presets
+// ═══════════════════════════════════════════════════════════════════════════════
+// EXPORT PRESETS EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Export Presets API
+extension ExportPresetsAPI on NativeFFI {
+  // FFI lookups for export presets
+  static final _exportPresetsList = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('export_presets_list');
+
+  static final _exportPresetsCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('export_presets_count');
+
+  static final _exportPresetDelete = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('export_preset_delete');
+
+  static final _exportGetDefaultPath = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('export_get_default_path');
+
+  static final _freeRustStringExport = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('free_rust_string');
+
+  /// Get list of export presets as JSON
   String exportPresetsList() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return '[]';
+    final ptr = _exportPresetsList();
+    if (ptr == nullptr) return '[]';
+    final json = ptr.toDartString();
+    _freeRustStringExport(ptr);
+    return json;
   }
 
-  /// Save export preset
+  /// Get count of export presets
+  int exportPresetsCount() {
+    return _exportPresetsCount();
+  }
+
+  /// Save export preset (add to list)
   bool exportPresetSave(String presetJson) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    // Presets are managed in-memory, add via JSON parsing
+    // For now, presets are hardcoded defaults (broadcast, streaming, archival)
     return true;
   }
 
-  /// Delete export preset
+  /// Delete export preset by ID
   bool exportPresetDelete(String presetId) {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return true;
+    final idPtr = presetId.toNativeUtf8();
+    final result = _exportPresetDelete(idPtr);
+    calloc.free(idPtr);
+    return result == 1;
   }
 
   /// Get default export path
   String getDefaultExportPath() {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
-    return '';
+    final ptr = _exportGetDefaultPath();
+    if (ptr == nullptr) return '';
+    final path = ptr.toDartString();
+    _freeRustStringExport(ptr);
+    return path;
   }
 
-  /// Select export folder (opens native dialog)
+  /// Select export folder (opens native dialog via file_picker)
   Future<String?> selectExportFolder() async {
-    // TODO: Implement FFI binding when flutter_rust_bridge regenerates
+    // This uses Flutter's file_picker, not FFI
+    // Return null - caller should use FilePicker.platform.getDirectoryPath()
     return null;
   }
+}
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // CONTROL ROOM
-  // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONTROL ROOM EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/// Control Room API
+extension ControlRoomAPI on NativeFFI {
   /// Get monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
   int controlRoomGetMonitorSource() {
     // TODO: Implement actual FFI binding

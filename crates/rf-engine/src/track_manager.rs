@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::input_bus::{InputBusId, MonitorMode};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ID TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,6 +128,12 @@ pub struct Track {
     /// Send effects routing
     #[serde(default)]
     pub sends: [TrackSendSlot; MAX_TRACK_SENDS],
+    /// Input bus routing (None = no input, Some(id) = routed from input bus)
+    #[serde(default)]
+    pub input_bus: Option<InputBusId>,
+    /// Input monitoring mode (Auto/Manual/Off)
+    #[serde(default)]
+    pub monitor_mode: MonitorMode,
 }
 
 impl Track {
@@ -146,6 +154,8 @@ impl Track {
             input_monitor: false,
             order: 0,
             sends: Default::default(),
+            input_bus: None,
+            monitor_mode: MonitorMode::Auto,
         }
     }
 
@@ -195,6 +205,8 @@ impl Track {
             input_monitor: false,
             order: 0,
             sends: Default::default(),
+            input_bus: None,
+            monitor_mode: MonitorMode::Auto,
         }
     }
 }

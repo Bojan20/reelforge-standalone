@@ -8,227 +8,117 @@
 /// - 4 Cue/Headphone mixes
 /// - Talkback
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DATA MODELS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Monitor source
-enum MonitorSource { master, cue1, cue2, cue3, cue4, external1, external2 }
-
-/// Solo mode
-enum SoloMode { off, sip, afl, pfl }
-
-/// Cue mix data
-class CueMixData {
-  final String name;
-  final bool enabled;
-  final double level;
-  final double pan;
-  final double peakL;
-  final double peakR;
-
-  const CueMixData({
-    required this.name,
-    this.enabled = false,
-    this.level = 1.0,
-    this.pan = 0.0,
-    this.peakL = 0.0,
-    this.peakR = 0.0,
-  });
-
-  CueMixData copyWith({
-    String? name,
-    bool? enabled,
-    double? level,
-    double? pan,
-    double? peakL,
-    double? peakR,
-  }) => CueMixData(
-    name: name ?? this.name,
-    enabled: enabled ?? this.enabled,
-    level: level ?? this.level,
-    pan: pan ?? this.pan,
-    peakL: peakL ?? this.peakL,
-    peakR: peakR ?? this.peakR,
-  );
-}
-
-/// Speaker set data
-class SpeakerSetData {
-  final String name;
-  final double calibration; // dB offset
-  final bool active;
-
-  const SpeakerSetData({
-    required this.name,
-    this.calibration = 0.0,
-    this.active = false,
-  });
-}
-
-/// Talkback data
-class TalkbackData {
-  final bool enabled;
-  final double level;
-  final List<bool> destinations; // Which cue mixes receive talkback
-  final bool dimMainOnTalk;
-
-  const TalkbackData({
-    this.enabled = false,
-    this.level = 1.0,
-    this.destinations = const [true, true, true, true],
-    this.dimMainOnTalk = true,
-  });
-}
-
-/// Full control room state
-class ControlRoomState {
-  final MonitorSource source;
-  final double monitorLevel; // dB
-  final bool dimEnabled;
-  final double dimLevel; // dB (typically -20)
-  final bool monoEnabled;
-  final int activeSpeakerSet; // 0-3
-  final List<SpeakerSetData> speakerSets;
-  final SoloMode soloMode;
-  final List<CueMixData> cueMixes;
-  final TalkbackData talkback;
-  final double monitorPeakL;
-  final double monitorPeakR;
-
-  const ControlRoomState({
-    this.source = MonitorSource.master,
-    this.monitorLevel = 0.0,
-    this.dimEnabled = false,
-    this.dimLevel = -20.0,
-    this.monoEnabled = false,
-    this.activeSpeakerSet = 0,
-    this.speakerSets = const [
-      SpeakerSetData(name: 'Main', active: true),
-      SpeakerSetData(name: 'Alt'),
-      SpeakerSetData(name: 'Small'),
-      SpeakerSetData(name: 'Phones'),
-    ],
-    this.soloMode = SoloMode.off,
-    this.cueMixes = const [
-      CueMixData(name: 'Cue 1'),
-      CueMixData(name: 'Cue 2'),
-      CueMixData(name: 'Cue 3'),
-      CueMixData(name: 'Cue 4'),
-    ],
-    this.talkback = const TalkbackData(),
-    this.monitorPeakL = 0.0,
-    this.monitorPeakR = 0.0,
-  });
-}
+import 'package:provider/provider.dart';
+import '../../providers/control_room_provider.dart';
+import '../../theme/reelforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONTROL ROOM PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ControlRoomPanel extends StatefulWidget {
-  final ControlRoomState state;
-  final ValueChanged<ControlRoomState>? onStateChanged;
-  final ValueChanged<MonitorSource>? onSourceChanged;
-  final ValueChanged<double>? onMonitorLevelChanged;
-  final ValueChanged<bool>? onDimToggled;
-  final ValueChanged<bool>? onMonoToggled;
-  final ValueChanged<int>? onSpeakerSetChanged;
-  final ValueChanged<SoloMode>? onSoloModeChanged;
-  final Function(int, CueMixData)? onCueMixChanged;
-  final ValueChanged<TalkbackData>? onTalkbackChanged;
-
-  const ControlRoomPanel({
-    super.key,
-    required this.state,
-    this.onStateChanged,
-    this.onSourceChanged,
-    this.onMonitorLevelChanged,
-    this.onDimToggled,
-    this.onMonoToggled,
-    this.onSpeakerSetChanged,
-    this.onSoloModeChanged,
-    this.onCueMixChanged,
-    this.onTalkbackChanged,
-  });
+  const ControlRoomPanel({super.key});
 
   @override
   State<ControlRoomPanel> createState() => _ControlRoomPanelState();
 }
 
 class _ControlRoomPanelState extends State<ControlRoomPanel> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh metering at 30 Hz
+    _refreshTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      if (mounted) {
+        context.read<ControlRoomProvider>().updateMetering();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
-        border: Border.all(color: Colors.white10),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          _buildHeader(),
-          const Divider(height: 1, color: Colors.white10),
+    return Consumer<ControlRoomProvider>(
+      builder: (context, controlRoom, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: ReelForgeTheme.bgDeep,
+            border: Border.all(color: ReelForgeTheme.bgSurface),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              _buildHeader(controlRoom),
+              Divider(height: 1, color: ReelForgeTheme.bgSurface),
 
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    // Monitor Section
-                    _buildMonitorSection(),
-                    const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        // Monitor Section
+                        _buildMonitorSection(controlRoom),
+                        const SizedBox(height: 12),
 
-                    // Speaker Selection
-                    _buildSpeakerSection(),
-                    const SizedBox(height: 12),
+                        // Speaker Selection
+                        _buildSpeakerSection(controlRoom),
+                        const SizedBox(height: 12),
 
-                    // Solo Mode
-                    _buildSoloSection(),
-                    const SizedBox(height: 12),
+                        // Solo Mode
+                        _buildSoloSection(controlRoom),
+                        const SizedBox(height: 12),
 
-                    // Cue Mixes
-                    _buildCueMixesSection(),
-                    const SizedBox(height: 12),
+                        // Cue Mixes
+                        _buildCueMixesSection(controlRoom),
+                        const SizedBox(height: 12),
 
-                    // Talkback
-                    _buildTalkbackSection(),
-                  ],
+                        // Talkback
+                        _buildTalkbackSection(controlRoom),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(ControlRoomProvider controlRoom) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: const Color(0xFF242430),
+      color: ReelForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.speaker, size: 16, color: Colors.white70),
+          const Icon(Icons.speaker, size: 16, color: ReelForgeTheme.textSecondary),
           const SizedBox(width: 8),
           const Text(
             'CONTROL ROOM',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Colors.white70,
+              color: ReelForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
           ),
           const Spacer(),
           // Monitor meter mini
-          _buildMiniMeter(widget.state.monitorPeakL, widget.state.monitorPeakR),
+          _buildMiniMeter(controlRoom.monitorPeakL, controlRoom.monitorPeakR),
         ],
       ),
     );
@@ -250,11 +140,11 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
 
     Color color;
     if (db > -3) {
-      color = Colors.red;
+      color = ReelForgeTheme.accentRed;
     } else if (db > -12) {
-      color = Colors.yellow;
+      color = ReelForgeTheme.accentOrange;
     } else {
-      color = Colors.green;
+      color = ReelForgeTheme.accentGreen;
     }
 
     return Container(
@@ -283,7 +173,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   // MONITOR SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildMonitorSection() {
+  Widget _buildMonitorSection(ControlRoomProvider controlRoom) {
     return _buildSection(
       title: 'MONITOR',
       child: Column(
@@ -291,10 +181,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Source selector
           Row(
             children: [
-              const Text('Source:', style: TextStyle(fontSize: 10, color: Colors.white54)),
+              Text('Source:', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textSecondary.withOpacity(0.7))),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildSourceDropdown(),
+                child: _buildSourceDropdown(controlRoom),
               ),
             ],
           ),
@@ -307,8 +197,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               Expanded(
                 child: _buildLevelControl(
                   label: 'Level',
-                  value: widget.state.monitorLevel,
-                  onChanged: widget.onMonitorLevelChanged,
+                  value: controlRoom.monitorLevelDb,
+                  onChanged: (v) => controlRoom.setMonitorLevelDb(v),
                   min: -60,
                   max: 12,
                 ),
@@ -318,18 +208,18 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               // Dim button
               _buildToggleButton(
                 label: 'DIM',
-                active: widget.state.dimEnabled,
-                activeColor: Colors.orange,
-                onTap: () => widget.onDimToggled?.call(!widget.state.dimEnabled),
+                active: controlRoom.dimEnabled,
+                activeColor: ReelForgeTheme.accentOrange,
+                onTap: () => controlRoom.setDim(!controlRoom.dimEnabled),
               ),
               const SizedBox(width: 4),
 
               // Mono button
               _buildToggleButton(
                 label: 'MONO',
-                active: widget.state.monoEnabled,
-                activeColor: Colors.blue,
-                onTap: () => widget.onMonoToggled?.call(!widget.state.monoEnabled),
+                active: controlRoom.monoEnabled,
+                activeColor: ReelForgeTheme.accentBlue,
+                onTap: () => controlRoom.setMono(!controlRoom.monoEnabled),
               ),
             ],
           ),
@@ -338,28 +228,28 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
     );
   }
 
-  Widget _buildSourceDropdown() {
+  Widget _buildSourceDropdown(ControlRoomProvider controlRoom) {
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: ReelForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: ReelForgeTheme.bgSurface),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<MonitorSource>(
-          value: widget.state.source,
+          value: controlRoom.monitorSource,
           isDense: true,
           isExpanded: true,
-          dropdownColor: const Color(0xFF2A2A36),
-          style: const TextStyle(fontSize: 10, color: Colors.white),
+          dropdownColor: ReelForgeTheme.bgMid,
+          style: const TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary),
           items: MonitorSource.values.map((s) => DropdownMenuItem(
             value: s,
             child: Text(_sourceLabel(s)),
           )).toList(),
           onChanged: (v) {
-            if (v != null) widget.onSourceChanged?.call(v);
+            if (v != null) controlRoom.setMonitorSource(v);
           },
         ),
       ),
@@ -382,51 +272,55 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   // SPEAKER SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildSpeakerSection() {
+  Widget _buildSpeakerSection(ControlRoomProvider controlRoom) {
+    final speakerNames = ['Main', 'Alt', 'Small', 'Phones'];
+
     return _buildSection(
       title: 'SPEAKERS',
       child: Row(
         children: List.generate(4, (i) => Expanded(
           child: Padding(
             padding: EdgeInsets.only(left: i > 0 ? 4 : 0),
-            child: _buildSpeakerButton(i),
+            child: _buildSpeakerButton(controlRoom, i, speakerNames[i]),
           ),
         )),
       ),
     );
   }
 
-  Widget _buildSpeakerButton(int index) {
-    final speaker = widget.state.speakerSets[index];
-    final isActive = widget.state.activeSpeakerSet == index;
+  Widget _buildSpeakerButton(ControlRoomProvider controlRoom, int index, String name) {
+    final isActive = controlRoom.activeSpeakerSet == index;
+    final calibration = controlRoom.getSpeakerLevelDb(index);
 
     return GestureDetector(
-      onTap: () => widget.onSpeakerSetChanged?.call(index),
+      onTap: () => controlRoom.setSpeakerSet(index),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF4A9EFF) : Colors.black26,
+          color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: isActive ? const Color(0xFF4A9EFF) : Colors.white10,
+            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
           ),
         ),
         child: Column(
           children: [
             Text(
-              speaker.name,
+              name,
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: isActive ? Colors.white : Colors.white54,
+                color: isActive ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
               ),
             ),
-            if (speaker.calibration != 0)
+            if (calibration != 0)
               Text(
-                '${speaker.calibration > 0 ? '+' : ''}${speaker.calibration.toStringAsFixed(1)}',
+                '${calibration > 0 ? '+' : ''}${calibration.toStringAsFixed(1)}',
                 style: TextStyle(
                   fontSize: 8,
-                  color: isActive ? Colors.white70 : Colors.white38,
+                  color: isActive
+                      ? ReelForgeTheme.textSecondary
+                      : ReelForgeTheme.textSecondary.withOpacity(0.5),
                 ),
               ),
           ],
@@ -439,43 +333,43 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   // SOLO SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildSoloSection() {
+  Widget _buildSoloSection(ControlRoomProvider controlRoom) {
     return _buildSection(
       title: 'SOLO MODE',
       child: Row(
         children: [
-          _buildSoloButton(SoloMode.off, 'OFF'),
+          _buildSoloButton(controlRoom, SoloMode.off, 'OFF'),
           const SizedBox(width: 4),
-          _buildSoloButton(SoloMode.sip, 'SIP'),
+          _buildSoloButton(controlRoom, SoloMode.sip, 'SIP'),
           const SizedBox(width: 4),
-          _buildSoloButton(SoloMode.afl, 'AFL'),
+          _buildSoloButton(controlRoom, SoloMode.afl, 'AFL'),
           const SizedBox(width: 4),
-          _buildSoloButton(SoloMode.pfl, 'PFL'),
+          _buildSoloButton(controlRoom, SoloMode.pfl, 'PFL'),
         ],
       ),
     );
   }
 
-  Widget _buildSoloButton(SoloMode mode, String label) {
-    final isActive = widget.state.soloMode == mode;
+  Widget _buildSoloButton(ControlRoomProvider controlRoom, SoloMode mode, String label) {
+    final isActive = controlRoom.soloMode == mode;
     final color = mode == SoloMode.off
-        ? Colors.white54
+        ? ReelForgeTheme.textSecondary
         : mode == SoloMode.sip
-            ? Colors.red
+            ? ReelForgeTheme.accentRed
             : mode == SoloMode.afl
-                ? Colors.green
-                : Colors.yellow;
+                ? ReelForgeTheme.accentGreen
+                : ReelForgeTheme.accentOrange;
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => widget.onSoloModeChanged?.call(mode),
+        onTap: () => controlRoom.setSoloMode(mode),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? color.withOpacity(0.3) : Colors.black26,
+            color: isActive ? color.withOpacity(0.3) : ReelForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: isActive ? color : Colors.white10,
+              color: isActive ? color : ReelForgeTheme.bgSurface,
             ),
           ),
           child: Center(
@@ -484,7 +378,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: isActive ? color : Colors.white38,
+                color: isActive ? color : ReelForgeTheme.textSecondary.withOpacity(0.5),
               ),
             ),
           ),
@@ -497,43 +391,40 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   // CUE MIXES SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildCueMixesSection() {
+  Widget _buildCueMixesSection(ControlRoomProvider controlRoom) {
     return _buildSection(
       title: 'CUE MIXES',
       child: Column(
         children: List.generate(4, (i) => Padding(
           padding: EdgeInsets.only(top: i > 0 ? 6 : 0),
-          child: _buildCueMixRow(i),
+          child: _buildCueMixRow(controlRoom, i),
         )),
       ),
     );
   }
 
-  Widget _buildCueMixRow(int index) {
-    final cue = widget.state.cueMixes[index];
+  Widget _buildCueMixRow(ControlRoomProvider controlRoom, int index) {
+    final enabled = controlRoom.getCueEnabled(index);
+    final levelDb = controlRoom.getCueLevelDb(index);
+    final pan = controlRoom.getCuePan(index);
 
     return Row(
       children: [
         // Enable button
         GestureDetector(
-          onTap: () {
-            widget.onCueMixChanged?.call(
-              index,
-              cue.copyWith(enabled: !cue.enabled),
-            );
-          },
+          onTap: () => controlRoom.setCueEnabled(index, !enabled),
           child: Container(
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: cue.enabled ? const Color(0xFF40FF90) : Colors.black26,
+              color: enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                color: cue.enabled ? const Color(0xFF40FF90) : Colors.white10,
+                color: enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.bgSurface,
               ),
             ),
-            child: cue.enabled
-                ? const Icon(Icons.check, size: 12, color: Colors.black)
+            child: enabled
+                ? const Icon(Icons.check, size: 12, color: ReelForgeTheme.textPrimary)
                 : null,
           ),
         ),
@@ -543,10 +434,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         SizedBox(
           width: 40,
           child: Text(
-            cue.name,
+            'Cue ${index + 1}',
             style: TextStyle(
               fontSize: 10,
-              color: cue.enabled ? Colors.white : Colors.white38,
+              color: enabled ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary.withOpacity(0.5),
             ),
           ),
         ),
@@ -558,17 +449,15 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               trackHeight: 3,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
               overlayShape: SliderComponentShape.noOverlay,
-              activeTrackColor: cue.enabled ? const Color(0xFF4A9EFF) : Colors.white24,
-              inactiveTrackColor: Colors.white10,
-              thumbColor: cue.enabled ? const Color(0xFF4A9EFF) : Colors.white38,
+              activeTrackColor: enabled ? ReelForgeTheme.accentBlue : Colors.white24,
+              inactiveTrackColor: ReelForgeTheme.bgSurface,
+              thumbColor: enabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary.withOpacity(0.5),
             ),
             child: Slider(
-              value: cue.level,
-              min: 0,
-              max: 1,
-              onChanged: cue.enabled ? (v) {
-                widget.onCueMixChanged?.call(index, cue.copyWith(level: v));
-              } : null,
+              value: levelDb,
+              min: -60,
+              max: 12,
+              onChanged: enabled ? (v) => controlRoom.setCueLevelDb(index, v) : null,
             ),
           ),
         ),
@@ -577,20 +466,18 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         SizedBox(
           width: 35,
           child: Text(
-            cue.level > 0
-                ? '${(20 * math.log(cue.level) / math.ln10).toStringAsFixed(1)}'
-                : '-∞',
+            '${levelDb.toStringAsFixed(1)}',
             style: TextStyle(
               fontSize: 9,
-              color: cue.enabled ? Colors.white54 : Colors.white24,
+              color: enabled ? ReelForgeTheme.textSecondary : ReelForgeTheme.textSecondary.withOpacity(0.3),
             ),
             textAlign: TextAlign.right,
           ),
         ),
         const SizedBox(width: 4),
 
-        // Mini meter
-        _buildMiniMeter(cue.peakL, cue.peakR),
+        // Mini meter (placeholder - no per-cue metering yet)
+        _buildMiniMeter(0.0, 0.0),
       ],
     );
   }
@@ -599,9 +486,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   // TALKBACK SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTalkbackSection() {
-    final tb = widget.state.talkback;
-
+  Widget _buildTalkbackSection(ControlRoomProvider controlRoom) {
     return _buildSection(
       title: 'TALKBACK',
       child: Column(
@@ -611,16 +496,16 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               // Talk button (momentary)
               Expanded(
                 child: GestureDetector(
-                  onTapDown: (_) => _setTalkbackEnabled(true),
-                  onTapUp: (_) => _setTalkbackEnabled(false),
-                  onTapCancel: () => _setTalkbackEnabled(false),
+                  onTapDown: (_) => controlRoom.setTalkback(true),
+                  onTapUp: (_) => controlRoom.setTalkback(false),
+                  onTapCancel: () => controlRoom.setTalkback(false),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: tb.enabled ? Colors.red : const Color(0xFF3A3A46),
+                      color: controlRoom.talkbackEnabled ? ReelForgeTheme.accentRed : ReelForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: tb.enabled ? Colors.red : Colors.white10,
+                        color: controlRoom.talkbackEnabled ? ReelForgeTheme.accentRed : ReelForgeTheme.bgSurface,
                         width: 2,
                       ),
                     ),
@@ -630,7 +515,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                         Icon(
                           Icons.mic,
                           size: 16,
-                          color: tb.enabled ? Colors.white : Colors.white54,
+                          color: controlRoom.talkbackEnabled
+                              ? ReelForgeTheme.textPrimary
+                              : ReelForgeTheme.textSecondary,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -638,46 +525,14 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: tb.enabled ? Colors.white : Colors.white54,
+                            color: controlRoom.talkbackEnabled
+                                ? ReelForgeTheme.textPrimary
+                                : ReelForgeTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Dim main checkbox
-              GestureDetector(
-                onTap: () {
-                  widget.onTalkbackChanged?.call(TalkbackData(
-                    enabled: tb.enabled,
-                    level: tb.level,
-                    destinations: tb.destinations,
-                    dimMainOnTalk: !tb.dimMainOnTalk,
-                  ));
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: tb.dimMainOnTalk ? const Color(0xFF4A9EFF) : Colors.black26,
-                        borderRadius: BorderRadius.circular(2),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: tb.dimMainOnTalk
-                          ? const Icon(Icons.check, size: 10, color: Colors.white)
-                          : null,
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Dim Main',
-                      style: TextStyle(fontSize: 9, color: Colors.white54),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -687,11 +542,11 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Destinations
           Row(
             children: [
-              const Text('To:', style: TextStyle(fontSize: 9, color: Colors.white38)),
+              Text('To:', style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary.withOpacity(0.5))),
               const SizedBox(width: 8),
               ...List.generate(4, (i) => Padding(
                 padding: const EdgeInsets.only(right: 4),
-                child: _buildTalkbackDestButton(i),
+                child: _buildTalkbackDestButton(controlRoom, i),
               )),
             ],
           ),
@@ -700,28 +555,18 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
     );
   }
 
-  Widget _buildTalkbackDestButton(int index) {
-    final tb = widget.state.talkback;
-    final active = tb.destinations[index];
+  Widget _buildTalkbackDestButton(ControlRoomProvider controlRoom, int index) {
+    final active = controlRoom.isTalkbackDestination(index);
 
     return GestureDetector(
-      onTap: () {
-        final newDests = List<bool>.from(tb.destinations);
-        newDests[index] = !active;
-        widget.onTalkbackChanged?.call(TalkbackData(
-          enabled: tb.enabled,
-          level: tb.level,
-          destinations: newDests,
-          dimMainOnTalk: tb.dimMainOnTalk,
-        ));
-      },
+      onTap: () => controlRoom.toggleTalkbackDestination(index),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF4A9EFF).withOpacity(0.3) : Colors.black26,
+          color: active ? ReelForgeTheme.accentBlue.withOpacity(0.3) : ReelForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? const Color(0xFF4A9EFF) : Colors.white10,
+            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
           ),
         ),
         child: Text(
@@ -729,21 +574,11 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? const Color(0xFF4A9EFF) : Colors.white38,
+            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary.withOpacity(0.5),
           ),
         ),
       ),
     );
-  }
-
-  void _setTalkbackEnabled(bool enabled) {
-    final tb = widget.state.talkback;
-    widget.onTalkbackChanged?.call(TalkbackData(
-      enabled: enabled,
-      level: tb.level,
-      destinations: tb.destinations,
-      dimMainOnTalk: tb.dimMainOnTalk,
-    ));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -756,10 +591,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: Colors.white38,
+            color: ReelForgeTheme.textSecondary.withOpacity(0.5),
             letterSpacing: 1,
           ),
         ),
@@ -780,10 +615,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: active ? activeColor.withOpacity(0.3) : Colors.black26,
+          color: active ? activeColor.withOpacity(0.3) : ReelForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : Colors.white10,
+            color: active ? activeColor : ReelForgeTheme.bgSurface,
           ),
         ),
         child: Text(
@@ -791,7 +626,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? activeColor : Colors.white38,
+            color: active ? activeColor : ReelForgeTheme.textSecondary.withOpacity(0.5),
           ),
         ),
       ),
@@ -811,10 +646,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+            Text(label, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary.withOpacity(0.5))),
             Text(
               '${value.toStringAsFixed(1)} dB',
-              style: const TextStyle(fontSize: 9, color: Colors.white54),
+              style: const TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary),
             ),
           ],
         ),
@@ -824,9 +659,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: SliderComponentShape.noOverlay,
-            activeTrackColor: const Color(0xFF4A9EFF),
-            inactiveTrackColor: Colors.white10,
-            thumbColor: const Color(0xFF4A9EFF),
+            activeTrackColor: ReelForgeTheme.accentBlue,
+            inactiveTrackColor: ReelForgeTheme.bgSurface,
+            thumbColor: ReelForgeTheme.accentBlue,
           ),
           child: Slider(
             value: value,

@@ -210,7 +210,8 @@ class _AudioPoolPanelState extends State<AudioPoolPanel> {
             ),
             ElevatedButton(
               onPressed: () {
-                _ffi.audioPoolRemove(file.id);
+                final clipId = int.tryParse(file.id) ?? 0;
+                _ffi.audioPoolRemove(clipId);
                 _loadFiles();
                 Navigator.pop(ctx);
               },
@@ -221,17 +222,19 @@ class _AudioPoolPanelState extends State<AudioPoolPanel> {
         ),
       );
     } else {
-      _ffi.audioPoolRemove(file.id);
+      final clipId = int.tryParse(file.id) ?? 0;
+      _ffi.audioPoolRemove(clipId);
       _loadFiles();
     }
   }
 
   void _togglePreview(AudioFileInfo file) {
+    final clipId = int.tryParse(file.id) ?? 0;
     if (_isPlaying && _selectedFile?.id == file.id) {
       _ffi.audioPoolStopPreview();
       setState(() => _isPlaying = false);
     } else {
-      _ffi.audioPoolPlayPreview(file.id);
+      _ffi.audioPoolPlayPreview(clipId);
       setState(() {
         _selectedFile = file;
         _isPlaying = true;
@@ -242,7 +245,8 @@ class _AudioPoolPanelState extends State<AudioPoolPanel> {
   Future<void> _locateMissingFile(AudioFileInfo file) async {
     // TODO: Open file picker dialog to locate new path
     const newPath = '/path/to/located/audio.wav'; // Placeholder until file picker integration
-    _ffi.audioPoolLocate(file.id, newPath);
+    final clipId = int.tryParse(file.id) ?? 0;
+    _ffi.audioPoolLocate(clipId, newPath);
     _loadFiles();
   }
 

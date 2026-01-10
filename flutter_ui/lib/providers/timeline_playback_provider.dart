@@ -1,14 +1,16 @@
 // Timeline Playback Provider
 //
 // Connects timeline clips to audio playback with:
+// - Sample-accurate position sync from Rust audio engine
 // - Seamless loop playback (Cubase-style)
 // - Crossfade gain curves
 // - Track mute/solo/volume/pan
 // - Scrubbing with throttling
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import '../src/rust/engine_api.dart' as api;
 
 // ============ Types ============
 
@@ -122,9 +124,7 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   // ignore: unused_field
   List<PlaybackCrossfade> _crossfades = [];
 
-  Timer? _updateTimer;
-  DateTime? _playbackStartTime;
-  double _playbackOffset = 0;
+  Ticker? _ticker;
 
   // Scrub throttling
   DateTime _lastSeekTime = DateTime.now();
@@ -169,15 +169,9 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   Future<void> play() async {
     if (_state.isPlaying) return;
 
-    _playbackStartTime = DateTime.now();
-    _playbackOffset = _state.currentTime;
-
-    // Start update timer (50ms = 20 updates/sec)
-    _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(
-      const Duration(milliseconds: 50),
-      (_) => _updatePlayback(),
-    );
+    // Start vsync ticker (60 FPS) for smooth UI updates
+    _ticker?.dispose();
+    _ticker = Ticker(_onTick)..start();
 
     _state = _state.copyWith(isPlaying: true, isPaused: false);
     notifyListeners();
@@ -187,16 +181,15 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   }
 
   void pause() {
-    _updateTimer?.cancel();
-    _updateTimer = null;
+    _ticker?.stop();
 
     _state = _state.copyWith(isPlaying: false, isPaused: true);
     notifyListeners();
   }
 
   void stop() {
-    _updateTimer?.cancel();
-    _updateTimer = null;
+    _ticker?.dispose();
+    _ticker = null;
 
     _state = _state.copyWith(
       isPlaying: false,
@@ -211,16 +204,15 @@ class TimelinePlaybackProvider extends ChangeNotifier {
     final now = DateTime.now();
 
     if (_state.isPlaying && isScrubbing) {
-      // Throttle during scrubbing
+      // Throttle during scrubbing to avoid audio glitches
       if (now.difference(_lastSeekTime) > _seekThrottleDuration) {
-        _playbackStartTime = now;
-        _playbackOffset = clampedTime;
+        // Seek in Rust audio engine
+        api.seek(clampedTime);
         _lastSeekTime = now;
       }
-    } else if (_state.isPlaying) {
+    } else {
       // Normal seek - immediate
-      _playbackStartTime = now;
-      _playbackOffset = clampedTime;
+      api.seek(clampedTime);
     }
 
     _state = _state.copyWith(currentTime: clampedTime);
@@ -240,26 +232,19 @@ class TimelinePlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onTick(Duration elapsed) {
+    // Ticker callback — runs at 60 FPS synced with vsync
+    _updatePlayback();
+  }
+
   void _updatePlayback() {
-    if (_playbackStartTime == null) return;
-
-    final elapsed = DateTime.now().difference(_playbackStartTime!).inMilliseconds / 1000.0;
-    var currentTime = _playbackOffset + elapsed;
-
-    // Loop handling
-    if (_state.loopEnabled && currentTime >= _state.loopEnd) {
-      final loopDuration = _state.loopEnd - _state.loopStart;
-      final overshoot = currentTime - _state.loopEnd;
-
-      currentTime = _state.loopStart + (overshoot % loopDuration);
-      _playbackStartTime = DateTime.now();
-      _playbackOffset = currentTime;
-    }
+    // Query sample-accurate position from Rust audio engine (lock-free atomic read)
+    final currentTime = api.getPlaybackPositionSeconds();
 
     // End detection
     if (currentTime >= _state.duration && !_state.loopEnabled) {
-      _updateTimer?.cancel();
-      _updateTimer = null;
+      _ticker?.dispose();
+      _ticker = null;
 
       _state = _state.copyWith(
         isPlaying: false,
@@ -270,6 +255,7 @@ class TimelinePlaybackProvider extends ChangeNotifier {
       return;
     }
 
+    // Update UI state (60 FPS vsync)
     _state = _state.copyWith(currentTime: currentTime);
     notifyListeners();
     onTimeUpdate?.call(currentTime);
@@ -308,7 +294,7 @@ class TimelinePlaybackProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _updateTimer?.cancel();
+    _ticker?.dispose();
     super.dispose();
   }
 }

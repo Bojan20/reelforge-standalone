@@ -115,12 +115,16 @@ impl PartitionScheme {
 struct ConvolutionChannel {
     /// IR partitions in frequency domain
     partitions: Vec<Partition>,
+    /// First partition IR (time domain) for direct convolution (zero latency)
+    direct_ir: Vec<f64>,
+    /// Input history for direct convolution
+    direct_history: Vec<f64>,
     /// Input buffer (time domain)
     input_buffer: Vec<f64>,
     /// Input FDLs (Frequency Delay Lines) for each partition size
     fdls: Vec<Vec<Vec<Complex<f64>>>>,
-    /// Output overlap buffer
-    overlap: Vec<f64>,
+    /// Output overlap buffers per partition size
+    overlap_buffers: Vec<Vec<f64>>,
     /// FFT planners per partition size
     fft_forward: Vec<Arc<dyn RealToComplex<f64>>>,
     fft_inverse: Vec<Arc<dyn ComplexToReal<f64>>>,
@@ -132,6 +136,8 @@ struct ConvolutionChannel {
     fdl_positions: Vec<usize>,
     /// Block counter for triggering larger partitions
     block_counter: usize,
+    /// Unique partition sizes (sorted)
+    unique_sizes: Vec<usize>,
 }
 
 impl ConvolutionChannel {
@@ -204,17 +210,31 @@ impl ConvolutionChannel {
             .copied()
             .unwrap_or(DEFAULT_PARTITION_SIZE);
 
+        // Extract first partition for direct convolution (zero latency)
+        let first_size = scheme.min_size();
+        let direct_ir: Vec<f64> = ir.iter().take(first_size).copied().collect();
+        let direct_history = vec![0.0; first_size];
+
+        // Create overlap buffers per unique partition size
+        let overlap_buffers: Vec<Vec<f64>> = unique_sizes
+            .iter()
+            .map(|&size| vec![0.0; size])
+            .collect();
+
         Self {
             partitions,
+            direct_ir,
+            direct_history,
             input_buffer: vec![0.0; max_size * 2],
             fdls,
-            overlap: vec![0.0; max_size],
+            overlap_buffers,
             fft_forward,
             fft_inverse,
             scheme,
             buffer_pos: 0,
             fdl_positions,
             block_counter: 0,
+            unique_sizes,
         }
     }
 
@@ -236,23 +256,66 @@ impl ConvolutionChannel {
     fn process_partitions(&mut self, output: &mut [f64], block_size: usize) {
         output.fill(0.0);
 
-        // For simplicity, process only the first (smallest) partition
-        // A full implementation would handle all partition sizes with proper scheduling
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // STAGE 1: DIRECT CONVOLUTION (ZERO LATENCY)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // Process first partition in time domain for instant response
 
-        if !self.partitions.is_empty() && !self.fft_forward.is_empty() {
-            let partition = &self.partitions[0];
-            let fft_size = partition.size * 2;
+        if !self.direct_ir.is_empty() && block_size <= self.direct_ir.len() {
+            for (out_idx, out_sample) in output.iter_mut().enumerate().take(block_size) {
+                let input_sample = self.input_buffer[self.buffer_pos + out_idx];
+
+                // Update history (circular buffer)
+                self.direct_history.rotate_right(1);
+                self.direct_history[0] = input_sample;
+
+                // Direct convolution: sum of IR * input history
+                let mut sum = 0.0;
+                for (ir_sample, hist_sample) in self.direct_ir.iter().zip(&self.direct_history) {
+                    sum += ir_sample * hist_sample;
+                }
+                *out_sample += sum;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // STAGE 2+: FFT CONVOLUTION (LATER PARTITIONS)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // Process remaining partitions in frequency domain with non-uniform scheduling
+
+        // Skip first partition (already processed via direct convolution)
+        for (_partition_idx, partition) in self.partitions.iter().skip(1).enumerate() {
+            let partition_size = partition.size;
+
+            // Find which unique size this partition belongs to
+            let size_idx = self.unique_sizes
+                .iter()
+                .position(|&s| s == partition_size)
+                .unwrap_or(0);
+
+            // Determine if this partition should be processed this block
+            // Larger partitions are triggered less frequently (non-uniform scheduling)
+            let trigger_interval = partition_size / block_size;
+            if self.block_counter % trigger_interval != 0 {
+                continue;  // Skip this partition this block
+            }
+
+            let fft_size = partition_size * 2;
 
             // FFT the input block
             let mut input_padded = vec![0.0; fft_size];
-            let copy_len = block_size.min(partition.size);
-            input_padded[..copy_len]
-                .copy_from_slice(&self.input_buffer[self.buffer_pos..self.buffer_pos + copy_len]);
+            let copy_len = block_size.min(partition_size);
+            let start_pos = self.buffer_pos;
+            let end_pos = start_pos + copy_len;
+
+            if end_pos <= self.input_buffer.len() {
+                input_padded[..copy_len].copy_from_slice(&self.input_buffer[start_pos..end_pos]);
+            }
 
             let mut input_spectrum = vec![Complex::new(0.0, 0.0); fft_size / 2 + 1];
-            self.fft_forward[0]
-                .process(&mut input_padded, &mut input_spectrum)
-                .ok();
+            if let Some(fft) = self.fft_forward.get(size_idx) {
+                fft.process(&mut input_padded, &mut input_spectrum).ok();
+            }
 
             // Complex multiply with IR spectrum
             let mut result_spectrum: Vec<Complex<f64>> = input_spectrum
@@ -263,30 +326,37 @@ impl ConvolutionChannel {
 
             // IFFT
             let mut result_time = vec![0.0; fft_size];
-            self.fft_inverse[0]
-                .process(&mut result_spectrum, &mut result_time)
-                .ok();
+            if let Some(ifft) = self.fft_inverse.get(size_idx) {
+                ifft.process(&mut result_spectrum, &mut result_time).ok();
+            }
 
             // Normalize and overlap-add
             let norm = 1.0 / fft_size as f64;
             for (i, &sample) in result_time.iter().take(block_size).enumerate() {
-                output[i] += sample * norm + self.overlap[i];
+                if let Some(overlap) = self.overlap_buffers.get(size_idx) {
+                    output[i] += sample * norm + overlap.get(i).copied().unwrap_or(0.0);
+                }
             }
 
-            // Save overlap
-            for i in 0..partition.size {
-                self.overlap[i] = if i + block_size < fft_size {
-                    result_time[i + block_size] * norm
-                } else {
-                    0.0
-                };
+            // Save overlap for next block
+            if let Some(overlap) = self.overlap_buffers.get_mut(size_idx) {
+                for i in 0..partition_size.min(overlap.len()) {
+                    overlap[i] = if i + block_size < fft_size {
+                        result_time[i + block_size] * norm
+                    } else {
+                        0.0
+                    };
+                }
             }
         }
     }
 
     fn reset(&mut self) {
         self.input_buffer.fill(0.0);
-        self.overlap.fill(0.0);
+        self.direct_history.fill(0.0);
+        for overlap in &mut self.overlap_buffers {
+            overlap.fill(0.0);
+        }
         for fdl in &mut self.fdls {
             for slot in fdl {
                 slot.fill(Complex::new(0.0, 0.0));

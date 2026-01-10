@@ -14,6 +14,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
+import '../../models/middleware_models.dart'; // For FadeCurve enum
 
 // ============ Types ============
 
@@ -28,6 +29,8 @@ class ClipEditorClip {
   final Float32List? waveform;
   final double fadeIn;
   final double fadeOut;
+  final FadeCurve fadeInCurve;
+  final FadeCurve fadeOutCurve;
   final double gain;
   final Color? color;
   final double sourceOffset;
@@ -43,6 +46,8 @@ class ClipEditorClip {
     this.waveform,
     this.fadeIn = 0,
     this.fadeOut = 0,
+    this.fadeInCurve = FadeCurve.linear,
+    this.fadeOutCurve = FadeCurve.linear,
     this.gain = 0,
     this.color,
     this.sourceOffset = 0,
@@ -59,6 +64,8 @@ class ClipEditorClip {
     Float32List? waveform,
     double? fadeIn,
     double? fadeOut,
+    FadeCurve? fadeInCurve,
+    FadeCurve? fadeOutCurve,
     double? gain,
     Color? color,
     double? sourceOffset,
@@ -74,6 +81,8 @@ class ClipEditorClip {
       waveform: waveform ?? this.waveform,
       fadeIn: fadeIn ?? this.fadeIn,
       fadeOut: fadeOut ?? this.fadeOut,
+      fadeInCurve: fadeInCurve ?? this.fadeInCurve,
+      fadeOutCurve: fadeOutCurve ?? this.fadeOutCurve,
       gain: gain ?? this.gain,
       color: color ?? this.color,
       sourceOffset: sourceOffset ?? this.sourceOffset,
@@ -464,6 +473,7 @@ class _ClipEditorState extends State<ClipEditor> {
             left: fadeInX - 8,
             top: 0,
             child: GestureDetector(
+              onTap: () {}, // Absorb tap to prevent playhead creation
               onHorizontalDragStart: (_) {
                 setState(() => _draggingFade = _FadeHandle.fadeIn);
               },
@@ -507,6 +517,7 @@ class _ClipEditorState extends State<ClipEditor> {
             left: fadeOutX - 8,
             top: 0,
             child: GestureDetector(
+              onTap: () {}, // Absorb tap to prevent playhead creation
               onHorizontalDragStart: (_) {
                 setState(() => _draggingFade = _FadeHandle.fadeOut);
               },
@@ -799,6 +810,8 @@ class _InfoSidebar extends StatelessWidget {
   final ClipEditorSelection? selection;
   final ValueChanged<double>? onFadeInChange;
   final ValueChanged<double>? onFadeOutChange;
+  final ValueChanged<FadeCurve?>? onFadeInCurveChange;
+  final ValueChanged<FadeCurve?>? onFadeOutCurveChange;
   final ValueChanged<double>? onGainChange;
 
   const _InfoSidebar({
@@ -806,6 +819,8 @@ class _InfoSidebar extends StatelessWidget {
     this.selection,
     this.onFadeInChange,
     this.onFadeOutChange,
+    this.onFadeInCurveChange,
+    this.onFadeOutCurveChange,
     this.onGainChange,
   });
 
@@ -905,7 +920,15 @@ class _InfoSidebar extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
+            // Fade In Curve selector
+            _CurveSelector(
+              label: 'Curve',
+              value: clip.fadeInCurve,
+              onChanged: onFadeInCurveChange,
+            ),
+
+            const SizedBox(height: 12),
             Text('Fade Out', style: ReelForgeTheme.label),
             const SizedBox(height: 4),
             Row(
@@ -936,6 +959,14 @@ class _InfoSidebar extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 6),
+            // Fade Out Curve selector
+            _CurveSelector(
+              label: 'Curve',
+              value: clip.fadeOutCurve,
+              onChanged: onFadeOutCurveChange,
             ),
 
             // Section: Gain
@@ -1931,4 +1962,125 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
       onPlayheadChange: widget.onPlayheadChange,
     );
   }
+}
+
+// ============ Curve Selector Widget ============
+
+class _CurveSelector extends StatelessWidget {
+  final String label;
+  final FadeCurve value;
+  final ValueChanged<FadeCurve?>? onChanged;
+
+  const _CurveSelector({
+    required this.label,
+    required this.value,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label, style: ReelForgeTheme.bodySmall.copyWith(color: ReelForgeTheme.textSecondary)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgDeep,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ReelForgeTheme.borderSubtle),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<FadeCurve>(
+                value: value,
+                isDense: true,
+                dropdownColor: ReelForgeTheme.bgDeep,
+                style: ReelForgeTheme.monoSmall.copyWith(color: ReelForgeTheme.textPrimary),
+                icon: const Icon(Icons.arrow_drop_down, size: 16, color: ReelForgeTheme.textSecondary),
+                items: FadeCurve.values.map((curve) {
+                  return DropdownMenuItem<FadeCurve>(
+                    value: curve,
+                    child: Row(
+                      children: [
+                        // Mini curve preview icon
+                        SizedBox(
+                          width: 24,
+                          height: 16,
+                          child: CustomPaint(
+                            painter: _CurvePreviewPainter(curve),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(curve.displayName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============ Curve Preview Painter ============
+
+class _CurvePreviewPainter extends CustomPainter {
+  final FadeCurve curve;
+
+  _CurvePreviewPainter(this.curve);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = ReelForgeTheme.accentCyan
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    const steps = 20;
+
+    for (var i = 0; i <= steps; i++) {
+      final t = i / steps;
+      final x = t * size.width;
+      final y = size.height * (1 - _evaluateCurve(t));
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  double _evaluateCurve(double t) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return t;
+      case FadeCurve.exp1:
+        return t * t;
+      case FadeCurve.exp3:
+        return t * t * t;
+      case FadeCurve.log1:
+        return math.sqrt(t);
+      case FadeCurve.log3:
+        return math.pow(t, 1 / 3).toDouble();
+      case FadeCurve.sCurve:
+        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case FadeCurve.invSCurve:
+        return t < 0.5 ? 0.5 * math.sqrt(2 * t) : 0.5 + 0.5 * math.sqrt(2 * t - 1);
+      case FadeCurve.sine:
+        return math.sin(t * math.pi / 2);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CurvePreviewPainter oldDelegate) => oldDelegate.curve != curve;
 }

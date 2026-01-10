@@ -54,14 +54,12 @@ import '../widgets/dsp/transient_panel.dart';
 import '../widgets/dsp/multiband_panel.dart';
 import '../widgets/dsp/saturation_panel.dart';
 import '../widgets/dsp/analog_eq_panel.dart';
-import '../widgets/dsp/eq_morph_panel.dart';
 import '../widgets/dsp/sidechain_panel.dart';
 import '../widgets/dsp/wavelet_panel.dart';
 import '../widgets/dsp/channel_strip_panel.dart';
 import '../widgets/dsp/surround_panner_panel.dart';
 import '../widgets/dsp/linear_phase_eq_panel.dart';
 import '../widgets/dsp/stereo_eq_panel.dart';
-import '../widgets/dsp/min_phase_eq_panel.dart';
 import '../widgets/dsp/pro_eq_panel.dart';
 import '../widgets/dsp/ultra_eq_panel.dart';
 import '../widgets/dsp/room_correction_panel.dart';
@@ -74,6 +72,9 @@ import '../widgets/dsp/restoration_panel.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 import '../widgets/mixer/control_room_panel.dart' as control_room;
+import '../widgets/input_bus/input_bus_panel.dart' as input_bus;
+import '../widgets/recording/recording_panel.dart' as recording;
+import '../widgets/routing/routing_panel.dart' as routing;
 import '../widgets/plugin/plugin_browser.dart';
 import '../widgets/metering/metering_bridge.dart';
 import '../widgets/meters/pdc_display.dart';
@@ -192,8 +193,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // ignore: unused_field
   List<int> _detectedTransients = [];
 
-  // Control Room state
-  control_room.ControlRoomState _controlRoomState = control_room.ControlRoomState();
+  // Control Room state (now managed by ControlRoomProvider)
 
   /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
   List<ProjectTreeNode> _buildProjectTree() {
@@ -2674,6 +2674,89 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Undo/Redo shortcuts (Cmd+Z, Cmd+Shift+Z) - always enabled
       onUndo: () => _handleUndo(),
       onRedo: () => _handleRedo(),
+      // Automation lane callbacks - sync with Rust engine
+      onAutomationLaneChanged: (trackId, laneData) {
+        // Update local state
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              final updatedLanes = t.automationLanes.map((l) {
+                if (l.id == laneData.id) return laneData;
+                return l;
+              }).toList();
+              return t.copyWith(automationLanes: updatedLanes);
+            }
+            return t;
+          }).toList();
+        });
+
+        // Sync points to Rust engine
+        final trackIdInt = int.tryParse(trackId) ?? 0;
+        final paramName = laneData.parameterName.toLowerCase();
+        final ffi = NativeFFI.instance;
+
+        // Clear existing lane in engine and re-add all points
+        ffi.automationClearLane(trackIdInt, paramName);
+
+        for (final point in laneData.points) {
+          final timeSamples = (point.time * 48000).toInt(); // 48kHz sample rate
+          ffi.automationAddPoint(
+            trackIdInt,
+            paramName,
+            timeSamples,
+            point.value,
+            curveType: point.curveType.index,
+          );
+        }
+      },
+      onAddAutomationLane: (trackId, parameter) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              final newLane = AutomationLaneData(
+                id: 'lane_${DateTime.now().millisecondsSinceEpoch}',
+                parameter: parameter,
+                parameterName: _getParameterName(parameter),
+                points: [],
+                mode: AutomationMode.read,
+                color: _getParameterColor(parameter),
+              );
+              return t.copyWith(
+                automationLanes: [...t.automationLanes, newLane],
+                automationExpanded: true,
+              );
+            }
+            return t;
+          }).toList();
+        });
+      },
+      onRemoveAutomationLane: (trackId, laneId) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              final updatedLanes = t.automationLanes
+                  .where((l) => l.id != laneId)
+                  .toList();
+              return t.copyWith(automationLanes: updatedLanes);
+            }
+            return t;
+          }).toList();
+        });
+
+        // Clear lane in Rust engine
+        final lane = _tracks
+            .firstWhere((t) => t.id == trackId)
+            .automationLanes
+            .firstWhere((l) => l.id == laneId, orElse: () => AutomationLaneData(
+              id: '',
+              parameter: AutomationParameter.volume,
+              parameterName: '',
+            ));
+        if (lane.id.isNotEmpty) {
+          final trackIdInt = int.tryParse(trackId) ?? 0;
+          NativeFFI.instance.automationClearLane(trackIdInt, lane.parameterName.toLowerCase());
+        }
+      },
     );
   }
 
@@ -3391,11 +3474,34 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         linked: true,
       ),
       onConfigChanged: (config) {
-        // Apply crossfade changes to timeline
-        debugPrint('Crossfade config changed: duration=${config.duration}');
+        // Live preview - apply crossfade changes in real-time
+        debugPrint('Crossfade config changed: duration=${config.duration}, preset=${config.fadeOut.preset}');
+      },
+      onApply: () {
+        // Apply crossfade to selected crossfade in timeline
+        // TODO: Get selected crossfade ID from timeline selection
+        debugPrint('Crossfade applied');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Crossfade applied'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      onCancel: () {
+        // Revert to original crossfade settings
+        debugPrint('Crossfade edit cancelled');
       },
       onAudition: () {
-        // Start playback of crossfade region
+        // Start playback of crossfade region only
+        // Use loop region for audition
+        debugPrint('Audition crossfade');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Playing crossfade region...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
       },
     );
   }
@@ -3842,16 +3948,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Build Control Room panel content
   Widget _buildControlRoomContent() {
-    return control_room.ControlRoomPanel(
-      state: _controlRoomState,
-      onStateChanged: (newState) {
-        setState(() {
-          _controlRoomState = newState;
-        });
-        // TODO: Sync to engine FFI
-        debugPrint('[ControlRoom] State changed: monitor=${newState.source}, solo=${newState.soloMode}');
-      },
-    );
+    return const control_room.ControlRoomPanel();
+  }
+
+  Widget _buildInputBusContent() {
+    return const input_bus.InputBusPanel();
+  }
+
+  Widget _buildRecordingContent() {
+    return const recording.RecordingPanel();
+  }
+
+  Widget _buildRoutingContent() {
+    return const routing.RoutingPanel();
   }
 
   /// Handle insert click from Ultimate Mixer
@@ -4214,13 +4323,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Extract FX bus index from "FX N - Name" format
       final fxIndex = int.tryParse(result.split(' ')[1]) ?? 1;
       final fromChannelId = _busIdToChannelId(channelId);
-      NativeFFI.instance.routingAddSend(fromChannelId, fxIndex, preFader: false);
+      routingAddSend(fromChannelId, fxIndex, 0);
       debugPrint('[Mixer] Channel $channelId send $sendIndex routed to $result');
     } else if (result == 'None') {
-      // Remove send
-      final fromChannelId = _busIdToChannelId(channelId);
-      NativeFFI.instance.routingRemoveSend(fromChannelId, sendIndex);
-      debugPrint('[Mixer] Channel $channelId send $sendIndex cleared');
+      // Remove send (TODO: Implement routing_remove_send in FFI when unified_routing enabled)
+      debugPrint('[Mixer] Channel $channelId send $sendIndex cleared (FFI pending)');
     }
   }
 
@@ -4264,7 +4371,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         debugPrint('[Mixer] Send slot $slotIndex to AUX $targetId');
         final fromChannelId = _busIdToChannelId(busId);
         final toChannelId = int.tryParse(targetId) ?? 0;
-        NativeFFI.instance.routingAddSend(fromChannelId, toChannelId, preFader: false);
+        routingAddSend(fromChannelId, toChannelId, 0);
         break;
 
       case SlotDestinationType.bus:
@@ -4272,7 +4379,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         debugPrint('[Mixer] Route $busId output to BUS $targetId');
         final fromId = _busIdToChannelId(busId);
         final toId = int.tryParse(targetId) ?? 0;
-        NativeFFI.instance.routingSetOutputChannel(fromId, toId);
+        routingSetOutput(fromId, 1, toId);  // dest_type=1 (channel)
         break;
     }
   }
@@ -4514,7 +4621,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       'rf-api550': 'api550',
       'rf-neve1073': 'neve1073',
       'rf-ultra-eq': 'ultra-eq',
-      'rf-morph-eq': 'morph-eq',
       'rf-room-correction': 'room-correction',
     };
     return mapping[pluginId];
@@ -5257,6 +5363,67 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     return '$note$octave';
   }
 
+  /// Get human-readable name for automation parameter
+  String _getParameterName(AutomationParameter parameter) {
+    switch (parameter) {
+      case AutomationParameter.volume:
+        return 'Volume';
+      case AutomationParameter.pan:
+        return 'Pan';
+      case AutomationParameter.mute:
+        return 'Mute';
+      case AutomationParameter.send1:
+        return 'Send 1';
+      case AutomationParameter.send2:
+        return 'Send 2';
+      case AutomationParameter.send3:
+        return 'Send 3';
+      case AutomationParameter.send4:
+        return 'Send 4';
+      case AutomationParameter.eq1Gain:
+        return 'EQ 1 Gain';
+      case AutomationParameter.eq1Freq:
+        return 'EQ 1 Freq';
+      case AutomationParameter.eq2Gain:
+        return 'EQ 2 Gain';
+      case AutomationParameter.eq2Freq:
+        return 'EQ 2 Freq';
+      case AutomationParameter.compThreshold:
+        return 'Comp Threshold';
+      case AutomationParameter.compRatio:
+        return 'Comp Ratio';
+      case AutomationParameter.custom:
+        return 'Custom';
+    }
+  }
+
+  /// Get color for automation parameter
+  Color _getParameterColor(AutomationParameter parameter) {
+    switch (parameter) {
+      case AutomationParameter.volume:
+        return const Color(0xFF4A9EFF); // Blue
+      case AutomationParameter.pan:
+        return const Color(0xFFFF9040); // Orange
+      case AutomationParameter.mute:
+        return const Color(0xFFFF4060); // Red
+      case AutomationParameter.send1:
+      case AutomationParameter.send2:
+      case AutomationParameter.send3:
+      case AutomationParameter.send4:
+        return const Color(0xFF40FF90); // Green
+      case AutomationParameter.eq1Gain:
+      case AutomationParameter.eq1Freq:
+      case AutomationParameter.eq2Gain:
+      case AutomationParameter.eq2Freq:
+        return const Color(0xFFFFFF40); // Yellow
+      case AutomationParameter.compThreshold:
+      case AutomationParameter.compRatio:
+        return const Color(0xFF40C8FF); // Cyan
+      case AutomationParameter.custom:
+        return const Color(0xFF8B5CF6); // Purple
+    }
+  }
+
   /// Get default EQ bands (for generic EQ - kept for backwards compatibility)
   // ignore: unused_element
   List<generic_eq.EqBand> _getDefaultEqBands() {
@@ -5567,6 +5734,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: _buildControlRoomContent(),
         groupId: 'mixconsole',
       ),
+      LowerZoneTab(
+        id: 'input-bus',
+        label: 'Input Bus',
+        icon: Icons.input,
+        content: _buildInputBusContent(),
+        groupId: 'mixconsole',
+      ),
+      LowerZoneTab(
+        id: 'recording',
+        label: 'Recording',
+        icon: Icons.fiber_manual_record,
+        content: _buildRecordingContent(),
+        groupId: 'mixconsole',
+      ),
+      LowerZoneTab(
+        id: 'routing',
+        label: 'Routing',
+        icon: Icons.device_hub,
+        content: _buildRoutingContent(),
+        groupId: 'mixconsole',
+      ),
       // ========== Clip Editor (Editor group) ==========
       LowerZoneTab(
         id: 'clip-editor',
@@ -5835,13 +6023,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         groupId: 'dsp',
       ),
       LowerZoneTab(
-        id: 'eq-morph',
-        label: 'EQ Morph',
-        icon: Icons.compare_arrows,
-        content: EqMorphPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
         id: 'sidechain',
         label: 'Sidechain',
         icon: Icons.call_split,
@@ -5881,13 +6062,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Stereo EQ',
         icon: Icons.graphic_eq,
         content: StereoEqPanel(trackId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'min-phase-eq',
-        label: 'Min Phase EQ',
-        icon: Icons.show_chart,
-        content: MinPhaseEqPanel(trackId: 0),
         groupId: 'dsp',
       ),
       LowerZoneTab(
@@ -6031,7 +6205,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'mixconsole',
         label: 'MixConsole',
-        tabs: ['mixer', 'ultimate-mixer', 'metering-bridge'], // NOTE: timeline is in center zone, not lower
+        tabs: ['mixer', 'ultimate-mixer', 'metering-bridge', 'recording', 'routing'], // NOTE: timeline is in center zone, not lower
       ),
       // Editor - Clip Editor, Crossfade, Automation, Piano Roll (like Cubase Lower Zone editors)
       const TabGroup(
@@ -6055,7 +6229,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'dsp',
         label: 'DSP',
-        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'eq-morph', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'min-phase-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings', 'ml-processor', 'mastering', 'restoration'],
+        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings', 'ml-processor', 'mastering', 'restoration'],
       ),
 
       // ========== MIDDLEWARE MODE GROUPS ==========

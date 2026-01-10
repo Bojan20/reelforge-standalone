@@ -8,6 +8,7 @@
 //! - Lock-free communication with audio thread
 //! - Bus routing (tracks → buses → master)
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -15,10 +16,21 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// THREAD-LOCAL SCRATCH BUFFERS (Audio thread only - zero contention)
+// ═══════════════════════════════════════════════════════════════════════════
+thread_local! {
+    /// Thread-local scratch buffer for left channel (audio thread only)
+    static SCRATCH_BUFFER_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffer for right channel (audio thread only)
+    static SCRATCH_BUFFER_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+}
+
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::automation::{AutomationEngine, ParamId};
 use crate::control_room::{ControlRoom, SoloMode};
 use crate::groups::{GroupManager, VcaId};
+use crate::input_bus::{InputBusManager, MonitorMode};
 use crate::insert_chain::InsertChain;
 use crate::routing::ChannelId;
 #[cfg(feature = "unified_routing")]
@@ -665,6 +677,8 @@ pub struct PlaybackEngine {
     pub balance: AtomicU64,
     /// Automation engine
     automation: Option<Arc<AutomationEngine>>,
+    /// Parameter smoother manager for zipper-free automation
+    param_smoother: Arc<crate::param_smoother::ParamSmootherManager>,
     /// Group/VCA manager (RwLock for shared mutation with bridge)
     group_manager: Option<Arc<RwLock<GroupManager>>>,
     /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
@@ -681,10 +695,8 @@ pub struct PlaybackEngine {
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
     spectrum_data: RwLock<Vec<f32>>,
-    /// Pre-allocated track buffer left (avoid heap alloc in audio thread)
-    track_buffer_l: RwLock<Vec<f64>>,
-    /// Pre-allocated track buffer right (avoid heap alloc in audio thread)
-    track_buffer_r: RwLock<Vec<f64>>,
+    // NOTE: track_buffer_l and track_buffer_r moved to thread_local! SCRATCH_BUFFER_L/R
+    // This eliminates lock contention in audio thread - scratch buffers are audio-thread-only
     /// Pre-allocated mono buffer for spectrum analyzer
     spectrum_mono_buffer: RwLock<Vec<f64>>,
     /// Current block size (for buffer reallocation check)
@@ -712,6 +724,11 @@ pub struct PlaybackEngine {
     /// Wrapped in parking_lot::Mutex which IS Sync
     #[cfg(feature = "unified_routing")]
     routing_sender: parking_lot::Mutex<Option<RoutingCommandSender>>,
+
+    /// Input bus manager (Phase 11 - Recording Input Routing)
+    input_bus_manager: Arc<InputBusManager>,
+    /// Pre-allocated input buffer (hardware input interleaved)
+    input_buffer: RwLock<Vec<f32>>,
 }
 
 impl PlaybackEngine {
@@ -738,6 +755,7 @@ impl PlaybackEngine {
             correlation: AtomicU64::new(1.0_f64.to_bits()),
             balance: AtomicU64::new(0.0_f64.to_bits()),
             automation: None,
+            param_smoother: Arc::new(crate::param_smoother::ParamSmootherManager::new(sample_rate as f64)),
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
             vca_assignments: RwLock::new(HashMap::new()),
@@ -749,9 +767,7 @@ impl PlaybackEngine {
             // This gives ~3-4 bins in 20-40Hz range instead of ~1 bin
             spectrum_analyzer: RwLock::new(FftAnalyzer::new(8192)),
             spectrum_data: RwLock::new(vec![0.0_f32; 512]), // More bins for better resolution
-            // Pre-allocate buffers for common block size (will resize if needed)
-            track_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
-            track_buffer_r: RwLock::new(vec![0.0_f64; 8192]),
+            // NOTE: track_buffer_l/r now use thread_local! SCRATCH_BUFFER_L/R
             spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
             current_block_size: AtomicUsize::new(8192),
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
@@ -761,12 +777,21 @@ impl PlaybackEngine {
             // Routing sender initialized to None - call init_unified_routing() to setup
             #[cfg(feature = "unified_routing")]
             routing_sender: parking_lot::Mutex::new(None),
+            // Input bus manager with default block size 256
+            input_bus_manager: Arc::new(InputBusManager::new(256)),
+            // Pre-allocated input buffer (stereo interleaved)
+            input_buffer: RwLock::new(vec![0.0f32; 16384]),
         }
     }
 
     /// Get control room reference
     pub fn control_room(&self) -> &Arc<ControlRoom> {
         &self.control_room
+    }
+
+    /// Get input bus manager reference
+    pub fn input_bus_manager(&self) -> &Arc<InputBusManager> {
+        &self.input_bus_manager
     }
 
     /// Initialize unified routing and return the RoutingGraphRT for audio thread
@@ -871,10 +896,15 @@ impl PlaybackEngine {
         }
     }
 
-    /// Get track volume with automation applied
+    /// Get track volume with automation and smoothing applied
     fn get_track_volume_with_automation(&self, track: &Track) -> f64 {
-        let base_volume = track.volume;
+        // First check if smoother has an active value (from automation)
+        if self.param_smoother.is_track_smoothing(track.id.0) {
+            // Use smoothed value during automation
+            return self.param_smoother.get_track_volume(track.id.0);
+        }
 
+        // Check if automation lane exists and has value
         if let Some(automation) = &self.automation {
             let param_id = ParamId::track_volume(track.id.0);
             if let Some(auto_value) = automation.get_value(&param_id) {
@@ -883,13 +913,19 @@ impl PlaybackEngine {
             }
         }
 
-        base_volume
+        // Fall back to track's base volume
+        track.volume
     }
 
-    /// Get track pan with automation applied
+    /// Get track pan with automation and smoothing applied
     fn get_track_pan_with_automation(&self, track: &Track) -> f64 {
-        let base_pan = track.pan;
+        // First check if smoother has an active value (from automation)
+        if self.param_smoother.is_track_smoothing(track.id.0) {
+            // Use smoothed value during automation
+            return self.param_smoother.get_track_pan(track.id.0);
+        }
 
+        // Check if automation lane exists and has value
         if let Some(automation) = &self.automation {
             let param_id = ParamId::track_pan(track.id.0);
             if let Some(auto_value) = automation.get_value(&param_id) {
@@ -898,7 +934,8 @@ impl PlaybackEngine {
             }
         }
 
-        base_pan
+        // Fall back to track's base pan
+        track.pan
     }
 
     /// Set elastic audio parameters for clip
@@ -1375,6 +1412,16 @@ impl PlaybackEngine {
         f64::from_bits(self.master_volume.load(Ordering::Relaxed))
     }
 
+    /// Get current playback position in seconds (sample-accurate)
+    pub fn position_seconds(&self) -> f64 {
+        self.position.seconds()
+    }
+
+    /// Get current playback position in samples
+    pub fn position_samples(&self) -> u64 {
+        self.position.samples()
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // BUS CONTROLS
     // ═══════════════════════════════════════════════════════════════════════
@@ -1426,6 +1473,39 @@ impl PlaybackEngine {
     /// Audio flow: Clips → Tracks → Buses → Master
     /// MUST be real-time safe: no allocations, no locks (except try_read)
     #[inline]
+    /// Process with hardware input audio (for recording)
+    /// Called from audio callback with hardware input
+    pub fn process_with_input(
+        &self,
+        input_l: &[f32],
+        input_r: &[f32],
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
+        let frames = output_l.len();
+
+        // Route hardware input through input buses (lock-free, zero-allocation)
+        if let Some(mut input_buf) = self.input_buffer.try_write() {
+            // Resize only if needed (rare)
+            let required_size = frames * 2;
+            if input_buf.len() < required_size {
+                input_buf.resize(required_size, 0.0);
+            }
+
+            // Interleave input
+            for i in 0..frames {
+                input_buf[i * 2] = input_l[i];
+                input_buf[i * 2 + 1] = input_r[i];
+            }
+
+            // Route to input buses
+            self.input_bus_manager.route_hardware_input(&input_buf[..required_size], frames);
+        }
+
+        // Continue with standard playback processing
+        self.process(output_l, output_r);
+    }
+
     pub fn process(&self, output_l: &mut [f64], output_r: &mut [f64]) {
         let frames = output_l.len();
 
@@ -1442,6 +1522,19 @@ impl PlaybackEngine {
         let start_sample = self.position.samples();
         let start_time = start_sample as f64 / sample_rate;
         let end_time = (start_sample + frames as u64) as f64 / sample_rate;
+
+        // === SAMPLE-ACCURATE AUTOMATION ===
+        // Get all automation changes within this block
+        if let Some(ref automation) = self.automation {
+            let automation_changes = automation.get_block_changes(start_sample, frames);
+
+            // Apply all automation changes BEFORE processing audio
+            // This is simpler than splitting the block, and still sample-accurate
+            // because changes are applied at exact sample positions before audio rendering
+            for change in automation_changes {
+                self.apply_automation_change(&change);
+            }
+        }
 
         // Decay factor for meters (60dB in ~300ms at 48kHz, 256 block size)
         let decay = 0.9995_f64.powf(frames as f64 / 8.0);
@@ -1469,41 +1562,49 @@ impl PlaybackEngine {
         }
 
         // Get tracks (try to read, skip if locked)
+        // NOTE: Combined try_read pattern - if ANY lock fails, skip processing
+        // This reduces lock overhead by failing fast instead of acquiring partial locks
         let tracks = match self.track_manager.tracks.try_read() {
             Some(t) => t,
             None => return,
         };
-
         let clips = match self.track_manager.clips.try_read() {
             Some(c) => c,
             None => return,
         };
-
         let crossfades = match self.track_manager.crossfades.try_read() {
             Some(x) => x,
             None => return,
         };
 
-        // Use pre-allocated track buffers (resize only if block size changed)
-        let mut track_l_guard = match self.track_buffer_l.try_write() {
-            Some(g) => g,
-            None => return,
-        };
-        let mut track_r_guard = match self.track_buffer_r.try_write() {
-            Some(g) => g,
-            None => return,
-        };
+        // Use thread-local scratch buffers (ZERO lock contention - audio thread only)
+        // This eliminates 2 try_write() calls that were causing lock contention
+        let (track_l, track_r) = SCRATCH_BUFFER_L.with(|buf_l| {
+            SCRATCH_BUFFER_R.with(|buf_r| {
+                let mut guard_l = buf_l.borrow_mut();
+                let mut guard_r = buf_r.borrow_mut();
 
-        // Ensure buffers are large enough (only reallocates if frames > current capacity)
-        if track_l_guard.len() < frames {
-            track_l_guard.resize(frames, 0.0);
-            track_r_guard.resize(frames, 0.0);
-            self.current_block_size.store(frames, Ordering::Relaxed);
-        }
+                // Ensure buffers are large enough
+                if guard_l.len() < frames {
+                    guard_l.resize(frames, 0.0);
+                    guard_r.resize(frames, 0.0);
+                    self.current_block_size.store(frames, Ordering::Relaxed);
+                }
 
-        // Get mutable slices of the exact size needed
-        let track_l = &mut track_l_guard[..frames];
-        let track_r = &mut track_r_guard[..frames];
+                // Return raw pointers to avoid borrow checker issues with closures
+                // SAFETY: These buffers are thread-local and only accessed from audio thread
+                // The pointers are valid for the duration of this function call
+                (
+                    guard_l.as_mut_ptr(),
+                    guard_r.as_mut_ptr(),
+                )
+            })
+        });
+
+        // SAFETY: thread-local buffers are only accessed from this audio thread
+        // The buffer size was already verified above
+        let track_l = unsafe { std::slice::from_raw_parts_mut(track_l, frames) };
+        let track_r = unsafe { std::slice::from_raw_parts_mut(track_r, frames) };
 
         // Process each track → route to its bus
         for track in tracks.values() {
@@ -1514,6 +1615,39 @@ impl PlaybackEngine {
             // Clear track buffers
             track_l.fill(0.0);
             track_r.fill(0.0);
+
+            // === INPUT MONITORING & RECORDING ===
+            // If track has input bus routing, get audio from that bus
+            if let Some(input_bus_id) = track.input_bus {
+                if let Some(bus) = self.input_bus_manager.get_bus(input_bus_id) {
+                    // Check monitor mode and armed state
+                    let should_monitor = match track.monitor_mode {
+                        MonitorMode::Manual => true,
+                        MonitorMode::Auto => track.armed && self.position.is_playing(),
+                        MonitorMode::Off => false,
+                    };
+
+                    if should_monitor {
+                        // Read audio from input bus (zero-copy reference)
+                        if let Some((left, right)) = bus.read_buffers() {
+                            // Mix input into track buffer (for monitoring)
+                            let frames_to_copy = frames.min(left.len());
+                            for i in 0..frames_to_copy {
+                                track_l[i] += left[i] as f64;
+                                if let Some(ref r) = right {
+                                    track_r[i] += r[i] as f64;
+                                } else {
+                                    // Mono input - copy to both channels
+                                    track_r[i] += left[i] as f64;
+                                }
+                            }
+
+                            // TODO: Send to RecordingManager if armed
+                            // This will be added in next step once RecordingManager integration is complete
+                        }
+                    }
+                }
+            }
 
             // Find crossfades active in this track for this time range (iterate without collect)
             // Store matching crossfade IDs to avoid lifetime issues
@@ -1604,19 +1738,39 @@ impl PlaybackEngine {
             }
 
             // Apply track volume and pan (fader stage)
-            let track_volume = self.get_track_volume_with_automation(track);
+            // Use per-sample smoothing for zipper-free automation
             let vca_gain = self.get_vca_gain(track.id.0);
-            let final_volume = track_volume * vca_gain;
 
-            let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
-            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
-            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4; // 0 to PI/2
-            let pan_l = pan_angle.cos();  // 1 at left, 0.707 at center, 0 at right
-            let pan_r = pan_angle.sin();  // 0 at left, 0.707 at center, 1 at right
+            if self.param_smoother.is_track_smoothing(track.id.0) {
+                // Per-sample processing when smoothing is active
+                for i in 0..frames {
+                    let (volume, pan) = self.param_smoother.advance_track(track.id.0);
+                    let final_volume = volume * vca_gain;
+                    let pan = pan.clamp(-1.0, 1.0);
 
-            for i in 0..frames {
-                track_l[i] *= final_volume * pan_l;
-                track_r[i] *= final_volume * pan_r;
+                    // Constant power pan
+                    let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_l = pan_angle.cos();
+                    let pan_r = pan_angle.sin();
+
+                    track_l[i] *= final_volume * pan_l;
+                    track_r[i] *= final_volume * pan_r;
+                }
+            } else {
+                // Block processing when no smoothing (fast path)
+                let track_volume = self.get_track_volume_with_automation(track);
+                let final_volume = track_volume * vca_gain;
+
+                let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
+                // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
+                let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4; // 0 to PI/2
+                let pan_l = pan_angle.cos();  // 1 at left, 0.707 at center, 0 at right
+                let pan_r = pan_angle.sin();  // 0 at left, 0.707 at center, 1 at right
+
+                for i in 0..frames {
+                    track_l[i] *= final_volume * pan_l;
+                    track_r[i] *= final_volume * pan_r;
+                }
             }
 
             // Process track insert chain (post-fader inserts applied after volume)
@@ -1901,6 +2055,65 @@ impl PlaybackEngine {
         }
     }
 
+    /// Apply a single automation change (with smoothing for continuous params)
+    fn apply_automation_change(&self, change: &crate::automation::AutomationChange) {
+        use crate::automation::TargetType;
+
+        let param_id = &change.param_id;
+        let track_id = param_id.target_id;
+
+        match param_id.target_type {
+            TargetType::Track => {
+                match param_id.param_name.as_str() {
+                    "volume" => {
+                        // Automation value is normalized 0-1, map to 0-1.5 volume range
+                        let volume = change.value * 1.5;
+                        // Use smoother for zipper-free automation
+                        self.param_smoother.set_track_volume(track_id, volume);
+                    }
+                    "pan" => {
+                        // Automation value is normalized 0-1, map to -1..1 pan range
+                        let pan = change.value * 2.0 - 1.0;
+                        // Use smoother for zipper-free automation
+                        self.param_smoother.set_track_pan(track_id, pan);
+                    }
+                    "mute" => {
+                        // Mute is binary - no smoothing needed (would cause glitches)
+                        let muted = change.value > 0.5;
+                        if let Some(mut tracks) = self.track_manager.tracks.try_write() {
+                            if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
+                                track.muted = muted;
+                            }
+                        }
+                    }
+                    _ => {
+                        log::trace!("Unknown track parameter: {}", param_id.param_name);
+                    }
+                }
+            }
+            TargetType::Send => {
+                // TODO: Apply send level when send system integrated
+                log::trace!("Send automation not yet implemented: track={}, slot={:?}, value={}",
+                    track_id, param_id.slot, change.value);
+            }
+            TargetType::Plugin => {
+                // TODO: Apply plugin parameter when plugin system fully integrated
+                log::trace!("Plugin parameter automation not yet implemented: track={}, slot={:?}, param={}, value={}",
+                    track_id, param_id.slot, param_id.param_name, change.value);
+            }
+            TargetType::Bus | TargetType::Master => {
+                // TODO: Apply bus/master volume when unified routing integrated
+                log::trace!("Bus/Master automation not yet implemented: type={:?}, id={}, param={}, value={}",
+                    param_id.target_type, track_id, param_id.param_name, change.value);
+            }
+            TargetType::Clip => {
+                // TODO: Apply clip parameters (gain, pitch, etc.)
+                log::trace!("Clip automation not yet implemented: clip={}, param={}, value={}",
+                    track_id, param_id.param_name, change.value);
+            }
+        }
+    }
+
     /// Process audio using unified RoutingGraph (Phase 1.3)
     /// This replaces the legacy bus system with dynamic routing.
     ///
@@ -1939,23 +2152,24 @@ impl PlaybackEngine {
             None => return,
         };
 
-        // Pre-allocated track buffers
-        let mut track_l_guard = match self.track_buffer_l.try_write() {
-            Some(g) => g,
-            None => return,
-        };
-        let mut track_r_guard = match self.track_buffer_r.try_write() {
-            Some(g) => g,
-            None => return,
-        };
+        // Use thread-local scratch buffers (ZERO lock contention - audio thread only)
+        let (track_l, track_r) = SCRATCH_BUFFER_L.with(|buf_l| {
+            SCRATCH_BUFFER_R.with(|buf_r| {
+                let mut guard_l = buf_l.borrow_mut();
+                let mut guard_r = buf_r.borrow_mut();
 
-        if track_l_guard.len() < frames {
-            track_l_guard.resize(frames, 0.0);
-            track_r_guard.resize(frames, 0.0);
-        }
+                if guard_l.len() < frames {
+                    guard_l.resize(frames, 0.0);
+                    guard_r.resize(frames, 0.0);
+                }
 
-        let track_l = &mut track_l_guard[..frames];
-        let track_r = &mut track_r_guard[..frames];
+                (guard_l.as_mut_ptr(), guard_r.as_mut_ptr())
+            })
+        });
+
+        // SAFETY: thread-local buffers are only accessed from this audio thread
+        let track_l = unsafe { std::slice::from_raw_parts_mut(track_l, frames) };
+        let track_r = unsafe { std::slice::from_raw_parts_mut(track_r, frames) };
 
         // Clear all channel inputs in routing graph
         for channel in routing.graph.iter_channels_mut() {

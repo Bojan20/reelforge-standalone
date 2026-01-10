@@ -9,7 +9,7 @@ use rf_dsp::delay_compensation::LatencySamples;
 use rf_dsp::eq_room::RoomCorrectionEq;
 use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
 use rf_dsp::{
-    EqPreset, FilterShape, MorphingEq, OversampleMode, ProEq, Processor, ProcessorConfig,
+    FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig,
     StereoApi550, StereoNeve1073, StereoProcessor, StereoPultec, UltraEq, UltraFilterType,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -662,103 +662,6 @@ impl InsertProcessor for Neve1073Wrapper {
     }
 }
 
-// ============ Morphing EQ Wrapper ============
-
-/// Morphing EQ with A/B preset morphing
-pub struct MorphEqWrapper {
-    eq: MorphingEq,
-    sample_rate: f64,
-}
-
-impl MorphEqWrapper {
-    pub fn new(sample_rate: f64) -> Self {
-        Self {
-            eq: MorphingEq::new(sample_rate),
-            sample_rate,
-        }
-    }
-
-    /// Load preset into slot A
-    pub fn load_preset_a(&mut self, preset: EqPreset) {
-        self.eq.load_preset_a(preset);
-    }
-
-    /// Load preset into slot B
-    pub fn load_preset_b(&mut self, preset: EqPreset) {
-        self.eq.load_preset_b(preset);
-    }
-
-    /// Set morph position (0=A, 1=B)
-    pub fn set_morph(&mut self, position: f64) {
-        self.eq.set_morph(position);
-    }
-
-    /// Get current morph position
-    pub fn get_morph_position(&self) -> f64 {
-        self.eq.get_morph_position()
-    }
-
-    /// Morph to A
-    pub fn morph_to_a(&mut self) {
-        self.eq.morph_to_a();
-    }
-
-    /// Morph to B
-    pub fn morph_to_b(&mut self) {
-        self.eq.morph_to_b();
-    }
-
-    /// Toggle A/B instantly
-    pub fn toggle_ab(&mut self) {
-        self.eq.toggle_ab();
-    }
-}
-
-impl InsertProcessor for MorphEqWrapper {
-    fn name(&self) -> &str {
-        "Morph EQ"
-    }
-
-    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        self.eq.process_block(left, right);
-    }
-
-    fn reset(&mut self) {
-        // Reset by recreating with current sample rate
-        self.eq = MorphingEq::new(self.sample_rate);
-    }
-
-    fn set_sample_rate(&mut self, sample_rate: f64) {
-        self.sample_rate = sample_rate;
-        // Recreate with new sample rate
-        self.eq = MorphingEq::new(sample_rate);
-    }
-
-    fn num_params(&self) -> usize {
-        1 // Morph position
-    }
-
-    fn get_param(&self, index: usize) -> f64 {
-        match index {
-            0 => self.eq.get_morph_position(),
-            _ => 0.0,
-        }
-    }
-
-    fn set_param(&mut self, index: usize, value: f64) {
-        match index {
-            0 => self.eq.set_morph(value.clamp(0.0, 1.0)),
-            _ => {}
-        }
-    }
-
-    fn param_name(&self, index: usize) -> &str {
-        match index {
-            0 => "Morph",
-            _ => "",
-        }
-    }
-}
 
 // ============ Room Correction Wrapper ============
 
@@ -869,7 +772,6 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
         "pultec" | "Pultec" | "pultec-eq" => Some(Box::new(PultecWrapper::new(sample_rate))),
         "api550" | "API550" | "api-550" => Some(Box::new(Api550Wrapper::new(sample_rate))),
         "neve1073" | "Neve1073" | "neve-1073" => Some(Box::new(Neve1073Wrapper::new(sample_rate))),
-        "morph-eq" | "MorphEQ" | "morph_eq" => Some(Box::new(MorphEqWrapper::new(sample_rate))),
         "room-correction" | "RoomCorrection" => {
             Some(Box::new(RoomCorrectionWrapper::new(sample_rate)))
         }
@@ -1420,7 +1322,6 @@ pub fn available_processors() -> Vec<&'static str> {
         "pultec",
         "api550",
         "neve1073",
-        "morph-eq",
         "room-correction",
         // Dynamics
         "compressor",

@@ -7,14 +7,17 @@
 //! - Integration with DualPathEngine
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
 
 use rf_core::{BufferSize, Sample, SampleRate};
+use rf_dsp::eq::{ParametricEq, EqFilterType}; // For EQ processing
+use rf_dsp::StereoProcessor; // Trait for process_sample()
 
 use crate::{
-    AudioConfig, AudioResult, AudioStream, get_default_output_device, get_output_device_by_name,
+    AudioConfig, AudioResult, AudioStream, get_default_input_device,
+    get_default_output_device, get_input_device_by_name, get_output_device_by_name,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -22,34 +25,56 @@ use crate::{
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Peak meter values (atomic for lock-free access)
+/// Cache-line aligned to prevent false sharing (each atomic on separate line)
 #[derive(Debug)]
+#[repr(align(64))]
 pub struct MeterData {
     /// Left channel peak (0.0 - 1.0+)
     pub left_peak: AtomicU64,
+    _pad1: [u8; 56],  // Cache-line padding (64 - 8 = 56)
+
     /// Right channel peak (0.0 - 1.0+)
     pub right_peak: AtomicU64,
+    _pad2: [u8; 56],
+
     /// Left channel RMS
     pub left_rms: AtomicU64,
+    _pad3: [u8; 56],
+
     /// Right channel RMS
     pub right_rms: AtomicU64,
+    _pad4: [u8; 56],
+
     /// True peak (intersample)
     pub true_peak_l: AtomicU64,
+    _pad5: [u8; 56],
+
     /// True peak (intersample)
     pub true_peak_r: AtomicU64,
+    _pad6: [u8; 56],
+
     /// Clip indicator
     pub clipped: AtomicBool,
+    _pad7: [u8; 63],  // Cache-line padding (64 - 1 = 63)
 }
 
 impl Default for MeterData {
     fn default() -> Self {
         Self {
             left_peak: AtomicU64::new(0),
+            _pad1: [0; 56],
             right_peak: AtomicU64::new(0),
+            _pad2: [0; 56],
             left_rms: AtomicU64::new(0),
+            _pad3: [0; 56],
             right_rms: AtomicU64::new(0),
+            _pad4: [0; 56],
             true_peak_l: AtomicU64::new(0),
+            _pad5: [0; 56],
             true_peak_r: AtomicU64::new(0),
+            _pad6: [0; 56],
             clipped: AtomicBool::new(false),
+            _pad7: [0; 63],
         }
     }
 }
@@ -109,6 +134,28 @@ pub enum TransportState {
     Recording,
 }
 
+impl TransportState {
+    #[inline]
+    fn to_u8(self) -> u8 {
+        match self {
+            Self::Stopped => 0,
+            Self::Playing => 1,
+            Self::Paused => 2,
+            Self::Recording => 3,
+        }
+    }
+
+    #[inline]
+    fn from_u8(value: u8) -> Self {
+        match value {
+            1 => Self::Playing,
+            2 => Self::Paused,
+            3 => Self::Recording,
+            _ => Self::Stopped,
+        }
+    }
+}
+
 impl Default for TransportState {
     fn default() -> Self {
         Self::Stopped
@@ -122,8 +169,8 @@ pub struct TransportPosition {
     sample_position: AtomicU64,
     /// Sample rate for time conversion
     sample_rate: AtomicU64,
-    /// Transport state
-    state: RwLock<TransportState>,
+    /// Transport state (lock-free atomic)
+    state: AtomicU8,
 }
 
 impl Default for TransportPosition {
@@ -131,7 +178,7 @@ impl Default for TransportPosition {
         Self {
             sample_position: AtomicU64::new(0),
             sample_rate: AtomicU64::new(48000),
-            state: RwLock::new(TransportState::Stopped),
+            state: AtomicU8::new(TransportState::Stopped.to_u8()),
         }
     }
 }
@@ -141,7 +188,7 @@ impl TransportPosition {
         Self {
             sample_position: AtomicU64::new(0),
             sample_rate: AtomicU64::new(sample_rate),
-            state: RwLock::new(TransportState::Stopped),
+            state: AtomicU8::new(TransportState::Stopped.to_u8()),
         }
     }
 
@@ -163,12 +210,14 @@ impl TransportPosition {
         self.sample_position.fetch_add(samples, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn state(&self) -> TransportState {
-        *self.state.read()
+        TransportState::from_u8(self.state.load(Ordering::Relaxed))
     }
 
+    #[inline]
     pub fn set_state(&self, state: TransportState) {
-        *self.state.write() = state;
+        self.state.store(state.to_u8(), Ordering::Release);
     }
 
     pub fn reset(&self) {
@@ -249,8 +298,12 @@ impl Default for EngineSettings {
 
 /// Central audio engine
 pub struct AudioEngine {
-    /// Current settings
-    settings: RwLock<EngineSettings>,
+    /// Device configuration (UI thread only - not accessed in audio callback)
+    device_config: RwLock<DeviceConfig>,
+    /// Lock-free sample rate (accessed in audio thread)
+    sample_rate: AtomicU32,
+    /// Lock-free buffer size (accessed in audio thread)
+    buffer_size: AtomicU32,
     /// Active audio stream
     stream: Mutex<Option<AudioStream>>,
     /// Metering data (lock-free)
@@ -263,11 +316,24 @@ pub struct AudioEngine {
     running: AtomicBool,
 }
 
+/// Device configuration (UI thread only)
+#[derive(Debug, Clone)]
+struct DeviceConfig {
+    pub output_device: Option<String>,
+    pub input_device: Option<String>,
+}
+
 impl AudioEngine {
     /// Create new audio engine with default settings
     pub fn new() -> Self {
+        let default = EngineSettings::default();
         Self {
-            settings: RwLock::new(EngineSettings::default()),
+            device_config: RwLock::new(DeviceConfig {
+                output_device: default.output_device,
+                input_device: default.input_device,
+            }),
+            sample_rate: AtomicU32::new(default.sample_rate.as_u32()),
+            buffer_size: AtomicU32::new(default.buffer_size.as_u32()),
             stream: Mutex::new(None),
             meters: Arc::new(MeterData::default()),
             transport: Arc::new(TransportPosition::default()),
@@ -278,9 +344,19 @@ impl AudioEngine {
 
     /// Create audio engine with custom settings
     pub fn with_settings(settings: EngineSettings) -> Self {
-        let engine = Self::new();
-        *engine.settings.write() = settings;
-        engine
+        Self {
+            device_config: RwLock::new(DeviceConfig {
+                output_device: settings.output_device.clone(),
+                input_device: settings.input_device.clone(),
+            }),
+            sample_rate: AtomicU32::new(settings.sample_rate.as_u32()),
+            buffer_size: AtomicU32::new(settings.buffer_size.as_u32()),
+            stream: Mutex::new(None),
+            meters: Arc::new(MeterData::default()),
+            transport: Arc::new(TransportPosition::default()),
+            processor: Mutex::new(Box::new(PassthroughProcessor)),
+            running: AtomicBool::new(false),
+        }
     }
 
     /// Set the audio processor
@@ -294,18 +370,33 @@ impl AudioEngine {
             return Ok(());
         }
 
-        let settings = self.settings.read().clone();
+        // Read device config (UI thread only - not accessed in callback)
+        let device_cfg = self.device_config.read().clone();
+
+        // Load audio settings (lock-free atomic reads)
+        let sample_rate_u32 = self.sample_rate.load(Ordering::Relaxed);
+        let buffer_size_u32 = self.buffer_size.load(Ordering::Relaxed);
+        let sample_rate = SampleRate::from_u32(sample_rate_u32).unwrap_or(SampleRate::Hz48000);
+        let buffer_size = BufferSize::from_u32(buffer_size_u32).unwrap_or(BufferSize::Samples256);
 
         // Get output device
-        let output_device = if let Some(ref name) = settings.output_device {
+        let output_device = if let Some(ref name) = device_cfg.output_device {
             get_output_device_by_name(name)?
         } else {
             get_default_output_device()?
         };
 
+        // Get input device (if specified)
+        let input_device = if let Some(ref name) = device_cfg.input_device {
+            Some(get_input_device_by_name(name)?)
+        } else {
+            // Try to get default input device
+            get_default_input_device().ok()
+        };
+
         let config = AudioConfig {
-            sample_rate: settings.sample_rate,
-            buffer_size: settings.buffer_size,
+            sample_rate,
+            buffer_size,
             input_channels: 2,
             output_channels: 2,
         };
@@ -315,20 +406,27 @@ impl AudioEngine {
         let transport = Arc::clone(&self.transport);
 
         // Create pre-allocated buffers
-        let buffer_size = settings.buffer_size.as_usize();
-        let mut left_buf = vec![0.0f64; buffer_size];
-        let mut right_buf = vec![0.0f64; buffer_size];
+        let buffer_size_usize = buffer_size.as_usize();
+        let mut left_buf = vec![0.0f64; buffer_size_usize];
+        let mut right_buf = vec![0.0f64; buffer_size_usize];
 
         // Peak decay coefficient (for smooth metering)
-        let decay = 0.9995_f64.powf(buffer_size as f64);
+        let decay = 0.9995_f64.powf(buffer_size_usize as f64);
+
+        // Create EQ instance (moved into callback for lock-free access)
+        let mut eq = ParametricEq::new(sample_rate.as_f64());
+
+        // Enable test band: 1kHz +6dB Bell filter
+        eq.set_band(0, 1000.0, 6.0, 1.0, EqFilterType::Bell);
 
         // Create callback
         let callback = Box::new(move |input: &[Sample], output: &mut [Sample]| {
             let frames = output.len() / 2;
 
-            // Deinterleave input (if any)
+            // Deinterleave input audio
+            let has_input = !input.is_empty() && input.len() >= frames * 2;
             for i in 0..frames {
-                if i * 2 + 1 < input.len() {
+                if has_input && i * 2 + 1 < input.len() {
                     left_buf[i] = input[i * 2];
                     right_buf[i] = input[i * 2 + 1];
                 } else {
@@ -337,6 +435,11 @@ impl AudioEngine {
                 }
             }
 
+            // TODO: Send input audio to recording
+            // This will be handled by the playback engine callback
+            // Input audio is available in left_buf/right_buf if has_input is true
+            // For now, input is just passed through for monitoring
+
             // Check if playing
             let state = transport.state();
             if state == TransportState::Playing {
@@ -344,11 +447,7 @@ impl AudioEngine {
                 transport.advance(frames as u64);
             }
 
-            // For now, passthrough (processor will be called in future)
-            // In production, we'd call processor.process() here
-            // but we can't easily share the Mutex across callback boundary
-
-            // Generate test tone when playing (440Hz sine)
+            // Process audio based on state
             if state == TransportState::Playing {
                 let sample_rate = 48000.0;
                 let freq = 440.0;
@@ -359,6 +458,13 @@ impl AudioEngine {
                     let sample = (2.0 * std::f64::consts::PI * freq * t).sin() * 0.3;
                     left_buf[i] = sample;
                     right_buf[i] = sample;
+                }
+
+                // Process through EQ (sample-by-sample)
+                for i in 0..frames {
+                    let (out_l, out_r) = eq.process_sample(left_buf[i], right_buf[i]);
+                    left_buf[i] = out_l;
+                    right_buf[i] = out_r;
                 }
             } else {
                 // Output silence when stopped
@@ -401,14 +507,25 @@ impl AudioEngine {
             }
         });
 
-        // Create and start stream
-        let stream = AudioStream::new(&output_device, None, config, callback)?;
+        // Create and start stream (with input device if available)
+        let stream = AudioStream::new(
+            &output_device,
+            input_device.as_ref(),
+            config,
+            callback,
+        )?;
         stream.start()?;
+
+        if input_device.is_some() {
+            log::info!("Audio engine started with input device");
+        } else {
+            log::info!("Audio engine started (no input device)");
+        }
 
         // Update transport sample rate
         self.transport
             .sample_rate
-            .store(settings.sample_rate.as_u32() as u64, Ordering::Relaxed);
+            .store(sample_rate_u32 as u64, Ordering::Relaxed);
 
         *self.stream.lock() = Some(stream);
         self.running.store(true, Ordering::Release);
@@ -492,22 +609,41 @@ impl AudioEngine {
 
     /// Update settings (requires restart)
     pub fn update_settings(&self, settings: EngineSettings) {
-        *self.settings.write() = settings;
+        // Update device config (UI thread only)
+        *self.device_config.write() = DeviceConfig {
+            output_device: settings.output_device,
+            input_device: settings.input_device,
+        };
+
+        // Update audio settings atomically (lock-free)
+        self.sample_rate.store(settings.sample_rate.as_u32(), Ordering::Release);
+        self.buffer_size.store(settings.buffer_size.as_u32(), Ordering::Release);
     }
 
     /// Get current settings
     pub fn settings(&self) -> EngineSettings {
-        self.settings.read().clone()
+        let device_cfg = self.device_config.read().clone();
+        let sample_rate_u32 = self.sample_rate.load(Ordering::Relaxed);
+        let buffer_size_u32 = self.buffer_size.load(Ordering::Relaxed);
+
+        EngineSettings {
+            output_device: device_cfg.output_device,
+            input_device: device_cfg.input_device,
+            sample_rate: SampleRate::from_u32(sample_rate_u32).unwrap_or(SampleRate::Hz48000),
+            buffer_size: BufferSize::from_u32(buffer_size_u32).unwrap_or(BufferSize::Samples256),
+        }
     }
 
-    /// Get sample rate
+    /// Get sample rate (lock-free)
     pub fn sample_rate(&self) -> SampleRate {
-        self.settings.read().sample_rate
+        let rate = self.sample_rate.load(Ordering::Relaxed);
+        SampleRate::from_u32(rate).unwrap_or(SampleRate::Hz48000)
     }
 
-    /// Get buffer size
+    /// Get buffer size (lock-free)
     pub fn buffer_size(&self) -> BufferSize {
-        self.settings.read().buffer_size
+        let size = self.buffer_size.load(Ordering::Relaxed);
+        BufferSize::from_u32(size).unwrap_or(BufferSize::Samples256)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

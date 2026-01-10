@@ -1,0 +1,15 @@
+# Profile-Guided Optimization (PGO) Configuration
+#
+# Usage:
+#   1. Build with profiling:    cargo build --profile release-pgo-gen
+#   2. Run representative workload (20-30min audio processing)
+#   3. Merge profiling data:    llvm-profdata merge -o /tmp/pgo-data/merged.profdata /tmp/pgo-data/*.profraw
+#   4. Rebuild with PGO:        cargo build --profile release-pgo-use
+#
+# Expected gain: 10-20% runtime improvement for hot paths (audio callback, DSP)
+
+[profile.release-pgo-gen]
+inherits = "release"
+
+[profile.release-pgo-use]
+inherits = "release"

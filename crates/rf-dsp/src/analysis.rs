@@ -29,6 +29,8 @@ pub struct FftAnalyzer {
     window: Vec<f64>,
     magnitudes: Vec<f64>,
     write_pos: usize,
+    /// Pre-allocated scratch buffer for windowed samples (zero-allocation hot path)
+    scratch_windowed: Vec<f64>,
 }
 
 impl FftAnalyzer {
@@ -61,6 +63,7 @@ impl FftAnalyzer {
             window,
             magnitudes: vec![0.0; output_len],
             write_pos: 0,
+            scratch_windowed: vec![0.0; fft_size],
         }
     }
 
@@ -74,19 +77,16 @@ impl FftAnalyzer {
 
     /// Perform FFT and update magnitudes
     pub fn analyze(&mut self) {
-        // Apply window
-        let mut windowed: Vec<f64> = self
-            .input_buffer
-            .iter()
-            .zip(&self.window)
-            .map(|(&s, &w)| s * w)
-            .collect();
+        // Apply window (in-place to pre-allocated scratch buffer)
+        for (i, (&input, &win)) in self.input_buffer.iter().zip(&self.window).enumerate() {
+            self.scratch_windowed[i] = input * win;
+        }
 
         // Rotate buffer to start from write position for correct phase
-        windowed.rotate_left(self.write_pos);
+        self.scratch_windowed.rotate_left(self.write_pos);
 
         // Perform FFT (safe: buffer sizes are validated in new())
-        if let Err(_) = self.fft.process(&mut windowed, &mut self.output_buffer) {
+        if let Err(_) = self.fft.process(&mut self.scratch_windowed, &mut self.output_buffer) {
             // FFT failed - fill with silence
             for c in &mut self.output_buffer {
                 *c = Complex::new(0.0, 0.0);
@@ -279,238 +279,6 @@ impl RmsMeter {
         self.sum_squares = 0.0;
         self.buffer.fill(0.0);
         self.write_pos = 0;
-    }
-}
-
-/// True peak detector with oversampling
-#[derive(Debug, Clone)]
-pub struct TruePeakMeter {
-    /// 4x oversampling filter coefficients (FIR)
-    filter_coeffs: Vec<f64>,
-    /// Filter state for each phase
-    filter_state: Vec<f64>,
-    current_true_peak: f64,
-    held_true_peak: f64,
-    hold_samples: usize,
-    hold_counter: usize,
-    release_coeff: f64,
-}
-
-impl TruePeakMeter {
-    pub fn new(sample_rate: f64) -> Self {
-        // Validate sample rate
-        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
-            sample_rate
-        } else {
-            DEFAULT_SAMPLE_RATE
-        };
-
-        // Simple 4-tap polyphase filter for 4x oversampling
-        // In production, use a proper sinc-windowed filter
-        let filter_coeffs = vec![0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25];
-
-        Self {
-            filter_coeffs,
-            filter_state: vec![0.0; 4],
-            current_true_peak: 0.0,
-            held_true_peak: 0.0,
-            hold_samples: (sr * 2.0) as usize,
-            hold_counter: 0,
-            release_coeff: (-1.0 / (0.3 * sr)).exp(),
-        }
-    }
-
-    pub fn process(&mut self, sample: Sample) {
-        // Shift state
-        self.filter_state.rotate_right(1);
-        self.filter_state[0] = sample;
-
-        // Calculate 4 interpolated samples
-        for phase in 0..4 {
-            let mut interpolated = 0.0;
-            for (i, &state) in self.filter_state.iter().enumerate() {
-                let coeff_idx = phase + i * 2;
-                if coeff_idx < self.filter_coeffs.len() {
-                    interpolated += state * self.filter_coeffs[coeff_idx];
-                }
-            }
-
-            let abs = interpolated.abs();
-            if abs > self.current_true_peak {
-                self.current_true_peak = abs;
-            }
-            if abs > self.held_true_peak {
-                self.held_true_peak = abs;
-                self.hold_counter = 0;
-            }
-        }
-
-        // Release
-        self.current_true_peak *= self.release_coeff;
-        self.hold_counter += 1;
-        if self.hold_counter >= self.hold_samples {
-            self.held_true_peak *= self.release_coeff;
-        }
-    }
-
-    pub fn current_dbtp(&self) -> f64 {
-        20.0 * self.current_true_peak.max(1e-10).log10()
-    }
-
-    pub fn held_dbtp(&self) -> f64 {
-        20.0 * self.held_true_peak.max(1e-10).log10()
-    }
-
-    pub fn reset(&mut self) {
-        self.filter_state.fill(0.0);
-        self.current_true_peak = 0.0;
-        self.held_true_peak = 0.0;
-        self.hold_counter = 0;
-    }
-}
-
-/// LUFS meter (EBU R128)
-#[derive(Debug, Clone)]
-pub struct LufsMeter {
-    /// Pre-filter (high shelf)
-    pre_filter_state: [f64; 2],
-    /// High-pass filter state
-    hp_filter_state: [f64; 2],
-    /// Momentary loudness window (400ms)
-    momentary_buffer: Vec<f64>,
-    momentary_pos: usize,
-    momentary_sum: f64,
-    /// Short-term loudness window (3s)
-    short_term_buffer: Vec<f64>,
-    short_term_pos: usize,
-    short_term_sum: f64,
-    /// Integrated loudness
-    integrated_sum: f64,
-    integrated_count: u64,
-    sample_rate: f64,
-}
-
-impl LufsMeter {
-    pub fn new(sample_rate: f64) -> Self {
-        // Validate sample rate
-        let sr = if sample_rate > 0.0 && sample_rate.is_finite() {
-            sample_rate
-        } else {
-            DEFAULT_SAMPLE_RATE
-        };
-
-        let momentary_samples = ((0.4 * sr) as usize).max(1);
-        let short_term_samples = ((3.0 * sr) as usize).max(1);
-
-        Self {
-            pre_filter_state: [0.0; 2],
-            hp_filter_state: [0.0; 2],
-            momentary_buffer: vec![0.0; momentary_samples],
-            momentary_pos: 0,
-            momentary_sum: 0.0,
-            short_term_buffer: vec![0.0; short_term_samples],
-            short_term_pos: 0,
-            short_term_sum: 0.0,
-            integrated_sum: 0.0,
-            integrated_count: 0,
-            sample_rate: sr,
-        }
-    }
-
-    /// Apply K-weighting filter
-    fn k_weight(&mut self, sample: Sample) -> f64 {
-        // Simplified K-weighting (proper implementation needs exact ITU coefficients)
-        // Stage 1: Pre-filter (high shelf +4dB @ 1681Hz)
-        let pre_a1 = -1.69065929318241;
-        let pre_a2 = 0.73248077421585;
-        let pre_b0 = 1.53512485958697;
-        let pre_b1 = -2.69169618940638;
-        let pre_b2 = 1.19839281085285;
-
-        let pre_out = pre_b0 * sample + self.pre_filter_state[0];
-        self.pre_filter_state[0] = pre_b1 * sample - pre_a1 * pre_out + self.pre_filter_state[1];
-        self.pre_filter_state[1] = pre_b2 * sample - pre_a2 * pre_out;
-
-        // Stage 2: High-pass filter (38.13Hz)
-        let hp_a1 = -1.99004745483398;
-        let hp_a2 = 0.99007225036621;
-        let hp_b0 = 1.0;
-        let hp_b1 = -2.0;
-        let hp_b2 = 1.0;
-
-        let hp_out = hp_b0 * pre_out + self.hp_filter_state[0];
-        self.hp_filter_state[0] = hp_b1 * pre_out - hp_a1 * hp_out + self.hp_filter_state[1];
-        self.hp_filter_state[1] = hp_b2 * pre_out - hp_a2 * hp_out;
-
-        hp_out
-    }
-
-    pub fn process(&mut self, sample: Sample) {
-        let weighted = self.k_weight(sample);
-        let squared = weighted * weighted;
-
-        // Momentary (400ms)
-        self.momentary_sum -= self.momentary_buffer[self.momentary_pos];
-        self.momentary_sum += squared;
-        self.momentary_buffer[self.momentary_pos] = squared;
-        self.momentary_pos = (self.momentary_pos + 1) % self.momentary_buffer.len();
-
-        // Short-term (3s)
-        self.short_term_sum -= self.short_term_buffer[self.short_term_pos];
-        self.short_term_sum += squared;
-        self.short_term_buffer[self.short_term_pos] = squared;
-        self.short_term_pos = (self.short_term_pos + 1) % self.short_term_buffer.len();
-
-        // Integrated (gated)
-        // For proper implementation, apply -70 LUFS absolute gate
-        // and -10 LU relative gate
-        self.integrated_sum += squared;
-        self.integrated_count += 1;
-    }
-
-    pub fn process_block(&mut self, samples: &[Sample]) {
-        for &sample in samples {
-            self.process(sample);
-        }
-    }
-
-    /// Momentary loudness (400ms window)
-    pub fn momentary(&self) -> f64 {
-        let mean = self.momentary_sum / self.momentary_buffer.len() as f64;
-        -0.691 + 10.0 * mean.max(1e-10).log10()
-    }
-
-    /// Short-term loudness (3s window)
-    pub fn short_term(&self) -> f64 {
-        let mean = self.short_term_sum / self.short_term_buffer.len() as f64;
-        -0.691 + 10.0 * mean.max(1e-10).log10()
-    }
-
-    /// Integrated loudness (entire program)
-    pub fn integrated(&self) -> f64 {
-        if self.integrated_count == 0 {
-            return f64::NEG_INFINITY;
-        }
-        let mean = self.integrated_sum / self.integrated_count as f64;
-        -0.691 + 10.0 * mean.max(1e-10).log10()
-    }
-
-    pub fn reset(&mut self) {
-        self.pre_filter_state = [0.0; 2];
-        self.hp_filter_state = [0.0; 2];
-        self.momentary_buffer.fill(0.0);
-        self.momentary_pos = 0;
-        self.momentary_sum = 0.0;
-        self.short_term_buffer.fill(0.0);
-        self.short_term_pos = 0;
-        self.short_term_sum = 0.0;
-        self.integrated_sum = 0.0;
-        self.integrated_count = 0;
-    }
-
-    pub fn reset_integrated(&mut self) {
-        self.integrated_sum = 0.0;
-        self.integrated_count = 0;
     }
 }
 

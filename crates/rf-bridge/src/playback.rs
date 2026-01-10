@@ -176,7 +176,7 @@ impl PlaybackMeters {
 
 use rf_engine::InsertProcessor;
 use rf_engine::{
-    Api550Wrapper, MorphEqWrapper, Neve1073Wrapper, ProEqWrapper, PultecWrapper,
+    Api550Wrapper, Neve1073Wrapper, ProEqWrapper, PultecWrapper,
     RoomCorrectionWrapper, UltraEqWrapper,
 };
 
@@ -193,7 +193,6 @@ pub struct TrackDsp {
     /// Neve 1073 emulation
     pub neve1073: Option<Neve1073Wrapper>,
     /// Morphing EQ
-    pub morph_eq: Option<MorphEqWrapper>,
     /// Room correction
     pub room_correction: Option<RoomCorrectionWrapper>,
 }
@@ -206,7 +205,6 @@ impl TrackDsp {
             pultec: None,          // On-demand
             api550: None,          // On-demand
             neve1073: None,        // On-demand
-            morph_eq: None,        // On-demand
             room_correction: None, // On-demand
         }
     }
@@ -227,9 +225,6 @@ impl TrackDsp {
             eq.process_stereo(left, right);
         }
         if let Some(ref mut eq) = self.neve1073 {
-            eq.process_stereo(left, right);
-        }
-        if let Some(ref mut eq) = self.morph_eq {
             eq.process_stereo(left, right);
         }
         if let Some(ref mut eq) = self.room_correction {
@@ -254,9 +249,6 @@ impl TrackDsp {
         if let Some(ref mut eq) = self.neve1073 {
             eq.reset();
         }
-        if let Some(ref mut eq) = self.morph_eq {
-            eq.reset();
-        }
         if let Some(ref mut eq) = self.room_correction {
             eq.reset();
         }
@@ -277,9 +269,6 @@ impl TrackDsp {
             eq.set_sample_rate(sample_rate);
         }
         if let Some(ref mut eq) = self.neve1073 {
-            eq.set_sample_rate(sample_rate);
-        }
-        if let Some(ref mut eq) = self.morph_eq {
             eq.set_sample_rate(sample_rate);
         }
         if let Some(ref mut eq) = self.room_correction {
@@ -474,19 +463,6 @@ impl DspStorage {
                 }
                 if let Some(ref mut eq) = dsp.neve1073 {
                     eq.set_high_gain(gain_db);
-                }
-            }
-
-            // Morph EQ commands
-            DspCommand::MorphEqSetPosition { track_id, x, y: _ } => {
-                // MorphingEq uses A/B morph (single position), not XY
-                // We'll map x to morph position, ignore y for now
-                let dsp = self.get_or_create(track_id);
-                if dsp.morph_eq.is_none() {
-                    dsp.morph_eq = Some(MorphEqWrapper::new(sample_rate));
-                }
-                if let Some(ref mut eq) = dsp.morph_eq {
-                    eq.set_morph(x);
                 }
             }
 

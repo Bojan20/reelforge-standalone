@@ -43,35 +43,36 @@ class DynamicRangeMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'DR',
-          style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
-          ),
-          child: CustomPaint(
-            size: Size(width, height),
-            painter: _DynamicRangePainter(
-              peakDb: peakDb,
-              rmsDb: rmsDb,
-              dynamicRange: dynamicRange,
+    return RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'DR',
+            style: TextStyle(
+              color: ReelForgeTheme.textTertiary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ),
+          const SizedBox(height: 4),
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ReelForgeTheme.borderSubtle),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _DynamicRangePainter(
+                peakDb: peakDb,
+                rmsDb: rmsDb,
+                dynamicRange: dynamicRange,
+              ),
+            ),
+          ),
         const SizedBox(height: 4),
         Text(
           '${dynamicRange.toStringAsFixed(1)} dB',
@@ -81,7 +82,8 @@ class DynamicRangeMeter extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -194,41 +196,43 @@ class StereoBalanceMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('L', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
-            Text('Balance', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
-            Text('R', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+    return RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('L', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+              Text('Balance', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+              Text('R', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+            ],
           ),
-          child: CustomPaint(
-            size: Size(width, height),
-            painter: _BalancePainter(balance: balance),
+          const SizedBox(height: 2),
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ReelForgeTheme.borderSubtle),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _BalancePainter(balance: balance),
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          balance.abs() < 0.05 ? 'C' :
-            '${balance > 0 ? "R" : "L"} ${(balance.abs() * 100).toStringAsFixed(0)}%',
-          style: TextStyle(
-            color: balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange,
-            fontSize: 10,
+          const SizedBox(height: 2),
+          Text(
+            balance.abs() < 0.05 ? 'C' :
+              '${balance > 0 ? "R" : "L"} ${(balance.abs() * 100).toStringAsFixed(0)}%',
+            style: TextStyle(
+              color: balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange,
+              fontSize: 10,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -345,45 +349,47 @@ class KSystemMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            'K-$headroom',
-            style: const TextStyle(
-              color: ReelForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+    return RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'K-$headroom',
+              style: const TextStyle(
+                color: ReelForgeTheme.textPrimary,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
-          ),
-          child: CustomPaint(
-            size: Size(width, height),
-            painter: _KMeterPainter(
-              peakLeft: peakLeft,
-              peakRight: peakRight,
-              rmsLeft: rmsLeft,
-              rmsRight: rmsRight,
-              headroom: headroom,
+          const SizedBox(height: 4),
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: ReelForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ReelForgeTheme.borderSubtle),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _KMeterPainter(
+                peakLeft: peakLeft,
+                peakRight: peakRight,
+                rmsLeft: rmsLeft,
+                rmsRight: rmsRight,
+                headroom: headroom,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
