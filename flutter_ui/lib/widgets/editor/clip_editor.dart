@@ -175,27 +175,131 @@ class _ClipEditorState extends State<ClipEditor> {
   double? _dragStart;
   _FadeHandle _draggingFade = _FadeHandle.none;
   double _hoverX = -1;
+  final FocusNode _focusNode = FocusNode();
+  double _containerWidth = 0;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgMid,
-        border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: false,
+      onKeyEvent: _handleKeyEvent,
+      child: GestureDetector(
+        onTap: () => _focusNode.requestFocus(),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: ReelForgeTheme.bgMid,
+            border: Border(
+              top: BorderSide(color: ReelForgeTheme.borderSubtle),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Header
+              _buildHeader(),
+              // Content
+              Expanded(
+                child: widget.clip == null ? _buildEmptyState() : _buildContent(),
+              ),
+            ],
+          ),
         ),
       ),
-      child: Column(
-        children: [
-          // Header
-          _buildHeader(),
-          // Content
-          Expanded(
-            child: widget.clip == null ? _buildEmptyState() : _buildContent(),
-          ),
-        ],
-      ),
     );
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    // G/H zoom and [ ] fade - allow repeat (hold key for continuous adjustment)
+    final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
+        event.logicalKey == LogicalKeyboardKey.keyH;
+    final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
+        event.logicalKey == LogicalKeyboardKey.bracketRight;
+
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    // Only allow repeat for zoom and fade keys
+    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return;
+
+    // G - zoom out (center-screen anchor)
+    if (event.logicalKey == LogicalKeyboardKey.keyG) {
+      final centerX = _containerWidth / 2;
+      final centerTime = widget.scrollOffset + centerX / widget.zoom;
+      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+      final newScrollOffset = centerTime - centerX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.clip!.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+    }
+
+    // H - zoom in (center-screen anchor)
+    if (event.logicalKey == LogicalKeyboardKey.keyH) {
+      final centerX = _containerWidth / 2;
+      final centerTime = widget.scrollOffset + centerX / widget.zoom;
+      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+      final newScrollOffset = centerTime - centerX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.clip!.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+    }
+
+    // [ and ] keys - fade nudge
+    if (widget.clip != null) {
+      final fadeNudgeAmount = HardwareKeyboard.instance.isShiftPressed
+          ? 0.01  // 10ms fine control
+          : 0.05; // 50ms normal
+
+      // [ key - decrease fade in OR increase fade out
+      if (event.logicalKey == LogicalKeyboardKey.bracketLeft) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          // Alt+[ = increase fade out
+          final newFadeOut = (widget.clip!.fadeOut + fadeNudgeAmount)
+              .clamp(0.0, widget.clip!.duration * 0.5);
+          widget.onFadeOutChange?.call(widget.clip!.id, newFadeOut);
+        } else {
+          // [ = decrease fade in
+          final newFadeIn = (widget.clip!.fadeIn - fadeNudgeAmount)
+              .clamp(0.0, widget.clip!.duration * 0.5);
+          widget.onFadeInChange?.call(widget.clip!.id, newFadeIn);
+        }
+      }
+
+      // ] key - increase fade in OR decrease fade out
+      if (event.logicalKey == LogicalKeyboardKey.bracketRight) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          // Alt+] = decrease fade out
+          final newFadeOut = (widget.clip!.fadeOut - fadeNudgeAmount)
+              .clamp(0.0, widget.clip!.duration * 0.5);
+          widget.onFadeOutChange?.call(widget.clip!.id, newFadeOut);
+        } else {
+          // ] = increase fade in
+          final newFadeIn = (widget.clip!.fadeIn + fadeNudgeAmount)
+              .clamp(0.0, widget.clip!.duration * 0.5);
+          widget.onFadeInChange?.call(widget.clip!.id, newFadeIn);
+        }
+      }
+    }
+
+    // Tool shortcuts
+    if (event.logicalKey == LogicalKeyboardKey.digit1) {
+      setState(() => _tool = EditorTool.select);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit2) {
+      setState(() => _tool = EditorTool.zoom);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit3) {
+      setState(() => _tool = EditorTool.fade);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit4) {
+      setState(() => _tool = EditorTool.cut);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit5) {
+      setState(() => _tool = EditorTool.slip);
+    }
   }
 
   Widget _buildHeader() {
@@ -427,6 +531,9 @@ class _ClipEditorState extends State<ClipEditor> {
           onPanEnd: _handlePanEnd,
           child: LayoutBuilder(
             builder: (context, constraints) {
+              // Store container width for keyboard zoom
+              _containerWidth = constraints.maxWidth;
+
               return Stack(
                 children: [
                   // Waveform canvas
@@ -462,15 +569,21 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   Widget _buildFadeHandles(BoxConstraints constraints) {
-    final fadeInX = widget.clip!.fadeIn * widget.zoom;
-    final fadeOutX = constraints.maxWidth - widget.clip!.fadeOut * widget.zoom;
+    // Calculate fade positions accounting for scroll offset
+    // fadeInX = position of fade in END point (where fade completes)
+    final fadeInTime = widget.clip!.fadeIn;
+    final fadeInX = (fadeInTime - widget.scrollOffset) * widget.zoom;
+
+    // fadeOutX = position of fade out START point (where fade begins)
+    final fadeOutStartTime = widget.clip!.duration - widget.clip!.fadeOut;
+    final fadeOutX = (fadeOutStartTime - widget.scrollOffset) * widget.zoom;
 
     return Stack(
       children: [
-        // Fade in handle
-        if (fadeInX > 0 && fadeInX < constraints.maxWidth)
+        // Fade in handle - positioned at the END of fade in region
+        if (fadeInTime > 0 && fadeInX > -16 && fadeInX < constraints.maxWidth + 16)
           Positioned(
-            left: fadeInX - 8,
+            left: fadeInX.clamp(0, constraints.maxWidth - 16) - 8,
             top: 0,
             child: GestureDetector(
               onTap: () {}, // Absorb tap to prevent playhead creation
@@ -478,8 +591,10 @@ class _ClipEditorState extends State<ClipEditor> {
                 setState(() => _draggingFade = _FadeHandle.fadeIn);
               },
               onHorizontalDragUpdate: (details) {
-                final newX = fadeInX + details.delta.dx;
-                final newFadeIn = (newX / widget.zoom).clamp(0.0, widget.clip!.duration / 2);
+                // Convert pixel delta to time delta
+                final timeDelta = details.delta.dx / widget.zoom;
+                final newFadeIn = (widget.clip!.fadeIn + timeDelta)
+                    .clamp(0.0, widget.clip!.duration / 2);
                 widget.onFadeInChange?.call(widget.clip!.id, _snapTime(newFadeIn));
               },
               onHorizontalDragEnd: (_) {
@@ -511,10 +626,10 @@ class _ClipEditorState extends State<ClipEditor> {
               ),
             ),
           ),
-        // Fade out handle
-        if (fadeOutX > 0 && fadeOutX < constraints.maxWidth)
+        // Fade out handle - positioned at the START of fade out region
+        if (widget.clip!.fadeOut > 0 && fadeOutX > -16 && fadeOutX < constraints.maxWidth + 16)
           Positioned(
-            left: fadeOutX - 8,
+            left: fadeOutX.clamp(0, constraints.maxWidth - 16) - 8,
             top: 0,
             child: GestureDetector(
               onTap: () {}, // Absorb tap to prevent playhead creation
@@ -522,9 +637,10 @@ class _ClipEditorState extends State<ClipEditor> {
                 setState(() => _draggingFade = _FadeHandle.fadeOut);
               },
               onHorizontalDragUpdate: (details) {
-                final newX = fadeOutX + details.delta.dx;
-                final widthFromEnd = constraints.maxWidth - newX;
-                final newFadeOut = (widthFromEnd / widget.zoom).clamp(0.0, widget.clip!.duration / 2);
+                // Convert pixel delta to time delta (negative because dragging left increases fade)
+                final timeDelta = -details.delta.dx / widget.zoom;
+                final newFadeOut = (widget.clip!.fadeOut + timeDelta)
+                    .clamp(0.0, widget.clip!.duration / 2);
                 widget.onFadeOutChange?.call(widget.clip!.id, _snapTime(newFadeOut));
               },
               onHorizontalDragEnd: (_) {
