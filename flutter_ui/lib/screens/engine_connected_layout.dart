@@ -3446,6 +3446,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       fadeOutCurve: clip?.fadeOutCurve ?? FadeCurve.linear,
       gain: clip?.gain ?? 0,
       clipColor: clip?.color,
+      sourceOffset: clip?.sourceOffset ?? 0,
+      sourceDuration: clip?.sourceDuration,
       playheadPosition: transport.positionSeconds - (clip?.startTime ?? 0),
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
@@ -3557,6 +3559,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             waveform: clip.waveform,
             selected: true,
           ));
+        });
+      },
+      onSlipEdit: (clipId, newSourceOffset) {
+        // Slip edit: move source content within clip bounds
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(sourceOffset: newSourceOffset);
+            }
+            return c;
+          }).toList();
         });
       },
       onPlayheadChange: (localPosition) {

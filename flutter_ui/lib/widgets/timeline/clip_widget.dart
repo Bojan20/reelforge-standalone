@@ -1200,28 +1200,30 @@ class _FadeOverlayPainter extends CustomPainter {
     const steps = 30;
 
     if (isLeft) {
-      // Fade IN: dark at top (silence) → clear at bottom (full volume)
+      // Fade IN: dark at left (silence) fading to clear at right (full volume)
+      // Fill area ABOVE the curve (the faded/quiet part)
       path.moveTo(0, 0);
       for (var i = 0; i <= steps; i++) {
         final t = i / steps;
         final x = t * size.width;
         final fadeGain = _evaluateCurve(t);
-        final y = size.height * fadeGain;
+        final y = size.height * (1 - fadeGain);
         path.lineTo(x, y);
       }
-      path.lineTo(0, size.height);
+      path.lineTo(size.width, 0);
       path.close();
     } else {
-      // Fade OUT: clear at left (full volume) → dark at right (silence)
-      path.moveTo(size.width, 0);
-      for (var i = steps; i >= 0; i--) {
+      // Fade OUT: clear at left (full volume) fading to dark at right (silence)
+      // Fill area ABOVE the curve (the faded/quiet part)
+      path.moveTo(0, 0);
+      for (var i = 0; i <= steps; i++) {
         final t = i / steps;
         final x = t * size.width;
         final fadeGain = _evaluateCurve(1 - t);
-        final y = size.height * fadeGain;
+        final y = size.height * (1 - fadeGain);
         path.lineTo(x, y);
       }
-      path.lineTo(size.width, size.height);
+      path.lineTo(size.width, 0);
       path.close();
     }
 
@@ -1458,28 +1460,28 @@ class _FadeTrianglePainter extends CustomPainter {
     const steps = 30;
 
     if (isLeft) {
-      // Fade in: curved from left
+      // Fade in: fill area ABOVE the curve (the faded/quiet part)
       path.moveTo(0, 0);
       for (var i = 0; i <= steps; i++) {
         final t = i / steps;
         final x = t * size.width;
         final fadeGain = _evaluateCurve(t);
-        final y = size.height * fadeGain;
+        final y = size.height * (1 - fadeGain);
         path.lineTo(x, y);
       }
-      path.lineTo(0, size.height);
+      path.lineTo(size.width, 0);
       path.close();
     } else {
-      // Fade out: curved from right
-      path.moveTo(size.width, 0);
-      for (var i = steps; i >= 0; i--) {
+      // Fade out: fill area ABOVE the curve (the faded/quiet part)
+      path.moveTo(0, 0);
+      for (var i = 0; i <= steps; i++) {
         final t = i / steps;
         final x = t * size.width;
         final fadeGain = _evaluateCurve(1 - t);
-        final y = size.height * fadeGain;
+        final y = size.height * (1 - fadeGain);
         path.lineTo(x, y);
       }
-      path.lineTo(size.width, size.height);
+      path.lineTo(size.width, 0);
       path.close();
     }
 

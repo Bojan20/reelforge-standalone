@@ -143,6 +143,7 @@ class ClipEditor extends StatefulWidget {
   final void Function(String clipId)? onReverse;
   final void Function(String clipId, ClipEditorSelection selection)? onTrimToSelection;
   final void Function(String clipId, double position)? onSplitAtPosition;
+  final void Function(String clipId, double newSourceOffset)? onSlipEdit;
   final ValueChanged<double>? onPlayheadChange;
 
   const ClipEditor({
@@ -166,6 +167,7 @@ class ClipEditor extends StatefulWidget {
     this.onReverse,
     this.onTrimToSelection,
     this.onSplitAtPosition,
+    this.onSlipEdit,
     this.onPlayheadChange,
   });
 
@@ -276,10 +278,11 @@ class _ClipEditorState extends State<ClipEditor> {
     debugPrint('[ClipEditor] Key: ${event.logicalKey.keyLabel}');
 
     // G - zoom out (center-screen anchor)
-    if (event.logicalKey == LogicalKeyboardKey.keyG && clip != null) {
+    if (event.logicalKey == LogicalKeyboardKey.keyG && clip != null && _containerWidth > 0) {
+      final minZoom = _containerWidth / clip.duration;
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+      final newZoom = (widget.zoom * 0.92).clamp(minZoom, 500.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -287,10 +290,11 @@ class _ClipEditorState extends State<ClipEditor> {
     }
 
     // H - zoom in (center-screen anchor)
-    if (event.logicalKey == LogicalKeyboardKey.keyH && clip != null) {
+    if (event.logicalKey == LogicalKeyboardKey.keyH && clip != null && _containerWidth > 0) {
+      final minZoom = _containerWidth / clip.duration;
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+      final newZoom = (widget.zoom * 1.08).clamp(minZoom, 500.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -840,11 +844,14 @@ class _ClipEditorState extends State<ClipEditor> {
     // DAW-STANDARD SCROLL/ZOOM (matching Timeline behavior)
     // ══════════════════════════════════════════════════════════════════
     final clip = widget.clip;
-    if (clip == null) return;
+    if (clip == null || _containerWidth <= 0) return;
 
     final isZoomModifier = HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
     final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
+
+    // Minimum zoom = fit entire clip to width (no zoom out beyond this)
+    final minZoom = _containerWidth / clip.duration;
 
     if (isZoomModifier) {
       // ════════════════════════════════════════════════════════════════
@@ -855,22 +862,22 @@ class _ClipEditorState extends State<ClipEditor> {
       // Simple zoom factor based on scroll direction
       final zoomIn = event.scrollDelta.dy < 0;
       final zoomFactor = zoomIn ? 1.15 : 0.87;
-      final newZoom = (widget.zoom * zoomFactor).clamp(5.0, 500.0);
+      // Clamp between minZoom (fit to width) and max zoom
+      final newZoom = (widget.zoom * zoomFactor).clamp(minZoom, 500.0);
 
-      if (_containerWidth > 0) {
-        final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
-        final newScrollOffset = mouseTime - mouseX / newZoom;
+      final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
+      final newScrollOffset = mouseTime - mouseX / newZoom;
 
-        widget.onZoomChange?.call(newZoom);
-        widget.onScrollChange?.call(newScrollOffset.clamp(
-            0.0, (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
-      } else {
-        widget.onZoomChange?.call(newZoom);
-      }
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(
+          0.0, (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     } else {
       // ════════════════════════════════════════════════════════════════
-      // HORIZONTAL SCROLL
+      // HORIZONTAL SCROLL (only if zoomed in)
       // ════════════════════════════════════════════════════════════════
+      // Don't scroll if at minZoom (entire clip visible)
+      if (widget.zoom <= minZoom) return;
+
       final rawDelta = event.scrollDelta.dx.abs() > event.scrollDelta.dy.abs()
           ? event.scrollDelta.dx
           : event.scrollDelta.dy;
@@ -887,20 +894,21 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   void _handleTapDown(TapDownDetails details) {
-    if (widget.clip == null) return;
+    if (widget.clip == null || _containerWidth <= 0) return;
 
     final time = widget.scrollOffset + details.localPosition.dx / widget.zoom;
+    final minZoom = _containerWidth / widget.clip!.duration;
 
     switch (_tool) {
       case EditorTool.cut:
         widget.onSplitAtPosition?.call(widget.clip!.id, _snapTime(time));
         break;
       case EditorTool.zoom:
-        // Zoom in on click, zoom out on alt+click
+        // Zoom in on click, zoom out on alt+click (but not below minZoom)
         if (HardwareKeyboard.instance.isAltPressed) {
-          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(1, 500));
+          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 500));
         } else {
-          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(1, 500));
+          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 500));
         }
         break;
       default:
@@ -911,26 +919,47 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   void _handlePanStart(DragStartDetails details) {
-    if (_tool != EditorTool.select || widget.clip == null) return;
+    if (widget.clip == null) return;
 
-    final time = widget.scrollOffset + details.localPosition.dx / widget.zoom;
-    setState(() {
-      _isDragging = true;
-      _dragStart = time;
-    });
-    widget.onSelectionChange?.call(ClipEditorSelection(start: time, end: time));
+    if (_tool == EditorTool.select) {
+      final time = widget.scrollOffset + details.localPosition.dx / widget.zoom;
+      setState(() {
+        _isDragging = true;
+        _dragStart = time;
+      });
+      widget.onSelectionChange?.call(ClipEditorSelection(start: time, end: time));
+    } else if (_tool == EditorTool.slip) {
+      setState(() {
+        _isDragging = true;
+        _dragStart = details.localPosition.dx;
+      });
+    }
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
     if (!_isDragging || _dragStart == null || widget.clip == null) return;
 
-    final time = (widget.scrollOffset + details.localPosition.dx / widget.zoom)
-        .clamp(0.0, widget.clip!.duration);
+    if (_tool == EditorTool.select) {
+      final time = (widget.scrollOffset + details.localPosition.dx / widget.zoom)
+          .clamp(0.0, widget.clip!.duration);
 
-    widget.onSelectionChange?.call(ClipEditorSelection(
-      start: math.min(_dragStart!, time),
-      end: math.max(_dragStart!, time),
-    ));
+      widget.onSelectionChange?.call(ClipEditorSelection(
+        start: math.min(_dragStart!, time),
+        end: math.max(_dragStart!, time),
+      ));
+    } else if (_tool == EditorTool.slip) {
+      // Slip edit: move source offset based on drag delta
+      final deltaX = details.localPosition.dx - _dragStart!;
+      final deltaTime = deltaX / widget.zoom;
+
+      // Calculate new source offset
+      final clip = widget.clip!;
+      final maxOffset = clip.sourceDuration - clip.duration;
+      final newOffset = (clip.sourceOffset - deltaTime).clamp(0.0, maxOffset > 0 ? maxOffset : 0.0);
+
+      widget.onSlipEdit?.call(clip.id, newOffset);
+      _dragStart = details.localPosition.dx; // Update for continuous drag
+    }
   }
 
   void _handlePanEnd(DragEndDetails details) {
@@ -1354,11 +1383,23 @@ class _WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Background
+    // Calculate visible clip width (clip ends at duration)
+    final clipEndX = (duration - scrollOffset) * zoom;
+    final visibleClipWidth = clipEndX.clamp(0.0, size.width);
+
+    // Background only for clip area
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
+      Rect.fromLTWH(0, 0, visibleClipWidth, size.height),
       Paint()..color = ReelForgeTheme.bgDeepest,
     );
+
+    // Darker background for area beyond clip (if any)
+    if (visibleClipWidth < size.width) {
+      canvas.drawRect(
+        Rect.fromLTWH(visibleClipWidth, 0, size.width - visibleClipWidth, size.height),
+        Paint()..color = const Color(0xFF050508),
+      );
+    }
 
     // Grid
     _drawGrid(canvas, size);
@@ -1368,11 +1409,11 @@ class _WaveformPainter extends CustomPainter {
       _drawSelection(canvas, size);
     }
 
-    // Center line (0 dB)
+    // Center line (0 dB) - only within clip
     final centerY = size.height / 2;
     canvas.drawLine(
       Offset(0, centerY),
-      Offset(size.width, centerY),
+      Offset(visibleClipWidth, centerY),
       Paint()
         ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)
         ..strokeWidth = 1,
@@ -1386,7 +1427,7 @@ class _WaveformPainter extends CustomPainter {
     }
 
     // Hover line
-    if (hoverX >= 0 && hoverX <= size.width) {
+    if (hoverX >= 0 && hoverX <= visibleClipWidth) {
       canvas.drawLine(
         Offset(hoverX, 0),
         Offset(hoverX, size.height),
@@ -2033,6 +2074,8 @@ class ConnectedClipEditor extends StatefulWidget {
   final FadeCurve fadeOutCurve;
   final double gain;
   final Color? clipColor;
+  final double sourceOffset;
+  final double? sourceDuration;
   final double playheadPosition;
   final bool snapEnabled;
   final double snapValue;
@@ -2045,6 +2088,7 @@ class ConnectedClipEditor extends StatefulWidget {
   final void Function(String clipId)? onReverse;
   final void Function(String clipId, ClipEditorSelection selection)? onTrimToSelection;
   final void Function(String clipId, double position)? onSplitAtPosition;
+  final void Function(String clipId, double newSourceOffset)? onSlipEdit;
   final ValueChanged<double>? onPlayheadChange;
 
   const ConnectedClipEditor({
@@ -2059,6 +2103,8 @@ class ConnectedClipEditor extends StatefulWidget {
     this.fadeOutCurve = FadeCurve.linear,
     this.gain = 0,
     this.clipColor,
+    this.sourceOffset = 0,
+    this.sourceDuration,
     this.playheadPosition = 0,
     this.snapEnabled = true,
     this.snapValue = 0.1,
@@ -2071,6 +2117,7 @@ class ConnectedClipEditor extends StatefulWidget {
     this.onReverse,
     this.onTrimToSelection,
     this.onSplitAtPosition,
+    this.onSlipEdit,
     this.onPlayheadChange,
   });
 
@@ -2079,9 +2126,10 @@ class ConnectedClipEditor extends StatefulWidget {
 }
 
 class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
-  double _zoom = 100;
+  double? _zoom;
   double _scrollOffset = 0;
   ClipEditorSelection? _selection;
+  String? _lastClipId;
 
   @override
   Widget build(BuildContext context) {
@@ -2097,30 +2145,56 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
             fadeOutCurve: widget.fadeOutCurve,
             gain: widget.gain,
             color: widget.clipColor,
+            sourceOffset: widget.sourceOffset,
+            sourceDuration: widget.sourceDuration ?? widget.clipDuration!,
           )
         : null;
 
-    return ClipEditor(
-      clip: clip,
-      selection: _selection,
-      zoom: _zoom,
-      scrollOffset: _scrollOffset,
-      playheadPosition: widget.playheadPosition,
-      snapEnabled: widget.snapEnabled,
-      snapValue: widget.snapValue,
-      onSelectionChange: (sel) => setState(() => _selection = sel),
-      onZoomChange: (z) => setState(() => _zoom = z),
-      onScrollChange: (o) => setState(() => _scrollOffset = o),
-      onFadeInChange: widget.onFadeInChange,
-      onFadeOutChange: widget.onFadeOutChange,
-      onFadeInCurveChange: widget.onFadeInCurveChange,
-      onFadeOutCurveChange: widget.onFadeOutCurveChange,
-      onGainChange: widget.onGainChange,
-      onNormalize: widget.onNormalize,
-      onReverse: widget.onReverse,
-      onTrimToSelection: widget.onTrimToSelection,
-      onSplitAtPosition: widget.onSplitAtPosition,
-      onPlayheadChange: widget.onPlayheadChange,
+    // Reset zoom when clip changes
+    if (widget.selectedClipId != _lastClipId) {
+      _lastClipId = widget.selectedClipId;
+      _zoom = null; // Will be set to fit-to-width
+      _scrollOffset = 0;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate fit-to-width zoom (sidebar is 200px)
+        final waveformWidth = constraints.maxWidth - 200;
+        final duration = widget.clipDuration ?? 1;
+        final fitZoom = waveformWidth > 0 && duration > 0
+            ? waveformWidth / duration
+            : 100.0;
+
+        // Use fit zoom if not set yet, clamp to minimum
+        final effectiveZoom = (_zoom ?? fitZoom).clamp(fitZoom, 500.0);
+        // When at fit zoom, scroll must be 0 (no empty space)
+        final effectiveScrollOffset = effectiveZoom <= fitZoom ? 0.0 : _scrollOffset;
+
+        return ClipEditor(
+          clip: clip,
+          selection: _selection,
+          zoom: effectiveZoom,
+          scrollOffset: effectiveScrollOffset,
+          playheadPosition: widget.playheadPosition,
+          snapEnabled: widget.snapEnabled,
+          snapValue: widget.snapValue,
+          onSelectionChange: (sel) => setState(() => _selection = sel),
+          onZoomChange: (z) => setState(() => _zoom = z.clamp(fitZoom, 500.0)),
+          onScrollChange: (o) => setState(() => _scrollOffset = o),
+          onFadeInChange: widget.onFadeInChange,
+          onFadeOutChange: widget.onFadeOutChange,
+          onFadeInCurveChange: widget.onFadeInCurveChange,
+          onFadeOutCurveChange: widget.onFadeOutCurveChange,
+          onGainChange: widget.onGainChange,
+          onNormalize: widget.onNormalize,
+          onReverse: widget.onReverse,
+          onTrimToSelection: widget.onTrimToSelection,
+          onSplitAtPosition: widget.onSplitAtPosition,
+          onSlipEdit: widget.onSlipEdit,
+          onPlayheadChange: widget.onPlayheadChange,
+        );
+      },
     );
   }
 }
