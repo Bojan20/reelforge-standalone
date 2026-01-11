@@ -236,6 +236,13 @@ class _MainLayoutState extends State<MainLayout>
     final key = event.logicalKey;
     final isCtrl = HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    // Cmd+Shift+I - Import Audio Files
+    if (isCtrl && isShift && key == LogicalKeyboardKey.keyI) {
+      widget.menuCallbacks?.onImportAudioFiles?.call();
+      return KeyEventResult.handled;
+    }
 
     // Zone toggles
     if (isCtrl && key == LogicalKeyboardKey.keyL) {

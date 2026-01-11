@@ -9,6 +9,15 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
 
+    // Maximize window to fill screen (not fullscreen mode, just maximized)
+    if let screen = NSScreen.main {
+      let visibleFrame = screen.visibleFrame
+      self.setFrame(visibleFrame, display: true)
+    }
+
+    // Enable fullscreen button
+    self.collectionBehavior = [.fullScreenPrimary]
+
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     // Register native file picker channel

@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../services/native_file_picker.dart';
 
 import '../providers/engine_provider.dart';
+import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../models/layout_models.dart';
@@ -122,7 +123,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   LeftZoneTab _activeLeftTab = LeftZoneTab.project;
 
   // Local UI state
-  EditorMode _editorMode = EditorMode.middleware;
+  EditorMode _editorMode = EditorMode.daw; // DAW default
   TimeDisplayMode _timeDisplayMode = TimeDisplayMode.bars;
   bool _metronomeEnabled = false;
   bool _snapEnabled = true;
@@ -357,13 +358,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Initialize demo middleware data (for Middleware tab only)
     _initDemoMiddlewareData();
 
-    // Register meters
+    // Register meters and setup shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final meters = context.read<MeterProvider>();
       meters.registerMeter('master');
       meters.registerMeter('sfx');
       meters.registerMeter('music');
       meters.registerMeter('voice');
+
+      // Wire up import audio shortcut
+      final shortcuts = context.read<GlobalShortcutsProvider>();
+      shortcuts.actions.onImportAudioFiles = _openFilePicker;
     });
   }
 
@@ -743,6 +748,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
     _updateActiveBuses();
+
+    // Auto-zoom to fit clip in timeline (zoom out to show entire clip)
+    final clipDuration = clipInfo?.duration ?? poolFile.duration;
+    if (clipDuration > 0) {
+      const timelineWidth = 800.0; // Approximate
+      final fitZoom = (timelineWidth / clipDuration).clamp(5.0, 500.0);
+      setState(() {
+        _timelineZoom = fitZoom;
+        _timelineScrollOffset = 0;
+      });
+    }
 
     // Refresh Audio Pool panel to show correct duration
     triggerAudioPoolRefresh();
@@ -2231,6 +2247,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onPlayheadChange: (time) {
         final engine = context.read<EngineProvider>();
         engine.seek(time);
+        // Auto-scroll only if content is wider than timeline
+        const timelineWidth = 800.0;
+        final maxEndTime = _clips.isEmpty ? 0.0 : _clips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
+        final contentWidth = maxEndTime * _timelineZoom;
+        if (contentWidth > timelineWidth) {
+          final centerOffset = time - (timelineWidth / 2) / _timelineZoom;
+          setState(() {
+            _timelineScrollOffset = centerOffset.clamp(0.0, double.infinity);
+          });
+        }
       },
       onPlayheadScrub: (time) {
         final engine = context.read<EngineProvider>();
@@ -4866,7 +4892,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         // Slot exists in UI state but processor may not be loaded in engine
                         // Only load if not already loaded (check first)
                         final trackId = _busIdToTrackId(channelId);
-                        if (NativeFFI.instance.insertIsLoaded(trackId, slotIndex) == 0) {
+                        if (!NativeFFI.instance.insertIsLoaded(trackId, slotIndex)) {
                           debugPrint('[EQ] Processor not loaded in engine, loading now...');
                           NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
                         }

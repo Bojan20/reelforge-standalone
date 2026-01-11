@@ -1,5 +1,23 @@
 # Claude Code — ReelForge Standalone
 
+---
+## ⚠️ STOP — OBAVEZNO PRE SVAKE AKCIJE ⚠️
+
+**NIKADA ne menjaj kod dok ne uradiš OVO:**
+
+```
+1. flutter analyze    → MORA biti 0 errors
+2. Tek onda edituj
+3. flutter analyze    → MORA biti 0 errors
+4. Tek onda pokreni
+```
+
+**Ako `flutter analyze` ima ERROR → POPRAVI PRE POKRETANJA**
+
+**NIKADA ne pokreći app ako ima compile error!**
+
+---
+
 ## KRITIČNA PRAVILA
 
 ### 1. Ti si VLASNIK ovog koda
@@ -28,12 +46,32 @@ Kada menjaš BILO ŠTA:
 - Pronađi ROOT CAUSE, ne simptom
 - Implementiraj PRAVO rešenje, ne workaround
 
-### 5. Posle context reset-a — UVEK pročitaj CLAUDE.md
+### 5. UVEK čitaj CLAUDE.md pre rada
 ```
-Kada se razgovor nastavlja iz summarized konteksta:
-1. ODMAH pročitaj CLAUDE.md
-2. Pročitaj .claude/ folder
-3. Tek onda nastavi sa radom
+Pre SVAKOG zadatka (ne samo posle reset-a):
+1. Pročitaj CLAUDE.md ako nisi u ovoj sesiji
+2. Proveri .claude/ folder za relevantne domene
+3. Tek onda počni sa radom
+```
+
+### 6. Pre pokretanja builda — ZATVORI prethodne
+```bash
+# UVEK pre flutter run:
+pkill -f "flutter run" 2>/dev/null || true
+sleep 1
+
+# UVEK pre cargo run:
+pkill -f "target/debug" 2>/dev/null || true
+pkill -f "target/release" 2>/dev/null || true
+```
+
+### 7. Koristi helper skripte
+```bash
+# Flutter run sa auto-cleanup:
+./scripts/run.sh
+
+# Flutter run sa fresh build:
+./scripts/run.sh --clean
 ```
 
 ---

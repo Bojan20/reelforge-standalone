@@ -85,6 +85,7 @@ class ShortcutAction {
   void Function()? onQuantize;
   void Function()? onPreferences;
   void Function()? onFullscreen;
+  void Function()? onImportAudioFiles;
   bool Function(String key, ShortcutModifiers modifiers)? onCustom;
 
   ShortcutAction();
@@ -280,40 +281,52 @@ class GlobalShortcutsProvider extends ChangeNotifier {
       return KeyEventResult.handled;
     }
 
-    // H - Zoom in
+    // H - Zoom in (only if callback exists)
     if (key == LogicalKeyboardKey.keyH && !isCmd && !isAlt && !isShift) {
-      actions.onZoomIn?.call();
-      return KeyEventResult.handled;
+      if (actions.onZoomIn != null) {
+        actions.onZoomIn!();
+        return KeyEventResult.handled;
+      }
     }
 
-    // G - Zoom out
+    // G - Zoom out (only if callback exists)
     if (key == LogicalKeyboardKey.keyG && !isCmd && !isAlt && !isShift) {
-      actions.onZoomOut?.call();
-      return KeyEventResult.handled;
+      if (actions.onZoomOut != null) {
+        actions.onZoomOut!();
+        return KeyEventResult.handled;
+      }
     }
 
-    // L - Expand loop to content
+    // L - Expand loop to content (only if callback exists)
     if (key == LogicalKeyboardKey.keyL && !isCmd && !isAlt && !isShift) {
-      actions.onExpandLoopToContent?.call();
-      return KeyEventResult.handled;
+      if (actions.onExpandLoopToContent != null) {
+        actions.onExpandLoopToContent!();
+        return KeyEventResult.handled;
+      }
     }
 
     // Shift+L - Set loop from selection
     if (key == LogicalKeyboardKey.keyL && isShift && !isCmd && !isAlt) {
-      actions.onSetLoopFromSelection?.call();
-      return KeyEventResult.handled;
+      if (actions.onSetLoopFromSelection != null) {
+        actions.onSetLoopFromSelection!();
+        return KeyEventResult.handled;
+      }
     }
 
-    // S (without cmd) - Split
+    // S (without cmd) - Split (only if callback exists)
     if (key == LogicalKeyboardKey.keyS && !isCmd && !isAlt && !isShift) {
-      actions.onSplit?.call();
-      return KeyEventResult.handled;
+      if (actions.onSplit != null) {
+        actions.onSplit!();
+        return KeyEventResult.handled;
+      }
     }
 
-    // M - Mute
+    // M - Mute (only if callback exists)
     if (key == LogicalKeyboardKey.keyM && !isCmd && !isAlt && !isShift) {
-      actions.onMute?.call();
-      return KeyEventResult.handled;
+      if (actions.onMute != null) {
+        actions.onMute!();
+        return KeyEventResult.handled;
+      }
     }
 
     // Arrow Left - Nudge left
@@ -374,6 +387,14 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     if (key == LogicalKeyboardKey.keyX && !isCmd && !isAlt && !isShift) {
       actions.onCrossfade?.call();
       return KeyEventResult.handled;
+    }
+
+    // Shift+Cmd+I - Import Audio Files
+    if (key == LogicalKeyboardKey.keyI && isCmd && isShift && !isAlt) {
+      if (actions.onImportAudioFiles != null) {
+        actions.onImportAudioFiles!();
+        return KeyEventResult.handled;
+      }
     }
 
     return KeyEventResult.ignored;

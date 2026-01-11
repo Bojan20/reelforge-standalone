@@ -52,6 +52,7 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
+  final ValueChanged<double>? onPlayheadMove;
   final bool snapEnabled;
   final double snapValue;
   final double tempo;
@@ -81,6 +82,7 @@ class ClipWidget extends StatefulWidget {
     this.onDuplicate,
     this.onSplit,
     this.onMute,
+    this.onPlayheadMove,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.tempo = 120,
@@ -100,6 +102,10 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingMove = false;
   bool _isSlipEditing = false;
   bool _isEditing = false;
+
+  // Double-tap detection
+  DateTime? _lastTapTime;
+  static const _doubleTapThreshold = Duration(milliseconds: 300);
 
   late TextEditingController _nameController;
   late FocusNode _focusNode;
@@ -321,7 +327,22 @@ class _ClipWidgetState extends State<ClipWidget> {
       width: width.clamp(4, double.infinity),
       height: clipHeight,
       child: GestureDetector(
-        onTap: () => widget.onSelect?.call(false),
+        onTapDown: (details) {
+          if (fadeHandleActiveGlobal) return;
+          if (_isDraggingFadeIn || _isDraggingFadeOut) return;
+
+          final clickX = details.localPosition.dx;
+          final clickY = details.localPosition.dy;
+          // Ignore fade handle zones (top 20px corners)
+          const fadeHandleZone = 20.0;
+          if (clickY < fadeHandleZone) {
+            if (clickX < fadeHandleZone || clickX > width - fadeHandleZone) {
+              return;
+            }
+          }
+          // Just select clip, don't move playhead
+          widget.onSelect?.call(false);
+        },
         onDoubleTap: _startEditing,
         onSecondaryTapDown: (details) {
           // Select clip on right-click before showing menu
@@ -529,7 +550,65 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
-              // Left edge resize handle
+              // Fade visualizations (BEFORE handles so they are behind)
+              if (clip.fadeIn > 0)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: clip.fadeIn * widget.zoom,
+                  child: CustomPaint(
+                    painter: _FadeOverlayPainter(isLeft: true),
+                  ),
+                ),
+              if (clip.fadeOut > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: clip.fadeOut * widget.zoom,
+                  child: CustomPaint(
+                    painter: _FadeOverlayPainter(isLeft: false),
+                  ),
+                ),
+
+              // Fade in handle (ON TOP of edge handle)
+              // Minimum 20px width for easy hover/click even when fade is 0
+              _FadeHandle(
+                width: (clip.fadeIn * widget.zoom).clamp(20.0, double.infinity),
+                fadeTime: clip.fadeIn,
+                isLeft: true,
+                isActive: _isDraggingFadeIn,
+                onDragStart: () => setState(() => _isDraggingFadeIn = true),
+                onDragUpdate: (deltaPixels) {
+                  // Convert delta pixels to seconds
+                  final deltaSeconds = deltaPixels / widget.zoom;
+                  final newFadeIn = (clip.fadeIn + deltaSeconds)
+                      .clamp(0.0, clip.duration * 0.5);
+                  widget.onFadeChange?.call(newFadeIn, clip.fadeOut);
+                },
+                onDragEnd: () => setState(() => _isDraggingFadeIn = false),
+              ),
+
+              // Fade out handle
+              // Minimum 20px width for easy hover/click even when fade is 0
+              _FadeHandle(
+                width: (clip.fadeOut * widget.zoom).clamp(20.0, double.infinity),
+                fadeTime: clip.fadeOut,
+                isLeft: false,
+                isActive: _isDraggingFadeOut,
+                onDragStart: () => setState(() => _isDraggingFadeOut = true),
+                onDragUpdate: (deltaPixels) {
+                  // Convert delta pixels to seconds (negative delta = increase fade out)
+                  final deltaSeconds = -deltaPixels / widget.zoom;
+                  final newFadeOut = (clip.fadeOut + deltaSeconds)
+                      .clamp(0.0, clip.duration * 0.5);
+                  widget.onFadeChange?.call(clip.fadeIn, newFadeOut);
+                },
+                onDragEnd: () => setState(() => _isDraggingFadeOut = false),
+              ),
+
+              // Left edge resize handle (ON TOP - always accessible)
               _EdgeHandle(
                 isLeft: true,
                 isActive: _isDraggingLeftEdge,
@@ -595,7 +674,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                 onDragEnd: () => setState(() => _isDraggingLeftEdge = false),
               ),
 
-              // Right edge resize handle
+              // Right edge resize handle (ON TOP - always accessible)
               _EdgeHandle(
                 isLeft: false,
                 isActive: _isDraggingRightEdge,
@@ -625,64 +704,6 @@ class _ClipWidgetState extends State<ClipWidget> {
                   widget.onResize?.call(clip.startTime, newDuration, null);
                 },
                 onDragEnd: () => setState(() => _isDraggingRightEdge = false),
-              ),
-
-              // Fade visualizations (BEFORE handles so they are behind)
-              if (clip.fadeIn > 0)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: clip.fadeIn * widget.zoom,
-                  child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: true),
-                  ),
-                ),
-              if (clip.fadeOut > 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: clip.fadeOut * widget.zoom,
-                  child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: false),
-                  ),
-                ),
-
-              // Fade in handle (ON TOP of edge handle)
-              // Minimum 20px width for easy hover/click even when fade is 0
-              _FadeHandle(
-                width: (clip.fadeIn * widget.zoom).clamp(20.0, double.infinity),
-                fadeTime: clip.fadeIn,
-                isLeft: true,
-                isActive: _isDraggingFadeIn,
-                onDragStart: () => setState(() => _isDraggingFadeIn = true),
-                onDragUpdate: (deltaPixels) {
-                  // Convert delta pixels to seconds
-                  final deltaSeconds = deltaPixels / widget.zoom;
-                  final newFadeIn = (clip.fadeIn + deltaSeconds)
-                      .clamp(0.0, clip.duration * 0.5);
-                  widget.onFadeChange?.call(newFadeIn, clip.fadeOut);
-                },
-                onDragEnd: () => setState(() => _isDraggingFadeIn = false),
-              ),
-
-              // Fade out handle (ON TOP of edge handle)
-              // Minimum 20px width for easy hover/click even when fade is 0
-              _FadeHandle(
-                width: (clip.fadeOut * widget.zoom).clamp(20.0, double.infinity),
-                fadeTime: clip.fadeOut,
-                isLeft: false,
-                isActive: _isDraggingFadeOut,
-                onDragStart: () => setState(() => _isDraggingFadeOut = true),
-                onDragUpdate: (deltaPixels) {
-                  // Convert delta pixels to seconds (negative delta = increase fade out)
-                  final deltaSeconds = -deltaPixels / widget.zoom;
-                  final newFadeOut = (clip.fadeOut + deltaSeconds)
-                      .clamp(0.0, clip.duration * 0.5);
-                  widget.onFadeChange?.call(clip.fadeIn, newFadeOut);
-                },
-                onDragEnd: () => setState(() => _isDraggingFadeOut = false),
               ),
 
               // FX badge (bottom-right corner)
@@ -1222,83 +1243,78 @@ class _FadeHandleState extends State<_FadeHandle> {
 
   @override
   Widget build(BuildContext context) {
+    // Handle size for drag interaction
+    const handleSize = 16.0;
+
     return Positioned(
       left: widget.isLeft ? 0 : null,
       right: widget.isLeft ? null : 0,
       top: 0,
       bottom: 0,
       width: widget.width,
-      // Listener with opaque behavior + global flag to block playhead movement
-      // Uses ABSOLUTE position tracking for stable, drift-free fade editing
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: (event) {
-          // Set global flag IMMEDIATELY to block timeline click handler
-          fadeHandleActiveGlobal = true;
-          _isDragging = true;
-          _dragStartX = event.position.dx; // Use global position for stability
-          _accumulatedDelta = 0;
-          widget.onDragStart();
-        },
-        onPointerMove: (event) {
-          if (_isDragging) {
-            // Calculate delta from ORIGINAL start position (not incremental)
-            // This prevents drift from accumulated floating-point errors
-            final totalDelta = event.position.dx - _dragStartX;
-            final incrementalDelta = totalDelta - _accumulatedDelta;
-            _accumulatedDelta = totalDelta;
-
-            // Apply with threshold to reduce jitter on small movements
-            if (incrementalDelta.abs() > 0.5) {
-              widget.onDragUpdate(incrementalDelta);
-            }
-          }
-        },
-        onPointerUp: (event) {
-          // Clear global flag
-          fadeHandleActiveGlobal = false;
-          if (_isDragging) {
-            _isDragging = false;
-            _accumulatedDelta = 0;
-            widget.onDragEnd();
-          }
-        },
-        onPointerCancel: (event) {
-          // Clear global flag
-          fadeHandleActiveGlobal = false;
-          if (_isDragging) {
-            _isDragging = false;
-            _accumulatedDelta = 0;
-            widget.onDragEnd();
-          }
-        },
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          cursor: SystemMouseCursors.resizeColumn,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Triangular fade overlay
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _FadeTrianglePainter(
-                    isLeft: widget.isLeft,
-                    isActive: widget.isActive || _isHovered,
-                  ),
+      // Stack with translucent behavior - only handle catches clicks
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Triangular fade overlay (visual only, doesn't block clicks)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _FadeTrianglePainter(
+                  isLeft: widget.isLeft,
+                  isActive: widget.isActive || _isHovered,
                 ),
               ),
-              // Drag handle INSIDE clip (Cubase/Logic Pro style)
-              // Small handle positioned fully inside the fade region
-              Positioned(
-                // Fade IN: handle near end of fade region, but inside
-                // Fade OUT: handle near start of fade region, but inside
-                left: widget.isLeft ? (widget.width - 16).clamp(2, double.infinity) : null,
-                right: widget.isLeft ? null : (widget.width - 16).clamp(2, double.infinity),
-                top: 4,
+            ),
+          ),
+          // Drag handle - ONLY this catches clicks
+          // Offset by 10px from edge to not block EdgeHandle (8px resize zone)
+          Positioned(
+            left: widget.isLeft ? (widget.width - handleSize).clamp(10, double.infinity) : null,
+            right: widget.isLeft ? null : (widget.width - handleSize).clamp(10, double.infinity),
+            top: 2,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (event) {
+                fadeHandleActiveGlobal = true;
+                _isDragging = true;
+                _dragStartX = event.position.dx;
+                _accumulatedDelta = 0;
+                widget.onDragStart();
+              },
+              onPointerMove: (event) {
+                if (_isDragging) {
+                  final totalDelta = event.position.dx - _dragStartX;
+                  final incrementalDelta = totalDelta - _accumulatedDelta;
+                  _accumulatedDelta = totalDelta;
+                  if (incrementalDelta.abs() > 0.5) {
+                    widget.onDragUpdate(incrementalDelta);
+                  }
+                }
+              },
+              onPointerUp: (event) {
+                fadeHandleActiveGlobal = false;
+                if (_isDragging) {
+                  _isDragging = false;
+                  _accumulatedDelta = 0;
+                  widget.onDragEnd();
+                }
+              },
+              onPointerCancel: (event) {
+                fadeHandleActiveGlobal = false;
+                if (_isDragging) {
+                  _isDragging = false;
+                  _accumulatedDelta = 0;
+                  widget.onDragEnd();
+                }
+              },
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _isHovered = true),
+                onExit: (_) => setState(() => _isHovered = false),
+                cursor: SystemMouseCursors.resizeColumn,
                 child: Container(
-                  width: 12,
-                  height: 12,
+                  width: handleSize,
+                  height: handleSize,
                   decoration: BoxDecoration(
                     color: (widget.isActive || _isHovered)
                         ? ReelForgeTheme.accentCyan
@@ -1316,11 +1332,15 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-              // Fade time label - bottom-left for fadeIn, bottom-right for fadeOut
-              Positioned(
-                left: widget.isLeft ? 4 : null,
-                right: widget.isLeft ? null : 4,
-                bottom: 4,
+            ),
+          ),
+          // Fade time label - only show when fade > 0
+          if (widget.fadeTime > 0)
+            Positioned(
+              left: widget.isLeft ? 4 : null,
+              right: widget.isLeft ? null : 4,
+              bottom: 4,
+              child: IgnorePointer(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
@@ -1352,9 +1372,8 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }

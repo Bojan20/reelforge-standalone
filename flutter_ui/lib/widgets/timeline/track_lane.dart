@@ -50,6 +50,7 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId)? onClipOpenAudioEditor;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
   final void Function(String crossfadeId)? onCrossfadeDelete;
+  final ValueChanged<double>? onPlayheadMove;
   final bool snapEnabled;
   final double snapValue;
   final List<TimelineClip> allClips;
@@ -79,6 +80,7 @@ class TrackLane extends StatefulWidget {
     this.onClipOpenAudioEditor,
     this.onCrossfadeUpdate,
     this.onCrossfadeDelete,
+    this.onPlayheadMove,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.allClips = const [],
@@ -245,6 +247,7 @@ class _TrackLaneState extends State<TrackLane> {
                           widget.onClipSlipEdit?.call(clip.id, offset),
                       onOpenAudioEditor: () =>
                           widget.onClipOpenAudioEditor?.call(clip.id),
+                      onPlayheadMove: widget.onPlayheadMove,
                       snapEnabled: widget.snapEnabled,
                       snapValue: widget.snapValue,
                       tempo: widget.tempo,

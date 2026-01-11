@@ -1361,7 +1361,9 @@ pub extern "C" fn engine_snap_to_event(time: f64, threshold: f64) -> f64 {
 /// Start playback
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_play() {
+    eprintln!("[FFI] engine_play() called");
     PLAYBACK_ENGINE.play();
+    eprintln!("[FFI] engine_play() - is_playing: {}", PLAYBACK_ENGINE.position.is_playing());
 }
 
 /// Pause playback
@@ -2769,7 +2771,9 @@ lazy_static::lazy_static! {
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_start_playback() -> i32 {
+    eprintln!("[FFI] engine_start_playback() called");
     if AUDIO_STREAM_RUNNING.load(Ordering::Acquire) {
+        eprintln!("[FFI] Audio stream already running");
         return 1; // Already running
     }
 
@@ -2850,6 +2854,7 @@ pub extern "C" fn engine_start_playback() -> i32 {
         }
 
         log::info!("Audio stream started successfully");
+        eprintln!("[FFI] Audio stream started successfully!");
         AUDIO_STREAM_RUNNING.store(true, Ordering::Release);
 
         // Wait for shutdown signal

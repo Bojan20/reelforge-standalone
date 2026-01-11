@@ -26,7 +26,6 @@ import 'track_header_simple.dart';
 // import 'track_header_reelforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
-import 'clip_widget.dart' show fadeHandleActiveGlobal;
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -417,16 +416,7 @@ class _TimelineState extends State<Timeline> {
   void _handleTimelineClick(TapDownDetails details) {
     // Request focus for keyboard shortcuts (G, H, L, etc.)
     _focusNode.requestFocus();
-
-    // IGNORE click if fade handle is active (prevents playhead jumping)
-    if (fadeHandleActiveGlobal) {
-      return;
-    }
-
-    final x = details.localPosition.dx - _headerWidth;
-    if (x < 0) return;
-    final time = widget.scrollOffset + x / widget.zoom;
-    widget.onPlayheadChange?.call(time.clamp(0, widget.totalDuration));
+    // Playhead only moves when clicking ON clips, not empty space
   }
 
   void _handlePlayheadDrag(DragUpdateDetails details) {
@@ -563,7 +553,7 @@ class _TimelineState extends State<Timeline> {
     });
   }
 
-  void _handleKeyEvent(KeyEvent event) {
+  KeyEventResult _handleKeyEvent(KeyEvent event) {
     debugPrint('[Timeline] Key event: ${event.logicalKey.keyLabel} (${event.runtimeType})');
 
     // G/H zoom and [ ] fade - allow repeat (hold key for continuous adjustment)
@@ -572,9 +562,19 @@ class _TimelineState extends State<Timeline> {
     final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
         event.logicalKey == LogicalKeyboardKey.bracketRight;
 
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
     // Only allow repeat for zoom and fade keys
-    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return;
+    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return KeyEventResult.ignored;
+
+    // Check for Cmd modifier - pass through Cmd shortcuts we don't handle
+    final isCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    // Pass through Cmd+Shift+I (Import Audio Files) to global shortcuts
+    if (isCmd && isShift && event.logicalKey == LogicalKeyboardKey.keyI) {
+      return KeyEventResult.ignored;
+    }
 
     final selectedClip = widget.clips.cast<TimelineClip?>().firstWhere(
       (c) => c?.selected == true,
@@ -600,45 +600,43 @@ class _TimelineState extends State<Timeline> {
       }
     }
 
-    // G - zoom out (Cubase-style, hold for continuous)
-    // Smooth zoom with center-screen anchor
+    // G - zoom out centered on PLAYHEAD (only if content wider than timeline)
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
-      final centerX = _containerWidth / 2;
-      final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
-      final newScrollOffset = centerTime - centerX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      // Check if any clip extends beyond visible timeline
+      final contentWidth = widget.totalDuration * widget.zoom;
+      if (contentWidth > _containerWidth) {
+        final playheadTime = widget.playheadPosition;
+        final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
+        final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+        final newScrollOffset = playheadTime - playheadX / newZoom;
+        widget.onZoomChange?.call(newZoom);
+        widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+            (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      }
     }
 
-    // H - zoom in (Cubase-style, hold for continuous)
-    // Smooth zoom with center-screen anchor
+    // H - zoom in centered on PLAYHEAD (only if content wider than timeline)
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
-      final centerX = _containerWidth / 2;
-      final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
-      final newScrollOffset = centerTime - centerX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      // Check if any clip extends beyond visible timeline
+      final contentWidth = widget.totalDuration * widget.zoom;
+      if (contentWidth > _containerWidth) {
+        final playheadTime = widget.playheadPosition;
+        final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
+        final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+        final newScrollOffset = playheadTime - playheadX / newZoom;
+        widget.onZoomChange?.call(newZoom);
+        widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+            (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      }
     }
 
-    // L - set loop around selected clip OR toggle loop if no selection
+    // L - set loop region around selected clip (just sets region, no toggle)
     if (event.logicalKey == LogicalKeyboardKey.keyL) {
       if (selectedClip != null && widget.onLoopRegionChange != null) {
-        // Set loop region around selected clip
         widget.onLoopRegionChange!(LoopRegion(
           start: selectedClip.startTime,
           end: selectedClip.endTime,
         ));
-        // Enable loop if not already
-        if (!widget.loopEnabled) {
-          widget.onLoopToggle?.call();
-        }
-      } else {
-        // No selection - toggle loop on/off
-        widget.onLoopToggle?.call();
       }
     }
 
@@ -784,6 +782,8 @@ class _TimelineState extends State<Timeline> {
         event.logicalKey == LogicalKeyboardKey.keyY) {
       widget.onRedo?.call();
     }
+
+    return KeyEventResult.handled;
   }
 
   /// Handle cross-track drag update
@@ -980,6 +980,7 @@ class _TimelineState extends State<Timeline> {
                     onClipRename: widget.onClipRename,
                     onClipSlipEdit: widget.onClipSlipEdit,
                     onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
+                    onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
                     onCrossfadeDelete: widget.onCrossfadeDelete,
                     snapEnabled: widget.snapEnabled,
@@ -1089,8 +1090,7 @@ class _TimelineState extends State<Timeline> {
       child: Focus(
         focusNode: _focusNode,
         onKeyEvent: (node, event) {
-          _handleKeyEvent(event);
-          return KeyEventResult.handled;
+          return _handleKeyEvent(event);
         },
         child: Listener(
           onPointerSignal: (event) {
