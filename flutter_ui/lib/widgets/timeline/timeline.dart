@@ -543,13 +543,15 @@ class _TimelineState extends State<Timeline> {
   void _handleKeyEvent(KeyEvent event) {
     debugPrint('[Timeline] Key event: ${event.logicalKey.keyLabel} (${event.runtimeType})');
 
-    // G/H zoom - allow repeat (hold key for continuous zoom)
+    // G/H zoom and [ ] fade - allow repeat (hold key for continuous adjustment)
     final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
         event.logicalKey == LogicalKeyboardKey.keyH;
+    final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
+        event.logicalKey == LogicalKeyboardKey.bracketRight;
 
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
-    // Only allow repeat for zoom keys
-    if (event is KeyRepeatEvent && !isZoomKey) return;
+    // Only allow repeat for zoom and fade keys
+    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return;
 
     final selectedClip = widget.clips.cast<TimelineClip?>().firstWhere(
       (c) => c?.selected == true,
