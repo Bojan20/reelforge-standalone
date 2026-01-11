@@ -404,8 +404,10 @@ fn validate_band_index(band_index: u32) -> Option<u32> {
 /// Validate EQ param index (0-15)
 #[inline]
 fn validate_param_index(param_index: u32) -> Option<u32> {
-    if param_index > 15 {
-        log::warn!("Invalid param_index {}, max is 15", param_index);
+    // EQ has 64 bands * 11 params per band = 704 max param index
+    // Other processors may have fewer, but we allow up to 1024 to be safe
+    if param_index > 1024 {
+        log::warn!("Invalid param_index {}, max is 1024", param_index);
         None
     } else {
         Some(param_index)
@@ -3601,7 +3603,7 @@ pub extern "C" fn insert_set_param(track_id: u32, slot_index: u32, param_index: 
             value
         };
 
-        log::debug!("[EQ FFI] insert_set_param: track={}, slot={}, param={}, value={:.3}", track_id, slot_index, param_index, value);
+        eprintln!("[EQ FFI] insert_set_param: track={}, slot={}, param={}, value={:.3}", track_id, slot_index, param_index, value);
         if track_id == 0 {
             // Master bus uses dedicated master_insert chain
             PLAYBACK_ENGINE.set_master_insert_param(slot_index, param_index, value);

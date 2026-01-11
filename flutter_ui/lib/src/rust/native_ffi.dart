@@ -2572,6 +2572,7 @@ class NativeFFI {
   /// Returns 0 on success
   int insertSetParam(int trackId, int slotIndex, int paramIndex, double value) {
     if (!_loaded) return -1;
+    print('[NativeFFI] insertSetParam: track=$trackId, slot=$slotIndex, param=$paramIndex, value=${value.toStringAsFixed(3)}');
     return _insertSetParam(trackId, slotIndex, paramIndex, value);
   }
 

@@ -5,11 +5,38 @@
 //! - Pre/post fader positioning
 //! - Bypass per slot
 //! - Latency compensation
-//! - Lock-free parameter updates
+//! - Lock-free parameter updates via ring buffer
 
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+// ============ Lock-Free Parameter Change ============
+
+/// Lock-free parameter change message for insert processors.
+/// Sent from UI thread via ring buffer, consumed by audio thread.
+#[derive(Clone, Copy, Debug)]
+pub struct InsertParamChange {
+    /// Target track ID (0 = master bus)
+    pub track_id: u64,
+    /// Insert slot index (0-9)
+    pub slot_index: u8,
+    /// Parameter index within processor
+    pub param_index: u16,
+    /// New parameter value
+    pub value: f64,
+}
+
+impl InsertParamChange {
+    pub fn new(track_id: u64, slot_index: usize, param_index: usize, value: f64) -> Self {
+        Self {
+            track_id,
+            slot_index: slot_index as u8,
+            param_index: param_index as u16,
+            value,
+        }
+    }
+}
 
 // ============ Insert Slot ============
 

@@ -4882,7 +4882,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       debugPrint('[EQ] Band change: channel=$channelId -> trackId=$trackId, slot=$slotIndex, band=$bandIndex');
                       debugPrint('[EQ]   freq=$freq, gain=$gain, q=$q, enabled=$enabled, filterType=$filterType');
                       if (freq != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
+                        final result = NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
+                        debugPrint('[EQ] insertSetParam(track=$trackId, slot=$slotIndex, param=${baseParam + 0}, value=$freq) -> result=$result');
                       }
                       if (gain != null) {
                         NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 1, gain);

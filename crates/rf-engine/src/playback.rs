@@ -31,7 +31,7 @@ use crate::automation::{AutomationEngine, ParamId};
 use crate::control_room::{ControlRoom, SoloMode};
 use crate::groups::{GroupManager, VcaId};
 use crate::input_bus::{InputBusManager, MonitorMode};
-use crate::insert_chain::InsertChain;
+use crate::insert_chain::{InsertChain, InsertParamChange};
 use crate::routing::ChannelId;
 #[cfg(feature = "unified_routing")]
 use crate::routing::{ChannelKind, OutputDestination, RoutingCommandSender, RoutingGraphRT};
@@ -689,6 +689,11 @@ pub struct PlaybackEngine {
     insert_chains: RwLock<HashMap<u64, InsertChain>>,
     /// Master insert chain
     master_insert: RwLock<InsertChain>,
+    /// Lock-free ring buffer for insert parameter changes (UI → Audio)
+    /// Producer is used by UI thread (via set_track_insert_param)
+    /// Consumer is used by audio thread (at start of each block)
+    insert_param_tx: parking_lot::Mutex<rtrb::Producer<InsertParamChange>>,
+    insert_param_rx: parking_lot::Mutex<rtrb::Consumer<InsertParamChange>>,
     /// Per-track stereo meters (track_id -> TrackMeter with L/R peaks, RMS, correlation)
     track_meters: RwLock<HashMap<u64, TrackMeter>>,
     /// Master spectrum analyzer (FFT)
@@ -733,6 +738,10 @@ pub struct PlaybackEngine {
 
 impl PlaybackEngine {
     pub fn new(track_manager: Arc<TrackManager>, sample_rate: u32) -> Self {
+        // Create single ring buffer and split into tx/rx
+        let (insert_param_tx, insert_param_rx) =
+            rtrb::RingBuffer::<InsertParamChange>::new(4096);
+
         Self {
             track_manager,
             cache: Arc::new(AudioCache::new()),
@@ -761,6 +770,9 @@ impl PlaybackEngine {
             vca_assignments: RwLock::new(HashMap::new()),
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
+            // Lock-free ring buffer for insert params (4096 = ~85ms at 60fps UI updates)
+            insert_param_tx: parking_lot::Mutex::new(insert_param_tx),
+            insert_param_rx: parking_lot::Mutex::new(insert_param_rx),
             track_meters: RwLock::new(HashMap::new()),
             // 8192-point FFT for better bass frequency resolution
             // At 48kHz: bin width = 48000/8192 = 5.86Hz (vs 23.4Hz with 2048)
@@ -1141,7 +1153,11 @@ impl PlaybackEngine {
         }
     }
 
-    /// Set parameter on track insert processor
+    /// Set parameter on track insert processor (LOCK-FREE via ring buffer)
+    ///
+    /// This method pushes param changes to a lock-free ring buffer instead of
+    /// directly acquiring a write lock. The audio thread consumes these changes
+    /// at the start of each block, ensuring no lock contention.
     pub fn set_track_insert_param(
         &self,
         track_id: u64,
@@ -1149,12 +1165,99 @@ impl PlaybackEngine {
         param_index: usize,
         value: f64,
     ) {
-        let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            log::debug!("[EQ] set_track_insert_param: track={}, slot={}, param={}, value={:.3} -> chain found", track_id, slot_index, param_index, value);
-            chain.set_slot_param(slot_index, param_index, value);
+        let change = InsertParamChange::new(track_id, slot_index, param_index, value);
+
+        // Non-blocking push to ring buffer
+        if let Some(mut tx) = self.insert_param_tx.try_lock() {
+            match tx.push(change) {
+                Ok(()) => {
+                    log::info!(
+                        "[EQ] Queued param: track={}, slot={}, param={}, value={:.3}",
+                        track_id, slot_index, param_index, value
+                    );
+                }
+                Err(_) => {
+                    // Ring buffer full - drop oldest by logging warning
+                    // In production, could implement overwrite strategy
+                    log::warn!("[EQ] Ring buffer full, param change dropped");
+                }
+            }
         } else {
-            log::warn!("[EQ] set_track_insert_param: track={} NOT FOUND in insert_chains! Available: {:?}", track_id, chains.keys().collect::<Vec<_>>());
+            // Mutex contended (very rare) - fallback to direct write
+            // This should almost never happen with try_lock
+            log::warn!("[EQ] Ring buffer mutex contended, using fallback");
+            let mut chains = self.insert_chains.write();
+            if let Some(chain) = chains.get_mut(&track_id) {
+                chain.set_slot_param(slot_index, param_index, value);
+            }
+        }
+    }
+
+    /// Consume all pending insert param changes from ring buffer (AUDIO THREAD)
+    ///
+    /// Called at the start of each audio block to apply UI-initiated param changes.
+    /// This is lock-free on the consumer side (try_lock on mutex wrapping Consumer).
+    fn consume_insert_param_changes(&self) {
+        // Try to get consumer - if locked, skip (very rare, means another audio thread access)
+        let mut rx = match self.insert_param_rx.try_lock() {
+            Some(rx) => rx,
+            None => {
+                log::warn!("[EQ] Could not acquire param_rx lock");
+                return;
+            }
+        };
+
+        // Check if there are any pending changes to read
+        // Note: slots() returns writable slots, is_empty() checks readable items
+        if rx.is_empty() {
+            return; // Nothing to consume
+        }
+
+        // Get write access to insert chains for applying params
+        // Use try_write to avoid blocking - if UI is loading a processor, skip this block
+        let mut chains = match self.insert_chains.try_write() {
+            Some(c) => c,
+            None => {
+                log::warn!("[EQ] Could not acquire insert_chains lock for param consumption");
+                return;
+            }
+        };
+
+        // Drain all pending changes (non-blocking)
+        let mut applied = 0;
+        let mut track_ids_seen = [0u64; 16];
+        let mut track_count = 0;
+
+        while let Ok(change) = rx.pop() {
+            if change.track_id == 0 {
+                // Master bus
+                if let Some(mut master) = self.master_insert.try_write() {
+                    master.set_slot_param(
+                        change.slot_index as usize,
+                        change.param_index as usize,
+                        change.value,
+                    );
+                    applied += 1;
+                }
+            } else if let Some(chain) = chains.get_mut(&change.track_id) {
+                chain.set_slot_param(
+                    change.slot_index as usize,
+                    change.param_index as usize,
+                    change.value,
+                );
+                applied += 1;
+                // Track unique track IDs for debug
+                if track_count < 16 && !track_ids_seen[..track_count].contains(&change.track_id) {
+                    track_ids_seen[track_count] = change.track_id;
+                    track_count += 1;
+                }
+            } else {
+                log::warn!("[EQ] No chain found for track {}", change.track_id);
+            }
+        }
+
+        if applied > 0 {
+            log::info!("[EQ] Applied {} param changes for {} track(s)", applied, track_count);
         }
     }
 
@@ -1513,6 +1616,12 @@ impl PlaybackEngine {
         output_l.fill(0.0);
         output_r.fill(0.0);
 
+        // === LOCK-FREE PARAM CONSUMPTION ===
+        // Drain all pending insert param changes BEFORE processing tracks
+        // This acquires insert_chains lock once, applies all params, then releases
+        // Track processing below will re-acquire the lock for actual processing
+        self.consume_insert_param_changes();
+
         // Check if playing
         if !self.position.is_playing() {
             return;
@@ -1706,7 +1815,7 @@ impl PlaybackEngine {
             }
 
             // Process track insert chain (pre-fader inserts applied before volume)
-            // Use try_write to avoid blocking audio thread - skip inserts if lock contended
+            // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
             if let Some(mut chains) = self.insert_chains.try_write() {
                 if let Some(chain) = chains.get_mut(&track.id.0) {
                     chain.process_pre_fader(track_l, track_r);

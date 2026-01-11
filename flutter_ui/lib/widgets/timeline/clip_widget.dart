@@ -1274,12 +1274,12 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-              // Drag handle at corner - INSIDE the clip
+              // Drag handle at END of fade region (follows fade position)
               Positioned(
-                // Fade IN: handle on LEFT side (inside clip)
-                // Fade OUT: handle on RIGHT side (inside clip)
-                left: widget.isLeft ? 0 : null,
-                right: widget.isLeft ? null : 0,
+                // Fade IN: handle at RIGHT edge of fade region (end of fade)
+                // Fade OUT: handle at LEFT edge of fade region (start of fade)
+                left: widget.isLeft ? widget.width - 18 : null,
+                right: widget.isLeft ? null : widget.width - 18,
                 top: 0,
                 child: Container(
                   width: 18,
@@ -1289,10 +1289,12 @@ class _FadeHandleState extends State<_FadeHandle> {
                         ? ReelForgeTheme.accentBlue
                         : ReelForgeTheme.textSecondary.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.only(
-                      topLeft: widget.isLeft ? const Radius.circular(4) : Radius.zero,
-                      topRight: widget.isLeft ? Radius.zero : const Radius.circular(4),
-                      bottomLeft: Radius.zero,
-                      bottomRight: Radius.zero,
+                      // Fade IN handle: rounded top-right (at end of fade)
+                      // Fade OUT handle: rounded top-left (at start of fade)
+                      topLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                      topRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
+                      bottomLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
+                      bottomRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
                     ),
                     boxShadow: (widget.isActive || _isHovered)
                         ? [
@@ -1305,6 +1307,8 @@ class _FadeHandleState extends State<_FadeHandle> {
                         : null,
                   ),
                   child: Icon(
+                    // Fade IN: arrow points right (direction of drag to increase fade)
+                    // Fade OUT: arrow points left (direction of drag to increase fade)
                     widget.isLeft ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
                     size: 10,
                     color: Colors.white,
