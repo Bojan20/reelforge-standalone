@@ -7,6 +7,6 @@ export 'loudness_meter.dart';
 export 'correlation_meter.dart';
 export 'goniometer.dart';
 export 'vectorscope.dart';
-export 'spectrum_analyzer.dart';
 export 'pro_metering_panel.dart';
 export 'advanced_metering_panel.dart';
+// spectrum_analyzer moved to widgets/spectrum/
