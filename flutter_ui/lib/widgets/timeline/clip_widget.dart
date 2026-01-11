@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/reelforge_theme.dart';
 import '../../models/timeline_models.dart';
+import '../../models/middleware_models.dart' show FadeCurve;
 import '../editors/clip_fx_editor.dart';
 
 import '../waveform/ultimate_waveform.dart';
@@ -558,7 +559,10 @@ class _ClipWidgetState extends State<ClipWidget> {
                   bottom: 0,
                   width: clip.fadeIn * widget.zoom,
                   child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: true),
+                    painter: _FadeOverlayPainter(
+                      isLeft: true,
+                      curve: clip.fadeInCurve,
+                    ),
                   ),
                 ),
               if (clip.fadeOut > 0)
@@ -568,7 +572,10 @@ class _ClipWidgetState extends State<ClipWidget> {
                   bottom: 0,
                   width: clip.fadeOut * widget.zoom,
                   child: CustomPaint(
-                    painter: _FadeOverlayPainter(isLeft: false),
+                    painter: _FadeOverlayPainter(
+                      isLeft: false,
+                      curve: clip.fadeOutCurve,
+                    ),
                   ),
                 ),
 
@@ -579,6 +586,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                 fadeTime: clip.fadeIn,
                 isLeft: true,
                 isActive: _isDraggingFadeIn,
+                curve: clip.fadeInCurve,
                 onDragStart: () => setState(() => _isDraggingFadeIn = true),
                 onDragUpdate: (deltaPixels) {
                   // Convert delta pixels to seconds
@@ -597,6 +605,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                 fadeTime: clip.fadeOut,
                 isLeft: false,
                 isActive: _isDraggingFadeOut,
+                curve: clip.fadeOutCurve,
                 onDragStart: () => setState(() => _isDraggingFadeOut = true),
                 onDragUpdate: (deltaPixels) {
                   // Convert delta pixels to seconds (negative delta = increase fade out)
@@ -1177,8 +1186,9 @@ class _WaveformPainter extends CustomPainter {
 
 class _FadeOverlayPainter extends CustomPainter {
   final bool isLeft;
+  final FadeCurve curve;
 
-  _FadeOverlayPainter({required this.isLeft});
+  _FadeOverlayPainter({required this.isLeft, required this.curve});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1187,27 +1197,61 @@ class _FadeOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
+    const steps = 30;
+
     if (isLeft) {
-      // Fade IN: dark at top-left (silence) → clear at right (full volume)
-      // Triangle: top-left corner filled, representing reduced gain at start
+      // Fade IN: dark at top (silence) → clear at bottom (full volume)
       path.moveTo(0, 0);
-      path.lineTo(size.width, 0);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(t);
+        final y = size.height * fadeGain;
+        path.lineTo(x, y);
+      }
       path.lineTo(0, size.height);
       path.close();
     } else {
-      // Fade OUT: clear at left (full volume) → dark at top-right (silence)
-      // Triangle: top-right corner filled, representing reduced gain at end
+      // Fade OUT: clear at left (full volume) → dark at right (silence)
       path.moveTo(size.width, 0);
+      for (var i = steps; i >= 0; i--) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(1 - t);
+        final y = size.height * fadeGain;
+        path.lineTo(x, y);
+      }
       path.lineTo(size.width, size.height);
-      path.lineTo(0, 0);
       path.close();
     }
 
     canvas.drawPath(path, paint);
   }
 
+  double _evaluateCurve(double t) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return t;
+      case FadeCurve.exp1:
+        return t * t;
+      case FadeCurve.exp3:
+        return t * t * t;
+      case FadeCurve.log1:
+        return math.sqrt(t);
+      case FadeCurve.log3:
+        return math.pow(t, 1 / 3).toDouble();
+      case FadeCurve.sCurve:
+        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case FadeCurve.invSCurve:
+        return t < 0.5 ? 0.5 * math.sqrt(2 * t) : 0.5 + 0.5 * math.sqrt(2 * t - 1);
+      case FadeCurve.sine:
+        return math.sin(t * math.pi / 2);
+    }
+  }
+
   @override
-  bool shouldRepaint(_FadeOverlayPainter oldDelegate) => isLeft != oldDelegate.isLeft;
+  bool shouldRepaint(_FadeOverlayPainter oldDelegate) =>
+      isLeft != oldDelegate.isLeft || curve != oldDelegate.curve;
 }
 
 // ============ Fade Handle (Logic Pro + Cubase Style) ============
@@ -1217,6 +1261,7 @@ class _FadeHandle extends StatefulWidget {
   final double fadeTime;
   final bool isLeft;
   final bool isActive;
+  final FadeCurve curve;
   final VoidCallback onDragStart;
   final ValueChanged<double> onDragUpdate; // Now receives delta, not absolute position
   final VoidCallback onDragEnd;
@@ -1226,6 +1271,7 @@ class _FadeHandle extends StatefulWidget {
     required this.fadeTime,
     required this.isLeft,
     required this.isActive,
+    required this.curve,
     required this.onDragStart,
     required this.onDragUpdate,
     required this.onDragEnd,
@@ -1256,13 +1302,14 @@ class _FadeHandleState extends State<_FadeHandle> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Triangular fade overlay (visual only, doesn't block clicks)
+          // Curved fade overlay (visual only, doesn't block clicks)
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
                 painter: _FadeTrianglePainter(
                   isLeft: widget.isLeft,
                   isActive: widget.isActive || _isHovered,
+                  curve: widget.curve,
                 ),
               ),
             ),
@@ -1387,12 +1434,17 @@ class _FadeHandleState extends State<_FadeHandle> {
   }
 }
 
-/// Triangular fade overlay painter (Logic Pro style)
+/// Curved fade overlay painter (Logic Pro style)
 class _FadeTrianglePainter extends CustomPainter {
   final bool isLeft;
   final bool isActive;
+  final FadeCurve curve;
 
-  _FadeTrianglePainter({required this.isLeft, required this.isActive});
+  _FadeTrianglePainter({
+    required this.isLeft,
+    required this.isActive,
+    required this.curve,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1403,27 +1455,63 @@ class _FadeTrianglePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
+    const steps = 30;
+
     if (isLeft) {
-      // Fade in: triangle from left
+      // Fade in: curved from left
       path.moveTo(0, 0);
-      path.lineTo(size.width, 0);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(t);
+        final y = size.height * fadeGain;
+        path.lineTo(x, y);
+      }
       path.lineTo(0, size.height);
       path.close();
     } else {
-      // Fade out: triangle from right
+      // Fade out: curved from right
       path.moveTo(size.width, 0);
-      path.lineTo(0, 0);
+      for (var i = steps; i >= 0; i--) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(1 - t);
+        final y = size.height * fadeGain;
+        path.lineTo(x, y);
+      }
       path.lineTo(size.width, size.height);
       path.close();
     }
 
     canvas.drawPath(path, paint);
-    // Note: Diagonal fade line removed per user request (was causing X pattern)
+  }
+
+  double _evaluateCurve(double t) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return t;
+      case FadeCurve.exp1:
+        return t * t;
+      case FadeCurve.exp3:
+        return t * t * t;
+      case FadeCurve.log1:
+        return math.sqrt(t);
+      case FadeCurve.log3:
+        return math.pow(t, 1 / 3).toDouble();
+      case FadeCurve.sCurve:
+        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case FadeCurve.invSCurve:
+        return t < 0.5 ? 0.5 * math.sqrt(2 * t) : 0.5 + 0.5 * math.sqrt(2 * t - 1);
+      case FadeCurve.sine:
+        return math.sin(t * math.pi / 2);
+    }
   }
 
   @override
   bool shouldRepaint(_FadeTrianglePainter oldDelegate) =>
-      isLeft != oldDelegate.isLeft || isActive != oldDelegate.isActive;
+      isLeft != oldDelegate.isLeft ||
+      isActive != oldDelegate.isActive ||
+      curve != oldDelegate.curve;
 }
 
 // ============ Edge Handle ============

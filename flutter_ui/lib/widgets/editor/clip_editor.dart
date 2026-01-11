@@ -653,16 +653,20 @@ class _ClipEditorState extends State<ClipEditor> {
     return Stack(
       children: [
         // ===== FADE IN REGION (left side) =====
-        // Triangular overlay for fade in
+        // Curved overlay for fade in
         if (fadeInTime > 0 && fadeInWidth > 0 && clipStartX < maxW)
           Positioned(
+            key: ValueKey('fadeIn_${widget.clip!.fadeInCurve}'),
             left: clipStartX.clamp(0.0, maxW).toDouble(),
             top: 0,
             bottom: 0,
             width: fadeInWidth.clamp(1.0, maxW).toDouble(),
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _FadeOverlayPainter(isLeft: true),
+                painter: _FadeOverlayPainter(
+                  isLeft: true,
+                  curve: widget.clip!.fadeInCurve,
+                ),
               ),
             ),
           ),
@@ -679,7 +683,9 @@ class _ClipEditorState extends State<ClipEditor> {
               onDragStart: () => setState(() => _draggingFade = _FadeHandle.fadeIn),
               onDragUpdate: (delta) {
                 final timeDelta = delta / widget.zoom;
-                final newFadeIn = (fadeInTime + timeDelta).clamp(0.0, duration / 2);
+                // Use widget.clip!.fadeIn to get current value, not captured fadeInTime
+                final currentFadeIn = widget.clip!.fadeIn;
+                final newFadeIn = (currentFadeIn + timeDelta).clamp(0.0, widget.clip!.duration / 2);
                 widget.onFadeInChange?.call(widget.clip!.id, _snapTime(newFadeIn));
               },
               onDragEnd: () => setState(() => _draggingFade = _FadeHandle.none),
@@ -687,16 +693,20 @@ class _ClipEditorState extends State<ClipEditor> {
           ),
 
         // ===== FADE OUT REGION (right side) =====
-        // Triangular overlay for fade out
+        // Curved overlay for fade out
         if (fadeOutTime > 0 && fadeOutWidth > 0 && clipEndX > 0)
           Positioned(
+            key: ValueKey('fadeOut_${widget.clip!.fadeOutCurve}'),
             left: (clipEndX - fadeOutWidth).clamp(0.0, maxW).toDouble(),
             top: 0,
             bottom: 0,
             width: fadeOutWidth.clamp(1.0, maxW).toDouble(),
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _FadeOverlayPainter(isLeft: false),
+                painter: _FadeOverlayPainter(
+                  isLeft: false,
+                  curve: widget.clip!.fadeOutCurve,
+                ),
               ),
             ),
           ),
@@ -714,7 +724,9 @@ class _ClipEditorState extends State<ClipEditor> {
               onDragUpdate: (delta) {
                 // Negative because dragging left increases fade
                 final timeDelta = -delta / widget.zoom;
-                final newFadeOut = (fadeOutTime + timeDelta).clamp(0.0, duration / 2);
+                // Use widget.clip!.fadeOut to get current value, not captured fadeOutTime
+                final currentFadeOut = widget.clip!.fadeOut;
+                final newFadeOut = (currentFadeOut + timeDelta).clamp(0.0, widget.clip!.duration / 2);
                 widget.onFadeOutChange?.call(widget.clip!.id, _snapTime(newFadeOut));
               },
               onDragEnd: () => setState(() => _draggingFade = _FadeHandle.none),
@@ -1372,9 +1384,6 @@ class _WaveformPainter extends CustomPainter {
     } else {
       _drawDemoWaveform(canvas, size, centerY);
     }
-
-    // Fades overlay
-    _drawFades(canvas, size);
 
     // Hover line
     if (hoverX >= 0 && hoverX <= size.width) {
@@ -2376,6 +2385,7 @@ class _EditorFadeArrow extends StatefulWidget {
 class _EditorFadeArrowState extends State<_EditorFadeArrow> {
   bool _isHovered = false;
   bool _isDragging = false;
+  double _lastX = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -2383,26 +2393,38 @@ class _EditorFadeArrowState extends State<_EditorFadeArrow> {
     final isActive = widget.isActive || _isHovered || _isDragging;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (mounted) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (mounted) setState(() => _isHovered = false);
+      },
       cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) {
-          setState(() => _isDragging = true);
+        onPointerDown: (event) {
+          if (mounted) setState(() => _isDragging = true);
+          _lastX = event.position.dx;
           widget.onDragStart();
         },
-        onHorizontalDragUpdate: (details) {
-          // Smooth: send delta directly, no threshold
-          widget.onDragUpdate(details.delta.dx);
+        onPointerMove: (event) {
+          if (_isDragging) {
+            final delta = event.position.dx - _lastX;
+            _lastX = event.position.dx;
+            widget.onDragUpdate(delta);
+          }
         },
-        onHorizontalDragEnd: (details) {
-          setState(() => _isDragging = false);
-          widget.onDragEnd();
+        onPointerUp: (event) {
+          if (_isDragging) {
+            if (mounted) setState(() => _isDragging = false);
+            widget.onDragEnd();
+          }
         },
-        onHorizontalDragCancel: () {
-          setState(() => _isDragging = false);
-          widget.onDragEnd();
+        onPointerCancel: (event) {
+          if (_isDragging) {
+            if (mounted) setState(() => _isDragging = false);
+            widget.onDragEnd();
+          }
         },
         child: Container(
           width: size,
@@ -2438,11 +2460,12 @@ class _EditorFadeArrowState extends State<_EditorFadeArrow> {
 
 // ============ Fade Overlay Painter ============
 
-/// Paints triangular fade overlay on waveform
+/// Paints curved fade overlay on waveform following the selected curve shape
 class _FadeOverlayPainter extends CustomPainter {
   final bool isLeft;
+  final FadeCurve curve;
 
-  _FadeOverlayPainter({required this.isLeft});
+  _FadeOverlayPainter({required this.isLeft, required this.curve});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2451,36 +2474,93 @@ class _FadeOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
+    const steps = 40;
 
     if (isLeft) {
-      // Fade in: triangle from top-left to bottom-right
+      // Fade in: fill area ABOVE the curve (the faded/quiet part)
       path.moveTo(0, 0);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(t);
+        final y = size.height * (1 - fadeGain);
+        path.lineTo(x, y);
+      }
       path.lineTo(size.width, 0);
-      path.lineTo(0, size.height);
       path.close();
     } else {
-      // Fade out: triangle from top-right to bottom-left
-      path.moveTo(size.width, 0);
-      path.lineTo(0, 0);
-      path.lineTo(size.width, size.height);
+      // Fade out: fill area ABOVE the curve (the faded/quiet part)
+      path.moveTo(0, 0);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(1 - t);
+        final y = size.height * (1 - fadeGain);
+        path.lineTo(x, y);
+      }
+      path.lineTo(size.width, 0);
       path.close();
     }
 
     canvas.drawPath(path, paint);
 
-    // Draw edge line
+    // Draw the curve line
     final linePaint = Paint()
-      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.6)
-      ..strokeWidth = 1.5
+      ..color = ReelForgeTheme.accentCyan
+      ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
+    final linePath = Path();
     if (isLeft) {
-      canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), linePaint);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(t);
+        final y = size.height * (1 - fadeGain);
+        if (i == 0) {
+          linePath.moveTo(x, y);
+        } else {
+          linePath.lineTo(x, y);
+        }
+      }
     } else {
-      canvas.drawLine(Offset(0, 0), Offset(size.width, size.height), linePaint);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(1 - t);
+        final y = size.height * (1 - fadeGain);
+        if (i == 0) {
+          linePath.moveTo(x, y);
+        } else {
+          linePath.lineTo(x, y);
+        }
+      }
+    }
+    canvas.drawPath(linePath, linePaint);
+  }
+
+  double _evaluateCurve(double t) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return t;
+      case FadeCurve.exp1:
+        return t * t;
+      case FadeCurve.exp3:
+        return t * t * t;
+      case FadeCurve.log1:
+        return math.sqrt(t);
+      case FadeCurve.log3:
+        return math.pow(t, 1 / 3).toDouble();
+      case FadeCurve.sCurve:
+        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case FadeCurve.invSCurve:
+        return t < 0.5 ? 0.5 * math.sqrt(2 * t) : 0.5 + 0.5 * math.sqrt(2 * t - 1);
+      case FadeCurve.sine:
+        return math.sin(t * math.pi / 2);
     }
   }
 
   @override
-  bool shouldRepaint(_FadeOverlayPainter oldDelegate) => oldDelegate.isLeft != isLeft;
+  bool shouldRepaint(_FadeOverlayPainter oldDelegate) =>
+      oldDelegate.isLeft != isLeft || oldDelegate.curve != curve;
 }
