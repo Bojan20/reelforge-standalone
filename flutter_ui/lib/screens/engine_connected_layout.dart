@@ -346,6 +346,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     return tree;
   }
 
+  /// Convert FadeCurve enum to int for engine FFI
+  /// Engine uses: 0=Linear, 1=EqualPower (sCurve), 2=SCurve, etc.
+  int _curveToInt(FadeCurve curve) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return 0;
+      case FadeCurve.sCurve:
+        return 1; // Engine "EqualPower"
+      case FadeCurve.exp1:
+      case FadeCurve.exp3:
+        return 2; // Exponential
+      case FadeCurve.log1:
+      case FadeCurve.log3:
+        return 3; // Logarithmic
+      case FadeCurve.sine:
+        return 4;
+      case FadeCurve.invSCurve:
+        return 5;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2452,55 +2473,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final clip = _clips.where((c) => c.id == clipId).firstOrNull;
         if (clip == null) return;
 
-        // Open audio editor in dialog
+        // Open audio editor in dialog with StatefulBuilder for local state
         showDialog(
           context: context,
-          builder: (context) => Dialog(
-            backgroundColor: ReelForgeTheme.bgDeep,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.8,
-              child: ClipEditor(
-                clip: ClipEditorClip(
-                  id: clip.id,
-                  name: clip.name,
-                  duration: clip.duration,
-                  sampleRate: 48000,
-                  channels: 2,
-                  bitDepth: 24,
-                  fadeIn: clip.fadeIn,
-                  fadeOut: clip.fadeOut,
-                  gain: clip.gain,
-                  color: clip.color,
-                  sourceOffset: clip.sourceOffset,
-                  sourceDuration: clip.sourceDuration ?? clip.duration,
-                ),
-                onFadeInChange: (id, fadeIn) {
-                  setState(() {
-                    _clips = _clips.map((c) {
-                      if (c.id == id) return c.copyWith(fadeIn: fadeIn);
-                      return c;
-                    }).toList();
-                  });
-                },
-                onFadeOutChange: (id, fadeOut) {
-                  setState(() {
-                    _clips = _clips.map((c) {
-                      if (c.id == id) return c.copyWith(fadeOut: fadeOut);
-                      return c;
-                    }).toList();
-                  });
-                },
-                onGainChange: (id, gain) {
-                  setState(() {
-                    _clips = _clips.map((c) {
-                      if (c.id == id) return c.copyWith(gain: gain);
-                      return c;
-                    }).toList();
-                  });
-                },
-              ),
-            ),
+          builder: (dialogContext) => _AudioEditorDialog(
+            initialClip: clip,
+            onClipChanged: (updatedClip) {
+              setState(() {
+                _clips = _clips.map((c) {
+                  if (c.id == updatedClip.id) return updatedClip;
+                  return c;
+                }).toList();
+              });
+            },
+            curveToInt: _curveToInt,
           ),
         );
       },
@@ -3456,12 +3442,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       clipWaveform: clip?.waveform,
       fadeIn: clip?.fadeIn ?? 0,
       fadeOut: clip?.fadeOut ?? 0,
+      fadeInCurve: clip?.fadeInCurve ?? FadeCurve.linear,
+      fadeOutCurve: clip?.fadeOutCurve ?? FadeCurve.linear,
       gain: clip?.gain ?? 0,
       clipColor: clip?.color,
       playheadPosition: transport.positionSeconds - (clip?.startTime ?? 0),
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
       onFadeInChange: (clipId, fadeIn) {
+        // Notify engine
+        final currentClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        EngineApi.instance.fadeInClip(clipId, fadeIn, curveType: _curveToInt(currentClip.fadeInCurve));
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -3472,6 +3463,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onFadeOutChange: (clipId, fadeOut) {
+        // Notify engine
+        final currentClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        EngineApi.instance.fadeOutClip(clipId, fadeOut, curveType: _curveToInt(currentClip.fadeOutCurve));
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -3481,7 +3475,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           }).toList();
         });
       },
+      onFadeInCurveChange: (clipId, curve) {
+        // Notify engine with updated curve
+        final currentClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        EngineApi.instance.fadeInClip(clipId, currentClip.fadeIn, curveType: _curveToInt(curve));
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(fadeInCurve: curve);
+            }
+            return c;
+          }).toList();
+        });
+      },
+      onFadeOutCurveChange: (clipId, curve) {
+        // Notify engine with updated curve
+        final currentClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        EngineApi.instance.fadeOutClip(clipId, currentClip.fadeOut, curveType: _curveToInt(curve));
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(fadeOutCurve: curve);
+            }
+            return c;
+          }).toList();
+        });
+      },
       onGainChange: (clipId, gain) {
+        // Notify engine
+        EngineApi.instance.setClipGain(clipId, gain);
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -7040,6 +7062,112 @@ class _InsertMenuOption extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Audio Editor Dialog with local state management
+class _AudioEditorDialog extends StatefulWidget {
+  final timeline.TimelineClip initialClip;
+  final void Function(timeline.TimelineClip) onClipChanged;
+  final int Function(FadeCurve) curveToInt;
+
+  const _AudioEditorDialog({
+    required this.initialClip,
+    required this.onClipChanged,
+    required this.curveToInt,
+  });
+
+  @override
+  State<_AudioEditorDialog> createState() => _AudioEditorDialogState();
+}
+
+class _AudioEditorDialogState extends State<_AudioEditorDialog> {
+  late timeline.TimelineClip _clip;
+  double _zoom = 100;
+  double _scrollOffset = 0;
+  bool _initialZoomSet = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _clip = widget.initialClip;
+  }
+
+  void _updateClip(timeline.TimelineClip newClip) {
+    setState(() {
+      _clip = newClip;
+    });
+    widget.onClipChanged(newClip);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Calculate dialog dimensions
+    final dialogWidth = MediaQuery.of(context).size.width * 0.9;
+    final dialogHeight = MediaQuery.of(context).size.height * 0.8;
+
+    // Waveform area width (dialog - sidebar - padding)
+    // Sidebar is 200px, plus some padding
+    final waveformWidth = dialogWidth - 200 - 32;
+
+    // Calculate zoom to fit entire clip duration
+    // Only set initial zoom once
+    if (!_initialZoomSet && _clip.duration > 0 && waveformWidth > 0) {
+      _zoom = waveformWidth / _clip.duration;
+      _scrollOffset = 0;
+      _initialZoomSet = true;
+    }
+
+    return Dialog(
+      backgroundColor: ReelForgeTheme.bgDeep,
+      child: SizedBox(
+        width: dialogWidth,
+        height: dialogHeight,
+        child: ClipEditor(
+          clip: ClipEditorClip(
+            id: _clip.id,
+            name: _clip.name,
+            duration: _clip.duration,
+            sampleRate: 48000,
+            channels: 2,
+            bitDepth: 24,
+            fadeIn: _clip.fadeIn,
+            fadeOut: _clip.fadeOut,
+            fadeInCurve: _clip.fadeInCurve,
+            fadeOutCurve: _clip.fadeOutCurve,
+            gain: _clip.gain,
+            color: _clip.color,
+            sourceOffset: _clip.sourceOffset,
+            sourceDuration: _clip.sourceDuration ?? _clip.duration,
+            waveform: _clip.waveform,
+          ),
+          zoom: _zoom,
+          scrollOffset: _scrollOffset,
+          onZoomChange: (zoom) => setState(() => _zoom = zoom),
+          onScrollChange: (offset) => setState(() => _scrollOffset = offset),
+          onFadeInChange: (id, fadeIn) {
+            EngineApi.instance.fadeInClip(id, fadeIn, curveType: widget.curveToInt(_clip.fadeInCurve));
+            _updateClip(_clip.copyWith(fadeIn: fadeIn));
+          },
+          onFadeOutChange: (id, fadeOut) {
+            EngineApi.instance.fadeOutClip(id, fadeOut, curveType: widget.curveToInt(_clip.fadeOutCurve));
+            _updateClip(_clip.copyWith(fadeOut: fadeOut));
+          },
+          onFadeInCurveChange: (id, curve) {
+            EngineApi.instance.fadeInClip(id, _clip.fadeIn, curveType: widget.curveToInt(curve));
+            _updateClip(_clip.copyWith(fadeInCurve: curve));
+          },
+          onFadeOutCurveChange: (id, curve) {
+            EngineApi.instance.fadeOutClip(id, _clip.fadeOut, curveType: widget.curveToInt(curve));
+            _updateClip(_clip.copyWith(fadeOutCurve: curve));
+          },
+          onGainChange: (id, gain) {
+            EngineApi.instance.setClipGain(id, gain);
+            _updateClip(_clip.copyWith(gain: gain));
+          },
         ),
       ),
     );

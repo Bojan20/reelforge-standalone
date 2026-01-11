@@ -1268,10 +1268,10 @@ class _FadeHandleState extends State<_FadeHandle> {
             ),
           ),
           // Drag handle - ONLY this catches clicks
-          // Offset by 10px from edge to not block EdgeHandle (8px resize zone)
+          // Position at clip edge (left handle at left, right handle at right)
           Positioned(
-            left: widget.isLeft ? (widget.width - handleSize).clamp(10, double.infinity) : null,
-            right: widget.isLeft ? null : (widget.width - handleSize).clamp(10, double.infinity),
+            left: widget.isLeft ? 2 : null,
+            right: widget.isLeft ? null : 2,
             top: 2,
             child: Listener(
               behavior: HitTestBehavior.opaque,

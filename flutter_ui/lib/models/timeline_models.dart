@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 // Forward declaration for automation types (full impl in automation_lane.dart)
 import '../widgets/timeline/automation_lane.dart';
+import 'middleware_models.dart' show FadeCurve;
 
 /// Clip on a timeline track
 class TimelineClip {
@@ -36,6 +37,10 @@ class TimelineClip {
   final double fadeIn;
   /// Fade out duration in seconds
   final double fadeOut;
+  /// Fade in curve type
+  final FadeCurve fadeInCurve;
+  /// Fade out curve type
+  final FadeCurve fadeOutCurve;
   /// Clip gain (0-2, 1 = unity)
   final double gain;
   /// Is muted
@@ -61,6 +66,8 @@ class TimelineClip {
     this.sourceDuration,
     this.fadeIn = 0,
     this.fadeOut = 0,
+    this.fadeInCurve = FadeCurve.linear,
+    this.fadeOutCurve = FadeCurve.linear,
     this.gain = 1,
     this.muted = false,
     this.locked = false,
@@ -87,6 +94,8 @@ class TimelineClip {
     double? sourceDuration,
     double? fadeIn,
     double? fadeOut,
+    FadeCurve? fadeInCurve,
+    FadeCurve? fadeOutCurve,
     double? gain,
     bool? muted,
     bool? locked,
@@ -107,6 +116,8 @@ class TimelineClip {
       sourceDuration: sourceDuration ?? this.sourceDuration,
       fadeIn: fadeIn ?? this.fadeIn,
       fadeOut: fadeOut ?? this.fadeOut,
+      fadeInCurve: fadeInCurve ?? this.fadeInCurve,
+      fadeOutCurve: fadeOutCurve ?? this.fadeOutCurve,
       gain: gain ?? this.gain,
       muted: muted ?? this.muted,
       locked: locked ?? this.locked,

@@ -600,34 +600,28 @@ class _TimelineState extends State<Timeline> {
       }
     }
 
-    // G - zoom out centered on PLAYHEAD (only if content wider than timeline)
+    // G - zoom out centered on PLAYHEAD
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
-      // Check if any clip extends beyond visible timeline
-      final contentWidth = widget.totalDuration * widget.zoom;
-      if (contentWidth > _containerWidth) {
-        final playheadTime = widget.playheadPosition;
-        final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-        final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
-        final newScrollOffset = playheadTime - playheadX / newZoom;
-        widget.onZoomChange?.call(newZoom);
-        widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-            (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
-      }
+      final playheadTime = widget.playheadPosition;
+      final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
+      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+      final newScrollOffset = playheadTime - playheadX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      return KeyEventResult.handled;
     }
 
-    // H - zoom in centered on PLAYHEAD (only if content wider than timeline)
+    // H - zoom in centered on PLAYHEAD
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
-      // Check if any clip extends beyond visible timeline
-      final contentWidth = widget.totalDuration * widget.zoom;
-      if (contentWidth > _containerWidth) {
-        final playheadTime = widget.playheadPosition;
-        final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-        final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
-        final newScrollOffset = playheadTime - playheadX / newZoom;
-        widget.onZoomChange?.call(newZoom);
-        widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-            (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
-      }
+      final playheadTime = widget.playheadPosition;
+      final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
+      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+      final newScrollOffset = playheadTime - playheadX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      return KeyEventResult.handled;
     }
 
     // L - set loop region around selected clip (just sets region, no toggle)

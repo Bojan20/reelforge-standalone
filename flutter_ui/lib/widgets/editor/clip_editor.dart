@@ -136,6 +136,8 @@ class ClipEditor extends StatefulWidget {
   final ValueChanged<double>? onScrollChange;
   final void Function(String clipId, double fadeIn)? onFadeInChange;
   final void Function(String clipId, double fadeOut)? onFadeOutChange;
+  final void Function(String clipId, FadeCurve curve)? onFadeInCurveChange;
+  final void Function(String clipId, FadeCurve curve)? onFadeOutCurveChange;
   final void Function(String clipId, double gain)? onGainChange;
   final void Function(String clipId)? onNormalize;
   final void Function(String clipId)? onReverse;
@@ -157,6 +159,8 @@ class ClipEditor extends StatefulWidget {
     this.onScrollChange,
     this.onFadeInChange,
     this.onFadeOutChange,
+    this.onFadeInCurveChange,
+    this.onFadeOutCurveChange,
     this.onGainChange,
     this.onNormalize,
     this.onReverse,
@@ -521,6 +525,16 @@ class _ClipEditorState extends State<ClipEditor> {
             selection: widget.selection,
             onFadeInChange: (v) => widget.onFadeInChange?.call(widget.clip!.id, v),
             onFadeOutChange: (v) => widget.onFadeOutChange?.call(widget.clip!.id, v),
+            onFadeInCurveChange: (curve) {
+              if (curve != null) {
+                widget.onFadeInCurveChange?.call(widget.clip!.id, curve);
+              }
+            },
+            onFadeOutCurveChange: (curve) {
+              if (curve != null) {
+                widget.onFadeOutCurveChange?.call(widget.clip!.id, curve);
+              }
+            },
             onGainChange: (v) => widget.onGainChange?.call(widget.clip!.id, v),
           ),
         ),
@@ -615,107 +629,95 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   Widget _buildFadeHandles(BoxConstraints constraints) {
-    // Calculate fade positions accounting for scroll offset
-    // fadeInX = position of fade in END point (where fade completes)
     final fadeInTime = widget.clip!.fadeIn;
-    final fadeInX = (fadeInTime - widget.scrollOffset) * widget.zoom;
+    final fadeOutTime = widget.clip!.fadeOut;
+    final duration = widget.clip!.duration;
+    final maxW = constraints.maxWidth;
+    final maxH = constraints.maxHeight;
 
-    // fadeOutX = position of fade out START point (where fade begins)
-    final fadeOutStartTime = widget.clip!.duration - widget.clip!.fadeOut;
-    final fadeOutX = (fadeOutStartTime - widget.scrollOffset) * widget.zoom;
+    // Safety check
+    if (maxW <= 0 || maxH <= 0 || duration <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate fade region widths in pixels
+    final fadeInWidth = fadeInTime * widget.zoom;
+    final fadeOutWidth = fadeOutTime * widget.zoom;
+
+    // Calculate visible clip boundaries
+    final clipStartX = (0 - widget.scrollOffset) * widget.zoom;
+    final clipEndX = (duration - widget.scrollOffset) * widget.zoom;
+
+    const handleSize = 20.0;
 
     return Stack(
       children: [
-        // Fade in handle - positioned at the END of fade in region
-        if (fadeInTime > 0 && fadeInX > -16 && fadeInX < constraints.maxWidth + 16)
+        // ===== FADE IN REGION (left side) =====
+        // Triangular overlay for fade in
+        if (fadeInTime > 0 && fadeInWidth > 0 && clipStartX < maxW)
           Positioned(
-            left: fadeInX.clamp(0, constraints.maxWidth - 16) - 8,
+            left: clipStartX.clamp(0.0, maxW).toDouble(),
             top: 0,
-            child: GestureDetector(
-              onTap: () {}, // Absorb tap to prevent playhead creation
-              onHorizontalDragStart: (_) {
-                setState(() => _draggingFade = _FadeHandle.fadeIn);
-              },
-              onHorizontalDragUpdate: (details) {
-                // Convert pixel delta to time delta
-                final timeDelta = details.delta.dx / widget.zoom;
-                final newFadeIn = (widget.clip!.fadeIn + timeDelta)
-                    .clamp(0.0, widget.clip!.duration / 2);
-                widget.onFadeInChange?.call(widget.clip!.id, _snapTime(newFadeIn));
-              },
-              onHorizontalDragEnd: (_) {
-                setState(() => _draggingFade = _FadeHandle.none);
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.resizeColumn,
-                child: Container(
-                  width: 16,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: _draggingFade == _FadeHandle.fadeIn
-                        ? ReelForgeTheme.accentCyan
-                        : ReelForgeTheme.accentCyan.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ReelForgeTheme.accentCyan.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                ),
+            bottom: 0,
+            width: fadeInWidth.clamp(1.0, maxW).toDouble(),
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _FadeOverlayPainter(isLeft: true),
               ),
             ),
           ),
-        // Fade out handle - positioned at the START of fade out region
-        if (widget.clip!.fadeOut > 0 && fadeOutX > -16 && fadeOutX < constraints.maxWidth + 16)
+
+        // Fade In handle/arrow - positioned at TOP LEFT corner
+        if (clipStartX > -handleSize && clipStartX < maxW && maxW > handleSize)
           Positioned(
-            left: fadeOutX.clamp(0, constraints.maxWidth - 16) - 8,
-            top: 0,
-            child: GestureDetector(
-              onTap: () {}, // Absorb tap to prevent playhead creation
-              onHorizontalDragStart: (_) {
-                setState(() => _draggingFade = _FadeHandle.fadeOut);
+            left: clipStartX.clamp(0.0, maxW - handleSize).toDouble(),
+            top: 2,
+            child: _EditorFadeArrow(
+              isLeft: true,
+              isActive: _draggingFade == _FadeHandle.fadeIn,
+              hasFade: fadeInTime > 0,
+              onDragStart: () => setState(() => _draggingFade = _FadeHandle.fadeIn),
+              onDragUpdate: (delta) {
+                final timeDelta = delta / widget.zoom;
+                final newFadeIn = (fadeInTime + timeDelta).clamp(0.0, duration / 2);
+                widget.onFadeInChange?.call(widget.clip!.id, _snapTime(newFadeIn));
               },
-              onHorizontalDragUpdate: (details) {
-                // Convert pixel delta to time delta (negative because dragging left increases fade)
-                final timeDelta = -details.delta.dx / widget.zoom;
-                final newFadeOut = (widget.clip!.fadeOut + timeDelta)
-                    .clamp(0.0, widget.clip!.duration / 2);
+              onDragEnd: () => setState(() => _draggingFade = _FadeHandle.none),
+            ),
+          ),
+
+        // ===== FADE OUT REGION (right side) =====
+        // Triangular overlay for fade out
+        if (fadeOutTime > 0 && fadeOutWidth > 0 && clipEndX > 0)
+          Positioned(
+            left: (clipEndX - fadeOutWidth).clamp(0.0, maxW).toDouble(),
+            top: 0,
+            bottom: 0,
+            width: fadeOutWidth.clamp(1.0, maxW).toDouble(),
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _FadeOverlayPainter(isLeft: false),
+              ),
+            ),
+          ),
+
+        // Fade Out handle/arrow - positioned at TOP RIGHT corner
+        if (clipEndX > 0 && clipEndX < maxW + handleSize && maxW > handleSize)
+          Positioned(
+            left: (clipEndX - handleSize).clamp(0.0, maxW - handleSize).toDouble(),
+            top: 2,
+            child: _EditorFadeArrow(
+              isLeft: false,
+              isActive: _draggingFade == _FadeHandle.fadeOut,
+              hasFade: fadeOutTime > 0,
+              onDragStart: () => setState(() => _draggingFade = _FadeHandle.fadeOut),
+              onDragUpdate: (delta) {
+                // Negative because dragging left increases fade
+                final timeDelta = -delta / widget.zoom;
+                final newFadeOut = (fadeOutTime + timeDelta).clamp(0.0, duration / 2);
                 widget.onFadeOutChange?.call(widget.clip!.id, _snapTime(newFadeOut));
               },
-              onHorizontalDragEnd: (_) {
-                setState(() => _draggingFade = _FadeHandle.none);
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.resizeColumn,
-                child: Container(
-                  width: 16,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: _draggingFade == _FadeHandle.fadeOut
-                        ? ReelForgeTheme.accentCyan
-                        : ReelForgeTheme.accentCyan.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ReelForgeTheme.accentCyan.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.chevron_left,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              onDragEnd: () => setState(() => _draggingFade = _FadeHandle.none),
             ),
           ),
       ],
@@ -774,17 +776,19 @@ class _ClipEditorState extends State<ClipEditor> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          // Safety: max scroll can't be negative
+          final maxScroll = (widget.clip!.duration - constraints.maxWidth / widget.zoom).clamp(0.0, double.infinity);
+
           return GestureDetector(
             onTapDown: (details) {
               // Click to scroll to position
               final fraction = details.localPosition.dx / constraints.maxWidth;
               final time = fraction * widget.clip!.duration;
-              widget.onScrollChange?.call(time.clamp(0, widget.clip!.duration - constraints.maxWidth / widget.zoom));
+              widget.onScrollChange?.call(time.clamp(0.0, maxScroll));
             },
             onHorizontalDragUpdate: (details) {
               final delta = details.delta.dx / constraints.maxWidth * widget.clip!.duration;
-              final newOffset = (widget.scrollOffset + delta)
-                  .clamp(0.0, widget.clip!.duration - constraints.maxWidth / widget.zoom);
+              final newOffset = (widget.scrollOffset + delta).clamp(0.0, maxScroll);
               widget.onScrollChange?.call(newOffset);
             },
             child: CustomPaint(
@@ -2016,6 +2020,8 @@ class ConnectedClipEditor extends StatefulWidget {
   final Float32List? clipWaveform;
   final double fadeIn;
   final double fadeOut;
+  final FadeCurve fadeInCurve;
+  final FadeCurve fadeOutCurve;
   final double gain;
   final Color? clipColor;
   final double playheadPosition;
@@ -2023,6 +2029,8 @@ class ConnectedClipEditor extends StatefulWidget {
   final double snapValue;
   final void Function(String clipId, double fadeIn)? onFadeInChange;
   final void Function(String clipId, double fadeOut)? onFadeOutChange;
+  final void Function(String clipId, FadeCurve curve)? onFadeInCurveChange;
+  final void Function(String clipId, FadeCurve curve)? onFadeOutCurveChange;
   final void Function(String clipId, double gain)? onGainChange;
   final void Function(String clipId)? onNormalize;
   final void Function(String clipId)? onReverse;
@@ -2038,6 +2046,8 @@ class ConnectedClipEditor extends StatefulWidget {
     this.clipWaveform,
     this.fadeIn = 0,
     this.fadeOut = 0,
+    this.fadeInCurve = FadeCurve.linear,
+    this.fadeOutCurve = FadeCurve.linear,
     this.gain = 0,
     this.clipColor,
     this.playheadPosition = 0,
@@ -2045,6 +2055,8 @@ class ConnectedClipEditor extends StatefulWidget {
     this.snapValue = 0.1,
     this.onFadeInChange,
     this.onFadeOutChange,
+    this.onFadeInCurveChange,
+    this.onFadeOutCurveChange,
     this.onGainChange,
     this.onNormalize,
     this.onReverse,
@@ -2072,6 +2084,8 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
             waveform: widget.clipWaveform,
             fadeIn: widget.fadeIn,
             fadeOut: widget.fadeOut,
+            fadeInCurve: widget.fadeInCurve,
+            fadeOutCurve: widget.fadeOutCurve,
             gain: widget.gain,
             color: widget.clipColor,
           )
@@ -2090,6 +2104,8 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
       onScrollChange: (o) => setState(() => _scrollOffset = o),
       onFadeInChange: widget.onFadeInChange,
       onFadeOutChange: widget.onFadeOutChange,
+      onFadeInCurveChange: widget.onFadeInCurveChange,
+      onFadeOutCurveChange: widget.onFadeOutCurveChange,
       onGainChange: widget.onGainChange,
       onNormalize: widget.onNormalize,
       onReverse: widget.onReverse,
@@ -2331,4 +2347,140 @@ class _CurvePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CurvePreviewPainter oldDelegate) => oldDelegate.curve != curve;
+}
+
+// ============ Editor Fade Arrow Widget ============
+
+/// Draggable arrow for fade in/out on waveform edges
+class _EditorFadeArrow extends StatefulWidget {
+  final bool isLeft;
+  final bool isActive;
+  final bool hasFade;
+  final VoidCallback onDragStart;
+  final ValueChanged<double> onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  const _EditorFadeArrow({
+    required this.isLeft,
+    required this.isActive,
+    required this.hasFade,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  @override
+  State<_EditorFadeArrow> createState() => _EditorFadeArrowState();
+}
+
+class _EditorFadeArrowState extends State<_EditorFadeArrow> {
+  bool _isHovered = false;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 20.0;
+    final isActive = widget.isActive || _isHovered || _isDragging;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (details) {
+          setState(() => _isDragging = true);
+          widget.onDragStart();
+        },
+        onHorizontalDragUpdate: (details) {
+          // Smooth: send delta directly, no threshold
+          widget.onDragUpdate(details.delta.dx);
+        },
+        onHorizontalDragEnd: (details) {
+          setState(() => _isDragging = false);
+          widget.onDragEnd();
+        },
+        onHorizontalDragCancel: () {
+          setState(() => _isDragging = false);
+          widget.onDragEnd();
+        },
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: isActive
+                ? ReelForgeTheme.accentCyan
+                : widget.hasFade
+                    ? Colors.white.withValues(alpha: 0.9)
+                    : Colors.white.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: ReelForgeTheme.accentCyan.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
+              widget.isLeft ? Icons.chevron_right : Icons.chevron_left,
+              size: 14,
+              color: isActive ? Colors.white : ReelForgeTheme.bgDeepest,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============ Fade Overlay Painter ============
+
+/// Paints triangular fade overlay on waveform
+class _FadeOverlayPainter extends CustomPainter {
+  final bool isLeft;
+
+  _FadeOverlayPainter({required this.isLeft});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+
+    if (isLeft) {
+      // Fade in: triangle from top-left to bottom-right
+      path.moveTo(0, 0);
+      path.lineTo(size.width, 0);
+      path.lineTo(0, size.height);
+      path.close();
+    } else {
+      // Fade out: triangle from top-right to bottom-left
+      path.moveTo(size.width, 0);
+      path.lineTo(0, 0);
+      path.lineTo(size.width, size.height);
+      path.close();
+    }
+
+    canvas.drawPath(path, paint);
+
+    // Draw edge line
+    final linePaint = Paint()
+      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    if (isLeft) {
+      canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), linePaint);
+    } else {
+      canvas.drawLine(Offset(0, 0), Offset(size.width, size.height), linePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FadeOverlayPainter oldDelegate) => oldDelegate.isLeft != isLeft;
 }
