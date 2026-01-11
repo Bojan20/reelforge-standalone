@@ -650,8 +650,9 @@ class _ClipWidgetState extends State<ClipWidget> {
                 ),
 
               // Fade in handle (ON TOP of edge handle)
+              // Minimum 20px width for easy hover/click even when fade is 0
               _FadeHandle(
-                width: (clip.fadeIn * widget.zoom).clamp(8.0, double.infinity),
+                width: (clip.fadeIn * widget.zoom).clamp(20.0, double.infinity),
                 fadeTime: clip.fadeIn,
                 isLeft: true,
                 isActive: _isDraggingFadeIn,
@@ -667,8 +668,9 @@ class _ClipWidgetState extends State<ClipWidget> {
               ),
 
               // Fade out handle (ON TOP of edge handle)
+              // Minimum 20px width for easy hover/click even when fade is 0
               _FadeHandle(
-                width: (clip.fadeOut * widget.zoom).clamp(8.0, double.infinity),
+                width: (clip.fadeOut * widget.zoom).clamp(20.0, double.infinity),
                 fadeTime: clip.fadeOut,
                 isLeft: false,
                 isActive: _isDraggingFadeOut,
@@ -1286,44 +1288,31 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                 ),
               ),
-              // Drag handle at END of fade region (follows fade position)
+              // Drag handle INSIDE clip (Cubase/Logic Pro style)
+              // Small handle positioned fully inside the fade region
               Positioned(
-                // Fade IN: handle at RIGHT edge of fade region (end of fade)
-                // Fade OUT: handle at LEFT edge of fade region (start of fade)
-                left: widget.isLeft ? widget.width - 18 : null,
-                right: widget.isLeft ? null : widget.width - 18,
-                top: 0,
+                // Fade IN: handle near end of fade region, but inside
+                // Fade OUT: handle near start of fade region, but inside
+                left: widget.isLeft ? (widget.width - 16).clamp(2, double.infinity) : null,
+                right: widget.isLeft ? null : (widget.width - 16).clamp(2, double.infinity),
+                top: 4,
                 child: Container(
-                  width: 18,
-                  height: 18,
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
                     color: (widget.isActive || _isHovered)
-                        ? ReelForgeTheme.accentBlue
-                        : ReelForgeTheme.textSecondary.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.only(
-                      // Fade IN handle: rounded top-right (at end of fade)
-                      // Fade OUT handle: rounded top-left (at start of fade)
-                      topLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
-                      topRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
-                      bottomLeft: widget.isLeft ? Radius.zero : const Radius.circular(4),
-                      bottomRight: widget.isLeft ? const Radius.circular(4) : Radius.zero,
-                    ),
-                    boxShadow: (widget.isActive || _isHovered)
-                        ? [
-                            BoxShadow(
-                              color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
+                        ? ReelForgeTheme.accentCyan
+                        : Colors.white.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Icon(
-                    // Fade IN: arrow points right (direction of drag to increase fade)
-                    // Fade OUT: arrow points left (direction of drag to increase fade)
-                    widget.isLeft ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
-                    size: 10,
-                    color: Colors.white,
+                  child: Center(
+                    child: Icon(
+                      widget.isLeft ? Icons.chevron_right : Icons.chevron_left,
+                      size: 10,
+                      color: (widget.isActive || _isHovered)
+                          ? Colors.white
+                          : ReelForgeTheme.bgDeepest,
+                    ),
                   ),
                 ),
               ),

@@ -179,6 +179,30 @@ class _ClipEditorState extends State<ClipEditor> {
   double _containerWidth = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Request focus when clip is loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.clip != null && mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(ClipEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Request focus when a new clip is selected
+    if (widget.clip != null && oldWidget.clip?.id != widget.clip?.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _focusNode.dispose();
     super.dispose();
@@ -186,11 +210,28 @@ class _ClipEditorState extends State<ClipEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
+    return Focus(
       focusNode: _focusNode,
-      autofocus: false,
-      onKeyEvent: _handleKeyEvent,
+      autofocus: widget.clip != null,
+      onKeyEvent: (node, event) {
+        _handleKeyEvent(event);
+        // Consume zoom and fade keys
+        final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
+            event.logicalKey == LogicalKeyboardKey.keyH;
+        final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
+            event.logicalKey == LogicalKeyboardKey.bracketRight;
+        final isToolKey = event.logicalKey == LogicalKeyboardKey.digit1 ||
+            event.logicalKey == LogicalKeyboardKey.digit2 ||
+            event.logicalKey == LogicalKeyboardKey.digit3 ||
+            event.logicalKey == LogicalKeyboardKey.digit4 ||
+            event.logicalKey == LogicalKeyboardKey.digit5;
+        if (isZoomKey || isFadeKey || isToolKey) {
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _focusNode.requestFocus(),
         child: Container(
           decoration: const BoxDecoration(
@@ -215,6 +256,9 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   void _handleKeyEvent(KeyEvent event) {
+    // No clip = no keyboard handling (except tool shortcuts)
+    final clip = widget.clip;
+
     // G/H zoom and [ ] fade - allow repeat (hold key for continuous adjustment)
     final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
         event.logicalKey == LogicalKeyboardKey.keyH;
@@ -225,30 +269,32 @@ class _ClipEditorState extends State<ClipEditor> {
     // Only allow repeat for zoom and fade keys
     if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return;
 
+    debugPrint('[ClipEditor] Key: ${event.logicalKey.keyLabel}');
+
     // G - zoom out (center-screen anchor)
-    if (event.logicalKey == LogicalKeyboardKey.keyG) {
+    if (event.logicalKey == LogicalKeyboardKey.keyG && clip != null) {
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
       final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (widget.clip!.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+          (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     }
 
     // H - zoom in (center-screen anchor)
-    if (event.logicalKey == LogicalKeyboardKey.keyH) {
+    if (event.logicalKey == LogicalKeyboardKey.keyH && clip != null) {
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
       final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (widget.clip!.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+          (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     }
 
     // [ and ] keys - fade nudge
-    if (widget.clip != null) {
+    if (clip != null) {
       final fadeNudgeAmount = HardwareKeyboard.instance.isShiftPressed
           ? 0.01  // 10ms fine control
           : 0.05; // 50ms normal
@@ -257,14 +303,14 @@ class _ClipEditorState extends State<ClipEditor> {
       if (event.logicalKey == LogicalKeyboardKey.bracketLeft) {
         if (HardwareKeyboard.instance.isAltPressed) {
           // Alt+[ = increase fade out
-          final newFadeOut = (widget.clip!.fadeOut + fadeNudgeAmount)
-              .clamp(0.0, widget.clip!.duration * 0.5);
-          widget.onFadeOutChange?.call(widget.clip!.id, newFadeOut);
+          final newFadeOut = (clip.fadeOut + fadeNudgeAmount)
+              .clamp(0.0, clip.duration * 0.5);
+          widget.onFadeOutChange?.call(clip.id, newFadeOut);
         } else {
           // [ = decrease fade in
-          final newFadeIn = (widget.clip!.fadeIn - fadeNudgeAmount)
-              .clamp(0.0, widget.clip!.duration * 0.5);
-          widget.onFadeInChange?.call(widget.clip!.id, newFadeIn);
+          final newFadeIn = (clip.fadeIn - fadeNudgeAmount)
+              .clamp(0.0, clip.duration * 0.5);
+          widget.onFadeInChange?.call(clip.id, newFadeIn);
         }
       }
 
@@ -272,19 +318,19 @@ class _ClipEditorState extends State<ClipEditor> {
       if (event.logicalKey == LogicalKeyboardKey.bracketRight) {
         if (HardwareKeyboard.instance.isAltPressed) {
           // Alt+] = decrease fade out
-          final newFadeOut = (widget.clip!.fadeOut - fadeNudgeAmount)
-              .clamp(0.0, widget.clip!.duration * 0.5);
-          widget.onFadeOutChange?.call(widget.clip!.id, newFadeOut);
+          final newFadeOut = (clip.fadeOut - fadeNudgeAmount)
+              .clamp(0.0, clip.duration * 0.5);
+          widget.onFadeOutChange?.call(clip.id, newFadeOut);
         } else {
           // ] = increase fade in
-          final newFadeIn = (widget.clip!.fadeIn + fadeNudgeAmount)
-              .clamp(0.0, widget.clip!.duration * 0.5);
-          widget.onFadeInChange?.call(widget.clip!.id, newFadeIn);
+          final newFadeIn = (clip.fadeIn + fadeNudgeAmount)
+              .clamp(0.0, clip.duration * 0.5);
+          widget.onFadeInChange?.call(clip.id, newFadeIn);
         }
       }
     }
 
-    // Tool shortcuts
+    // Tool shortcuts (work without clip)
     if (event.logicalKey == LogicalKeyboardKey.digit1) {
       setState(() => _tool = EditorTool.select);
     }
@@ -774,30 +820,52 @@ class _ClipEditorState extends State<ClipEditor> {
   }
 
   void _handleWheel(PointerScrollEvent event) {
-    if (HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed) {
-      // Zoom (centered on mouse position)
-      final mouseTime = widget.scrollOffset + event.localPosition.dx / widget.zoom;
-      final delta = event.scrollDelta.dy > 0 ? 0.85 : 1.18;
-      final newZoom = (widget.zoom * delta).clamp(1.0, 500.0);
+    // ══════════════════════════════════════════════════════════════════
+    // DAW-STANDARD SCROLL/ZOOM (matching Timeline behavior)
+    // ══════════════════════════════════════════════════════════════════
+    final clip = widget.clip;
+    if (clip == null) return;
 
-      // Adjust scroll to keep mouse position stable
-      final newScrollOffset = mouseTime - event.localPosition.dx / newZoom;
+    final isZoomModifier = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
 
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0, widget.clip!.duration));
-    } else if (HardwareKeyboard.instance.isShiftPressed) {
-      // Horizontal scroll with shift
-      final delta = event.scrollDelta.dy / widget.zoom;
-      final newOffset = (widget.scrollOffset + delta).clamp(0.0, widget.clip!.duration);
-      widget.onScrollChange?.call(newOffset);
+    if (isZoomModifier) {
+      // ════════════════════════════════════════════════════════════════
+      // ZOOM TO CURSOR
+      // ════════════════════════════════════════════════════════════════
+      final mouseX = event.localPosition.dx;
+
+      // Simple zoom factor based on scroll direction
+      final zoomIn = event.scrollDelta.dy < 0;
+      final zoomFactor = zoomIn ? 1.15 : 0.87;
+      final newZoom = (widget.zoom * zoomFactor).clamp(5.0, 500.0);
+
+      if (_containerWidth > 0) {
+        final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
+        final newScrollOffset = mouseTime - mouseX / newZoom;
+
+        widget.onZoomChange?.call(newZoom);
+        widget.onScrollChange?.call(newScrollOffset.clamp(
+            0.0, (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      } else {
+        widget.onZoomChange?.call(newZoom);
+      }
     } else {
-      // Normal scroll
-      final delta = event.scrollDelta.dx != 0
+      // ════════════════════════════════════════════════════════════════
+      // HORIZONTAL SCROLL
+      // ════════════════════════════════════════════════════════════════
+      final rawDelta = event.scrollDelta.dx.abs() > event.scrollDelta.dy.abs()
           ? event.scrollDelta.dx
           : event.scrollDelta.dy;
-      final newOffset = (widget.scrollOffset + delta / widget.zoom)
-          .clamp(0.0, widget.clip!.duration);
+
+      final speedMultiplier = isShiftHeld ? 3.0 : 1.0;
+      final scrollSeconds = (rawDelta / widget.zoom) * speedMultiplier;
+
+      final maxOffset = (clip.duration - _containerWidth / widget.zoom)
+          .clamp(0.0, double.infinity);
+      final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
+
       widget.onScrollChange?.call(newOffset);
     }
   }
@@ -1006,34 +1074,10 @@ class _InfoSidebar extends StatelessWidget {
 
             Text('Fade In', style: ReelForgeTheme.label),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      activeTrackColor: ReelForgeTheme.accentCyan,
-                      inactiveTrackColor: ReelForgeTheme.borderSubtle,
-                      thumbColor: ReelForgeTheme.accentCyan,
-                    ),
-                    child: Slider(
-                      value: clip.fadeIn,
-                      min: 0,
-                      max: clip.duration / 2,
-                      onChanged: onFadeInChange,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 50,
-                  child: Text(
-                    '${(clip.fadeIn * 1000).toStringAsFixed(0)}ms',
-                    style: ReelForgeTheme.monoSmall,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
+            _FadeControl(
+              value: clip.fadeIn,
+              maxValue: clip.duration / 2,
+              onChanged: onFadeInChange,
             ),
 
             const SizedBox(height: 6),
@@ -1047,34 +1091,10 @@ class _InfoSidebar extends StatelessWidget {
             const SizedBox(height: 12),
             Text('Fade Out', style: ReelForgeTheme.label),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      activeTrackColor: ReelForgeTheme.accentCyan,
-                      inactiveTrackColor: ReelForgeTheme.borderSubtle,
-                      thumbColor: ReelForgeTheme.accentCyan,
-                    ),
-                    child: Slider(
-                      value: clip.fadeOut,
-                      min: 0,
-                      max: clip.duration / 2,
-                      onChanged: onFadeOutChange,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 50,
-                  child: Text(
-                    '${(clip.fadeOut * 1000).toStringAsFixed(0)}ms',
-                    style: ReelForgeTheme.monoSmall,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
+            _FadeControl(
+              value: clip.fadeOut,
+              maxValue: clip.duration / 2,
+              onChanged: onFadeOutChange,
             ),
 
             const SizedBox(height: 6),
@@ -2076,6 +2096,118 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
       onTrimToSelection: widget.onTrimToSelection,
       onSplitAtPosition: widget.onSplitAtPosition,
       onPlayheadChange: widget.onPlayheadChange,
+    );
+  }
+}
+
+// ============ Fade Control Widget (Slider + Arrows + Value) ============
+
+class _FadeControl extends StatelessWidget {
+  final double value;
+  final double maxValue;
+  final ValueChanged<double>? onChanged;
+
+  const _FadeControl({
+    required this.value,
+    required this.maxValue,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const nudgeAmount = 0.01; // 10ms
+    const nudgeAmountLarge = 0.05; // 50ms
+
+    return Row(
+      children: [
+        // Decrease button
+        _ArrowButton(
+          icon: Icons.remove,
+          onTap: onChanged != null
+              ? () => onChanged!((value - nudgeAmount).clamp(0.0, maxValue))
+              : null,
+          onLongPress: onChanged != null
+              ? () => onChanged!((value - nudgeAmountLarge).clamp(0.0, maxValue))
+              : null,
+        ),
+        // Slider
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              activeTrackColor: ReelForgeTheme.accentCyan,
+              inactiveTrackColor: ReelForgeTheme.borderSubtle,
+              thumbColor: ReelForgeTheme.accentCyan,
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+            ),
+            child: Slider(
+              value: value.clamp(0.0, maxValue),
+              min: 0,
+              max: maxValue > 0 ? maxValue : 1.0,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        // Increase button
+        _ArrowButton(
+          icon: Icons.add,
+          onTap: onChanged != null
+              ? () => onChanged!((value + nudgeAmount).clamp(0.0, maxValue))
+              : null,
+          onLongPress: onChanged != null
+              ? () => onChanged!((value + nudgeAmountLarge).clamp(0.0, maxValue))
+              : null,
+        ),
+        const SizedBox(width: 4),
+        // Value display
+        SizedBox(
+          width: 48,
+          child: Text(
+            '${(value * 1000).toStringAsFixed(0)}ms',
+            style: ReelForgeTheme.monoSmall,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============ Arrow Button Widget ============
+
+class _ArrowButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  const _ArrowButton({
+    required this.icon,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: ReelForgeTheme.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: ReelForgeTheme.borderSubtle),
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: onTap != null
+              ? ReelForgeTheme.textSecondary
+              : ReelForgeTheme.textTertiary,
+        ),
+      ),
     );
   }
 }

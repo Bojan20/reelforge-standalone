@@ -347,46 +347,69 @@ class _TimelineState extends State<Timeline> {
   }
 
   void _handleWheel(PointerScrollEvent event) {
-    if (HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed) {
-      // SMOOTH ZOOM with zoom-to-cursor (Cubase/Logic style)
-      // Scale zoom factor based on scroll magnitude for smooth trackpad support
-      final scrollMagnitude = event.scrollDelta.dy.abs();
-      final zoomFactor = 1.0 + (scrollMagnitude / 400.0).clamp(0.02, 0.12);
-      final delta = event.scrollDelta.dy > 0 ? 1.0 / zoomFactor : zoomFactor;
+    // ══════════════════════════════════════════════════════════════════
+    // DAW-STANDARD SCROLL/ZOOM (Cubase/Logic/Pro Tools/Ableton style)
+    // ══════════════════════════════════════════════════════════════════
+    //
+    // SCROLL:
+    //   - Wheel up/down      = Horizontal scroll
+    //   - Shift + Wheel      = Faster horizontal scroll
+    //   - Two-finger swipe   = Horizontal scroll (trackpad)
+    //
+    // ZOOM:
+    //   - Cmd/Ctrl + Wheel   = Zoom to cursor
+    //
+    // ══════════════════════════════════════════════════════════════════
 
-      // Calculate cursor position in timeline
+    final isZoomModifier = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
+
+    if (isZoomModifier) {
+      // ════════════════════════════════════════════════════════════════
+      // ZOOM TO CURSOR (Cubase/Logic style)
+      // ════════════════════════════════════════════════════════════════
       final mouseX = event.localPosition.dx - _headerWidth;
-      if (mouseX < 0) {
-        // Mouse over header, just zoom without cursor tracking
-        final newZoom = (widget.zoom * delta).clamp(5.0, 500.0);
+
+      // Simple zoom factor based on scroll direction
+      final zoomIn = event.scrollDelta.dy < 0;
+      final zoomFactor = zoomIn ? 1.15 : 0.87;
+
+      final newZoom = (widget.zoom * zoomFactor).clamp(5.0, 500.0);
+
+      if (mouseX > 0 && _containerWidth > 0) {
+        // Time position under cursor before zoom
+        final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
+
+        // Calculate new scroll offset to keep cursor position stable
+        final newScrollOffset = mouseTime - mouseX / newZoom;
+
         widget.onZoomChange?.call(newZoom);
-        return;
+        widget.onScrollChange?.call(newScrollOffset.clamp(
+            0.0, (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      } else {
+        // Mouse over header - zoom without cursor tracking
+        widget.onZoomChange?.call(newZoom);
       }
-
-      // Time position under cursor before zoom
-      final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
-
-      // Apply zoom
-      final newZoom = (widget.zoom * delta).clamp(5.0, 500.0);
-
-      // Calculate new scroll offset to keep cursor position stable
-      final newScrollOffset = mouseTime - mouseX / newZoom;
-
-      // Apply both changes
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     } else {
-      // SMOOTH SCROLL - scale based on zoom level for consistent feel
-      final rawDelta = event.scrollDelta.dx != 0
+      // ════════════════════════════════════════════════════════════════
+      // HORIZONTAL SCROLL
+      // ════════════════════════════════════════════════════════════════
+      // Prefer horizontal delta (trackpad), fallback to vertical (mouse wheel)
+      final rawDelta = event.scrollDelta.dx.abs() > event.scrollDelta.dy.abs()
           ? event.scrollDelta.dx
           : event.scrollDelta.dy;
-      // Smoother scroll: scale delta by zoom level
-      final scrollSpeed = 1.0 + (widget.zoom / 100.0).clamp(0.5, 2.0);
-      final delta = rawDelta / widget.zoom * scrollSpeed;
-      final newOffset = (widget.scrollOffset + delta)
-          .clamp(0.0, (widget.totalDuration - _containerWidth / widget.zoom).clamp(0.0, double.infinity));
+
+      // Speed multiplier: Shift = 3x faster
+      final speedMultiplier = isShiftHeld ? 3.0 : 1.0;
+
+      // Scroll amount in seconds
+      final scrollSeconds = (rawDelta / widget.zoom) * speedMultiplier;
+
+      final maxOffset = (widget.totalDuration - _containerWidth / widget.zoom)
+          .clamp(0.0, double.infinity);
+      final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
+
       widget.onScrollChange?.call(newOffset);
     }
   }
@@ -619,19 +642,59 @@ class _TimelineState extends State<Timeline> {
       }
     }
 
-    // Arrow keys - nudge clip
-    if (selectedClip != null && widget.onClipMove != null) {
-      final beatsPerSecond = widget.tempo / 60;
-      final nudgeAmount = HardwareKeyboard.instance.isShiftPressed
-          ? 1 / beatsPerSecond
-          : 0.25 / beatsPerSecond;
+    // Arrow keys - nudge clip OR scroll timeline
+    final isArrowKey = event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        event.logicalKey == LogicalKeyboardKey.arrowRight;
 
-      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        final newTime = (selectedClip.startTime - nudgeAmount).clamp(0.0, double.infinity);
-        widget.onClipMove!(selectedClip.id, newTime);
+    if (isArrowKey) {
+      // Alt+Arrow = scroll timeline
+      if (HardwareKeyboard.instance.isAltPressed) {
+        final scrollAmount = HardwareKeyboard.instance.isShiftPressed
+            ? 2.0  // Fast scroll
+            : 0.5; // Normal scroll
+
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          final newOffset = (widget.scrollOffset - scrollAmount)
+              .clamp(0.0, widget.totalDuration);
+          widget.onScrollChange?.call(newOffset);
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          final newOffset = (widget.scrollOffset + scrollAmount)
+              .clamp(0.0, widget.totalDuration);
+          widget.onScrollChange?.call(newOffset);
+        }
       }
-      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        widget.onClipMove!(selectedClip.id, selectedClip.startTime + nudgeAmount);
+      // Arrow without Alt = nudge selected clip
+      else if (selectedClip != null && widget.onClipMove != null) {
+        final beatsPerSecond = widget.tempo / 60;
+        final nudgeAmount = HardwareKeyboard.instance.isShiftPressed
+            ? 1 / beatsPerSecond
+            : 0.25 / beatsPerSecond;
+
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          final newTime = (selectedClip.startTime - nudgeAmount).clamp(0.0, double.infinity);
+          widget.onClipMove!(selectedClip.id, newTime);
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          widget.onClipMove!(selectedClip.id, selectedClip.startTime + nudgeAmount);
+        }
+      }
+      // No clip selected - scroll timeline
+      else if (selectedClip == null) {
+        final scrollAmount = HardwareKeyboard.instance.isShiftPressed
+            ? 2.0  // Fast scroll
+            : 0.5; // Normal scroll
+
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          final newOffset = (widget.scrollOffset - scrollAmount)
+              .clamp(0.0, widget.totalDuration);
+          widget.onScrollChange?.call(newOffset);
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          final newOffset = (widget.scrollOffset + scrollAmount)
+              .clamp(0.0, widget.totalDuration);
+          widget.onScrollChange?.call(newOffset);
+        }
       }
     }
 
