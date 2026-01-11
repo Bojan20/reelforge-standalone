@@ -187,12 +187,15 @@ class Fader extends StatefulWidget {
   State<Fader> createState() => _FaderState();
 }
 
-class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _FaderState extends State<Fader> with TickerProviderStateMixin {
+  late AnimationController _meterController;
+  late AnimationController _smoothController;
+  late Animation<double> _smoothAnimation;
 
   bool _isDragging = false;
   double _dragStartPos = 0;
   double _dragStartValue = 0;
+  double _targetValue = 0;
 
   // Peak hold state
   double _peakHoldL = 0;
@@ -209,28 +212,40 @@ class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _targetValue = widget.value;
+
+    // Meter animation controller
+    _meterController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
     );
     if (widget.showMeters) {
-      _controller.repeat();
+      _meterController.repeat();
     }
+
+    // Smooth value animation controller
+    _smoothController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 60),
+    );
+    _smoothAnimation = Tween<double>(begin: widget.value, end: widget.value)
+        .animate(CurvedAnimation(parent: _smoothController, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _meterController.dispose();
+    _smoothController.dispose();
     super.dispose();
   }
 
   @override
   void didUpdateWidget(Fader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.showMeters && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.showMeters && _controller.isAnimating) {
-      _controller.stop();
+    if (widget.showMeters && !_meterController.isAnimating) {
+      _meterController.repeat();
+    } else if (!widget.showMeters && _meterController.isAnimating) {
+      _meterController.stop();
     }
     if (widget.showMeters) {
       _updatePeakHold();
@@ -359,9 +374,13 @@ class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
     if (event is PointerScrollEvent) {
       final isVertical = widget.orientation == FaderOrientation.vertical;
       final scrollDelta = isVertical ? event.scrollDelta.dy : -event.scrollDelta.dx;
+      // SMOOTH SCROLL: scale by scroll magnitude for trackpad support
+      final scrollMagnitude = scrollDelta.abs();
       final delta = scrollDelta > 0 ? -1.0 : 1.0;
       final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
-      final step = isShiftHeld ? 0.1 : 1.0;
+      // Variable step based on scroll speed
+      final baseStep = isShiftHeld ? 0.1 : 0.5;
+      final step = baseStep * (1.0 + (scrollMagnitude / 50.0).clamp(0.0, 2.0));
       final newValue = (widget.value + delta * step).clamp(widget.min, widget.max);
       widget.onChanged?.call(newValue);
     }
@@ -382,7 +401,7 @@ class _FaderState extends State<Fader> with SingleTickerProviderStateMixin {
         onPointerSignal: _onPointerSignal,
         child: widget.showMeters
             ? AnimatedBuilder(
-                animation: _controller,
+                animation: _meterController,
                 builder: (context, _) {
                   _updatePeakHold();
                   return _buildVerticalFader();

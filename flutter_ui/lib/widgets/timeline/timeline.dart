@@ -349,17 +349,44 @@ class _TimelineState extends State<Timeline> {
   void _handleWheel(PointerScrollEvent event) {
     if (HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed) {
-      // Zoom
-      final delta = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
-      final newZoom = (widget.zoom * delta).clamp(1.0, 500.0);
+      // SMOOTH ZOOM with zoom-to-cursor (Cubase/Logic style)
+      // Scale zoom factor based on scroll magnitude for smooth trackpad support
+      final scrollMagnitude = event.scrollDelta.dy.abs();
+      final zoomFactor = 1.0 + (scrollMagnitude / 400.0).clamp(0.02, 0.12);
+      final delta = event.scrollDelta.dy > 0 ? 1.0 / zoomFactor : zoomFactor;
+
+      // Calculate cursor position in timeline
+      final mouseX = event.localPosition.dx - _headerWidth;
+      if (mouseX < 0) {
+        // Mouse over header, just zoom without cursor tracking
+        final newZoom = (widget.zoom * delta).clamp(5.0, 500.0);
+        widget.onZoomChange?.call(newZoom);
+        return;
+      }
+
+      // Time position under cursor before zoom
+      final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
+
+      // Apply zoom
+      final newZoom = (widget.zoom * delta).clamp(5.0, 500.0);
+
+      // Calculate new scroll offset to keep cursor position stable
+      final newScrollOffset = mouseTime - mouseX / newZoom;
+
+      // Apply both changes
       widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     } else {
-      // Scroll
-      final delta = event.scrollDelta.dx != 0
+      // SMOOTH SCROLL - scale based on zoom level for consistent feel
+      final rawDelta = event.scrollDelta.dx != 0
           ? event.scrollDelta.dx
           : event.scrollDelta.dy;
-      final newOffset = (widget.scrollOffset + delta / widget.zoom)
-          .clamp(0.0, widget.totalDuration - _containerWidth / widget.zoom);
+      // Smoother scroll: scale delta by zoom level
+      final scrollSpeed = 1.0 + (widget.zoom / 100.0).clamp(0.5, 2.0);
+      final delta = rawDelta / widget.zoom * scrollSpeed;
+      final newOffset = (widget.scrollOffset + delta)
+          .clamp(0.0, (widget.totalDuration - _containerWidth / widget.zoom).clamp(0.0, double.infinity));
       widget.onScrollChange?.call(newOffset);
     }
   }
@@ -549,13 +576,27 @@ class _TimelineState extends State<Timeline> {
     }
 
     // G - zoom out (Cubase-style, hold for continuous)
+    // Smooth zoom with center-screen anchor
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
-      widget.onZoomChange?.call((widget.zoom * 0.92).clamp(1, 500));
+      final centerX = _containerWidth / 2;
+      final centerTime = widget.scrollOffset + centerX / widget.zoom;
+      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+      final newScrollOffset = centerTime - centerX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     }
 
     // H - zoom in (Cubase-style, hold for continuous)
+    // Smooth zoom with center-screen anchor
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
-      widget.onZoomChange?.call((widget.zoom * 1.08).clamp(1, 500));
+      final centerX = _containerWidth / 2;
+      final centerTime = widget.scrollOffset + centerX / widget.zoom;
+      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+      final newScrollOffset = centerTime - centerX / newZoom;
+      widget.onZoomChange?.call(newZoom);
+      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+          (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
     }
 
     // L - set loop around selected clip OR toggle loop if no selection
@@ -589,6 +630,46 @@ class _TimelineState extends State<Timeline> {
       }
       if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
         widget.onClipMove!(selectedClip.id, selectedClip.startTime + nudgeAmount);
+      }
+    }
+
+    // [ and ] keys - fade nudge (Pro Tools style)
+    // [ = decrease fade in / increase fade out
+    // ] = increase fade in / decrease fade out
+    // Shift = fine control (10ms steps)
+    if (selectedClip != null && widget.onClipFadeChange != null) {
+      final fadeNudgeAmount = HardwareKeyboard.instance.isShiftPressed
+          ? 0.01  // 10ms fine control
+          : 0.05; // 50ms normal
+
+      // [ key - decrease fade in OR increase fade out
+      if (event.logicalKey == LogicalKeyboardKey.bracketLeft) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          // Alt+[ = increase fade out
+          final newFadeOut = (selectedClip.fadeOut + fadeNudgeAmount)
+              .clamp(0.0, selectedClip.duration * 0.5);
+          widget.onClipFadeChange!(selectedClip.id, selectedClip.fadeIn, newFadeOut);
+        } else {
+          // [ = decrease fade in
+          final newFadeIn = (selectedClip.fadeIn - fadeNudgeAmount)
+              .clamp(0.0, selectedClip.duration * 0.5);
+          widget.onClipFadeChange!(selectedClip.id, newFadeIn, selectedClip.fadeOut);
+        }
+      }
+
+      // ] key - increase fade in OR decrease fade out
+      if (event.logicalKey == LogicalKeyboardKey.bracketRight) {
+        if (HardwareKeyboard.instance.isAltPressed) {
+          // Alt+] = decrease fade out
+          final newFadeOut = (selectedClip.fadeOut - fadeNudgeAmount)
+              .clamp(0.0, selectedClip.duration * 0.5);
+          widget.onClipFadeChange!(selectedClip.id, selectedClip.fadeIn, newFadeOut);
+        } else {
+          // ] = increase fade in
+          final newFadeIn = (selectedClip.fadeIn + fadeNudgeAmount)
+              .clamp(0.0, selectedClip.duration * 0.5);
+          widget.onClipFadeChange!(selectedClip.id, newFadeIn, selectedClip.fadeOut);
+        }
       }
     }
 

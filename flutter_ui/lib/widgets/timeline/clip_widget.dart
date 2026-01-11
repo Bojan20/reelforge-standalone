@@ -1216,6 +1216,7 @@ class _FadeHandleState extends State<_FadeHandle> {
   bool _isHovered = false;
   bool _isDragging = false;
   double _dragStartX = 0;
+  double _accumulatedDelta = 0; // Track total movement for stable updates
 
   @override
   Widget build(BuildContext context) {
@@ -1226,20 +1227,29 @@ class _FadeHandleState extends State<_FadeHandle> {
       bottom: 0,
       width: widget.width,
       // Listener with opaque behavior + global flag to block playhead movement
+      // Uses ABSOLUTE position tracking for stable, drift-free fade editing
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (event) {
           // Set global flag IMMEDIATELY to block timeline click handler
           fadeHandleActiveGlobal = true;
           _isDragging = true;
-          _dragStartX = event.localPosition.dx;
+          _dragStartX = event.position.dx; // Use global position for stability
+          _accumulatedDelta = 0;
           widget.onDragStart();
         },
         onPointerMove: (event) {
           if (_isDragging) {
-            final delta = event.localPosition.dx - _dragStartX;
-            _dragStartX = event.localPosition.dx;
-            widget.onDragUpdate(delta);
+            // Calculate delta from ORIGINAL start position (not incremental)
+            // This prevents drift from accumulated floating-point errors
+            final totalDelta = event.position.dx - _dragStartX;
+            final incrementalDelta = totalDelta - _accumulatedDelta;
+            _accumulatedDelta = totalDelta;
+
+            // Apply with threshold to reduce jitter on small movements
+            if (incrementalDelta.abs() > 0.5) {
+              widget.onDragUpdate(incrementalDelta);
+            }
           }
         },
         onPointerUp: (event) {
@@ -1247,6 +1257,7 @@ class _FadeHandleState extends State<_FadeHandle> {
           fadeHandleActiveGlobal = false;
           if (_isDragging) {
             _isDragging = false;
+            _accumulatedDelta = 0;
             widget.onDragEnd();
           }
         },
@@ -1255,6 +1266,7 @@ class _FadeHandleState extends State<_FadeHandle> {
           fadeHandleActiveGlobal = false;
           if (_isDragging) {
             _isDragging = false;
+            _accumulatedDelta = 0;
             widget.onDragEnd();
           }
         },
