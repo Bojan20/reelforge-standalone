@@ -1,12 +1,11 @@
-// Meter Provider
+// Meter Provider - Cubase-Style Optimized
 //
 // Real-time audio metering with:
 // - Peak/RMS levels
 // - Peak hold with decay
 // - Stereo L/R metering
 // - LUFS short-term
-// - Visibility-based throttling
-// - Integration with Rust engine metering
+// - OPTIMIZED: No rebuild storms, minimal allocations
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -68,17 +67,16 @@ class MeterState {
     );
   }
 
+  /// Check if meter has any activity worth displaying
+  bool get hasActivity => peak > 0.001 || rms > 0.001 || peakR > 0.001 || rmsR > 0.001;
+
   static const MeterState zero = MeterState();
 }
 
 class BusMeterState {
-  /// Current peak level (0-1)
   final double peak;
-  /// RMS level (0-1)
   final double rms;
-  /// Peak hold level (0-1)
   final double peakHold;
-  /// Whether signal is clipping
   final bool clipping;
 
   const BusMeterState({
@@ -88,20 +86,6 @@ class BusMeterState {
     this.clipping = false,
   });
 
-  BusMeterState copyWith({
-    double? peak,
-    double? rms,
-    double? peakHold,
-    bool? clipping,
-  }) {
-    return BusMeterState(
-      peak: peak ?? this.peak,
-      rms: rms ?? this.rms,
-      peakHold: peakHold ?? this.peakHold,
-      clipping: clipping ?? this.clipping,
-    );
-  }
-
   static const BusMeterState zero = BusMeterState();
 }
 
@@ -109,98 +93,71 @@ class BusMeterState {
 
 const double kPeakHoldTime = 1500; // ms to hold peak
 const double kPeakDecayRate = 0.05; // decay per frame
-const double kSmoothing = 0.8;
+const double kMeterDecay = 0.85; // multiplier for meter decay
+const double kPeakHoldDecay = 0.9; // multiplier for peak hold decay
+const double kActivityThreshold = 0.001; // below this = silent
 
 // ============ Provider ============
 
 class MeterProvider extends ChangeNotifier {
+  // OPTIMIZED: Use fixed-size list for buses instead of dynamic clear/rebuild
+  final List<MeterState> _busStates = List.filled(6, MeterState.zero, growable: false);
+  int _activeBusCount = 0;
+
+  // OPTIMIZED: Single map for registered meters, iterate keys directly
   final Map<String, MeterState> _meterStates = {};
-  final Map<String, double> _peakHoldL = {};
-  final Map<String, double> _peakHoldR = {};
-  final Map<String, DateTime> _lastPeakTime = {};
+
+  // OPTIMIZED: Combined peak hold data to reduce map lookups
+  final Map<String, _PeakHoldData> _peakHoldData = {};
 
   StreamSubscription<MeteringState>? _meteringSubscription;
   StreamSubscription<TransportState>? _transportSubscription;
   Timer? _decayTimer;
-  Timer? _silenceTimer;
   bool _isActive = true;
   bool _isPlaying = false;
-  DateTime _lastMeteringUpdate = DateTime.now();
-  DateTime? _lastNotify; // Throttling for notifyListeners()
-  static const _throttleMs = 33; // 30fps max update rate
+  int _lastNotifyMs = 0;
 
-  // Master meter state (from engine)
+  // OPTIMIZED: 30fps = 33ms, decay at same rate (no wasted cycles)
+  static const _updateIntervalMs = 33;
+
   MeterState _masterState = MeterState.zero;
-
-  // Bus meter states (from engine)
-  final List<MeterState> _busStates = [];
 
   MeterProvider() {
     _subscribeToEngine();
     _subscribeToTransport();
-    _startSilenceDetection();
   }
 
-  /// Throttled notify - max 30fps to prevent rebuild storm
+  /// Throttled notify - max 30fps
   void _throttledNotify() {
-    final now = DateTime.now();
-    if (_lastNotify != null &&
-        now.difference(_lastNotify!).inMilliseconds < _throttleMs) {
-      return; // Skip this update
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastNotifyMs < _updateIntervalMs) {
+      return;
     }
-    _lastNotify = now;
+    _lastNotifyMs = nowMs;
     notifyListeners();
   }
 
-  /// Subscribe to transport state to detect playback stop
   void _subscribeToTransport() {
     _transportSubscription = engine.transportStream.listen((transport) {
       final wasPlaying = _isPlaying;
       _isPlaying = transport.isPlaying;
 
-      // When playback stops, immediately start decay (Cubase-style instant meter drop)
       if (wasPlaying && !_isPlaying) {
         _startDecayLoop();
       }
     });
   }
 
-  /// Start silence detection timer - if no metering updates for 100ms, start decay
-  void _startSilenceDetection() {
-    _silenceTimer?.cancel();
-    _silenceTimer = Timer.periodic(
-      const Duration(milliseconds: 100),
-      (_) => _checkForSilence(),
-    );
-  }
-
-  void _checkForSilence() {
-    final now = DateTime.now();
-    final timeSinceUpdate = now.difference(_lastMeteringUpdate).inMilliseconds;
-
-    // If no metering updates for 100ms + we have non-zero levels, start decay
-    if (timeSinceUpdate > 100 && _decayTimer == null) {
-      final hasSignal = _masterState.peak > 0.001 ||
-          _masterState.rms > 0.001 ||
-          _busStates.any((s) => s.peak > 0.001 || s.rms > 0.001);
-
-      if (hasSignal) {
-        _startDecayLoop();
-      }
-    }
-  }
-
-  Map<String, MeterState> get meterStates => Map.unmodifiable(_meterStates);
+  Map<String, MeterState> get meterStates => _meterStates;
   MeterState get masterState => _masterState;
-  List<MeterState> get busStates => List.unmodifiable(_busStates);
+  List<MeterState> get busStates => _busStates.sublist(0, _activeBusCount);
 
   MeterState getMeterState(String meterId) {
     return _meterStates[meterId] ?? MeterState.zero;
   }
 
-  /// Get bus meter state by index
   MeterState getBusState(int index) {
-    if (index >= 0 && index < _busStates.length) {
+    if (index >= 0 && index < _activeBusCount) {
       return _busStates[index];
     }
     return MeterState.zero;
@@ -220,14 +177,13 @@ class MeterProvider extends ChangeNotifier {
   void _onMeteringUpdate(MeteringState metering) {
     if (!_isActive) return;
 
-    final now = DateTime.now();
-    _lastMeteringUpdate = now;
-
-    // Stop decay timer when we receive new data
+    // Stop decay when receiving new data
     _decayTimer?.cancel();
     _decayTimer = null;
 
-    // Update master meter
+    final now = DateTime.now();
+
+    // Update master
     _masterState = _convertToMeterState(
       'master',
       metering.masterPeakL,
@@ -238,38 +194,36 @@ class MeterProvider extends ChangeNotifier {
       now,
     );
 
-    // Update bus meters
-    _busStates.clear();
-    for (int i = 0; i < metering.buses.length; i++) {
+    // OPTIMIZED: Update buses in-place, no clear/rebuild
+    _activeBusCount = metering.buses.length.clamp(0, 6);
+    for (int i = 0; i < _activeBusCount; i++) {
       final bus = metering.buses[i];
-      final busState = _convertToMeterState(
+      _busStates[i] = _convertToMeterState(
         'bus_$i',
         bus.peakL,
         bus.peakR,
         bus.rmsL,
         bus.rmsR,
-        -14.0, // No LUFS for individual buses
+        -14.0,
         now,
       );
-      _busStates.add(busState);
     }
 
-    // Update registered meters (for custom meter IDs)
-    for (final meterId in _meterStates.keys.toList()) {
+    // OPTIMIZED: Update registered meters directly (no toList() copy)
+    _meterStates.forEach((meterId, _) {
       if (meterId == 'master') {
         _meterStates[meterId] = _masterState;
       } else if (meterId.startsWith('bus_')) {
         final index = int.tryParse(meterId.substring(4));
-        if (index != null && index < _busStates.length) {
+        if (index != null && index < _activeBusCount) {
           _meterStates[meterId] = _busStates[index];
         }
       }
-    }
+    });
 
-    _throttledNotify(); // Throttled to 30fps
+    _throttledNotify();
   }
 
-  /// Convert dB values from engine to normalized MeterState
   MeterState _convertToMeterState(
     String meterId,
     double peakLDb,
@@ -279,40 +233,39 @@ class MeterProvider extends ChangeNotifier {
     double lufsShort,
     DateTime now,
   ) {
-    // Convert dB to normalized 0-1 (assuming -60dB to 0dB range)
     final peakL = dbToNormalized(peakLDb);
     final peakR = dbToNormalized(peakRDb);
     final rmsL = dbToNormalized(rmsLDb);
     final rmsR = dbToNormalized(rmsRDb);
 
+    // OPTIMIZED: Get or create peak hold data
+    var holdData = _peakHoldData[meterId];
+    if (holdData == null) {
+      holdData = _PeakHoldData();
+      _peakHoldData[meterId] = holdData;
+    }
+
     // Peak hold logic
-    var peakHoldL = _peakHoldL[meterId] ?? 0;
-    var peakHoldR = _peakHoldR[meterId] ?? 0;
-    final lastPeak = _lastPeakTime[meterId] ?? now;
-
-    if (peakL > peakHoldL) {
-      peakHoldL = peakL;
-      _lastPeakTime[meterId] = now;
-    } else if (now.difference(lastPeak).inMilliseconds > kPeakHoldTime) {
-      peakHoldL = (peakHoldL - kPeakDecayRate).clamp(0.0, 1.0);
+    if (peakL > holdData.peakHoldL) {
+      holdData.peakHoldL = peakL;
+      holdData.lastPeakTime = now;
+    } else if (now.difference(holdData.lastPeakTime).inMilliseconds > kPeakHoldTime) {
+      holdData.peakHoldL = (holdData.peakHoldL - kPeakDecayRate).clamp(0.0, 1.0);
     }
 
-    if (peakR > peakHoldR) {
-      peakHoldR = peakR;
-    } else if (now.difference(lastPeak).inMilliseconds > kPeakHoldTime) {
-      peakHoldR = (peakHoldR - kPeakDecayRate).clamp(0.0, 1.0);
+    if (peakR > holdData.peakHoldR) {
+      holdData.peakHoldR = peakR;
+    } else if (now.difference(holdData.lastPeakTime).inMilliseconds > kPeakHoldTime) {
+      holdData.peakHoldR = (holdData.peakHoldR - kPeakDecayRate).clamp(0.0, 1.0);
     }
-
-    _peakHoldL[meterId] = peakHoldL;
-    _peakHoldR[meterId] = peakHoldR;
 
     return MeterState(
       peak: peakL,
       peakR: peakR,
       rms: rmsL,
       rmsR: rmsR,
-      peakHold: peakHoldL,
-      peakHoldR: peakHoldR,
+      peakHold: holdData.peakHoldL,
+      peakHoldR: holdData.peakHoldR,
       isClipping: peakL > 0.99 || peakR > 0.99,
       lufsShort: lufsShort,
     );
@@ -320,8 +273,9 @@ class MeterProvider extends ChangeNotifier {
 
   void _startDecayLoop() {
     _decayTimer?.cancel();
+    // OPTIMIZED: Decay at same rate as notify throttle (33ms = 30fps)
     _decayTimer = Timer.periodic(
-      const Duration(milliseconds: 16),
+      const Duration(milliseconds: _updateIntervalMs),
       (_) => _decayMeters(),
     );
   }
@@ -335,58 +289,56 @@ class MeterProvider extends ChangeNotifier {
     bool hasActivity = false;
 
     // Decay master
-    if (_masterState.peak > 0.001 || _masterState.rms > 0.001) {
+    if (_masterState.hasActivity) {
       hasActivity = true;
       _masterState = _masterState.copyWith(
-        peak: _masterState.peak * 0.85,
-        peakR: _masterState.peakR * 0.85,
-        rms: _masterState.rms * 0.85,
-        rmsR: _masterState.rmsR * 0.85,
-        peakHold: _masterState.peakHold * 0.9,
-        peakHoldR: _masterState.peakHoldR * 0.9,
+        peak: _masterState.peak * kMeterDecay,
+        peakR: _masterState.peakR * kMeterDecay,
+        rms: _masterState.rms * kMeterDecay,
+        rmsR: _masterState.rmsR * kMeterDecay,
+        peakHold: _masterState.peakHold * kPeakHoldDecay,
+        peakHoldR: _masterState.peakHoldR * kPeakHoldDecay,
         isClipping: false,
       );
     }
 
-    // Decay buses
-    for (int i = 0; i < _busStates.length; i++) {
+    // Decay buses (only active ones)
+    for (int i = 0; i < _activeBusCount; i++) {
       final state = _busStates[i];
-      if (state.peak > 0.001 || state.rms > 0.001) {
+      if (state.hasActivity) {
         hasActivity = true;
         _busStates[i] = state.copyWith(
-          peak: state.peak * 0.85,
-          peakR: state.peakR * 0.85,
-          rms: state.rms * 0.85,
-          rmsR: state.rmsR * 0.85,
-          peakHold: state.peakHold * 0.9,
-          peakHoldR: state.peakHoldR * 0.9,
+          peak: state.peak * kMeterDecay,
+          peakR: state.peakR * kMeterDecay,
+          rms: state.rms * kMeterDecay,
+          rmsR: state.rmsR * kMeterDecay,
+          peakHold: state.peakHold * kPeakHoldDecay,
+          peakHoldR: state.peakHoldR * kPeakHoldDecay,
           isClipping: false,
         );
       }
     }
 
-    // Decay registered meters
-    for (final meterId in _meterStates.keys.toList()) {
-      final state = _meterStates[meterId]!;
-
-      if (state.peak > 0.001 || state.rms > 0.001) {
+    // OPTIMIZED: Iterate directly, no toList() copy
+    _meterStates.forEach((meterId, state) {
+      if (state.hasActivity) {
         hasActivity = true;
+        _meterStates[meterId] = state.copyWith(
+          peak: state.peak * kMeterDecay,
+          peakR: state.peakR * kMeterDecay,
+          rms: state.rms * kMeterDecay,
+          rmsR: state.rmsR * kMeterDecay,
+          peakHold: state.peakHold * kPeakHoldDecay,
+          peakHoldR: state.peakHoldR * kPeakHoldDecay,
+          isClipping: false,
+        );
       }
+    });
 
-      _meterStates[meterId] = state.copyWith(
-        peak: state.peak * 0.85,
-        peakR: state.peakR * 0.85,
-        rms: state.rms * 0.85,
-        rmsR: state.rmsR * 0.85,
-        peakHold: state.peakHold * 0.9,
-        peakHoldR: state.peakHoldR * 0.9,
-        isClipping: false,
-      );
-    }
-
-    _throttledNotify(); // Throttled to 30fps
-
-    if (!hasActivity) {
+    // Only notify if there's activity (prevents unnecessary rebuilds)
+    if (hasActivity) {
+      _throttledNotify();
+    } else {
       _stopDecayLoop();
     }
   }
@@ -394,16 +346,13 @@ class MeterProvider extends ChangeNotifier {
   void registerMeter(String meterId) {
     if (!_meterStates.containsKey(meterId)) {
       _meterStates[meterId] = MeterState.zero;
-      _peakHoldL[meterId] = 0;
-      _peakHoldR[meterId] = 0;
+      _peakHoldData[meterId] = _PeakHoldData();
     }
   }
 
   void unregisterMeter(String meterId) {
     _meterStates.remove(meterId);
-    _peakHoldL.remove(meterId);
-    _peakHoldR.remove(meterId);
-    _lastPeakTime.remove(meterId);
+    _peakHoldData.remove(meterId);
   }
 
   @override
@@ -411,44 +360,44 @@ class MeterProvider extends ChangeNotifier {
     _meteringSubscription?.cancel();
     _transportSubscription?.cancel();
     _decayTimer?.cancel();
-    _silenceTimer?.cancel();
     super.dispose();
   }
 }
 
+/// OPTIMIZED: Combined peak hold data to reduce map lookups
+class _PeakHoldData {
+  double peakHoldL = 0;
+  double peakHoldR = 0;
+  DateTime lastPeakTime = DateTime.now();
+}
+
 // ============ Utility Functions ============
 
-/// Convert linear amplitude to dB
 double linearToDb(double linear) {
   if (linear <= 0) return double.negativeInfinity;
   return 20 * _log10(linear);
 }
 
-/// Convert dB to linear amplitude
 double dbToLinear(double db) {
   return _pow(10, db / 20);
 }
 
-/// Convert dB to normalized 0-1
 double dbToNormalized(double db, {double minDb = -60, double maxDb = 0}) {
   if (db <= minDb) return 0;
   if (db >= maxDb) return 1;
   return (db - minDb) / (maxDb - minDb);
 }
 
-/// Convert normalized 0-1 to dB
 double normalizedToDb(double normalized, {double minDb = -60, double maxDb = 0}) {
   return minDb + normalized * (maxDb - minDb);
 }
 
-/// Get color for meter level
 Color getMeterColor(double level) {
-  if (level > 0.95) return const Color(0xFFEF4444); // Red - clipping
-  if (level > 0.80) return const Color(0xFFF59E0B); // Yellow - hot
-  if (level > 0.50) return const Color(0xFF22C55E); // Green - normal
-  return const Color(0xFF4ADE80); // Light green - low
+  if (level > 0.95) return const Color(0xFFEF4444);
+  if (level > 0.80) return const Color(0xFFF59E0B);
+  if (level > 0.50) return const Color(0xFF22C55E);
+  return const Color(0xFF4ADE80);
 }
 
-// Math utilities
 double _log10(double x) => x > 0 ? math.log(x) / math.ln10 : double.negativeInfinity;
 double _pow(double x, double y) => math.pow(x, y).toDouble();

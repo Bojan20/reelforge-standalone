@@ -660,6 +660,61 @@ typedef PitchDetectDart = double Function(Pointer<Double> samples, int length, d
 typedef PitchDetectMidiNative = Int32 Function(Pointer<Double> samples, Uint32 length, Double sampleRate);
 typedef PitchDetectMidiDart = int Function(Pointer<Double> samples, int length, double sampleRate);
 
+// Wave Cache (Multi-Resolution Waveform Caching)
+typedef WaveCacheHasCacheNative = Int32 Function(Pointer<Utf8> audioPath);
+typedef WaveCacheHasCacheDart = int Function(Pointer<Utf8> audioPath);
+
+typedef WaveCacheBuildNative = Int32 Function(Pointer<Utf8> audioPath, Uint32 sampleRate, Uint8 channels, Uint64 totalFrames);
+typedef WaveCacheBuildDart = int Function(Pointer<Utf8> audioPath, int sampleRate, int channels, int totalFrames);
+
+typedef WaveCacheBuildProgressNative = Float Function(Pointer<Utf8> audioPath);
+typedef WaveCacheBuildProgressDart = double Function(Pointer<Utf8> audioPath);
+
+typedef WaveCacheQueryTilesNative = Pointer<Float> Function(
+  Pointer<Utf8> audioPath,
+  Uint64 startFrame,
+  Uint64 endFrame,
+  Double pixelsPerSecond,
+  Uint32 sampleRate,
+  Pointer<Uint32> outMipLevel,
+  Pointer<Uint32> outSamplesPerTile,
+  Pointer<Uint32> outTileCount,
+);
+typedef WaveCacheQueryTilesDart = Pointer<Float> Function(
+  Pointer<Utf8> audioPath,
+  int startFrame,
+  int endFrame,
+  double pixelsPerSecond,
+  int sampleRate,
+  Pointer<Uint32> outMipLevel,
+  Pointer<Uint32> outSamplesPerTile,
+  Pointer<Uint32> outTileCount,
+);
+
+typedef WaveCacheFreeTilesNative = Void Function(Pointer<Float> ptr, Uint32 count);
+typedef WaveCacheFreeTilesDart = void Function(Pointer<Float> ptr, int count);
+
+typedef WaveCacheBuildFromSamplesNative = Int32 Function(
+  Pointer<Utf8> audioPath,
+  Pointer<Float> samples,
+  Uint64 sampleCount,
+  Uint8 channels,
+  Uint32 sampleRate,
+);
+typedef WaveCacheBuildFromSamplesDart = int Function(
+  Pointer<Utf8> audioPath,
+  Pointer<Float> samples,
+  int sampleCount,
+  int channels,
+  int sampleRate,
+);
+
+typedef WaveCacheClearAllNative = Void Function();
+typedef WaveCacheClearAllDart = void Function();
+
+typedef WaveCacheLoadedCountNative = Uint32 Function();
+typedef WaveCacheLoadedCountDart = int Function();
+
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -905,6 +960,16 @@ class NativeFFI {
   // Pitch Detection
   late final PitchDetectDart _pitchDetect;
   late final PitchDetectMidiDart _pitchDetectMidi;
+
+  // Wave Cache
+  late final WaveCacheHasCacheDart _waveCacheHasCache;
+  late final WaveCacheBuildDart _waveCacheBuild;
+  late final WaveCacheBuildProgressDart _waveCacheBuildProgress;
+  late final WaveCacheQueryTilesDart _waveCacheQueryTiles;
+  late final WaveCacheFreeTilesDart _waveCacheFreeTiles;
+  late final WaveCacheBuildFromSamplesDart _waveCacheBuildFromSamples;
+  late final WaveCacheClearAllDart _waveCacheClearAll;
+  late final WaveCacheLoadedCountDart _waveCacheLoadedCount;
 
   NativeFFI._();
 
@@ -1159,6 +1224,16 @@ class NativeFFI {
     // Pitch Detection
     _pitchDetect = _lib.lookupFunction<PitchDetectNative, PitchDetectDart>('pitch_detect');
     _pitchDetectMidi = _lib.lookupFunction<PitchDetectMidiNative, PitchDetectMidiDart>('pitch_detect_midi');
+
+    // Wave Cache
+    _waveCacheHasCache = _lib.lookupFunction<WaveCacheHasCacheNative, WaveCacheHasCacheDart>('wave_cache_has_cache');
+    _waveCacheBuild = _lib.lookupFunction<WaveCacheBuildNative, WaveCacheBuildDart>('wave_cache_build');
+    _waveCacheBuildProgress = _lib.lookupFunction<WaveCacheBuildProgressNative, WaveCacheBuildProgressDart>('wave_cache_build_progress');
+    _waveCacheQueryTiles = _lib.lookupFunction<WaveCacheQueryTilesNative, WaveCacheQueryTilesDart>('wave_cache_query_tiles');
+    _waveCacheFreeTiles = _lib.lookupFunction<WaveCacheFreeTilesNative, WaveCacheFreeTilesDart>('wave_cache_free_tiles');
+    _waveCacheBuildFromSamples = _lib.lookupFunction<WaveCacheBuildFromSamplesNative, WaveCacheBuildFromSamplesDart>('wave_cache_build_from_samples');
+    _waveCacheClearAll = _lib.lookupFunction<WaveCacheClearAllNative, WaveCacheClearAllDart>('wave_cache_clear_all');
+    _waveCacheLoadedCount = _lib.lookupFunction<WaveCacheLoadedCountNative, WaveCacheLoadedCountDart>('wave_cache_loaded_count');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -7749,6 +7824,175 @@ extension ControlRoomAPI on NativeFFI {
   int pluginGetLatency(String instanceId) {
     // TODO: Implement actual FFI binding
     return 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAVE CACHE (Multi-Resolution Waveform Caching)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if .wfc cache exists for audio file
+  bool waveCacheHasCache(String audioPath) {
+    if (!_loaded) return false;
+    final pathPtr = audioPath.toNativeUtf8();
+    try {
+      return _waveCacheHasCache(pathPtr) != 0;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Start building cache for audio file
+  /// Returns: 0 = started building, 1 = already cached, -1 = error
+  int waveCacheBuild(String audioPath, int sampleRate, int channels, int totalFrames) {
+    if (!_loaded) return -1;
+    final pathPtr = audioPath.toNativeUtf8();
+    try {
+      return _waveCacheBuild(pathPtr, sampleRate, channels, totalFrames);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get build progress (0.0 - 1.0, or -1.0 if not building)
+  double waveCacheBuildProgress(String audioPath) {
+    if (!_loaded) return -1.0;
+    final pathPtr = audioPath.toNativeUtf8();
+    try {
+      return _waveCacheBuildProgress(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Query tiles for rendering
+  /// Returns WaveCacheTileResult with peak data, or null on error
+  WaveCacheTileResult? waveCacheQueryTiles(
+    String audioPath,
+    int startFrame,
+    int endFrame,
+    double pixelsPerSecond,
+    int sampleRate,
+  ) {
+    if (!_loaded) return null;
+
+    final pathPtr = audioPath.toNativeUtf8();
+    final outMipLevel = calloc<Uint32>();
+    final outSamplesPerTile = calloc<Uint32>();
+    final outTileCount = calloc<Uint32>();
+
+    try {
+      final tilesPtr = _waveCacheQueryTiles(
+        pathPtr,
+        startFrame,
+        endFrame,
+        pixelsPerSecond,
+        sampleRate,
+        outMipLevel,
+        outSamplesPerTile,
+        outTileCount,
+      );
+
+      if (tilesPtr == nullptr) return null;
+
+      final tileCount = outTileCount.value;
+      if (tileCount == 0) {
+        _waveCacheFreeTiles(tilesPtr, tileCount);
+        return null;
+      }
+
+      // Copy data to Dart
+      final peaks = Float32List(tileCount * 2);
+      for (int i = 0; i < tileCount * 2; i++) {
+        peaks[i] = tilesPtr[i];
+      }
+
+      final result = WaveCacheTileResult(
+        mipLevel: outMipLevel.value,
+        samplesPerTile: outSamplesPerTile.value,
+        peaks: peaks,
+      );
+
+      // Free native memory
+      _waveCacheFreeTiles(tilesPtr, tileCount);
+
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(outMipLevel);
+      calloc.free(outSamplesPerTile);
+      calloc.free(outTileCount);
+    }
+  }
+
+  /// Build cache from already-loaded samples
+  bool waveCacheBuildFromSamples(
+    String audioPath,
+    Float32List samples,
+    int channels,
+    int sampleRate,
+  ) {
+    if (!_loaded) return false;
+
+    final pathPtr = audioPath.toNativeUtf8();
+    final samplesPtr = calloc<Float>(samples.length);
+
+    try {
+      // Copy samples to native memory
+      for (int i = 0; i < samples.length; i++) {
+        samplesPtr[i] = samples[i];
+      }
+
+      return _waveCacheBuildFromSamples(
+        pathPtr,
+        samplesPtr,
+        samples.length,
+        channels,
+        sampleRate,
+      ) != 0;
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(samplesPtr);
+    }
+  }
+
+  /// Clear all wave caches
+  void waveCacheClearAll() {
+    if (!_loaded) return;
+    _waveCacheClearAll();
+  }
+
+  /// Get number of loaded caches
+  int waveCacheLoadedCount() {
+    if (!_loaded) return 0;
+    return _waveCacheLoadedCount();
+  }
+}
+
+/// Result from wave cache tile query
+class WaveCacheTileResult {
+  /// Mip level used for this query
+  final int mipLevel;
+
+  /// Samples per tile at this mip level
+  final int samplesPerTile;
+
+  /// Peak data: [min0, max0, min1, max1, ...]
+  final Float32List peaks;
+
+  /// Number of tiles
+  int get tileCount => peaks.length ~/ 2;
+
+  const WaveCacheTileResult({
+    required this.mipLevel,
+    required this.samplesPerTile,
+    required this.peaks,
+  });
+
+  /// Get min/max pair at index
+  (double min, double max) getTile(int index) {
+    final i = index * 2;
+    if (i >= peaks.length - 1) return (0.0, 0.0);
+    return (peaks[i].toDouble(), peaks[i + 1].toDouble());
   }
 }
 

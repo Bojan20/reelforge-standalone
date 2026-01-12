@@ -22,7 +22,12 @@ import '../widgets/mixer/pro_daw_mixer.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 
 class MainLayout extends StatefulWidget {
-  // Control bar props
+  // PERFORMANCE: Custom control bar widget that handles its own provider listening
+  // When provided, this replaces the default ControlBar to avoid rebuilding MainLayout
+  // on every transport state change
+  final Widget? customControlBar;
+
+  // Control bar props (used only if customControlBar is null)
   final EditorMode editorMode;
   final ValueChanged<EditorMode>? onEditorModeChange;
   final bool isPlaying;
@@ -109,7 +114,9 @@ class MainLayout extends StatefulWidget {
 
   const MainLayout({
     super.key,
-    // Control bar
+    // Custom control bar (replaces default ControlBar for performance)
+    this.customControlBar,
+    // Control bar (used only if customControlBar is null)
     this.editorMode = EditorMode.daw,
     this.onEditorModeChange,
     this.isPlaying = false,
@@ -293,8 +300,8 @@ class _MainLayoutState extends State<MainLayout>
         backgroundColor: ReelForgeTheme.bgDeepest,
         body: Column(
           children: [
-            // Control Bar
-            ControlBar(
+            // Control Bar - use custom if provided (for performance isolation)
+            widget.customControlBar ?? ControlBar(
               editorMode: widget.editorMode,
               onEditorModeChange: widget.onEditorModeChange,
               isPlaying: widget.isPlaying,

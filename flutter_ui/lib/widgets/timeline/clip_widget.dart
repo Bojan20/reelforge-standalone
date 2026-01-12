@@ -18,8 +18,8 @@ import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
 import '../editors/clip_fx_editor.dart';
 
-import '../waveform/ultimate_waveform.dart';
 import 'stretch_overlay.dart';
+// Note: waveform_cache.dart no longer used here - using lightweight _WaveformCanvas instead
 
 /// Global flag to prevent playhead movement when interacting with fade handles
 /// Set to true when pointer down on fade handle, cleared on pointer up
@@ -322,10 +322,16 @@ class _ClipWidgetState extends State<ClipWidget> {
     // Logic Pro style: Pastel blue background with white waveform
     const clipColor = Color(0xFF4A90C2); // Logic Pro audio region blue
 
+    // PERFORMANCE FIX: Minimum width must scale with zoom to maintain proportionality
+    // At very low zoom, clips can legitimately be < 4px wide
+    // Use 2px as absolute minimum (for selection), but scale with zoom
+    final minWidth = (0.05 * widget.zoom).clamp(2.0, 4.0); // 50ms minimum visibility
+    final clampedWidth = width.clamp(minWidth, double.infinity);
+
     return Positioned(
       left: x,
       top: 2,
-      width: width.clamp(4, double.infinity),
+      width: clampedWidth,
       height: clipHeight,
       child: GestureDetector(
         onTapDown: (details) {
@@ -788,158 +794,40 @@ class _UltimateClipWaveform extends StatefulWidget {
 }
 
 class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
-  UltimateWaveformData? _waveformData;
-  Float32List? _lastWaveform;
-
-  @override
-  void didUpdateWidget(_UltimateClipWaveform oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Rebuild data only if waveform changed
-    if (widget.waveform != _lastWaveform) {
-      _buildWaveformData();
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _buildWaveformData();
-  }
-
-  void _buildWaveformData() {
-    _lastWaveform = widget.waveform;
-
-    // SAFETY: Handle empty waveform
-    if (widget.waveform.isEmpty) {
-      _waveformData = null;
-      return;
-    }
-
-    // PERFORMANCE: Limit sample count - 2000 is enough for timeline overview
-    const maxSamples = 2000;
-
-    List<double> leftSamples;
-    List<double>? rightSamples;
-
-    final waveformLength = widget.waveform.length;
-
-    if (waveformLength > maxSamples) {
-      // Fast downsampling - just take min/max per chunk
-      final step = waveformLength ~/ maxSamples;
-      if (step == 0) {
-        leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
-      } else {
-        leftSamples = List<double>.filled(maxSamples, 0);
-        for (int i = 0; i < maxSamples; i++) {
-          final start = i * step;
-          if (start >= waveformLength) break;
-          final end = (start + step).clamp(0, waveformLength);
-          double minVal = widget.waveform[start];
-          double maxVal = minVal;
-          for (int j = start + 1; j < end; j++) {
-            final s = widget.waveform[j];
-            if (s < minVal) minVal = s;
-            else if (s > maxVal) maxVal = s;
-          }
-          leftSamples[i] = i.isEven ? minVal.toDouble() : maxVal.toDouble();
-        }
-      }
-
-      // Right channel - only if needed
-      if (widget.waveformRight != null && widget.waveformRight!.isNotEmpty) {
-        final rightLength = widget.waveformRight!.length;
-        final rightStep = rightLength ~/ maxSamples;
-        if (rightStep == 0) {
-          rightSamples = widget.waveformRight!.map((s) => s.toDouble()).toList();
-        } else {
-          rightSamples = List<double>.filled(maxSamples, 0);
-          for (int i = 0; i < maxSamples; i++) {
-            final start = i * rightStep;
-            if (start >= rightLength) break;
-            final end = (start + rightStep).clamp(0, rightLength);
-            double minVal = widget.waveformRight![start];
-            double maxVal = minVal;
-            for (int j = start + 1; j < end; j++) {
-              final s = widget.waveformRight![j];
-              if (s < minVal) minVal = s;
-              else if (s > maxVal) maxVal = s;
-            }
-            rightSamples[i] = i.isEven ? minVal.toDouble() : maxVal.toDouble();
-          }
-        }
-      }
-    } else {
-      leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
-      rightSamples = widget.waveformRight?.map((s) => s.toDouble()).toList();
-    }
-
-    _waveformData = UltimateWaveformData.fromSamples(
-      leftSamples,
-      rightChannelSamples: rightSamples,
-      sampleRate: 48000,
-      maxSamples: 2000,
-    );
-  }
+  // PERFORMANCE: No more waveform data caching in state
+  // We now use _WaveformCanvas directly which has its own shouldRepaint
 
   @override
   Widget build(BuildContext context) {
-    if (_waveformData == null) {
+    // PERFORMANCE: Use lightweight _WaveformCanvas instead of UltimateWaveform
+    // for timeline clips. UltimateWaveform has playhead in shouldRepaint which
+    // causes unnecessary repaints during playback.
+    //
+    // _WaveformCanvas:
+    // - No playhead dependency
+    // - Simple shouldRepaint (only waveform/color changes)
+    // - 4-level LOD still provides good quality
+    // - Much lighter memory footprint
+    // - Pre-allocated Paint objects
+
+    if (widget.waveform.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // Calculate samples per pixel for LOD selection
-    final isStereo = widget.waveformRight != null;
-
     // Logic Pro style: CLEAN WHITE waveform on BLUE background
     const waveColor = Color(0xFFFFFFFF); // Pure white
-    const rmsWaveColor = Color(0xDDFFFFFF); // Slightly transparent white
-
-    final config = UltimateWaveformConfig(
-      style: WaveformStyle.filled,
-      primaryColor: waveColor,
-      rmsColor: rmsWaveColor,
-      showRms: true,
-      showTransients: false,
-      showClipping: false,
-      showZeroCrossings: false,
-      showSampleDots: false,
-      lineWidth: 1.0,
-      transparentBackground: true,
-    );
 
     return RepaintBoundary(
       child: Transform.scale(
         scaleY: widget.gain,
-        child: UltimateWaveform(
-          data: _waveformData!,
-          config: config,
-          height: widget.trackHeight,
-          zoom: 1, // Zoom handled by clip width
-          scrollOffset: 0,
-          isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
+        child: _WaveformCanvas(
+          waveform: widget.waveform,
+          sourceOffset: widget.sourceOffset,
+          duration: widget.duration,
+          color: waveColor,
         ),
       ),
     );
-  }
-
-  /// Darken a color by a factor (0.0 = no change, 1.0 = black)
-  Color _darkenColor(Color color, double factor) {
-    final hsl = HSLColor.fromColor(color);
-    return hsl.withLightness((hsl.lightness * (1 - factor)).clamp(0.0, 1.0)).toColor();
-  }
-
-  /// Lighten a color by a factor (0.0 = no change, 1.0 = white)
-  Color _lightenColor(Color color, double factor) {
-    final hsl = HSLColor.fromColor(color);
-    final newLightness = hsl.lightness + (1.0 - hsl.lightness) * factor;
-    return hsl.withLightness(newLightness.clamp(0.0, 1.0)).toColor();
-  }
-
-  /// Increase saturation of a color (Logic Pro style vivid waveforms)
-  Color _saturateColor(Color color, double factor) {
-    final hsl = HSLColor.fromColor(color);
-    final newSaturation = (hsl.saturation + factor).clamp(0.0, 1.0);
-    return hsl.withSaturation(newSaturation).toColor();
   }
 }
 
@@ -977,12 +865,54 @@ class _WaveformPainter extends CustomPainter {
   final double sourceOffset;
   final double duration;
 
+  // PERFORMANCE: Pre-allocated Paint objects to avoid allocations in paint()
+  late final Paint _peakPaint;
+  late final Paint _rmsPaint;
+  late final Paint _linePaint;
+  late final Paint _glowPaint;
+  late final Paint _fillPaint;
+  late final Paint _zeroLinePaint;
+
   _WaveformPainter({
     required this.waveform,
     required this.color,
     required this.sourceOffset,
     required this.duration,
-  });
+  }) {
+    // Initialize paints once in constructor
+    _peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    _rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    _linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+
+    _glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+      ..isAntiAlias = true;
+
+    _fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill;
+
+    _zeroLinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..strokeWidth = 0.5;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1038,39 +968,15 @@ class _WaveformPainter extends CustomPainter {
       }
     }
 
-    // Glow effect (oscilloscope style)
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
-      ..isAntiAlias = true;
-    canvas.drawPath(path, glowPaint);
-
-    // Main line
-    final linePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true;
-    canvas.drawPath(path, linePaint);
+    // PERFORMANCE: Use pre-allocated paints
+    canvas.drawPath(path, _glowPaint);
+    canvas.drawPath(path, _linePaint);
   }
 
   /// HIGH ZOOM: Sample-accurate waveform with sinc interpolation appearance
   void _drawDetailedWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
-    // Use path for smooth curves (like Cubase)
-    final fillPaint = Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..style = PaintingStyle.fill;
-
-    final linePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    // PERFORMANCE: Use pre-allocated paints
+    // Reuse _fillPaint and _linePaint
 
     final topPath = Path();
     final bottomPath = Path();
@@ -1115,16 +1021,12 @@ class _WaveformPainter extends CustomPainter {
     }
     fillPath.close();
 
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(topPath, linePaint);
-    canvas.drawPath(bottomPath, linePaint);
+    canvas.drawPath(fillPath, _fillPaint);
+    canvas.drawPath(topPath, _linePaint);
+    canvas.drawPath(bottomPath, _linePaint);
 
-    // Zero line (subtle)
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      Paint()..color = Colors.white.withValues(alpha: 0.1)..strokeWidth = 0.5,
-    );
+    // Zero line (subtle) - use pre-allocated paint
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _zeroLinePaint);
   }
 
   /// Catmull-Rom spline interpolation for smooth waveform
@@ -1141,18 +1043,7 @@ class _WaveformPainter extends CustomPainter {
   /// NO SMOOTHING - shows EXACT peaks and transients as they are in the audio
   /// Pro Tools / Cubase style: sharp transients, true dynamics
   void _drawMinMaxWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
-    // Draw vertical lines for each pixel - TRUE min/max (no smoothing!)
-    // This is how pro DAWs show transients - sharp and accurate
-
-    final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..strokeWidth = 1
-      ..isAntiAlias = false; // Sharp pixels for accuracy
-
-    final rmsPaint = Paint()
-      ..color = color.withValues(alpha: 0.9)
-      ..strokeWidth = 1
-      ..isAntiAlias = false;
+    // PERFORMANCE: Use pre-allocated paints (_peakPaint, _rmsPaint)
 
     for (double x = 0; x < size.width; x++) {
       final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
@@ -1176,34 +1067,22 @@ class _WaveformPainter extends CustomPainter {
       // Peak line (full extent) - shows transients
       final peakTop = centerY - maxVal * amplitude;
       final peakBottom = centerY - minVal * amplitude;
-      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), peakPaint);
+      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), _peakPaint);
 
       // RMS line (inner, solid) - shows perceived loudness
       final rmsTop = centerY - rms * amplitude;
       final rmsBottom = centerY + rms * amplitude;
-      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), rmsPaint);
+      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), _rmsPaint);
     }
 
-    // Zero line
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5,
-    );
+    // Zero line - use pre-allocated paint
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _zeroLinePaint);
   }
 
   /// LOW ZOOM: True min/max vertical lines - shows REAL dynamics
   /// NO SMOOTHING - every pixel shows actual peak range
   void _drawOverviewWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
-    final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..strokeWidth = 1
-      ..isAntiAlias = false;
-
-    final rmsPaint = Paint()
-      ..color = color.withValues(alpha: 0.9)
-      ..strokeWidth = 1
-      ..isAntiAlias = false;
+    // PERFORMANCE: Use pre-allocated paints (_peakPaint, _rmsPaint)
 
     for (double x = 0; x < size.width; x++) {
       final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
@@ -1227,20 +1106,16 @@ class _WaveformPainter extends CustomPainter {
       // Peak line - TRUE min/max (shows transients)
       final peakTop = centerY - maxVal * amplitude;
       final peakBottom = centerY - minVal * amplitude;
-      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), peakPaint);
+      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), _peakPaint);
 
       // RMS line (solid inner)
       final rmsTop = centerY - rms * amplitude;
       final rmsBottom = centerY + rms * amplitude;
-      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), rmsPaint);
+      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), _rmsPaint);
     }
 
-    // Zero line
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      Paint()..color = Colors.white.withValues(alpha: 0.1)..strokeWidth = 0.5,
-    );
+    // Zero line - use pre-allocated paint
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _zeroLinePaint);
   }
 
   @override

@@ -65,6 +65,12 @@ pub mod input_bus;
 // Phase 12: Audio Export
 pub mod export;
 
+// Phase 13: Disk Streaming System
+pub mod streaming;
+
+// Phase 14: Wave Cache (Multi-Resolution Waveform Caching)
+pub mod wave_cache;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;
@@ -187,6 +193,23 @@ pub use input_bus::{InputBus, InputBusConfig, InputBusId, InputBusManager, Monit
 
 // Re-exports: Phase 12 - Audio Export
 pub use export::{ExportConfig, ExportEngine, ExportError, ExportFormat};
+
+// Re-exports: Phase 13 - Disk Streaming
+pub use streaming::{
+    AssetCatalog, AssetInfo, AudioEvent, AudioFormat, AudioRingBuffer,
+    ControlCommand, ControlCommandType, ControlQueue, DiskJob, DiskReaderPool,
+    EventIndex, StreamRT, StreamState, StreamingEngine, TrackRT,
+    DEFAULT_RING_BUFFER_FRAMES, HIGH_WATER_FRAMES, LOW_WATER_FRAMES,
+};
+
+// Re-exports: Phase 14 - Wave Cache
+pub use wave_cache::{
+    WaveCacheManager, WaveCacheBuilder, WaveCacheQuery, WaveCacheError,
+    GetCacheResult, BuildProgress, BuildState, TileRequest, TileResponse,
+    CachedTile, WfcFile, WfcHeader, MipLevel, TileData,
+    build_from_samples, tiles_to_flat_array,
+    WFC_MAGIC, WFC_VERSION, NUM_MIP_LEVELS, BASE_TILE_SAMPLES,
+};
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;

@@ -47,19 +47,20 @@ class GridLines extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: CustomPaint(
-          painter: _GridLinesPainter(
-            zoom: zoom,
-            scrollOffset: scrollOffset,
-            tempo: tempo,
-            timeSignatureNum: timeSignatureNum,
-            timeSignatureDenom: timeSignatureDenom,
-            showBeatNumbers: showBeatNumbers,
-          ),
-          size: Size(width, height),
+    // NOTE: Don't wrap in Positioned here - that's the parent's responsibility
+    // This allows GridLines to be used inside RepaintBoundary without
+    // causing ParentDataWidget errors
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _GridLinesPainter(
+          zoom: zoom,
+          scrollOffset: scrollOffset,
+          tempo: tempo,
+          timeSignatureNum: timeSignatureNum,
+          timeSignatureDenom: timeSignatureDenom,
+          showBeatNumbers: showBeatNumbers,
         ),
+        size: Size(width, height),
       ),
     );
   }

@@ -36,6 +36,11 @@ class EngineProvider extends ChangeNotifier {
   MeteringState _metering = MeteringState.empty();
   ProjectInfo _project = ProjectInfo.empty();
 
+  // PERFORMANCE: Throttle notifyListeners to prevent rebuild storm
+  // Transport/metering streams fire at ~60fps, but UI only needs ~20fps
+  DateTime _lastNotifyTime = DateTime.now();
+  static const _notifyThrottleMs = 50; // 20fps max for UI updates
+
   // Getters
   EngineStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -100,18 +105,30 @@ class EngineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// PERFORMANCE: Throttled notify - prevents 60fps rebuild storm
+  void _throttledNotify() {
+    final now = DateTime.now();
+    if (now.difference(_lastNotifyTime).inMilliseconds >= _notifyThrottleMs) {
+      _lastNotifyTime = now;
+      notifyListeners();
+    }
+  }
+
   void _subscribeToStreams() {
     _transportSub?.cancel();
     _meteringSub?.cancel();
 
     _transportSub = engine.transportStream.listen((state) {
       _transport = state;
-      notifyListeners();
+      // PERFORMANCE: Throttled to ~20fps to prevent rebuild storm
+      _throttledNotify();
     });
 
     _meteringSub = engine.meteringStream.listen((state) {
       _metering = state;
-      notifyListeners();
+      // PERFORMANCE: Metering updates don't need to notify at all
+      // MeterProvider has its own stream subscription
+      // Only notify on significant changes (not every frame)
     });
   }
 
@@ -128,16 +145,25 @@ class EngineProvider extends ChangeNotifier {
   void play() {
     if (!isRunning) return;
     engine.play();
+    // INSTANT: Force immediate UI update - no throttle for play
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   void stop() {
     if (!isRunning) return;
     engine.stop();
+    // INSTANT: Force immediate UI update - no throttle for stop
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   void pause() {
     if (!isRunning) return;
     engine.pause();
+    // INSTANT: Force immediate UI update - no throttle for pause
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   void toggleRecord() {

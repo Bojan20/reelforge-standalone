@@ -90,7 +90,7 @@ class TrackLane extends StatefulWidget {
   State<TrackLane> createState() => _TrackLaneState();
 }
 
-class _TrackLaneState extends State<TrackLane> {
+class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixin {
   /// Check if we should display stereo split view (height-based, not content-based)
   bool get _isStereoMode => widget.trackHeight >= kStereoDisplayThreshold;
 
@@ -98,7 +98,11 @@ class _TrackLaneState extends State<TrackLane> {
   bool get _hasWaveformContent => widget.clips.any((c) => c.waveform != null);
 
   @override
+  bool get wantKeepAlive => true; // Keep track state alive when scrolling
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     // Use track color for lane background (Logic Pro style)
     // Audio tracks: subtle blue tint, MIDI: green tint, etc.
     final trackColor = widget.track.color;
@@ -123,14 +127,19 @@ class _TrackLaneState extends State<TrackLane> {
 
           return Stack(
             children: [
-              // Grid lines
-              GridLines(
-                width: constraints.maxWidth,
-                height: widget.trackHeight,
-                zoom: widget.zoom,
-                scrollOffset: widget.scrollOffset,
-                tempo: widget.tempo,
-                timeSignatureNum: widget.timeSignatureNum,
+              // PERFORMANCE: Grid lines with RepaintBoundary - prevents rebuild on clip changes
+              // Positioned.fill wraps RepaintBoundary because GridLines is a Stack child
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: GridLines(
+                    width: constraints.maxWidth,
+                    height: widget.trackHeight,
+                    zoom: widget.zoom,
+                    scrollOffset: widget.scrollOffset,
+                    tempo: widget.tempo,
+                    timeSignatureNum: widget.timeSignatureNum,
+                  ),
+                ),
               ),
 
               // Stereo mode: show L/R labels and center divider
@@ -214,7 +223,7 @@ class _TrackLaneState extends State<TrackLane> {
                   ),
                 ])
               else
-                // Normal mode - single clip
+                // Normal mode - single clip (Positioned must be direct child of Stack)
                 ...widget.clips.map((clip) => ClipWidget(
                       key: ValueKey(clip.id),
                       clip: clip,

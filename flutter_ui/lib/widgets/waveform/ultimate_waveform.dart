@@ -82,6 +82,13 @@ class UltimateWaveformData {
     this.rightLodLevels,
   });
 
+  /// Create empty waveform data (for error cases)
+  factory UltimateWaveformData.empty() => UltimateWaveformData(
+    samples: const [],
+    lodLevels: const {1: []},
+    sampleRate: 48000,
+  );
+
   /// Create from raw float samples with full analysis
   /// IMPORTANT: Limits sample count to prevent memory issues with large files
   factory UltimateWaveformData.fromSamples(

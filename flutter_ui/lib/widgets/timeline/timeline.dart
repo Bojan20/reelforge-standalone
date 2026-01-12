@@ -272,6 +272,17 @@ class _TimelineState extends State<Timeline> {
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 800;
 
+  // PERFORMANCE: Debounce zoom/scroll to prevent excessive setState in parent
+  // This is critical because parent (engine_connected_layout) rebuilds entire UI
+  // on zoom/scroll changes. We throttle to 60fps max.
+  DateTime _lastZoomNotify = DateTime.now();
+  DateTime _lastScrollNotify = DateTime.now();
+  static const _debounceMs = 16; // ~60fps max
+  double _pendingZoom = 0;
+  double _pendingScroll = 0;
+  bool _hasPendingZoom = false;
+  bool _hasPendingScroll = false;
+
   /// Supported audio file extensions
   static const _audioExtensions = {'.wav', '.mp3', '.flac', '.ogg', '.aiff', '.aif'};
 
@@ -288,6 +299,51 @@ class _TimelineState extends State<Timeline> {
   void dispose() {
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// PERFORMANCE: Debounced zoom change notification
+  /// Coalesces rapid zoom events to prevent parent rebuild storm
+  void _notifyZoomChange(double newZoom) {
+    _pendingZoom = newZoom;
+    _hasPendingZoom = true;
+
+    final now = DateTime.now();
+    if (now.difference(_lastZoomNotify).inMilliseconds >= _debounceMs) {
+      _lastZoomNotify = now;
+      _hasPendingZoom = false;
+      widget.onZoomChange?.call(newZoom);  // FIXED: was recursive call
+    } else {
+      // Schedule deferred notification
+      Future.delayed(Duration(milliseconds: _debounceMs), () {
+        if (_hasPendingZoom) {
+          _hasPendingZoom = false;
+          _lastZoomNotify = DateTime.now();
+          widget.onZoomChange?.call(_pendingZoom);  // FIXED: was recursive call
+        }
+      });
+    }
+  }
+
+  /// PERFORMANCE: Debounced scroll change notification
+  void _notifyScrollChange(double newScroll) {
+    _pendingScroll = newScroll;
+    _hasPendingScroll = true;
+
+    final now = DateTime.now();
+    if (now.difference(_lastScrollNotify).inMilliseconds >= _debounceMs) {
+      _lastScrollNotify = now;
+      _hasPendingScroll = false;
+      widget.onScrollChange?.call(newScroll);  // FIXED: was recursive call
+    } else {
+      // Schedule deferred notification
+      Future.delayed(Duration(milliseconds: _debounceMs), () {
+        if (_hasPendingScroll) {
+          _hasPendingScroll = false;
+          _lastScrollNotify = DateTime.now();
+          widget.onScrollChange?.call(_pendingScroll);  // FIXED: was recursive call
+        }
+      });
+    }
   }
 
   double get _playheadX => (widget.playheadPosition - widget.scrollOffset) * widget.zoom;
@@ -346,6 +402,7 @@ class _TimelineState extends State<Timeline> {
   }
 
   void _handleWheel(PointerScrollEvent event) {
+    // INSTANT RESPONSE: No throttle - Flutter batches renders per frame
     // ══════════════════════════════════════════════════════════════════
     // DAW-STANDARD SCROLL/ZOOM (Cubase/Logic/Pro Tools/Ableton style)
     // ══════════════════════════════════════════════════════════════════
@@ -383,12 +440,12 @@ class _TimelineState extends State<Timeline> {
         // Calculate new scroll offset to keep cursor position stable
         final newScrollOffset = mouseTime - mouseX / newZoom;
 
-        widget.onZoomChange?.call(newZoom);
-        widget.onScrollChange?.call(newScrollOffset.clamp(
+        _notifyZoomChange(newZoom);
+        _notifyScrollChange(newScrollOffset.clamp(
             0.0, (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
       } else {
         // Mouse over header - zoom without cursor tracking
-        widget.onZoomChange?.call(newZoom);
+        _notifyZoomChange(newZoom);
       }
     } else {
       // ════════════════════════════════════════════════════════════════
@@ -409,7 +466,7 @@ class _TimelineState extends State<Timeline> {
           .clamp(0.0, double.infinity);
       final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
 
-      widget.onScrollChange?.call(newOffset);
+      _notifyScrollChange(newOffset);
     }
   }
 
@@ -606,8 +663,8 @@ class _TimelineState extends State<Timeline> {
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
       final newZoom = (widget.zoom * 0.92).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+      _notifyZoomChange(newZoom);
+      _notifyScrollChange(newScrollOffset.clamp(0.0,
           (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
       return KeyEventResult.handled;
     }
@@ -618,8 +675,8 @@ class _TimelineState extends State<Timeline> {
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
       final newZoom = (widget.zoom * 1.08).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
+      _notifyZoomChange(newZoom);
+      _notifyScrollChange(newScrollOffset.clamp(0.0,
           (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
       return KeyEventResult.handled;
     }
@@ -657,12 +714,12 @@ class _TimelineState extends State<Timeline> {
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
           final newOffset = (widget.scrollOffset - scrollAmount)
               .clamp(0.0, widget.totalDuration);
-          widget.onScrollChange?.call(newOffset);
+          _notifyScrollChange(newOffset);
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
           final newOffset = (widget.scrollOffset + scrollAmount)
               .clamp(0.0, widget.totalDuration);
-          widget.onScrollChange?.call(newOffset);
+          _notifyScrollChange(newOffset);
         }
       }
       // Arrow without Alt = nudge selected clip
@@ -689,12 +746,12 @@ class _TimelineState extends State<Timeline> {
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
           final newOffset = (widget.scrollOffset - scrollAmount)
               .clamp(0.0, widget.totalDuration);
-          widget.onScrollChange?.call(newOffset);
+          _notifyScrollChange(newOffset);
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
           final newOffset = (widget.scrollOffset + scrollAmount)
               .clamp(0.0, widget.totalDuration);
-          widget.onScrollChange?.call(newOffset);
+          _notifyScrollChange(newOffset);
         }
       }
     }
@@ -1233,76 +1290,17 @@ class _TimelineState extends State<Timeline> {
                             },
                           ),
 
-                          // Playhead (Cubase-style)
-                          if (_playheadX >= 0 && _playheadX <= _containerWidth)
-                            Positioned(
-                              left: _headerWidth + _playheadX,
-                              top: 0,
-                              bottom: 0,
-                              child: GestureDetector(
-                                onHorizontalDragStart: (_) {
-                                  setState(() => _isDraggingPlayhead = true);
-                                },
-                                onHorizontalDragUpdate: _handlePlayheadDrag,
-                                onHorizontalDragEnd: (_) {
-                                  setState(() => _isDraggingPlayhead = false);
-                                },
-                                child: MouseRegion(
-                                  cursor: _isDraggingPlayhead
-                                      ? SystemMouseCursors.grabbing
-                                      : SystemMouseCursors.resizeColumn,
-                                  child: Container(
-                                    width: 16,
-                                    transform: Matrix4.translationValues(-8, 0, 0),
-                                    child: Stack(
-                                      alignment: Alignment.topCenter,
-                                      children: [
-                                        // Glow effect (Cubase-style)
-                                        if (_isDraggingPlayhead)
-                                          Container(
-                                            width: 8,
-                                            decoration: BoxDecoration(
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
-                                                  blurRadius: 12,
-                                                  spreadRadius: 2,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        // Main line
-                                        Positioned(
-                                          left: 7,
-                                          top: 0,
-                                          bottom: 0,
-                                          child: Container(
-                                            width: _isDraggingPlayhead ? 3 : 2,
-                                            decoration: BoxDecoration(
-                                              color: ReelForgeTheme.accentRed,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.5),
-                                                  blurRadius: 2,
-                                                  offset: const Offset(1, 0),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        // Head triangle (Cubase-style at top)
-                                        CustomPaint(
-                                          size: const Size(14, 12),
-                                          painter: _PlayheadPainter(
-                                            isDragging: _isDraggingPlayhead,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          // ISOLATED Playhead (Cubase-style) - RepaintBoundary for performance
+                          // This ensures playhead repainting doesn't cause full timeline rebuild
+                          _IsolatedPlayhead(
+                            playheadX: _playheadX,
+                            headerWidth: _headerWidth,
+                            containerWidth: _containerWidth,
+                            isDragging: _isDraggingPlayhead,
+                            onDragStart: () => setState(() => _isDraggingPlayhead = true),
+                            onDragUpdate: _handlePlayheadDrag,
+                            onDragEnd: () => setState(() => _isDraggingPlayhead = false),
+                          ),
 
                           // Markers
                           ...widget.markers.map((marker) {
@@ -1777,4 +1775,245 @@ class _GhostWaveformPainter extends CustomPainter {
   @override
   bool shouldRepaint(_GhostWaveformPainter oldDelegate) =>
       waveform != oldDelegate.waveform;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ISOLATED PLAYHEAD WIDGET - PERFORMANCE CRITICAL
+// ════════════════════════════════════════════════════════════════════════════
+/// Isolated playhead widget with its own RepaintBoundary
+/// This ensures playhead updates don't trigger full timeline rebuilds
+class _IsolatedPlayhead extends StatelessWidget {
+  final double playheadX;
+  final double headerWidth;
+  final double containerWidth;
+  final bool isDragging;
+  final VoidCallback onDragStart;
+  final void Function(DragUpdateDetails) onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  const _IsolatedPlayhead({
+    required this.playheadX,
+    required this.headerWidth,
+    required this.containerWidth,
+    required this.isDragging,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Skip if not visible
+    if (playheadX < 0 || playheadX > containerWidth) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: headerWidth + playheadX,
+      top: 0,
+      bottom: 0,
+      // RepaintBoundary INSIDE Positioned - isolates playhead painting
+      child: RepaintBoundary(
+        child: GestureDetector(
+          onHorizontalDragStart: (_) => onDragStart(),
+          onHorizontalDragUpdate: onDragUpdate,
+          onHorizontalDragEnd: (_) => onDragEnd(),
+          child: MouseRegion(
+            cursor: isDragging
+                ? SystemMouseCursors.grabbing
+                : SystemMouseCursors.resizeColumn,
+            child: Container(
+              width: 16,
+              transform: Matrix4.translationValues(-8, 0, 0),
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  // Glow effect (Cubase-style)
+                  if (isDragging)
+                    Container(
+                      width: 8,
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Main line
+                  Positioned(
+                    left: 7,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: isDragging ? 3 : 2,
+                      decoration: BoxDecoration(
+                        color: ReelForgeTheme.accentRed,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 2,
+                            offset: const Offset(1, 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Head triangle (Cubase-style at top)
+                  CustomPaint(
+                    size: const Size(14, 12),
+                    painter: _PlayheadPainter(
+                      isDragging: isDragging,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STANDALONE PLAYHEAD OVERLAY - FOR PROVIDER-DRIVEN UPDATES
+// ════════════════════════════════════════════════════════════════════════════
+/// Standalone playhead overlay that can be used with ValueListenableBuilder
+/// or Selector to avoid rebuilding the entire timeline
+///
+/// Usage:
+/// ```dart
+/// Stack(
+///   children: [
+///     Timeline(...), // Heavy widget - doesn't rebuild on playhead change
+///     ValueListenableBuilder<double>(
+///       valueListenable: playheadPositionNotifier,
+///       builder: (_, position, __) => PlayheadOverlay(
+///         playheadPosition: position,
+///         zoom: zoom,
+///         scrollOffset: scrollOffset,
+///         headerWidth: headerWidth,
+///         containerWidth: containerWidth,
+///         onPlayheadDrag: (time) => seek(time),
+///       ),
+///     ),
+///   ],
+/// )
+/// ```
+class PlayheadOverlay extends StatefulWidget {
+  final double playheadPosition;
+  final double zoom;
+  final double scrollOffset;
+  final double headerWidth;
+  final double containerWidth;
+  final ValueChanged<double>? onPlayheadDrag;
+  final ValueChanged<double>? onPlayheadScrub;
+  final double totalDuration;
+
+  const PlayheadOverlay({
+    super.key,
+    required this.playheadPosition,
+    required this.zoom,
+    required this.scrollOffset,
+    required this.headerWidth,
+    required this.containerWidth,
+    this.onPlayheadDrag,
+    this.onPlayheadScrub,
+    this.totalDuration = 120,
+  });
+
+  @override
+  State<PlayheadOverlay> createState() => _PlayheadOverlayState();
+}
+
+class _PlayheadOverlayState extends State<PlayheadOverlay> {
+  bool _isDragging = false;
+
+  double get _playheadX =>
+      (widget.playheadPosition - widget.scrollOffset) * widget.zoom;
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    final x = details.localPosition.dx - widget.headerWidth;
+    final time = (widget.scrollOffset + x.clamp(0, double.infinity) / widget.zoom)
+        .clamp(0.0, widget.totalDuration);
+
+    if (widget.onPlayheadScrub != null) {
+      widget.onPlayheadScrub!(time);
+    } else {
+      widget.onPlayheadDrag?.call(time);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Skip if not visible
+    if (_playheadX < 0 || _playheadX > widget.containerWidth) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: widget.headerWidth + _playheadX,
+      top: 0,
+      bottom: 0,
+      child: RepaintBoundary(
+        child: GestureDetector(
+          onHorizontalDragStart: (_) => setState(() => _isDragging = true),
+          onHorizontalDragUpdate: _handleDragUpdate,
+          onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
+          child: MouseRegion(
+            cursor: _isDragging
+                ? SystemMouseCursors.grabbing
+                : SystemMouseCursors.resizeColumn,
+            child: Container(
+              width: 16,
+              transform: Matrix4.translationValues(-8, 0, 0),
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  if (_isDragging)
+                    Container(
+                      width: 8,
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  Positioned(
+                    left: 7,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: _isDragging ? 3 : 2,
+                      decoration: BoxDecoration(
+                        color: ReelForgeTheme.accentRed,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 2,
+                            offset: const Offset(1, 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  CustomPaint(
+                    size: const Size(14, 12),
+                    painter: _PlayheadPainter(isDragging: _isDragging),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

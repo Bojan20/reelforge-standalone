@@ -24,6 +24,7 @@ import '../models/timeline_models.dart' as timeline;
 import '../theme/reelforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
+import '../widgets/layout/engine_connected_control_bar.dart';
 import '../widgets/mixer/pro_mixer_strip.dart';
 import '../widgets/mixer/plugin_selector.dart';
 import '../models/plugin_models.dart';
@@ -98,6 +99,47 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
+
+/// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
+class _TimelineTransportData {
+  final double playheadPosition;
+  final bool isPlaying;
+  final bool loopEnabled;
+  final double tempo;
+  final int timeSigNum;
+  final int timeSigDenom;
+
+  const _TimelineTransportData({
+    required this.playheadPosition,
+    required this.isPlaying,
+    required this.loopEnabled,
+    required this.tempo,
+    required this.timeSigNum,
+    required this.timeSigDenom,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _TimelineTransportData &&
+        other.playheadPosition == playheadPosition &&
+        other.isPlaying == isPlaying &&
+        other.loopEnabled == loopEnabled &&
+        other.tempo == tempo &&
+        other.timeSigNum == timeSigNum &&
+        other.timeSigDenom == timeSigDenom;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        playheadPosition,
+        isPlaying,
+        loopEnabled,
+        tempo,
+        timeSigNum,
+        timeSigDenom,
+      );
+}
 
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
@@ -1979,249 +2021,254 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<EngineProvider>(
-      builder: (context, engine, _) {
-        final transport = engine.transport;
-        final metering = engine.metering;
+    // PERFORMANCE: No Consumer wrapper - prevents entire layout rebuild on every engine update
+    // Use context.read() for callbacks and Selector for reactive parts only
 
-        // Update active buses based on current playhead position
-        // This ensures metering shows only active buses
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && transport.isPlaying) {
-            _updateActiveBuses();
-          }
-        });
-
-        return Focus(
-          autofocus: true,
-          onKeyEvent: (node, event) {
-            // Ctrl+Shift+D toggles debug console
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.keyD &&
-                HardwareKeyboard.instance.isControlPressed &&
-                HardwareKeyboard.instance.isShiftPressed) {
-              setState(() => _showDebugConsole = !_showDebugConsole);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Stack(
-          children: [
-            MainLayout(
-          // Control bar - connected to engine
-          editorMode: _editorMode,
-          onEditorModeChange: (mode) => setState(() {
-            _editorMode = mode;
-            // Reset active tab to mode default
-            _activeLowerTab = getDefaultTabForMode(mode);
-            _activeLeftTab = LeftZoneTab.project;
-          }),
-          isPlaying: transport.isPlaying,
-          isRecording: transport.isRecording,
-          onPlay: () {
-            if (transport.isPlaying) {
-              engine.pause();
-            } else {
-              engine.play();
-            }
-          },
-          onStop: () => engine.stop(),
-          onRecord: () => engine.toggleRecord(),
-          onRewind: () => engine.seek(0),
-          onForward: () => engine.seek(transport.positionSeconds + 10),
-          tempo: transport.tempo,
-          onTempoChange: (t) => engine.setTempo(t),
-          timeSignature:
-              TimeSignature(transport.timeSigNum, transport.timeSigDenom),
-          currentTime: transport.positionSeconds,
-          timeDisplayMode: _timeDisplayMode,
-          onTimeDisplayModeChange: () => setState(() {
-            switch (_timeDisplayMode) {
-              case TimeDisplayMode.bars:
-                _timeDisplayMode = TimeDisplayMode.timecode;
-              case TimeDisplayMode.timecode:
-                _timeDisplayMode = TimeDisplayMode.samples;
-              case TimeDisplayMode.samples:
-                _timeDisplayMode = TimeDisplayMode.bars;
-            }
-          }),
-          loopEnabled: transport.loopEnabled,
-          onLoopToggle: () => engine.toggleLoop(),
-          snapEnabled: _snapEnabled,
-          snapValue: _snapValue,
-          onSnapToggle: () => setState(() => _snapEnabled = !_snapEnabled),
-          onSnapValueChange: (v) => setState(() => _snapValue = v),
-          metronomeEnabled: _metronomeEnabled,
-          onMetronomeToggle: () {
-            final newState = !_metronomeEnabled;
-            NativeFFI.instance.clickSetEnabled(newState);
-            setState(() => _metronomeEnabled = newState);
-          },
-          cpuUsage: metering.cpuUsage,
-          memoryUsage: NativeFFI.instance.getMemoryUsage(),
-          projectName: engine.project.name,
-          menuCallbacks: MenuCallbacks(
-            // ═══════════════════════════════════════════════════════════════
-            // FILE MENU - All connected
-            // ═══════════════════════════════════════════════════════════════
-            onNewProject: () => _handleNewProject(engine),
-            onOpenProject: () => _handleOpenProject(engine),
-            onSaveProject: () => _handleSaveProject(engine),
-            onSaveProjectAs: () => _handleSaveProjectAs(engine),
-            onImportJSON: () => _handleImportJSON(),
-            onExportJSON: () => _handleExportJSON(),
-            onImportAudioFolder: () => _handleImportAudioFolder(),
-            onImportAudioFiles: _openFilePicker,
-            onExportAudio: () => _handleExportAudio(),
-            onBatchExport: () => _handleBatchExport(),
-            onExportPresets: () => _handleExportPresets(),
-            onBounce: () => _handleBounce(),
-            onRenderInPlace: () => _handleRenderInPlace(),
-            // ═══════════════════════════════════════════════════════════════
-            // EDIT MENU - All connected (UI + Engine undo/redo)
-            // ═══════════════════════════════════════════════════════════════
-            onUndo: (UiUndoManager.instance.canUndo || engine.canUndo) ? () => _handleUndo() : null,
-            onRedo: (UiUndoManager.instance.canRedo || engine.canRedo) ? () => _handleRedo() : null,
-            onCut: () => _handleCut(),
-            onCopy: () => _handleCopy(),
-            onPaste: () => _handlePaste(),
-            onDelete: () => _handleDelete(),
-            onSelectAll: () => _handleSelectAll(),
-            // ═══════════════════════════════════════════════════════════════
-            // VIEW MENU - All connected
-            // ═══════════════════════════════════════════════════════════════
-            onToggleLeftPanel: () => setState(() => _leftVisible = !_leftVisible),
-            onToggleRightPanel: () => setState(() => _rightVisible = !_rightVisible),
-            onToggleLowerPanel: () => setState(() => _lowerVisible = !_lowerVisible),
-            onResetLayout: () => _handleResetLayout(),
-            onShowAudioPool: () => _handleShowAudioPool(),
-            onShowMarkers: () => _handleShowMarkers(),
-            onShowMidiEditor: () => _handleShowMidiEditor(),
-            // ═══════════════════════════════════════════════════════════════
-            // PROJECT MENU - All connected
-            // ═══════════════════════════════════════════════════════════════
-            onProjectSettings: () => _handleProjectSettings(),
-            onTrackTemplates: () => _handleTrackTemplates(),
-            onVersionHistory: () => _handleVersionHistory(),
-            onFreezeSelectedTracks: () => _handleFreezeSelectedTracks(),
-            onValidateProject: () => _handleValidateProject(),
-            onBuildProject: () => _handleBuildProject(),
-            // ═══════════════════════════════════════════════════════════════
-            // STUDIO MENU - All connected
-            // ═══════════════════════════════════════════════════════════════
-            onAudioSettings: () => _handleAudioSettings(),
-            onMidiSettings: () => _handleMidiSettings(),
-            onPluginManager: () => _handlePluginManager(),
-            onKeyboardShortcuts: () => _handleKeyboardShortcuts(),
-          ),
-
-          // Left zone - mode-aware tree
-          projectTree: _buildProjectTree(),
-          activeLeftTab: _activeLeftTab,
-          onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
-          onProjectDoubleClick: _handlePoolItemDoubleClick,
-
-          // Channel tab data (DAW mode)
-          channelData: _getSelectedChannelData(),
-          onChannelVolumeChange: (channelId, volume) {
-            final mixerProvider = context.read<MixerProvider>();
-            // Convert dB to linear: 0dB = 1.0, -60dB = 0.001, +12dB = ~4.0
-            final linear = volume <= -60 ? 0.0 : (10.0 * (volume / 20.0)).clamp(0.0, 1.5);
-            mixerProvider.setVolume(channelId, linear);
-          },
-          onChannelPanChange: (channelId, pan) {
-            final mixerProvider = context.read<MixerProvider>();
-            mixerProvider.setChannelPan(channelId, pan);
-          },
-          onChannelMuteToggle: (channelId) {
-            final mixerProvider = context.read<MixerProvider>();
-            mixerProvider.toggleMute(channelId);
-          },
-          onChannelSoloToggle: (channelId) {
-            final mixerProvider = context.read<MixerProvider>();
-            mixerProvider.toggleSolo(channelId);
-          },
-          onChannelInsertClick: (channelId, slotIndex) {
-            _onInsertClick(channelId, slotIndex);
-          },
-          onChannelSendLevelChange: (channelId, sendIndex, level) {
-            EngineApi.instance.setSendLevel(channelId, sendIndex, level);
-          },
-          onChannelEQToggle: (channelId) {
-            setState(() {
-              if (_openEqWindows.containsKey(channelId)) {
-                _openEqWindows.remove(channelId);
-              } else {
-                _openEqWindows[channelId] = true;
-              }
-            });
-          },
-          onChannelOutputClick: (channelId) {
-            _onOutputClick(channelId);
-          },
-          onChannelInputClick: (channelId) {
-            _onInputClick(channelId);
-          },
-          onChannelArmToggle: (channelId) {
-            final mixerProvider = context.read<MixerProvider>();
-            mixerProvider.toggleArm(channelId);
-          },
-          onChannelMonitorToggle: (channelId) {
-            final mixerProvider = context.read<MixerProvider>();
-            mixerProvider.toggleInputMonitor(channelId);
-          },
-          onChannelSendClick: (channelId, sendIndex) {
-            _onSendClick(channelId, sendIndex);
-          },
-
-          // Center zone
-          child: _buildCenterContent(transport, metering),
-
-          // Inspector (for middleware mode)
-          inspectorType: InspectedObjectType.event,
-          inspectorName: 'Play_Music',
-          inspectorSections: _buildInspectorSections(),
-
-          // Clip inspector (DAW mode)
-          selectedClip: _clips.cast<timeline.TimelineClip?>().firstWhere(
-            (c) => c?.selected == true,
-            orElse: () => null,
-          ),
-          selectedClipTrack: _getSelectedClipTrack(),
-          onClipChanged: _handleClipInspectorChange,
-          onOpenClipFxEditor: _handleOpenClipFxEditor,
-
-          // Lower zone - all tabs with mode-based filtering
-          lowerTabs: _buildLowerTabs(metering, transport.isPlaying),
-          lowerTabGroups: _buildTabGroups(),
-          activeLowerTabId: _activeLowerTab,
-          onLowerTabChange: (id) => setState(() => _activeLowerTab = id),
-
-          // Zone visibility
-          leftZoneVisible: _leftVisible,
-          rightZoneVisible: _rightVisible,
-          lowerZoneVisible: _lowerVisible,
-          onLeftZoneToggle: () => setState(() => _leftVisible = !_leftVisible),
-          onRightZoneToggle: () =>
-              setState(() => _rightVisible = !_rightVisible),
-          onLowerZoneToggle: () =>
-              setState(() => _lowerVisible = !_lowerVisible),
-        ),
-        // Floating EQ windows
-        ..._buildFloatingEqWindows(metering, transport.isPlaying),
-
-        // Debug Console (toggle with Ctrl+Shift+D)
-        if (_showDebugConsole)
-          Positioned.fill(
-            child: DebugConsole(
-              onClose: () => setState(() => _showDebugConsole = false),
-            ),
-          ),
-          ],
-        ),
-        );
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        // Ctrl+Shift+D toggles debug console
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyD &&
+            HardwareKeyboard.instance.isControlPressed &&
+            HardwareKeyboard.instance.isShiftPressed) {
+          setState(() => _showDebugConsole = !_showDebugConsole);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
+      child: Stack(
+        children: [
+          MainLayout(
+            // PERFORMANCE: Use custom control bar that handles its own provider listening
+            // This isolates control bar rebuilds from the rest of the layout
+            customControlBar: EngineConnectedControlBar(
+              editorMode: _editorMode,
+              onEditorModeChange: (mode) => setState(() {
+                _editorMode = mode;
+                _activeLowerTab = getDefaultTabForMode(mode);
+                _activeLeftTab = LeftZoneTab.project;
+              }),
+              timeDisplayMode: _timeDisplayMode,
+              onTimeDisplayModeChange: () => setState(() {
+                switch (_timeDisplayMode) {
+                  case TimeDisplayMode.bars:
+                    _timeDisplayMode = TimeDisplayMode.timecode;
+                  case TimeDisplayMode.timecode:
+                    _timeDisplayMode = TimeDisplayMode.samples;
+                  case TimeDisplayMode.samples:
+                    _timeDisplayMode = TimeDisplayMode.bars;
+                }
+              }),
+              snapEnabled: _snapEnabled,
+              snapValue: _snapValue,
+              onSnapToggle: () => setState(() => _snapEnabled = !_snapEnabled),
+              onSnapValueChange: (v) => setState(() => _snapValue = v),
+              metronomeEnabled: _metronomeEnabled,
+              onMetronomeToggle: () {
+                final newState = !_metronomeEnabled;
+                NativeFFI.instance.clickSetEnabled(newState);
+                setState(() => _metronomeEnabled = newState);
+              },
+              memoryUsage: NativeFFI.instance.getMemoryUsage(),
+              onToggleLeftZone: () => setState(() => _leftVisible = !_leftVisible),
+              onToggleRightZone: () => setState(() => _rightVisible = !_rightVisible),
+              onToggleLowerZone: () => setState(() => _lowerVisible = !_lowerVisible),
+              menuCallbacks: _buildMenuCallbacks(),
+            ),
+
+            // These props are no longer used when customControlBar is provided
+            // but we keep minimal values for compatibility
+            editorMode: _editorMode,
+
+            // Left zone - mode-aware tree
+            projectTree: _buildProjectTree(),
+            activeLeftTab: _activeLeftTab,
+            onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
+            onProjectDoubleClick: _handlePoolItemDoubleClick,
+
+            // Channel tab data (DAW mode)
+            channelData: _getSelectedChannelData(),
+            onChannelVolumeChange: (channelId, volume) {
+              final mixerProvider = context.read<MixerProvider>();
+              final linear = volume <= -60 ? 0.0 : (10.0 * (volume / 20.0)).clamp(0.0, 1.5);
+              mixerProvider.setVolume(channelId, linear);
+            },
+            onChannelPanChange: (channelId, pan) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.setChannelPan(channelId, pan);
+            },
+            onChannelMuteToggle: (channelId) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.toggleMute(channelId);
+            },
+            onChannelSoloToggle: (channelId) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.toggleSolo(channelId);
+            },
+            onChannelInsertClick: (channelId, slotIndex) {
+              _onInsertClick(channelId, slotIndex);
+            },
+            onChannelSendLevelChange: (channelId, sendIndex, level) {
+              EngineApi.instance.setSendLevel(channelId, sendIndex, level);
+            },
+            onChannelEQToggle: (channelId) {
+              setState(() {
+                if (_openEqWindows.containsKey(channelId)) {
+                  _openEqWindows.remove(channelId);
+                } else {
+                  _openEqWindows[channelId] = true;
+                }
+              });
+            },
+            onChannelOutputClick: (channelId) {
+              _onOutputClick(channelId);
+            },
+            onChannelInputClick: (channelId) {
+              _onInputClick(channelId);
+            },
+            onChannelArmToggle: (channelId) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.toggleArm(channelId);
+            },
+            onChannelMonitorToggle: (channelId) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.toggleInputMonitor(channelId);
+            },
+            onChannelSendClick: (channelId, sendIndex) {
+              _onSendClick(channelId, sendIndex);
+            },
+
+            // Center zone - uses Selector internally for playhead
+            child: _buildCenterContentOptimized(),
+
+            // Inspector (for middleware mode)
+            inspectorType: InspectedObjectType.event,
+            inspectorName: 'Play_Music',
+            inspectorSections: _buildInspectorSections(),
+
+            // Clip inspector (DAW mode)
+            selectedClip: _clips.cast<timeline.TimelineClip?>().firstWhere(
+              (c) => c?.selected == true,
+              orElse: () => null,
+            ),
+            selectedClipTrack: _getSelectedClipTrack(),
+            onClipChanged: _handleClipInspectorChange,
+            onOpenClipFxEditor: _handleOpenClipFxEditor,
+
+            // Lower zone - uses Selector for metering
+            lowerTabs: _buildLowerTabsOptimized(),
+            lowerTabGroups: _buildTabGroups(),
+            activeLowerTabId: _activeLowerTab,
+            onLowerTabChange: (id) => setState(() => _activeLowerTab = id),
+
+            // Zone visibility
+            leftZoneVisible: _leftVisible,
+            rightZoneVisible: _rightVisible,
+            lowerZoneVisible: _lowerVisible,
+            onLeftZoneToggle: () => setState(() => _leftVisible = !_leftVisible),
+            onRightZoneToggle: () => setState(() => _rightVisible = !_rightVisible),
+            onLowerZoneToggle: () => setState(() => _lowerVisible = !_lowerVisible),
+          ),
+          // Floating EQ windows - optimized
+          ..._buildFloatingEqWindowsOptimized(),
+
+          // Debug Console (toggle with Ctrl+Shift+D)
+          if (_showDebugConsole)
+            Positioned.fill(
+              child: DebugConsole(
+                onClose: () => setState(() => _showDebugConsole = false),
+              ),
+            ),
+        ],
+      ),
     );
+  }
+
+  /// PERFORMANCE: Build menu callbacks using context.read() instead of Consumer
+  MenuCallbacks _buildMenuCallbacks() {
+    return MenuCallbacks(
+      // FILE MENU
+      onNewProject: () => _handleNewProject(context.read<EngineProvider>()),
+      onOpenProject: () => _handleOpenProject(context.read<EngineProvider>()),
+      onSaveProject: () => _handleSaveProject(context.read<EngineProvider>()),
+      onSaveProjectAs: () => _handleSaveProjectAs(context.read<EngineProvider>()),
+      onImportJSON: () => _handleImportJSON(),
+      onExportJSON: () => _handleExportJSON(),
+      onImportAudioFolder: () => _handleImportAudioFolder(),
+      onImportAudioFiles: _openFilePicker,
+      onExportAudio: () => _handleExportAudio(),
+      onBatchExport: () => _handleBatchExport(),
+      onExportPresets: () => _handleExportPresets(),
+      onBounce: () => _handleBounce(),
+      onRenderInPlace: () => _handleRenderInPlace(),
+      // EDIT MENU
+      onUndo: () => _handleUndo(),
+      onRedo: () => _handleRedo(),
+      onCut: () => _handleCut(),
+      onCopy: () => _handleCopy(),
+      onPaste: () => _handlePaste(),
+      onDelete: () => _handleDelete(),
+      onSelectAll: () => _handleSelectAll(),
+      // VIEW MENU
+      onToggleLeftPanel: () => setState(() => _leftVisible = !_leftVisible),
+      onToggleRightPanel: () => setState(() => _rightVisible = !_rightVisible),
+      onToggleLowerPanel: () => setState(() => _lowerVisible = !_lowerVisible),
+      onResetLayout: () => _handleResetLayout(),
+      onShowAudioPool: () => _handleShowAudioPool(),
+      onShowMarkers: () => _handleShowMarkers(),
+      onShowMidiEditor: () => _handleShowMidiEditor(),
+      // PROJECT MENU
+      onProjectSettings: () => _handleProjectSettings(),
+      onTrackTemplates: () => _handleTrackTemplates(),
+      onVersionHistory: () => _handleVersionHistory(),
+      onFreezeSelectedTracks: () => _handleFreezeSelectedTracks(),
+      onValidateProject: () => _handleValidateProject(),
+      onBuildProject: () => _handleBuildProject(),
+      // STUDIO MENU
+      onAudioSettings: () => _handleAudioSettings(),
+      onMidiSettings: () => _handleMidiSettings(),
+      onPluginManager: () => _handlePluginManager(),
+      onKeyboardShortcuts: () => _handleKeyboardShortcuts(),
+    );
+  }
+
+  /// PERFORMANCE: Center content without Consumer wrapper
+  /// Uses the existing _buildDAWCenterContent which already has Selector inside
+  Widget _buildCenterContentOptimized() {
+    // Get transport data using read() - not reactive here, Timeline has its own Selector
+    final engine = context.read<EngineProvider>();
+    final transport = engine.transport;
+    final metering = engine.metering;
+
+    if (_editorMode == EditorMode.daw) {
+      return _buildDAWCenterContent(transport, metering);
+    } else {
+      return _buildMiddlewareCenterContent();
+    }
+  }
+
+  /// PERFORMANCE: Lower tabs without Consumer - use Selector for metering
+  List<LowerZoneTab> _buildLowerTabsOptimized() {
+    // Build tabs without metering dependency for static tabs
+    // Metering tabs will use their own Selector internally
+    return _buildLowerTabsStatic();
+  }
+
+  /// Static lower tabs that don't depend on metering
+  List<LowerZoneTab> _buildLowerTabsStatic() {
+    final engine = context.read<EngineProvider>();
+    final metering = engine.metering;
+    final isPlaying = engine.transport.isPlaying;
+    return _buildLowerTabs(metering, isPlaying);
+  }
+
+  /// PERFORMANCE: Floating EQ windows without Consumer
+  List<Widget> _buildFloatingEqWindowsOptimized() {
+    final engine = context.read<EngineProvider>();
+    final metering = engine.metering;
+    final isPlaying = engine.transport.isPlaying;
+    return _buildFloatingEqWindows(metering, isPlaying);
   }
 
   Widget _buildCenterContent(dynamic transport, dynamic metering) {
@@ -2245,14 +2292,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         timelineDisplayMode = timeline.TimeDisplayMode.samples;
     }
 
-    return timeline_widget.Timeline(
+    // PERFORMANCE: Use Selector for playhead position to avoid rebuilding entire timeline
+    // when only playhead moves. This is critical for smooth performance with many tracks.
+    return Selector<EngineProvider, double>(
+      selector: (_, engine) => engine.transport.positionSeconds,
+      builder: (context, playheadPosition, child) => timeline_widget.Timeline(
       tracks: _tracks,
       clips: _clips,
       markers: _markers,
       crossfades: _crossfades,
       loopRegion: _loopRegion,
       loopEnabled: transport.loopEnabled,
-      playheadPosition: transport.positionSeconds,
+      playheadPosition: playheadPosition,
       tempo: transport.tempo,
       timeSignatureNum: transport.timeSigNum,
       timeSignatureDenom: transport.timeSigDenom,
@@ -2832,7 +2883,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           NativeFFI.instance.automationClearLane(trackIdInt, lane.parameterName.toLowerCase());
         }
       },
-    );
+    ),
+    ); // Close Selector wrapper
   }
 
   // Complete Wwise/FMOD-style action types

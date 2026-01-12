@@ -126,9 +126,11 @@ class TimelinePlaybackProvider extends ChangeNotifier {
 
   Ticker? _ticker;
 
-  // Scrub throttling
-  DateTime _lastSeekTime = DateTime.now();
-  static const Duration _seekThrottleDuration = Duration(milliseconds: 100);
+  // INSTANT RESPONSE: No throttling for scrub - smooth playhead drag
+  // Audio engine handles its own throttling via lock-free atomics
+  DateTime _lastNotifyTime = DateTime.now();
+  // 8ms = 120fps for ultra-smooth playhead movement
+  static const Duration _notifyThrottleDuration = Duration(milliseconds: 8);
 
   // Callbacks
   void Function(double time)? onTimeUpdate;
@@ -201,19 +203,9 @@ class TimelinePlaybackProvider extends ChangeNotifier {
 
   void seek(double time, {bool isScrubbing = false}) {
     final clampedTime = time.clamp(0.0, _state.duration);
-    final now = DateTime.now();
 
-    if (_state.isPlaying && isScrubbing) {
-      // Throttle during scrubbing to avoid audio glitches
-      if (now.difference(_lastSeekTime) > _seekThrottleDuration) {
-        // Seek in Rust audio engine
-        api.seek(clampedTime);
-        _lastSeekTime = now;
-      }
-    } else {
-      // Normal seek - immediate
-      api.seek(clampedTime);
-    }
+    // INSTANT: Always seek immediately - Rust engine is lock-free
+    api.seek(clampedTime);
 
     _state = _state.copyWith(currentTime: clampedTime);
     notifyListeners();
@@ -255,9 +247,18 @@ class TimelinePlaybackProvider extends ChangeNotifier {
       return;
     }
 
-    // Update UI state (60 FPS vsync)
+    // Update state (always)
     _state = _state.copyWith(currentTime: currentTime);
-    notifyListeners();
+
+    // PERFORMANCE: Throttle UI rebuilds to 20fps (50ms) during playback
+    // This prevents timeline from rebuilding 60x per second
+    final now = DateTime.now();
+    if (now.difference(_lastNotifyTime) >= _notifyThrottleDuration) {
+      _lastNotifyTime = now;
+      notifyListeners();
+    }
+
+    // Callback always fires (for audio sync)
     onTimeUpdate?.call(currentTime);
   }
 

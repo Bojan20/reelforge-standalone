@@ -822,6 +822,8 @@ pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_
 
 /// Inner implementation of engine_import_audio (can panic safely)
 fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64) -> u64 {
+    eprintln!("[FFI Import] STEP 1: Checking path pointer");
+
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
         None => {
@@ -829,6 +831,8 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
             return 0;
         }
     };
+
+    eprintln!("[FFI Import] STEP 2: Path string: {}", path_str);
 
     // SECURITY: Validate path to prevent path traversal attacks
     let validated_path = match validate_file_path(&path_str) {
@@ -839,6 +843,8 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
         }
     };
 
+    eprintln!("[FFI Import] STEP 3: Path validated");
+
     // SECURITY: Validate start_time
     if !validate_dsp_float(start_time, 0.0, 86400.0, "import_start_time") {
         eprintln!("[FFI Import] ERROR: Invalid start_time: {}", start_time);
@@ -846,7 +852,7 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     }
 
     eprintln!(
-        "[FFI Import] Importing: {:?} to track {} at {:.2}s",
+        "[FFI Import] STEP 4: Importing: {:?} to track {} at {:.2}s",
         validated_path, track_id, start_time
     );
 
@@ -854,7 +860,7 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     let imported = match AudioImporter::import(&validated_path) {
         Ok(audio) => {
             eprintln!(
-                "[FFI Import] SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
+                "[FFI Import] STEP 5: Import SUCCESS: {} samples, {} Hz, {} ch, {:.2}s",
                 audio.samples.len(),
                 audio.sample_rate,
                 audio.channels,
@@ -874,6 +880,8 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     let duration = imported.duration_secs;
     let name = imported.name.clone();
 
+    eprintln!("[FFI Import] STEP 6: Creating clip for track {}", track_id);
+
     // Create clip
     let clip_id = TRACK_MANAGER.create_clip(
         TrackId(track_id),
@@ -884,22 +892,35 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
         duration,
     );
 
+    eprintln!("[FFI Import] STEP 7: Clip created with ID {}", clip_id.0);
+
     // Generate waveform peaks and cache (with safety check for empty samples)
+    eprintln!("[FFI Import] STEP 8: Generating waveform peaks (samples: {}, channels: {})",
+        imported.samples.len(), imported.channels);
+
     let peaks = if imported.samples.is_empty() {
         eprintln!("[FFI Import] WARNING: Empty samples, creating empty waveform");
         StereoWaveformPeaks::empty(imported.sample_rate)
     } else if imported.channels == 2 {
+        eprintln!("[FFI Import] STEP 8a: Creating stereo waveform from interleaved");
         StereoWaveformPeaks::from_interleaved(&imported.samples, imported.sample_rate)
     } else {
+        eprintln!("[FFI Import] STEP 8b: Creating mono waveform");
         StereoWaveformPeaks::from_mono(&imported.samples, imported.sample_rate)
     };
+
+    eprintln!("[FFI Import] STEP 9: Waveform peaks generated, caching...");
 
     // Store in caches
     let key = format!("clip_{}", clip_id.0);
     WAVEFORM_CACHE.get_or_compute(&key, || peaks);
+
+    eprintln!("[FFI Import] STEP 10: Storing in IMPORTED_AUDIO");
     IMPORTED_AUDIO
         .write()
         .insert(clip_id, Arc::clone(&imported));
+
+    eprintln!("[FFI Import] STEP 11: Storing in PlaybackEngine cache");
 
     // Also add to PlaybackEngine cache for real-time playback
     // (uses source_file path as key, matching how clips reference audio)
@@ -915,7 +936,7 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
 
     // Debug: verify cache contents
     let cache_size = PLAYBACK_ENGINE.cache.size();
-    log::info!("[Import] Cache now has {} entries", cache_size);
+    eprintln!("[FFI Import] STEP 12: DONE! Cache now has {} entries", cache_size);
 
     clip_id.0
 }
@@ -3060,20 +3081,15 @@ pub extern "C" fn engine_project_get_file_path() -> *const c_char {
 // MEMORY FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Get memory usage in MB
+/// Get memory usage as percentage (0-100)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_memory_usage() -> f32 {
-    // Approximate memory usage from caches
-    let audio_cache_bytes = PLAYBACK_ENGINE.cache().memory_usage();
-    let waveform_cache_bytes = WAVEFORM_CACHE.memory_usage();
-    let imported_audio_bytes: usize = IMPORTED_AUDIO
-        .read()
-        .values()
-        .map(|a| a.samples.len() * std::mem::size_of::<f32>())
-        .sum();
+    // Use audio cache utilization as primary memory indicator
+    // This represents how full the LRU cache is relative to its max size
+    let cache_utilization = PLAYBACK_ENGINE.cache().utilization();
 
-    let total_bytes = audio_cache_bytes + waveform_cache_bytes + imported_audio_bytes;
-    (total_bytes as f32) / (1024.0 * 1024.0)
+    // Return as percentage (0-100)
+    (cache_utilization * 100.0) as f32
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12971,4 +12987,486 @@ pub extern "C" fn export_get_default_path() -> *mut c_char {
     CString::new(path.to_string_lossy().into_owned())
         .unwrap_or_default()
         .into_raw()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 13: DISK STREAMING FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::streaming::{ControlCommand, ControlQueue, StreamingEngine};
+
+lazy_static::lazy_static! {
+    /// Global streaming engine instance
+    static ref STREAMING_ENGINE: RwLock<Option<StreamingEngine>> = RwLock::new(None);
+    /// Control queue for UI → Audio commands
+    static ref CONTROL_QUEUE: ControlQueue = ControlQueue::new(1024);
+}
+
+/// Initialize streaming engine
+///
+/// # Arguments
+/// * `sample_rate` - Audio sample rate (e.g., 48000)
+/// * `num_disk_workers` - Number of disk reader threads (e.g., 4)
+///
+/// # Returns
+/// 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_init(sample_rate: u32, num_disk_workers: u32) -> i32 {
+    let engine = StreamingEngine::new(sample_rate, num_disk_workers as usize);
+    *STREAMING_ENGINE.write() = Some(engine);
+    log::info!("Streaming engine initialized: {}Hz, {} workers", sample_rate, num_disk_workers);
+    1
+}
+
+/// Shutdown streaming engine
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_shutdown() {
+    *STREAMING_ENGINE.write() = None;
+    log::info!("Streaming engine shutdown");
+}
+
+/// Register audio asset for streaming
+///
+/// # Arguments
+/// * `path` - Path to audio file (WAV)
+/// * `total_frames` - Total frames in file
+/// * `channels` - Number of channels (1 or 2)
+///
+/// # Returns
+/// Asset ID (>0) on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_register_asset(
+    path: *const c_char,
+    total_frames: i64,
+    channels: u8,
+) -> u32 {
+    let path = match unsafe { cstr_to_string(path) } {
+        Some(p) => p,
+        None => return 0,
+    };
+
+    let engine = STREAMING_ENGINE.read();
+    match engine.as_ref() {
+        Some(e) => e.register_asset(&path, total_frames, channels),
+        None => {
+            log::error!("Streaming engine not initialized");
+            0
+        }
+    }
+}
+
+/// Create stream for audio event (clip on timeline)
+///
+/// # Arguments
+/// * `track_id` - Track ID
+/// * `asset_id` - Asset ID from streaming_register_asset
+/// * `tl_start_frame` - Timeline start position (frames)
+/// * `tl_end_frame` - Timeline end position (frames)
+/// * `src_start_frame` - Source file offset (frames)
+/// * `gain` - Clip gain (0.0 - 2.0)
+///
+/// # Returns
+/// Stream ID (>0) on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_create_stream(
+    track_id: u32,
+    asset_id: u32,
+    tl_start_frame: i64,
+    tl_end_frame: i64,
+    src_start_frame: i64,
+    gain: f32,
+) -> u32 {
+    let engine = STREAMING_ENGINE.read();
+    match engine.as_ref() {
+        Some(e) => e.create_stream(track_id, asset_id, tl_start_frame, tl_end_frame, src_start_frame, gain),
+        None => 0,
+    }
+}
+
+/// Remove stream
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_remove_stream(stream_id: u32) {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.remove_stream(stream_id);
+    }
+}
+
+/// Rebuild event index after adding/removing streams
+///
+/// # Arguments
+/// * `timeline_frames` - Total timeline length in frames
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_rebuild_index(timeline_frames: i64) {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.rebuild_index(timeline_frames);
+    }
+}
+
+/// Start streaming playback
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_play() {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.start();
+    }
+}
+
+/// Stop streaming playback
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_stop() {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.stop();
+    }
+}
+
+/// Seek to position
+///
+/// # Arguments
+/// * `frame` - Timeline position in frames
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_seek(frame: i64) {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.seek(frame);
+    }
+}
+
+/// Schedule prefetch jobs (call periodically from UI thread)
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_schedule_prefetch() {
+    let engine = STREAMING_ENGINE.read();
+    if let Some(e) = engine.as_ref() {
+        e.schedule_prefetch();
+    }
+}
+
+/// Get current playback position in seconds
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_get_position() -> f64 {
+    let engine = STREAMING_ENGINE.read();
+    match engine.as_ref() {
+        Some(e) => e.position_seconds(),
+        None => 0.0,
+    }
+}
+
+/// Get stream count
+#[unsafe(no_mangle)]
+pub extern "C" fn streaming_get_stream_count() -> u32 {
+    let engine = STREAMING_ENGINE.read();
+    match engine.as_ref() {
+        Some(e) => e.stream_count() as u32,
+        None => 0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTROL QUEUE FFI (Lock-Free Commands UI → Audio)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Send Play command to audio thread
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_play() -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::play()) { 1 } else { 0 }
+}
+
+/// Send Stop command to audio thread
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_stop() -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::stop()) { 1 } else { 0 }
+}
+
+/// Send Pause command to audio thread
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_pause() -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::pause()) { 1 } else { 0 }
+}
+
+/// Send Seek command to audio thread
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_seek(frame: i64) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::seek(frame)) { 1 } else { 0 }
+}
+
+/// Send SetTrackMute command
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_set_track_mute(track_id: u32, muted: i32) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::set_track_mute(track_id, muted != 0)) { 1 } else { 0 }
+}
+
+/// Send SetTrackSolo command
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_set_track_solo(track_id: u32, soloed: i32) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::set_track_solo(track_id, soloed != 0)) { 1 } else { 0 }
+}
+
+/// Send SetTrackVolume command
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_set_track_volume(track_id: u32, volume: f32) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::set_track_volume(track_id, volume)) { 1 } else { 0 }
+}
+
+/// Send SetTrackPan command
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_set_track_pan(track_id: u32, pan: f32) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::set_track_pan(track_id, pan)) { 1 } else { 0 }
+}
+
+/// Send SetMasterVolume command
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_set_master_volume(volume: f32) -> i32 {
+    if CONTROL_QUEUE.push(ControlCommand::set_master_volume(volume)) { 1 } else { 0 }
+}
+
+/// Drain control queue (call from audio thread at start of each block)
+/// Returns number of commands processed
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_drain() -> u32 {
+    let mut count = 0u32;
+    CONTROL_QUEUE.drain(|_cmd| {
+        // Commands are processed here - in real implementation,
+        // this would update the streaming engine state
+        count += 1;
+    });
+    count
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WAVE CACHE FFI (Multi-Resolution Waveform Caching)
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    static ref WAVE_CACHE_MANAGER: crate::wave_cache::WaveCacheManager = {
+        let cache_dir = std::env::var("HOME")
+            .map(|h| std::path::PathBuf::from(h).join("Library").join("Caches"))
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join("reelforge")
+            .join("waveform_cache");
+        crate::wave_cache::WaveCacheManager::new(cache_dir)
+    };
+}
+
+/// Initialize wave cache with custom directory
+/// Returns 1 on success
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_init(cache_dir: *const c_char) -> i32 {
+    // Cache is initialized lazily via WAVE_CACHE_MANAGER
+    // This function just ensures the directory exists
+    if let Some(dir) = unsafe { cstr_to_string(cache_dir) } {
+        std::fs::create_dir_all(&dir).ok();
+    }
+    1
+}
+
+/// Check if cache exists for audio file
+/// Returns 1 if cache exists, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_has_cache(audio_path: *const c_char) -> i32 {
+    let path = match unsafe { cstr_to_string(audio_path) } {
+        Some(p) => p,
+        None => return 0,
+    };
+    if WAVE_CACHE_MANAGER.has_cache(&path) { 1 } else { 0 }
+}
+
+/// Start building cache for audio file
+/// Returns: 0 = started building, 1 = already cached, -1 = error
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_build(
+    audio_path: *const c_char,
+    sample_rate: u32,
+    channels: u8,
+    total_frames: u64,
+) -> i32 {
+    let path = match unsafe { cstr_to_string(audio_path) } {
+        Some(p) => p,
+        None => return -1,
+    };
+
+    match WAVE_CACHE_MANAGER.get_or_build(&path, sample_rate, channels, total_frames) {
+        Ok(crate::wave_cache::GetCacheResult::Ready(_)) => 1,
+        Ok(crate::wave_cache::GetCacheResult::Building(_)) => 0,
+        Err(_) => -1,
+    }
+}
+
+/// Get build progress for audio file (0.0 - 1.0)
+/// Returns -1.0 if not building
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_build_progress(audio_path: *const c_char) -> f32 {
+    let path = match unsafe { cstr_to_string(audio_path) } {
+        Some(p) => p,
+        None => return -1.0,
+    };
+    WAVE_CACHE_MANAGER.build_progress(&path).unwrap_or(-1.0)
+}
+
+/// Query tiles for rendering
+/// Returns pointer to WaveTileResult (caller must free with wave_cache_free_tiles)
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_query_tiles(
+    audio_path: *const c_char,
+    start_frame: u64,
+    end_frame: u64,
+    pixels_per_second: f64,
+    sample_rate: u32,
+    out_mip_level: *mut u32,
+    out_samples_per_tile: *mut u32,
+    out_tile_count: *mut u32,
+) -> *mut f32 {
+    let path = match unsafe { cstr_to_string(audio_path) } {
+        Some(p) => p,
+        None => return std::ptr::null_mut(),
+    };
+
+    let tiles = match WAVE_CACHE_MANAGER.query_tiles(
+        &path,
+        start_frame,
+        end_frame,
+        pixels_per_second,
+        sample_rate,
+    ) {
+        Ok(t) => t,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    if tiles.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let response = &tiles[0];
+
+    // Output metadata
+    if !out_mip_level.is_null() {
+        unsafe { *out_mip_level = response.mip_level as u32; }
+    }
+    if !out_samples_per_tile.is_null() {
+        unsafe { *out_samples_per_tile = response.samples_per_tile as u32; }
+    }
+
+    // Merge all channels into flat array [min0, max0, min1, max1, ...]
+    let merged: Vec<crate::wave_cache::CachedTile> = if response.tiles.len() == 1 {
+        response.tiles[0].clone()
+    } else {
+        // Merge stereo channels
+        let left = &response.tiles[0];
+        let right = response.tiles.get(1).map(|v| v.as_slice()).unwrap_or(&[]);
+
+        left.iter()
+            .enumerate()
+            .map(|(i, l)| {
+                let r = right.get(i).copied().unwrap_or(*l);
+                crate::wave_cache::CachedTile {
+                    tile_index: l.tile_index,
+                    frame_offset: l.frame_offset,
+                    min: l.min.min(r.min),
+                    max: l.max.max(r.max),
+                }
+            })
+            .collect()
+    };
+
+    if !out_tile_count.is_null() {
+        unsafe { *out_tile_count = merged.len() as u32; }
+    }
+
+    // Convert to flat f32 array
+    let flat = crate::wave_cache::tiles_to_flat_array(&merged);
+
+    // Allocate and copy
+    let ptr = unsafe {
+        let layout = std::alloc::Layout::array::<f32>(flat.len()).unwrap();
+        let ptr = std::alloc::alloc(layout) as *mut f32;
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+        std::ptr::copy_nonoverlapping(flat.as_ptr(), ptr, flat.len());
+        ptr
+    };
+
+    ptr
+}
+
+/// Free tiles returned by wave_cache_query_tiles
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, count: u32) {
+    if ptr.is_null() || count == 0 {
+        return;
+    }
+    unsafe {
+        let layout = std::alloc::Layout::array::<f32>(count as usize * 2).unwrap();
+        std::alloc::dealloc(ptr as *mut u8, layout);
+    }
+}
+
+/// Unload cache from memory (keeps .wfc file on disk)
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_unload(audio_path: *const c_char) {
+    if let Some(path) = unsafe { cstr_to_string(audio_path) } {
+        WAVE_CACHE_MANAGER.unload(&path);
+    }
+}
+
+/// Delete cache file from disk
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_delete(audio_path: *const c_char) {
+    if let Some(path) = unsafe { cstr_to_string(audio_path) } {
+        WAVE_CACHE_MANAGER.delete_cache(&path);
+    }
+}
+
+/// Clear all caches from memory and disk
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_clear_all() {
+    WAVE_CACHE_MANAGER.clear_all();
+}
+
+/// Get number of loaded caches
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_loaded_count() -> u32 {
+    WAVE_CACHE_MANAGER.loaded_count() as u32
+}
+
+/// Build cache from already-loaded samples
+/// samples: interleaved f32 samples
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn wave_cache_build_from_samples(
+    audio_path: *const c_char,
+    samples: *const f32,
+    sample_count: u64,
+    channels: u8,
+    sample_rate: u32,
+) -> i32 {
+    let path = match unsafe { cstr_to_string(audio_path) } {
+        Some(p) => p,
+        None => return 0,
+    };
+
+    if samples.is_null() || sample_count == 0 {
+        return 0;
+    }
+
+    // Safety: Trust FFI caller for buffer validity
+    let samples_slice = unsafe {
+        std::slice::from_raw_parts(samples, sample_count as usize)
+    };
+
+    let cache_path = WAVE_CACHE_MANAGER.cache_path_for(&path);
+
+    match crate::wave_cache::build_from_samples(
+        samples_slice,
+        channels as usize,
+        sample_rate,
+        &cache_path,
+    ) {
+        Ok(_) => 1,
+        Err(e) => {
+            log::error!("Failed to build wave cache: {}", e);
+            0
+        }
+    }
 }

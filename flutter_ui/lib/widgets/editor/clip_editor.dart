@@ -180,7 +180,11 @@ class _ClipEditorState extends State<ClipEditor> {
   bool _isDragging = false;
   double? _dragStart;
   _FadeHandle _draggingFade = _FadeHandle.none;
-  double _hoverX = -1;
+  // PERFORMANCE: Use ValueNotifier instead of setState for hover position
+  // This prevents full widget rebuild on every mouse move
+  final ValueNotifier<double> _hoverXNotifier = ValueNotifier(-1);
+  double get _hoverX => _hoverXNotifier.value;
+  set _hoverX(double value) => _hoverXNotifier.value = value;
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 0;
 
@@ -211,6 +215,7 @@ class _ClipEditorState extends State<ClipEditor> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _hoverXNotifier.dispose();
     super.dispose();
   }
 
@@ -576,10 +581,12 @@ class _ClipEditorState extends State<ClipEditor> {
   Widget _buildWaveformArea() {
     return MouseRegion(
       onHover: (event) {
-        setState(() => _hoverX = event.localPosition.dx);
+        // PERFORMANCE: No setState - just update the notifier
+        _hoverX = event.localPosition.dx;
       },
       onExit: (_) {
-        setState(() => _hoverX = -1);
+        // PERFORMANCE: No setState - just update the notifier
+        _hoverX = -1;
       },
       cursor: _getCursor(),
       child: Listener(
@@ -600,29 +607,57 @@ class _ClipEditorState extends State<ClipEditor> {
 
               return Stack(
                 children: [
-                  // Waveform canvas
-                  CustomPaint(
-                    painter: _WaveformPainter(
-                      waveform: widget.clip!.waveform,
-                      zoom: widget.zoom,
-                      scrollOffset: widget.scrollOffset,
-                      duration: widget.clip!.duration,
-                      selection: widget.selection,
-                      fadeIn: widget.clip!.fadeIn,
-                      fadeOut: widget.clip!.fadeOut,
-                      color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
-                      channels: widget.clip!.channels,
-                      hoverX: _hoverX,
+                  // PERFORMANCE: Waveform in RepaintBoundary - NO hover dependency
+                  // Hover line is separate layer to prevent waveform repaint on mouse move
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _WaveformPainter(
+                        waveform: widget.clip!.waveform,
+                        zoom: widget.zoom,
+                        scrollOffset: widget.scrollOffset,
+                        duration: widget.clip!.duration,
+                        selection: widget.selection,
+                        fadeIn: widget.clip!.fadeIn,
+                        fadeOut: widget.clip!.fadeOut,
+                        color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
+                        channels: widget.clip!.channels,
+                        hoverX: -1, // Disabled - hover line is separate
+                      ),
+                      size: Size(constraints.maxWidth, constraints.maxHeight),
                     ),
-                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                  ),
+                  // PERFORMANCE: Hover line as separate lightweight layer
+                  ValueListenableBuilder<double>(
+                    valueListenable: _hoverXNotifier,
+                    builder: (context, hoverX, _) {
+                      if (hoverX < 0) return const SizedBox.shrink();
+                      final clipEndX = (widget.clip!.duration - widget.scrollOffset) * widget.zoom;
+                      if (hoverX > clipEndX) return const SizedBox.shrink();
+                      return Positioned(
+                        left: hoverX,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 1,
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                      );
+                    },
                   ),
                   // Fade handles
                   _buildFadeHandles(constraints),
                   // Playhead
                   _buildPlayhead(constraints),
-                  // Hover info
-                  if (_hoverX >= 0 && _tool != EditorTool.fade)
-                    _buildHoverInfo(constraints),
+                  // Hover info - wrapped in ValueListenableBuilder
+                  ValueListenableBuilder<double>(
+                    valueListenable: _hoverXNotifier,
+                    builder: (context, hoverX, _) {
+                      if (hoverX >= 0 && _tool != EditorTool.fade) {
+                        return _buildHoverInfoWithX(constraints, hoverX);
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ],
               );
             },
@@ -746,25 +781,34 @@ class _ClipEditorState extends State<ClipEditor> {
       return const SizedBox.shrink();
     }
 
+    // PERFORMANCE: RepaintBoundary isolates playhead from waveform repaints
     return Positioned(
       left: playheadX - 1,
       top: 0,
       bottom: 0,
-      child: Container(
-        width: 2,
-        color: ReelForgeTheme.accentRed,
+      child: RepaintBoundary(
+        child: Container(
+          width: 2,
+          color: ReelForgeTheme.accentRed,
+        ),
       ),
     );
   }
 
   Widget _buildHoverInfo(BoxConstraints constraints) {
-    final time = widget.scrollOffset + _hoverX / widget.zoom;
+    return _buildHoverInfoWithX(constraints, _hoverX);
+  }
+
+  /// PERFORMANCE: Separate method that takes hoverX as parameter
+  /// Used by ValueListenableBuilder to avoid full widget rebuild
+  Widget _buildHoverInfoWithX(BoxConstraints constraints, double hoverX) {
+    final time = widget.scrollOffset + hoverX / widget.zoom;
     if (time < 0 || time > widget.clip!.duration) {
       return const SizedBox.shrink();
     }
 
     return Positioned(
-      left: _hoverX + 10,
+      left: hoverX + 10,
       top: 10,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -807,16 +851,19 @@ class _ClipEditorState extends State<ClipEditor> {
               final newOffset = (widget.scrollOffset + delta).clamp(0.0, maxScroll);
               widget.onScrollChange?.call(newOffset);
             },
-            child: CustomPaint(
-              painter: _OverviewPainter(
-                waveform: widget.clip!.waveform,
-                duration: widget.clip!.duration,
-                viewportStart: widget.scrollOffset,
-                viewportEnd: widget.scrollOffset + constraints.maxWidth / widget.zoom,
-                color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
-                selection: widget.selection,
+            // PERFORMANCE: RepaintBoundary for overview waveform
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _OverviewPainter(
+                  waveform: widget.clip!.waveform,
+                  duration: widget.clip!.duration,
+                  viewportStart: widget.scrollOffset,
+                  viewportEnd: widget.scrollOffset + constraints.maxWidth / widget.zoom,
+                  color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
+                  selection: widget.selection,
+                ),
+                size: Size(constraints.maxWidth, 40),
               ),
-              size: Size(constraints.maxWidth, 40),
             ),
           );
         },
