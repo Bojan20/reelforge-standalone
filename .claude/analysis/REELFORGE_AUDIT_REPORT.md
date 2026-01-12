@@ -1,4 +1,4 @@
-# ReelForge Standalone — Comprehensive Audit Report
+# FluxForge Studio — Comprehensive Audit Report
 
 **Date:** 2026-01-10
 **Auditors:** Chief Audio Architect, Lead DSP Engineer, Engine Architect, Technical Director, UI/UX Expert, Graphics Engineer
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-ReelForge ima solidnu osnovu, ali zahteva kritične popravke u audio engine-u i DSP-u da bi dostigao profesionalni nivo. Ovaj dokument identifikuje **GAP-ove** između ReelForge implementacije i industrijskog standarda.
+FluxForge Studio ima solidnu osnovu, ali zahteva kritične popravke u audio engine-u i DSP-u da bi dostigao profesionalni nivo. Ovaj dokument identifikuje **GAP-ove** između FluxForge Studio implementacije i industrijskog standarda.
 
 ### Overall Score: 72/100
 
@@ -26,7 +26,7 @@ ReelForge ima solidnu osnovu, ali zahteva kritične popravke u audio engine-u i 
 
 ### 1.1 Current State
 
-**ReelForge Architecture:**
+**FluxForge Studio Architecture:**
 ```
 ┌─────────────────────────────────────────────┐
 │ Single-path audio engine                     │
@@ -57,7 +57,7 @@ ReelForge ima solidnu osnovu, ali zahteva kritične popravke u audio engine-u i 
 
 ### 1.3 GAP Analysis
 
-| Feature | ReelForge | Industry Standard | Gap |
+| Feature | FluxForge Studio | Industry Standard | Gap |
 |---------|-----------|-------------------|-----|
 | Buffer architecture | Single | Dual (live/prefetch) | 🔴 CRITICAL |
 | Lock pattern | try_write() | Lock-free SPSC | 🟡 HIGH |
@@ -130,7 +130,7 @@ fn set_realtime_priority() {
 
 ### 2.1 Current EQ Implementation
 
-**ReelForge EQ (eq_pro.rs):**
+**FluxForge Studio EQ (eq_pro.rs):**
 - ✅ SVF topology (Andrew Simper)
 - ✅ 64 bands capability
 - ✅ Anti-denormal protection (novo)
@@ -141,7 +141,7 @@ fn set_realtime_priority() {
 
 ### 2.2 Industry Standard (FabFilter Pro-Q 4)
 
-| Feature | Pro-Q 4 | ReelForge | Gap |
+| Feature | Pro-Q 4 | FluxForge Studio | Gap |
 |---------|---------|-----------|-----|
 | Phase Modes | Zero Latency, Natural, Linear | Zero Latency only | 🔴 CRITICAL |
 | Oversampling | 1x-16x | None | 🔴 CRITICAL |
@@ -431,14 +431,14 @@ fn enable_ftz() {
 
 ## 8. CONCLUSION
 
-ReelForge ima dobru osnovu sa Rust/Flutter stack-om i solidnom arhitekturom. Glavni nedostaci su:
+FluxForge Studio ima dobru osnovu sa Rust/Flutter stack-om i solidnom arhitekturom. Glavni nedostaci su:
 
 1. **Audio Engine:** Nedostaje dual-buffer i RT priority
 2. **DSP:** Nedostaje Linear Phase i oversampling
 3. **Performance:** Previše lock contention-a
 4. **Visualization:** CPU-bound waveforms
 
-Sa implementacijom Phase 1 i 2, ReelForge može dostići **85/100** score i biti konkurentan sa mid-tier DAW-ovima. Za AAA kvalitet (Cubase/Pro Tools nivo), potrebna je i Phase 3.
+Sa implementacijom Phase 1 i 2, FluxForge Studio može dostići **85/100** score i biti konkurentan sa mid-tier DAW-ovima. Za AAA kvalitet (Cubase/Pro Tools nivo), potrebna je i Phase 3.
 
 ---
 

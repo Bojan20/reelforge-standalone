@@ -1,4 +1,4 @@
-/// ReelForge Left Zone
+/// FluxForge Studio Left Zone
 ///
 /// Mode-aware layout panel:
 /// - DAW mode: Audio files browser + Channel strip
@@ -8,7 +8,7 @@
 /// 1:1 migration from React LeftZone.tsx
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart' show ChannelStripData, EditorMode;
 import '../../models/timeline_models.dart' as timeline;
 import 'project_tree.dart';
@@ -122,9 +122,9 @@ class _LeftZoneState extends State<LeftZone> {
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          right: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1),
+          right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),
       ),
       child: Column(
@@ -182,11 +182,11 @@ class _LeftZoneState extends State<LeftZone> {
   Color get _modeAccentColor {
     switch (widget.editorMode) {
       case EditorMode.daw:
-        return ReelForgeTheme.accentBlue;
+        return FluxForgeTheme.accentBlue;
       case EditorMode.middleware:
-        return ReelForgeTheme.accentOrange;
+        return FluxForgeTheme.accentOrange;
       case EditorMode.slot:
-        return ReelForgeTheme.accentGreen;
+        return FluxForgeTheme.accentGreen;
     }
   }
 
@@ -248,7 +248,7 @@ class _LeftZoneState extends State<LeftZone> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               height: 1.5,
             ),
           ),
@@ -307,8 +307,8 @@ class _Header extends StatelessWidget {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
-        border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgMid,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
@@ -335,7 +335,7 @@ class _Header extends StatelessWidget {
               onPressed: onToggleCollapse,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
         ],
       ),
@@ -360,7 +360,7 @@ class _Tab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? accentColor : ReelForgeTheme.textSecondary;
+    final color = isActive ? accentColor : FluxForgeTheme.textSecondary;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -465,24 +465,24 @@ class _SearchBar extends StatelessWidget {
       child: Container(
         height: 28,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           children: [
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.search, size: 14, color: ReelForgeTheme.textSecondary),
+              child: Icon(Icons.search, size: 14, color: FluxForgeTheme.textSecondary),
             ),
             Expanded(
               child: TextField(
                 controller: controller,
                 onChanged: onChanged,
-                style: const TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary),
+                style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: placeholder,
-                  hintStyle: const TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+                  hintStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
@@ -498,7 +498,7 @@ class _SearchBar extends StatelessWidget {
                   controller.clear();
                   onChanged?.call('');
                 },
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
           ],
         ),

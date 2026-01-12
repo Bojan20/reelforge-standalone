@@ -1,4 +1,4 @@
-# ReelForge Standalone — Current Status & Roadmap
+# FluxForge Studio — Current Status & Roadmap
 
 **Last Updated:** 2026-01-09
 **Session:** P2 Architecture + UI Integration Complete
@@ -153,7 +153,7 @@
 
 ### Architecture Plans
 - [P2 Architecture Plan](.claude/plans/polymorphic-plotting-stream.md)
-- [Project Spec](.claude/project/reelforge-standalone.md)
+- [Project Spec](.claude/project/fluxforge-studio.md)
 
 ### Examples
 - [unified_routing.rs](../../crates/rf-engine/examples/unified_routing.rs)

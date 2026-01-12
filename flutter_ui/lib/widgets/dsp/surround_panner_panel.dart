@@ -10,7 +10,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Surround Panner Panel Widget
 class SurroundPannerPanel extends StatefulWidget {
@@ -70,14 +70,14 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -104,12 +104,12 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(Icons.surround_sound, color: ReelForgeTheme.accentCyan, size: 20),
+          Icon(Icons.surround_sound, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           Text(
             'SURROUND PANNER',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -119,7 +119,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
           if (!_initialized)
             Text(
               'Initializing...',
-              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
             ),
         ],
       ),
@@ -156,16 +156,16 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.bgMid,
+          color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderMedium,
+            color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.borderMedium,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+            color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
             fontSize: 11,
             fontWeight: FontWeight.bold,
           ),
@@ -186,9 +186,9 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgMid,
+                color: FluxForgeTheme.bgMid,
                 shape: BoxShape.circle,
-                border: Border.all(color: ReelForgeTheme.borderMedium, width: 2),
+                border: Border.all(color: FluxForgeTheme.borderMedium, width: 2),
               ),
               child: CustomPaint(
                 painter: _SurroundPadPainter(
@@ -244,7 +244,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
               Text(
                 'HEIGHT',
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
@@ -253,7 +253,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
               Text(
                 _z >= 0 ? '+${(_z * 100).toInt()}%' : '${(_z * 100).toInt()}%',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentCyan,
+                  color: FluxForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -264,11 +264,11 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
           SliderTheme(
             data: SliderThemeData(
               trackHeight: 8,
-              activeTrackColor: ReelForgeTheme.accentCyan,
-              inactiveTrackColor: ReelForgeTheme.borderSubtle,
-              thumbColor: ReelForgeTheme.textPrimary,
+              activeTrackColor: FluxForgeTheme.accentCyan,
+              inactiveTrackColor: FluxForgeTheme.borderSubtle,
+              thumbColor: FluxForgeTheme.textPrimary,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-              overlayColor: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+              overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: _z,
@@ -321,7 +321,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 9,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
@@ -331,7 +331,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
         Text(
           value,
           style: TextStyle(
-            color: ReelForgeTheme.accentCyan,
+            color: FluxForgeTheme.accentCyan,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -346,8 +346,8 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
             value: current.clamp(min, max),
             min: min,
             max: max,
-            activeColor: ReelForgeTheme.accentCyan,
-            inactiveColor: ReelForgeTheme.borderSubtle,
+            activeColor: FluxForgeTheme.accentCyan,
+            inactiveColor: FluxForgeTheme.borderSubtle,
             onChanged: onChanged,
           ),
         ),
@@ -378,7 +378,7 @@ class _SurroundPadPainter extends CustomPainter {
 
     // Draw grid
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 1;
 
     // Concentric circles
@@ -391,7 +391,7 @@ class _SurroundPadPainter extends CustomPainter {
     canvas.drawLine(Offset(center.dx, 0), Offset(center.dx, size.height), gridPaint);
 
     // Draw speaker positions based on layout
-    final speakerPaint = Paint()..color = ReelForgeTheme.textTertiary;
+    final speakerPaint = Paint()..color = FluxForgeTheme.textTertiary;
     final speakers = _getSpeakerPositions();
     for (final pos in speakers) {
       final speakerOffset = Offset(
@@ -404,7 +404,7 @@ class _SurroundPadPainter extends CustomPainter {
     // Draw spread arc if applicable
     if (spread > 0) {
       final spreadPaint = Paint()
-        ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.2)
+        ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.2)
         ..style = PaintingStyle.fill;
 
       final angle = math.atan2(y, x);
@@ -432,26 +432,26 @@ class _SurroundPadPainter extends CustomPainter {
     // Height indicator (glow size)
     final heightGlow = 8.0 + z.abs() * 12.0;
     final glowPaint = Paint()
-      ..color = (z >= 0 ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange).withValues(alpha: 0.3);
+      ..color = (z >= 0 ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange).withValues(alpha: 0.3);
     canvas.drawCircle(sourceOffset, heightGlow, glowPaint);
 
     // Main source dot
     final sourcePaint = Paint()
-      ..color = ReelForgeTheme.accentCyan
+      ..color = FluxForgeTheme.accentCyan
       ..style = PaintingStyle.fill;
     canvas.drawCircle(sourceOffset, 10, sourcePaint);
 
     // Height ring
     if (z != 0) {
       final ringPaint = Paint()
-        ..color = z >= 0 ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange
+        ..color = z >= 0 ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
       canvas.drawCircle(sourceOffset, 14 + z.abs() * 4, ringPaint);
     }
 
     // Center dot
-    final centerDot = Paint()..color = ReelForgeTheme.textPrimary;
+    final centerDot = Paint()..color = FluxForgeTheme.textPrimary;
     canvas.drawCircle(sourceOffset, 4, centerDot);
   }
 

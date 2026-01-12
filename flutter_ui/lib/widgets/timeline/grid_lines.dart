@@ -13,7 +13,7 @@
 /// - Subdivisions: 1px, very subtle
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Grid detail level based on zoom
 enum GridDetailLevel {
@@ -76,15 +76,15 @@ class _GridLinesPainter extends CustomPainter {
 
   // Cached paints for performance
   static final Paint _barPaint = Paint()
-    ..color = ReelForgeTheme.accentOrange.withValues(alpha: 0.5)
+    ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
     ..strokeWidth = 2;
 
   static final Paint _barGlowPaint = Paint()
-    ..color = ReelForgeTheme.accentOrange.withValues(alpha: 0.15)
+    ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
     ..strokeWidth = 6;
 
   static final Paint _beatPaint = Paint()
-    ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.25)
+    ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.25)
     ..strokeWidth = 1;
 
   static final Paint _subdivisionPaint = Paint()

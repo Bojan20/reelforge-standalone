@@ -135,7 +135,7 @@ pub struct PluginBrowserItem {
 /// Plugin format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PluginFormat {
-    /// Internal ReelForge plugin
+    /// Internal FluxForge Studio plugin
     Internal,
     /// VST3
     Vst3,

@@ -17,7 +17,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Waveform data point with min, max, and RMS values
 class WaveformPoint {
@@ -172,7 +172,7 @@ class _WaveformPainter extends CustomPainter {
 
     // Background
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.bgDeepest
+      ..color = FluxForgeTheme.bgDeepest
       ..style = PaintingStyle.fill;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
@@ -206,7 +206,7 @@ class _WaveformPainter extends CustomPainter {
 
     // Border
     final borderPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -215,7 +215,7 @@ class _WaveformPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size, double centerY) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -248,7 +248,7 @@ class _WaveformPainter extends CustomPainter {
     final endX = end * size.width;
 
     final selectionPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
+      ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
@@ -258,7 +258,7 @@ class _WaveformPainter extends CustomPainter {
 
     // Selection edges
     final edgePaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -427,21 +427,21 @@ class _WaveformPainter extends CustomPainter {
 
     // Glow
     final glowPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
       ..isAntiAlias = true;
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), glowPaint);
 
     // Line
     final linePaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 1.5
       ..isAntiAlias = true;
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
 
     // Triangle head
     final headPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
     final headPath = Path()
@@ -575,7 +575,7 @@ class _StereoWaveformPainter extends CustomPainter {
   }) {
     // Professional DAW colors: L = base, R = cyan tint
     leftColor = color;
-    rightColor = Color.lerp(color, ReelForgeTheme.accentCyan, 0.5) ?? color;
+    rightColor = Color.lerp(color, FluxForgeTheme.accentCyan, 0.5) ?? color;
   }
 
   @override
@@ -612,7 +612,7 @@ class _StereoWaveformPainter extends CustomPainter {
 
     // Border
     final borderPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -625,9 +625,9 @@ class _StereoWaveformPainter extends CustomPainter {
       Offset.zero,
       Offset(0, size.height),
       [
-        ReelForgeTheme.bgDeep,
-        ReelForgeTheme.bgDeepest,
-        ReelForgeTheme.bgDeep,
+        FluxForgeTheme.bgDeep,
+        FluxForgeTheme.bgDeepest,
+        FluxForgeTheme.bgDeep,
       ],
       [0.0, 0.5, 1.0],
     );
@@ -660,9 +660,9 @@ class _StereoWaveformPainter extends CustomPainter {
         Offset(0, halfHeight),
         Offset(size.width, halfHeight),
         [
-          ReelForgeTheme.borderSubtle.withValues(alpha: 0.2),
-          ReelForgeTheme.borderSubtle.withValues(alpha: 0.6),
-          ReelForgeTheme.borderSubtle.withValues(alpha: 0.2),
+          FluxForgeTheme.borderSubtle.withValues(alpha: 0.2),
+          FluxForgeTheme.borderSubtle.withValues(alpha: 0.6),
+          FluxForgeTheme.borderSubtle.withValues(alpha: 0.2),
         ],
         [0.0, 0.5, 1.0],
       )
@@ -1089,7 +1089,7 @@ class _StereoWaveformPainter extends CustomPainter {
 
     // Background pill for readability
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.bgDeepest.withValues(alpha: 0.85)
+      ..color = FluxForgeTheme.bgDeepest.withValues(alpha: 0.85)
       ..isAntiAlias = true;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1104,7 +1104,7 @@ class _StereoWaveformPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.15)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -1112,7 +1112,7 @@ class _StereoWaveformPainter extends CustomPainter {
     // Center line (0dB) - only for non-split modes
     if (displayMode != WaveformDisplayMode.stereoSplit) {
       final centerY = size.height / 2;
-      gridPaint.color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.25);
+      gridPaint.color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.25);
       canvas.drawLine(
         Offset(0, centerY),
         Offset(size.width, centerY),
@@ -1121,7 +1121,7 @@ class _StereoWaveformPainter extends CustomPainter {
     }
 
     // -6dB lines
-    gridPaint.color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.12);
+    gridPaint.color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.12);
     final db6 = size.height * 0.25;
     canvas.drawLine(
       Offset(0, db6),
@@ -1145,9 +1145,9 @@ class _StereoWaveformPainter extends CustomPainter {
       Offset(startX, 0),
       Offset(endX, 0),
       [
-        ReelForgeTheme.accentBlue.withValues(alpha: 0.15),
-        ReelForgeTheme.accentBlue.withValues(alpha: 0.25),
-        ReelForgeTheme.accentBlue.withValues(alpha: 0.15),
+        FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
+        FluxForgeTheme.accentBlue.withValues(alpha: 0.25),
+        FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
       ],
       [0.0, 0.5, 1.0],
     );
@@ -1163,7 +1163,7 @@ class _StereoWaveformPainter extends CustomPainter {
 
     // Selection edges with glow
     final edgeGlowPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2)
       ..strokeWidth = 2
       ..isAntiAlias = true;
@@ -1171,7 +1171,7 @@ class _StereoWaveformPainter extends CustomPainter {
     canvas.drawLine(Offset(endX, 0), Offset(endX, size.height), edgeGlowPaint);
 
     final edgePaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..isAntiAlias = true;
@@ -1184,21 +1184,21 @@ class _StereoWaveformPainter extends CustomPainter {
 
     // Glow
     final glowPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.4)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.4)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5)
       ..isAntiAlias = true;
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), glowPaint);
 
     // Line
     final linePaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 1.5
       ..isAntiAlias = true;
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
 
     // Triangle head
     final headPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
     final headPath = Path()

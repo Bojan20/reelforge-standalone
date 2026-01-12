@@ -8,7 +8,7 @@
 /// - Deconvolution wizard
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// IR file info
 class IrFileInfo {
@@ -143,9 +143,9 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
       width: 480,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
@@ -199,7 +199,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
               Text(
                 'Convolution Ultra',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -207,7 +207,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
               Text(
                 'Zero-latency reverb with IR morphing',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 11,
                 ),
               ),
@@ -216,7 +216,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         ),
         IconButton(
           icon: const Icon(Icons.close, size: 18),
-          color: ReelForgeTheme.textSecondary,
+          color: FluxForgeTheme.textSecondary,
           onPressed: widget.onClose,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -251,10 +251,10 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: hasIr ? color.withOpacity(0.1) : ReelForgeTheme.bgMid,
+          color: hasIr ? color.withOpacity(0.1) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: hasIr ? color.withOpacity(0.5) : ReelForgeTheme.border,
+            color: hasIr ? color.withOpacity(0.5) : FluxForgeTheme.border,
             style: hasIr ? BorderStyle.solid : BorderStyle.none,
           ),
         ),
@@ -287,8 +287,8 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                     hasIr ? ir.name : 'Click to load IR',
                     style: TextStyle(
                       color: hasIr
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
                       fontSize: 12,
                       fontWeight: hasIr ? FontWeight.w500 : FontWeight.normal,
                     ),
@@ -337,13 +337,13 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: ReelForgeTheme.textSecondary,
+          color: FluxForgeTheme.textSecondary,
           fontSize: 9,
           fontFamily: 'monospace',
         ),
@@ -360,7 +360,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             const Text(
               'IR Morphing',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -375,12 +375,12 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 decoration: BoxDecoration(
                   color: _enableMorphing
                       ? const Color(0xFF9C27B0).withOpacity(0.2)
-                      : ReelForgeTheme.surface,
+                      : FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: _enableMorphing
                         ? const Color(0xFF9C27B0)
-                        : ReelForgeTheme.border,
+                        : FluxForgeTheme.border,
                   ),
                 ),
                 child: Text(
@@ -388,7 +388,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                   style: TextStyle(
                     color: _enableMorphing
                         ? const Color(0xFF9C27B0)
-                        : ReelForgeTheme.textSecondary,
+                        : FluxForgeTheme.textSecondary,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -438,7 +438,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                   trackHeight: 8,
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
                   activeTrackColor: const Color(0xFF9C27B0),
-                  inactiveTrackColor: ReelForgeTheme.bgMid,
+                  inactiveTrackColor: FluxForgeTheme.bgMid,
                   thumbColor: Colors.white,
                   overlayColor: const Color(0xFF9C27B0).withOpacity(0.2),
                 ),
@@ -474,7 +474,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         Text(
           '${(_morphBlend * 100).toStringAsFixed(0)}% blend',
           style: const TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),
@@ -498,20 +498,20 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             decoration: BoxDecoration(
               color: isSelected
                   ? const Color(0xFF9C27B0).withOpacity(0.2)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isSelected
                     ? const Color(0xFF9C27B0)
-                    : ReelForgeTheme.border,
+                    : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               _getMorphModeLabel(mode),
               style: TextStyle(
                 color: isSelected
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 10,
               ),
             ),
@@ -543,7 +543,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         const Text(
           'Convolution Mode',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -563,13 +563,13 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             _getModeDescription(_mode),
             style: const TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -591,10 +591,10 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF9C27B0).withOpacity(0.2)
-              : ReelForgeTheme.surface,
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? const Color(0xFF9C27B0) : ReelForgeTheme.border,
+            color: isSelected ? const Color(0xFF9C27B0) : FluxForgeTheme.border,
           ),
         ),
         child: Column(
@@ -604,15 +604,15 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
               size: 18,
               color: isSelected
                   ? const Color(0xFF9C27B0)
-                  : ReelForgeTheme.textSecondary,
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: isSelected
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -643,7 +643,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         const Text(
           'Mix',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -684,7 +684,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
           height: 60,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Column(
@@ -693,7 +693,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
               Text(
                 suffix ?? '${(value * 100).toStringAsFixed(0)}%',
                 style: const TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
@@ -707,7 +707,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                     trackHeight: 4,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                     activeTrackColor: const Color(0xFF9C27B0),
-                    inactiveTrackColor: ReelForgeTheme.bgDeep,
+                    inactiveTrackColor: FluxForgeTheme.bgDeep,
                     thumbColor: Colors.white,
                     overlayShape: SliderComponentShape.noOverlay,
                   ),
@@ -724,7 +724,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         Text(
           label,
           style: const TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),

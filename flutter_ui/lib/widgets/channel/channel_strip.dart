@@ -11,7 +11,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============ Types ============
 
@@ -172,9 +172,9 @@ class ChannelStrip extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: const Border(
-          left: BorderSide(color: ReelForgeTheme.borderSubtle),
+          left: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -184,14 +184,14 @@ class ChannelStrip extends StatelessWidget {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: const BoxDecoration(
-              color: ReelForgeTheme.bgSurface,
+              color: FluxForgeTheme.bgSurface,
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
               children: [
-                Text('Channel', style: ReelForgeTheme.h3),
+                Text('Channel', style: FluxForgeTheme.h3),
                 const Spacer(),
                 if (onToggleCollapse != null)
                   IconButton(
@@ -227,7 +227,7 @@ class ChannelStrip extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Select a track to view channel strip',
-            style: ReelForgeTheme.bodySmall,
+            style: FluxForgeTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
         ],
@@ -245,11 +245,11 @@ class ChannelStrip extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgSurface,
+              color: FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(4),
               border: Border(
                 left: BorderSide(
-                  color: ch.color ?? ReelForgeTheme.accentBlue,
+                  color: ch.color ?? FluxForgeTheme.accentBlue,
                   width: 3,
                 ),
               ),
@@ -261,8 +261,8 @@ class ChannelStrip extends StatelessWidget {
                 Expanded(
                   child: Text(
                     ch.name,
-                    style: ReelForgeTheme.body.copyWith(
-                      color: ReelForgeTheme.textPrimary,
+                    style: FluxForgeTheme.body.copyWith(
+                      color: FluxForgeTheme.textPrimary,
                       fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -280,7 +280,7 @@ class ChannelStrip extends StatelessWidget {
                 child: _ChannelButton(
                   label: 'M',
                   isActive: ch.mute,
-                  activeColor: ReelForgeTheme.accentOrange,
+                  activeColor: FluxForgeTheme.accentOrange,
                   onTap: () => onMuteToggle?.call(ch.id),
                 ),
               ),
@@ -289,7 +289,7 @@ class ChannelStrip extends StatelessWidget {
                 child: _ChannelButton(
                   label: 'S',
                   isActive: ch.solo,
-                  activeColor: ReelForgeTheme.accentYellow,
+                  activeColor: FluxForgeTheme.accentYellow,
                   onTap: () => onSoloToggle?.call(ch.id),
                 ),
               ),
@@ -357,7 +357,7 @@ class ChannelStrip extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeep,
+                  color: FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -367,7 +367,7 @@ class ChannelStrip extends StatelessWidget {
                     Expanded(
                       child: Text(
                         ch.output,
-                        style: ReelForgeTheme.body,
+                        style: FluxForgeTheme.body,
                       ),
                     ),
                     const Icon(Icons.arrow_drop_down, size: 16),
@@ -395,7 +395,7 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: ReelForgeTheme.label),
+        Text(title, style: FluxForgeTheme.label),
         const SizedBox(height: 4),
         child,
       ],
@@ -423,10 +423,10 @@ class _ChannelButton extends StatelessWidget {
       child: Container(
         height: 28,
         decoration: BoxDecoration(
-          color: isActive ? activeColor : ReelForgeTheme.bgDeep,
+          color: isActive ? activeColor : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? activeColor : ReelForgeTheme.borderSubtle,
+            color: isActive ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Center(
@@ -435,7 +435,7 @@ class _ChannelButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isActive ? ReelForgeTheme.bgDeep : ReelForgeTheme.textSecondary,
+              color: isActive ? FluxForgeTheme.bgDeep : FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -472,8 +472,8 @@ class _PanKnob extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: ReelForgeTheme.bgDeep,
-              border: Border.all(color: ReelForgeTheme.borderMedium),
+              color: FluxForgeTheme.bgDeep,
+              border: Border.all(color: FluxForgeTheme.borderMedium),
             ),
             child: Center(
               child: Transform.rotate(
@@ -482,7 +482,7 @@ class _PanKnob extends StatelessWidget {
                   width: 2,
                   height: 16,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentBlue,
+                    color: FluxForgeTheme.accentBlue,
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -491,7 +491,7 @@ class _PanKnob extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(_displayValue, style: ReelForgeTheme.monoSmall),
+        Text(_displayValue, style: FluxForgeTheme.monoSmall),
       ],
     );
   }
@@ -562,13 +562,13 @@ class _VerticalFader extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('+12', style: ReelForgeTheme.label),
-                Text('+6', style: ReelForgeTheme.label),
-                Text('0', style: ReelForgeTheme.label),
-                Text('-6', style: ReelForgeTheme.label),
-                Text('-12', style: ReelForgeTheme.label),
-                Text('-24', style: ReelForgeTheme.label),
-                Text('-∞', style: ReelForgeTheme.label),
+                Text('+12', style: FluxForgeTheme.label),
+                Text('+6', style: FluxForgeTheme.label),
+                Text('0', style: FluxForgeTheme.label),
+                Text('-6', style: FluxForgeTheme.label),
+                Text('-12', style: FluxForgeTheme.label),
+                Text('-24', style: FluxForgeTheme.label),
+                Text('-∞', style: FluxForgeTheme.label),
               ],
             ),
           ),
@@ -607,7 +607,7 @@ class _MeterPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgDeepest,
+      Paint()..color = FluxForgeTheme.bgDeepest,
     );
 
     // Level fill with gradient
@@ -617,7 +617,7 @@ class _MeterPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
-      colors: ReelForgeTheme.meterGradient,
+      colors: FluxForgeTheme.meterGradient,
       stops: const [0.0, 0.5, 0.7, 0.85, 1.0],
     );
 
@@ -632,7 +632,7 @@ class _MeterPainter extends CustomPainter {
       Offset(0, peakY),
       Offset(size.width, peakY),
       Paint()
-        ..color = peak >= 1.0 ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary
+        ..color = peak >= 1.0 ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary
         ..strokeWidth = 2,
     );
   }
@@ -660,7 +660,7 @@ class _FaderPainter extends CustomPainter {
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(trackRect, const Radius.circular(2)),
-      Paint()..color = ReelForgeTheme.bgDeep,
+      Paint()..color = FluxForgeTheme.bgDeep,
     );
 
     // Thumb position
@@ -679,7 +679,7 @@ class _FaderPainter extends CustomPainter {
 
     canvas.drawRRect(
       thumbRect,
-      Paint()..color = ReelForgeTheme.textSecondary,
+      Paint()..color = FluxForgeTheme.textSecondary,
     );
 
     // Thumb line
@@ -687,7 +687,7 @@ class _FaderPainter extends CustomPainter {
       Offset(6, thumbY),
       Offset(size.width - 6, thumbY),
       Paint()
-        ..color = ReelForgeTheme.textPrimary
+        ..color = FluxForgeTheme.textPrimary
         ..strokeWidth = 2,
     );
   }
@@ -753,30 +753,30 @@ class _InsertSlot extends StatelessWidget {
         decoration: BoxDecoration(
           color: hasPlugin
               ? (bypassed
-                  ? ReelForgeTheme.bgDeep.withValues(alpha: 0.5)
-                  : ReelForgeTheme.bgSurface)
-              : ReelForgeTheme.bgDeep,
+                  ? FluxForgeTheme.bgDeep.withValues(alpha: 0.5)
+                  : FluxForgeTheme.bgSurface)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: hasPlugin
-              ? Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3))
+              ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3))
               : null,
         ),
         child: Row(
           children: [
             Text(
               '${index + 1}',
-              style: ReelForgeTheme.label.copyWith(
-                color: ReelForgeTheme.textTertiary,
+              style: FluxForgeTheme.label.copyWith(
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 insert?.pluginName ?? '—',
-                style: ReelForgeTheme.bodySmall.copyWith(
+                style: FluxForgeTheme.bodySmall.copyWith(
                   color: hasPlugin
-                      ? (bypassed ? ReelForgeTheme.textTertiary : ReelForgeTheme.textSecondary)
-                      : ReelForgeTheme.textTertiary,
+                      ? (bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary)
+                      : FluxForgeTheme.textTertiary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -785,14 +785,14 @@ class _InsertSlot extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                  color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
                   'OFF',
                   style: TextStyle(
                     fontSize: 8,
-                    color: ReelForgeTheme.accentOrange,
+                    color: FluxForgeTheme.accentOrange,
                   ),
                 ),
               ),
@@ -850,25 +850,25 @@ class _SendSlot extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: hasDestination ? ReelForgeTheme.bgSurface : ReelForgeTheme.bgDeep,
+        color: hasDestination ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
         children: [
           Text(
             '${index + 1}',
-            style: ReelForgeTheme.label.copyWith(
-              color: ReelForgeTheme.textTertiary,
+            style: FluxForgeTheme.label.copyWith(
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               send?.destination ?? '—',
-              style: ReelForgeTheme.bodySmall.copyWith(
+              style: FluxForgeTheme.bodySmall.copyWith(
                 color: hasDestination
-                    ? ReelForgeTheme.textSecondary
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.textSecondary
+                    : FluxForgeTheme.textTertiary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -894,7 +894,7 @@ class _SendSlot extends StatelessWidget {
                 'PRE',
                 style: TextStyle(
                   fontSize: 8,
-                  color: ReelForgeTheme.accentCyan,
+                  color: FluxForgeTheme.accentCyan,
                 ),
               ),
           ],
@@ -922,7 +922,7 @@ class _EQPreview extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('EQ', style: ReelForgeTheme.label),
+            Text('EQ', style: FluxForgeTheme.label),
             const Spacer(),
             GestureDetector(
               onTap: onToggle,
@@ -930,15 +930,15 @@ class _EQPreview extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: enabled
-                      ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-                      : ReelForgeTheme.bgDeep,
+                      ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                      : FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
                   enabled ? 'ON' : 'OFF',
                   style: TextStyle(
                     fontSize: 9,
-                    color: enabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.textTertiary,
+                    color: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -949,7 +949,7 @@ class _EQPreview extends StatelessWidget {
         Container(
           height: 60,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
           ),
           child: CustomPaint(
@@ -972,7 +972,7 @@ class _EQCurvePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Grid
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 0.5;
 
     // Center line
@@ -988,14 +988,14 @@ class _EQCurvePainter extends CustomPainter {
       canvas.drawLine(
         Offset(x, 0),
         Offset(x, size.height),
-        gridPaint..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3),
+        gridPaint..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
       );
     }
 
     // EQ curve
     if (!enabled || bands.isEmpty) {
       final flatPaint = Paint()
-        ..color = ReelForgeTheme.textTertiary
+        ..color = FluxForgeTheme.textTertiary
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
       canvas.drawLine(
@@ -1027,7 +1027,7 @@ class _EQCurvePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = ReelForgeTheme.accentBlue
+        ..color = FluxForgeTheme.accentBlue
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke,
     );
@@ -1061,12 +1061,12 @@ class _LUFSMeterDisplay extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('Loudness', style: ReelForgeTheme.label),
+            Text('Loudness', style: FluxForgeTheme.label),
             const Spacer(),
             Text(
               '$target LUFS',
-              style: ReelForgeTheme.label.copyWith(
-                color: ReelForgeTheme.accentCyan,
+              style: FluxForgeTheme.label.copyWith(
+                color: FluxForgeTheme.accentCyan,
               ),
             ),
           ],
@@ -1082,13 +1082,13 @@ class _LUFSMeterDisplay extends StatelessWidget {
               label: 'I',
               value: _formatLufs(lufs.integrated),
               color: isTooLoud
-                  ? ReelForgeTheme.accentRed
-                  : (isTooQuiet ? ReelForgeTheme.accentYellow : null),
+                  ? FluxForgeTheme.accentRed
+                  : (isTooQuiet ? FluxForgeTheme.accentYellow : null),
             ),
             _LUFSValue(
               label: 'TP',
               value: lufs.truePeak > -40 ? lufs.truePeak.toStringAsFixed(1) : '-∞',
-              color: isClipping ? ReelForgeTheme.accentRed : null,
+              color: isClipping ? FluxForgeTheme.accentRed : null,
             ),
           ],
         ),
@@ -1112,12 +1112,12 @@ class _LUFSValue extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: ReelForgeTheme.label),
+        Text(label, style: FluxForgeTheme.label),
         const SizedBox(height: 2),
         Text(
           value,
-          style: ReelForgeTheme.mono.copyWith(
-            color: color ?? ReelForgeTheme.textPrimary,
+          style: FluxForgeTheme.mono.copyWith(
+            color: color ?? FluxForgeTheme.textPrimary,
           ),
         ),
       ],

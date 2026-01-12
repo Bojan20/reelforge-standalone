@@ -1,4 +1,4 @@
-//! Error types for ReelForge
+//! Error types for FluxForge Studio
 //!
 //! Provides comprehensive error handling with:
 //! - Categorized error types

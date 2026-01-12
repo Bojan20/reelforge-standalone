@@ -1,10 +1,10 @@
-/// ReelForge Professional Dynamics Panel
+/// FluxForge Studio Professional Dynamics Panel
 ///
 /// Multi-mode dynamics processor with Compressor, Limiter, Gate, and Expander.
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Dynamics processing mode
 enum DynamicsMode {
@@ -162,9 +162,9 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,12 +192,12 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.compress, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.compress, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Dynamics',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -211,16 +211,16 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             decoration: BoxDecoration(
               color: _bypassed
                   ? Colors.orange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.border,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               'BYPASS',
               style: TextStyle(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -272,11 +272,11 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-                : ReelForgeTheme.surface,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                : FluxForgeTheme.surface,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
             ),
           ),
           child: Column(
@@ -284,14 +284,14 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
               Icon(
                 icon,
                 size: 16,
-                color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                  color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -307,9 +307,9 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withValues(alpha: 0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         children: [
@@ -319,7 +319,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
               Text(
                 'GR',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -327,7 +327,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
               Text(
                 '${_gainReduction.toStringAsFixed(1)} dB',
                 style: TextStyle(
-                  color: _gainReduction < -1 ? Colors.orange : ReelForgeTheme.textSecondary,
+                  color: _gainReduction < -1 ? Colors.orange : FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -339,7 +339,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: (_gainReduction.abs() / 24.0).clamp(0.0, 1.0),
-              backgroundColor: ReelForgeTheme.surface,
+              backgroundColor: FluxForgeTheme.surface,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _gainReduction < -6 ? Colors.orange : Colors.green,
               ),
@@ -483,7 +483,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
       children: [
         Text(
           'Type',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -514,18 +514,18 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-                : ReelForgeTheme.surface,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                : FluxForgeTheme.surface,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
             ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
@@ -794,7 +794,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -803,7 +803,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -825,10 +825,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        activeTrackColor: ReelForgeTheme.accentBlue,
-        inactiveTrackColor: ReelForgeTheme.surface,
-        thumbColor: ReelForgeTheme.accentBlue,
-        overlayColor: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+        activeTrackColor: FluxForgeTheme.accentBlue,
+        inactiveTrackColor: FluxForgeTheme.surface,
+        thumbColor: FluxForgeTheme.accentBlue,
+        overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
       ),
       child: Slider(
         value: value.clamp(min, max),

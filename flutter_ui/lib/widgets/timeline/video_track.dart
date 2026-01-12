@@ -11,7 +11,7 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Video clip on timeline
 class VideoClip {
@@ -182,9 +182,9 @@ class _VideoTrackState extends State<VideoTrack> {
           Container(
             height: widget.height,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               border: const Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: widget.videoClip != null
@@ -203,9 +203,9 @@ class _VideoTrackState extends State<VideoTrack> {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: const Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -279,7 +279,7 @@ class _VideoTrackState extends State<VideoTrack> {
           else
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 16, color: Colors.white54),
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               onSelected: (value) {
                 switch (value) {
                   case 'replace':
@@ -319,9 +319,9 @@ class _VideoTrackState extends State<VideoTrack> {
                   value: 'remove',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 16, color: ReelForgeTheme.accentRed),
+                      Icon(Icons.delete_outline, size: 16, color: FluxForgeTheme.accentRed),
                       SizedBox(width: 8),
-                      Text('Remove Video', style: TextStyle(color: ReelForgeTheme.accentRed, fontSize: 12)),
+                      Text('Remove Video', style: TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -502,7 +502,7 @@ class _VideoTrackState extends State<VideoTrack> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgMid,
+          backgroundColor: FluxForgeTheme.bgMid,
           title: const Text('Video Sync Settings', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -534,7 +534,7 @@ class _VideoTrackState extends State<VideoTrack> {
                     label: Text(_getFormatName(format)),
                     selected: isSelected,
                     onSelected: (_) => setDialogState(() => selectedFormat = format),
-                    backgroundColor: ReelForgeTheme.bgDeep,
+                    backgroundColor: FluxForgeTheme.bgDeep,
                     selectedColor: const Color(0xFF9C27B0),
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.white70,

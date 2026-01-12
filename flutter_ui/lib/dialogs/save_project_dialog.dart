@@ -6,7 +6,7 @@
 // - Overwrite confirmation
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 enum ProjectFormat { json, binary, compressed }
 
@@ -104,7 +104,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please enter a file path'),
-          backgroundColor: ReelForgeTheme.accentRed,
+          backgroundColor: FluxForgeTheme.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -127,7 +127,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving project: $e'),
-            backgroundColor: ReelForgeTheme.accentRed,
+            backgroundColor: FluxForgeTheme.accentRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -140,10 +140,10 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       child: Container(
         width: 500,
@@ -156,13 +156,13 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
               children: [
                 Icon(
                   Icons.save,
-                  color: ReelForgeTheme.accentBlue,
+                  color: FluxForgeTheme.accentBlue,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   widget.isSaveAs ? 'Save Project As' : 'Save Project',
-                  style: ReelForgeTheme.h2,
+                  style: FluxForgeTheme.h2,
                 ),
               ],
             ),
@@ -172,7 +172,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
             Text(
               'Save Location',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -183,24 +183,24 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
                   child: TextField(
                     controller: _pathController,
                     style: TextStyle(
-                      color: ReelForgeTheme.textPrimary,
-                      fontFamily: ReelForgeTheme.monoFontFamily,
+                      color: FluxForgeTheme.textPrimary,
+                      fontFamily: FluxForgeTheme.monoFontFamily,
                       fontSize: 12,
                     ),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: ReelForgeTheme.bgSurface,
+                      fillColor: FluxForgeTheme.bgSurface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+                        borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -215,10 +215,10 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
                   icon: const Icon(Icons.folder_open),
                   tooltip: 'Browse...',
                   style: IconButton.styleFrom(
-                    backgroundColor: ReelForgeTheme.bgSurface,
+                    backgroundColor: FluxForgeTheme.bgSurface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: ReelForgeTheme.borderSubtle),
+                      side: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
                   ),
                 ),
@@ -231,7 +231,7 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
             Text(
               'File Format',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -276,14 +276,14 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         )
                       : const Icon(Icons.save, size: 18),
                   label: Text(_isSaving ? 'Saving...' : 'Save'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ReelForgeTheme.accentBlue,
-                    foregroundColor: ReelForgeTheme.textPrimary,
+                    backgroundColor: FluxForgeTheme.accentBlue,
+                    foregroundColor: FluxForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -317,10 +317,10 @@ class _SaveProjectDialogState extends State<SaveProjectDialog> {
           setState(() => _selectedFormat = format);
           _updateExtension();
         },
-        backgroundColor: ReelForgeTheme.bgSurface,
-        selectedColor: ReelForgeTheme.accentBlue,
+        backgroundColor: FluxForgeTheme.bgSurface,
+        selectedColor: FluxForgeTheme.accentBlue,
         labelStyle: TextStyle(
-          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
           fontSize: 12,
         ),
       ),

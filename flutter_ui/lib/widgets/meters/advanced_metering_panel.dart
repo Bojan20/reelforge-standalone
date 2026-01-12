@@ -12,7 +12,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -45,13 +45,13 @@ class TruePeak8xMeter extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: const Text(
                 '8x',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 8,
                   fontWeight: FontWeight.bold,
                 ),
@@ -61,7 +61,7 @@ class TruePeak8xMeter extends StatelessWidget {
             Text(
               'TRUE PEAK',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -74,9 +74,9 @@ class TruePeak8xMeter extends StatelessWidget {
           width: width,
           height: height,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: CustomPaint(
             size: Size(width, height),
@@ -93,7 +93,7 @@ class TruePeak8xMeter extends StatelessWidget {
         Text(
           '${data.peakDbtp.toStringAsFixed(1)} dBTP',
           style: TextStyle(
-            color: data.isClipping ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary,
+            color: data.isClipping ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -102,7 +102,7 @@ class TruePeak8xMeter extends StatelessWidget {
         Text(
           'Max: ${data.maxDbtp.toStringAsFixed(1)}',
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 9,
           ),
         ),
@@ -138,10 +138,10 @@ class _TruePeak8xPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        ReelForgeTheme.accentRed.withValues(alpha: 0.2),
-        ReelForgeTheme.accentYellow.withValues(alpha: 0.2),
-        ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
-        ReelForgeTheme.bgDeepest,
+        FluxForgeTheme.accentRed.withValues(alpha: 0.2),
+        FluxForgeTheme.accentYellow.withValues(alpha: 0.2),
+        FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
+        FluxForgeTheme.bgDeepest,
       ],
       stops: const [0.0, 0.05, 0.15, 1.0],
     );
@@ -149,7 +149,7 @@ class _TruePeak8xPainter extends CustomPainter {
 
     // Scale markers
     final markerPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.2)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     for (final db in [0, -3, -6, -12, -20, -40, -60]) {
@@ -159,7 +159,7 @@ class _TruePeak8xPainter extends CustomPainter {
 
     // 0 dBTP line (critical threshold)
     final zeroPaint = Paint()
-      ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.accentRed.withValues(alpha: 0.5)
       ..strokeWidth = 2;
     final zeroY = size.height * (1 - _dbToNorm(0));
     canvas.drawLine(Offset(0, zeroY), Offset(size.width, zeroY), zeroPaint);
@@ -172,8 +172,8 @@ class _TruePeak8xPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: isClipping
-          ? [ReelForgeTheme.accentRed, ReelForgeTheme.accentOrange]
-          : [ReelForgeTheme.accentCyan, ReelForgeTheme.accentGreen],
+          ? [FluxForgeTheme.accentRed, FluxForgeTheme.accentOrange]
+          : [FluxForgeTheme.accentCyan, FluxForgeTheme.accentGreen],
     );
 
     canvas.drawRect(
@@ -184,7 +184,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Hold indicator
     final holdY = size.height * (1 - _dbToNorm(holdDbtp));
     final holdPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 2;
     canvas.drawLine(
       Offset(4, holdY),
@@ -195,7 +195,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Max indicator (thin line)
     final maxY = size.height * (1 - _dbToNorm(maxDbtp));
     final maxPaint = Paint()
-      ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.8)
+      ..color = FluxForgeTheme.accentRed.withValues(alpha: 0.8)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(4, maxY),
@@ -206,7 +206,7 @@ class _TruePeak8xPainter extends CustomPainter {
     // Clipping indicator
     if (isClipping) {
       final clipPaint = Paint()
-        ..color = ReelForgeTheme.accentRed
+        ..color = FluxForgeTheme.accentRed
         ..style = PaintingStyle.fill;
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, 8),
@@ -242,11 +242,11 @@ class PsrMeterWidget extends StatelessWidget {
   });
 
   Color _getPsrColor(double psr) {
-    if (psr < 6) return ReelForgeTheme.accentRed;
-    if (psr < 8) return ReelForgeTheme.accentOrange;
-    if (psr < 10) return ReelForgeTheme.accentYellow;
-    if (psr < 14) return ReelForgeTheme.accentGreen;
-    return ReelForgeTheme.accentCyan;
+    if (psr < 6) return FluxForgeTheme.accentRed;
+    if (psr < 8) return FluxForgeTheme.accentOrange;
+    if (psr < 10) return FluxForgeTheme.accentYellow;
+    if (psr < 14) return FluxForgeTheme.accentGreen;
+    return FluxForgeTheme.accentCyan;
   }
 
   @override
@@ -258,9 +258,9 @@ class PsrMeterWidget extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -278,7 +278,7 @@ class PsrMeterWidget extends StatelessWidget {
                 child: const Text(
                   'PSR',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -300,7 +300,7 @@ class PsrMeterWidget extends StatelessWidget {
           Container(
             height: 8,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
             ),
             child: LayoutBuilder(
@@ -311,11 +311,11 @@ class PsrMeterWidget extends StatelessWidget {
                     // Zones background
                     Row(
                       children: [
-                        Expanded(flex: 6, child: Container(color: ReelForgeTheme.accentRed.withValues(alpha: 0.2))),
-                        Expanded(flex: 2, child: Container(color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2))),
-                        Expanded(flex: 2, child: Container(color: ReelForgeTheme.accentYellow.withValues(alpha: 0.2))),
-                        Expanded(flex: 4, child: Container(color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2))),
-                        Expanded(flex: 6, child: Container(color: ReelForgeTheme.accentCyan.withValues(alpha: 0.2))),
+                        Expanded(flex: 6, child: Container(color: FluxForgeTheme.accentRed.withValues(alpha: 0.2))),
+                        Expanded(flex: 2, child: Container(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2))),
+                        Expanded(flex: 2, child: Container(color: FluxForgeTheme.accentYellow.withValues(alpha: 0.2))),
+                        Expanded(flex: 4, child: Container(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2))),
+                        Expanded(flex: 6, child: Container(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2))),
                       ],
                     ),
                     // Value bar
@@ -362,10 +362,10 @@ class CrestFactorMeterWidget extends StatelessWidget {
   });
 
   Color _getCrestColor(double crest) {
-    if (crest < 6) return ReelForgeTheme.accentRed;
-    if (crest < 10) return ReelForgeTheme.accentOrange;
-    if (crest < 14) return ReelForgeTheme.accentYellow;
-    return ReelForgeTheme.accentGreen;
+    if (crest < 6) return FluxForgeTheme.accentRed;
+    if (crest < 10) return FluxForgeTheme.accentOrange;
+    if (crest < 14) return FluxForgeTheme.accentYellow;
+    return FluxForgeTheme.accentGreen;
   }
 
   @override
@@ -377,9 +377,9 @@ class CrestFactorMeterWidget extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -390,7 +390,7 @@ class CrestFactorMeterWidget extends StatelessWidget {
               Text(
                 'CREST',
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
                 ),
@@ -433,8 +433,8 @@ class CrestFactorMeterWidget extends StatelessWidget {
   Widget _buildRef(String label, String value) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: ReelForgeTheme.textDisabled, fontSize: 7)),
-        Text(value, style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 8)),
+        Text(label, style: TextStyle(color: FluxForgeTheme.textDisabled, fontSize: 7)),
+        Text(value, style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
       ],
     );
   }
@@ -462,9 +462,9 @@ class PsychoacousticMeterWidget extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.accentCyan.withValues(alpha: 0.3)),
+        border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,14 +477,14 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [ReelForgeTheme.accentCyan, ReelForgeTheme.accentBlue],
+                    colors: [FluxForgeTheme.accentCyan, FluxForgeTheme.accentBlue],
                   ),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
                   'PSYCHOACOUSTIC',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1,
@@ -495,7 +495,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
               Text(
                 'ISO 532-1',
                 style: TextStyle(
-                  color: ReelForgeTheme.textDisabled,
+                  color: FluxForgeTheme.textDisabled,
                   fontSize: 8,
                 ),
               ),
@@ -512,14 +512,14 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                   Text(
                     'LOUDNESS',
                     style: TextStyle(
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       fontSize: 9,
                     ),
                   ),
                   Text(
                     '${data.loudnessSones.toStringAsFixed(1)} sone',
                     style: const TextStyle(
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -530,7 +530,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
               Text(
                 '${data.loudnessPhons.toStringAsFixed(0)} phon',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -541,9 +541,9 @@ class PsychoacousticMeterWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildMetric('Sharpness', data.sharpnessAcum, 'acum', ReelForgeTheme.accentOrange),
-              _buildMetric('Roughness', data.roughnessAsper, 'asper', ReelForgeTheme.accentRed),
-              _buildMetric('Fluctuation', data.fluctuationVacil, 'vacil', ReelForgeTheme.accentPurple),
+              _buildMetric('Sharpness', data.sharpnessAcum, 'acum', FluxForgeTheme.accentOrange),
+              _buildMetric('Roughness', data.roughnessAsper, 'asper', FluxForgeTheme.accentRed),
+              _buildMetric('Fluctuation', data.fluctuationVacil, 'vacil', FluxForgeTheme.accentPurple),
             ],
           ),
           const SizedBox(height: 12),
@@ -551,7 +551,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
           Text(
             'SPECIFIC LOUDNESS (Bark)',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 8,
               letterSpacing: 0.5,
             ),
@@ -577,7 +577,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 8,
           ),
         ),
@@ -592,7 +592,7 @@ class PsychoacousticMeterWidget extends StatelessWidget {
         Text(
           unit,
           style: TextStyle(
-            color: ReelForgeTheme.textDisabled,
+            color: FluxForgeTheme.textDisabled,
             fontSize: 7,
           ),
         ),
@@ -633,7 +633,7 @@ class _SpecificLoudnessPainter extends CustomPainter {
     }
 
     // Draw Bark scale labels
-    final textPaint = TextStyle(color: ReelForgeTheme.textDisabled, fontSize: 6);
+    final textPaint = TextStyle(color: FluxForgeTheme.textDisabled, fontSize: 6);
     for (final bark in [0, 6, 12, 18, 24]) {
       if (bark < specificLoudness.length) {
         final x = bark * barWidth;
@@ -734,7 +734,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -743,12 +743,12 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
             // Header
             Row(
               children: [
-                const Icon(Icons.insights, color: ReelForgeTheme.accentCyan, size: 20),
+                const Icon(Icons.insights, color: FluxForgeTheme.accentCyan, size: 20),
                 const SizedBox(width: 8),
                 const Text(
                   'ADVANCED METERING',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -758,14 +758,14 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: ReelForgeTheme.accentGreen),
+                    border: Border.all(color: FluxForgeTheme.accentGreen),
                   ),
                   child: const Text(
                     'EXCLUSIVE',
                     style: TextStyle(
-                      color: ReelForgeTheme.accentGreen,
+                      color: FluxForgeTheme.accentGreen,
                       fontSize: 8,
                       fontWeight: FontWeight.bold,
                     ),
@@ -813,7 +813,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgMid,
+                color: FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
@@ -822,7 +822,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                   Text(
                     'WHAT MAKES THIS SPECIAL',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -848,12 +848,12 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Icon(Icons.check_circle, color: ReelForgeTheme.accentGreen, size: 12),
+          Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 12),
           const SizedBox(width: 8),
           Text(
             '$title: ',
             style: const TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -861,7 +861,7 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
           Expanded(
             child: Text(
               desc,
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
             ),
           ),
         ],

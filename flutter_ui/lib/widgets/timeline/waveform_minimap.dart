@@ -10,7 +10,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 
 class WaveformMinimap extends StatefulWidget {
@@ -73,9 +73,9 @@ class _WaveformMinimapState extends State<WaveformMinimap> {
       child: Container(
         height: widget.height,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           border: Border(
-            bottom: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1),
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
           ),
         ),
         child: LayoutBuilder(
@@ -214,7 +214,7 @@ class _MinimapPainter extends CustomPainter {
         size.height - 4,
       );
 
-      final clipColor = clip.color ?? ReelForgeTheme.accentBlue;
+      final clipColor = clip.color ?? FluxForgeTheme.accentBlue;
       canvas.drawRect(
         clipRect,
         Paint()..color = clipColor.withValues(alpha: 0.4),
@@ -316,12 +316,12 @@ class _MinimapPainter extends CustomPainter {
     // Loop region fill
     canvas.drawRect(
       Rect.fromLTRB(startX, 0, endX, size.height),
-      Paint()..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.15),
+      Paint()..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
     );
 
     // Loop region edges
     final edgePaint = Paint()
-      ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.6)
+      ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.6)
       ..strokeWidth = 1;
     canvas.drawLine(Offset(startX, 0), Offset(startX, size.height), edgePaint);
     canvas.drawLine(Offset(endX, 0), Offset(endX, size.height), edgePaint);
@@ -343,8 +343,8 @@ class _MinimapPainter extends CustomPainter {
 
     // Visible region border
     final borderColor = isDraggingRegion
-        ? ReelForgeTheme.accentBlue
-        : ReelForgeTheme.textSecondary;
+        ? FluxForgeTheme.accentBlue
+        : FluxForgeTheme.textSecondary;
 
     canvas.drawRect(
       Rect.fromLTRB(startX, 0, endX, size.height),
@@ -381,7 +381,7 @@ class _MinimapPainter extends CustomPainter {
       Offset(x, 0),
       Offset(x, size.height),
       Paint()
-        ..color = ReelForgeTheme.accentRed
+        ..color = FluxForgeTheme.accentRed
         ..strokeWidth = 1.5,
     );
 
@@ -391,7 +391,7 @@ class _MinimapPainter extends CustomPainter {
       ..lineTo(x + 4, 0)
       ..lineTo(x, 6)
       ..close();
-    canvas.drawPath(path, Paint()..color = ReelForgeTheme.accentRed);
+    canvas.drawPath(path, Paint()..color = FluxForgeTheme.accentRed);
   }
 
   @override

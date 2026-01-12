@@ -13,7 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/recording_provider.dart';
 // import '../../providers/track_provider.dart';  // TODO: Create TrackProvider
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class RecordingPanel extends StatefulWidget {
   const RecordingPanel({super.key});
@@ -52,7 +52,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
     return Consumer<RecordingProvider>(
       builder: (context, recording, _) {
         return Container(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           child: Column(
             children: [
               // Header with global controls
@@ -73,9 +73,9 @@ class _RecordingPanelState extends State<RecordingPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.bgSurface, width: 1),
+          bottom: BorderSide(color: FluxForgeTheme.bgSurface, width: 1),
         ),
       ),
       child: Column(
@@ -87,7 +87,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
               const Text(
                 'RECORDING',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
@@ -98,7 +98,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentRed,
+                    color: FluxForgeTheme.accentRed,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -128,7 +128,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
               Text(
                 '${recording.armedCount} armed · ${recording.recordingCount} recording',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                  color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                   fontSize: 10,
                 ),
               ),
@@ -144,23 +144,23 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgDeep,
+                    color: FluxForgeTheme.bgDeep,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: ReelForgeTheme.bgSurface),
+                    border: Border.all(color: FluxForgeTheme.bgSurface),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.folder_outlined,
                         size: 14,
-                        color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           recording.outputDir.isEmpty ? 'No output directory' : recording.outputDir,
                           style: TextStyle(
-                            color: ReelForgeTheme.textSecondary,
+                            color: FluxForgeTheme.textSecondary,
                             fontSize: 11,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -173,7 +173,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.folder_open, size: 16),
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
                 tooltip: 'Choose Output Directory',
                 onPressed: () => _selectOutputDirectory(recording),
                 padding: EdgeInsets.zero,
@@ -196,7 +196,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 icon: const Icon(Icons.fiber_manual_record, size: 18),
                 label: const Text('RECORD'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.accentRed,
+                  backgroundColor: FluxForgeTheme.accentRed,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -213,8 +213,8 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 icon: const Icon(Icons.stop, size: 18),
                 label: const Text('STOP'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.bgSurface,
-                  foregroundColor: ReelForgeTheme.textPrimary,
+                  backgroundColor: FluxForgeTheme.bgSurface,
+                  foregroundColor: FluxForgeTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -225,7 +225,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
               // Clear all button
               IconButton(
                 icon: const Icon(Icons.clear_all, size: 18),
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 tooltip: 'Clear All',
                 onPressed: recording.armedCount > 0 && !recording.isRecording
                     ? () => recording.clearAll()
@@ -247,13 +247,13 @@ class _RecordingPanelState extends State<RecordingPanel> {
             Icon(
               Icons.mic_none,
               size: 64,
-              color: ReelForgeTheme.textSecondary.withOpacity(0.3),
+              color: FluxForgeTheme.textSecondary.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No Armed Tracks',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+                color: FluxForgeTheme.textSecondary.withOpacity(0.6),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -262,7 +262,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
             Text(
               'Arm tracks from the mixer or timeline to start recording',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary.withOpacity(0.5),
+                color: FluxForgeTheme.textSecondary.withOpacity(0.5),
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
@@ -281,7 +281,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
         return _ArmedTrackItem(
           trackId: index,
           trackName: 'Track ${index + 1}',
-          trackColor: ReelForgeTheme.accentBlue,
+          trackColor: FluxForgeTheme.accentBlue,
           isRecording: recording.isRecording,
           recordingPath: recording.getRecordingPath(index),
           onDisarm: () => recording.disarmTrack(index),
@@ -325,12 +325,12 @@ class _ArmedTrackItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isRecording
-              ? ReelForgeTheme.accentRed.withOpacity(0.5)
-              : ReelForgeTheme.bgSurface,
+              ? FluxForgeTheme.accentRed.withOpacity(0.5)
+              : FluxForgeTheme.bgSurface,
           width: isRecording ? 2 : 1,
         ),
       ),
@@ -357,7 +357,7 @@ class _ArmedTrackItem extends StatelessWidget {
                     Text(
                       trackName,
                       style: const TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -367,7 +367,7 @@ class _ArmedTrackItem extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: ReelForgeTheme.accentRed,
+                          color: FluxForgeTheme.accentRed,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
@@ -385,7 +385,7 @@ class _ArmedTrackItem extends StatelessWidget {
                 Text(
                   recordingPath ?? 'Ready to record',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                    color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                     fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -400,8 +400,8 @@ class _ArmedTrackItem extends StatelessWidget {
               Icons.radio_button_checked,
               size: 20,
               color: isRecording
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.accentOrange,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.accentOrange,
             ),
             tooltip: 'Disarm Track',
             onPressed: isRecording ? null : onDisarm,

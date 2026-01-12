@@ -7,7 +7,7 @@
 /// - Input monitoring
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class RecordingSettingsScreen extends StatefulWidget {
   const RecordingSettingsScreen({super.key});
@@ -28,9 +28,9 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Recording Settings'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -63,21 +63,21 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: ReelForgeTheme.accentRed, size: 20),
+              Icon(icon, color: FluxForgeTheme.accentRed, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -99,7 +99,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         Text(
           'Recording Directory',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -110,15 +110,15 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgSurface,
+                  color: FluxForgeTheme.bgSurface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: ReelForgeTheme.borderSubtle),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
                 ),
                 child: Text(
                   _outputDir,
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
-                    fontFamily: ReelForgeTheme.monoFontFamily,
+                    color: FluxForgeTheme.textPrimary,
+                    fontFamily: FluxForgeTheme.monoFontFamily,
                     fontSize: 12,
                   ),
                 ),
@@ -130,7 +130,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
               icon: const Icon(Icons.folder_open),
               tooltip: 'Browse...',
               style: IconButton.styleFrom(
-                backgroundColor: ReelForgeTheme.bgSurface,
+                backgroundColor: FluxForgeTheme.bgSurface,
               ),
             ),
           ],
@@ -139,7 +139,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         Text(
           'File Name Prefix',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -147,19 +147,19 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         TextField(
           controller: TextEditingController(text: _filePrefix),
           onChanged: (value) => _filePrefix = value,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             filled: true,
-            fillColor: ReelForgeTheme.bgSurface,
+            fillColor: FluxForgeTheme.bgSurface,
             hintText: 'e.g., Recording',
-            hintStyle: TextStyle(color: ReelForgeTheme.textTertiary),
+            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+              borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+              borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
             ),
           ),
         ),
@@ -181,7 +181,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         Text(
           'Bit Depth',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -194,10 +194,10 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
               label: Text('$bits-bit'),
               selected: isSelected,
               onSelected: (_) => setState(() => _bitDepth = bits),
-              backgroundColor: ReelForgeTheme.bgSurface,
-              selectedColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.bgSurface,
+              selectedColor: FluxForgeTheme.accentBlue,
               labelStyle: TextStyle(
-                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
               ),
             );
           }).toList(),
@@ -205,7 +205,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Icon(Icons.info_outline, size: 14, color: ReelForgeTheme.textTertiary),
+            Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.textTertiary),
             const SizedBox(width: 8),
             Text(
               _bitDepth == 16
@@ -214,7 +214,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
                       ? 'Studio quality - recommended'
                       : 'Maximum quality - largest files',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 11,
               ),
             ),
@@ -239,7 +239,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
           Text(
             'Pre-roll duration: ${_preRollSecs.toStringAsFixed(1)} seconds',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -254,7 +254,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
           Text(
             'Audio before pressing record will be captured',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 11,
             ),
           ),
@@ -281,7 +281,7 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         Text(
           'Hear input signal through output while recording',
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 11,
           ),
         ),
@@ -292,13 +292,13 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
               Icon(
                 Icons.warning_amber,
                 size: 14,
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
               ),
               const SizedBox(width: 8),
               Text(
                 'Use headphones to avoid feedback',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentOrange,
+                  color: FluxForgeTheme.accentOrange,
                   fontSize: 11,
                 ),
               ),
@@ -320,14 +320,14 @@ class _RecordingSettingsScreenState extends State<RecordingSettingsScreen> {
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 13,
           ),
         ),
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: ReelForgeTheme.accentBlue,
+          activeColor: FluxForgeTheme.accentBlue,
         ),
       ],
     );

@@ -12,7 +12,7 @@ import 'dart:math' show cos, sin;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mixer_provider.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PRO DAW MIXER
@@ -52,7 +52,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
         final stripWidth = widget.compact ? 60.0 : 80.0;
 
         return Container(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           child: Column(
             children: [
               // Toolbar
@@ -160,13 +160,13 @@ class _ProDawMixerState extends State<ProDawMixer> {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgMid,
-        border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgMid,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
-          Text('MIXER', style: ReelForgeTheme.labelTiny.copyWith(
-            color: ReelForgeTheme.textSecondary,
+          Text('MIXER', style: FluxForgeTheme.labelTiny.copyWith(
+            color: FluxForgeTheme.textSecondary,
             fontWeight: FontWeight.w600,
           )),
           const SizedBox(width: 16),
@@ -193,7 +193,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
           // Channel count
           Text(
             '${mixer.channels.length} tracks',
-            style: ReelForgeTheme.bodySmall.copyWith(color: ReelForgeTheme.textTertiary),
+            style: FluxForgeTheme.bodySmall.copyWith(color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -203,14 +203,14 @@ class _ProDawMixerState extends State<ProDawMixer> {
   Widget _buildSectionLabel(String label) {
     return Container(
       width: 24,
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Center(
         child: RotatedBox(
           quarterTurns: 3,
           child: Text(
             label,
-            style: ReelForgeTheme.labelTiny.copyWith(
-              color: ReelForgeTheme.textTertiary,
+            style: FluxForgeTheme.labelTiny.copyWith(
+              color: FluxForgeTheme.textTertiary,
               fontSize: 9,
               letterSpacing: 1,
             ),
@@ -225,15 +225,15 @@ class _ProDawMixerState extends State<ProDawMixer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgDeep,
-        title: Text('Add Bus', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgDeep,
+        title: Text('Add Bus', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
-            labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
           ),
         ),
         actions: [
@@ -258,15 +258,15 @@ class _ProDawMixerState extends State<ProDawMixer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgDeep,
-        title: Text('Add Aux', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgDeep,
+        title: Text('Add Aux', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
-            labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
           ),
         ),
         actions: [
@@ -291,15 +291,15 @@ class _ProDawMixerState extends State<ProDawMixer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgDeep,
-        title: Text('Add VCA', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgDeep,
+        title: Text('Add VCA', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Name',
-            labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
           ),
         ),
         actions: [
@@ -363,9 +363,9 @@ class _ChannelStrip extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: const Border(
-          right: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1),
+          right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),
       ),
       child: Column(
@@ -424,8 +424,8 @@ class _ChannelStrip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Text(
               channel.volumeDbString,
-              style: ReelForgeTheme.labelTiny.copyWith(
-                color: ReelForgeTheme.textTertiary,
+              style: FluxForgeTheme.labelTiny.copyWith(
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -464,11 +464,11 @@ class _ChannelStrip extends StatelessWidget {
           // Channel name
           Container(
             padding: const EdgeInsets.all(4),
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             child: Text(
               channel.name,
-              style: ReelForgeTheme.labelTiny.copyWith(
-                color: ReelForgeTheme.textPrimary,
+              style: FluxForgeTheme.labelTiny.copyWith(
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -488,20 +488,20 @@ class _ChannelStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: const BoxDecoration(
-          color: ReelForgeTheme.bgMid,
-          border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+          color: FluxForgeTheme.bgMid,
+          border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               _getBusShortName(channel.outputBus),
-              style: ReelForgeTheme.labelTiny.copyWith(
-                color: ReelForgeTheme.textSecondary,
+              style: FluxForgeTheme.labelTiny.copyWith(
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 8,
               ),
             ),
-            const Icon(Icons.arrow_drop_down, size: 12, color: ReelForgeTheme.textTertiary),
+            const Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textTertiary),
           ],
         ),
       ),
@@ -568,9 +568,9 @@ class _VcaStrip extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep.withValues(alpha: 0.8),
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.8),
         border: const Border(
-          right: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1),
+          right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),
       ),
       child: Column(
@@ -581,7 +581,7 @@ class _VcaStrip extends StatelessWidget {
           // VCA indicator
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: const Icon(Icons.tune, size: 16, color: ReelForgeTheme.textTertiary),
+            child: const Icon(Icons.tune, size: 16, color: FluxForgeTheme.textTertiary),
           ),
 
           // Fader area
@@ -610,8 +610,8 @@ class _VcaStrip extends StatelessWidget {
           // Members count
           Text(
             '${vca.memberIds.length} ch',
-            style: ReelForgeTheme.labelTiny.copyWith(
-              color: ReelForgeTheme.textTertiary,
+            style: FluxForgeTheme.labelTiny.copyWith(
+              color: FluxForgeTheme.textTertiary,
               fontSize: 8,
             ),
           ),
@@ -622,8 +622,8 @@ class _VcaStrip extends StatelessWidget {
             color: vca.color.withValues(alpha: 0.3),
             child: Text(
               vca.name,
-              style: ReelForgeTheme.labelTiny.copyWith(
-                color: ReelForgeTheme.textPrimary,
+              style: FluxForgeTheme.labelTiny.copyWith(
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -658,7 +658,7 @@ class _MasterStrip extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border.all(color: channel.color.withValues(alpha: 0.5)),
       ),
       child: Column(
@@ -669,7 +669,7 @@ class _MasterStrip extends StatelessWidget {
             color: channel.color.withValues(alpha: 0.3),
             child: Center(
               child: Text('MASTER', style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               )),
@@ -717,11 +717,11 @@ class _MasterStrip extends StatelessWidget {
           // dB display
           Container(
             padding: const EdgeInsets.all(4),
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             child: Text(
               channel.volumeDbString,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 12,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
@@ -745,7 +745,7 @@ class _SectionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 2,
-      color: ReelForgeTheme.borderSubtle,
+      color: FluxForgeTheme.borderSubtle,
       margin: const EdgeInsets.symmetric(horizontal: 2),
     );
   }
@@ -766,9 +766,9 @@ class _ToolbarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: ReelForgeTheme.textSecondary),
-      label: Text(label, style: ReelForgeTheme.labelTiny.copyWith(
-        color: ReelForgeTheme.textSecondary,
+      icon: Icon(icon, size: 14, color: FluxForgeTheme.textSecondary),
+      label: Text(label, style: FluxForgeTheme.labelTiny.copyWith(
+        color: FluxForgeTheme.textSecondary,
       )),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -802,8 +802,8 @@ class _PanKnob extends StatelessWidget {
         height: 24,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: ReelForgeTheme.bgMid,
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          color: FluxForgeTheme.bgMid,
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: CustomPaint(
           painter: _PanKnobPainter(value: value),
@@ -835,7 +835,7 @@ class _PanKnobPainter extends CustomPainter {
       center,
       end,
       Paint()
-        ..color = ReelForgeTheme.textPrimary
+        ..color = FluxForgeTheme.textPrimary
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
@@ -853,7 +853,7 @@ class _VerticalFader extends StatelessWidget {
   const _VerticalFader({
     required this.value,
     this.onChanged,
-    this.color = ReelForgeTheme.textPrimary,
+    this.color = FluxForgeTheme.textPrimary,
   });
 
   @override
@@ -875,7 +875,7 @@ class _VerticalFader extends StatelessWidget {
 
           return Container(
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(2),
             ),
             child: Stack(
@@ -890,7 +890,7 @@ class _VerticalFader extends StatelessWidget {
                     child: Container(
                       width: 4,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.bgMid,
+                        color: FluxForgeTheme.bgMid,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -904,7 +904,7 @@ class _VerticalFader extends StatelessWidget {
                   top: height * (1 - 1/1.5) - 1,
                   child: Container(
                     height: 2,
-                    color: ReelForgeTheme.textTertiary.withValues(alpha: 0.5),
+                    color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
                   ),
                 ),
 
@@ -928,7 +928,7 @@ class _VerticalFader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(3),
                       boxShadow: [
                         BoxShadow(
-                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.3),
+                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -939,7 +939,7 @@ class _VerticalFader extends StatelessWidget {
                         width: double.infinity,
                         height: 2,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: ReelForgeTheme.textPrimary.withValues(alpha: 0.5),
+                        color: FluxForgeTheme.textPrimary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -974,7 +974,7 @@ class _ChannelMeter extends StatelessWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Opacity(
@@ -1076,7 +1076,7 @@ class _MiniButton extends StatelessWidget {
   const _MiniButton({
     required this.label,
     this.active = false,
-    this.activeColor = ReelForgeTheme.textPrimary,
+    this.activeColor = FluxForgeTheme.textPrimary,
     this.onPressed,
   });
 
@@ -1088,17 +1088,17 @@ class _MiniButton extends StatelessWidget {
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgMid,
+          color: active ? activeColor : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Center(
           child: Text(
             label,
             style: TextStyle(
-              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
+              color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textTertiary,
               fontSize: 9,
               fontWeight: FontWeight.bold,
             ),

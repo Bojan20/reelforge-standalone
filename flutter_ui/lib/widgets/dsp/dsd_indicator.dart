@@ -6,7 +6,7 @@
 /// - Native DSD vs PCM conversion status
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// DSD playback rate
 enum DsdRate {
@@ -109,7 +109,7 @@ class DsdIndicator extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgMid,
+                  color: FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
@@ -146,7 +146,7 @@ class DsdIndicator extends StatelessWidget {
   Color _getRateColor() {
     switch (rate) {
       case DsdRate.none:
-        return ReelForgeTheme.textSecondary;
+        return FluxForgeTheme.textSecondary;
       case DsdRate.dsd64:
         return const Color(0xFF4FC3F7); // Light blue
       case DsdRate.dsd128:
@@ -174,7 +174,7 @@ class DsdIndicator extends StatelessWidget {
   Color _getModeColor() {
     switch (mode) {
       case DsdPlaybackMode.none:
-        return ReelForgeTheme.textSecondary;
+        return FluxForgeTheme.textSecondary;
       case DsdPlaybackMode.native:
         return const Color(0xFF4CAF50); // Green - best
       case DsdPlaybackMode.dop:
@@ -221,9 +221,9 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
       width: 320,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
@@ -260,7 +260,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
               const Text(
                 'Playback Settings',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -268,7 +268,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 onPressed: widget.onClose,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -290,7 +290,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
           const Text(
             'Playback Mode',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 11,
             ),
           ),
@@ -326,7 +326,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -337,7 +337,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                       : Icons.info_outline,
                   color: widget.nativeDsdSupported
                       ? Colors.green
-                      : ReelForgeTheme.textSecondary,
+                      : FluxForgeTheme.textSecondary,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
@@ -347,7 +347,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                         ? 'Your audio interface supports native DSD'
                         : 'Native DSD not available on current device',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 11,
                     ),
                   ),
@@ -367,14 +367,14 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
         Text(
           label,
           style: const TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
         Text(
           value,
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -403,13 +403,13 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withOpacity(0.15)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentBlue
-                : ReelForgeTheme.border,
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.border,
           ),
         ),
         child: Row(
@@ -418,9 +418,9 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
               icon,
               color: enabled
                   ? (isSelected
-                      ? ReelForgeTheme.accentBlue
-                      : ReelForgeTheme.textSecondary)
-                  : ReelForgeTheme.textSecondary.withOpacity(0.4),
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.textSecondary)
+                  : FluxForgeTheme.textSecondary.withOpacity(0.4),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -432,8 +432,8 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                     title,
                     style: TextStyle(
                       color: enabled
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary.withOpacity(0.4),
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary.withOpacity(0.4),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -442,8 +442,8 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                     description,
                     style: TextStyle(
                       color: enabled
-                          ? ReelForgeTheme.textSecondary
-                          : ReelForgeTheme.textSecondary.withOpacity(0.3),
+                          ? FluxForgeTheme.textSecondary
+                          : FluxForgeTheme.textSecondary.withOpacity(0.3),
                       fontSize: 10,
                     ),
                   ),
@@ -453,7 +453,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
             if (isSelected)
               const Icon(
                 Icons.check_circle,
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
                 size: 18,
               ),
           ],

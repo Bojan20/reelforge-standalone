@@ -9,7 +9,7 @@
 // - Authentic panel layout with LED indicators
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// API 550A parameter set
 class Api550Params {
@@ -112,7 +112,7 @@ class _Api550EqState extends State<Api550Eq> {
         border: Border.all(color: const Color(0xFF3A3A40), width: 2),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withAlpha(128),
+            color: FluxForgeTheme.bgVoid.withAlpha(128),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -205,7 +205,7 @@ class _Api550EqState extends State<Api550Eq> {
                 fontFamily: 'sans-serif',
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 letterSpacing: 2,
               ),
             ),
@@ -218,7 +218,7 @@ class _Api550EqState extends State<Api550Eq> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
 
@@ -228,7 +228,7 @@ class _Api550EqState extends State<Api550Eq> {
           _buildLed(
             label: 'SIG',
             isOn: widget.signalPresent ?? false,
-            color: ReelForgeTheme.accentGreen,
+            color: FluxForgeTheme.accentGreen,
           ),
 
           const SizedBox(width: 12),
@@ -237,7 +237,7 @@ class _Api550EqState extends State<Api550Eq> {
           _buildLed(
             label: 'BYP',
             isOn: _params.bypass,
-            color: ReelForgeTheme.accentRed,
+            color: FluxForgeTheme.accentRed,
           ),
         ],
       ),
@@ -272,7 +272,7 @@ class _Api550EqState extends State<Api550Eq> {
           label,
           style: const TextStyle(
             fontSize: 7,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
         ),
       ],
@@ -338,7 +338,7 @@ class _Api550EqState extends State<Api550Eq> {
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                            color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           ),
                         ),
                       ),
@@ -376,7 +376,7 @@ class _Api550EqState extends State<Api550Eq> {
               style: const TextStyle(
                 fontSize: 10,
                 fontFamily: 'monospace',
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -419,7 +419,7 @@ class _Api550EqState extends State<Api550Eq> {
                   child: Container(
                     width: 4,
                     height: 2,
-                    color: ReelForgeTheme.textPrimary.withAlpha(61),
+                    color: FluxForgeTheme.textPrimary.withAlpha(61),
                   ),
                 ),
 
@@ -436,7 +436,7 @@ class _Api550EqState extends State<Api550Eq> {
                         end: Alignment.bottomCenter,
                         colors: [
                           _apiBlue.withAlpha(128),
-                          ReelForgeTheme.textPrimary.withAlpha(61),
+                          FluxForgeTheme.textPrimary.withAlpha(61),
                           _apiBlue.withAlpha(128),
                         ],
                       ),
@@ -468,7 +468,7 @@ class _Api550EqState extends State<Api550Eq> {
                       child: Icon(
                         Icons.drag_handle,
                         size: 10,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ),
@@ -497,7 +497,7 @@ class _Api550EqState extends State<Api550Eq> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _params.bypass ? ReelForgeTheme.accentRed.withAlpha(180) : _panelColor,
+                color: _params.bypass ? FluxForgeTheme.accentRed.withAlpha(180) : _panelColor,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF4A4A50)),
               ),
@@ -506,7 +506,7 @@ class _Api550EqState extends State<Api550Eq> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
             ),
@@ -519,7 +519,7 @@ class _Api550EqState extends State<Api550Eq> {
             children: [
               const Text(
                 'DRIVE',
-                style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary),
+                style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
               ),
               const SizedBox(width: 8),
               SizedBox(
@@ -543,7 +543,7 @@ class _Api550EqState extends State<Api550Eq> {
             children: [
               const Text(
                 'OUT',
-                style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary),
+                style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
               ),
               const SizedBox(width: 8),
               SizedBox(
@@ -564,7 +564,7 @@ class _Api550EqState extends State<Api550Eq> {
                   style: const TextStyle(
                     fontSize: 9,
                     fontFamily: 'monospace',
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
               ),

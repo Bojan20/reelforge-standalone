@@ -12,7 +12,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -356,7 +356,7 @@ class _MeterState extends State<Meter> with SingleTickerProviderStateMixin {
                 style: widget.style,
                 mode: widget.mode,
                 segments: widget.segments,
-                backgroundColor: widget.backgroundColor ?? ReelForgeTheme.bgDeepest,
+                backgroundColor: widget.backgroundColor ?? FluxForgeTheme.bgDeepest,
               ),
             ),
           );
@@ -382,8 +382,8 @@ class _MeterState extends State<Meter> with SingleTickerProviderStateMixin {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Text('L', style: ReelForgeTheme.label),
-                  Text('R', style: ReelForgeTheme.label),
+                  Text('L', style: FluxForgeTheme.label),
+                  Text('R', style: FluxForgeTheme.label),
                 ],
               ),
             ),
@@ -402,7 +402,7 @@ class _MeterState extends State<Meter> with SingleTickerProviderStateMixin {
                       style: widget.style,
                       mode: widget.mode,
                       segments: widget.segments,
-                      backgroundColor: widget.backgroundColor ?? ReelForgeTheme.bgDeepest,
+                      backgroundColor: widget.backgroundColor ?? FluxForgeTheme.bgDeepest,
                     ),
                   ),
                 ),
@@ -419,7 +419,7 @@ class _MeterState extends State<Meter> with SingleTickerProviderStateMixin {
                       style: widget.style,
                       mode: widget.mode,
                       segments: widget.segments,
-                      backgroundColor: widget.backgroundColor ?? ReelForgeTheme.bgDeepest,
+                      backgroundColor: widget.backgroundColor ?? FluxForgeTheme.bgDeepest,
                     ),
                   ),
                 ),
@@ -545,7 +545,7 @@ class _MeterPainter extends CustomPainter {
 
       canvas.drawRRect(
         RRect.fromRectAndRadius(rmsRect, const Radius.circular(1)),
-        Paint()..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.7),
+        Paint()..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.7),
       );
     }
   }
@@ -590,7 +590,7 @@ class _MeterPainter extends CustomPainter {
 
   void _drawPeakHold(Canvas canvas, Size size, bool isVertical) {
     final paint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -608,24 +608,24 @@ class _MeterPainter extends CustomPainter {
         ? Rect.fromLTWH(0, 0, size.width, 4)
         : Rect.fromLTWH(size.width - 4, 0, 4, size.height);
 
-    canvas.drawRect(clipRect, Paint()..color = ReelForgeTheme.accentRed);
+    canvas.drawRect(clipRect, Paint()..color = FluxForgeTheme.accentRed);
 
     // Glow
     canvas.drawRect(
       clipRect,
       Paint()
-        ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.6)
+        ..color = FluxForgeTheme.accentRed.withValues(alpha: 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
   }
 
   LinearGradient _createGradient(bool isVertical) {
     final colors = [
-      ReelForgeTheme.accentCyan,
-      ReelForgeTheme.accentGreen,
-      ReelForgeTheme.accentYellow,
-      ReelForgeTheme.accentOrange,
-      ReelForgeTheme.accentRed,
+      FluxForgeTheme.accentCyan,
+      FluxForgeTheme.accentGreen,
+      FluxForgeTheme.accentYellow,
+      FluxForgeTheme.accentOrange,
+      FluxForgeTheme.accentRed,
     ];
     const stops = [0.0, 0.5, 0.7, 0.85, 1.0];
 
@@ -646,13 +646,13 @@ class _MeterPainter extends CustomPainter {
 
   Color _getColorForLevel(double lvl) {
     if (lvl < 0.5) {
-      return Color.lerp(ReelForgeTheme.accentCyan, ReelForgeTheme.accentGreen, lvl * 2)!;
+      return Color.lerp(FluxForgeTheme.accentCyan, FluxForgeTheme.accentGreen, lvl * 2)!;
     } else if (lvl < 0.7) {
-      return Color.lerp(ReelForgeTheme.accentGreen, ReelForgeTheme.accentYellow, (lvl - 0.5) * 5)!;
+      return Color.lerp(FluxForgeTheme.accentGreen, FluxForgeTheme.accentYellow, (lvl - 0.5) * 5)!;
     } else if (lvl < 0.85) {
-      return Color.lerp(ReelForgeTheme.accentYellow, ReelForgeTheme.accentOrange, (lvl - 0.7) * 6.67)!;
+      return Color.lerp(FluxForgeTheme.accentYellow, FluxForgeTheme.accentOrange, (lvl - 0.7) * 6.67)!;
     } else {
-      return Color.lerp(ReelForgeTheme.accentOrange, ReelForgeTheme.accentRed, (lvl - 0.85) * 6.67)!;
+      return Color.lerp(FluxForgeTheme.accentOrange, FluxForgeTheme.accentRed, (lvl - 0.85) * 6.67)!;
     }
   }
 

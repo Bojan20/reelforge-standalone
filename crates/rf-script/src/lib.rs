@@ -1,4 +1,4 @@
-//! rf-script: Scripting API for ReelForge
+//! rf-script: Scripting API for FluxForge Studio
 //!
 //! Power user automation via Lua scripting:
 //! - Track/clip manipulation
@@ -256,7 +256,7 @@ impl ScriptEngine {
     fn setup_api(&self) -> ScriptResult<()> {
         let globals = self.lua.globals();
 
-        // ReelForge namespace
+        // FluxForge Studio namespace
         let rf = self.lua.create_table()?;
 
         // Transport API

@@ -1,4 +1,4 @@
-//! # ReelForge Real-Time Engine
+//! # FluxForge Studio Real-Time Engine
 //!
 //! ULTIMATIVNI real-time audio processing with:
 //! - Zero-latency processing pipeline

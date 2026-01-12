@@ -1,17 +1,17 @@
-// ReelForge UI Widget Test
+// FluxForge Studio UI Widget Test
 //
-// Basic smoke test for the ReelForge DAW Flutter UI
+// Basic smoke test for the FluxForge Studio DAW Flutter UI
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelforge_ui/main.dart';
+import 'package:fluxforge_ui/main.dart';
 
 void main() {
-  testWidgets('ReelForge app launches', (WidgetTester tester) async {
+  testWidgets('FluxForge Studio app launches', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const ReelForgeApp());
+    await tester.pumpWidget(const FluxForgeApp());
 
     // Verify that the app title is present
-    expect(find.text('ReelForge DAW'), findsOneWidget);
+    expect(find.text('FluxForge Studio DAW'), findsOneWidget);
   });
 }

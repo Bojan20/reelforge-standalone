@@ -13,7 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/plugin_models.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Show plugin selector dialog
 /// Returns selected PluginInfo or null if cancelled
@@ -124,9 +124,9 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
           width: 600,
           height: 500,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ReelForgeTheme.borderMedium),
+            border: Border.all(color: FluxForgeTheme.borderMedium),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.5),
@@ -148,7 +148,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                     _buildCategorySidebar(),
 
                     // Divider
-                    Container(width: 1, color: ReelForgeTheme.borderSubtle),
+                    Container(width: 1, color: FluxForgeTheme.borderSubtle),
 
                     // Plugin list
                     Expanded(child: _buildPluginList()),
@@ -170,9 +170,9 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-        border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
@@ -183,12 +183,12 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
             children: [
               Text(
                 'Insert Plugin',
-                style: ReelForgeTheme.h2.copyWith(fontSize: 14),
+                style: FluxForgeTheme.h2.copyWith(fontSize: 14),
               ),
               Text(
                 '${widget.channelName} • Slot ${widget.slotIndex + 1} • $slotType',
-                style: ReelForgeTheme.label.copyWith(
-                  color: ReelForgeTheme.textTertiary,
+                style: FluxForgeTheme.label.copyWith(
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ],
@@ -201,23 +201,23 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
             child: Container(
               height: 32,
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeepest,
+                color: FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocus,
-                style: ReelForgeTheme.mono.copyWith(fontSize: 12),
+                style: FluxForgeTheme.mono.copyWith(fontSize: 12),
                 decoration: InputDecoration(
                   hintText: 'Search plugins...',
-                  hintStyle: ReelForgeTheme.label.copyWith(
-                    color: ReelForgeTheme.textDisabled,
+                  hintStyle: FluxForgeTheme.label.copyWith(
+                    color: FluxForgeTheme.textDisabled,
                   ),
                   prefixIcon: Icon(
                     Icons.search,
                     size: 16,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
@@ -239,7 +239,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
 
           // Close button
           IconButton(
-            icon: Icon(Icons.close, size: 18, color: ReelForgeTheme.textSecondary),
+            icon: Icon(Icons.close, size: 18, color: FluxForgeTheme.textSecondary),
             onPressed: () => Navigator.of(context).pop(),
             splashRadius: 16,
           ),
@@ -251,7 +251,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
   Widget _buildCategorySidebar() {
     return Container(
       width: 140,
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -259,7 +259,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
           _CategoryItem(
             label: 'All Plugins',
             icon: Icons.apps,
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             count: PluginRegistry.builtIn.length,
             isSelected: _selectedCategory == null && _searchQuery.isEmpty,
             onTap: () {
@@ -275,7 +275,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
           // Divider
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Container(height: 1, color: ReelForgeTheme.borderSubtle),
+            child: Container(height: 1, color: FluxForgeTheme.borderSubtle),
           ),
 
           // Categories
@@ -312,13 +312,13 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
             Icon(
               Icons.search_off,
               size: 48,
-              color: ReelForgeTheme.textDisabled,
+              color: FluxForgeTheme.textDisabled,
             ),
             const SizedBox(height: 16),
             Text(
               'No plugins found',
-              style: ReelForgeTheme.label.copyWith(
-                color: ReelForgeTheme.textTertiary,
+              style: FluxForgeTheme.label.copyWith(
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ],
@@ -346,13 +346,13 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                     : isHovered
-                        ? ReelForgeTheme.bgSurface
+                        ? FluxForgeTheme.bgSurface
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 border: isSelected
-                    ? Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5))
+                    ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5))
                     : null,
               ),
               child: Row(
@@ -382,10 +382,10 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                       children: [
                         Text(
                           plugin.name,
-                          style: ReelForgeTheme.label.copyWith(
+                          style: FluxForgeTheme.label.copyWith(
                             color: isSelected
-                                ? ReelForgeTheme.accentBlue
-                                : ReelForgeTheme.textPrimary,
+                                ? FluxForgeTheme.accentBlue
+                                : FluxForgeTheme.textPrimary,
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -393,8 +393,8 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                         if (plugin.vendor != null)
                           Text(
                             plugin.vendor!,
-                            style: ReelForgeTheme.labelTiny.copyWith(
-                              color: ReelForgeTheme.textDisabled,
+                            style: FluxForgeTheme.labelTiny.copyWith(
+                              color: FluxForgeTheme.textDisabled,
                             ),
                           ),
                       ],
@@ -407,8 +407,8 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                       plugin.isFavorite ? Icons.star : Icons.star_border,
                       size: 16,
                       color: plugin.isFavorite
-                          ? ReelForgeTheme.accentYellow
-                          : ReelForgeTheme.textDisabled,
+                          ? FluxForgeTheme.accentYellow
+                          : FluxForgeTheme.textDisabled,
                     ),
                     onPressed: () {
                       // TODO: Toggle favorite
@@ -426,14 +426,14 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.bgDeepest,
+                        color: FluxForgeTheme.bgDeepest,
                         borderRadius: BorderRadius.circular(3),
-                        border: Border.all(color: ReelForgeTheme.borderSubtle),
+                        border: Border.all(color: FluxForgeTheme.borderSubtle),
                       ),
                       child: Text(
                         plugin.format.name.toUpperCase(),
-                        style: ReelForgeTheme.labelTiny.copyWith(
-                          color: ReelForgeTheme.textTertiary,
+                        style: FluxForgeTheme.labelTiny.copyWith(
+                          color: FluxForgeTheme.textTertiary,
                           fontSize: 8,
                         ),
                       ),
@@ -455,17 +455,17 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-        border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
           // Plugin count
           Text(
             '${plugins.length} plugins',
-            style: ReelForgeTheme.label.copyWith(
-              color: ReelForgeTheme.textTertiary,
+            style: FluxForgeTheme.label.copyWith(
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
 
@@ -488,7 +488,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             style: TextButton.styleFrom(
-              foregroundColor: ReelForgeTheme.textSecondary,
+              foregroundColor: FluxForgeTheme.textSecondary,
               padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
             child: const Text('Cancel'),
@@ -502,10 +502,10 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                 ? () => Navigator.of(context).pop(plugins[_selectedIndex])
                 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.accentBlue,
               foregroundColor: Colors.white,
-              disabledBackgroundColor: ReelForgeTheme.bgDeepest,
-              disabledForegroundColor: ReelForgeTheme.textDisabled,
+              disabledBackgroundColor: FluxForgeTheme.bgDeepest,
+              disabledForegroundColor: FluxForgeTheme.textDisabled,
               padding: const EdgeInsets.symmetric(horizontal: 20),
             ),
             child: const Text('Insert'),
@@ -552,7 +552,7 @@ class _CategoryItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 14, color: isSelected ? color : ReelForgeTheme.textTertiary),
+            Icon(icon, size: 14, color: isSelected ? color : FluxForgeTheme.textTertiary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -560,7 +560,7 @@ class _CategoryItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? color : ReelForgeTheme.textSecondary,
+                  color: isSelected ? color : FluxForgeTheme.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -568,13 +568,13 @@ class _CategoryItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeepest,
+                color: FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 '$count',
-                style: ReelForgeTheme.labelTiny.copyWith(
-                  color: ReelForgeTheme.textDisabled,
+                style: FluxForgeTheme.labelTiny.copyWith(
+                  color: FluxForgeTheme.textDisabled,
                   fontSize: 9,
                 ),
               ),
@@ -603,23 +603,23 @@ class _ShortcutHint extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: Text(
             label,
-            style: ReelForgeTheme.mono.copyWith(
+            style: FluxForgeTheme.mono.copyWith(
               fontSize: 9,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
         ),
         const SizedBox(width: 4),
         Text(
           description,
-          style: ReelForgeTheme.labelTiny.copyWith(
-            color: ReelForgeTheme.textDisabled,
+          style: FluxForgeTheme.labelTiny.copyWith(
+            color: FluxForgeTheme.textDisabled,
           ),
         ),
       ],

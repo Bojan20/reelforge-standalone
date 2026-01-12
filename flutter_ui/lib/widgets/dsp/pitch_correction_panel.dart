@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class PitchCorrectionPanel extends StatefulWidget {
   final int trackId;
@@ -94,15 +94,15 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           // Header
           _buildHeader(),
-          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           // Main content
           Expanded(
             child: Row(
@@ -112,7 +112,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
                   flex: 2,
                   child: _buildControlsPanel(),
                 ),
-                VerticalDivider(width: 1, color: ReelForgeTheme.borderSubtle),
+                VerticalDivider(width: 1, color: FluxForgeTheme.borderSubtle),
                 // Right panel - Keyboard
                 Expanded(
                   flex: 3,
@@ -131,12 +131,12 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(Icons.music_note, color: ReelForgeTheme.accentBlue, size: 20),
+          Icon(Icons.music_note, color: FluxForgeTheme.accentBlue, size: 20),
           const SizedBox(width: 8),
           Text(
             'PITCH CORRECTION',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -153,16 +153,16 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _bypass ? ReelForgeTheme.accentRed : ReelForgeTheme.bgMid,
+                color: _bypass ? FluxForgeTheme.accentRed : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: _bypass ? ReelForgeTheme.accentRed : ReelForgeTheme.borderMedium,
+                  color: _bypass ? FluxForgeTheme.accentRed : FluxForgeTheme.borderMedium,
                 ),
               ),
               child: Text(
                 'BYPASS',
                 style: TextStyle(
-                  color: _bypass ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                  color: _bypass ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -218,7 +218,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
             max: 1.0,
             leftLabel: 'Natural',
             rightLabel: 'Robotic',
-            color: ReelForgeTheme.accentCyan,
+            color: FluxForgeTheme.accentCyan,
             onChanged: (v) {
               setState(() => _speed = v);
               _ffi.pitchCorrectorSetSpeed(widget.trackId, v);
@@ -235,7 +235,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
             max: 1.0,
             leftLabel: 'Off',
             rightLabel: 'Full',
-            color: ReelForgeTheme.accentBlue,
+            color: FluxForgeTheme.accentBlue,
             onChanged: (v) {
               setState(() => _amount = v);
               if (!_bypass) {
@@ -254,7 +254,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
             max: 1.0,
             leftLabel: 'Off',
             rightLabel: 'Full',
-            color: ReelForgeTheme.accentOrange,
+            color: FluxForgeTheme.accentOrange,
             onChanged: (v) {
               setState(() => _formantPreservation = v);
               _ffi.pitchCorrectorSetFormantPreservation(widget.trackId, v);
@@ -289,7 +289,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
           Text(
             '${_noteNames[_root.index]} ${_scaleNames[_scale.index]}',
             style: const TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -318,20 +318,20 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
                     height: 24,
                     decoration: BoxDecoration(
                       color: isActive
-                          ? (isRoot ? ReelForgeTheme.accentBlue : ReelForgeTheme.accentGreen)
-                          : ReelForgeTheme.bgMid,
+                          ? (isRoot ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen)
+                          : FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: isActive
-                            ? (isRoot ? ReelForgeTheme.accentBlue : ReelForgeTheme.accentGreen)
-                            : ReelForgeTheme.borderMedium,
+                            ? (isRoot ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen)
+                            : FluxForgeTheme.borderMedium,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         _noteNames[i].replaceAll('#', ''),
                         style: TextStyle(
-                          color: isActive ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                          color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -344,7 +344,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: isActive ? ReelForgeTheme.accentGreen : ReelForgeTheme.textDisabled,
+                        color: isActive ? FluxForgeTheme.accentGreen : FluxForgeTheme.textDisabled,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -378,16 +378,16 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderMedium),
+        border: Border.all(color: FluxForgeTheme.borderMedium),
       ),
       child: DropdownButton<T>(
         value: value,
         isExpanded: true,
-        dropdownColor: ReelForgeTheme.bgMid,
+        dropdownColor: FluxForgeTheme.bgMid,
         underline: const SizedBox(),
-        style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 13),
+        style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13),
         items: List.generate(items.length, (i) {
           return DropdownMenuItem(
             value: items[i],
@@ -431,7 +431,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
             overlayColor: color.withValues(alpha: 0.2),
@@ -466,8 +466,8 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: ReelForgeTheme.accentGreen,
-          inactiveTrackColor: ReelForgeTheme.borderSubtle,
+          activeColor: FluxForgeTheme.accentGreen,
+          inactiveTrackColor: FluxForgeTheme.borderSubtle,
         ),
       ],
     );
@@ -508,7 +508,7 @@ class _KeyboardPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = isActive
-            ? (isRoot ? ReelForgeTheme.accentBlue : ReelForgeTheme.accentGreen.withValues(alpha: 0.3))
+            ? (isRoot ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen.withValues(alpha: 0.3))
             : const Color(0xFFE0E0E0);
 
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
@@ -519,7 +519,7 @@ class _KeyboardPainter extends CustomPainter {
         rrect,
         Paint()
           ..color = isActive
-              ? (isRoot ? ReelForgeTheme.accentBlue : ReelForgeTheme.accentGreen)
+              ? (isRoot ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen)
               : const Color(0xFFB0B0B0)
           ..style = PaintingStyle.stroke
           ..strokeWidth = isActive ? 2 : 1,
@@ -541,7 +541,7 @@ class _KeyboardPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = isActive
-            ? (isRoot ? ReelForgeTheme.accentBlue : ReelForgeTheme.accentGreen)
+            ? (isRoot ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen)
             : const Color(0xFF202020);
 
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
@@ -552,7 +552,7 @@ class _KeyboardPainter extends CustomPainter {
         canvas.drawRRect(
           rrect,
           Paint()
-            ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+            ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1,
         );

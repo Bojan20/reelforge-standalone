@@ -1,4 +1,4 @@
-# Claude Code — ReelForge Standalone
+# Claude Code — FluxForge Studio
 
 ---
 ## ⚠️ STOP — OBAVEZNO PRE SVAKE AKCIJE ⚠️
@@ -103,7 +103,7 @@ Ti si elite multi-disciplinary professional sa 20+ godina iskustva:
 - `engine-arch.md` — performance, security, Rust patterns
 
 `.claude/project/`:
-- `reelforge-standalone.md` — full architecture spec
+- `fluxforge-studio.md` — full architecture spec
 
 ---
 
@@ -196,7 +196,7 @@ C:      1%  — ASIO bindings only
 ## Workspace Structure
 
 ```
-reelforge-standalone/
+fluxforge-studio/
 ├── Cargo.toml              # Workspace root
 ├── rust-toolchain.toml     # Nightly for SIMD
 ├── .cargo/config.toml      # Build flags, target-cpu
@@ -523,4 +523,4 @@ flutter run --profile          # UI performance
 
 ---
 
-Za detalje: `.claude/project/reelforge-standalone.md`
+Za detalje: `.claude/project/fluxforge-studio.md`

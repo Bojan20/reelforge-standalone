@@ -11,7 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/routing_provider.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class RoutingPanel extends StatefulWidget {
   const RoutingPanel({super.key});
@@ -46,7 +46,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
     return Consumer<RoutingProvider>(
       builder: (context, routing, _) {
         return Container(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           child: Row(
             children: [
               // Left: Channel list
@@ -58,7 +58,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
               // Divider
               Container(
                 width: 1,
-                color: ReelForgeTheme.bgSurface,
+                color: FluxForgeTheme.bgSurface,
               ),
 
               // Right: Selected channel details
@@ -81,9 +81,9 @@ class _RoutingPanelState extends State<RoutingPanel> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             border: Border(
-              bottom: BorderSide(color: ReelForgeTheme.bgSurface, width: 1),
+              bottom: BorderSide(color: FluxForgeTheme.bgSurface, width: 1),
             ),
           ),
           child: Row(
@@ -91,7 +91,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
               const Text(
                 'ROUTING CHANNELS',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
@@ -101,14 +101,14 @@ class _RoutingPanelState extends State<RoutingPanel> {
               Text(
                 '${routing.channelCount} channels',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                  color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                   fontSize: 10,
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.add, size: 16),
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
                 tooltip: 'Create Channel',
                 onPressed: () => _showCreateChannelDialog(),
                 padding: EdgeInsets.zero,
@@ -152,13 +152,13 @@ class _RoutingPanelState extends State<RoutingPanel> {
                       Icon(
                         Icons.device_hub,
                         size: 64,
-                        color: ReelForgeTheme.textSecondary.withOpacity(0.3),
+                        color: FluxForgeTheme.textSecondary.withOpacity(0.3),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'No Routing Channels',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+                          color: FluxForgeTheme.textSecondary.withOpacity(0.6),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -167,7 +167,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
                       Text(
                         'Click + to create a channel',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary.withOpacity(0.5),
+                          color: FluxForgeTheme.textSecondary.withOpacity(0.5),
                           fontSize: 12,
                         ),
                       ),
@@ -202,7 +202,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
                     Text(
                       channel.name,
                       style: const TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -211,7 +211,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
                     Text(
                       'Channel ${channel.id} · ${_getChannelTypeName(channel.kind)}',
                       style: TextStyle(
-                        color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                         fontSize: 12,
                       ),
                     ),
@@ -256,7 +256,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
         Text(
           title,
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
@@ -267,9 +267,9 @@ class _RoutingPanelState extends State<RoutingPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ReelForgeTheme.bgSurface),
+            border: Border.all(color: FluxForgeTheme.bgSurface),
           ),
           child: child,
         ),
@@ -287,8 +287,8 @@ class _RoutingPanelState extends State<RoutingPanel> {
           icon: const Icon(Icons.volume_up, size: 16),
           label: const Text('Route to Master'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: ReelForgeTheme.bgSurface,
-            foregroundColor: ReelForgeTheme.textPrimary,
+            backgroundColor: FluxForgeTheme.bgSurface,
+            foregroundColor: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -299,8 +299,8 @@ class _RoutingPanelState extends State<RoutingPanel> {
           icon: const Icon(Icons.device_hub, size: 16),
           label: const Text('Route to Channel'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: ReelForgeTheme.bgSurface,
-            foregroundColor: ReelForgeTheme.textPrimary,
+            backgroundColor: FluxForgeTheme.bgSurface,
+            foregroundColor: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -311,8 +311,8 @@ class _RoutingPanelState extends State<RoutingPanel> {
           icon: const Icon(Icons.block, size: 16),
           label: const Text('Disable Output'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: ReelForgeTheme.bgSurface,
-            foregroundColor: ReelForgeTheme.textSecondary,
+            backgroundColor: FluxForgeTheme.bgSurface,
+            foregroundColor: FluxForgeTheme.textSecondary,
           ),
         ),
       ],
@@ -328,7 +328,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
           icon: const Icon(Icons.add, size: 16),
           label: const Text('Add Send'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: ReelForgeTheme.accentBlue,
+            backgroundColor: FluxForgeTheme.accentBlue,
             foregroundColor: Colors.white,
           ),
         ),
@@ -336,7 +336,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
         Text(
           'No sends configured',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
             fontSize: 12,
           ),
         ),
@@ -357,8 +357,8 @@ class _RoutingPanelState extends State<RoutingPanel> {
                 icon: const Icon(Icons.volume_off, size: 16),
                 label: const Text('Mute'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.bgSurface,
-                  foregroundColor: ReelForgeTheme.textPrimary,
+                  backgroundColor: FluxForgeTheme.bgSurface,
+                  foregroundColor: FluxForgeTheme.textPrimary,
                 ),
               ),
             ),
@@ -369,8 +369,8 @@ class _RoutingPanelState extends State<RoutingPanel> {
                 icon: const Icon(Icons.headset, size: 16),
                 label: const Text('Solo'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.bgSurface,
-                  foregroundColor: ReelForgeTheme.accentOrange,
+                  backgroundColor: FluxForgeTheme.bgSurface,
+                  foregroundColor: FluxForgeTheme.accentOrange,
                 ),
               ),
             ),
@@ -388,13 +388,13 @@ class _RoutingPanelState extends State<RoutingPanel> {
           Icon(
             Icons.device_hub,
             size: 64,
-            color: ReelForgeTheme.textSecondary.withOpacity(0.3),
+            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
           ),
           const SizedBox(height: 16),
           Text(
             'No Channel Selected',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+              color: FluxForgeTheme.textSecondary.withOpacity(0.6),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -403,7 +403,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
           Text(
             'Select a channel from the list',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary.withOpacity(0.5),
+              color: FluxForgeTheme.textSecondary.withOpacity(0.5),
               fontSize: 12,
             ),
           ),
@@ -442,15 +442,15 @@ class _RoutingPanelState extends State<RoutingPanel> {
   Icon _getChannelIcon(ChannelKind kind) {
     switch (kind) {
       case ChannelKind.audio:
-        return const Icon(Icons.audiotrack, color: ReelForgeTheme.accentBlue, size: 32);
+        return const Icon(Icons.audiotrack, color: FluxForgeTheme.accentBlue, size: 32);
       case ChannelKind.bus:
-        return const Icon(Icons.storage, color: ReelForgeTheme.accentGreen, size: 32);
+        return const Icon(Icons.storage, color: FluxForgeTheme.accentGreen, size: 32);
       case ChannelKind.aux:
-        return const Icon(Icons.send, color: ReelForgeTheme.accentOrange, size: 32);
+        return const Icon(Icons.send, color: FluxForgeTheme.accentOrange, size: 32);
       case ChannelKind.vca:
-        return const Icon(Icons.tune, color: ReelForgeTheme.accentPurple, size: 32);
+        return const Icon(Icons.tune, color: FluxForgeTheme.accentPurple, size: 32);
       case ChannelKind.master:
-        return const Icon(Icons.speaker, color: ReelForgeTheme.accentRed, size: 32);
+        return const Icon(Icons.speaker, color: FluxForgeTheme.accentRed, size: 32);
     }
   }
 
@@ -488,12 +488,12 @@ class _ChannelListItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isSelected ? ReelForgeTheme.bgSurface : ReelForgeTheme.bgMid,
+        color: isSelected ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withOpacity(0.5)
-              : ReelForgeTheme.bgSurface,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+              : FluxForgeTheme.bgSurface,
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -503,7 +503,7 @@ class _ChannelListItem extends StatelessWidget {
         title: Text(
           channel.name,
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -511,14 +511,14 @@ class _ChannelListItem extends StatelessWidget {
         subtitle: Text(
           'ID: ${channel.id}',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
             fontSize: 11,
           ),
         ),
         trailing: channel.kind != ChannelKind.master
             ? IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: ReelForgeTheme.accentRed,
+                color: FluxForgeTheme.accentRed,
                 tooltip: 'Delete Channel',
                 onPressed: onDelete,
               )
@@ -530,15 +530,15 @@ class _ChannelListItem extends StatelessWidget {
   Icon _getChannelIcon(ChannelKind kind) {
     switch (kind) {
       case ChannelKind.audio:
-        return const Icon(Icons.audiotrack, color: ReelForgeTheme.accentBlue, size: 20);
+        return const Icon(Icons.audiotrack, color: FluxForgeTheme.accentBlue, size: 20);
       case ChannelKind.bus:
-        return const Icon(Icons.storage, color: ReelForgeTheme.accentGreen, size: 20);
+        return const Icon(Icons.storage, color: FluxForgeTheme.accentGreen, size: 20);
       case ChannelKind.aux:
-        return const Icon(Icons.send, color: ReelForgeTheme.accentOrange, size: 20);
+        return const Icon(Icons.send, color: FluxForgeTheme.accentOrange, size: 20);
       case ChannelKind.vca:
-        return const Icon(Icons.tune, color: ReelForgeTheme.accentPurple, size: 20);
+        return const Icon(Icons.tune, color: FluxForgeTheme.accentPurple, size: 20);
       case ChannelKind.master:
-        return const Icon(Icons.speaker, color: ReelForgeTheme.accentRed, size: 20);
+        return const Icon(Icons.speaker, color: FluxForgeTheme.accentRed, size: 20);
     }
   }
 }
@@ -563,21 +563,21 @@ class _CreateChannelDialogState extends State<_CreateChannelDialog> {
     final routing = context.read<RoutingProvider>();
 
     return AlertDialog(
-      backgroundColor: ReelForgeTheme.bgMid,
-      title: const Text('Create Channel', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+      backgroundColor: FluxForgeTheme.bgMid,
+      title: const Text('Create Channel', style: TextStyle(color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Channel Type:', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+            const Text('Channel Type:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             DropdownButton<ChannelKind>(
               value: _selectedKind,
               isExpanded: true,
-              dropdownColor: ReelForgeTheme.bgDeep,
-              style: const TextStyle(color: ReelForgeTheme.textPrimary),
+              dropdownColor: FluxForgeTheme.bgDeep,
+              style: const TextStyle(color: FluxForgeTheme.textPrimary),
               items: [
                 ChannelKind.audio,
                 ChannelKind.bus,
@@ -596,16 +596,16 @@ class _CreateChannelDialogState extends State<_CreateChannelDialog> {
               },
             ),
             const SizedBox(height: 16),
-            const Text('Channel Name:', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+            const Text('Channel Name:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: ReelForgeTheme.textPrimary),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: ReelForgeTheme.bgDeep,
+                fillColor: FluxForgeTheme.bgDeep,
                 border: OutlineInputBorder(
-                  borderSide: BorderSide(color: ReelForgeTheme.bgSurface),
+                  borderSide: BorderSide(color: FluxForgeTheme.bgSurface),
                 ),
               ),
             ),
@@ -625,7 +625,7 @@ class _CreateChannelDialogState extends State<_CreateChannelDialog> {
             }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: ReelForgeTheme.accentBlue,
+            backgroundColor: FluxForgeTheme.accentBlue,
             foregroundColor: Colors.white,
           ),
           child: const Text('Create'),
@@ -664,8 +664,8 @@ class _ChannelOutputDialog extends StatelessWidget {
     final channels = routing.channels.where((ch) => ch.id != sourceChannelId).toList();
 
     return AlertDialog(
-      backgroundColor: ReelForgeTheme.bgMid,
-      title: const Text('Route to Channel', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+      backgroundColor: FluxForgeTheme.bgMid,
+      title: const Text('Route to Channel', style: TextStyle(color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         height: 400,
@@ -676,11 +676,11 @@ class _ChannelOutputDialog extends StatelessWidget {
             return ListTile(
               title: Text(
                 channel.name,
-                style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                style: const TextStyle(color: FluxForgeTheme.textPrimary),
               ),
               subtitle: Text(
                 'ID: ${channel.id}',
-                style: TextStyle(color: ReelForgeTheme.textSecondary.withOpacity(0.6)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
               ),
               onTap: () async {
                 await routing.setOutputToChannel(sourceChannelId, channel.id);
@@ -725,20 +725,20 @@ class _AddSendDialogState extends State<_AddSendDialog> {
         .toList();
 
     return AlertDialog(
-      backgroundColor: ReelForgeTheme.bgMid,
-      title: const Text('Add Send', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+      backgroundColor: FluxForgeTheme.bgMid,
+      title: const Text('Add Send', style: TextStyle(color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CheckboxListTile(
-              title: const Text('Pre-Fader', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+              title: const Text('Pre-Fader', style: TextStyle(color: FluxForgeTheme.textPrimary)),
               subtitle: Text(
                 _preFader
                     ? 'Send before fader (independent)'
                     : 'Send after fader (follows volume)',
-                style: TextStyle(color: ReelForgeTheme.textSecondary.withOpacity(0.6)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
               ),
               value: _preFader,
               onChanged: (value) {
@@ -748,7 +748,7 @@ class _AddSendDialogState extends State<_AddSendDialog> {
             const SizedBox(height: 16),
             const Text(
               'Send to:',
-              style: TextStyle(color: ReelForgeTheme.textSecondary),
+              style: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -760,11 +760,11 @@ class _AddSendDialogState extends State<_AddSendDialog> {
                   return ListTile(
                     title: Text(
                       channel.name,
-                      style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                      style: const TextStyle(color: FluxForgeTheme.textPrimary),
                     ),
                     subtitle: Text(
                       'ID: ${channel.id}',
-                      style: TextStyle(color: ReelForgeTheme.textSecondary.withOpacity(0.6)),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
                     ),
                     onTap: () async {
                       await widget.routing.addSend(

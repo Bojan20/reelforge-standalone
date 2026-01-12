@@ -9,7 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============ Types ============
 
@@ -132,10 +132,10 @@ class _TransportControlsState extends State<TransportControls> {
           vertical: widget.compact ? 6 : 10,
         ),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgMid,
+          color: FluxForgeTheme.bgMid,
           border: Border(
             bottom: BorderSide(
-              color: ReelForgeTheme.borderSubtle,
+              color: FluxForgeTheme.borderSubtle,
             ),
           ),
         ),
@@ -208,7 +208,7 @@ class _TransportControlsState extends State<TransportControls> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
+        color: FluxForgeTheme.bgVoid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -219,7 +219,7 @@ class _TransportControlsState extends State<TransportControls> {
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 14,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -228,7 +228,7 @@ class _TransportControlsState extends State<TransportControls> {
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 14,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
         ],
@@ -263,7 +263,7 @@ class _TransportControlsState extends State<TransportControls> {
           return Container(
             height: 32,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgVoid,
+              color: FluxForgeTheme.bgVoid,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Stack(
@@ -277,7 +277,7 @@ class _TransportControlsState extends State<TransportControls> {
                   width: constraints.maxWidth * _progress.clamp(0.0, 1.0),
                   height: 32,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentBlue.withOpacity(0.3),
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -288,7 +288,7 @@ class _TransportControlsState extends State<TransportControls> {
                     width: 16,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentBlue,
+                      color: FluxForgeTheme.accentBlue,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -337,9 +337,9 @@ class _TransportControlsState extends State<TransportControls> {
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: ReelForgeTheme.accentBlue,
-              inactiveTrackColor: ReelForgeTheme.bgElevated,
-              thumbColor: ReelForgeTheme.textPrimary,
+              activeTrackColor: FluxForgeTheme.accentBlue,
+              inactiveTrackColor: FluxForgeTheme.bgElevated,
+              thumbColor: FluxForgeTheme.textPrimary,
             ),
             child: Slider(
               value: widget.state.volume,
@@ -360,14 +360,14 @@ class _TransportControlsState extends State<TransportControls> {
               ? Icons.graphic_eq
               : Icons.pause,
           size: 16,
-          color: ReelForgeTheme.textSecondary,
+          color: FluxForgeTheme.textSecondary,
         ),
         const SizedBox(width: 6),
         Text(
           widget.state.currentAssetId!,
           style: TextStyle(
             fontSize: 12,
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
           overflow: TextOverflow.ellipsis,
         ),
@@ -416,23 +416,23 @@ class _TransportButton extends StatelessWidget {
             height: small ? 28 : 36,
             decoration: BoxDecoration(
               color: active
-                  ? ReelForgeTheme.accentBlue.withOpacity(0.2)
-                  : ReelForgeTheme.bgSurface,
+                  ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                  : FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: active
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.borderSubtle,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.borderSubtle,
               ),
             ),
             child: Icon(
               icon,
               size: small ? 16 : 20,
               color: active
-                  ? ReelForgeTheme.accentBlue
+                  ? FluxForgeTheme.accentBlue
                   : primary
-                      ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textSecondary,
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary,
             ),
           ),
         ),

@@ -9,7 +9,7 @@
 /// Visual style matches rf-viz/stretch_overlay.rs GPU renderer
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA TYPES
@@ -256,16 +256,16 @@ class _StretchOverlayPainter extends CustomPainter {
       // Compression - cyan/teal (matches rf-viz)
       final intensity = (1.0 - ratio).clamp(0.0, 1.0);
       return Color.lerp(
-        ReelForgeTheme.accentCyan.withValues(alpha: 0.15),
-        ReelForgeTheme.accentCyan.withValues(alpha: 0.4),
+        FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
+        FluxForgeTheme.accentCyan.withValues(alpha: 0.4),
         intensity,
       )!;
     } else if (ratio > 1.01) {
       // Expansion - orange (matches rf-viz)
       final intensity = ((ratio - 1.0) * 2.0).clamp(0.0, 1.0);
       return Color.lerp(
-        ReelForgeTheme.accentOrange.withValues(alpha: 0.15),
-        ReelForgeTheme.accentOrange.withValues(alpha: 0.4),
+        FluxForgeTheme.accentOrange.withValues(alpha: 0.15),
+        FluxForgeTheme.accentOrange.withValues(alpha: 0.4),
         intensity,
       )!;
     } else {
@@ -283,8 +283,8 @@ class _StretchOverlayPainter extends CustomPainter {
         text: text,
         style: TextStyle(
           color: ratio < 1.0
-              ? ReelForgeTheme.accentCyan
-              : ReelForgeTheme.accentOrange,
+              ? FluxForgeTheme.accentCyan
+              : FluxForgeTheme.accentOrange,
           fontSize: 9,
           fontWeight: FontWeight.bold,
           fontFamily: 'JetBrains Mono',
@@ -305,7 +305,7 @@ class _StretchOverlayPainter extends CustomPainter {
     );
     canvas.drawRRect(
       bgRect,
-      Paint()..color = ReelForgeTheme.bgDeepest.withValues(alpha: 0.8),
+      Paint()..color = FluxForgeTheme.bgDeepest.withValues(alpha: 0.8),
     );
 
     textPainter.paint(canvas, Offset(textX, textY));
@@ -351,15 +351,15 @@ class _StretchOverlayPainter extends CustomPainter {
 
     switch (marker.type) {
       case FlexMarkerType.transient:
-        return ReelForgeTheme.textTertiary.withValues(alpha: baseAlpha * 0.6);
+        return FluxForgeTheme.textTertiary.withValues(alpha: baseAlpha * 0.6);
       case FlexMarkerType.warpMarker:
         return marker.selected
-            ? ReelForgeTheme.accentOrange
-            : ReelForgeTheme.accentOrange.withValues(alpha: baseAlpha);
+            ? FluxForgeTheme.accentOrange
+            : FluxForgeTheme.accentOrange.withValues(alpha: baseAlpha);
       case FlexMarkerType.beatMarker:
-        return ReelForgeTheme.accentBlue.withValues(alpha: baseAlpha);
+        return FluxForgeTheme.accentBlue.withValues(alpha: baseAlpha);
       case FlexMarkerType.anchor:
-        return ReelForgeTheme.accentRed.withValues(alpha: baseAlpha);
+        return FluxForgeTheme.accentRed.withValues(alpha: baseAlpha);
     }
   }
 
@@ -395,7 +395,7 @@ class _StretchOverlayPainter extends CustomPainter {
         canvas.drawCircle(
           Offset(x, size / 2 + 2),
           size * 0.3,
-          Paint()..color = ReelForgeTheme.bgDeepest,
+          Paint()..color = FluxForgeTheme.bgDeepest,
         );
       }
     } else {
@@ -443,7 +443,7 @@ class _StretchOverlayPainter extends CustomPainter {
     final isCompress = data.overallStretch < 1.0;
     final percentage = (data.overallStretch * 100).toStringAsFixed(0);
     final text = '$percentage%';
-    final color = isCompress ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange;
+    final color = isCompress ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange;
 
     final textPainter = TextPainter(
       text: TextSpan(
@@ -516,7 +516,7 @@ class StretchIndicatorBadge extends StatelessWidget {
     }
 
     final isCompress = stretchRatio < 1.0;
-    final color = isCompress ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange;
+    final color = isCompress ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange;
     final icon = isCompress ? Icons.compress : Icons.expand;
     final text = '${(stretchRatio * 100).toStringAsFixed(0)}%';
 

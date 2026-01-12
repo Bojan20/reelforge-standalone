@@ -1,5 +1,5 @@
 // ignore_for_file: unused_field, unused_element
-/// RF-EQ 64 — ReelForge Professional 64-Band Parametric Equalizer
+/// RF-EQ 64 — FluxForge Studio Professional 64-Band Parametric Equalizer
 ///
 /// Features:
 /// - 64 fully parametric bands
@@ -15,7 +15,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'gpu_spectrum.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -680,7 +680,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           border: Border.all(color: _Colors.bg4, width: 1),
           boxShadow: [
             BoxShadow(
-              color: ReelForgeTheme.bgVoid.withOpacity(0.5),
+              color: FluxForgeTheme.bgVoid.withOpacity(0.5),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -824,7 +824,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           color: enabled ? _Colors.controlBg : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(icon, size: 16, color: enabled ? ReelForgeTheme.textSecondary : ReelForgeTheme.textDisabled),
+        child: Icon(icon, size: 16, color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled),
       ),
     );
   }
@@ -1267,7 +1267,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         ),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
-          BoxShadow(color: ReelForgeTheme.bgVoid.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
           BoxShadow(color: band.color.withOpacity(0.2), blurRadius: 24, spreadRadius: -8),
         ],
       ),
@@ -2883,9 +2883,9 @@ class _EQDisplayPainter extends CustomPainter {
         ..shader = RadialGradient(
           center: const Alignment(-0.3, -0.4),
           colors: [
-            Color.lerp(color, ReelForgeTheme.textPrimary, 0.3)!,
+            Color.lerp(color, FluxForgeTheme.textPrimary, 0.3)!,
             color,
-            Color.lerp(color, ReelForgeTheme.bgVoid, 0.2)!,
+            Color.lerp(color, FluxForgeTheme.bgVoid, 0.2)!,
           ],
           stops: const [0.0, 0.5, 1.0],
         ).createShader(Rect.fromCircle(center: Offset(x, y), radius: radius)),

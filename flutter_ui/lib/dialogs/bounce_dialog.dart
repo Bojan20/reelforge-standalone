@@ -11,7 +11,7 @@
 // - Mono/Stereo/Surround modes
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Bounce/Export options
 class BounceOptions {
@@ -251,7 +251,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 600,
@@ -283,12 +283,12 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.album, color: ReelForgeTheme.accentOrange),
+          const Icon(Icons.album, color: FluxForgeTheme.accentOrange),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -297,7 +297,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 const Text(
                   'Bounce / Mixdown',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -305,7 +305,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 Text(
                   'Duration: ${_formatDuration(_endTime - _startTime + _tailTime)}',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -313,7 +313,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: ReelForgeTheme.textSecondary),
+            icon: const Icon(Icons.close, color: FluxForgeTheme.textSecondary),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -323,12 +323,12 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
 
   Widget _buildTabs() {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: TabBar(
         controller: _tabController,
-        indicatorColor: ReelForgeTheme.accentBlue,
-        labelColor: ReelForgeTheme.textPrimary,
-        unselectedLabelColor: ReelForgeTheme.textSecondary,
+        indicatorColor: FluxForgeTheme.accentBlue,
+        labelColor: FluxForgeTheme.textPrimary,
+        unselectedLabelColor: FluxForgeTheme.textSecondary,
         tabs: const [
           Tab(text: 'Format'),
           Tab(text: 'Dithering'),
@@ -357,10 +357,10 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   label: Text(_getFormatName(fmt)),
                   selected: isSelected,
                   onSelected: (_) => setState(() => _format = fmt),
-                  backgroundColor: ReelForgeTheme.bgSurface,
-                  selectedColor: ReelForgeTheme.accentBlue,
+                  backgroundColor: FluxForgeTheme.bgSurface,
+                  selectedColor: FluxForgeTheme.accentBlue,
                   labelStyle: TextStyle(
-                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                    color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                   ),
                 );
               }).toList(),
@@ -379,10 +379,10 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                     label: Text('$bits-bit${bits == 32 ? ' float' : ''}'),
                     selected: isSelected,
                     onSelected: (_) => setState(() => _bitDepth = bits),
-                    backgroundColor: ReelForgeTheme.bgSurface,
-                    selectedColor: ReelForgeTheme.accentBlue,
+                    backgroundColor: FluxForgeTheme.bgSurface,
+                    selectedColor: FluxForgeTheme.accentBlue,
                     labelStyle: TextStyle(
-                      color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                      color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                     ),
                   );
                 }).toList(),
@@ -408,10 +408,10 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   ),
                   selected: isSelected,
                   onSelected: (_) => setState(() => _sampleRate = rate),
-                  backgroundColor: ReelForgeTheme.bgSurface,
-                  selectedColor: ReelForgeTheme.accentBlue,
+                  backgroundColor: FluxForgeTheme.bgSurface,
+                  selectedColor: FluxForgeTheme.accentBlue,
                   labelStyle: TextStyle(
-                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                    color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                   ),
                 );
               }).toList(),
@@ -429,9 +429,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _channelMode = v!),
                   title: Text(
                     _getChannelModeName(mode),
-                    style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
                   ),
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 );
@@ -458,13 +458,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 onChanged: (v) => setState(() => _mp3UseVbr = v),
                 title: Text(
                   'Variable Bitrate (VBR)',
-                  style: TextStyle(color: ReelForgeTheme.textPrimary),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary),
                 ),
                 subtitle: Text(
                   'Better quality at smaller file size',
-                  style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                  style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                 ),
-                activeTrackColor: ReelForgeTheme.accentBlue,
+                activeTrackColor: FluxForgeTheme.accentBlue,
                 contentPadding: EdgeInsets.zero,
               ),
               if (_mp3UseVbr) ...[
@@ -473,18 +473,18 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   children: [
                     Text(
                       'VBR Quality',
-                      style: TextStyle(color: ReelForgeTheme.textSecondary),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '(0 = best, 9 = smallest)',
-                      style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
+                      style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
                     ),
                     const Spacer(),
                     Text(
                       '$_mp3VbrQuality',
                       style: TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontFamily: 'JetBrains Mono',
                       ),
                     ),
@@ -495,7 +495,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   min: 0,
                   max: 9,
                   divisions: 9,
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   onChanged: (v) => setState(() => _mp3VbrQuality = v.round()),
                 ),
               ] else ...[
@@ -504,13 +504,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   children: [
                     Text(
                       'Bitrate',
-                      style: TextStyle(color: ReelForgeTheme.textSecondary),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary),
                     ),
                     const Spacer(),
                     DropdownButton<int>(
                       value: _mp3Bitrate,
-                      dropdownColor: ReelForgeTheme.bgMid,
-                      style: TextStyle(color: ReelForgeTheme.textPrimary),
+                      dropdownColor: FluxForgeTheme.bgMid,
+                      style: TextStyle(color: FluxForgeTheme.textPrimary),
                       items: [128, 160, 192, 224, 256, 320].map((rate) {
                         return DropdownMenuItem(
                           value: rate,
@@ -545,18 +545,18 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 children: [
                   Text(
                     'Compression Level',
-                    style: TextStyle(color: ReelForgeTheme.textSecondary),
+                    style: TextStyle(color: FluxForgeTheme.textSecondary),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '(0 = fastest, 8 = smallest)',
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
                   ),
                   const Spacer(),
                   Text(
                     '$_flacCompression',
                     style: TextStyle(
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       fontFamily: 'JetBrains Mono',
                     ),
                   ),
@@ -567,7 +567,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                 min: 0,
                 max: 8,
                 divisions: 8,
-                activeColor: ReelForgeTheme.accentBlue,
+                activeColor: FluxForgeTheme.accentBlue,
                 onChanged: (v) => setState(() => _flacCompression = v.round()),
               ),
             ],
@@ -590,20 +590,20 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3)),
+                border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: ReelForgeTheme.accentBlue),
+                  const Icon(Icons.info_outline, color: FluxForgeTheme.accentBlue),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _format == AudioFormat.mp3 || _format == AudioFormat.ogg || _format == AudioFormat.opus
                           ? 'Dithering is not applicable for lossy formats'
                           : 'Dithering is only needed when reducing bit depth (32-bit float to 24/16-bit)',
-                      style: TextStyle(color: ReelForgeTheme.textPrimary),
+                      style: TextStyle(color: FluxForgeTheme.textPrimary),
                     ),
                   ),
                 ],
@@ -621,13 +621,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                     onChanged: (v) => setState(() => _ditherType = v!),
                     title: Text(
                       _getDitherName(type),
-                      style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+                      style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
                     ),
                     subtitle: Text(
                       _getDitherDescription(type),
-                      style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                      style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                     ),
-                    activeColor: ReelForgeTheme.accentBlue,
+                    activeColor: FluxForgeTheme.accentBlue,
                     dense: true,
                   );
                 }).toList(),
@@ -646,13 +646,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       onChanged: (v) => setState(() => _noiseShaping = v!),
                       title: Text(
                         _getNoiseShapingName(ns),
-                        style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+                        style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
                       ),
                       subtitle: Text(
                         _getNoiseShapingDescription(ns),
-                        style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                        style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                       ),
-                      activeColor: ReelForgeTheme.accentBlue,
+                      activeColor: FluxForgeTheme.accentBlue,
                       dense: true,
                     );
                   }).toList(),
@@ -682,13 +682,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _normalizeMode = v!),
                   title: Text(
                     _getNormalizeModeName(mode),
-                    style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
                   ),
                   subtitle: Text(
                     _getNormalizeModeDescription(mode),
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                   ),
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   dense: true,
                 );
               }).toList(),
@@ -712,7 +712,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                               : -12,
                           max: 0,
                           divisions: 48,
-                          activeColor: ReelForgeTheme.accentBlue,
+                          activeColor: FluxForgeTheme.accentBlue,
                           onChanged: (v) => setState(() => _normalizeTarget = v),
                         ),
                       ),
@@ -721,7 +721,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                         child: Text(
                           '${_normalizeTarget.toStringAsFixed(1)} ${_normalizeMode == NormalizeMode.lufsIntegrated || _normalizeMode == NormalizeMode.lufsShortTerm ? 'LUFS' : 'dB'}',
                           style: TextStyle(
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                             fontFamily: 'JetBrains Mono',
                           ),
                         ),
@@ -736,9 +736,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       return ActionChip(
                         label: Text('${preset.toStringAsFixed(0)} ${_normalizeMode == NormalizeMode.lufsIntegrated || _normalizeMode == NormalizeMode.lufsShortTerm ? 'LUFS' : 'dB'}'),
                         backgroundColor:
-                            isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
+                            isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
                         labelStyle: TextStyle(
-                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+                          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                           fontSize: 11,
                         ),
                         onPressed: () => setState(() => _normalizeTarget = preset),
@@ -775,7 +775,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
               children: [
                 Text(
                   'Add extra time for reverb/delay tails',
-                  style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -786,7 +786,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                         min: 0,
                         max: 10,
                         divisions: 100,
-                        activeColor: ReelForgeTheme.accentBlue,
+                        activeColor: FluxForgeTheme.accentBlue,
                         onChanged: (v) => setState(() => _tailTime = v),
                       ),
                     ),
@@ -795,7 +795,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                       child: Text(
                         '${_tailTime.toStringAsFixed(1)}s',
                         style: TextStyle(
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontFamily: 'JetBrains Mono',
                         ),
                       ),
@@ -816,13 +816,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _addToPool = v),
                   title: Text(
                     'Add to Audio Pool',
-                    style: TextStyle(color: ReelForgeTheme.textPrimary),
+                    style: TextStyle(color: FluxForgeTheme.textPrimary),
                   ),
                   subtitle: Text(
                     'Import bounced file into project audio pool',
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                   ),
-                  activeColor: ReelForgeTheme.accentGreen,
+                  activeColor: FluxForgeTheme.accentGreen,
                   contentPadding: EdgeInsets.zero,
                 ),
                 SwitchListTile(
@@ -830,13 +830,13 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
                   onChanged: (v) => setState(() => _exportMarkers = v),
                   title: Text(
                     'Export Markers',
-                    style: TextStyle(color: ReelForgeTheme.textPrimary),
+                    style: TextStyle(color: FluxForgeTheme.textPrimary),
                   ),
                   subtitle: Text(
                     'Create .txt file with marker positions',
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
                   ),
-                  activeColor: ReelForgeTheme.accentGreen,
+                  activeColor: FluxForgeTheme.accentGreen,
                   contentPadding: EdgeInsets.zero,
                 ),
               ],
@@ -851,20 +851,20 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
-        border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgSurface,
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.access_time, size: 16, color: ReelForgeTheme.accentBlue),
+              const Icon(Icons.access_time, size: 16, color: FluxForgeTheme.accentBlue),
               const SizedBox(width: 8),
               Text(
                 'Range',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -927,10 +927,10 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
           }
         });
       },
-      backgroundColor: ReelForgeTheme.bgMid,
-      selectedColor: ReelForgeTheme.accentBlue,
+      backgroundColor: FluxForgeTheme.bgMid,
+      selectedColor: FluxForgeTheme.accentBlue,
       labelStyle: TextStyle(
-        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
         fontSize: 12,
       ),
     );
@@ -942,20 +942,20 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
         ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: Text(
             _formatTime(value),
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontFamily: 'JetBrains Mono',
             ),
           ),
@@ -971,9 +971,9 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -982,19 +982,19 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(icon, size: 18, color: ReelForgeTheme.accentBlue),
+                Icon(icon, size: 18, color: FluxForgeTheme.accentBlue),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Padding(
             padding: const EdgeInsets.all(12),
             child: child,
@@ -1008,7 +1008,7 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
       ),
       child: Row(
@@ -1024,8 +1024,8 @@ class _BounceDialogState extends State<BounceDialog> with SingleTickerProviderSt
             icon: const Icon(Icons.album, size: 18),
             label: const Text('Bounce'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentOrange,
-              foregroundColor: ReelForgeTheme.textPrimary,
+              backgroundColor: FluxForgeTheme.accentOrange,
+              foregroundColor: FluxForgeTheme.textPrimary,
             ),
           ),
         ],

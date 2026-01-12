@@ -4,7 +4,7 @@
 /// To be replaced with full implementations.
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Base placeholder widget
 class _TabPlaceholder extends StatelessWidget {
@@ -23,7 +23,7 @@ class _TabPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -31,7 +31,7 @@ class _TabPlaceholder extends StatelessWidget {
             Icon(
               icon,
               size: 48,
-              color: accentColor ?? ReelForgeTheme.accentBlue,
+              color: accentColor ?? FluxForgeTheme.accentBlue,
             ),
             const SizedBox(height: 16),
             Text(
@@ -39,7 +39,7 @@ class _TabPlaceholder extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -47,7 +47,7 @@ class _TabPlaceholder extends StatelessWidget {
               description,
               style: TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ],
@@ -113,7 +113,7 @@ class SpinCycleTabPlaceholder extends StatelessWidget {
       title: 'Spin Cycle',
       icon: Icons.casino,
       description: 'Configure spin cycle audio states',
-      accentColor: ReelForgeTheme.warningOrange,
+      accentColor: FluxForgeTheme.warningOrange,
     );
   }
 }
@@ -128,7 +128,7 @@ class WinTiersTabPlaceholder extends StatelessWidget {
       title: 'Win Tiers',
       icon: Icons.emoji_events,
       description: 'Configure win celebration audio tiers',
-      accentColor: ReelForgeTheme.warningOrange,
+      accentColor: FluxForgeTheme.warningOrange,
     );
   }
 }
@@ -143,7 +143,7 @@ class ReelSequencerTabPlaceholder extends StatelessWidget {
       title: 'Reel Sequencer',
       icon: Icons.timer,
       description: 'Sequence reel stop timing and sounds',
-      accentColor: ReelForgeTheme.warningOrange,
+      accentColor: FluxForgeTheme.warningOrange,
     );
   }
 }
@@ -158,7 +158,7 @@ class SlotStudioTabPlaceholder extends StatelessWidget {
       title: 'Slot Studio',
       icon: Icons.headphones,
       description: 'Comprehensive slot audio workspace',
-      accentColor: ReelForgeTheme.warningOrange,
+      accentColor: FluxForgeTheme.warningOrange,
     );
   }
 }
@@ -175,7 +175,7 @@ class SidechainTabPlaceholder extends StatelessWidget {
       title: 'Sidechain Router',
       icon: Icons.link,
       description: 'Configure sidechain routing between buses',
-      accentColor: ReelForgeTheme.accentCyan,
+      accentColor: FluxForgeTheme.accentCyan,
     );
   }
 }
@@ -190,7 +190,7 @@ class MultibandTabPlaceholder extends StatelessWidget {
       title: 'Multiband Compressor',
       icon: Icons.equalizer,
       description: 'Multi-band dynamics processing',
-      accentColor: ReelForgeTheme.accentCyan,
+      accentColor: FluxForgeTheme.accentCyan,
     );
   }
 }
@@ -205,7 +205,7 @@ class FXPresetsTabPlaceholder extends StatelessWidget {
       title: 'FX Presets',
       icon: Icons.auto_fix_high,
       description: 'Browse and apply effect presets',
-      accentColor: ReelForgeTheme.accentCyan,
+      accentColor: FluxForgeTheme.accentCyan,
     );
   }
 }
@@ -256,7 +256,7 @@ class ConsoleTabPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -265,9 +265,9 @@ class ConsoleTabPlaceholder extends StatelessWidget {
             height: 28,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
@@ -276,7 +276,7 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                   'Console',
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const Spacer(),
@@ -286,7 +286,7 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                     onPressed: onClear,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
               ],
             ),
@@ -299,7 +299,7 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                       'No messages',
                       style: TextStyle(
                         fontSize: 12,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                     ),
                   )
@@ -314,7 +314,7 @@ class ConsoleTabPlaceholder extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontFamily: 'monospace',
-                            color: ReelForgeTheme.textSecondary,
+                            color: FluxForgeTheme.textSecondary,
                           ),
                         ),
                       );
@@ -334,7 +334,7 @@ class ValidationTabPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -342,7 +342,7 @@ class ValidationTabPlaceholder extends StatelessWidget {
             Icon(
               Icons.check_circle_outline,
               size: 48,
-              color: ReelForgeTheme.accentGreen,
+              color: FluxForgeTheme.accentGreen,
             ),
             const SizedBox(height: 16),
             Text(
@@ -350,7 +350,7 @@ class ValidationTabPlaceholder extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -358,7 +358,7 @@ class ValidationTabPlaceholder extends StatelessWidget {
               'No issues found',
               style: TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.accentGreen,
+                color: FluxForgeTheme.accentGreen,
               ),
             ),
           ],
@@ -394,7 +394,7 @@ class ProFeaturesTabPlaceholder extends StatelessWidget {
       title: 'Pro Features',
       icon: Icons.star,
       description: 'Advanced professional audio tools',
-      accentColor: ReelForgeTheme.warningOrange,
+      accentColor: FluxForgeTheme.warningOrange,
     );
   }
 }

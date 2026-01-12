@@ -1,4 +1,4 @@
-/// ReelForge Professional Reverb Panel
+/// FluxForge Studio Professional Reverb Panel
 ///
 /// Dual-mode reverb with Convolution (IR-based) and Algorithmic (Freeverb-style)
 /// processing options.
@@ -7,7 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../services/native_file_picker.dart';
 
 /// Reverb mode selection
@@ -112,9 +112,9 @@ class _ReverbPanelState extends State<ReverbPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,12 +141,12 @@ class _ReverbPanelState extends State<ReverbPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.waves, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.waves, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Reverb',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -160,16 +160,16 @@ class _ReverbPanelState extends State<ReverbPanel> {
             decoration: BoxDecoration(
               color: _bypassed
                   ? Colors.orange.withOpacity(0.3)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.border,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               'BYPASS',
               style: TextStyle(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -217,18 +217,18 @@ class _ReverbPanelState extends State<ReverbPanel> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentBlue.withOpacity(0.2)
-                : ReelForgeTheme.surface,
+                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                : FluxForgeTheme.surface,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
             ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
@@ -327,23 +327,23 @@ class _ReverbPanelState extends State<ReverbPanel> {
       children: [
         Text(
           'Type',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.surface,
+              color: FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.border),
+              border: Border.all(color: FluxForgeTheme.border),
             ),
             child: DropdownButton<ReverbType>(
               value: _reverbType,
               isExpanded: true,
-              dropdownColor: ReelForgeTheme.surfaceDark,
+              dropdownColor: FluxForgeTheme.surfaceDark,
               underline: const SizedBox(),
-              style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 13),
+              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13),
               items: ReverbType.values.map((t) => DropdownMenuItem(
                 value: t,
                 child: Text(_getTypeName(t)),
@@ -379,19 +379,19 @@ class _ReverbPanelState extends State<ReverbPanel> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.surface.withOpacity(0.5),
+            color: FluxForgeTheme.surface.withOpacity(0.5),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.border),
+            border: Border.all(color: FluxForgeTheme.border),
           ),
           child: Row(
             children: [
-              Icon(Icons.folder_open, color: ReelForgeTheme.textSecondary, size: 18),
+              Icon(Icons.folder_open, color: FluxForgeTheme.textSecondary, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _irName,
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -401,7 +401,7 @@ class _ReverbPanelState extends State<ReverbPanel> {
                 onPressed: _loadImpulseResponse,
                 child: Text(
                   'Load IR',
-                  style: TextStyle(color: ReelForgeTheme.accentBlue, fontSize: 12),
+                  style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 12),
                 ),
               ),
             ],
@@ -451,7 +451,7 @@ class _ReverbPanelState extends State<ReverbPanel> {
       children: [
         Text(
           'Quick Presets',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -477,14 +477,14 @@ class _ReverbPanelState extends State<ReverbPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.surface,
+          color: FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ReelForgeTheme.border),
+          border: Border.all(color: FluxForgeTheme.border),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -603,7 +603,7 @@ class _ReverbPanelState extends State<ReverbPanel> {
           width: 80,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -612,7 +612,7 @@ class _ReverbPanelState extends State<ReverbPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -634,10 +634,10 @@ class _ReverbPanelState extends State<ReverbPanel> {
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        activeTrackColor: ReelForgeTheme.accentBlue,
-        inactiveTrackColor: ReelForgeTheme.surface,
-        thumbColor: ReelForgeTheme.accentBlue,
-        overlayColor: ReelForgeTheme.accentBlue.withOpacity(0.2),
+        activeTrackColor: FluxForgeTheme.accentBlue,
+        inactiveTrackColor: FluxForgeTheme.surface,
+        thumbColor: FluxForgeTheme.accentBlue,
+        overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
       ),
       child: Slider(
         value: value.clamp(min, max),

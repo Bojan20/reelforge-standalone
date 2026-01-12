@@ -1,6 +1,6 @@
 //! App Preferences System
 //!
-//! Persistent user preferences for ReelForge DAW:
+//! Persistent user preferences for FluxForge Studio DAW:
 //! - Audio settings (default sample rate, buffer size)
 //! - UI preferences (theme, colors, zoom levels)
 //! - Recent projects list
@@ -239,16 +239,16 @@ impl AppPreferences {
     pub fn default_path() -> PathBuf {
         let base = if cfg!(target_os = "macos") {
             dirs::home_dir()
-                .map(|h| h.join("Library/Application Support/ReelForge"))
+                .map(|h| h.join("Library/Application Support/FluxForge Studio"))
                 .unwrap_or_else(|| PathBuf::from("."))
         } else if cfg!(target_os = "windows") {
             dirs::data_local_dir()
-                .map(|d| d.join("ReelForge"))
+                .map(|d| d.join("FluxForge Studio"))
                 .unwrap_or_else(|| PathBuf::from("."))
         } else {
             // Linux/other
             dirs::config_dir()
-                .map(|d| d.join("reelforge"))
+                .map(|d| d.join("fluxforge"))
                 .unwrap_or_else(|| PathBuf::from("."))
         };
         base.join("preferences.json")

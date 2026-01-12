@@ -1,9 +1,9 @@
-/// ReelForge Audio Restoration Panel
+/// FluxForge Studio Audio Restoration Panel
 ///
 /// Professional audio restoration: Denoise, Declick, Declip, Dehum, Dereverb
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Restoration module type
 enum RestorationModule {
@@ -74,7 +74,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -148,10 +148,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
           bottom: BorderSide(
-            color: ReelForgeTheme.accentGreen.withValues(alpha: 0.3),
+            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -159,14 +159,14 @@ class _RestorationPanelState extends State<RestorationPanel> {
         children: [
           Icon(
             Icons.healing,
-            color: ReelForgeTheme.accentGreen,
+            color: FluxForgeTheme.accentGreen,
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
             'Audio Restoration',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -180,10 +180,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
 
   Widget _buildQualityIndicator() {
     final color = _overallQuality > 0.8
-        ? ReelForgeTheme.accentGreen
+        ? FluxForgeTheme.accentGreen
         : _overallQuality > 0.5
-            ? ReelForgeTheme.accentOrange
-            : ReelForgeTheme.accentRed;
+            ? FluxForgeTheme.accentOrange
+            : FluxForgeTheme.accentRed;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -223,7 +223,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
             icon: const Icon(Icons.search, size: 16),
             label: const Text('Analyze'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentCyan,
+              backgroundColor: FluxForgeTheme.accentCyan,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
@@ -239,7 +239,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
             icon: const Icon(Icons.auto_fix_high, size: 16),
             label: const Text('Auto Fix'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentGreen,
+              backgroundColor: FluxForgeTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
@@ -262,12 +262,12 @@ class _RestorationPanelState extends State<RestorationPanel> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: enabled
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.5)
-              : ReelForgeTheme.bgSurface,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.5)
+              : FluxForgeTheme.bgSurface,
         ),
       ),
       child: Column(
@@ -284,16 +284,16 @@ class _RestorationPanelState extends State<RestorationPanel> {
                     icon,
                     size: 18,
                     color: enabled
-                        ? ReelForgeTheme.accentGreen
-                        : ReelForgeTheme.textSecondary,
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.textSecondary,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     title,
                     style: TextStyle(
                       color: enabled
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -324,8 +324,8 @@ class _RestorationPanelState extends State<RestorationPanel> {
         height: 22,
         decoration: BoxDecoration(
           color: value
-              ? ReelForgeTheme.accentGreen
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentGreen
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(11),
         ),
         child: AnimatedAlign(
@@ -369,12 +369,12 @@ class _RestorationPanelState extends State<RestorationPanel> {
                 label: Text(_noiseProfileLearned ? 'Profile Learned' : 'Learn Noise'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _noiseProfileLearned
-                      ? ReelForgeTheme.accentGreen
-                      : ReelForgeTheme.accentCyan,
+                      ? FluxForgeTheme.accentGreen
+                      : FluxForgeTheme.accentCyan,
                   side: BorderSide(
                     color: _noiseProfileLearned
-                        ? ReelForgeTheme.accentGreen
-                        : ReelForgeTheme.accentCyan,
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.accentCyan,
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
@@ -386,7 +386,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
                 icon: Icon(
                   Icons.delete_outline,
                   size: 18,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                 ),
                 onPressed: () {
                   setState(() => _noiseProfileLearned = false);
@@ -400,7 +400,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
         Text(
           'Noise Floor: ${_noiseFloorDb.toStringAsFixed(1)} dB',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),
@@ -425,15 +425,15 @@ class _RestorationPanelState extends State<RestorationPanel> {
             Icon(
               Icons.info_outline,
               size: 14,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               '$_detectedClicks clicks detected',
               style: TextStyle(
                 color: _detectedClicks > 0
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -461,16 +461,16 @@ class _RestorationPanelState extends State<RestorationPanel> {
               Icons.warning_amber,
               size: 14,
               color: _clipPercentage > 0.01
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               '${(_clipPercentage * 100).toStringAsFixed(2)}% clipped',
               style: TextStyle(
                 color: _clipPercentage > 0.01
-                    ? ReelForgeTheme.accentRed
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentRed
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -500,8 +500,8 @@ class _RestorationPanelState extends State<RestorationPanel> {
               _humDetected ? Icons.check_circle : Icons.info_outline,
               size: 14,
               color: _humDetected
-                  ? ReelForgeTheme.accentGreen
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentGreen
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
@@ -510,8 +510,8 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   : 'No hum detected',
               style: TextStyle(
                 color: _humDetected
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -528,7 +528,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
         Text(
           'Frequency',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),
@@ -552,21 +552,21 @@ class _RestorationPanelState extends State<RestorationPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: isSelected
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.textPrimary,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.textPrimary,
             fontSize: 11,
           ),
         ),
@@ -581,7 +581,7 @@ class _RestorationPanelState extends State<RestorationPanel> {
         Text(
           'Harmonics',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),
@@ -589,21 +589,21 @@ class _RestorationPanelState extends State<RestorationPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.bgSurface),
+            border: Border.all(color: FluxForgeTheme.bgSurface),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _dehumHarmonics,
-              dropdownColor: ReelForgeTheme.bgMid,
+              dropdownColor: FluxForgeTheme.bgMid,
               items: [2, 4, 6, 8].map((n) {
                 return DropdownMenuItem(
                   value: n,
                   child: Text(
                     '$n',
                     style: TextStyle(
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       fontSize: 11,
                     ),
                   ),
@@ -638,13 +638,13 @@ class _RestorationPanelState extends State<RestorationPanel> {
             Icon(
               Icons.spatial_audio_off,
               size: 14,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               'Detected reverb: ${(_detectedReverbAmount * 100).toInt()}%',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -670,14 +670,14 @@ class _RestorationPanelState extends State<RestorationPanel> {
             Text(
               label,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 10,
               ),
             ),
             Text(
               '${(value * 100).toInt()}%',
               style: TextStyle(
-                color: ReelForgeTheme.accentGreen,
+                color: FluxForgeTheme.accentGreen,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -686,10 +686,10 @@ class _RestorationPanelState extends State<RestorationPanel> {
         ),
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: ReelForgeTheme.accentGreen,
-            inactiveTrackColor: ReelForgeTheme.bgSurface,
-            thumbColor: ReelForgeTheme.accentGreen,
-            overlayColor: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+            activeTrackColor: FluxForgeTheme.accentGreen,
+            inactiveTrackColor: FluxForgeTheme.bgSurface,
+            thumbColor: FluxForgeTheme.accentGreen,
+            overlayColor: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
           ),
@@ -708,9 +708,9 @@ class _RestorationPanelState extends State<RestorationPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.accentCyan.withValues(alpha: 0.1),
+        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.accentCyan.withValues(alpha: 0.3)),
+        border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,13 +720,13 @@ class _RestorationPanelState extends State<RestorationPanel> {
               Icon(
                 Icons.lightbulb_outline,
                 size: 16,
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
               ),
               const SizedBox(width: 8),
               Text(
                 'Recommendations',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentCyan,
+                  color: FluxForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -741,13 +741,13 @@ class _RestorationPanelState extends State<RestorationPanel> {
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(color: ReelForgeTheme.textSecondary),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary),
                     ),
                     Expanded(
                       child: Text(
                         rec,
                         style: TextStyle(
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontSize: 11,
                         ),
                       ),

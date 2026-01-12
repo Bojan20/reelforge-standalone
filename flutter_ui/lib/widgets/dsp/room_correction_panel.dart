@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Room Correction EQ Panel Widget
 class RoomCorrectionPanel extends StatefulWidget {
@@ -59,14 +59,14 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -93,12 +93,12 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(Icons.home, color: ReelForgeTheme.accentCyan, size: 20),
+          Icon(Icons.home, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           Text(
             'ROOM CORRECTION',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -122,17 +122,17 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _enabled
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3)
-              : ReelForgeTheme.accentRed.withValues(alpha: 0.3),
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+              : FluxForgeTheme.accentRed.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentRed,
+            color: _enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
           ),
         ),
         child: Text(
           _enabled ? 'ACTIVE' : 'BYPASS',
           style: TextStyle(
-            color: _enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentRed,
+            color: _enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -144,9 +144,9 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
   Widget _buildCurveVisualization() {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: CustomPaint(
         painter: _RoomCorrectionCurvePainter(
@@ -166,7 +166,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
         Text(
           'TARGET CURVE',
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
@@ -188,10 +188,10 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? color.withValues(alpha: 0.3) : ReelForgeTheme.bgMid,
+                  color: isSelected ? color.withValues(alpha: 0.3) : FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: isSelected ? color : ReelForgeTheme.borderMedium,
+                    color: isSelected ? color : FluxForgeTheme.borderMedium,
                     width: isSelected ? 2 : 1,
                   ),
                 ),
@@ -200,7 +200,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                     Text(
                       label,
                       style: TextStyle(
-                        color: isSelected ? color : ReelForgeTheme.textTertiary,
+                        color: isSelected ? color : FluxForgeTheme.textTertiary,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -209,7 +209,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                     Text(
                       _getCurveDescription(curve),
                       style: TextStyle(
-                        color: isSelected ? color.withValues(alpha: 0.7) : ReelForgeTheme.textTertiary,
+                        color: isSelected ? color.withValues(alpha: 0.7) : FluxForgeTheme.textTertiary,
                         fontSize: 9,
                       ),
                     ),
@@ -225,12 +225,12 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
 
   (String, Color) _getCurveInfo(RoomTargetCurve curve) {
     return switch (curve) {
-      RoomTargetCurve.flat => ('FLAT', ReelForgeTheme.accentCyan),
-      RoomTargetCurve.harman => ('HARMAN', ReelForgeTheme.accentGreen),
-      RoomTargetCurve.bAndK => ('B&K', ReelForgeTheme.accentOrange),
-      RoomTargetCurve.bbc => ('BBC', ReelForgeTheme.accentYellow),
-      RoomTargetCurve.xCurve => ('X-CURVE', ReelForgeTheme.accentPink),
-      RoomTargetCurve.custom => ('CUSTOM', ReelForgeTheme.textTertiary),
+      RoomTargetCurve.flat => ('FLAT', FluxForgeTheme.accentCyan),
+      RoomTargetCurve.harman => ('HARMAN', FluxForgeTheme.accentGreen),
+      RoomTargetCurve.bAndK => ('B&K', FluxForgeTheme.accentOrange),
+      RoomTargetCurve.bbc => ('BBC', FluxForgeTheme.accentYellow),
+      RoomTargetCurve.xCurve => ('X-CURVE', FluxForgeTheme.accentPink),
+      RoomTargetCurve.custom => ('CUSTOM', FluxForgeTheme.textTertiary),
     };
   }
 
@@ -260,7 +260,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                   Text(
                     'MAX CORRECTION',
                     style: TextStyle(
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -268,7 +268,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                   Text(
                     '${_maxCorrection.toStringAsFixed(1)} dB',
                     style: TextStyle(
-                      color: ReelForgeTheme.accentCyan,
+                      color: FluxForgeTheme.accentCyan,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -279,11 +279,11 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
               SliderTheme(
                 data: SliderThemeData(
                   trackHeight: 6,
-                  activeTrackColor: ReelForgeTheme.accentCyan,
-                  inactiveTrackColor: ReelForgeTheme.borderSubtle,
-                  thumbColor: ReelForgeTheme.accentCyan,
+                  activeTrackColor: FluxForgeTheme.accentCyan,
+                  inactiveTrackColor: FluxForgeTheme.borderSubtle,
+                  thumbColor: FluxForgeTheme.accentCyan,
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                  overlayColor: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+                  overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
                 ),
                 child: Slider(
                   value: _maxCorrection,
@@ -312,25 +312,25 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _cutOnly
-                  ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.bgMid,
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
+                  : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _cutOnly ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium,
+                color: _cutOnly ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium,
               ),
             ),
             child: Column(
               children: [
                 Icon(
                   Icons.content_cut,
-                  color: _cutOnly ? ReelForgeTheme.accentOrange : ReelForgeTheme.textTertiary,
+                  color: _cutOnly ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
                   size: 20,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'CUT ONLY',
                   style: TextStyle(
-                    color: _cutOnly ? ReelForgeTheme.accentOrange : ReelForgeTheme.textTertiary,
+                    color: _cutOnly ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -347,13 +347,13 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         children: [
-          Icon(Icons.mic, color: ReelForgeTheme.textTertiary, size: 24),
+          Icon(Icons.mic, color: FluxForgeTheme.textTertiary, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -362,7 +362,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                 Text(
                   'ROOM MEASUREMENT',
                   style: TextStyle(
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -371,7 +371,7 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
                 Text(
                   _initialized ? 'Ready to measure' : 'Initializing...',
                   style: TextStyle(
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                     fontSize: 11,
                   ),
                 ),
@@ -383,15 +383,15 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
             icon: const Icon(Icons.play_arrow, size: 16),
             label: const Text('MEASURE'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentCyan,
-              foregroundColor: ReelForgeTheme.textPrimary,
+              backgroundColor: FluxForgeTheme.accentCyan,
+              foregroundColor: FluxForgeTheme.textPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(Icons.refresh, color: ReelForgeTheme.textTertiary, size: 20),
+            icon: Icon(Icons.refresh, color: FluxForgeTheme.textTertiary, size: 20),
             onPressed: () {
               _ffi.roomEqReset(widget.trackId);
               widget.onSettingsChanged?.call();
@@ -435,7 +435,7 @@ class _RoomCorrectionCurvePainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Size size) {
-    final paint = Paint()..color = ReelForgeTheme.borderSubtle..strokeWidth = 1;
+    final paint = Paint()..color = FluxForgeTheme.borderSubtle..strokeWidth = 1;
 
     // Frequency lines
     for (final freq in [100.0, 1000.0, 10000.0]) {
@@ -446,7 +446,7 @@ class _RoomCorrectionCurvePainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: freq < 1000 ? '${freq.toInt()}Hz' : '${(freq / 1000).toInt()}kHz',
-          style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9),
+          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -455,7 +455,7 @@ class _RoomCorrectionCurvePainter extends CustomPainter {
 
     // 0 dB line
     final centerY = size.height / 2;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint..color = ReelForgeTheme.borderMedium);
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint..color = FluxForgeTheme.borderMedium);
   }
 
   void _drawTargetCurve(Canvas canvas, Size size) {
@@ -540,7 +540,7 @@ class _RoomCorrectionCurvePainter extends CustomPainter {
   void _drawCorrectionLimits(Canvas canvas, Size size) {
     final centerY = size.height / 2;
     final limitPaint = Paint()
-      ..color = ReelForgeTheme.accentOrange.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -557,12 +557,12 @@ class _RoomCorrectionCurvePainter extends CustomPainter {
 
   Color _getCurveColor() {
     return switch (targetCurve) {
-      RoomTargetCurve.flat => ReelForgeTheme.accentCyan,
-      RoomTargetCurve.harman => ReelForgeTheme.accentGreen,
-      RoomTargetCurve.bAndK => ReelForgeTheme.accentOrange,
-      RoomTargetCurve.bbc => ReelForgeTheme.accentYellow,
-      RoomTargetCurve.xCurve => ReelForgeTheme.accentPink,
-      RoomTargetCurve.custom => ReelForgeTheme.textTertiary,
+      RoomTargetCurve.flat => FluxForgeTheme.accentCyan,
+      RoomTargetCurve.harman => FluxForgeTheme.accentGreen,
+      RoomTargetCurve.bAndK => FluxForgeTheme.accentOrange,
+      RoomTargetCurve.bbc => FluxForgeTheme.accentYellow,
+      RoomTargetCurve.xCurve => FluxForgeTheme.accentPink,
+      RoomTargetCurve.custom => FluxForgeTheme.textTertiary,
     };
   }
 

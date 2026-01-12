@@ -117,7 +117,7 @@ impl ProEqWrapper {
 
 impl InsertProcessor for ProEqWrapper {
     fn name(&self) -> &str {
-        "ReelForge Pro-EQ 64"
+        "FluxForge Studio Pro-EQ 64"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -307,7 +307,7 @@ impl UltraEqWrapper {
 
 impl InsertProcessor for UltraEqWrapper {
     fn name(&self) -> &str {
-        "ReelForge Ultra-EQ 256"
+        "FluxForge Studio Ultra-EQ 256"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -839,7 +839,7 @@ impl CompressorWrapper {
 
 impl InsertProcessor for CompressorWrapper {
     fn name(&self) -> &str {
-        "ReelForge Compressor"
+        "FluxForge Studio Compressor"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -944,7 +944,7 @@ impl TruePeakLimiterWrapper {
 
 impl InsertProcessor for TruePeakLimiterWrapper {
     fn name(&self) -> &str {
-        "ReelForge True Peak Limiter"
+        "FluxForge Studio True Peak Limiter"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1045,7 +1045,7 @@ impl GateWrapper {
 
 impl InsertProcessor for GateWrapper {
     fn name(&self) -> &str {
-        "ReelForge Gate"
+        "FluxForge Studio Gate"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1132,7 +1132,7 @@ impl ExpanderWrapper {
 
 impl InsertProcessor for ExpanderWrapper {
     fn name(&self) -> &str {
-        "ReelForge Expander"
+        "FluxForge Studio Expander"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1209,7 +1209,7 @@ impl LinearPhaseEqWrapper {
 
 impl InsertProcessor for LinearPhaseEqWrapper {
     fn name(&self) -> &str {
-        "ReelForge Linear Phase EQ"
+        "FluxForge Studio Linear Phase EQ"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1364,6 +1364,6 @@ mod tests {
     fn test_factory() {
         let processor = create_processor("pro-eq", 48000.0);
         assert!(processor.is_some());
-        assert_eq!(processor.unwrap().name(), "ReelForge Pro-EQ 64");
+        assert_eq!(processor.unwrap().name(), "FluxForge Studio Pro-EQ 64");
     }
 }

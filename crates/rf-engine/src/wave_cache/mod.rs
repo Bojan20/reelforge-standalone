@@ -232,7 +232,7 @@ impl Default for WaveCacheManager {
         let cache_dir = std::env::var("HOME")
             .map(|h| PathBuf::from(h).join("Library").join("Caches"))
             .unwrap_or_else(|_| PathBuf::from("."))
-            .join("reelforge")
+            .join("fluxforge")
             .join("waveform_cache");
 
         Self::new(cache_dir)

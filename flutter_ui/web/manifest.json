@@ -1,6 +1,6 @@
 {
-    "name": "reelforge_ui",
-    "short_name": "reelforge_ui",
+    "name": "fluxforge_ui",
+    "short_name": "fluxforge_ui",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

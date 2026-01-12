@@ -1,4 +1,4 @@
-//! rf-video: Video Playback for ReelForge
+//! rf-video: Video Playback for FluxForge Studio
 //!
 //! Professional video playback for post-production:
 #![allow(dead_code)]

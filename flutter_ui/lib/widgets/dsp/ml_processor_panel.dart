@@ -1,9 +1,9 @@
-/// ReelForge ML Processor Panel
+/// FluxForge Studio ML Processor Panel
 ///
 /// AI-powered audio processing: Stem Separation, Denoising, Enhancement
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// ML Processing mode
 enum MlProcessingMode {
@@ -88,7 +88,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -121,10 +121,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
           bottom: BorderSide(
-            color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -132,14 +132,14 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         children: [
           Icon(
             Icons.psychology,
-            color: ReelForgeTheme.accentBlue,
+            color: FluxForgeTheme.accentBlue,
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
             'ML Processor',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -156,10 +156,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     String text;
 
     if (_isProcessing) {
-      badgeColor = ReelForgeTheme.accentOrange;
+      badgeColor = FluxForgeTheme.accentOrange;
       text = 'Processing';
     } else {
-      badgeColor = ReelForgeTheme.accentGreen;
+      badgeColor = FluxForgeTheme.accentGreen;
       text = 'Ready';
     }
 
@@ -188,7 +188,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         Text(
           'Processing Mode',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -216,13 +216,13 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentBlue
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Row(
@@ -232,16 +232,16 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
               icon,
               size: 16,
               color: isSelected
-                  ? ReelForgeTheme.accentBlue
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: isSelected
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textPrimary,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -287,7 +287,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         Text(
           'AI Model',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -296,15 +296,15 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: ReelForgeTheme.bgSurface),
+            border: Border.all(color: FluxForgeTheme.bgSurface),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<MlModelType>(
               value: _modelType,
               isExpanded: true,
-              dropdownColor: ReelForgeTheme.bgMid,
+              dropdownColor: FluxForgeTheme.bgMid,
               items: availableModels.map((model) {
                 final isAvailable = _modelAvailable[model] ?? false;
                 return DropdownMenuItem(
@@ -315,8 +315,8 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
                         _getModelLabel(model),
                         style: TextStyle(
                           color: isAvailable
-                              ? ReelForgeTheme.textPrimary
-                              : ReelForgeTheme.textSecondary,
+                              ? FluxForgeTheme.textPrimary
+                              : FluxForgeTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -328,13 +328,13 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Download',
                             style: TextStyle(
-                              color: ReelForgeTheme.accentOrange,
+                              color: FluxForgeTheme.accentOrange,
                               fontSize: 10,
                             ),
                           ),
@@ -406,7 +406,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -415,7 +415,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           Text(
             'Extract Stems',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -452,13 +452,13 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: value
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: value
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Row(
@@ -468,14 +468,14 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
               icon,
               size: 14,
               color:
-                  value ? ReelForgeTheme.accentGreen : ReelForgeTheme.textSecondary,
+                  value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color:
-                    value ? ReelForgeTheme.accentGreen : ReelForgeTheme.textPrimary,
+                    value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textPrimary,
                 fontSize: 12,
               ),
             ),
@@ -489,7 +489,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -530,7 +530,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -566,7 +566,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -577,14 +577,14 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
               Icon(
                 Icons.info_outline,
                 size: 16,
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Isolates voice/dialogue from background noise and music',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -620,14 +620,14 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             Text(
               label,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
             Text(
               '${(value * 100).toInt()}%',
               style: TextStyle(
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -637,10 +637,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: ReelForgeTheme.accentBlue,
-            inactiveTrackColor: ReelForgeTheme.bgSurface,
-            thumbColor: ReelForgeTheme.accentBlue,
-            overlayColor: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+            activeTrackColor: FluxForgeTheme.accentBlue,
+            inactiveTrackColor: FluxForgeTheme.bgSurface,
+            thumbColor: FluxForgeTheme.accentBlue,
+            overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
             trackHeight: 4,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -669,15 +669,15 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           child: Checkbox(
             value: value,
             onChanged: onChanged,
-            activeColor: ReelForgeTheme.accentBlue,
-            side: BorderSide(color: ReelForgeTheme.bgSurface),
+            activeColor: FluxForgeTheme.accentBlue,
+            side: BorderSide(color: FluxForgeTheme.bgSurface),
           ),
         ),
         const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 11,
           ),
         ),
@@ -689,7 +689,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -701,14 +701,14 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
               Text(
                 'Progress',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 11,
                 ),
               ),
               Text(
                 '${(_progress * 100).toInt()}%',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentBlue,
+                  color: FluxForgeTheme.accentBlue,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -720,11 +720,11 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: _progress,
-              backgroundColor: ReelForgeTheme.bgDeep,
+              backgroundColor: FluxForgeTheme.bgDeep,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _isProcessing
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.accentGreen,
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.accentGreen,
               ),
               minHeight: 6,
             ),
@@ -733,7 +733,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           Text(
             _statusMessage,
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -754,7 +754,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             ),
             label: Text(_isProcessing ? 'Processing...' : 'Process'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.accentBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
@@ -768,7 +768,7 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           ElevatedButton(
             onPressed: _cancelProcessing,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentRed,
+              backgroundColor: FluxForgeTheme.accentRed,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               shape: RoundedRectangleBorder(

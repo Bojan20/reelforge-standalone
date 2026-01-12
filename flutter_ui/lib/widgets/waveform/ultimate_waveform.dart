@@ -18,7 +18,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA STRUCTURES
@@ -724,10 +724,10 @@ class _UltimateWaveformPainter extends CustomPainter {
       Offset.zero,
       Offset(0, size.height),
       [
-        ReelForgeTheme.bgDeep,
-        ReelForgeTheme.bgDeepest,
-        ReelForgeTheme.bgDeepest,
-        ReelForgeTheme.bgDeep,
+        FluxForgeTheme.bgDeep,
+        FluxForgeTheme.bgDeepest,
+        FluxForgeTheme.bgDeepest,
+        FluxForgeTheme.bgDeep,
       ],
       [0.0, 0.3, 0.7, 1.0],
     );
@@ -740,7 +740,7 @@ class _UltimateWaveformPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size, double samplesPerPixel) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.15)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.15)
       ..strokeWidth = 1
       ..isAntiAlias = true;
 
@@ -748,7 +748,7 @@ class _UltimateWaveformPainter extends CustomPainter {
     canvas.drawLine(
       Offset(0, size.height / 2),
       Offset(size.width, size.height / 2),
-      gridPaint..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.25),
+      gridPaint..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.25),
     );
 
     // -6dB lines
@@ -757,7 +757,7 @@ class _UltimateWaveformPainter extends CustomPainter {
     canvas.drawLine(Offset(0, size.height - db6), Offset(size.width, size.height - db6), gridPaint);
 
     // -12dB lines
-    gridPaint.color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.08);
+    gridPaint.color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.08);
     final db12 = size.height * 0.125;
     canvas.drawLine(Offset(0, db12), Offset(size.width, db12), gridPaint);
     canvas.drawLine(Offset(0, size.height - db12), Offset(size.width, size.height - db12), gridPaint);
@@ -808,7 +808,7 @@ class _UltimateWaveformPainter extends CustomPainter {
       Offset(0, halfHeight),
       Offset(size.width, halfHeight),
       Paint()
-        ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.4)
+        ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.4)
         ..strokeWidth = 1,
     );
 
@@ -820,7 +820,7 @@ class _UltimateWaveformPainter extends CustomPainter {
     canvas.restore();
 
     // Right channel (bottom half) - TRUE waveform with center at 3/4 height
-    final rightColor = Color.lerp(config.primaryColor, ReelForgeTheme.accentCyan, 0.4)!;
+    final rightColor = Color.lerp(config.primaryColor, FluxForgeTheme.accentCyan, 0.4)!;
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, halfHeight, size.width, halfHeight));
     _drawTrueChannelWaveform(canvas, size, rightData, startIndex, samplesPerPixel,
@@ -1444,7 +1444,7 @@ class _UltimateWaveformPainter extends CustomPainter {
         Rect.fromLTWH(x - 2, y - 1, painter.width + 4, painter.height + 2),
         const Radius.circular(3),
       ),
-      Paint()..color = ReelForgeTheme.bgDeepest.withValues(alpha: 0.85),
+      Paint()..color = FluxForgeTheme.bgDeepest.withValues(alpha: 0.85),
     );
 
     painter.paint(canvas, Offset(x, y));
@@ -1458,12 +1458,12 @@ class _UltimateWaveformPainter extends CustomPainter {
     // Selection fill
     canvas.drawRect(
       Rect.fromLTRB(startX, 0, endX, size.height),
-      Paint()..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+      Paint()..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
     );
 
     // Selection edges with glow
     final edgePaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..strokeWidth = 1
       ..isAntiAlias = true;
 
@@ -1507,7 +1507,7 @@ class _UltimateWaveformPainter extends CustomPainter {
       Offset.zero & size,
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = ReelForgeTheme.borderSubtle
+        ..color = FluxForgeTheme.borderSubtle
         ..strokeWidth = 1,
     );
   }

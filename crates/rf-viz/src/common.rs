@@ -53,7 +53,7 @@ impl GpuContext {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: Some("ReelForge Viz Device"),
+                    label: Some("FluxForge Studio Viz Device"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                     memory_hints: wgpu::MemoryHints::Performance,
@@ -103,7 +103,7 @@ impl Color {
         Self { a, ..self }
     }
 
-    // ReelForge theme colors
+    // FluxForge Studio theme colors
     pub const BLUE: Self = Self::new(0.290, 0.620, 1.0, 1.0); // #4A9EFF
     pub const ORANGE: Self = Self::new(1.0, 0.565, 0.251, 1.0); // #FF9040
     pub const GREEN: Self = Self::new(0.251, 1.0, 0.565, 1.0); // #40FF90

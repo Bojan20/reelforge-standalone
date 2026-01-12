@@ -504,7 +504,7 @@ When you delete/cut, content after the edit point moves to close the gap.
 
 ---
 
-## 7. Implementation Recommendations for ReelForge
+## 7. Implementation Recommendations for FluxForge Studio
 
 ### 7.1 Timeline Priorities
 
@@ -552,7 +552,7 @@ When you delete/cut, content after the edit point moves to close the gap.
 
 ### 7.4 Unique Opportunities
 
-Areas where ReelForge can differentiate:
+Areas where FluxForge Studio can differentiate:
 
 1. **GPU-accelerated waveforms** with real-time LOD
 2. **Modern touch gestures** for zoom/scroll
@@ -614,4 +614,4 @@ Areas where ReelForge can differentiate:
 ---
 
 *Document created: 2026-01-10*
-*For ReelForge DAW development reference*
+*For FluxForge Studio DAW development reference*

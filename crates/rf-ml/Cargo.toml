@@ -2,7 +2,7 @@
 name = "rf-ml"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge ML/AI Processing Suite - Neural audio processing"
+description = "FluxForge Studio ML/AI Processing Suite - Neural audio processing"
 license = "MIT"
 
 [dependencies]

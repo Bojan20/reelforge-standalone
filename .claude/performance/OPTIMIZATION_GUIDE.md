@@ -1,4 +1,4 @@
-# ReelForge Performance Optimization Guide
+# FluxForge Studio Performance Optimization Guide
 
 **Status:** Comprehensive codebase analysis (132,621 lines Rust + Flutter UI)
 **Generated:** 2026-01-09
@@ -604,7 +604,7 @@ cargo +nightly udeps
 cargo bloat --release --crates
 
 # Strip macOS binary
-strip -S target/release/reelforge_ui
+strip -S target/release/fluxforge_ui
 ```
 
 **Impact:**
@@ -698,7 +698,7 @@ Sortirano po ROI (benefit / effort):
 cargo flamegraph --release
 
 # Memory profiling (macOS)
-instruments -t "Allocations" target/release/reelforge_ui
+instruments -t "Allocations" target/release/fluxforge_ui
 
 # Audio callback timing
 cargo test --release -- --nocapture audio_latency_test

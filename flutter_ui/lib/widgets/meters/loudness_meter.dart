@@ -8,7 +8,7 @@
 // - History graph (optional)
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -107,8 +107,8 @@ class LoudnessMeter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgDeep,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -138,10 +138,10 @@ class LoudnessMeter extends StatelessWidget {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -149,7 +149,7 @@ class LoudnessMeter extends StatelessWidget {
           Icon(
             Icons.graphic_eq,
             size: 14,
-            color: ReelForgeTheme.accentCyan,
+            color: FluxForgeTheme.accentCyan,
           ),
           const SizedBox(width: 6),
           Text(
@@ -158,7 +158,7 @@ class LoudnessMeter extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
-              color: ReelForgeTheme.accentCyan,
+              color: FluxForgeTheme.accentCyan,
             ),
           ),
           const Spacer(),
@@ -183,9 +183,9 @@ class LoudnessMeter extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -195,14 +195,14 @@ class LoudnessMeter extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
             const SizedBox(width: 2),
             Icon(
               Icons.arrow_drop_down,
               size: 12,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ],
         ),
@@ -226,7 +226,7 @@ class LoudnessMeter extends StatelessWidget {
       child: Row(
         children: [
           if (target == value)
-            Icon(Icons.check, size: 14, color: ReelForgeTheme.accentCyan)
+            Icon(Icons.check, size: 14, color: FluxForgeTheme.accentCyan)
           else
             const SizedBox(width: 14),
           const SizedBox(width: 8),
@@ -239,7 +239,7 @@ class LoudnessMeter extends StatelessWidget {
                 sublabel,
                 style: TextStyle(
                   fontSize: 10,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ],
@@ -268,14 +268,14 @@ class LoudnessMeter extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Icon(
           Icons.refresh,
           size: 12,
-          color: ReelForgeTheme.textTertiary,
+          color: FluxForgeTheme.textTertiary,
         ),
       ),
     );
@@ -331,15 +331,15 @@ class LoudnessMeter extends StatelessWidget {
 
     Color valueColor;
     if (!isValid) {
-      valueColor = ReelForgeTheme.textTertiary;
+      valueColor = FluxForgeTheme.textTertiary;
     } else if (isMain) {
       valueColor = isOnTarget
-          ? ReelForgeTheme.accentGreen // Green - on target
+          ? FluxForgeTheme.accentGreen // Green - on target
           : isOver
-              ? ReelForgeTheme.accentRed // Red - over target
-              : ReelForgeTheme.textPrimary; // Normal - under target
+              ? FluxForgeTheme.accentRed // Red - over target
+              : FluxForgeTheme.textPrimary; // Normal - under target
     } else {
-      valueColor = ReelForgeTheme.textPrimary;
+      valueColor = FluxForgeTheme.textPrimary;
     }
 
     return Container(
@@ -350,17 +350,17 @@ class LoudnessMeter extends StatelessWidget {
       decoration: isMain
           ? BoxDecoration(
               color: isOnTarget
-                  ? ReelForgeTheme.accentGreen.withAlpha(26)
+                  ? FluxForgeTheme.accentGreen.withAlpha(26)
                   : isOver
-                      ? ReelForgeTheme.accentRed.withAlpha(26)
-                      : ReelForgeTheme.bgDeepest,
+                      ? FluxForgeTheme.accentRed.withAlpha(26)
+                      : FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isOnTarget
-                    ? ReelForgeTheme.accentGreen.withAlpha(64)
+                    ? FluxForgeTheme.accentGreen.withAlpha(64)
                     : isOver
-                        ? ReelForgeTheme.accentRed.withAlpha(64)
-                        : ReelForgeTheme.borderSubtle,
+                        ? FluxForgeTheme.accentRed.withAlpha(64)
+                        : FluxForgeTheme.borderSubtle,
               ),
             )
           : null,
@@ -374,7 +374,7 @@ class LoudnessMeter extends StatelessWidget {
               style: TextStyle(
                 fontSize: isMain ? 16 : 12,
                 fontWeight: FontWeight.bold,
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
               ),
             ),
           ),
@@ -385,7 +385,7 @@ class LoudnessMeter extends StatelessWidget {
               description,
               style: TextStyle(
                 fontSize: 9,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ),
@@ -405,7 +405,7 @@ class LoudnessMeter extends StatelessWidget {
             'LUFS',
             style: TextStyle(
               fontSize: isMain ? 10 : 8,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
 
@@ -416,10 +416,10 @@ class LoudnessMeter extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: isOnTarget
-                    ? ReelForgeTheme.accentGreen.withAlpha(51)
+                    ? FluxForgeTheme.accentGreen.withAlpha(51)
                     : isOver
-                        ? ReelForgeTheme.accentRed.withAlpha(51)
-                        : ReelForgeTheme.bgMid,
+                        ? FluxForgeTheme.accentRed.withAlpha(51)
+                        : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -429,10 +429,10 @@ class LoudnessMeter extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontFamily: 'monospace',
                   color: isOnTarget
-                      ? ReelForgeTheme.accentGreen
+                      ? FluxForgeTheme.accentGreen
                       : isOver
-                          ? ReelForgeTheme.accentRed
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.accentRed
+                          : FluxForgeTheme.textSecondary,
                 ),
               ),
             ),
@@ -451,10 +451,10 @@ class LoudnessMeter extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: isOver ? ReelForgeTheme.accentRed.withAlpha(51) : ReelForgeTheme.bgDeepest,
+        color: isOver ? FluxForgeTheme.accentRed.withAlpha(51) : FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isOver ? ReelForgeTheme.accentRed.withAlpha(128) : ReelForgeTheme.borderSubtle,
+          color: isOver ? FluxForgeTheme.accentRed.withAlpha(128) : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
@@ -466,8 +466,8 @@ class LoudnessMeter extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: isOver
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.accentOrange,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.accentOrange,
             ),
           ),
           const SizedBox(width: 8),
@@ -475,7 +475,7 @@ class LoudnessMeter extends StatelessWidget {
             'True Peak',
             style: TextStyle(
               fontSize: 9,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const Spacer(),
@@ -488,10 +488,10 @@ class LoudnessMeter extends StatelessWidget {
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
               color: isOver
-                  ? ReelForgeTheme.accentRed
+                  ? FluxForgeTheme.accentRed
                   : isValid
-                      ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textTertiary,
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(width: 4),
@@ -499,7 +499,7 @@ class LoudnessMeter extends StatelessWidget {
             'dBTP',
             style: TextStyle(
               fontSize: 9,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
 
@@ -510,8 +510,8 @@ class LoudnessMeter extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: isOver
-                    ? ReelForgeTheme.accentRed.withAlpha(102)
-                    : ReelForgeTheme.bgMid,
+                    ? FluxForgeTheme.accentRed.withAlpha(102)
+                    : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Row(
@@ -521,8 +521,8 @@ class LoudnessMeter extends StatelessWidget {
                     isOver ? Icons.warning_amber : Icons.check,
                     size: 10,
                     color: isOver
-                        ? ReelForgeTheme.accentRed
-                        : ReelForgeTheme.accentGreen,
+                        ? FluxForgeTheme.accentRed
+                        : FluxForgeTheme.accentGreen,
                   ),
                   const SizedBox(width: 2),
                   Text(
@@ -530,8 +530,8 @@ class LoudnessMeter extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       color: isOver
-                          ? ReelForgeTheme.accentRed
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.accentRed
+                          : FluxForgeTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -548,9 +548,9 @@ class LoudnessMeter extends StatelessWidget {
       height: 60,
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(3),
@@ -575,16 +575,16 @@ class LoudnessMeter extends StatelessWidget {
       height: 80,
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Center(
         child: Text(
           'History Graph',
           style: TextStyle(
             fontSize: 10,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
         ),
       ),
@@ -631,7 +631,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
   void _drawLufsMeter(Canvas canvas, Rect rect) {
     // Background
-    final bgPaint = Paint()..color = ReelForgeTheme.bgMid;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgMid;
     canvas.drawRect(rect, bgPaint);
 
     // Scale: -60 to 0 LUFS
@@ -644,7 +644,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     }
 
     // Target zone (-1 to +1 around target)
-    final targetZonePaint = Paint()..color = ReelForgeTheme.accentGreen.withAlpha(51);
+    final targetZonePaint = Paint()..color = FluxForgeTheme.accentGreen.withAlpha(51);
     final targetLeft = lufsToX(targetLufs - 1);
     final targetRight = lufsToX(targetLufs + 1);
     canvas.drawRect(
@@ -654,7 +654,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
     // Target line
     final targetLinePaint = Paint()
-      ..color = ReelForgeTheme.accentGreen
+      ..color = FluxForgeTheme.accentGreen
       ..strokeWidth = 2;
     final targetX = lufsToX(targetLufs);
     canvas.drawLine(
@@ -671,7 +671,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       canvas,
       Rect.fromLTWH(rect.left, rect.top + 1, rect.width, barHeight),
       lufsM,
-      ReelForgeTheme.accentBlue,
+      FluxForgeTheme.accentBlue,
       minLufs,
       maxLufs,
     );
@@ -681,7 +681,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       canvas,
       Rect.fromLTWH(rect.left, rect.top + barHeight + 2, rect.width, barHeight),
       lufsS,
-      ReelForgeTheme.accentCyan,
+      FluxForgeTheme.accentCyan,
       minLufs,
       maxLufs,
     );
@@ -692,14 +692,14 @@ class _LoudnessMeterPainter extends CustomPainter {
       Rect.fromLTWH(
           rect.left, rect.top + (barHeight + 2) * 2, rect.width, barHeight),
       lufsI,
-      ReelForgeTheme.accentGreen,
+      FluxForgeTheme.accentGreen,
       minLufs,
       maxLufs,
     );
 
     // Scale ticks
     final tickPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withAlpha(64)
+      ..color = FluxForgeTheme.textPrimary.withAlpha(64)
       ..strokeWidth = 1;
     for (final tick in [-48, -36, -24, -18, -12, -6, 0]) {
       final x = lufsToX(tick.toDouble());
@@ -742,7 +742,7 @@ class _LoudnessMeterPainter extends CustomPainter {
 
   void _drawTruePeakMeter(Canvas canvas, Rect rect) {
     // Background
-    final bgPaint = Paint()..color = ReelForgeTheme.bgMid;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgMid;
     canvas.drawRect(rect, bgPaint);
 
     // Scale: -60 to +3 dBTP
@@ -757,7 +757,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     // Ceiling line
     final ceilingX = dbToX(truePeakCeiling);
     final ceilingPaint = Paint()
-      ..color = ReelForgeTheme.accentRed
+      ..color = FluxForgeTheme.accentRed
       ..strokeWidth = 2;
     canvas.drawLine(
       Offset(ceilingX, rect.top),
@@ -766,7 +766,7 @@ class _LoudnessMeterPainter extends CustomPainter {
     );
 
     // Over ceiling zone
-    final overZonePaint = Paint()..color = ReelForgeTheme.accentRed.withAlpha(51);
+    final overZonePaint = Paint()..color = FluxForgeTheme.accentRed.withAlpha(51);
     canvas.drawRect(
       Rect.fromLTRB(ceilingX, rect.top, rect.right, rect.bottom),
       overZonePaint,
@@ -782,11 +782,11 @@ class _LoudnessMeterPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          ReelForgeTheme.accentCyan,
-          ReelForgeTheme.accentGreen,
-          ReelForgeTheme.accentYellow,
-          ReelForgeTheme.accentOrange,
-          ReelForgeTheme.accentRed,
+          FluxForgeTheme.accentCyan,
+          FluxForgeTheme.accentGreen,
+          FluxForgeTheme.accentYellow,
+          FluxForgeTheme.accentOrange,
+          FluxForgeTheme.accentRed,
         ],
         stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
       ).createShader(Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height));
@@ -800,7 +800,7 @@ class _LoudnessMeterPainter extends CustomPainter {
       // Peak hold indicator
       final peakX = dbToX(truePeak);
       final peakPaint = Paint()
-        ..color = isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary
+        ..color = isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary
         ..strokeWidth = 2;
       canvas.drawLine(
         Offset(peakX, rect.top),
@@ -848,9 +848,9 @@ class CompactLoudnessDisplay extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -860,7 +860,7 @@ class CompactLoudnessDisplay extends StatelessWidget {
               'LUFS',
               style: TextStyle(
                 fontSize: 9,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(width: 4),
@@ -871,8 +871,8 @@ class CompactLoudnessDisplay extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
                 color: isLufsValid
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textTertiary,
               ),
             ),
 
@@ -881,7 +881,7 @@ class CompactLoudnessDisplay extends StatelessWidget {
               width: 1,
               height: 12,
               margin: const EdgeInsets.symmetric(horizontal: 8),
-              color: ReelForgeTheme.borderSubtle,
+              color: FluxForgeTheme.borderSubtle,
             ),
 
             // True Peak
@@ -890,8 +890,8 @@ class CompactLoudnessDisplay extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 color: isTpOver
-                    ? ReelForgeTheme.accentRed
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.accentRed
+                    : FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(width: 4),
@@ -902,10 +902,10 @@ class CompactLoudnessDisplay extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
                 color: isTpOver
-                    ? ReelForgeTheme.accentRed
+                    ? FluxForgeTheme.accentRed
                     : isTpValid
-                        ? ReelForgeTheme.textPrimary
-                        : ReelForgeTheme.textTertiary,
+                        ? FluxForgeTheme.textPrimary
+                        : FluxForgeTheme.textTertiary,
               ),
             ),
           ],

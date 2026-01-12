@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Sidechain source type
 enum SidechainSource {
@@ -104,14 +104,14 @@ class _SidechainPanelState extends State<SidechainPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -139,12 +139,12 @@ class _SidechainPanelState extends State<SidechainPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.call_split, color: ReelForgeTheme.accentCyan, size: 20),
+          const Icon(Icons.call_split, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           const Text(
             'SIDECHAIN',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -155,13 +155,13 @@ class _SidechainPanelState extends State<SidechainPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
                 'EXT',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentCyan,
+                  color: FluxForgeTheme.accentCyan,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -194,17 +194,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.bgMid,
+                      color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderMedium,
+                        color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.borderMedium,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         source.label,
                         style: TextStyle(
-                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -222,17 +222,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderMedium),
+              border: Border.all(color: FluxForgeTheme.borderMedium),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 value: _selectedExternalId,
                 isExpanded: true,
-                dropdownColor: ReelForgeTheme.bgMid,
+                dropdownColor: FluxForgeTheme.bgMid,
                 style: const TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 12,
                 ),
                 items: widget.availableSources
@@ -279,17 +279,17 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
+                      color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium,
+                        color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         mode.label,
                         style: TextStyle(
-                          color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                          color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -331,7 +331,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
             const Text(
               'INT',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -348,7 +348,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
             const Text(
               'EXT',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -381,13 +381,13 @@ class _SidechainPanelState extends State<SidechainPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _monitoring
-                  ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.bgMid,
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
+                  : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: _monitoring
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.borderMedium,
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.borderMedium,
               ),
             ),
             child: Row(
@@ -396,8 +396,8 @@ class _SidechainPanelState extends State<SidechainPanel> {
                 Icon(
                   _monitoring ? Icons.headphones : Icons.headphones_outlined,
                   color: _monitoring
-                      ? ReelForgeTheme.accentOrange
-                      : ReelForgeTheme.textTertiary,
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.textTertiary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -405,8 +405,8 @@ class _SidechainPanelState extends State<SidechainPanel> {
                   _monitoring ? 'LISTENING TO KEY' : 'LISTEN TO KEY SIGNAL',
                   style: TextStyle(
                     color: _monitoring
-                        ? ReelForgeTheme.accentOrange
-                        : ReelForgeTheme.textTertiary,
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.textTertiary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -419,7 +419,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
         const Text(
           'Solo the sidechain signal to hear what the compressor is responding to.',
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
           ),
         ),
@@ -431,7 +431,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
     return Text(
       title,
       style: const TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
@@ -458,7 +458,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
               Text(
                 label,
                 style: const TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
@@ -467,7 +467,7 @@ class _SidechainPanelState extends State<SidechainPanel> {
               Text(
                 '${value.toStringAsFixed(value < 10 ? 1 : 0)} $unit',
                 style: const TextStyle(
-                  color: ReelForgeTheme.accentCyan,
+                  color: FluxForgeTheme.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -478,11 +478,11 @@ class _SidechainPanelState extends State<SidechainPanel> {
         SliderTheme(
           data: SliderThemeData(
             trackHeight: 4,
-            activeTrackColor: ReelForgeTheme.accentCyan,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
-            thumbColor: ReelForgeTheme.accentCyan,
+            activeTrackColor: FluxForgeTheme.accentCyan,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
+            thumbColor: FluxForgeTheme.accentCyan,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+            overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value.clamp(min, max),

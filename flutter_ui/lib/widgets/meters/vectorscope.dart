@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Vectorscope configuration
 class VectorscopeConfig {
@@ -53,9 +53,9 @@ class VectorscopeConfig {
     this.showPhaseMeter = true,
     this.showBalance = true,
     this.rotation = 0,
-    this.primaryColor = ReelForgeTheme.accentCyan,
-    this.backgroundColor = ReelForgeTheme.bgDeepest,
-    this.gridColor = ReelForgeTheme.borderSubtle,
+    this.primaryColor = FluxForgeTheme.accentCyan,
+    this.backgroundColor = FluxForgeTheme.bgDeepest,
+    this.gridColor = FluxForgeTheme.borderSubtle,
   });
 }
 
@@ -404,7 +404,7 @@ class _BalancePainter extends CustomPainter {
         Offset.zero & size,
         const Radius.circular(2),
       ),
-      Paint()..color = ReelForgeTheme.bgMid,
+      Paint()..color = FluxForgeTheme.bgMid,
     );
 
     // Center line
@@ -412,7 +412,7 @@ class _BalancePainter extends CustomPainter {
       Offset(center, 0),
       Offset(center, size.height),
       Paint()
-        ..color = ReelForgeTheme.textSecondary
+        ..color = FluxForgeTheme.textSecondary
         ..strokeWidth = 1,
     );
 
@@ -427,7 +427,7 @@ class _BalancePainter extends CustomPainter {
         ),
         const Radius.circular(1),
       ),
-      Paint()..color = ReelForgeTheme.accentBlue,
+      Paint()..color = FluxForgeTheme.accentBlue,
     );
   }
 
@@ -475,16 +475,16 @@ class _PhaseMeterPainter extends CustomPainter {
         Rect.fromLTWH(0, meterY, size.width, meterHeight),
         const Radius.circular(2),
       ),
-      Paint()..color = ReelForgeTheme.bgMid,
+      Paint()..color = FluxForgeTheme.bgMid,
     );
 
     // Gradient for meter
     // -1 (out of phase, red) to +1 (in phase, green)
     final gradient = LinearGradient(
       colors: const [
-        ReelForgeTheme.errorRed,
-        ReelForgeTheme.accentOrange,
-        ReelForgeTheme.accentGreen,
+        FluxForgeTheme.errorRed,
+        FluxForgeTheme.accentOrange,
+        FluxForgeTheme.accentGreen,
       ],
       stops: const [0.0, 0.5, 1.0],
     );
@@ -512,7 +512,7 @@ class _PhaseMeterPainter extends CustomPainter {
 
     // Labels
     final textStyle = TextStyle(
-      color: ReelForgeTheme.textSecondary,
+      color: FluxForgeTheme.textSecondary,
       fontSize: 8,
     );
 
@@ -534,9 +534,9 @@ class _PhaseMeterPainter extends CustomPainter {
   }
 
   Color _getCorrelationColor(double corr) {
-    if (corr >= 0.5) return ReelForgeTheme.accentGreen;
-    if (corr >= 0) return ReelForgeTheme.accentOrange;
-    return ReelForgeTheme.errorRed;
+    if (corr >= 0.5) return FluxForgeTheme.accentGreen;
+    if (corr >= 0) return FluxForgeTheme.accentOrange;
+    return FluxForgeTheme.errorRed;
   }
 
   void _drawLabel(Canvas canvas, String text, Offset position, TextStyle style) {
@@ -610,7 +610,7 @@ class _VectorscopeDemoState extends State<VectorscopeDemo>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       padding: const EdgeInsets.all(16),
       child: Center(
         child: Vectorscope(

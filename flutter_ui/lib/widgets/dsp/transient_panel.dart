@@ -1,4 +1,4 @@
-/// ReelForge Professional Transient Shaper Panel
+/// FluxForge Studio Professional Transient Shaper Panel
 ///
 /// Modify attack and sustain characteristics independently.
 /// Similar to SPL Transient Designer.
@@ -6,7 +6,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Professional Transient Shaper Panel Widget
 class TransientPanel extends StatefulWidget {
@@ -89,9 +89,9 @@ class _TransientPanelState extends State<TransientPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,12 +116,12 @@ class _TransientPanelState extends State<TransientPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.flash_on, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.flash_on, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Transient',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -134,16 +134,16 @@ class _TransientPanelState extends State<TransientPanel> {
             decoration: BoxDecoration(
               color: _bypassed
                   ? Colors.orange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.border,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               'BYPASS',
               style: TextStyle(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -243,7 +243,7 @@ class _TransientPanelState extends State<TransientPanel> {
                     Text(
                       value > 0 ? 'Boost' : (value < 0 ? 'Cut' : ''),
                       style: TextStyle(
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                         fontSize: 9,
                       ),
                     ),
@@ -262,9 +262,9 @@ class _TransientPanelState extends State<TransientPanel> {
       height: 60,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withValues(alpha: 0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Row(
         children: [
@@ -286,7 +286,7 @@ class _TransientPanelState extends State<TransientPanel> {
                     borderRadius: BorderRadius.circular(2),
                     child: LinearProgressIndicator(
                       value: _attackEnvelope.clamp(0.0, 1.0),
-                      backgroundColor: ReelForgeTheme.surface,
+                      backgroundColor: FluxForgeTheme.surface,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
                     ),
                   ),
@@ -313,7 +313,7 @@ class _TransientPanelState extends State<TransientPanel> {
                     borderRadius: BorderRadius.circular(2),
                     child: LinearProgressIndicator(
                       value: _sustainEnvelope.clamp(0.0, 1.0),
-                      backgroundColor: ReelForgeTheme.surface,
+                      backgroundColor: FluxForgeTheme.surface,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.cyan),
                     ),
                   ),
@@ -398,7 +398,7 @@ class _TransientPanelState extends State<TransientPanel> {
       children: [
         Text(
           'Presets',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -433,17 +433,17 @@ class _TransientPanelState extends State<TransientPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
@@ -463,7 +463,7 @@ class _TransientPanelState extends State<TransientPanel> {
           width: 90,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -472,7 +472,7 @@ class _TransientPanelState extends State<TransientPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -495,10 +495,10 @@ class _TransientPanelState extends State<TransientPanel> {
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        activeTrackColor: color ?? ReelForgeTheme.accentBlue,
-        inactiveTrackColor: ReelForgeTheme.surface,
-        thumbColor: color ?? ReelForgeTheme.accentBlue,
-        overlayColor: (color ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.2),
+        activeTrackColor: color ?? FluxForgeTheme.accentBlue,
+        inactiveTrackColor: FluxForgeTheme.surface,
+        thumbColor: color ?? FluxForgeTheme.accentBlue,
+        overlayColor: (color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.2),
       ),
       child: Slider(
         value: value.clamp(min, max),
@@ -527,7 +527,7 @@ class _KnobPainter extends CustomPainter {
 
     // Background arc
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.surface
+      ..color = FluxForgeTheme.surface
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
@@ -575,7 +575,7 @@ class _KnobPainter extends CustomPainter {
 
     // Center marker
     final centerMarkerPaint = Paint()
-      ..color = ReelForgeTheme.textSecondary
+      ..color = FluxForgeTheme.textSecondary
       ..strokeWidth = 2;
 
     final markerStart = Offset(

@@ -1,4 +1,4 @@
-/// ReelForge Pro Audio Theme
+/// FluxForge Studio Pro Audio Theme
 ///
 /// Best-in-class professional dark theme synthesizing:
 /// - Cubase: Zone system depth, MixConsole clarity
@@ -18,7 +18,7 @@
 import 'package:flutter/material.dart';
 import '../models/timeline_models.dart' show TrackType;
 
-class ReelForgeTheme {
+class FluxForgeTheme {
   // ═══════════════════════════════════════════════════════════════════════════
   // COLOR PALETTE - Pro Audio Dark (6-Layer Depth System)
   // ═══════════════════════════════════════════════════════════════════════════

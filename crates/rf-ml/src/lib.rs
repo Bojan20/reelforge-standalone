@@ -1,4 +1,4 @@
-//! # ReelForge ML/AI Processing Suite
+//! # FluxForge Studio ML/AI Processing Suite
 //!
 //! State-of-the-art neural network audio processing:
 //! - Neural Denoising (DeepFilterNet3, FRCRN)

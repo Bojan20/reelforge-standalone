@@ -10,16 +10,16 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Saturation type
 enum SaturationType {
-  tape('Tape', 'Warm analog tape saturation', ReelForgeTheme.accentOrange),
-  tube('Tube', 'Even harmonics, creamy warmth', ReelForgeTheme.accentGreen),
-  transistor('Transistor', 'Odd harmonics, aggressive', ReelForgeTheme.accentCyan),
-  softClip('Soft Clip', 'Clean soft limiting', ReelForgeTheme.accentYellow),
-  hardClip('Hard Clip', 'Digital-style clipping', ReelForgeTheme.accentRed),
-  foldback('Foldback', 'Creative foldback distortion', ReelForgeTheme.accentPink);
+  tape('Tape', 'Warm analog tape saturation', FluxForgeTheme.accentOrange),
+  tube('Tube', 'Even harmonics, creamy warmth', FluxForgeTheme.accentGreen),
+  transistor('Transistor', 'Odd harmonics, aggressive', FluxForgeTheme.accentCyan),
+  softClip('Soft Clip', 'Clean soft limiting', FluxForgeTheme.accentYellow),
+  hardClip('Hard Clip', 'Digital-style clipping', FluxForgeTheme.accentRed),
+  foldback('Foldback', 'Creative foldback distortion', FluxForgeTheme.accentPink);
 
   final String label;
   final String description;
@@ -126,16 +126,16 @@ class _SaturationPanelState extends State<SaturationPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildTypeSelector(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -168,7 +168,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           const Text(
             'SATURATION',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -200,17 +200,17 @@ class _SaturationPanelState extends State<SaturationPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _bypassed
-              ? ReelForgeTheme.accentRed.withValues(alpha: 0.3)
-              : ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+              ? FluxForgeTheme.accentRed.withValues(alpha: 0.3)
+              : FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
+            color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
           ),
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
           style: TextStyle(
-            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
+            color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -250,10 +250,10 @@ class _SaturationPanelState extends State<SaturationPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? type.color : ReelForgeTheme.bgMid,
+              color: isSelected ? type.color : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isSelected ? type.color : ReelForgeTheme.borderMedium,
+                color: isSelected ? type.color : FluxForgeTheme.borderMedium,
               ),
             ),
             child: Column(
@@ -261,7 +261,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
                 Text(
                   type.label,
                   style: TextStyle(
-                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                    color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -303,7 +303,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
                   Text(
                     _type.description,
                     style: const TextStyle(
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       fontSize: 11,
                     ),
                   ),
@@ -327,7 +327,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
         height: 100,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: ReelForgeTheme.bgMid,
+          color: FluxForgeTheme.bgMid,
           border: Border.all(color: _type.color, width: 3),
           boxShadow: [
             BoxShadow(
@@ -379,7 +379,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
             const Text(
               'DRY',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -392,7 +392,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
             const Text(
               'WET',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -442,9 +442,9 @@ class _SaturationPanelState extends State<SaturationPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -493,7 +493,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? _type.color : ReelForgeTheme.borderMedium,
+            color: active ? _type.color : FluxForgeTheme.borderMedium,
           ),
         ),
         const SizedBox(height: 4),
@@ -501,7 +501,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: active ? _type.color : ReelForgeTheme.textTertiary,
+            color: active ? _type.color : FluxForgeTheme.textTertiary,
             fontSize: 9,
             fontWeight: FontWeight.bold,
           ),
@@ -514,7 +514,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
     return Text(
       title,
       style: const TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
@@ -527,7 +527,7 @@ class _SaturationPanelState extends State<SaturationPanel> {
       data: SliderThemeData(
         trackHeight: 4,
         activeTrackColor: _type.color,
-        inactiveTrackColor: ReelForgeTheme.borderSubtle,
+        inactiveTrackColor: FluxForgeTheme.borderSubtle,
         thumbColor: _type.color,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
         overlayColor: _type.color.withValues(alpha: 0.2),

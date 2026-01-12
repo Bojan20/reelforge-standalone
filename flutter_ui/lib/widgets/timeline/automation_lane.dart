@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUTOMATION TYPES
@@ -424,7 +424,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                 Icons.trending_flat,
                 size: 16,
                 color: point.curveType == AutomationCurveType.linear
-                    ? ReelForgeTheme.accentBlue
+                    ? FluxForgeTheme.accentBlue
                     : null,
               ),
               const SizedBox(width: 8),
@@ -442,7 +442,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                 Icons.gesture,
                 size: 16,
                 color: point.curveType == AutomationCurveType.bezier
-                    ? ReelForgeTheme.accentBlue
+                    ? FluxForgeTheme.accentBlue
                     : null,
               ),
               const SizedBox(width: 8),
@@ -460,7 +460,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                 Icons.stairs,
                 size: 16,
                 color: point.curveType == AutomationCurveType.step
-                    ? ReelForgeTheme.accentBlue
+                    ? FluxForgeTheme.accentBlue
                     : null,
               ),
               const SizedBox(width: 8),
@@ -478,7 +478,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                 Icons.waves,
                 size: 16,
                 color: point.curveType == AutomationCurveType.scurve
-                    ? ReelForgeTheme.accentBlue
+                    ? FluxForgeTheme.accentBlue
                     : null,
               ),
               const SizedBox(width: 8),
@@ -561,7 +561,7 @@ class _AutomationLaneState extends State<AutomationLane> {
         },
         child: Container(
           height: widget.data.height,
-          color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.5),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
           child: Stack(
             children: [
               // Automation curve
@@ -625,7 +625,7 @@ class _AutomationLaneState extends State<AutomationLane> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentBlue.withValues(alpha: 0.8),
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: Text(
@@ -665,7 +665,7 @@ class _AutomationLaneState extends State<AutomationLane> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgElevated,
+          color: FluxForgeTheme.bgElevated,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: widget.data.color.withValues(alpha: 0.5)),
           boxShadow: [
@@ -853,7 +853,7 @@ class _AutomationCurvePainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Horizontal lines (value markers)
@@ -864,7 +864,7 @@ class _AutomationCurvePainter extends CustomPainter {
 
     // Center line (0.5)
     final centerPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(0, size.height / 2),
@@ -1040,9 +1040,9 @@ class AutomationLaneHeader extends StatelessWidget {
     return Container(
       height: data.height,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1067,7 +1067,7 @@ class AutomationLaneHeader extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1075,7 +1075,7 @@ class AutomationLaneHeader extends StatelessWidget {
                   '${data.points.length} points',
                   style: TextStyle(
                     fontSize: 9,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                 ),
               ],
@@ -1138,8 +1138,8 @@ class AutomationLaneHeader extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
             color: data.visible
-                ? ReelForgeTheme.textSecondary
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.textSecondary
+                : FluxForgeTheme.textTertiary,
           ),
 
           // Remove button
@@ -1148,7 +1148,7 @@ class AutomationLaneHeader extends StatelessWidget {
             onPressed: onRemove,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
         ],
       ),
@@ -1196,7 +1196,7 @@ class AutomationLaneHeader extends StatelessWidget {
       case AutomationMode.latch:
         return const Color(0xFF4A9EFF);
       case AutomationMode.off:
-        return ReelForgeTheme.textTertiary;
+        return FluxForgeTheme.textTertiary;
     }
   }
 }

@@ -1,4 +1,4 @@
-# Ultimate ReelForge Optimizations — 2026 Edition
+# Ultimate FluxForge Studio Optimizations — 2026 Edition
 
 **Implementation Date:** 2026-01-09
 **Status:** ✅ PRODUCTION READY
@@ -72,7 +72,7 @@ for (out_idx, out_sample) in output.iter_mut().enumerate().take(block_size) {
 **Competitor Comparison:**
 - FabFilter Pro-R: Uses uniform partitioning (higher CPU or higher latency)
 - L-Acoustics: Presented this technique at ADC 2024
-- **ReelForge:** Now matches industry leaders ✅
+- **FluxForge Studio:** Now matches industry leaders ✅
 
 ---
 
@@ -393,7 +393,7 @@ pub fn apply_saturation(sample: f64, mode: CharacterMode) -> f64 {
 
 ### Industry Comparison
 
-| Feature | FabFilter Pro-Q 4 | iZotope RX 11 | Cubase 14 | **ReelForge** |
+| Feature | FabFilter Pro-Q 4 | iZotope RX 11 | Cubase 14 | **FluxForge Studio** |
 |---------|-------------------|---------------|-----------|---------------|
 | Zero-latency reverb | ❌ | ❌ | ✅ | **✅** |
 | Non-uniform partitioning | ❌ | ❌ | ✅ | **✅** |
@@ -403,7 +403,7 @@ pub fn apply_saturation(sample: f64, mode: CharacterMode) -> f64 {
 | Character modes | ✅ | ❌ | ✅ | 🔲 (Phase 2) |
 | GPU offline rendering | ❌ | ✅ | ✅ | 🔲 (Phase 3) |
 
-**Verdict:** ReelForge now matches or exceeds industry leaders in core DSP performance. Missing features (spectral dynamics, character modes) planned for Phase 2.
+**Verdict:** FluxForge Studio now matches or exceeds industry leaders in core DSP performance. Missing features (spectral dynamics, character modes) planned for Phase 2.
 
 ---
 

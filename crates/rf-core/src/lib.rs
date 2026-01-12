@@ -1,6 +1,6 @@
-//! rf-core: Shared types, traits, and utilities for ReelForge
+//! rf-core: Shared types, traits, and utilities for FluxForge Studio
 //!
-//! This crate provides the foundational types used across all ReelForge crates.
+//! This crate provides the foundational types used across all FluxForge Studio crates.
 
 #![feature(portable_simd)]
 #![allow(dead_code)]

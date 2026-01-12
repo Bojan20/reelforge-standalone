@@ -1,4 +1,4 @@
-//! rf-viz: GPU-Accelerated Visualizations for ReelForge
+//! rf-viz: GPU-Accelerated Visualizations for FluxForge Studio
 //!
 //! Provides wgpu-based rendering for:
 //! - Waveform display (LOD, min/max/RMS)

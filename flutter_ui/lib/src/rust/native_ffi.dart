@@ -1,4 +1,4 @@
-/// ReelForge Native FFI Bindings
+/// FluxForge Studio Native FFI Bindings
 ///
 /// Direct FFI bindings to Rust engine C API.
 /// Uses dart:ffi for low-level native function calls.
@@ -8,6 +8,48 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'engine_api.dart' show TruePeak8xData, PsrData, CrestFactorData, PsychoacousticData;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WAVEFORM DATA STRUCTURES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Pixel-exact waveform data (Cubase-style)
+/// Contains min/max/rms per pixel for accurate waveform rendering
+class WaveformPixelData {
+  /// Minimum values per pixel (for peak stroke)
+  final Float32List mins;
+  /// Maximum values per pixel (for peak stroke)
+  final Float32List maxs;
+  /// RMS values per pixel (for body fill)
+  final Float32List rms;
+
+  const WaveformPixelData({
+    required this.mins,
+    required this.maxs,
+    required this.rms,
+  });
+
+  /// Number of pixels
+  int get length => mins.length;
+
+  /// Check if empty
+  bool get isEmpty => mins.isEmpty;
+}
+
+/// Tile query for batch waveform requests
+class WaveformTileQuery {
+  final int clipId;
+  final int startFrame;
+  final int endFrame;
+  final int numPixels;
+
+  const WaveformTileQuery({
+    required this.clipId,
+    required this.startFrame,
+    required this.endFrame,
+    required this.numPixels,
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE LIBRARY LOADING
@@ -61,7 +103,7 @@ DynamicLibrary _loadNativeLibrary() {
     if (Platform.environment.containsKey('REELFORGE_LIB_PATH'))
       '${Platform.environment['REELFORGE_LIB_PATH']}/$libName'
     else if (Platform.environment.containsKey('HOME'))
-      '${Platform.environment['HOME']}/Desktop/reelforge-standalone/target/release/$libName'
+      '${Platform.environment['HOME']}/Desktop/fluxforge-studio/target/release/$libName'
     else
       'target/release/$libName',
   ];
@@ -178,6 +220,24 @@ typedef EngineGetWaveformPeaksDart = int Function(int clipId, int lodLevel, Poin
 
 typedef EngineGetWaveformLodLevelsNative = IntPtr Function();
 typedef EngineGetWaveformLodLevelsDart = int Function();
+
+// Pixel-exact waveform query (Cubase-style)
+typedef EngineQueryWaveformPixelsNative = Uint32 Function(Uint64 clipId, Uint64 startFrame, Uint64 endFrame, Uint32 numPixels, Pointer<Float> outData);
+typedef EngineQueryWaveformPixelsDart = int Function(int clipId, int startFrame, int endFrame, int numPixels, Pointer<Float> outData);
+
+typedef EngineGetWaveformSampleRateNative = Uint32 Function(Uint64 clipId);
+typedef EngineGetWaveformSampleRateDart = int Function(int clipId);
+
+// Batch waveform tile query (Cubase-style zero-hitch zoom)
+typedef EngineQueryWaveformTilesBatchNative = Uint32 Function(Pointer<Double> queries, Uint32 numTiles, Pointer<Float> outData, Uint32 outCapacity);
+typedef EngineQueryWaveformTilesBatchDart = int Function(Pointer<Double> queries, int numTiles, Pointer<Float> outData, int outCapacity);
+
+// Raw samples query (sample-mode ultra zoom)
+typedef EngineQueryRawSamplesNative = Uint32 Function(Uint64 clipId, Uint64 startFrame, Uint32 numFrames, Pointer<Float> outSamples, Uint32 outCapacity);
+typedef EngineQueryRawSamplesDart = int Function(int clipId, int startFrame, int numFrames, Pointer<Float> outSamples, int outCapacity);
+
+typedef EngineGetWaveformTotalSamplesNative = Uint64 Function(Uint64 clipId);
+typedef EngineGetWaveformTotalSamplesDart = int Function(int clipId);
 
 // Loop region
 typedef EngineSetLoopRegionNative = Void Function(Double start, Double end);
@@ -653,6 +713,32 @@ typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
 typedef TransientDetectNative = Uint32 Function(Pointer<Double> samples, Uint32 length, Double sampleRate, Double sensitivity, Uint8 algorithm, Pointer<Uint64> outPositions, Uint32 outMaxCount);
 typedef TransientDetectDart = int Function(Pointer<Double> samples, int length, double sampleRate, double sensitivity, int algorithm, Pointer<Uint64> outPositions, int outMaxCount);
 
+// Clip-based transient detection (Sample Editor hitpoints)
+typedef EngineDetectClipTransientsNative = Uint32 Function(
+  Uint64 clipId,
+  Float sensitivity,
+  Uint32 algorithm,
+  Float minGapMs,
+  Pointer<Uint64> outPositions,
+  Pointer<Float> outStrengths,
+  Uint32 outCapacity,
+);
+typedef EngineDetectClipTransientsDart = int Function(
+  int clipId,
+  double sensitivity,
+  int algorithm,
+  double minGapMs,
+  Pointer<Uint64> outPositions,
+  Pointer<Float> outStrengths,
+  int outCapacity,
+);
+
+typedef EngineGetClipSampleRateNative = Uint32 Function(Uint64 clipId);
+typedef EngineGetClipSampleRateDart = int Function(int clipId);
+
+typedef EngineGetClipTotalFramesNative = Uint64 Function(Uint64 clipId);
+typedef EngineGetClipTotalFramesDart = int Function(int clipId);
+
 // Pitch Detection
 typedef PitchDetectNative = Double Function(Pointer<Double> samples, Uint32 length, Double sampleRate);
 typedef PitchDetectDart = double Function(Pointer<Double> samples, int length, double sampleRate);
@@ -761,6 +847,11 @@ class NativeFFI {
 
   late final EngineGetWaveformPeaksDart _getWaveformPeaks;
   late final EngineGetWaveformLodLevelsDart _getWaveformLodLevels;
+  late final EngineQueryWaveformPixelsDart _queryWaveformPixels;
+  late final EngineGetWaveformSampleRateDart _getWaveformSampleRate;
+  late final EngineGetWaveformTotalSamplesDart _getWaveformTotalSamples;
+  late final EngineQueryWaveformTilesBatchDart _queryWaveformTilesBatch;
+  late final EngineQueryRawSamplesDart _queryRawSamples;
 
   late final EngineSetLoopRegionDart _setLoopRegion;
   late final EngineSetLoopEnabledDart _setLoopEnabled;
@@ -956,6 +1047,9 @@ class NativeFFI {
 
   // Transient Detection
   late final TransientDetectDart _transientDetect;
+  late final EngineDetectClipTransientsDart _detectClipTransients;
+  late final EngineGetClipSampleRateDart _getClipSampleRate;
+  late final EngineGetClipTotalFramesDart _getClipTotalFrames;
 
   // Pitch Detection
   late final PitchDetectDart _pitchDetect;
@@ -1026,6 +1120,11 @@ class NativeFFI {
 
     _getWaveformPeaks = _lib.lookupFunction<EngineGetWaveformPeaksNative, EngineGetWaveformPeaksDart>('engine_get_waveform_peaks');
     _getWaveformLodLevels = _lib.lookupFunction<EngineGetWaveformLodLevelsNative, EngineGetWaveformLodLevelsDart>('engine_get_waveform_lod_levels');
+    _queryWaveformPixels = _lib.lookupFunction<EngineQueryWaveformPixelsNative, EngineQueryWaveformPixelsDart>('engine_query_waveform_pixels');
+    _getWaveformSampleRate = _lib.lookupFunction<EngineGetWaveformSampleRateNative, EngineGetWaveformSampleRateDart>('engine_get_waveform_sample_rate');
+    _getWaveformTotalSamples = _lib.lookupFunction<EngineGetWaveformTotalSamplesNative, EngineGetWaveformTotalSamplesDart>('engine_get_waveform_total_samples');
+    _queryWaveformTilesBatch = _lib.lookupFunction<EngineQueryWaveformTilesBatchNative, EngineQueryWaveformTilesBatchDart>('engine_query_waveform_tiles_batch');
+    _queryRawSamples = _lib.lookupFunction<EngineQueryRawSamplesNative, EngineQueryRawSamplesDart>('engine_query_raw_samples');
 
     _setLoopRegion = _lib.lookupFunction<EngineSetLoopRegionNative, EngineSetLoopRegionDart>('engine_set_loop_region');
     _setLoopEnabled = _lib.lookupFunction<EngineSetLoopEnabledNative, EngineSetLoopEnabledDart>('engine_set_loop_enabled');
@@ -1220,6 +1319,9 @@ class NativeFFI {
 
     // Transient Detection
     _transientDetect = _lib.lookupFunction<TransientDetectNative, TransientDetectDart>('transient_detect');
+    _detectClipTransients = _lib.lookupFunction<EngineDetectClipTransientsNative, EngineDetectClipTransientsDart>('engine_detect_clip_transients');
+    _getClipSampleRate = _lib.lookupFunction<EngineGetClipSampleRateNative, EngineGetClipSampleRateDart>('engine_get_clip_sample_rate');
+    _getClipTotalFrames = _lib.lookupFunction<EngineGetClipTotalFramesNative, EngineGetClipTotalFramesDart>('engine_get_clip_total_frames');
 
     // Pitch Detection
     _pitchDetect = _lib.lookupFunction<PitchDetectNative, PitchDetectDart>('pitch_detect');
@@ -1544,6 +1646,123 @@ class NativeFFI {
   int getWaveformLodLevels() {
     if (!_loaded) return 0;
     return _getWaveformLodLevels();
+  }
+
+  /// Pixel-exact waveform query (Cubase-style)
+  /// Returns WaveformPixelData with min/max/rms per pixel
+  WaveformPixelData? queryWaveformPixels(int clipId, int startFrame, int endFrame, int numPixels) {
+    if (!_loaded || numPixels <= 0) return null;
+
+    final buffer = calloc<Float>(numPixels * 3); // min, max, rms per pixel
+    try {
+      final count = _queryWaveformPixels(clipId, startFrame, endFrame, numPixels, buffer);
+      if (count == 0) return null;
+
+      final mins = Float32List(count);
+      final maxs = Float32List(count);
+      final rms = Float32List(count);
+
+      for (var i = 0; i < count; i++) {
+        mins[i] = buffer[i * 3];
+        maxs[i] = buffer[i * 3 + 1];
+        rms[i] = buffer[i * 3 + 2];
+      }
+
+      return WaveformPixelData(mins: mins, maxs: maxs, rms: rms);
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Get waveform sample rate for a clip
+  int getWaveformSampleRate(int clipId) {
+    if (!_loaded) return 48000;
+    return _getWaveformSampleRate(clipId);
+  }
+
+  /// Get waveform total samples for a clip
+  int getWaveformTotalSamples(int clipId) {
+    if (!_loaded) return 0;
+    return _getWaveformTotalSamples(clipId);
+  }
+
+  /// Batch query waveform tiles (Cubase-style zero-hitch zoom)
+  /// Returns list of WaveformPixelData, one per tile
+  List<WaveformPixelData> queryWaveformTilesBatch(List<WaveformTileQuery> queries) {
+    if (!_loaded || queries.isEmpty) return [];
+
+    // Build input buffer: [clipId, startFrame, endFrame, numPixels] per tile
+    final inputBuffer = calloc<Double>(queries.length * 4);
+    int totalPixels = 0;
+    for (var i = 0; i < queries.length; i++) {
+      final q = queries[i];
+      inputBuffer[i * 4] = q.clipId.toDouble();
+      inputBuffer[i * 4 + 1] = q.startFrame.toDouble();
+      inputBuffer[i * 4 + 2] = q.endFrame.toDouble();
+      inputBuffer[i * 4 + 3] = q.numPixels.toDouble();
+      totalPixels += q.numPixels;
+    }
+
+    // Output buffer: min/max/rms per pixel per tile
+    final outputCapacity = totalPixels * 3;
+    final outputBuffer = calloc<Float>(outputCapacity);
+
+    try {
+      final totalWritten = _queryWaveformTilesBatch(
+        inputBuffer,
+        queries.length,
+        outputBuffer,
+        outputCapacity,
+      );
+
+      if (totalWritten == 0) return [];
+
+      // Parse results
+      final results = <WaveformPixelData>[];
+      var offset = 0;
+      for (var i = 0; i < queries.length; i++) {
+        final numPixels = queries[i].numPixels;
+        final floatsForTile = numPixels * 3;
+        if (offset + floatsForTile > totalWritten) break;
+
+        final mins = Float32List(numPixels);
+        final maxs = Float32List(numPixels);
+        final rms = Float32List(numPixels);
+
+        for (var p = 0; p < numPixels; p++) {
+          mins[p] = outputBuffer[offset + p * 3];
+          maxs[p] = outputBuffer[offset + p * 3 + 1];
+          rms[p] = outputBuffer[offset + p * 3 + 2];
+        }
+
+        results.add(WaveformPixelData(mins: mins, maxs: maxs, rms: rms));
+        offset += floatsForTile;
+      }
+
+      return results;
+    } finally {
+      calloc.free(inputBuffer);
+      calloc.free(outputBuffer);
+    }
+  }
+
+  /// Query raw samples for sample-mode rendering (ultra zoom-in)
+  Float32List? queryRawSamples(int clipId, int startFrame, int numFrames) {
+    if (!_loaded || numFrames <= 0) return null;
+
+    final buffer = calloc<Float>(numFrames);
+    try {
+      final count = _queryRawSamples(clipId, startFrame, numFrames, buffer, numFrames);
+      if (count == 0) return null;
+
+      final samples = Float32List(count);
+      for (var i = 0; i < count; i++) {
+        samples[i] = buffer[i];
+      }
+      return samples;
+    } finally {
+      calloc.free(buffer);
+    }
   }
 
   /// Set loop region
@@ -2695,6 +2914,55 @@ class NativeFFI {
       calloc.free(samplesPtr);
       calloc.free(outPositionsPtr);
     }
+  }
+
+  /// Detect transients in a clip by clip ID
+  /// Returns list of (position, strength) tuples
+  /// algorithm: 0=Enhanced, 1=HighEmphasis, 2=LowEmphasis, 3=SpectralFlux, 4=ComplexDomain
+  List<({int position, double strength})> detectClipTransients(
+    int clipId, {
+    double sensitivity = 0.5,
+    int algorithm = 0,
+    double minGapMs = 20.0,
+    int maxCount = 2000,
+  }) {
+    if (!_loaded) return [];
+
+    final outPositions = calloc<Uint64>(maxCount);
+    final outStrengths = calloc<Float>(maxCount);
+
+    try {
+      final count = _detectClipTransients(
+        clipId,
+        sensitivity,
+        algorithm,
+        minGapMs,
+        outPositions,
+        outStrengths,
+        maxCount,
+      );
+
+      final result = <({int position, double strength})>[];
+      for (int i = 0; i < count; i++) {
+        result.add((position: outPositions[i], strength: outStrengths[i]));
+      }
+      return result;
+    } finally {
+      calloc.free(outPositions);
+      calloc.free(outStrengths);
+    }
+  }
+
+  /// Get clip sample rate
+  int getClipSampleRate(int clipId) {
+    if (!_loaded) return 48000;
+    return _getClipSampleRate(clipId);
+  }
+
+  /// Get clip total frames
+  int getClipTotalFrames(int clipId) {
+    if (!_loaded) return 0;
+    return _getClipTotalFrames(clipId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

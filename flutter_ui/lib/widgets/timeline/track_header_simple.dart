@@ -1,6 +1,6 @@
 /// Simple Track Header Widget
 ///
-/// Minimalist ReelForge-style track header:
+/// Minimalist FluxForge Studio-style track header:
 /// - Track number + name
 /// - M/S/R buttons
 /// - Volume slider (on hover or when expanded)
@@ -10,7 +10,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 
 class TrackHeaderSimple extends StatefulWidget {
@@ -101,10 +101,10 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? track.color.withValues(alpha: 0.12)
-                : (_isHovered ? ReelForgeTheme.bgSurface : ReelForgeTheme.bgMid),
+                : (_isHovered ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgMid),
             border: Border(
               left: BorderSide(color: track.color, width: 3),
-              bottom: BorderSide(color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+              bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
             ),
           ),
           child: Stack(
@@ -126,7 +126,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                             child: Text(
                               '${widget.trackNumber}',
                               style: TextStyle(
-                                color: ReelForgeTheme.textTertiary,
+                                color: FluxForgeTheme.textTertiary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -136,9 +136,9 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                           Expanded(child: _buildName()),
                           const SizedBox(width: 4),
                           // M/S/R buttons
-                          _MiniButton('M', track.muted, ReelForgeTheme.accentOrange, widget.onMuteToggle),
+                          _MiniButton('M', track.muted, FluxForgeTheme.accentOrange, widget.onMuteToggle),
                           const SizedBox(width: 2),
-                          _MiniButton('S', track.soloed, ReelForgeTheme.accentYellow, widget.onSoloToggle),
+                          _MiniButton('S', track.soloed, FluxForgeTheme.accentYellow, widget.onSoloToggle),
                           const SizedBox(width: 2),
                           _RecordButton(track.armed, widget.onArmToggle),
                         ],
@@ -186,7 +186,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
         focusNode: _focusNode,
         autofocus: true,
         style: TextStyle(
-          color: ReelForgeTheme.textPrimary,
+          color: FluxForgeTheme.textPrimary,
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
@@ -203,7 +203,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
     return Text(
       widget.track.name,
       style: TextStyle(
-        color: widget.track.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.textPrimary,
+        color: widget.track.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary,
         fontSize: 11,
         fontWeight: FontWeight.w600,
       ),
@@ -222,7 +222,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
   Widget _buildVolumeRow() {
     return Row(
       children: [
-        Text('Vol', style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary)),
+        Text('Vol', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
         const SizedBox(width: 6),
         Expanded(
           child: _VolumeSlider(
@@ -238,7 +238,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
             style: TextStyle(
               fontSize: 9,
               fontFamily: 'JetBrains Mono',
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             textAlign: TextAlign.right,
           ),
@@ -291,10 +291,10 @@ class _MiniButton extends StatelessWidget {
         width: 16,
         height: 16,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgDeepest,
+          color: active ? activeColor : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -304,7 +304,7 @@ class _MiniButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: active ? Colors.white : ReelForgeTheme.textTertiary,
+              color: active ? Colors.white : FluxForgeTheme.textTertiary,
             ),
           ),
         ),
@@ -327,10 +327,10 @@ class _RecordButton extends StatelessWidget {
         width: 16,
         height: 16,
         decoration: BoxDecoration(
-          color: armed ? ReelForgeTheme.accentRed : ReelForgeTheme.bgDeepest,
+          color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: armed ? ReelForgeTheme.accentRed : ReelForgeTheme.borderSubtle,
+            color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -340,7 +340,7 @@ class _RecordButton extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: armed ? Colors.white : ReelForgeTheme.textTertiary,
+              color: armed ? Colors.white : FluxForgeTheme.textTertiary,
             ),
           ),
         ),
@@ -372,7 +372,7 @@ class _VolumeSlider extends StatelessWidget {
           child: Container(
             height: 8,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
             ),
             child: FractionallySizedBox(
@@ -380,7 +380,7 @@ class _VolumeSlider extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentGreen,
+                  color: FluxForgeTheme.accentGreen,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -401,7 +401,7 @@ class _MeterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(1),
       ),
       child: Align(

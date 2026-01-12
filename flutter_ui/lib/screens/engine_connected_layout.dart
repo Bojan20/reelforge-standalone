@@ -21,7 +21,7 @@ import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
 import '../models/timeline_models.dart' as timeline;
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/layout/engine_connected_control_bar.dart';
@@ -43,7 +43,7 @@ import '../widgets/eq/api550_eq.dart';
 import '../widgets/debug/debug_console.dart';
 import '../widgets/eq/neve1073_eq.dart';
 import '../widgets/common/context_menu.dart';
-import '../widgets/editor/clip_editor.dart';
+import '../widgets/editor/clip_editor.dart' as clip_editor;
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
@@ -239,6 +239,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   int _detectedMidi = -1;
   // ignore: unused_field
   List<int> _detectedTransients = [];
+
+  // Clip Editor Hitpoint state (Cubase-style sample editor)
+  List<clip_editor.Hitpoint> _clipHitpoints = [];
+  bool _showClipHitpoints = false;
+  double _clipHitpointSensitivity = 0.5;
+  clip_editor.HitpointAlgorithm _clipHitpointAlgorithm = clip_editor.HitpointAlgorithm.enhanced;
+
+  // Audition state (Cubase-style clip preview)
+  bool _isAuditioning = false;
 
   // Control Room state (now managed by ControlRoomProvider)
 
@@ -947,20 +956,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: const Text('New Project', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: const Text('New Project', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Create a new project?', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+            Text('Create a new project?', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
-            Text('Unsaved changes will be lost.', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+            Text('Unsaved changes will be lost.', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -974,7 +983,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 _loopRegion = const timeline.LoopRegion(start: 0.0, end: 8.0);
               });
             },
-            child: Text('Create', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+            child: Text('Create', style: TextStyle(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -1316,8 +1325,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: const Text('Project Settings', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: const Text('Project Settings', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: SizedBox(
           width: 400,
           child: Column(
@@ -1337,7 +1346,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+            child: Text('Close', style: TextStyle(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -1379,17 +1388,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
+        backgroundColor: FluxForgeTheme.bgElevated,
         title: Row(
           children: [
             Icon(
               issues.isEmpty ? Icons.check_circle : Icons.warning,
-              color: issues.isEmpty ? ReelForgeTheme.accentGreen : ReelForgeTheme.warningOrange,
+              color: issues.isEmpty ? FluxForgeTheme.accentGreen : FluxForgeTheme.warningOrange,
             ),
             const SizedBox(width: 8),
             Text(
               issues.isEmpty ? 'Validation Passed' : 'Validation Issues',
-              style: const TextStyle(color: ReelForgeTheme.textPrimary),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary),
             ),
           ],
         ),
@@ -1397,14 +1406,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: issues.isEmpty
-              ? [Text('No issues found.', style: TextStyle(color: ReelForgeTheme.textSecondary))]
+              ? [Text('No issues found.', style: TextStyle(color: FluxForgeTheme.textSecondary))]
               : issues.map((i) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, size: 14, color: ReelForgeTheme.warningOrange),
+                      Icon(Icons.warning, size: 14, color: FluxForgeTheme.warningOrange),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(i, style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12))),
+                      Expanded(child: Text(i, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12))),
                     ],
                   ),
                 )).toList(),
@@ -1412,7 +1421,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('OK', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+            child: Text('OK', style: TextStyle(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -1606,7 +1615,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: ReelForgeTheme.bgDeep,
+        backgroundColor: FluxForgeTheme.bgDeep,
         child: SizedBox(
           width: 500,
           height: 600,
@@ -1626,7 +1635,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: ReelForgeTheme.bgDeep,
+        backgroundColor: FluxForgeTheme.bgDeep,
         child: SizedBox(
           width: 800,
           height: 600,
@@ -1669,7 +1678,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: ReelForgeTheme.bgElevated,
+        backgroundColor: FluxForgeTheme.bgElevated,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -1994,25 +2003,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: Text('Middleware Settings', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: Text('Middleware Settings', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Events: ${_middlewareEvents.length}', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+            Text('Events: ${_middlewareEvents.length}', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             Text('Total Actions: ${_middlewareEvents.fold<int>(0, (sum, e) => sum + e.actions.length)}',
-                style: TextStyle(color: ReelForgeTheme.textSecondary)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 16),
             Text('View Mode: ${_middlewareGridView ? 'Grid' : 'List'}',
-                style: TextStyle(color: ReelForgeTheme.textSecondary)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+            child: Text('Close', style: TextStyle(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -2024,20 +2033,37 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // PERFORMANCE: No Consumer wrapper - prevents entire layout rebuild on every engine update
     // Use context.read() for callbacks and Selector for reactive parts only
 
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) {
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        // Shift+Cmd+I - Import Audio Files
+        const SingleActivator(LogicalKeyboardKey.keyI, meta: true, shift: true): const _ImportAudioIntent(),
+        // Also support Ctrl+Shift+I for non-Mac
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true, shift: true): const _ImportAudioIntent(),
         // Ctrl+Shift+D toggles debug console
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.keyD &&
-            HardwareKeyboard.instance.isControlPressed &&
-            HardwareKeyboard.instance.isShiftPressed) {
-          setState(() => _showDebugConsole = !_showDebugConsole);
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+        const SingleActivator(LogicalKeyboardKey.keyD, meta: true, shift: true): const _ToggleDebugIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true, shift: true): const _ToggleDebugIntent(),
       },
-      child: Stack(
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _ImportAudioIntent: CallbackAction<_ImportAudioIntent>(
+            onInvoke: (_) {
+              _openFilePicker();
+              return null;
+            },
+          ),
+          _ToggleDebugIntent: CallbackAction<_ToggleDebugIntent>(
+            onInvoke: (_) {
+              setState(() => _showDebugConsole = !_showDebugConsole);
+              return null;
+            },
+          ),
+        },
+        child: FocusScope(
+          autofocus: true,
+          child: Focus(
+            autofocus: true,
+            canRequestFocus: true,
+            child: Stack(
         children: [
           MainLayout(
             // PERFORMANCE: Use custom control bar that handles its own provider listening
@@ -2091,7 +2117,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             channelData: _getSelectedChannelData(),
             onChannelVolumeChange: (channelId, volume) {
               final mixerProvider = context.read<MixerProvider>();
-              final linear = volume <= -60 ? 0.0 : (10.0 * (volume / 20.0)).clamp(0.0, 1.5);
+              // dB to linear: linear = 10^(dB/20)
+              final linear = volume <= -60 ? 0.0 : math.pow(10.0, volume / 20.0).toDouble().clamp(0.0, 1.5);
               mixerProvider.setVolume(channelId, linear);
             },
             onChannelPanChange: (channelId, pan) {
@@ -2181,6 +2208,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               ),
             ),
         ],
+      ),
+          ),
+        ),
       ),
     );
   }
@@ -2315,6 +2345,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
       isPlaying: transport.isPlaying, // For R button pulsing animation
+      // Import audio shortcut (Shift+Cmd+I)
+      onImportAudio: _openFilePicker,
       // Playhead callbacks
       onPlayheadChange: (time) {
         final engine = context.read<EngineProvider>();
@@ -2965,7 +2997,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final actionCount = event?.actions.length ?? 0;
 
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           // Middleware Toolbar - Full command bar with all options - CONNECTED
@@ -2973,8 +3005,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
-              border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+              color: FluxForgeTheme.bgMid,
+              border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -2993,10 +3025,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         _selectedActionIndex = -1;
                       });
                     },
-                    accentColor: ReelForgeTheme.accentOrange,
+                    accentColor: FluxForgeTheme.accentOrange,
                   ),
                   const SizedBox(width: 8),
-                  Container(width: 1, height: 20, color: ReelForgeTheme.borderSubtle),
+                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
                   const SizedBox(width: 8),
                   // Action type dropdown - Updates header state
                   _ToolbarDropdown(
@@ -3005,7 +3037,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     value: _headerActionType,
                     options: kActionTypes,
                     onChanged: (val) => setState(() => _headerActionType = val),
-                    accentColor: ReelForgeTheme.accentGreen,
+                    accentColor: FluxForgeTheme.accentGreen,
                   ),
                   const SizedBox(width: 8),
                   // Asset ID dropdown
@@ -3015,7 +3047,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     value: _headerAssetId,
                     options: kAllAssetIds,
                     onChanged: (val) => setState(() => _headerAssetId = val),
-                    accentColor: ReelForgeTheme.accentCyan,
+                    accentColor: FluxForgeTheme.accentCyan,
                   ),
                   const SizedBox(width: 8),
                   // Bus dropdown
@@ -3025,10 +3057,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     value: _headerBus,
                     options: kAllBuses,
                     onChanged: (val) => setState(() => _headerBus = val),
-                    accentColor: ReelForgeTheme.accentBlue,
+                    accentColor: FluxForgeTheme.accentBlue,
                   ),
                   const SizedBox(width: 8),
-                  Container(width: 1, height: 20, color: ReelForgeTheme.borderSubtle),
+                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
                   const SizedBox(width: 8),
                   // Scope dropdown
                   _ToolbarDropdown(
@@ -3037,7 +3069,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     value: _headerScope,
                     options: kScopes,
                     onChanged: (val) => setState(() => _headerScope = val),
-                    accentColor: ReelForgeTheme.textSecondary,
+                    accentColor: FluxForgeTheme.textSecondary,
                   ),
                   const SizedBox(width: 8),
                   // Priority dropdown
@@ -3047,10 +3079,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     value: _headerPriority,
                     options: kPriorities,
                     onChanged: (val) => setState(() => _headerPriority = val),
-                    accentColor: ReelForgeTheme.textSecondary,
+                    accentColor: FluxForgeTheme.textSecondary,
                   ),
                   const SizedBox(width: 8),
-                  Container(width: 1, height: 20, color: ReelForgeTheme.borderSubtle),
+                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
                   const SizedBox(width: 8),
                   // Action buttons - ALL CONNECTED
                   _ToolbarButton(icon: Icons.add, label: 'Add', onTap: _addAction),
@@ -3069,7 +3101,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     onTap: _selectedActionIndex >= 0 ? () => _deleteAction(_selectedActionIndex) : () {},
                   ),
                   const SizedBox(width: 12),
-                  Container(width: 1, height: 20, color: ReelForgeTheme.borderSubtle),
+                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
                   const SizedBox(width: 8),
                   // View mode toggles - CONNECTED
                   _ToolbarIconButton(
@@ -3089,10 +3121,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       if (val == 'import') _importEventsFromJson();
                     },
                     offset: const Offset(0, 32),
-                    color: ReelForgeTheme.bgElevated,
+                    color: FluxForgeTheme.bgElevated,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
-                      side: BorderSide(color: ReelForgeTheme.borderSubtle),
+                      side: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
                     itemBuilder: (context) => [
                       PopupMenuItem(
@@ -3100,9 +3132,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         height: 32,
                         child: Row(
                           children: [
-                            Icon(Icons.upload, size: 14, color: ReelForgeTheme.textSecondary),
+                            Icon(Icons.upload, size: 14, color: FluxForgeTheme.textSecondary),
                             const SizedBox(width: 8),
-                            Text('Export to Clipboard', style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary)),
+                            Text('Export to Clipboard', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
                           ],
                         ),
                       ),
@@ -3111,16 +3143,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         height: 32,
                         child: Row(
                           children: [
-                            Icon(Icons.download, size: 14, color: ReelForgeTheme.textSecondary),
+                            Icon(Icons.download, size: 14, color: FluxForgeTheme.textSecondary),
                             const SizedBox(width: 8),
-                            Text('Import from Clipboard', style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary)),
+                            Text('Import from Clipboard', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
                           ],
                         ),
                       ),
                     ],
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.import_export, size: 16, color: ReelForgeTheme.textSecondary),
+                      child: Icon(Icons.import_export, size: 16, color: FluxForgeTheme.textSecondary),
                     ),
                   ),
                   // Settings - CONNECTED
@@ -3133,8 +3165,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid.withValues(alpha: 0.5),
-              border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+              color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
+              border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -3146,13 +3178,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.api, size: 16, color: ReelForgeTheme.accentOrange),
+                          Icon(Icons.api, size: 16, color: FluxForgeTheme.accentOrange),
                           const SizedBox(width: 8),
-                          Text('Event: $eventName', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ReelForgeTheme.textPrimary)),
+                          Text('Event: $eventName', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: FluxForgeTheme.textPrimary)),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('$actionCount action(s) • Category: ${event?.category ?? "—"}', style: TextStyle(fontSize: 11, color: ReelForgeTheme.textSecondary)),
+                      Text('$actionCount action(s) • Category: ${event?.category ?? "—"}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
                     ],
                   ),
                   const SizedBox(width: 24),
@@ -3243,12 +3275,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         height: 200,
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgMid,
+          color: FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Center(
-          child: Text('No event selected', style: TextStyle(color: ReelForgeTheme.textSecondary)),
+          child: Text('No event selected', style: TextStyle(color: FluxForgeTheme.textSecondary)),
         ),
       );
     }
@@ -3257,9 +3289,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       width: 950,
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3269,22 +3301,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgElevated,
+              color: FluxForgeTheme.bgElevated,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
             ),
             child: Row(
               children: const [
-                SizedBox(width: 24, child: Text('#', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 110, child: Text('Action Type', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 130, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Target Bus', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 50, child: Text('Gain', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 60, child: Text('Fade', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Curve', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 90, child: Text('Scope', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 32, child: Text('L', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Priority', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 50, child: Text('Actions', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 24, child: Text('#', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 110, child: Text('Action Type', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 130, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 80, child: Text('Target Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 50, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 60, child: Text('Fade', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 80, child: Text('Curve', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 90, child: Text('Scope', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 32, child: Text('L', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 80, child: Text('Priority', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 50, child: Text('Actions', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
               ],
             ),
           ),
@@ -3298,12 +3330,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15) : Colors.transparent,
-                  border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle, width: 0.5)),
+                  color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : Colors.transparent,
+                  border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    SizedBox(width: 24, child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary))),
+                    SizedBox(width: 24, child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))),
                     // Action Type dropdown - CONNECTED
                     SizedBox(
                       width: 110,
@@ -3320,7 +3352,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       child: _CellDropdown(
                         value: action.assetId.isEmpty ? '—' : action.assetId,
                         options: kAllAssetIds,
-                        color: ReelForgeTheme.accentCyan,
+                        color: FluxForgeTheme.accentCyan,
                         onChanged: (val) => _updateAction(idx, action.copyWith(assetId: val == '—' ? '' : val)),
                       ),
                     ),
@@ -3330,19 +3362,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       child: _CellDropdown(
                         value: action.bus,
                         options: kAllBuses,
-                        color: ReelForgeTheme.accentBlue,
+                        color: FluxForgeTheme.accentBlue,
                         onChanged: (val) => _updateAction(idx, action.copyWith(bus: val)),
                       ),
                     ),
                     // Gain - display
                     SizedBox(
                       width: 50,
-                      child: Text('${(action.gain * 100).toInt()}%', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary, fontFamily: 'monospace')),
+                      child: Text('${(action.gain * 100).toInt()}%', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary, fontFamily: 'monospace')),
                     ),
                     // Fade - display
                     SizedBox(
                       width: 60,
-                      child: Text('${(action.fadeTime * 1000).toInt()}ms', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textSecondary, fontFamily: 'monospace')),
+                      child: Text('${(action.fadeTime * 1000).toInt()}ms', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary, fontFamily: 'monospace')),
                     ),
                     // Curve dropdown - CONNECTED
                     SizedBox(
@@ -3370,7 +3402,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         child: Icon(
                           action.loop ? Icons.loop : Icons.trending_flat,
                           size: 14,
-                          color: action.loop ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+                          color: action.loop ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
                         ),
                       ),
                     ),
@@ -3391,12 +3423,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         children: [
                           GestureDetector(
                             onTap: () => _duplicateAction(idx),
-                            child: Icon(Icons.copy, size: 14, color: ReelForgeTheme.textTertiary),
+                            child: Icon(Icons.copy, size: 14, color: FluxForgeTheme.textTertiary),
                           ),
                           const SizedBox(width: 8),
                           GestureDetector(
                             onTap: () => _deleteAction(idx),
-                            child: Icon(Icons.delete_outline, size: 14, color: ReelForgeTheme.textTertiary),
+                            child: Icon(Icons.delete_outline, size: 14, color: FluxForgeTheme.textTertiary),
                           ),
                         ],
                       ),
@@ -3413,9 +3445,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.add_circle_outline, size: 14, color: ReelForgeTheme.accentOrange),
+                  Icon(Icons.add_circle_outline, size: 14, color: FluxForgeTheme.accentOrange),
                   const SizedBox(width: 8),
-                  Text('Add action...', style: TextStyle(fontSize: 11, color: ReelForgeTheme.accentOrange)),
+                  Text('Add action...', style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentOrange)),
                 ],
               ),
             ),
@@ -3429,47 +3461,47 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     switch (type) {
       case 'Play':
       case 'PlayAndContinue':
-        return ReelForgeTheme.accentGreen;
+        return FluxForgeTheme.accentGreen;
       case 'Stop':
       case 'StopAll':
       case 'Break':
-        return ReelForgeTheme.errorRed;
+        return FluxForgeTheme.errorRed;
       case 'Pause':
       case 'PauseAll':
-        return ReelForgeTheme.accentOrange;
+        return FluxForgeTheme.accentOrange;
       case 'Resume':
       case 'ResumeAll':
-        return ReelForgeTheme.accentCyan;
+        return FluxForgeTheme.accentCyan;
       case 'SetVolume':
       case 'SetBusVolume':
       case 'SetPitch':
-        return ReelForgeTheme.accentBlue;
+        return FluxForgeTheme.accentBlue;
       case 'SetState':
       case 'SetSwitch':
       case 'SetRTPC':
         return const Color(0xFF845EF7); // Purple
       case 'Mute':
       case 'Unmute':
-        return ReelForgeTheme.textSecondary;
+        return FluxForgeTheme.textSecondary;
       default:
-        return ReelForgeTheme.textPrimary;
+        return FluxForgeTheme.textPrimary;
     }
   }
 
   Color _getPriorityColor(String priority) {
     switch (priority) {
       case 'Highest':
-        return ReelForgeTheme.errorRed;
+        return FluxForgeTheme.errorRed;
       case 'High':
-        return ReelForgeTheme.accentOrange;
+        return FluxForgeTheme.accentOrange;
       case 'Normal':
-        return ReelForgeTheme.textPrimary;
+        return FluxForgeTheme.textPrimary;
       case 'Low':
-        return ReelForgeTheme.textSecondary;
+        return FluxForgeTheme.textSecondary;
       case 'Lowest':
-        return ReelForgeTheme.textTertiary;
+        return FluxForgeTheme.textTertiary;
       default:
-        return ReelForgeTheme.textPrimary;
+        return FluxForgeTheme.textPrimary;
     }
   }
 
@@ -3487,7 +3519,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final engine = context.read<EngineProvider>();
     final transport = engine.transport;
 
-    return ConnectedClipEditor(
+    return clip_editor.ConnectedClipEditor(
       selectedClipId: clip?.id,
       clipName: clip?.name,
       clipDuration: clip?.duration,
@@ -3575,6 +3607,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         // Call Rust reverse function via FFI
         engine.reverseClip(clipId);
       },
+      // Audition - play clip preview
+      isAuditioning: _isAuditioning,
+      onAudition: (clipId, startTime, endTime) {
+        debugPrint('[Audition] Play clip $clipId from $startTime to $endTime');
+        // Move playhead to start position and play
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        engine.seek(clip.startTime + startTime);
+        engine.play();
+        setState(() => _isAuditioning = true);
+      },
+      onStopAudition: () {
+        debugPrint('[Audition] Stop');
+        engine.pause();
+        setState(() => _isAuditioning = false);
+      },
       onTrimToSelection: (clipId, selection) {
         setState(() {
           _clips = _clips.map((c) {
@@ -3630,7 +3677,152 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           engine.seek(clip.startTime + localPosition);
         }
       },
+      // Hitpoint callbacks (Cubase-style sample editor)
+      hitpoints: _clipHitpoints,
+      showHitpoints: _showClipHitpoints,
+      hitpointSensitivity: _clipHitpointSensitivity,
+      hitpointAlgorithm: _clipHitpointAlgorithm,
+      onShowHitpointsChange: (show) {
+        setState(() => _showClipHitpoints = show);
+      },
+      onHitpointSensitivityChange: (sensitivity) {
+        setState(() => _clipHitpointSensitivity = sensitivity);
+      },
+      onHitpointAlgorithmChange: (algorithm) {
+        setState(() => _clipHitpointAlgorithm = algorithm);
+      },
+      onDetectHitpoints: () {
+        debugPrint('[Layout] onDetectHitpoints callback called');
+        _detectClipHitpoints();
+      },
+      onHitpointsChange: (hitpoints) {
+        setState(() => _clipHitpoints = hitpoints);
+      },
+      onDeleteHitpoint: (index) {
+        if (index >= 0 && index < _clipHitpoints.length) {
+          setState(() {
+            _clipHitpoints = List.from(_clipHitpoints)..removeAt(index);
+          });
+        }
+      },
+      onMoveHitpoint: (index, newPosition) {
+        if (index >= 0 && index < _clipHitpoints.length) {
+          setState(() {
+            final hp = _clipHitpoints[index];
+            _clipHitpoints = List.from(_clipHitpoints)
+              ..[index] = hp.copyWith(position: newPosition);
+          });
+        }
+      },
+      onAddHitpoint: (samplePosition) {
+        setState(() {
+          _clipHitpoints = List.from(_clipHitpoints)
+            ..add(clip_editor.Hitpoint(
+              position: samplePosition,
+              strength: 1.0,
+              isManual: true,
+            ))
+            ..sort((a, b) => a.position.compareTo(b.position));
+        });
+      },
+      onSliceAtHitpoints: (clipId, hitpoints) {
+        _sliceClipAtHitpoints(clipId, hitpoints);
+      },
     );
+  }
+
+  /// Detect hitpoints in selected clip using Rust engine
+  void _detectClipHitpoints() {
+    final clip = _selectedClip;
+    if (clip == null) return;
+
+    // Parse clip ID to get the numeric clip ID for FFI
+    final clipIdNumeric = int.tryParse(clip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (clipIdNumeric == 0) {
+      debugPrint('[ClipEditor] Invalid clip ID for hitpoint detection: ${clip.id}');
+      return;
+    }
+
+    // Call FFI to detect transients
+    final ffi = NativeFFI.instance;
+    final results = ffi.detectClipTransients(
+      clipIdNumeric,
+      sensitivity: _clipHitpointSensitivity,
+      algorithm: _clipHitpointAlgorithm.index,
+      minGapMs: 20.0,
+    );
+
+    // Convert to Hitpoint objects
+    setState(() {
+      _clipHitpoints = results
+          .map((r) => clip_editor.Hitpoint(
+                position: r.position,
+                strength: r.strength,
+                isManual: false,
+              ))
+          .toList();
+      _showClipHitpoints = true;
+    });
+
+    debugPrint('[ClipEditor] Detected ${_clipHitpoints.length} hitpoints');
+  }
+
+  /// Slice clip at hitpoint positions (creates multiple clips)
+  void _sliceClipAtHitpoints(String clipId, List<clip_editor.Hitpoint> hitpoints) {
+    if (hitpoints.isEmpty) return;
+
+    final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+    final sampleRate = 48000; // TODO: get from clip
+
+    // Sort hitpoints by position
+    final sortedHitpoints = List<clip_editor.Hitpoint>.from(hitpoints)
+      ..sort((a, b) => a.position.compareTo(b.position));
+
+    // Create slices
+    final newClips = <timeline.TimelineClip>[];
+    double prevTime = 0;
+
+    for (int i = 0; i < sortedHitpoints.length; i++) {
+      final hp = sortedHitpoints[i];
+      final sliceTime = hp.position / sampleRate;
+
+      if (sliceTime > prevTime && sliceTime < clip.duration) {
+        newClips.add(timeline.TimelineClip(
+          id: '${clipId}_slice_$i',
+          trackId: clip.trackId,
+          name: '${clip.name} (${i + 1})',
+          startTime: clip.startTime + prevTime,
+          duration: sliceTime - prevTime,
+          sourceOffset: clip.sourceOffset + prevTime,
+          sourceDuration: clip.sourceDuration,
+          color: clip.color,
+          waveform: clip.waveform,
+        ));
+        prevTime = sliceTime;
+      }
+    }
+
+    // Add final slice
+    if (prevTime < clip.duration) {
+      newClips.add(timeline.TimelineClip(
+        id: '${clipId}_slice_${sortedHitpoints.length}',
+        trackId: clip.trackId,
+        name: '${clip.name} (${sortedHitpoints.length + 1})',
+        startTime: clip.startTime + prevTime,
+        duration: clip.duration - prevTime,
+        sourceOffset: clip.sourceOffset + prevTime,
+        sourceDuration: clip.sourceDuration,
+        color: clip.color,
+        waveform: clip.waveform,
+      ));
+    }
+
+    setState(() {
+      _clips = _clips.where((c) => c.id != clipId).toList()..addAll(newClips);
+      _clipHitpoints = []; // Clear hitpoints after slicing
+    });
+
+    debugPrint('[ClipEditor] Sliced clip into ${newClips.length} parts');
   }
 
   /// Build Crossfade Editor content
@@ -3934,7 +4126,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final masterStrip = ProMixerStripData(
       id: 'master',
       name: 'Stereo Out',
-      trackColor: ReelForgeTheme.warningOrange,
+      trackColor: FluxForgeTheme.warningOrange,
       type: 'master',
       volume: _busVolumes['master'] ?? 1.0,
       muted: _busMuted['master'] ?? false,
@@ -3948,7 +4140,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
 
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4050,7 +4242,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       id: 'master',
       name: 'MASTER',
       type: ultimate.ChannelType.master,
-      color: ReelForgeTheme.warningOrange,
+      color: FluxForgeTheme.warningOrange,
       volume: _busVolumes['master'] ?? 1.0,
       pan: 0,
       muted: _busMuted['master'] ?? false,
@@ -4158,7 +4350,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final result = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgElevated,
+          backgroundColor: FluxForgeTheme.bgElevated,
           contentPadding: EdgeInsets.zero,
           content: SizedBox(
             width: 200,
@@ -4168,21 +4360,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgSurface,
+                    color: FluxForgeTheme.bgSurface,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                   ),
                   child: Row(
                     children: [
                       Icon(currentSlot.plugin!.category.icon, size: 16, color: currentSlot.plugin!.category.color),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(currentSlot.plugin!.name, style: ReelForgeTheme.label, overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(currentSlot.plugin!.name, style: FluxForgeTheme.label, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                 ),
                 _InsertMenuOption(icon: Icons.open_in_new, label: 'Open Editor', onTap: () => Navigator.pop(ctx, 'open')),
                 _InsertMenuOption(icon: currentSlot.bypassed ? Icons.toggle_on : Icons.toggle_off, label: currentSlot.bypassed ? 'Enable' : 'Bypass', onTap: () => Navigator.pop(ctx, 'bypass')),
                 _InsertMenuOption(icon: Icons.swap_horiz, label: 'Replace', onTap: () => Navigator.pop(ctx, 'replace')),
-                _InsertMenuOption(icon: Icons.delete_outline, label: 'Remove', color: ReelForgeTheme.errorRed, onTap: () => Navigator.pop(ctx, 'remove')),
+                _InsertMenuOption(icon: Icons.delete_outline, label: 'Remove', color: FluxForgeTheme.errorRed, onTap: () => Navigator.pop(ctx, 'remove')),
               ],
             ),
           ),
@@ -4247,12 +4439,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   Color _getBusColor(String busId) {
     switch (busId) {
-      case 'sfx': return ReelForgeTheme.accentBlue;
-      case 'music': return ReelForgeTheme.accentCyan;
-      case 'voice': return ReelForgeTheme.warningOrange;
-      case 'amb': return ReelForgeTheme.accentGreen;
-      case 'ui': return ReelForgeTheme.accentBlue.withValues(alpha: 0.7);
-      default: return ReelForgeTheme.accentBlue;
+      case 'sfx': return FluxForgeTheme.accentBlue;
+      case 'music': return FluxForgeTheme.accentCyan;
+      case 'voice': return FluxForgeTheme.warningOrange;
+      case 'amb': return FluxForgeTheme.accentGreen;
+      case 'ui': return FluxForgeTheme.accentBlue.withValues(alpha: 0.7);
+      default: return FluxForgeTheme.accentBlue;
     }
   }
 
@@ -4401,15 +4593,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: Text('Output Routing', style: ReelForgeTheme.label),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: Text('Output Routing', style: FluxForgeTheme.label),
         content: SizedBox(
           width: 200,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: outputs.map((output) => ListTile(
               dense: true,
-              title: Text(output, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              title: Text(output, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
               onTap: () => Navigator.pop(ctx, output),
             )).toList(),
           ),
@@ -4443,15 +4635,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: Text('Input Source', style: ReelForgeTheme.label),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: Text('Input Source', style: FluxForgeTheme.label),
         content: SizedBox(
           width: 200,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: inputs.map((input) => ListTile(
               dense: true,
-              title: Text(input, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              title: Text(input, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
               onTap: () => Navigator.pop(ctx, input),
             )).toList(),
           ),
@@ -4479,15 +4671,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
-        title: Text('Send ${sendIndex + 1} Destination', style: ReelForgeTheme.label),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: Text('Send ${sendIndex + 1} Destination', style: FluxForgeTheme.label),
         content: SizedBox(
           width: 200,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: sends.map((send) => ListTile(
               dense: true,
-              title: Text(send, style: TextStyle(fontSize: 12, color: ReelForgeTheme.textPrimary)),
+              title: Text(send, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
               onTap: () => Navigator.pop(ctx, send),
             )).toList(),
           ),
@@ -4566,49 +4758,49 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       'RF-EQ 64': PluginInfo(
         id: 'rf-eq-64',
         name: 'RF-EQ 64',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.eq,
         format: PluginFormat.internal,
       ),
       'RF-COMP': PluginInfo(
         id: 'rf-comp',
         name: 'RF-COMP',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.dynamics,
         format: PluginFormat.internal,
       ),
       'RF-LIMIT': PluginInfo(
         id: 'rf-limit',
         name: 'RF-LIMIT',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.dynamics,
         format: PluginFormat.internal,
       ),
       'RF-GATE': PluginInfo(
         id: 'rf-gate',
         name: 'RF-GATE',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.dynamics,
         format: PluginFormat.internal,
       ),
       'RF-VERB': PluginInfo(
         id: 'rf-verb',
         name: 'RF-VERB',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.reverb,
         format: PluginFormat.internal,
       ),
       'RF-DELAY': PluginInfo(
         id: 'rf-delay',
         name: 'RF-DELAY',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.delay,
         format: PluginFormat.internal,
       ),
       'RF-SAT': PluginInfo(
         id: 'rf-sat',
         name: 'RF-SAT',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         category: PluginCategory.saturation,
         format: PluginFormat.internal,
       ),
@@ -4640,7 +4832,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final result = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgElevated,
+          backgroundColor: FluxForgeTheme.bgElevated,
           contentPadding: EdgeInsets.zero,
           content: SizedBox(
             width: 200,
@@ -4651,7 +4843,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgSurface,
+                    color: FluxForgeTheme.bgSurface,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                   ),
                   child: Row(
@@ -4665,7 +4857,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       Expanded(
                         child: Text(
                           currentSlot.plugin!.name,
-                          style: ReelForgeTheme.label,
+                          style: FluxForgeTheme.label,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -4691,7 +4883,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 _InsertMenuOption(
                   icon: Icons.delete_outline,
                   label: 'Remove',
-                  color: ReelForgeTheme.errorRed,
+                  color: FluxForgeTheme.errorRed,
                   onTap: () => Navigator.pop(ctx, 'remove'),
                 ),
               ],
@@ -4836,7 +5028,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           name: 'Pro EQ',
           category: PluginCategory.eq,
           format: PluginFormat.internal,
-          vendor: 'ReelForge',
+          vendor: 'FluxForge Studio',
         );
 
         setState(() {
@@ -4905,7 +5097,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               border: Border.all(color: const Color(0xFF404048)),
               boxShadow: [
                 BoxShadow(
-                  color: ReelForgeTheme.bgVoid.withValues(alpha: 0.8),
+                  color: FluxForgeTheme.bgVoid.withValues(alpha: 0.8),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -5150,7 +5342,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             decoration: BoxDecoration(
               color: const Color(0xFF121216),
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
+                bottom: BorderSide(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
             ),
             child: Row(
@@ -5164,7 +5356,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 Text(
                   'Vintage Analog EQ Models',
                   style: TextStyle(
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                     fontSize: 12,
                   ),
                 ),
@@ -5208,16 +5400,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textTertiary,
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -5352,19 +5544,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               decoration: BoxDecoration(
                 color: const Color(0xFF121216),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
+                border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.flash_on, color: ReelForgeTheme.accentOrange, size: 18),
+                      Icon(Icons.flash_on, color: FluxForgeTheme.accentOrange, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         'Transient Detection',
                         style: TextStyle(
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -5377,26 +5569,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     '• Automatic beat slicing\n'
                     '• Tempo detection\n'
                     '• Quantization points',
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12, height: 1.5),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   // Sensitivity slider
-                  Text('Sensitivity', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
+                  Text('Sensitivity', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
                   Slider(
                     value: _transientSensitivity,
                     min: 0.0,
                     max: 1.0,
                     onChanged: (v) => setState(() => _transientSensitivity = v),
-                    activeColor: ReelForgeTheme.accentOrange,
+                    activeColor: FluxForgeTheme.accentOrange,
                   ),
                   // Algorithm selector
-                  Text('Algorithm', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11)),
+                  Text('Algorithm', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
                   const SizedBox(height: 4),
                   DropdownButton<int>(
                     value: _transientAlgorithm,
-                    dropdownColor: ReelForgeTheme.bgMid,
-                    style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
-                    underline: Container(height: 1, color: ReelForgeTheme.borderSubtle),
+                    dropdownColor: FluxForgeTheme.bgMid,
+                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                    underline: Container(height: 1, color: FluxForgeTheme.borderSubtle),
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(value: 0, child: Text('High Emphasis')),
@@ -5415,8 +5607,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       icon: const Icon(Icons.search, size: 16),
                       label: const Text('Detect Transients'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ReelForgeTheme.accentOrange,
-                        foregroundColor: ReelForgeTheme.textPrimary,
+                        backgroundColor: FluxForgeTheme.accentOrange,
+                        foregroundColor: FluxForgeTheme.textPrimary,
                       ),
                       onPressed: () {
                         // TODO: Get audio data from selected clip
@@ -5437,19 +5629,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               decoration: BoxDecoration(
                 color: const Color(0xFF121216),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1)),
+                border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.music_note, color: ReelForgeTheme.accentCyan, size: 18),
+                      Icon(Icons.music_note, color: FluxForgeTheme.accentCyan, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         'Pitch Detection',
                         style: TextStyle(
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -5462,14 +5654,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     '• Audio to MIDI conversion\n'
                     '• Key detection\n'
                     '• Melodyne-style editing',
-                    style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12, height: 1.5),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   // Detected pitch display
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgVoid,
+                      color: FluxForgeTheme.bgVoid,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -5478,11 +5670,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Detected Pitch', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+                              Text('Detected Pitch', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
                               Text(
                                 _detectedPitch > 0 ? '${_detectedPitch.toStringAsFixed(1)} Hz' : '-- Hz',
                                 style: TextStyle(
-                                  color: ReelForgeTheme.accentCyan,
+                                  color: FluxForgeTheme.accentCyan,
                                   fontSize: 20,
                                   fontFamily: 'monospace',
                                   fontWeight: FontWeight.bold,
@@ -5495,11 +5687,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('MIDI Note', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+                              Text('MIDI Note', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
                               Text(
                                 _detectedMidi >= 0 ? _midiNoteToName(_detectedMidi) : '--',
                                 style: TextStyle(
-                                  color: ReelForgeTheme.accentGreen,
+                                  color: FluxForgeTheme.accentGreen,
                                   fontSize: 20,
                                   fontFamily: 'monospace',
                                   fontWeight: FontWeight.bold,
@@ -5519,8 +5711,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       icon: const Icon(Icons.piano, size: 16),
                       label: const Text('Detect Pitch'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ReelForgeTheme.accentCyan,
-                        foregroundColor: ReelForgeTheme.textPrimary,
+                        backgroundColor: FluxForgeTheme.accentCyan,
+                        foregroundColor: FluxForgeTheme.textPrimary,
                       ),
                       onPressed: () {
                         // TODO: Get audio data from selected clip
@@ -5632,7 +5824,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// Build Loudness meter content (LUFS + True Peak)
   Widget _buildLoudnessContent(MeteringState metering) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -5661,9 +5853,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             width: 200,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               border: Border(
-                left: BorderSide(color: ReelForgeTheme.borderSubtle),
+                left: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Column(
@@ -5674,7 +5866,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -5686,9 +5878,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgDeepest,
+                    color: FluxForgeTheme.bgDeepest,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: ReelForgeTheme.borderSubtle),
+                    border: Border.all(color: FluxForgeTheme.borderSubtle),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -5697,7 +5889,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         'Current Reading',
                         style: TextStyle(
                           fontSize: 9,
-                          color: ReelForgeTheme.textTertiary,
+                          color: FluxForgeTheme.textTertiary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -5708,7 +5900,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                             'LUFS-I',
                             style: TextStyle(
                               fontSize: 10,
-                              color: ReelForgeTheme.textSecondary,
+                              color: FluxForgeTheme.textSecondary,
                             ),
                           ),
                           Text(
@@ -5719,7 +5911,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               fontFamily: 'monospace',
-                              color: ReelForgeTheme.textPrimary,
+                              color: FluxForgeTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -5732,7 +5924,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                             'True Peak',
                             style: TextStyle(
                               fontSize: 10,
-                              color: ReelForgeTheme.textSecondary,
+                              color: FluxForgeTheme.textSecondary,
                             ),
                           ),
                           Text(
@@ -5745,7 +5937,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                               fontFamily: 'monospace',
                               color: metering.masterTruePeak > -1
                                   ? const Color(0xFFFF4040)
-                                  : ReelForgeTheme.textPrimary,
+                                  : FluxForgeTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -5771,7 +5963,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               name,
               style: TextStyle(
                 fontSize: 10,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -5780,7 +5972,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             style: TextStyle(
               fontSize: 9,
               fontFamily: 'monospace',
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(width: 8),
@@ -5789,7 +5981,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             style: TextStyle(
               fontSize: 9,
               fontFamily: 'monospace',
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
         ],
@@ -5945,7 +6137,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'clip-editor',
         label: 'Clip Editor',
         icon: Icons.edit,
-        content: _buildClipEditorContent(),
+        contentBuilder: _buildClipEditorContent, // Dynamic - needs fresh callbacks
         groupId: 'editor',
       ),
       // ========== Crossfade Editor (Editor group) ==========
@@ -6473,7 +6665,7 @@ class _MeterRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                  color: ReelForgeTheme.textSecondary, fontSize: 11),
+                  color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           SizedBox(
@@ -6482,7 +6674,7 @@ class _MeterRow extends StatelessWidget {
               value,
               textAlign: TextAlign.right,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -6492,7 +6684,7 @@ class _MeterRow extends StatelessWidget {
           Text(
             unit,
             style: TextStyle(
-                color: ReelForgeTheme.textTertiary, fontSize: 10),
+                color: FluxForgeTheme.textTertiary, fontSize: 10),
           ),
         ],
       ),
@@ -6522,14 +6714,14 @@ class _StatusIndicator extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? color : ReelForgeTheme.textTertiary,
+            color: active ? color : FluxForgeTheme.textTertiary,
           ),
         ),
         const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
-            color: active ? color : ReelForgeTheme.textTertiary,
+            color: active ? color : FluxForgeTheme.textTertiary,
             fontSize: 12,
           ),
         ),
@@ -6556,20 +6748,20 @@ class _InspectorField extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeepest,
+                color: FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: Text(
                 value,
-                style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 11),
+                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
               ),
             ),
           ),
@@ -6600,25 +6792,25 @@ class _InspectorDropdown extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeepest,
+                color: FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     value,
-                    style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 11),
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
                   ),
-                  Icon(Icons.arrow_drop_down, size: 14, color: ReelForgeTheme.textSecondary),
+                  Icon(Icons.arrow_drop_down, size: 14, color: FluxForgeTheme.textSecondary),
                 ],
               ),
             ),
@@ -6650,16 +6842,16 @@ class _InspectorSlider extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           Expanded(
             child: Container(
               height: 20,
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeepest,
+                color: FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: Stack(
                 children: [
@@ -6667,7 +6859,7 @@ class _InspectorSlider extends StatelessWidget {
                     widthFactor: value.clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -6675,7 +6867,7 @@ class _InspectorSlider extends StatelessWidget {
                   Center(
                     child: Text(
                       suffix,
-                      style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 10),
+                      style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
                     ),
                   ),
                 ],
@@ -6704,21 +6896,21 @@ class _InspectorCheckbox extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           Container(
             width: 16,
             height: 16,
             decoration: BoxDecoration(
-              color: checked ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgDeepest,
+              color: checked ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(3),
               border: Border.all(
-                color: checked ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+                color: checked ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
               ),
             ),
             child: checked
-                ? Icon(Icons.check, size: 12, color: ReelForgeTheme.textPrimary)
+                ? Icon(Icons.check, size: 12, color: FluxForgeTheme.textPrimary)
                 : null,
           ),
         ],
@@ -6743,16 +6935,16 @@ class _ToolbarButton extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: label.isEmpty ? 6 : 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.accentOrange,
+          color: FluxForgeTheme.accentOrange,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: ReelForgeTheme.textPrimary),
+            Icon(icon, size: 12, color: FluxForgeTheme.textPrimary),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
+              Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
             ],
           ],
         ),
@@ -6780,7 +6972,7 @@ class _ToolbarIconButton extends StatelessWidget {
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Icon(icon, size: 16, color: ReelForgeTheme.textSecondary),
+          child: Icon(icon, size: 16, color: FluxForgeTheme.textSecondary),
         ),
       ),
     );
@@ -6809,10 +7001,10 @@ class _ToolbarDropdown extends StatelessWidget {
     return PopupMenuButton<String>(
       onSelected: onChanged,
       offset: const Offset(0, 32),
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       itemBuilder: (context) => options.map((option) {
         final isSelected = option == value;
@@ -6831,7 +7023,7 @@ class _ToolbarDropdown extends StatelessWidget {
                 option,
                 style: TextStyle(
                   fontSize: 11,
-                  color: isSelected ? accentColor : ReelForgeTheme.textPrimary,
+                  color: isSelected ? accentColor : FluxForgeTheme.textPrimary,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
@@ -6842,9 +7034,9 @@ class _ToolbarDropdown extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -6852,7 +7044,7 @@ class _ToolbarDropdown extends StatelessWidget {
             Icon(icon, size: 12, color: accentColor),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 10, color: ReelForgeTheme.textSecondary)),
+              Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
               const SizedBox(width: 4),
             ],
             Text(value, style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w600)),
@@ -6883,10 +7075,10 @@ class _MiniDropdown extends StatelessWidget {
     return PopupMenuButton<String>(
       onSelected: onChanged,
       offset: const Offset(0, 28),
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       itemBuilder: (context) => options.map((option) {
         final isSelected = option == value;
@@ -6898,7 +7090,7 @@ class _MiniDropdown extends StatelessWidget {
             option,
             style: TextStyle(
               fontSize: 11,
-              color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textPrimary,
+              color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textPrimary,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -6907,18 +7099,18 @@ class _MiniDropdown extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary)),
+            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
             const SizedBox(width: 6),
-            Text(value, style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary)),
+            Text(value, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary)),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 12, color: ReelForgeTheme.textSecondary),
+            Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textSecondary),
           ],
         ),
       ),
@@ -6944,16 +7136,16 @@ class _MiniInput extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary)),
+            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
             const SizedBox(width: 6),
-            Text(value, style: TextStyle(fontSize: 10, color: ReelForgeTheme.accentCyan, fontFamily: 'monospace')),
+            Text(value, style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentCyan, fontFamily: 'monospace')),
           ],
         ),
       ),
@@ -6979,9 +7171,9 @@ class _MiniToggle extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: value ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2) : ReelForgeTheme.bgDeepest,
+          color: value ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: value ? ReelForgeTheme.accentGreen : ReelForgeTheme.borderSubtle),
+          border: Border.all(color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -6989,10 +7181,10 @@ class _MiniToggle extends StatelessWidget {
             Icon(
               value ? Icons.loop : Icons.trending_flat,
               size: 12,
-              color: value ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+              color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
             ),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, color: value ? ReelForgeTheme.accentGreen : ReelForgeTheme.textSecondary)),
+            Text(label, style: TextStyle(fontSize: 10, color: value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary)),
           ],
         ),
       ),
@@ -7020,11 +7212,11 @@ class _CellDropdown extends StatelessWidget {
     return PopupMenuButton<String>(
       onSelected: onChanged,
       offset: const Offset(0, 24),
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       padding: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       itemBuilder: (context) => options.map((option) {
         final isSelected = option == value;
@@ -7036,7 +7228,7 @@ class _CellDropdown extends StatelessWidget {
             option,
             style: TextStyle(
               fontSize: 11,
-              color: isSelected ? (color ?? ReelForgeTheme.accentBlue) : ReelForgeTheme.textPrimary,
+              color: isSelected ? (color ?? FluxForgeTheme.accentBlue) : FluxForgeTheme.textPrimary,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -7046,9 +7238,9 @@ class _CellDropdown extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         margin: const EdgeInsets.only(right: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -7056,11 +7248,11 @@ class _CellDropdown extends StatelessWidget {
             Flexible(
               child: Text(
                 value,
-                style: TextStyle(fontSize: 10, color: color ?? ReelForgeTheme.textPrimary),
+                style: TextStyle(fontSize: 10, color: color ?? FluxForgeTheme.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.arrow_drop_down, size: 12, color: ReelForgeTheme.textTertiary),
+            Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textTertiary),
           ],
         ),
       ),
@@ -7084,8 +7276,8 @@ class _SettingsRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13)),
-          Text(value, style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13)),
+          Text(value, style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -7113,16 +7305,16 @@ class _InsertMenuOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+          border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: color ?? ReelForgeTheme.textSecondary),
+            Icon(icon, size: 16, color: color ?? FluxForgeTheme.textSecondary),
             const SizedBox(width: 10),
             Text(
               label,
               style: TextStyle(
-                color: color ?? ReelForgeTheme.textPrimary,
+                color: color ?? FluxForgeTheme.textPrimary,
                 fontSize: 12,
               ),
             ),
@@ -7187,12 +7379,12 @@ class _AudioEditorDialogState extends State<_AudioEditorDialog> {
     }
 
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       child: SizedBox(
         width: dialogWidth,
         height: dialogHeight,
-        child: ClipEditor(
-          clip: ClipEditorClip(
+        child: clip_editor.ClipEditor(
+          clip: clip_editor.ClipEditorClip(
             id: _clip.id,
             name: _clip.name,
             duration: _clip.duration,
@@ -7237,4 +7429,18 @@ class _AudioEditorDialogState extends State<_AudioEditorDialog> {
       ),
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SHORTCUT INTENTS
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Intent for importing audio files (Shift+Cmd+I)
+class _ImportAudioIntent extends Intent {
+  const _ImportAudioIntent();
+}
+
+/// Intent for toggling debug console (Shift+Cmd+D)
+class _ToggleDebugIntent extends Intent {
+  const _ToggleDebugIntent();
 }

@@ -1,4 +1,4 @@
-# ReelForge DSP Competitive Analysis
+# FluxForge Studio DSP Competitive Analysis
 
 > Referentni dokument za razvoj — čitaj pre implementacije novih feature-a
 
@@ -31,7 +31,7 @@
 - **Target:** Industry standard, studios, film/TV post
 - **Engine:** Native + HDX DSP hybrid
 
-### 1.6 ReelForge (Mi)
+### 1.6 FluxForge Studio (Mi)
 - **Cena:** $199 - $499 (target)
 - **Target:** Pro audio engineers, mixing, mastering
 - **Engine:** Dual-path (Real-time + Guard async lookahead)
@@ -143,7 +143,7 @@
 - Low-latency recording through DSP
 - Native power for mixing
 
-### ReelForge Dual-Path Engine
+### FluxForge Studio Dual-Path Engine
 
 | Spec | Current | Target |
 |------|---------|--------|
@@ -335,7 +335,7 @@ OUTPUT (HDX DSP or Native)
 - Clip Effects
 - AAX plugin format
 
-### ReelForge Target Signal Flow
+### FluxForge Studio Target Signal Flow
 ```
 CLIP [Clip-based processing]
   ├── Elastic time-stretch
@@ -493,7 +493,7 @@ METERING [Parallel, non-blocking]
 - DSP (HDX hardware)
 - AudioSuite (offline)
 
-### ReelForge Native DSP (rf-dsp)
+### FluxForge Studio Native DSP (rf-dsp)
 
 | Processor | Status | Superiority |
 |-----------|--------|-------------|
@@ -546,7 +546,7 @@ METERING [Parallel, non-blocking]
 - Export to text/CSV
 - Dual mono mode
 
-### ReelForge Metering
+### FluxForge Studio Metering
 
 | Meter | Status | Standard |
 |-------|--------|----------|
@@ -581,7 +581,7 @@ METERING [Parallel, non-blocking]
 - JSFX can do sample-accurate (limited plugins support)
 - Workaround: 32 sample buffer offline rendering
 
-### ReelForge Opportunity
+### FluxForge Studio Opportunity
 **Mi možemo imati TRUE sample-accurate automation jer:**
 1. Kontrolišemo DSP kod
 2. Naši procesori nisu VST/AU
@@ -662,7 +662,7 @@ for sample_idx in 0..block_size {
 1. **64-bit Double Precision Throughout**
    - Pyramix: 32/64 mixed
    - REAPER: 64-bit
-   - ReelForge: 64-bit everywhere
+   - FluxForge Studio: 64-bit everywhere
 
 2. **SIMD Optimization**
    - Explicit AVX-512/AVX2/SSE4.2/NEON dispatch
@@ -870,7 +870,7 @@ fn process_block(&mut self, buffer: &mut [f64], commands: &[ParamCommand]) {
 
 ## 11. COMPETITIVE MATRIX (All 6 DAWs)
 
-| Feature | Pyramix | REAPER | Cubase | Logic | Pro Tools | ReelForge |
+| Feature | Pyramix | REAPER | Cubase | Logic | Pro Tools | FluxForge Studio |
 |---------|---------|--------|--------|-------|-----------|-----------|
 | **Engine** |
 | Float precision | 32/64 | 64-bit | 32/64 | 64-bit | 32+64 mix | **64-bit** |
@@ -914,9 +914,9 @@ fn process_block(&mut self, buffer: &mut [f64], commands: &[ParamCommand]) {
 | **Composers** | Cubase | Expression maps, scoring |
 | **Apple ecosystem** | Logic | Seamless integration, Atmos |
 | **Film/TV Post** | Pro Tools | Industry standard, HDX |
-| **Modern architecture** | **ReelForge** | Rust, SIMD, lock-free |
-| **Stock DSP quality** | **ReelForge** | 22 integrated processors |
-| **Spectral processing** | **ReelForge** | Only native spectral tools |
+| **Modern architecture** | **FluxForge Studio** | Rust, SIMD, lock-free |
+| **Stock DSP quality** | **FluxForge Studio** | 22 integrated processors |
+| **Spectral processing** | **FluxForge Studio** | Only native spectral tools |
 
 ---
 
@@ -968,4 +968,4 @@ fn process_block(&mut self, buffer: &mut [f64], commands: &[ParamCommand]) {
 
 *Poslednje ažuriranje: 2025-01-08*
 *Autor: Claude (Chief Audio Architect role)*
-*Analizirano: Pyramix, REAPER, Cubase, Logic Pro, Pro Tools, ReelForge*
+*Analizirano: Pyramix, REAPER, Cubase, Logic Pro, Pro Tools, FluxForge Studio*

@@ -71,7 +71,8 @@ class LowerZoneTab {
   final String id;
   final String label;
   final IconData? icon;
-  final Widget content;
+  final Widget? content;
+  final Widget Function()? contentBuilder; // For dynamic content that needs fresh callbacks
   final bool closable;
   final String? groupId;
 
@@ -79,10 +80,14 @@ class LowerZoneTab {
     required this.id,
     required this.label,
     this.icon,
-    required this.content,
+    this.content,
+    this.contentBuilder,
     this.closable = false,
     this.groupId,
-  });
+  }) : assert(content != null || contentBuilder != null, 'Either content or contentBuilder must be provided');
+
+  /// Get the content widget (builds fresh if using contentBuilder)
+  Widget getContent() => contentBuilder?.call() ?? content!;
 }
 
 /// Tab group for organizing lower zone tabs

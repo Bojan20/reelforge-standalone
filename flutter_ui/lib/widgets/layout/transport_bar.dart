@@ -4,7 +4,7 @@
 /// loop, metronome, and snap-to-grid.
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class TransportBar extends StatelessWidget {
   final bool isPlaying;
@@ -65,7 +65,7 @@ class TransportBar extends StatelessWidget {
           onPressed: transportDisabled ? null : onPlay,
           tooltip: transportDisabled ? 'Timeline playback disabled' : 'Play/Pause (Space)',
           isActive: isPlaying,
-          activeColor: ReelForgeTheme.accentGreen,
+          activeColor: FluxForgeTheme.accentGreen,
         ),
         _RecordButton(
           isRecording: isRecording,
@@ -131,8 +131,8 @@ class _TransportButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive
-        ? (activeColor ?? ReelForgeTheme.accentBlue)
-        : ReelForgeTheme.textSecondary;
+        ? (activeColor ?? FluxForgeTheme.accentBlue)
+        : FluxForgeTheme.textSecondary;
 
     return Tooltip(
       message: tooltip,
@@ -150,7 +150,7 @@ class _TransportButton extends StatelessWidget {
             icon,
             size: size,
             color: onPressed == null
-                ? ReelForgeTheme.textSecondary.withValues(alpha: 0.4)
+                ? FluxForgeTheme.textSecondary.withValues(alpha: 0.4)
                 : color,
           ),
         ),
@@ -162,7 +162,7 @@ class _TransportButton extends StatelessWidget {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 24, color: ReelForgeTheme.borderSubtle);
+    return Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle);
   }
 }
 
@@ -240,7 +240,7 @@ class _RecordButtonState extends State<_RecordButton>
               height: 32,
               decoration: BoxDecoration(
                 color: widget.isRecording
-                    ? ReelForgeTheme.errorRed.withValues(alpha: 0.15)
+                    ? FluxForgeTheme.errorRed.withValues(alpha: 0.15)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -251,12 +251,12 @@ class _RecordButtonState extends State<_RecordButton>
                     Icons.fiber_manual_record,
                     size: 20,
                     color: isDisabled
-                        ? ReelForgeTheme.textSecondary.withValues(alpha: 0.4)
+                        ? FluxForgeTheme.textSecondary.withValues(alpha: 0.4)
                         : widget.isRecording
-                            ? ReelForgeTheme.errorRed.withValues(alpha: _animation.value)
+                            ? FluxForgeTheme.errorRed.withValues(alpha: _animation.value)
                             : widget.armedCount > 0
-                                ? ReelForgeTheme.errorRed.withValues(alpha: 0.7)
-                                : ReelForgeTheme.textSecondary,
+                                ? FluxForgeTheme.errorRed.withValues(alpha: 0.7)
+                                : FluxForgeTheme.textSecondary,
                   );
                 },
               ),
@@ -269,7 +269,7 @@ class _RecordButtonState extends State<_RecordButton>
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.errorRed,
+                    color: FluxForgeTheme.errorRed,
                     shape: BoxShape.circle,
                   ),
                   constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
@@ -303,16 +303,16 @@ class _SnapSelector extends StatelessWidget {
       margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: DropdownButton<double>(
         value: value,
         isDense: true,
         underline: const SizedBox(),
-        dropdownColor: ReelForgeTheme.bgElevated,
-        style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 10),
+        dropdownColor: FluxForgeTheme.bgElevated,
+        style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
         items: const [
           DropdownMenuItem(value: 0.25, child: Text('1/16')),
           DropdownMenuItem(value: 0.5, child: Text('1/8')),

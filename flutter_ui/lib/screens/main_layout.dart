@@ -1,4 +1,4 @@
-// ReelForge Main Layout
+// FluxForge Studio Main Layout
 //
 // Master layout wrapper combining:
 // - ControlBar (top)
@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 import '../models/layout_models.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../widgets/layout/control_bar.dart';
@@ -297,7 +297,7 @@ class _MainLayoutState extends State<MainLayout>
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: Scaffold(
-        backgroundColor: ReelForgeTheme.bgDeepest,
+        backgroundColor: FluxForgeTheme.bgDeepest,
         body: Column(
           children: [
             // Control Bar - use custom if provided (for performance isolation)
@@ -405,13 +405,13 @@ class _MainLayoutState extends State<MainLayout>
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: ReelForgeTheme.bgDeep,
+                              color: FluxForgeTheme.bgDeep,
                               border: Border(
                                 left: BorderSide(
-                                  color: ReelForgeTheme.borderSubtle,
+                                  color: FluxForgeTheme.borderSubtle,
                                 ),
                                 right: BorderSide(
-                                  color: ReelForgeTheme.borderSubtle,
+                                  color: FluxForgeTheme.borderSubtle,
                                 ),
                               ),
                             ),
@@ -619,7 +619,7 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
           title: 'General',
           content: const Text(
             'Event settings will appear here',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
       ],
@@ -639,7 +639,7 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
           content: const Center(
             child: Text(
               'Editor View',
-              style: TextStyle(color: ReelForgeTheme.textSecondary),
+              style: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
           ),
         ),
@@ -650,7 +650,7 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
           content: const Center(
             child: Text(
               'Browser View',
-              style: TextStyle(color: ReelForgeTheme.textSecondary),
+              style: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
           ),
         ),
@@ -670,20 +670,20 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
 
   Widget _buildCenterContent() {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'ReelForge DAW',
-              style: ReelForgeTheme.h1,
+              'FluxForge Studio DAW',
+              style: FluxForgeTheme.h1,
             ),
             const SizedBox(height: 8),
             Text(
               'Flutter UI Migration Demo',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -691,14 +691,14 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
             Text(
               'Press Ctrl+L/R/B to toggle zones',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 12,
               ),
             ),
             Text(
               'Space to play/pause, R to record',
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 12,
               ),
             ),

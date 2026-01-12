@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Crossfade curve type
 enum CrossfadePreset {
@@ -234,7 +234,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           // Toolbar
@@ -273,9 +273,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -285,7 +285,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -335,9 +335,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
         onPressed: onPressed,
         style: IconButton.styleFrom(
           foregroundColor:
-              selected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              selected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
           backgroundColor:
-              selected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15) : null,
+              selected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : null,
           minimumSize: const Size(28, 28),
           padding: EdgeInsets.zero,
         ),
@@ -349,9 +349,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
     return Container(
       width: 140,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          right: BorderSide(color: ReelForgeTheme.borderSubtle),
+          right: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -364,7 +364,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -394,12 +394,12 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgDeep,
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                : FluxForgeTheme.borderSubtle,
           ),
           borderRadius: BorderRadius.circular(4),
         ),
@@ -420,8 +420,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
                 style: TextStyle(
                   fontSize: 11,
                   color: isSelected
-                      ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textSecondary,
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary,
                 ),
               ),
             ),
@@ -435,8 +435,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
     return Container(
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgDeepest,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(4),
       ),
       child: ClipRRect(
@@ -470,9 +470,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
     return Container(
       width: 180,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          left: BorderSide(color: ReelForgeTheme.borderSubtle),
+          left: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -483,7 +483,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             _updateConfig(_config.copyWith(fadeOut: config));
           }),
 
-          Divider(color: ReelForgeTheme.borderSubtle, height: 1),
+          Divider(color: FluxForgeTheme.borderSubtle, height: 1),
 
           // Fade In settings
           _buildCurveSettings('Fade In', _config.fadeIn, (config) {
@@ -502,7 +502,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
                   'Center Offset',
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -513,13 +513,13 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
                   onChanged: (value) {
                     _updateConfig(_config.copyWith(centerOffset: value));
                   },
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                 ),
                 Text(
                   '${(_config.centerOffset * 100).toStringAsFixed(0)}%',
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                 ),
               ],
@@ -545,7 +545,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -554,10 +554,10 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
           DropdownButton<CrossfadePreset>(
             value: config.preset,
             isExpanded: true,
-            dropdownColor: ReelForgeTheme.bgSurface,
+            dropdownColor: FluxForgeTheme.bgSurface,
             style: TextStyle(
               fontSize: 12,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
             items: CrossfadePreset.values.map((preset) {
               return DropdownMenuItem(
@@ -579,7 +579,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             'Tension',
             style: TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           Slider(
@@ -589,7 +589,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             onChanged: (value) {
               onChanged(config.copyWith(tension: value));
             },
-            activeColor: ReelForgeTheme.accentBlue,
+            activeColor: FluxForgeTheme.accentBlue,
           ),
         ],
       ),
@@ -601,9 +601,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -612,7 +612,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             'Duration:',
             style: TextStyle(
               fontSize: 12,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(width: 12),
@@ -626,7 +626,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
               onChanged: (value) {
                 _updateConfig(_config.copyWith(duration: value));
               },
-              activeColor: ReelForgeTheme.accentBlue,
+              activeColor: FluxForgeTheme.accentBlue,
             ),
           ),
 
@@ -639,18 +639,18 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
               ),
               style: TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                  borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                  borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
               ),
               onSubmitted: (value) {
@@ -669,7 +669,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             icon: const Icon(Icons.play_arrow, size: 16),
             label: const Text('Audition'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentGreen,
+              backgroundColor: FluxForgeTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
@@ -685,9 +685,9 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -697,14 +697,14 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
             onPressed: widget.onCancel,
             child: Text(
               'Cancel',
-              style: TextStyle(color: ReelForgeTheme.textSecondary),
+              style: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
             onPressed: widget.onApply,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.accentBlue,
               foregroundColor: Colors.white,
             ),
             child: const Text('Apply'),
@@ -793,7 +793,7 @@ class _CrossfadeEditorPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Vertical lines (time divisions)
@@ -810,7 +810,7 @@ class _CrossfadeEditorPainter extends CustomPainter {
 
     // Center crosshair (stronger)
     final centerPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
     // Horizontal center
@@ -928,7 +928,7 @@ class _CrossfadeEditorPainter extends CustomPainter {
     final centerX = size.width * (0.5 + config.centerOffset);
 
     final markerPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..style = PaintingStyle.fill;
 
     // Draw triangle at top
@@ -971,7 +971,7 @@ class _CrossfadeEditorPainter extends CustomPainter {
 
     // Label
     final textStyle = ui.TextStyle(
-      color: ReelForgeTheme.textSecondary,
+      color: FluxForgeTheme.textSecondary,
       fontSize: 10,
     );
     final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center))

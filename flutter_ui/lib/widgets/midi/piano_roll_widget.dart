@@ -11,7 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Grid division options
 enum GridDivision {
@@ -371,15 +371,15 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: ReelForgeTheme.surfaceDark,
+          color: FluxForgeTheme.surfaceDark,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: ReelForgeTheme.border),
+          border: Border.all(color: FluxForgeTheme.border),
         ),
         child: Column(
           children: [
             // Toolbar
             _buildToolbar(),
-            Divider(height: 1, color: ReelForgeTheme.border),
+            Divider(height: 1, color: FluxForgeTheme.border),
 
             // Main content
             Expanded(
@@ -401,7 +401,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
 
             // Velocity lane
             if (_showVelocity) ...[
-              Divider(height: 1, color: ReelForgeTheme.border),
+              Divider(height: 1, color: FluxForgeTheme.border),
               SizedBox(
                 height: velocityLaneHeight,
                 child: Row(
@@ -412,7 +412,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                         child: Text(
                           'Velocity',
                           style: TextStyle(
-                            color: ReelForgeTheme.textSecondary,
+                            color: FluxForgeTheme.textSecondary,
                             fontSize: 10,
                           ),
                         ),
@@ -444,8 +444,8 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                   tool.icon,
                   size: 18,
                   color: _tool == tool
-                      ? ReelForgeTheme.accentBlue
-                      : ReelForgeTheme.textSecondary,
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.textSecondary,
                 ),
                 onPressed: () => setState(() => _tool = tool),
                 padding: const EdgeInsets.all(6),
@@ -459,13 +459,13 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.surface,
+              color: FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
             ),
             child: DropdownButton<GridDivision>(
               value: _grid,
-              dropdownColor: ReelForgeTheme.surfaceDark,
-              style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+              dropdownColor: FluxForgeTheme.surfaceDark,
+              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
               underline: const SizedBox(),
               items: GridDivision.values.map((g) => DropdownMenuItem(
                 value: g,
@@ -490,8 +490,8 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                 Icons.grid_on,
                 size: 18,
                 color: _snapEnabled
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textSecondary,
               ),
               onPressed: () {
                 setState(() => _snapEnabled = !_snapEnabled);
@@ -507,7 +507,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
           // Note count
           Text(
             '${_notes.length} notes',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
           ),
 
           const SizedBox(width: 16),
@@ -520,8 +520,8 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                 Icons.bar_chart,
                 size: 18,
                 color: _showVelocity
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textSecondary,
               ),
               onPressed: () => setState(() => _showVelocity = !_showVelocity),
               padding: const EdgeInsets.all(6),
@@ -531,7 +531,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
 
           // Zoom controls
           IconButton(
-            icon: Icon(Icons.zoom_out, size: 18, color: ReelForgeTheme.textSecondary),
+            icon: Icon(Icons.zoom_out, size: 18, color: FluxForgeTheme.textSecondary),
             onPressed: () => setState(() {
               _pixelsPerBeat = (_pixelsPerBeat / 1.25).clamp(20.0, 500.0);
             }),
@@ -539,7 +539,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
           IconButton(
-            icon: Icon(Icons.zoom_in, size: 18, color: ReelForgeTheme.textSecondary),
+            icon: Icon(Icons.zoom_in, size: 18, color: FluxForgeTheme.textSecondary),
             onPressed: () => setState(() {
               _pixelsPerBeat = (_pixelsPerBeat * 1.25).clamp(20.0, 500.0);
             }),
@@ -579,7 +579,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                     : const Color(0xFF2a2a2a),
                 border: Border(
                   bottom: BorderSide(
-                    color: isC ? ReelForgeTheme.border : Colors.transparent,
+                    color: isC ? FluxForgeTheme.border : Colors.transparent,
                     width: isC ? 1 : 0,
                   ),
                 ),
@@ -592,7 +592,7 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
                       child: Text(
                         'C$octave',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                           fontSize: 9,
                         ),
                       ),
@@ -718,13 +718,13 @@ class _NoteGridPainter extends CustomPainter {
       canvas.drawRect(
         selectionRect!,
         Paint()
-          ..color = ReelForgeTheme.accentBlue.withOpacity(0.2)
+          ..color = FluxForgeTheme.accentBlue.withOpacity(0.2)
           ..style = PaintingStyle.fill,
       );
       canvas.drawRect(
         selectionRect!,
         Paint()
-          ..color = ReelForgeTheme.accentBlue
+          ..color = FluxForgeTheme.accentBlue
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1,
       );
@@ -809,7 +809,7 @@ class _NoteGridPainter extends CustomPainter {
       // Note color based on velocity
       final velocityFactor = note.velocity / 127.0;
       final baseColor = note.selected
-          ? ReelForgeTheme.accentBlue
+          ? FluxForgeTheme.accentBlue
           : HSLColor.fromAHSL(1.0, 200, 0.7, 0.3 + velocityFactor * 0.3).toColor();
 
       // Fill
@@ -921,7 +921,7 @@ class _VelocityLanePainter extends CustomPainter {
         ),
         Paint()
           ..color = note.selected
-              ? ReelForgeTheme.accentBlue
+              ? FluxForgeTheme.accentBlue
               : const Color(0xFF4080ff).withOpacity(0.7),
       );
     }

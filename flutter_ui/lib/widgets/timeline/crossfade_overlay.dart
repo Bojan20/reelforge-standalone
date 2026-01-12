@@ -6,7 +6,7 @@
 /// - Double-click to delete
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 
 class CrossfadeOverlay extends StatefulWidget {
@@ -55,7 +55,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: ReelForgeTheme.accentPurple.withValues(alpha: 0.5),
+              color: FluxForgeTheme.accentPurple.withValues(alpha: 0.5),
               width: 1,
             ),
             borderRadius: BorderRadius.circular(2),
@@ -105,7 +105,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
                     },
                     child: Container(
                       color: _isDragging && _dragEdge == 'left'
-                          ? ReelForgeTheme.accentPurple.withValues(alpha: 0.3)
+                          ? FluxForgeTheme.accentPurple.withValues(alpha: 0.3)
                           : Colors.transparent,
                     ),
                   ),
@@ -146,7 +146,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
                     },
                     child: Container(
                       color: _isDragging && _dragEdge == 'right'
-                          ? ReelForgeTheme.accentPurple.withValues(alpha: 0.3)
+                          ? FluxForgeTheme.accentPurple.withValues(alpha: 0.3)
                           : Colors.transparent,
                     ),
                   ),

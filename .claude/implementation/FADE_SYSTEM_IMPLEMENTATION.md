@@ -1,4 +1,4 @@
-# Professional Fade System Implementation — ReelForge
+# Professional Fade System Implementation — FluxForge Studio
 
 **Based on:** Logic Pro X + Cubase + Pro Tools best practices
 **Research:** 20+ DAW sources, competitor analysis
@@ -8,7 +8,7 @@
 
 ## PROBLEM ANALYSIS
 
-### Current Issues in ReelForge
+### Current Issues in FluxForge Studio
 
 1. **Fade handles not visible enough** — No clear visual indicator
 2. **Hit detection too narrow** — Hard to grab handles
@@ -139,7 +139,7 @@ class _FadeHandlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Colors from ReelForge theme
+    // Colors from FluxForge Studio theme
     final inactiveColor = const Color(0xFF1a1a20).withOpacity(0.5);
     final hoverColor = const Color(0xFF4a9eff);      // Blue
     final fadeLineColor = const Color(0xFF40c8ff);   // Cyan

@@ -1,5 +1,5 @@
-name: reelforge_ui
-description: "ReelForge DAW - Professional digital audio workstation with Cubase-inspired layout"
+name: fluxforge_ui
+description: "FluxForge Studio DAW - Professional digital audio workstation with Cubase-inspired layout"
 publish_to: 'none'
 version: 1.0.0+1
 

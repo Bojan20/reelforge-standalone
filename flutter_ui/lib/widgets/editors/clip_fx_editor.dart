@@ -6,7 +6,7 @@
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Full clip FX editor panel
 class ClipFxEditor extends StatefulWidget {
@@ -31,20 +31,20 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
 
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
           _buildHeader(chain),
-          const Divider(height: 1, color: ReelForgeTheme.border),
+          const Divider(height: 1, color: FluxForgeTheme.border),
 
           // Chain gain controls
           _buildChainGains(chain),
-          const Divider(height: 1, color: ReelForgeTheme.border),
+          const Divider(height: 1, color: FluxForgeTheme.border),
 
           // FX slots
           Expanded(
@@ -69,8 +69,8 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
             Icons.auto_fix_high,
             size: 18,
             color: chain.hasActiveProcessing
-                ? ReelForgeTheme.accent
-                : ReelForgeTheme.textMuted,
+                ? FluxForgeTheme.accent
+                : FluxForgeTheme.textMuted,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -79,7 +79,7 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -98,7 +98,7 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
           // Clear all
           IconButton(
             icon: const Icon(Icons.delete_sweep, size: 18),
-            color: ReelForgeTheme.textMuted,
+            color: FluxForgeTheme.textMuted,
             tooltip: 'Clear all FX',
             onPressed: chain.isEmpty
                 ? null
@@ -163,14 +163,14 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
           Icon(
             Icons.add_circle_outline,
             size: 48,
-            color: ReelForgeTheme.textMuted.withOpacity(0.5),
+            color: FluxForgeTheme.textMuted.withOpacity(0.5),
           ),
           const SizedBox(height: 12),
           Text(
             'No FX in chain',
             style: TextStyle(
               fontSize: 13,
-              color: ReelForgeTheme.textMuted.withOpacity(0.7),
+              color: FluxForgeTheme.textMuted.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 4),
@@ -178,7 +178,7 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
             'Click + to add effects',
             style: TextStyle(
               fontSize: 11,
-              color: ReelForgeTheme.textMuted.withOpacity(0.5),
+              color: FluxForgeTheme.textMuted.withOpacity(0.5),
             ),
           ),
         ],
@@ -252,21 +252,21 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.accent.withOpacity(0.1),
+            color: FluxForgeTheme.accent.withOpacity(0.1),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: ReelForgeTheme.accent.withOpacity(0.3)),
+            border: Border.all(color: FluxForgeTheme.accent.withOpacity(0.3)),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, size: 18, color: ReelForgeTheme.accent),
+              Icon(Icons.add, size: 18, color: FluxForgeTheme.accent),
               SizedBox(width: 6),
               Text(
                 'Add FX',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: ReelForgeTheme.accent,
+                  color: FluxForgeTheme.accent,
                 ),
               ),
             ],
@@ -311,13 +311,13 @@ class _FxSlotCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: slot.bypass
-          ? ReelForgeTheme.surfaceDark.withOpacity(0.5)
-          : ReelForgeTheme.surface,
+          ? FluxForgeTheme.surfaceDark.withOpacity(0.5)
+          : FluxForgeTheme.surface,
       child: ExpansionTile(
         leading: Icon(
           clipFxTypeIcon(slot.type),
           color: slot.bypass
-              ? ReelForgeTheme.textMuted
+              ? FluxForgeTheme.textMuted
               : clipFxTypeColor(slot.type),
           size: 20,
         ),
@@ -327,8 +327,8 @@ class _FxSlotCard extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: slot.bypass
-                ? ReelForgeTheme.textMuted
-                : ReelForgeTheme.textPrimary,
+                ? FluxForgeTheme.textMuted
+                : FluxForgeTheme.textPrimary,
           ),
         ),
         trailing: Row(
@@ -343,7 +343,7 @@ class _FxSlotCard extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.close, size: 16),
-              color: ReelForgeTheme.textMuted,
+              color: FluxForgeTheme.textMuted,
               onPressed: onRemove,
             ),
           ],
@@ -725,8 +725,8 @@ class _BypassButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: bypassed
-              ? ReelForgeTheme.warning.withOpacity(0.2)
-              : ReelForgeTheme.success.withOpacity(0.2),
+              ? FluxForgeTheme.warning.withOpacity(0.2)
+              : FluxForgeTheme.success.withOpacity(0.2),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
@@ -734,7 +734,7 @@ class _BypassButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: bypassed ? ReelForgeTheme.warning : ReelForgeTheme.success,
+            color: bypassed ? FluxForgeTheme.warning : FluxForgeTheme.success,
           ),
         ),
       ),
@@ -762,7 +762,7 @@ class _GainControl extends StatelessWidget {
           label,
           style: const TextStyle(
             fontSize: 11,
-            color: ReelForgeTheme.textMuted,
+            color: FluxForgeTheme.textMuted,
           ),
         ),
         const SizedBox(width: 8),
@@ -777,8 +777,8 @@ class _GainControl extends StatelessWidget {
               min: -24,
               max: 12,
               onChanged: onChanged,
-              activeColor: ReelForgeTheme.accent,
-              inactiveColor: ReelForgeTheme.border,
+              activeColor: FluxForgeTheme.accent,
+              inactiveColor: FluxForgeTheme.border,
             ),
           ),
         ),
@@ -788,7 +788,7 @@ class _GainControl extends StatelessWidget {
             '${value.toStringAsFixed(1)} dB',
             style: const TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -827,7 +827,7 @@ class _ParamSlider extends StatelessWidget {
               label,
               style: const TextStyle(
                 fontSize: 11,
-                color: ReelForgeTheme.textMuted,
+                color: FluxForgeTheme.textMuted,
               ),
             ),
           ),
@@ -842,8 +842,8 @@ class _ParamSlider extends StatelessWidget {
                 min: min,
                 max: max,
                 onChanged: onChanged,
-                activeColor: ReelForgeTheme.accent,
-                inactiveColor: ReelForgeTheme.border,
+                activeColor: FluxForgeTheme.accent,
+                inactiveColor: FluxForgeTheme.border,
               ),
             ),
           ),
@@ -853,7 +853,7 @@ class _ParamSlider extends StatelessWidget {
               '${value.toStringAsFixed(1)}${suffix != null ? ' $suffix' : ''}',
               style: const TextStyle(
                 fontSize: 10,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -888,8 +888,8 @@ class ClipFxBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           color: hasActive
-              ? ReelForgeTheme.accent.withOpacity(0.8)
-              : ReelForgeTheme.textMuted.withOpacity(0.5),
+              ? FluxForgeTheme.accent.withOpacity(0.8)
+              : FluxForgeTheme.textMuted.withOpacity(0.5),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(

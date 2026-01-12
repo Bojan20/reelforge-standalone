@@ -1,4 +1,4 @@
-# ReelForge Standalone — Project Specification
+# FluxForge Studio — Project Specification
 
 > Profesionalni standalone audio editor/middleware, Cubase/Wwise nivo.
 
@@ -401,7 +401,7 @@ cargo build --release --target x86_64-unknown-linux-gnu
 
 ## Reference Implementation
 
-**Stari web projekat:** `~/Desktop/reelforge-editor/`
+**Stari web projekat:** `~/Desktop/fluxforge-editor/`
 
 Koristiti kao referencu za:
 - UI/UX dizajn

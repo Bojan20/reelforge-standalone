@@ -2,7 +2,7 @@
 name = "rf-realtime"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge Real-Time Engine - Zero-latency, lock-free audio processing"
+description = "FluxForge Studio Real-Time Engine - Zero-latency, lock-free audio processing"
 license = "MIT"
 
 [dependencies]

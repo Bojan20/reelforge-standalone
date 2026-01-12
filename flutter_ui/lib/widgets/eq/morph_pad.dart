@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Morph preset slot
 class MorphPreset {
@@ -341,7 +341,7 @@ class _MorphPadState extends State<MorphPad>
                 border: Border.all(color: _gridColor, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: ReelForgeTheme.bgVoid.withAlpha(77),
+                    color: FluxForgeTheme.bgVoid.withAlpha(77),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -571,7 +571,7 @@ class _MorphPadPainter extends CustomPainter {
           text: TextSpan(
             text: preset.icon != null ? '' : preset.name.substring(0, 1),
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary.withAlpha(isHovered ? 255 : 179),
+              color: FluxForgeTheme.textPrimary.withAlpha(isHovered ? 255 : 179),
               fontSize: isHovered ? 11 : 9,
               fontWeight: FontWeight.bold,
             ),
@@ -633,7 +633,7 @@ class _MorphPadPainter extends CustomPainter {
       center,
       cursorSize,
       Paint()
-        ..color = ReelForgeTheme.textPrimary.withAlpha(77)
+        ..color = FluxForgeTheme.textPrimary.withAlpha(77)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
@@ -649,14 +649,14 @@ class _MorphPadPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(center.dx - 3, center.dy - 3),
       4,
-      Paint()..color = ReelForgeTheme.textPrimary.withAlpha(128),
+      Paint()..color = FluxForgeTheme.textPrimary.withAlpha(128),
     );
 
     // Center dot
     canvas.drawCircle(
       center,
       3,
-      Paint()..color = ReelForgeTheme.textPrimary,
+      Paint()..color = FluxForgeTheme.textPrimary,
     );
   }
 
@@ -687,7 +687,7 @@ class _MorphPadPainter extends CustomPainter {
           text: TextSpan(
             text: preset.name,
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary.withAlpha(isHovered ? 230 : 128),
+              color: FluxForgeTheme.textPrimary.withAlpha(isHovered ? 230 : 128),
               fontSize: 10,
               fontWeight: isHovered ? FontWeight.bold : FontWeight.normal,
             ),
@@ -878,7 +878,7 @@ class _MorphPadWithSelectorState extends State<MorphPadWithSelector> {
           'Tap corners to assign presets',
           style: TextStyle(
             fontSize: 11,
-            color: ReelForgeTheme.textPrimary.withAlpha(128),
+            color: FluxForgeTheme.textPrimary.withAlpha(128),
           ),
         ),
       ],
@@ -908,7 +908,7 @@ class _PresetSelectorSheet extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -941,7 +941,7 @@ class _PresetSelectorSheet extends StatelessWidget {
                         preset.name,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                         ),
                       ),
                     ],

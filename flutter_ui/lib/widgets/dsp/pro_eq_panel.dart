@@ -14,7 +14,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Pro EQ Band data
 class ProEqBand {
@@ -183,8 +183,8 @@ class _ProEqPanelState extends State<ProEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -221,7 +221,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
           const Text(
             'PRO-EQ 64',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -231,7 +231,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -277,9 +277,9 @@ class _ProEqPanelState extends State<ProEqPanel> {
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgMid,
+          color: FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderMedium),
+          border: Border.all(color: FluxForgeTheme.borderMedium),
         ),
         child: Center(
           child: Text(
@@ -312,8 +312,8 @@ class _ProEqPanelState extends State<ProEqPanel> {
               value: _outputGain,
               min: -24,
               max: 24,
-              activeColor: ReelForgeTheme.accentBlue,
-              inactiveColor: ReelForgeTheme.borderSubtle,
+              activeColor: FluxForgeTheme.accentBlue,
+              inactiveColor: FluxForgeTheme.borderSubtle,
               onChanged: (v) {
                 setState(() => _outputGain = v);
                 _ffi.proEqSetOutputGain(widget.trackId, v);
@@ -391,13 +391,13 @@ class _ProEqPanelState extends State<ProEqPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderMedium),
+            border: Border.all(color: FluxForgeTheme.borderMedium),
           ),
           child: DropdownButton<T>(
             value: value,
-            dropdownColor: ReelForgeTheme.bgMid,
+            dropdownColor: FluxForgeTheme.bgMid,
             style: const TextStyle(color: Color(0xFF808090), fontSize: 10),
             underline: const SizedBox(),
             isDense: true,
@@ -415,14 +415,14 @@ class _ProEqPanelState extends State<ProEqPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: value ? ReelForgeTheme.accentBlue.withValues(alpha: 0.3) : ReelForgeTheme.bgMid,
+          color: value ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: value ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderMedium),
+          border: Border.all(color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderMedium),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: value ? ReelForgeTheme.accentBlue : ReelForgeTheme.textTertiary,
+            color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -435,9 +435,9 @@ class _ProEqPanelState extends State<ProEqPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -485,7 +485,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
   void _showAddBandDialog(double freq) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -494,7 +494,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
           children: [
             Text(
               'Add Band at ${freq.toInt()} Hz',
-              style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -561,16 +561,16 @@ class _ProEqPanelState extends State<ProEqPanel> {
 
   Color _getShapeColor(ProEqFilterShape shape) {
     return switch (shape) {
-      ProEqFilterShape.bell => ReelForgeTheme.accentBlue,
-      ProEqFilterShape.lowShelf => ReelForgeTheme.accentOrange,
-      ProEqFilterShape.highShelf => ReelForgeTheme.accentYellow,
-      ProEqFilterShape.lowCut => ReelForgeTheme.accentRed,
-      ProEqFilterShape.highCut => ReelForgeTheme.accentRed,
-      ProEqFilterShape.notch => ReelForgeTheme.accentPink,
-      ProEqFilterShape.bandPass => ReelForgeTheme.accentGreen,
-      ProEqFilterShape.tiltShelf => ReelForgeTheme.accentCyan,
-      ProEqFilterShape.allPass => ReelForgeTheme.textTertiary,
-      ProEqFilterShape.brickwall => ReelForgeTheme.accentRed,
+      ProEqFilterShape.bell => FluxForgeTheme.accentBlue,
+      ProEqFilterShape.lowShelf => FluxForgeTheme.accentOrange,
+      ProEqFilterShape.highShelf => FluxForgeTheme.accentYellow,
+      ProEqFilterShape.lowCut => FluxForgeTheme.accentRed,
+      ProEqFilterShape.highCut => FluxForgeTheme.accentRed,
+      ProEqFilterShape.notch => FluxForgeTheme.accentPink,
+      ProEqFilterShape.bandPass => FluxForgeTheme.accentGreen,
+      ProEqFilterShape.tiltShelf => FluxForgeTheme.accentCyan,
+      ProEqFilterShape.allPass => FluxForgeTheme.textTertiary,
+      ProEqFilterShape.brickwall => FluxForgeTheme.accentRed,
     };
   }
 
@@ -612,7 +612,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color : ReelForgeTheme.bgMid,
+            color: isSelected ? color : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color, width: isSelected ? 2 : 1),
           ),
@@ -622,12 +622,12 @@ class _ProEqPanelState extends State<ProEqPanel> {
               if (band.dynamicEnabled)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.flash_on, size: 10, color: ReelForgeTheme.textPrimary),
+                  child: Icon(Icons.flash_on, size: 10, color: FluxForgeTheme.textPrimary),
                 ),
               Text(
                 '${band.freq.toInt()} Hz',
                 style: TextStyle(
-                  color: isSelected ? ReelForgeTheme.textPrimary : color,
+                  color: isSelected ? FluxForgeTheme.textPrimary : color,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -678,7 +678,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
                   band.placement,
                   ProEqPlacement.values,
                   (p) => p.name.toUpperCase(),
-                  (_) => ReelForgeTheme.accentBlue,
+                  (_) => FluxForgeTheme.accentBlue,
                   (v) {
                     setState(() => band.placement = v);
                     _updateBand(_selectedBandIndex!);
@@ -694,7 +694,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
                     band.slope,
                     ProEqSlope.values,
                     (s) => s.name.replaceFirst('db', '').replaceFirst('brickwall', 'BW'),
-                    (_) => ReelForgeTheme.accentOrange,
+                    (_) => FluxForgeTheme.accentOrange,
                     (v) {
                       setState(() => band.slope = v);
                       _updateBand(_selectedBandIndex!);
@@ -753,22 +753,22 @@ class _ProEqPanelState extends State<ProEqPanel> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _buildSlider('Thresh', band.dynamicThreshold, -60, 0, '${band.dynamicThreshold.toStringAsFixed(1)} dB', ReelForgeTheme.accentYellow, false, (v) {
+                Expanded(child: _buildSlider('Thresh', band.dynamicThreshold, -60, 0, '${band.dynamicThreshold.toStringAsFixed(1)} dB', FluxForgeTheme.accentYellow, false, (v) {
                   setState(() => band.dynamicThreshold = v);
                   _updateBand(_selectedBandIndex!);
                 })),
                 const SizedBox(width: 8),
-                Expanded(child: _buildSlider('Ratio', band.dynamicRatio, 1, 20, '${band.dynamicRatio.toStringAsFixed(1)}:1', ReelForgeTheme.accentYellow, false, (v) {
+                Expanded(child: _buildSlider('Ratio', band.dynamicRatio, 1, 20, '${band.dynamicRatio.toStringAsFixed(1)}:1', FluxForgeTheme.accentYellow, false, (v) {
                   setState(() => band.dynamicRatio = v);
                   _updateBand(_selectedBandIndex!);
                 })),
                 const SizedBox(width: 8),
-                Expanded(child: _buildSlider('Attack', band.dynamicAttack, 0.1, 500, '${band.dynamicAttack.toStringAsFixed(1)} ms', ReelForgeTheme.accentYellow, true, (v) {
+                Expanded(child: _buildSlider('Attack', band.dynamicAttack, 0.1, 500, '${band.dynamicAttack.toStringAsFixed(1)} ms', FluxForgeTheme.accentYellow, true, (v) {
                   setState(() => band.dynamicAttack = v);
                   _updateBand(_selectedBandIndex!);
                 })),
                 const SizedBox(width: 8),
-                Expanded(child: _buildSlider('Release', band.dynamicRelease, 1, 5000, '${band.dynamicRelease.toInt()} ms', ReelForgeTheme.accentYellow, true, (v) {
+                Expanded(child: _buildSlider('Release', band.dynamicRelease, 1, 5000, '${band.dynamicRelease.toInt()} ms', FluxForgeTheme.accentYellow, true, (v) {
                   setState(() => band.dynamicRelease = v);
                   _updateBand(_selectedBandIndex!);
                 })),
@@ -800,14 +800,14 @@ class _ProEqPanelState extends State<ProEqPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isSelected ? color : ReelForgeTheme.bgMid,
+                      color: isSelected ? color : FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: isSelected ? color : ReelForgeTheme.borderMedium),
+                      border: Border.all(color: isSelected ? color : FluxForgeTheme.borderMedium),
                     ),
                     child: Text(
                       labelFn(item),
                       style: TextStyle(
-                        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                       ),
@@ -841,7 +841,7 @@ class _ProEqPanelState extends State<ProEqPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -893,7 +893,7 @@ class _ProEqGraphPainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Size size) {
-    final paint = Paint()..color = ReelForgeTheme.borderSubtle..strokeWidth = 1;
+    final paint = Paint()..color = FluxForgeTheme.borderSubtle..strokeWidth = 1;
 
     // Frequency lines
     for (final freq in [100.0, 1000.0, 10000.0]) {
@@ -903,10 +903,10 @@ class _ProEqGraphPainter extends CustomPainter {
 
     // dB lines
     final centerY = size.height / 2;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint..color = ReelForgeTheme.borderMedium);
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint..color = FluxForgeTheme.borderMedium);
     for (final db in [-12.0, 12.0]) {
       final y = centerY - (db / 30) * (size.height / 2);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint..color = ReelForgeTheme.borderSubtle);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint..color = FluxForgeTheme.borderSubtle);
     }
   }
 
@@ -915,7 +915,7 @@ class _ProEqGraphPainter extends CustomPainter {
 
     final path = Path();
     final spectrumPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     path.moveTo(0, size.height);
@@ -958,11 +958,11 @@ class _ProEqGraphPainter extends CustomPainter {
       ..lineTo(size.width, centerY)
       ..lineTo(0, centerY)
       ..close();
-    canvas.drawPath(fillPath, Paint()..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.1));
+    canvas.drawPath(fillPath, Paint()..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.1));
 
     // Stroke
     canvas.drawPath(path, Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke);
   }
@@ -992,7 +992,7 @@ class _ProEqGraphPainter extends CustomPainter {
     }
 
     canvas.drawPath(path, Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke);
   }
@@ -1031,14 +1031,14 @@ class _ProEqGraphPainter extends CustomPainter {
       // Selection ring
       if (i == selectedIndex) {
         canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8)), 13, Paint()
-          ..color = ReelForgeTheme.textPrimary
+          ..color = FluxForgeTheme.textPrimary
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2);
       }
 
       // Dynamic indicator
       if (band.dynamicEnabled) {
-        canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8) - 14), 3, Paint()..color = ReelForgeTheme.accentYellow);
+        canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8) - 14), 3, Paint()..color = FluxForgeTheme.accentYellow);
       }
     }
   }
@@ -1057,16 +1057,16 @@ class _ProEqGraphPainter extends CustomPainter {
 
   Color _getShapeColor(ProEqFilterShape shape) {
     return switch (shape) {
-      ProEqFilterShape.bell => ReelForgeTheme.accentBlue,
-      ProEqFilterShape.lowShelf => ReelForgeTheme.accentOrange,
-      ProEqFilterShape.highShelf => ReelForgeTheme.accentYellow,
-      ProEqFilterShape.lowCut => ReelForgeTheme.accentRed,
-      ProEqFilterShape.highCut => ReelForgeTheme.accentRed,
-      ProEqFilterShape.notch => ReelForgeTheme.accentPink,
-      ProEqFilterShape.bandPass => ReelForgeTheme.accentGreen,
-      ProEqFilterShape.tiltShelf => ReelForgeTheme.accentCyan,
-      ProEqFilterShape.allPass => ReelForgeTheme.textTertiary,
-      ProEqFilterShape.brickwall => ReelForgeTheme.accentRed,
+      ProEqFilterShape.bell => FluxForgeTheme.accentBlue,
+      ProEqFilterShape.lowShelf => FluxForgeTheme.accentOrange,
+      ProEqFilterShape.highShelf => FluxForgeTheme.accentYellow,
+      ProEqFilterShape.lowCut => FluxForgeTheme.accentRed,
+      ProEqFilterShape.highCut => FluxForgeTheme.accentRed,
+      ProEqFilterShape.notch => FluxForgeTheme.accentPink,
+      ProEqFilterShape.bandPass => FluxForgeTheme.accentGreen,
+      ProEqFilterShape.tiltShelf => FluxForgeTheme.accentCyan,
+      ProEqFilterShape.allPass => FluxForgeTheme.textTertiary,
+      ProEqFilterShape.brickwall => FluxForgeTheme.accentRed,
     };
   }
 

@@ -9,7 +9,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Stereo EQ Band data
 class StereoBand {
@@ -125,14 +125,14 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: Column(
               children: [
@@ -141,14 +141,14 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
                   child: Row(
                     children: [
                       Expanded(flex: 3, child: _buildEqGraph()),
-                      Container(width: 1, color: ReelForgeTheme.borderSubtle),
+                      Container(width: 1, color: FluxForgeTheme.borderSubtle),
                       SizedBox(width: 120, child: _buildStereoField()),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+                const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
                 _buildBassMonoSection(),
-                const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+                const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
                 _buildBandList(),
                 if (_selectedBandIndex != null) _buildBandEditor(),
               ],
@@ -164,12 +164,12 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.graphic_eq, color: ReelForgeTheme.accentOrange, size: 20),
+          const Icon(Icons.graphic_eq, color: FluxForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 8),
           const Text(
             'STEREO EQ',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -193,17 +193,17 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _globalMsMode
-              ? ReelForgeTheme.accentPink.withValues(alpha: 0.3)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentPink.withValues(alpha: 0.3)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _globalMsMode ? ReelForgeTheme.accentPink : ReelForgeTheme.borderMedium,
+            color: _globalMsMode ? FluxForgeTheme.accentPink : FluxForgeTheme.borderMedium,
           ),
         ),
         child: Text(
           _globalMsMode ? 'M/S MODE' : 'L/R MODE',
           style: TextStyle(
-            color: _globalMsMode ? ReelForgeTheme.accentPink : ReelForgeTheme.textTertiary,
+            color: _globalMsMode ? FluxForgeTheme.accentPink : FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -216,9 +216,9 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: CustomPaint(
         painter: _StereoEqCurvePainter(
@@ -243,7 +243,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -252,10 +252,10 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
           children: [
             Text(
               'Add Band at ${freq.toInt()} Hz',
-              style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            const Text('Mode:', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+            const Text('Mode:', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -296,11 +296,11 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
 
   Color _getModeColor(StereoEqBandMode mode) {
     return switch (mode) {
-      StereoEqBandMode.stereo => ReelForgeTheme.accentCyan,
-      StereoEqBandMode.leftOnly => ReelForgeTheme.accentRed,
-      StereoEqBandMode.rightOnly => ReelForgeTheme.accentGreen,
-      StereoEqBandMode.mid => ReelForgeTheme.accentYellow,
-      StereoEqBandMode.side => ReelForgeTheme.accentPink,
+      StereoEqBandMode.stereo => FluxForgeTheme.accentCyan,
+      StereoEqBandMode.leftOnly => FluxForgeTheme.accentRed,
+      StereoEqBandMode.rightOnly => FluxForgeTheme.accentGreen,
+      StereoEqBandMode.mid => FluxForgeTheme.accentYellow,
+      StereoEqBandMode.side => FluxForgeTheme.accentPink,
     };
   }
 
@@ -308,9 +308,9 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: CustomPaint(
         painter: _StereoFieldPainter(bands: _bands),
@@ -333,17 +333,17 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: _bassMonoEnabled
-                    ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3)
-                    : ReelForgeTheme.bgMid,
+                    ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+                    : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: _bassMonoEnabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.borderMedium,
+                  color: _bassMonoEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.borderMedium,
                 ),
               ),
               child: Text(
                 'BASS MONO',
                 style: TextStyle(
-                  color: _bassMonoEnabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+                  color: _bassMonoEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -351,15 +351,15 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
             ),
           ),
           const SizedBox(width: 16),
-          const Text('Crossover:', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+          const Text('Crossover:', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
           const SizedBox(width: 8),
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
                 trackHeight: 4,
-                activeTrackColor: _bassMonoEnabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.borderMedium,
-                inactiveTrackColor: ReelForgeTheme.borderSubtle,
-                thumbColor: _bassMonoEnabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+                activeTrackColor: _bassMonoEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.borderMedium,
+                inactiveTrackColor: FluxForgeTheme.borderSubtle,
+                thumbColor: _bassMonoEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               ),
               child: Slider(
@@ -379,7 +379,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
             child: Text(
               '${_bassMonoFreq.toInt()} Hz',
               style: TextStyle(
-                color: _bassMonoEnabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+                color: _bassMonoEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -400,7 +400,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
           const Text(
             'BANDS:',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -414,7 +414,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: ReelForgeTheme.accentOrange, size: 20),
+            icon: const Icon(Icons.add_circle_outline, color: FluxForgeTheme.accentOrange, size: 20),
             onPressed: () => _addBand(MinPhaseFilterType.bell, 1000.0, StereoEqBandMode.stereo),
             tooltip: 'Add Band',
           ),
@@ -434,7 +434,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? color : ReelForgeTheme.bgMid,
+          color: isSelected ? color : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color),
         ),
@@ -444,7 +444,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
             Text(
               _modeName(band.mode)[0],
               style: TextStyle(
-                color: isSelected ? ReelForgeTheme.textPrimary : color,
+                color: isSelected ? FluxForgeTheme.textPrimary : color,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -453,7 +453,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
             Text(
               '${band.freq.toInt()} Hz',
               style: TextStyle(
-                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                 fontSize: 10,
               ),
             ),
@@ -474,15 +474,15 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgDeep,
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Column(
         children: [
           // Mode selector
           Row(
             children: [
-              const Text('MODE:', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+              const Text('MODE:', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
               const SizedBox(width: 8),
               for (final mode in StereoEqBandMode.values)
                 Padding(
@@ -495,14 +495,14 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: band.mode == mode ? _getModeColor(mode) : ReelForgeTheme.bgMid,
+                        color: band.mode == mode ? _getModeColor(mode) : FluxForgeTheme.bgMid,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: _getModeColor(mode)),
                       ),
                       child: Text(
                         _modeName(mode)[0],
                         style: TextStyle(
-                          color: band.mode == mode ? ReelForgeTheme.textPrimary : _getModeColor(mode),
+                          color: band.mode == mode ? FluxForgeTheme.textPrimary : _getModeColor(mode),
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -555,7 +555,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
             Text(display, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
           ],
         ),
@@ -563,7 +563,7 @@ class _StereoEqPanelState extends State<StereoEqPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -639,12 +639,12 @@ class _StereoEqCurvePainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Size size) {
-    final paint = Paint()..color = ReelForgeTheme.borderSubtle..strokeWidth = 1;
+    final paint = Paint()..color = FluxForgeTheme.borderSubtle..strokeWidth = 1;
     for (final freq in [100.0, 1000.0, 10000.0]) {
       final x = _freqToX(freq, size.width);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = ReelForgeTheme.borderMedium);
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = FluxForgeTheme.borderMedium);
   }
 
   double _freqToX(double freq, double width) {
@@ -667,11 +667,11 @@ class _StereoEqCurvePainter extends CustomPainter {
 
   Color _getModeColor(StereoEqBandMode mode) {
     return switch (mode) {
-      StereoEqBandMode.stereo => ReelForgeTheme.accentCyan,
-      StereoEqBandMode.leftOnly => ReelForgeTheme.accentRed,
-      StereoEqBandMode.rightOnly => ReelForgeTheme.accentGreen,
-      StereoEqBandMode.mid => ReelForgeTheme.accentYellow,
-      StereoEqBandMode.side => ReelForgeTheme.accentPink,
+      StereoEqBandMode.stereo => FluxForgeTheme.accentCyan,
+      StereoEqBandMode.leftOnly => FluxForgeTheme.accentRed,
+      StereoEqBandMode.rightOnly => FluxForgeTheme.accentGreen,
+      StereoEqBandMode.mid => FluxForgeTheme.accentYellow,
+      StereoEqBandMode.side => FluxForgeTheme.accentPink,
     };
   }
 
@@ -690,11 +690,11 @@ class _StereoFieldPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) / 2 - 8;
 
     // Draw background circle
-    canvas.drawCircle(center, radius, Paint()..color = ReelForgeTheme.bgMid);
-    canvas.drawCircle(center, radius, Paint()..color = ReelForgeTheme.borderMedium..style = PaintingStyle.stroke);
+    canvas.drawCircle(center, radius, Paint()..color = FluxForgeTheme.bgMid);
+    canvas.drawCircle(center, radius, Paint()..color = FluxForgeTheme.borderMedium..style = PaintingStyle.stroke);
 
     // Draw L/R labels
-    const textStyle = TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold);
+    const textStyle = TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold);
     final lPainter = TextPainter(text: const TextSpan(text: 'L', style: textStyle), textDirection: TextDirection.ltr)..layout();
     final rPainter = TextPainter(text: const TextSpan(text: 'R', style: textStyle), textDirection: TextDirection.ltr)..layout();
     lPainter.paint(canvas, Offset(4, center.dy - 6));
@@ -729,11 +729,11 @@ class _StereoFieldPainter extends CustomPainter {
 
   Color _getModeColor(StereoEqBandMode mode) {
     return switch (mode) {
-      StereoEqBandMode.stereo => ReelForgeTheme.accentCyan,
-      StereoEqBandMode.leftOnly => ReelForgeTheme.accentRed,
-      StereoEqBandMode.rightOnly => ReelForgeTheme.accentGreen,
-      StereoEqBandMode.mid => ReelForgeTheme.accentYellow,
-      StereoEqBandMode.side => ReelForgeTheme.accentPink,
+      StereoEqBandMode.stereo => FluxForgeTheme.accentCyan,
+      StereoEqBandMode.leftOnly => FluxForgeTheme.accentRed,
+      StereoEqBandMode.rightOnly => FluxForgeTheme.accentGreen,
+      StereoEqBandMode.mid => FluxForgeTheme.accentYellow,
+      StereoEqBandMode.side => FluxForgeTheme.accentPink,
     };
   }
 

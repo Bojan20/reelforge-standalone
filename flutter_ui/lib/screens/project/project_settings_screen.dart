@@ -7,7 +7,7 @@
 /// - Author and description
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // Mock types until flutter_rust_bridge generates them
 class ProjectInfo {
@@ -136,7 +136,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Project settings saved'),
-          backgroundColor: ReelForgeTheme.accentGreen,
+          backgroundColor: FluxForgeTheme.accentGreen,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -165,9 +165,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Project Settings'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -180,7 +180,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               icon: const Icon(Icons.save, size: 18),
               label: const Text('Save'),
               style: TextButton.styleFrom(
-                foregroundColor: ReelForgeTheme.accentGreen,
+                foregroundColor: FluxForgeTheme.accentGreen,
               ),
             ),
         ],
@@ -248,7 +248,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                   Text(
                     'Tempo (BPM)',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -274,14 +274,14 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: ReelForgeTheme.bgSurface,
+                          color: FluxForgeTheme.bgSurface,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: ReelForgeTheme.borderSubtle),
+                          border: Border.all(color: FluxForgeTheme.borderSubtle),
                         ),
                         child: Text(
                           _tempo.toStringAsFixed(0),
                           textAlign: TextAlign.center,
-                          style: ReelForgeTheme.mono,
+                          style: FluxForgeTheme.mono,
                         ),
                       ),
                     ],
@@ -297,7 +297,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             Text(
               'Time Signature',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -314,8 +314,8 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       children: [
         DropdownButton<int>(
           value: _timeSigNum,
-          dropdownColor: ReelForgeTheme.bgMid,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          dropdownColor: FluxForgeTheme.bgMid,
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 16].map((num) {
             return DropdownMenuItem(
               value: num,
@@ -334,15 +334,15 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           child: Text(
             '/',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 20,
             ),
           ),
         ),
         DropdownButton<int>(
           value: _timeSigDenom,
-          dropdownColor: ReelForgeTheme.bgMid,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          dropdownColor: FluxForgeTheme.bgMid,
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           items: [2, 4, 8, 16].map((num) {
             return DropdownMenuItem(
               value: num,
@@ -368,7 +368,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         Text(
           'Project Sample Rate',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -385,10 +385,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                 setState(() => _sampleRate = rate);
                 _markChanged();
               },
-              backgroundColor: ReelForgeTheme.bgSurface,
-              selectedColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.bgSurface,
+              selectedColor: FluxForgeTheme.accentBlue,
               labelStyle: TextStyle(
-                color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
               ),
             );
           }).toList(),
@@ -399,13 +399,13 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             Icon(
               Icons.warning_amber,
               size: 14,
-              color: ReelForgeTheme.accentOrange,
+              color: FluxForgeTheme.accentOrange,
             ),
             const SizedBox(width: 8),
             Text(
               'Changing sample rate will resample all audio',
               style: TextStyle(
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
                 fontSize: 12,
               ),
             ),
@@ -443,7 +443,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             child: Text(
               label,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -452,7 +452,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             child: Text(
               value,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 12,
               ),
             ),
@@ -475,7 +475,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -484,23 +484,23 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           controller: controller,
           onChanged: onChanged,
           maxLines: maxLines,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             filled: true,
-            fillColor: ReelForgeTheme.bgSurface,
+            fillColor: FluxForgeTheme.bgSurface,
             hintText: hintText,
-            hintStyle: TextStyle(color: ReelForgeTheme.textTertiary),
+            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+              borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+              borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+              borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -520,21 +520,21 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: ReelForgeTheme.accentBlue, size: 20),
+              Icon(icon, color: FluxForgeTheme.accentBlue, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),

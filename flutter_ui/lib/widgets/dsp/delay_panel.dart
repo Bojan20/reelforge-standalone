@@ -1,11 +1,11 @@
-/// ReelForge Professional Delay Panel
+/// FluxForge Studio Professional Delay Panel
 ///
 /// Multi-mode delay with Simple, Ping-Pong, Multi-Tap, and Modulated (Chorus/Flanger)
 /// processing options with tempo sync support.
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Professional Delay Panel Widget
 class DelayPanel extends StatefulWidget {
@@ -174,9 +174,9 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,12 +197,12 @@ class _DelayPanelState extends State<DelayPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.timer, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.timer, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Delay',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -222,14 +222,14 @@ class _DelayPanelState extends State<DelayPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: _bypassed ? Colors.orange.withOpacity(0.3) : ReelForgeTheme.surface,
+          color: _bypassed ? Colors.orange.withOpacity(0.3) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: _bypassed ? Colors.orange : ReelForgeTheme.border),
+          border: Border.all(color: _bypassed ? Colors.orange : FluxForgeTheme.border),
         ),
         child: Text(
           'BYPASS',
           style: TextStyle(
-            color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+            color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -268,18 +268,18 @@ class _DelayPanelState extends State<DelayPanel> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: _delayType == type
-                  ? ReelForgeTheme.accentBlue.withOpacity(0.2)
-                  : ReelForgeTheme.surface,
+                  ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _delayType == type ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+                color: _delayType == type ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               _getTypeName(type),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: _delayType == type ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: _delayType == type ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                 fontSize: 11,
                 fontWeight: _delayType == type ? FontWeight.bold : FontWeight.normal,
               ),
@@ -362,7 +362,7 @@ class _DelayPanelState extends State<DelayPanel> {
       children: [
         Text(
           'Tempo Sync',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const Spacer(),
         GestureDetector(
@@ -374,9 +374,9 @@ class _DelayPanelState extends State<DelayPanel> {
             width: 40,
             height: 22,
             decoration: BoxDecoration(
-              color: _tempoSync ? ReelForgeTheme.accentBlue : ReelForgeTheme.surface,
+              color: _tempoSync ? FluxForgeTheme.accentBlue : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: _tempoSync ? ReelForgeTheme.accentBlue : ReelForgeTheme.border),
+              border: Border.all(color: _tempoSync ? FluxForgeTheme.accentBlue : FluxForgeTheme.border),
             ),
             child: AnimatedAlign(
               duration: const Duration(milliseconds: 150),
@@ -386,7 +386,7 @@ class _DelayPanelState extends State<DelayPanel> {
                 height: 18,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  color: _tempoSync ? Colors.white : ReelForgeTheme.textSecondary,
+                  color: _tempoSync ? Colors.white : FluxForgeTheme.textSecondary,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -398,7 +398,7 @@ class _DelayPanelState extends State<DelayPanel> {
           Text(
             '${widget.bpm.toStringAsFixed(0)} BPM',
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),
@@ -446,7 +446,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -454,7 +454,7 @@ class _DelayPanelState extends State<DelayPanel> {
         children: [
           Row(
             children: [
-              Text('Filter', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11)),
+              Text('Filter', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
               const Spacer(),
               GestureDetector(
                 onTap: () {
@@ -464,14 +464,14 @@ class _DelayPanelState extends State<DelayPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _filterEnabled ? ReelForgeTheme.accentBlue.withOpacity(0.2) : ReelForgeTheme.surface,
+                    color: _filterEnabled ? FluxForgeTheme.accentBlue.withOpacity(0.2) : FluxForgeTheme.surface,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _filterEnabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.border),
+                    border: Border.all(color: _filterEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.border),
                   ),
                   child: Text(
                     _filterEnabled ? 'ON' : 'OFF',
                     style: TextStyle(
-                      color: _filterEnabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                      color: _filterEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                       fontSize: 10,
                     ),
                   ),
@@ -512,7 +512,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: _buildParameterRow(
@@ -533,13 +533,13 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tap Configuration', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11)),
+          Text('Tap Configuration', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
           const SizedBox(height: 12),
           ...List.generate(_numTaps.clamp(1, 4), (i) => Padding(
             padding: EdgeInsets.only(bottom: i < _numTaps - 1 ? 8 : 0),
@@ -558,7 +558,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 30,
           child: Text(
             '${index + 1}',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
           ),
         ),
         Expanded(
@@ -575,7 +575,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 50,
           child: Text(
             '${tap.delayMs.toStringAsFixed(0)}ms',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
             textAlign: TextAlign.right,
           ),
         ),
@@ -587,7 +587,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -595,7 +595,7 @@ class _DelayPanelState extends State<DelayPanel> {
           // Preset selector
           Row(
             children: [
-              Text('Preset', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11)),
+              Text('Preset', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
               const Spacer(),
               ...ModulatedDelayPreset.values.map((preset) => Padding(
                 padding: EdgeInsets.only(left: preset != ModulatedDelayPreset.custom ? 8 : 0),
@@ -608,17 +608,17 @@ class _DelayPanelState extends State<DelayPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: _modPreset == preset
-                          ? ReelForgeTheme.accentBlue.withOpacity(0.2)
-                          : ReelForgeTheme.surface,
+                          ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                          : FluxForgeTheme.surface,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: _modPreset == preset ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+                        color: _modPreset == preset ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
                       ),
                     ),
                     child: Text(
                       _getPresetName(preset),
                       style: TextStyle(
-                        color: _modPreset == preset ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                        color: _modPreset == preset ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                         fontSize: 10,
                       ),
                     ),
@@ -679,7 +679,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -688,7 +688,7 @@ class _DelayPanelState extends State<DelayPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -721,10 +721,10 @@ class _DelayPanelState extends State<DelayPanel> {
         trackHeight: 2,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
-        activeTrackColor: ReelForgeTheme.accentBlue,
-        inactiveTrackColor: ReelForgeTheme.surface,
-        thumbColor: ReelForgeTheme.accentBlue,
-        overlayColor: ReelForgeTheme.accentBlue.withOpacity(0.2),
+        activeTrackColor: FluxForgeTheme.accentBlue,
+        inactiveTrackColor: FluxForgeTheme.surface,
+        thumbColor: FluxForgeTheme.accentBlue,
+        overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
       ),
       child: Slider(
         value: value.clamp(0.0, 1.0),
@@ -737,10 +737,10 @@ class _DelayPanelState extends State<DelayPanel> {
     trackHeight: 4,
     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
     overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-    activeTrackColor: ReelForgeTheme.accentBlue,
-    inactiveTrackColor: ReelForgeTheme.surface,
-    thumbColor: ReelForgeTheme.accentBlue,
-    overlayColor: ReelForgeTheme.accentBlue.withOpacity(0.2),
+    activeTrackColor: FluxForgeTheme.accentBlue,
+    inactiveTrackColor: FluxForgeTheme.surface,
+    thumbColor: FluxForgeTheme.accentBlue,
+    overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
   );
 }
 

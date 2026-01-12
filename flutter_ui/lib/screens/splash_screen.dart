@@ -1,11 +1,11 @@
-/// ReelForge Splash Screen
+/// FluxForge Studio Splash Screen
 ///
 /// Professional intro screen with logo animation
 /// Shown before the main application loads
 
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -149,7 +149,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgVoid,
+      backgroundColor: FluxForgeTheme.bgVoid,
       body: Stack(
         children: [
           // Background gradient
@@ -159,8 +159,8 @@ class _SplashScreenState extends State<SplashScreen>
                 center: Alignment.center,
                 radius: 1.5,
                 colors: [
-                  ReelForgeTheme.bgMid,
-                  ReelForgeTheme.bgVoid,
+                  FluxForgeTheme.bgMid,
+                  FluxForgeTheme.bgVoid,
                 ],
               ),
             ),
@@ -193,7 +193,7 @@ class _SplashScreenState extends State<SplashScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: ReelForgeTheme.accentBlue
+                                color: FluxForgeTheme.accentBlue
                                     .withAlpha((255 * _glowIntensity.value * 0.6).round()),
                                 blurRadius: 40 * _glowIntensity.value,
                                 spreadRadius: 10 * _glowIntensity.value,
@@ -227,28 +227,28 @@ class _SplashScreenState extends State<SplashScreen>
                       ShaderMask(
                         shaderCallback: (bounds) => LinearGradient(
                           colors: [
-                            ReelForgeTheme.accentBlue,
-                            ReelForgeTheme.accentCyan,
+                            FluxForgeTheme.accentBlue,
+                            FluxForgeTheme.accentCyan,
                           ],
                         ).createShader(bounds),
                         child: Text(
-                          'ReelForge',
+                          'FluxForge Studio',
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w300,
                             letterSpacing: 8,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'DIGITAL AUDIO WORKSTATION',
+                        'AUTHORING TOOL & DAW',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 6,
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -292,7 +292,7 @@ class _SplashScreenState extends State<SplashScreen>
                     'v0.1.0',
                     style: TextStyle(
                       fontSize: 11,
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       letterSpacing: 2,
                     ),
                   ),
@@ -301,7 +301,7 @@ class _SplashScreenState extends State<SplashScreen>
                     '© 2025 VanVinkl Studio',
                     style: TextStyle(
                       fontSize: 10,
-                      color: ReelForgeTheme.textDisabled,
+                      color: FluxForgeTheme.textDisabled,
                       letterSpacing: 1,
                     ),
                   ),
@@ -324,12 +324,12 @@ class _SplashScreenState extends State<SplashScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            ReelForgeTheme.bgSurface,
-            ReelForgeTheme.bgMid,
+            FluxForgeTheme.bgSurface,
+            FluxForgeTheme.bgMid,
           ],
         ),
         border: Border.all(
-          color: ReelForgeTheme.accentBlue.withAlpha(128),
+          color: FluxForgeTheme.accentBlue.withAlpha(128),
           width: 2,
         ),
       ),
@@ -344,7 +344,7 @@ class _SplashScreenState extends State<SplashScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: ReelForgeTheme.accentBlue.withAlpha(77),
+                  color: FluxForgeTheme.accentBlue.withAlpha(77),
                   width: 1,
                 ),
               ),
@@ -355,8 +355,8 @@ class _SplashScreenState extends State<SplashScreen>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  ReelForgeTheme.accentBlue,
-                  ReelForgeTheme.accentCyan,
+                  FluxForgeTheme.accentBlue,
+                  FluxForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
               child: Text(
@@ -364,7 +364,7 @@ class _SplashScreenState extends State<SplashScreen>
                 style: TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.w200,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   letterSpacing: -2,
                 ),
               ),
@@ -381,7 +381,7 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 3,
                     height: heights[i],
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentBlue.withAlpha(179),
+                      color: FluxForgeTheme.accentBlue.withAlpha(179),
                       borderRadius: BorderRadius.circular(1.5),
                     ),
                   );
@@ -403,7 +403,7 @@ class _SplashScreenState extends State<SplashScreen>
           Container(
             height: 3,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgElevated,
+              color: FluxForgeTheme.bgElevated,
               borderRadius: BorderRadius.circular(1.5),
             ),
             child: widget.progress != null
@@ -414,8 +414,8 @@ class _SplashScreenState extends State<SplashScreen>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            ReelForgeTheme.accentBlue,
-                            ReelForgeTheme.accentCyan,
+                            FluxForgeTheme.accentBlue,
+                            FluxForgeTheme.accentCyan,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(1.5),
@@ -430,7 +430,7 @@ class _SplashScreenState extends State<SplashScreen>
             widget.loadingMessage ?? 'Initializing...',
             style: TextStyle(
               fontSize: 12,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
           ),
@@ -444,7 +444,7 @@ class _SplashScreenState extends State<SplashScreen>
       children: [
         Icon(
           Icons.error_outline,
-          color: ReelForgeTheme.errorRed,
+          color: FluxForgeTheme.errorRed,
           size: 32,
         ),
         const SizedBox(height: 12),
@@ -453,7 +453,7 @@ class _SplashScreenState extends State<SplashScreen>
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: ReelForgeTheme.errorRed,
+            color: FluxForgeTheme.errorRed,
           ),
         ),
         if (widget.errorMessage != null) ...[
@@ -465,7 +465,7 @@ class _SplashScreenState extends State<SplashScreen>
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -475,7 +475,7 @@ class _SplashScreenState extends State<SplashScreen>
           TextButton(
             onPressed: widget.onRetry,
             style: TextButton.styleFrom(
-              foregroundColor: ReelForgeTheme.accentBlue,
+              foregroundColor: FluxForgeTheme.accentBlue,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: const Text('Retry'),
@@ -524,8 +524,8 @@ class _IndeterminateProgressState extends State<_IndeterminateProgress>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentBlue,
-                  ReelForgeTheme.accentCyan,
+                  FluxForgeTheme.accentBlue,
+                  FluxForgeTheme.accentCyan,
                 ],
               ),
               borderRadius: BorderRadius.circular(1.5),
@@ -542,7 +542,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withAlpha(5)
+      ..color = FluxForgeTheme.textPrimary.withAlpha(5)
       ..strokeWidth = 0.5;
 
     const spacing = 50.0;

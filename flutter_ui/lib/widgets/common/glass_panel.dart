@@ -5,7 +5,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class GlassPanel extends StatelessWidget {
   final Widget child;
@@ -44,12 +44,12 @@ class GlassPanel extends StatelessWidget {
         boxShadow: [
           if (showGlow)
             BoxShadow(
-              color: (glowColor ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.2),
+              color: (glowColor ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.2),
               blurRadius: 20,
               spreadRadius: -5,
             ),
           ...?shadows,
-          ...ReelForgeTheme.subtleShadow,
+          ...FluxForgeTheme.subtleShadow,
         ],
       ),
       child: ClipRRect(
@@ -59,10 +59,10 @@ class GlassPanel extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: backgroundColor ?? ReelForgeTheme.bgSurface.withValues(alpha: 0.85),
+              color: backgroundColor ?? FluxForgeTheme.bgSurface.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
-                color: borderColor ?? ReelForgeTheme.borderSubtle,
+                color: borderColor ?? FluxForgeTheme.borderSubtle,
                 width: borderWidth,
               ),
             ),
@@ -108,7 +108,7 @@ class _AnimatedGlassPanelState extends State<AnimatedGlassPanel>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.selectedColor ?? ReelForgeTheme.accentBlue;
+    final color = widget.selectedColor ?? FluxForgeTheme.accentBlue;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -120,22 +120,22 @@ class _AnimatedGlassPanelState extends State<AnimatedGlassPanel>
         onTap: widget.onTap,
         onDoubleTap: widget.onDoubleTap,
         child: AnimatedContainer(
-          duration: ReelForgeTheme.fastDuration,
-          curve: ReelForgeTheme.smoothCurve,
+          duration: FluxForgeTheme.fastDuration,
+          curve: FluxForgeTheme.smoothCurve,
           margin: widget.margin,
           transform: Matrix4.identity()
             ..scale(_isPressed ? 0.98 : 1.0),
           decoration: BoxDecoration(
             color: _isHovered
-                ? ReelForgeTheme.bgHover.withValues(alpha: 0.9)
-                : ReelForgeTheme.bgSurface.withValues(alpha: 0.85),
+                ? FluxForgeTheme.bgHover.withValues(alpha: 0.9)
+                : FluxForgeTheme.bgSurface.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
               color: widget.selected
                   ? color
                   : _isHovered
-                      ? ReelForgeTheme.borderMedium
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.borderMedium
+                      : FluxForgeTheme.borderSubtle,
               width: widget.selected ? 2 : 1,
             ),
             boxShadow: [
@@ -145,7 +145,7 @@ class _AnimatedGlassPanelState extends State<AnimatedGlassPanel>
                   blurRadius: 12,
                   spreadRadius: -2,
                 ),
-              ...ReelForgeTheme.subtleShadow,
+              ...FluxForgeTheme.subtleShadow,
             ],
           ),
           child: ClipRRect(

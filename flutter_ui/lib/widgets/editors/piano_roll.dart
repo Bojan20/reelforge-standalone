@@ -13,7 +13,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -275,7 +275,7 @@ class _PianoRollState extends State<PianoRoll> {
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Container(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         child: Row(
           children: [
             // Piano keys
@@ -338,19 +338,19 @@ class _PianoRollState extends State<PianoRoll> {
                   width: _pianoKeyWidth,
                   decoration: BoxDecoration(
                     color: isHovered
-                        ? ReelForgeTheme.accentBlue.withValues(alpha: 0.3)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
                         : (isBlack
                             ? PianoRollColors.scaleKeyBlack
                             : PianoRollColors.scaleKeyWhite),
                     border: Border(
                       bottom: BorderSide(
                         color: isC
-                            ? ReelForgeTheme.borderMedium
-                            : ReelForgeTheme.borderSubtle,
+                            ? FluxForgeTheme.borderMedium
+                            : FluxForgeTheme.borderSubtle,
                         width: isC ? 1.5 : 0.5,
                       ),
                       right: BorderSide(
-                        color: ReelForgeTheme.borderMedium,
+                        color: FluxForgeTheme.borderMedium,
                       ),
                     ),
                   ),
@@ -376,10 +376,10 @@ class _PianoRollState extends State<PianoRoll> {
                                 fontSize: 9,
                                 fontWeight: isC ? FontWeight.w600 : FontWeight.w400,
                                 color: isHovered
-                                    ? ReelForgeTheme.accentBlue
+                                    ? FluxForgeTheme.accentBlue
                                     : (isC
-                                        ? ReelForgeTheme.textPrimary
-                                        : ReelForgeTheme.textSecondary),
+                                        ? FluxForgeTheme.textPrimary
+                                        : FluxForgeTheme.textSecondary),
                               ),
                             ),
                           ),
@@ -398,9 +398,9 @@ class _PianoRollState extends State<PianoRoll> {
   Widget _buildTimeline(double gridWidth) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderMedium),
+          bottom: BorderSide(color: FluxForgeTheme.borderMedium),
         ),
       ),
       child: SingleChildScrollView(
@@ -478,12 +478,12 @@ class _PianoRollState extends State<PianoRoll> {
                       bottom: 0,
                       child: Container(
                         width: 2,
-                        color: ReelForgeTheme.accentBlue,
+                        color: FluxForgeTheme.accentBlue,
                         child: Container(
                           width: 2,
                           decoration: BoxDecoration(
-                            boxShadow: ReelForgeTheme.glowShadow(
-                              ReelForgeTheme.accentBlue,
+                            boxShadow: FluxForgeTheme.glowShadow(
+                              FluxForgeTheme.accentBlue,
                               intensity: 0.5,
                             ),
                           ),
@@ -517,10 +517,10 @@ class _PianoRollState extends State<PianoRoll> {
                         width: widget.config.beatWidth / widget.config.subdivisions,
                         height: widget.config.noteHeight - 1,
                         decoration: BoxDecoration(
-                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+                          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                           border: Border.all(
-                            color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5),
+                            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                             width: 1,
                           ),
                         ),
@@ -568,10 +568,10 @@ class _PianoRollState extends State<PianoRoll> {
                       : noteColor.withValues(alpha: 0.9)),
               borderRadius: BorderRadius.circular(2),
               border: isSelected
-                  ? Border.all(color: ReelForgeTheme.textPrimary, width: 1.5)
+                  ? Border.all(color: FluxForgeTheme.textPrimary, width: 1.5)
                   : null,
               boxShadow: isSelected && !isGhost
-                  ? ReelForgeTheme.glowShadow(noteColor, intensity: 0.4)
+                  ? FluxForgeTheme.glowShadow(noteColor, intensity: 0.4)
                   : null,
             ),
             child: Stack(
@@ -637,9 +637,9 @@ class _PianoRollState extends State<PianoRoll> {
   Widget _buildVelocityLane(double gridWidth) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderMedium),
+          top: BorderSide(color: FluxForgeTheme.borderMedium),
         ),
       ),
       child: SingleChildScrollView(
@@ -912,7 +912,7 @@ class _TimelinePainter extends CustomPainter {
       final x2 = loopRegion!.$2 * beatWidth;
       canvas.drawRect(
         Rect.fromLTWH(x1, 0, x2 - x1, size.height),
-        Paint()..color = ReelForgeTheme.accentPurple.withValues(alpha: 0.2),
+        Paint()..color = FluxForgeTheme.accentPurple.withValues(alpha: 0.2),
       );
     }
 
@@ -925,7 +925,7 @@ class _TimelinePainter extends CustomPainter {
         Offset(x, size.height - 8),
         Offset(x, size.height),
         Paint()
-          ..color = ReelForgeTheme.textSecondary
+          ..color = FluxForgeTheme.textSecondary
           ..strokeWidth = 1,
       );
 
@@ -935,7 +935,7 @@ class _TimelinePainter extends CustomPainter {
           text: '${bar + 1}',
           style: TextStyle(
             fontSize: 10,
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -951,7 +951,7 @@ class _TimelinePainter extends CustomPainter {
         Offset(x, 0),
         Offset(x, size.height),
         Paint()
-          ..color = ReelForgeTheme.accentBlue
+          ..color = FluxForgeTheme.accentBlue
           ..strokeWidth = 2,
       );
     }
@@ -979,7 +979,7 @@ class _VelocityPainter extends CustomPainter {
     // Background grid
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgDeep,
+      Paint()..color = FluxForgeTheme.bgDeep,
     );
 
     // 50% line
@@ -987,7 +987,7 @@ class _VelocityPainter extends CustomPainter {
       Offset(0, size.height * 0.5),
       Offset(size.width, size.height * 0.5),
       Paint()
-        ..color = ReelForgeTheme.borderSubtle
+        ..color = FluxForgeTheme.borderSubtle
         ..strokeWidth = 0.5,
     );
 
@@ -1002,7 +1002,7 @@ class _VelocityPainter extends CustomPainter {
         Rect.fromLTWH(x, size.height - barHeight, width, barHeight),
         Paint()
           ..color = isSelected
-              ? ReelForgeTheme.accentBlue
+              ? FluxForgeTheme.accentBlue
               : PianoRollColors.noteColor(note.velocity).withValues(alpha: 0.8),
       );
     }

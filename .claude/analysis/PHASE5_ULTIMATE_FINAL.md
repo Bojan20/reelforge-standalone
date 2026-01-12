@@ -23,9 +23,9 @@
 | **Bitwig Studio 5** | Bitwig (DE) | $399 | Modular, Linux | Niche market |
 | **Ardour 8** | Paul Davis | Free | Open source, Linux | Limited commercial support |
 
-### ReelForge Superiority Goals
+### FluxForge Studio Superiority Goals
 
-| Metric | Best Current | ReelForge Target | Advantage |
+| Metric | Best Current | FluxForge Studio Target | Advantage |
 |--------|--------------|------------------|-----------|
 | Architecture | All: Legacy C++ | **Rust 2024** | Memory safety, Performance |
 | Bit Depth | 64-bit (Pyramix) | **64-bit native** | Equal |
@@ -154,7 +154,7 @@ impl Ara2Host {
 
 ### 5.1.3 Plugin Scanner - FASTEST IN INDUSTRY
 
-| Feature | Industry Best | ReelForge Ultimate |
+| Feature | Industry Best | FluxForge Studio Ultimate |
 |---------|--------------|-------------------|
 | Scan Speed | 500/min (Pro Tools) | **3000/min** (6x) |
 | Parallel Threads | 2-4 | **16** |
@@ -254,7 +254,7 @@ impl ZeroCopyPluginChain {
 
 **Reference:** Modern game engines (Unreal 5, Unity HDRP)
 
-| Feature | Pro Tools | Logic | Cubase | ReelForge |
+| Feature | Pro Tools | Logic | Cubase | FluxForge Studio |
 |---------|-----------|-------|--------|-----------|
 | Frame Rate | 60fps | 60fps | 60fps | **120fps** |
 | Backend | OpenGL | Metal | OpenGL/DX | **Vulkan/Metal/DX12** |
@@ -394,7 +394,7 @@ pub enum WaveformStyle {
 
 ### 5.2.4 Metering Suite - BEYOND BROADCAST STANDARDS
 
-| Meter Type | Standard | ReelForge Implementation |
+| Meter Type | Standard | FluxForge Studio Implementation |
 |------------|----------|-------------------------|
 | **True Peak** | ITU 4x | **8x oversampling** (superior) |
 | **LUFS** | EBU R128 | **EBU + Netflix + Spotify + Apple** |
@@ -498,7 +498,7 @@ pub struct DedicatedAudioCore {
 
 ### 5.3.2 Performance Guarantees
 
-| Metric | Pyramix | Pro Tools | ReelForge Target |
+| Metric | Pyramix | Pro Tools | FluxForge Studio Target |
 |--------|---------|-----------|------------------|
 | Audio Callback | 500µs | 1ms | **< 100µs** |
 | Worst-case Latency | 1ms | 3ms | **< 500µs** |
@@ -681,7 +681,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: reelforge-${{ matrix.target }}
+          name: fluxforge-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/bundle/
 
   # Benchmarks
@@ -720,7 +720,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Valgrind Memcheck
-        run: valgrind --leak-check=full --error-exitcode=1 ./target/release/reelforge --test
+        run: valgrind --leak-check=full --error-exitcode=1 ./target/release/fluxforge --test
 
       - name: AddressSanitizer
         run: RUSTFLAGS="-Z sanitizer=address" cargo test --release
@@ -862,8 +862,8 @@ pub enum DsdRate {
     Dsd64,   // 2.8224 MHz (1x)
     Dsd128,  // 5.6448 MHz (2x)
     Dsd256,  // 11.2896 MHz (4x) - Pyramix max
-    Dsd512,  // 22.5792 MHz (8x) - ReelForge
-    Dsd1024, // 45.1584 MHz (16x) - ReelForge UNIQUE
+    Dsd512,  // 22.5792 MHz (8x) - FluxForge Studio
+    Dsd1024, // 45.1584 MHz (16x) - FluxForge Studio UNIQUE
 }
 ```
 
@@ -877,7 +877,7 @@ pub struct UltimateSampleRateSupport {
     // High rates (Pyramix max)
     high: [u32; 2], // 352800, 384000
 
-    // Ultra rates (ReelForge UNIQUE)
+    // Ultra rates (FluxForge Studio UNIQUE)
     ultra: [u32; 2], // 705600, 768000
 
     // Sample rate conversion
@@ -978,7 +978,7 @@ pub struct GpuInferenceEngine {
 
 ## FINAL SUPERIORITY MATRIX
 
-| Category | Pro Tools | Pyramix | Nuendo | Logic | Cubase | REAPER | **ReelForge** |
+| Category | Pro Tools | Pyramix | Nuendo | Logic | Cubase | REAPER | **FluxForge Studio** |
 |----------|-----------|---------|--------|-------|--------|--------|---------------|
 | **Architecture** | C++ | C++ | C++ | Obj-C++ | C++ | C++ | **Rust 2024** ✅ |
 | **Memory Safety** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **Guaranteed** ✅ |
@@ -1020,7 +1020,7 @@ pub struct GpuInferenceEngine {
 
 ## CONCLUSION
 
-Sa kompletiranim Phase 5, ReelForge postaje:
+Sa kompletiranim Phase 5, FluxForge Studio postaje:
 
 1. **JEDINI** DAW sa Rust arhitekturom (memory-safe)
 2. **JEDINI** DAW sa GPU-accelerated DSP

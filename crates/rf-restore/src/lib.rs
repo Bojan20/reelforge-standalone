@@ -1,4 +1,4 @@
-//! ReelForge Audio Restoration Suite
+//! FluxForge Studio Audio Restoration Suite
 //!
 //! Professional-grade audio repair and restoration:
 //!

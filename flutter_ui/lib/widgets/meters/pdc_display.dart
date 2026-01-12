@@ -7,7 +7,7 @@
 /// - PDC enable status
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -59,10 +59,10 @@ class PdcIndicator extends StatelessWidget {
 
     final hasHighLatency = totalLatencyMs > 10; // >10ms is noticeable
     final color = hasHighLatency
-        ? ReelForgeTheme.warningOrange
+        ? FluxForgeTheme.warningOrange
         : isEnabled
-            ? ReelForgeTheme.accentGreen
-            : ReelForgeTheme.textTertiary;
+            ? FluxForgeTheme.accentGreen
+            : FluxForgeTheme.textTertiary;
 
     return Tooltip(
       message: 'Plugin Delay Compensation\n'
@@ -157,7 +157,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,15 +168,15 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
               Icon(
                 Icons.timer_outlined,
                 color: _isEnabled
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textTertiary,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 'Plugin Delay Compensation',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -186,8 +186,8 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _isEnabled
-                      ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-                      : ReelForgeTheme.textTertiary.withValues(alpha: 0.2),
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                      : FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -196,8 +196,8 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: _isEnabled
-                        ? ReelForgeTheme.accentGreen
-                        : ReelForgeTheme.textTertiary,
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -229,7 +229,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
             label: 'Master Bus',
             samples: _masterLatency,
             msString: _samplesToMs(_masterLatency),
-            color: ReelForgeTheme.warningOrange,
+            color: FluxForgeTheme.warningOrange,
           ),
 
           const SizedBox(height: 8),
@@ -242,7 +242,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
 
@@ -258,7 +258,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
                   label: 'Track ${entry.key}',
                   samples: entry.value,
                   msString: _samplesToMs(entry.value),
-                  color: ReelForgeTheme.accentBlue,
+                  color: FluxForgeTheme.accentBlue,
                 );
               },
             ),
@@ -270,7 +270,7 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
             'Sample Rate: ${widget.sampleRate.toInt()} Hz',
             style: TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
         ],
@@ -306,16 +306,16 @@ class _LatencyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isHighlighted
             ? (isHigh
-                ? ReelForgeTheme.warningOrange.withValues(alpha: 0.15)
-                : ReelForgeTheme.accentBlue.withValues(alpha: 0.15))
-            : ReelForgeTheme.bgMid,
+                ? FluxForgeTheme.warningOrange.withValues(alpha: 0.15)
+                : FluxForgeTheme.accentBlue.withValues(alpha: 0.15))
+            : FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isHighlighted
               ? (isHigh
-                  ? ReelForgeTheme.warningOrange.withValues(alpha: 0.5)
-                  : ReelForgeTheme.accentBlue.withValues(alpha: 0.5))
-              : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.warningOrange.withValues(alpha: 0.5)
+                  : FluxForgeTheme.accentBlue.withValues(alpha: 0.5))
+              : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
@@ -328,7 +328,7 @@ class _LatencyCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -338,8 +338,8 @@ class _LatencyCard extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                     color: isHigh
-                        ? ReelForgeTheme.warningOrange
-                        : ReelForgeTheme.textPrimary,
+                        ? FluxForgeTheme.warningOrange
+                        : FluxForgeTheme.textPrimary,
                     fontFamily: 'JetBrains Mono',
                   ),
                 ),
@@ -354,7 +354,7 @@ class _LatencyCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontFamily: 'JetBrains Mono',
                 ),
               ),
@@ -362,7 +362,7 @@ class _LatencyCard extends StatelessWidget {
                 'samples',
                 style: TextStyle(
                   fontSize: 9,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ],
@@ -398,7 +398,7 @@ class _LatencyRow extends StatelessWidget {
             width: 4,
             height: 16,
             decoration: BoxDecoration(
-              color: hasLatency ? color : ReelForgeTheme.textTertiary,
+              color: hasLatency ? color : FluxForgeTheme.textTertiary,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -408,7 +408,7 @@ class _LatencyRow extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
           ),
@@ -417,8 +417,8 @@ class _LatencyRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               color: hasLatency
-                  ? ReelForgeTheme.textSecondary
-                  : ReelForgeTheme.textTertiary,
+                  ? FluxForgeTheme.textSecondary
+                  : FluxForgeTheme.textTertiary,
               fontFamily: 'JetBrains Mono',
             ),
           ),
@@ -431,8 +431,8 @@ class _LatencyRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: hasLatency
-                    ? ReelForgeTheme.textTertiary
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.textTertiary
+                    : FluxForgeTheme.textTertiary,
                 fontFamily: 'JetBrains Mono',
               ),
             ),

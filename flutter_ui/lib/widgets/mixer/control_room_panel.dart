@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/control_room_provider.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONTROL ROOM PANEL
@@ -52,8 +52,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       builder: (context, controlRoom, _) {
         return Container(
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
-            border: Border.all(color: ReelForgeTheme.bgSurface),
+            color: FluxForgeTheme.bgDeep,
+            border: Border.all(color: FluxForgeTheme.bgSurface),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
@@ -61,7 +61,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             children: [
               // Header
               _buildHeader(controlRoom),
-              Divider(height: 1, color: ReelForgeTheme.bgSurface),
+              Divider(height: 1, color: FluxForgeTheme.bgSurface),
 
               Expanded(
                 child: SingleChildScrollView(
@@ -102,17 +102,17 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   Widget _buildHeader(ControlRoomProvider controlRoom) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.speaker, size: 16, color: ReelForgeTheme.textSecondary),
+          const Icon(Icons.speaker, size: 16, color: FluxForgeTheme.textSecondary),
           const SizedBox(width: 8),
           const Text(
             'CONTROL ROOM',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
           ),
@@ -140,11 +140,11 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
 
     Color color;
     if (db > -3) {
-      color = ReelForgeTheme.accentRed;
+      color = FluxForgeTheme.accentRed;
     } else if (db > -12) {
-      color = ReelForgeTheme.accentOrange;
+      color = FluxForgeTheme.accentOrange;
     } else {
-      color = ReelForgeTheme.accentGreen;
+      color = FluxForgeTheme.accentGreen;
     }
 
     return Container(
@@ -181,7 +181,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Source selector
           Row(
             children: [
-              Text('Source:', style: TextStyle(fontSize: 10, color: ReelForgeTheme.textSecondary.withOpacity(0.7))),
+              Text('Source:', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary.withOpacity(0.7))),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildSourceDropdown(controlRoom),
@@ -209,7 +209,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               _buildToggleButton(
                 label: 'DIM',
                 active: controlRoom.dimEnabled,
-                activeColor: ReelForgeTheme.accentOrange,
+                activeColor: FluxForgeTheme.accentOrange,
                 onTap: () => controlRoom.setDim(!controlRoom.dimEnabled),
               ),
               const SizedBox(width: 4),
@@ -218,7 +218,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               _buildToggleButton(
                 label: 'MONO',
                 active: controlRoom.monoEnabled,
-                activeColor: ReelForgeTheme.accentBlue,
+                activeColor: FluxForgeTheme.accentBlue,
                 onTap: () => controlRoom.setMono(!controlRoom.monoEnabled),
               ),
             ],
@@ -233,17 +233,17 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: ReelForgeTheme.bgSurface),
+        border: Border.all(color: FluxForgeTheme.bgSurface),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<MonitorSource>(
           value: controlRoom.monitorSource,
           isDense: true,
           isExpanded: true,
-          dropdownColor: ReelForgeTheme.bgMid,
-          style: const TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary),
+          dropdownColor: FluxForgeTheme.bgMid,
+          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
           items: MonitorSource.values.map((s) => DropdownMenuItem(
             value: s,
             child: Text(_sourceLabel(s)),
@@ -297,10 +297,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgDeep,
+          color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Column(
@@ -310,7 +310,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: isActive ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+                color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
               ),
             ),
             if (calibration != 0)
@@ -319,8 +319,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                 style: TextStyle(
                   fontSize: 8,
                   color: isActive
-                      ? ReelForgeTheme.textSecondary
-                      : ReelForgeTheme.textSecondary.withOpacity(0.5),
+                      ? FluxForgeTheme.textSecondary
+                      : FluxForgeTheme.textSecondary.withOpacity(0.5),
                 ),
               ),
           ],
@@ -353,12 +353,12 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   Widget _buildSoloButton(ControlRoomProvider controlRoom, SoloMode mode, String label) {
     final isActive = controlRoom.soloMode == mode;
     final color = mode == SoloMode.off
-        ? ReelForgeTheme.textSecondary
+        ? FluxForgeTheme.textSecondary
         : mode == SoloMode.sip
-            ? ReelForgeTheme.accentRed
+            ? FluxForgeTheme.accentRed
             : mode == SoloMode.afl
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.accentOrange;
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.accentOrange;
 
     return Expanded(
       child: GestureDetector(
@@ -366,10 +366,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? color.withOpacity(0.3) : ReelForgeTheme.bgDeep,
+            color: isActive ? color.withOpacity(0.3) : FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: isActive ? color : ReelForgeTheme.bgSurface,
+              color: isActive ? color : FluxForgeTheme.bgSurface,
             ),
           ),
           child: Center(
@@ -378,7 +378,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: isActive ? color : ReelForgeTheme.textSecondary.withOpacity(0.5),
+                color: isActive ? color : FluxForgeTheme.textSecondary.withOpacity(0.5),
               ),
             ),
           ),
@@ -417,14 +417,14 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.bgDeep,
+              color: enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                color: enabled ? ReelForgeTheme.accentGreen : ReelForgeTheme.bgSurface,
+                color: enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.bgSurface,
               ),
             ),
             child: enabled
-                ? const Icon(Icons.check, size: 12, color: ReelForgeTheme.textPrimary)
+                ? const Icon(Icons.check, size: 12, color: FluxForgeTheme.textPrimary)
                 : null,
           ),
         ),
@@ -437,7 +437,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             'Cue ${index + 1}',
             style: TextStyle(
               fontSize: 10,
-              color: enabled ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary.withOpacity(0.5),
+              color: enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary.withOpacity(0.5),
             ),
           ),
         ),
@@ -449,9 +449,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               trackHeight: 3,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
               overlayShape: SliderComponentShape.noOverlay,
-              activeTrackColor: enabled ? ReelForgeTheme.accentBlue : Colors.white24,
-              inactiveTrackColor: ReelForgeTheme.bgSurface,
-              thumbColor: enabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary.withOpacity(0.5),
+              activeTrackColor: enabled ? FluxForgeTheme.accentBlue : Colors.white24,
+              inactiveTrackColor: FluxForgeTheme.bgSurface,
+              thumbColor: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withOpacity(0.5),
             ),
             child: Slider(
               value: levelDb,
@@ -469,7 +469,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             '${levelDb.toStringAsFixed(1)}',
             style: TextStyle(
               fontSize: 9,
-              color: enabled ? ReelForgeTheme.textSecondary : ReelForgeTheme.textSecondary.withOpacity(0.3),
+              color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textSecondary.withOpacity(0.3),
             ),
             textAlign: TextAlign.right,
           ),
@@ -502,10 +502,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: controlRoom.talkbackEnabled ? ReelForgeTheme.accentRed : ReelForgeTheme.bgMid,
+                      color: controlRoom.talkbackEnabled ? FluxForgeTheme.accentRed : FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: controlRoom.talkbackEnabled ? ReelForgeTheme.accentRed : ReelForgeTheme.bgSurface,
+                        color: controlRoom.talkbackEnabled ? FluxForgeTheme.accentRed : FluxForgeTheme.bgSurface,
                         width: 2,
                       ),
                     ),
@@ -516,8 +516,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                           Icons.mic,
                           size: 16,
                           color: controlRoom.talkbackEnabled
-                              ? ReelForgeTheme.textPrimary
-                              : ReelForgeTheme.textSecondary,
+                              ? FluxForgeTheme.textPrimary
+                              : FluxForgeTheme.textSecondary,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -526,8 +526,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: controlRoom.talkbackEnabled
-                                ? ReelForgeTheme.textPrimary
-                                : ReelForgeTheme.textSecondary,
+                                ? FluxForgeTheme.textPrimary
+                                : FluxForgeTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -542,7 +542,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Destinations
           Row(
             children: [
-              Text('To:', style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary.withOpacity(0.5))),
+              Text('To:', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withOpacity(0.5))),
               const SizedBox(width: 8),
               ...List.generate(4, (i) => Padding(
                 padding: const EdgeInsets.only(right: 4),
@@ -563,10 +563,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: active ? ReelForgeTheme.accentBlue.withOpacity(0.3) : ReelForgeTheme.bgDeep,
+          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.3) : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Text(
@@ -574,7 +574,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary.withOpacity(0.5),
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withOpacity(0.5),
           ),
         ),
       ),
@@ -594,7 +594,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textSecondary.withOpacity(0.5),
+            color: FluxForgeTheme.textSecondary.withOpacity(0.5),
             letterSpacing: 1,
           ),
         ),
@@ -615,10 +615,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: active ? activeColor.withOpacity(0.3) : ReelForgeTheme.bgDeep,
+          color: active ? activeColor.withOpacity(0.3) : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.bgSurface,
+            color: active ? activeColor : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Text(
@@ -626,7 +626,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? activeColor : ReelForgeTheme.textSecondary.withOpacity(0.5),
+            color: active ? activeColor : FluxForgeTheme.textSecondary.withOpacity(0.5),
           ),
         ),
       ),
@@ -646,10 +646,10 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary.withOpacity(0.5))),
+            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withOpacity(0.5))),
             Text(
               '${value.toStringAsFixed(1)} dB',
-              style: const TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary),
+              style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
             ),
           ],
         ),
@@ -659,9 +659,9 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: SliderComponentShape.noOverlay,
-            activeTrackColor: ReelForgeTheme.accentBlue,
-            inactiveTrackColor: ReelForgeTheme.bgSurface,
-            thumbColor: ReelForgeTheme.accentBlue,
+            activeTrackColor: FluxForgeTheme.accentBlue,
+            inactiveTrackColor: FluxForgeTheme.bgSurface,
+            thumbColor: FluxForgeTheme.accentBlue,
           ),
           child: Slider(
             value: value,

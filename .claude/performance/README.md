@@ -1,4 +1,4 @@
-# ReelForge Performance Documentation
+# FluxForge Studio Performance Documentation
 
 **Folder:** `.claude/performance/`
 **Purpose:** Comprehensive performance analysis, optimization guides, and code cleanup checklists
@@ -8,7 +8,7 @@
 ## 📄 Files
 
 ### 1. OPTIMIZATION_GUIDE.md
-**Najdetaljnija analiza performansi kompletnog ReelForge koda.**
+**Najdetaljnija analiza performansi kompletnog FluxForge Studio koda.**
 
 **Sadržaj:**
 - ✅ Analiza 132,621 linija koda (Rust + Flutter)
@@ -139,7 +139,7 @@ cd flutter_ui && flutter run -d macos --release
 cargo flamegraph --release
 
 # Memory profiling (macOS)
-instruments -t "Allocations" target/release/reelforge_ui
+instruments -t "Allocations" target/release/fluxforge_ui
 
 # Audio latency test
 cargo test --release -- --nocapture audio_latency_test

@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../providers/global_shortcuts_provider.dart';
 
 /// Shortcut category for grouping
@@ -451,11 +451,11 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgMid,
-        title: const Text('Reset Shortcuts', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgMid,
+        title: const Text('Reset Shortcuts', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         content: const Text(
           'This will reset all keyboard shortcuts to their default values. Continue?',
-          style: TextStyle(color: ReelForgeTheme.textSecondary),
+          style: TextStyle(color: FluxForgeTheme.textSecondary),
         ),
         actions: [
           TextButton(
@@ -472,7 +472,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
               setState(() {});
               if (mounted) Navigator.pop(ctx);
             },
-            child: const Text('Reset', style: TextStyle(color: ReelForgeTheme.accentRed)),
+            child: const Text('Reset', style: TextStyle(color: FluxForgeTheme.accentRed)),
           ),
         ],
       ),
@@ -583,12 +583,12 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
-        title: const Text('Keyboard Shortcuts', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgMid,
+        title: const Text('Keyboard Shortcuts', style: TextStyle(color: FluxForgeTheme.textPrimary)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ReelForgeTheme.textPrimary),
+          icon: const Icon(Icons.arrow_back, color: FluxForgeTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -604,40 +604,40 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
           // Search and filter bar
           Container(
             padding: const EdgeInsets.all(12),
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search shortcuts...',
-                      hintStyle: const TextStyle(color: ReelForgeTheme.textMuted),
-                      prefixIcon: const Icon(Icons.search, color: ReelForgeTheme.textMuted),
+                      hintStyle: const TextStyle(color: FluxForgeTheme.textMuted),
+                      prefixIcon: const Icon(Icons.search, color: FluxForgeTheme.textMuted),
                       filled: true,
-                      fillColor: ReelForgeTheme.bgDeep,
+                      fillColor: FluxForgeTheme.bgDeep,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
-                    style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary),
                     onChanged: (v) => setState(() => _searchQuery = v),
                   ),
                 ),
                 const SizedBox(width: 12),
                 DropdownButton<ShortcutCategory?>(
                   value: _filterCategory,
-                  hint: const Text('All Categories', style: TextStyle(color: ReelForgeTheme.textSecondary)),
-                  dropdownColor: ReelForgeTheme.bgMid,
+                  hint: const Text('All Categories', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                  dropdownColor: FluxForgeTheme.bgMid,
                   items: [
                     const DropdownMenuItem(
                       value: null,
-                      child: Text('All Categories', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+                      child: Text('All Categories', style: TextStyle(color: FluxForgeTheme.textPrimary)),
                     ),
                     ...ShortcutCategory.values.map((c) => DropdownMenuItem(
                           value: c,
-                          child: Text(c.label, style: const TextStyle(color: ReelForgeTheme.textPrimary)),
+                          child: Text(c.label, style: const TextStyle(color: FluxForgeTheme.textPrimary)),
                         )),
                   ],
                   onChanged: (v) => setState(() => _filterCategory = v),
@@ -658,7 +658,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                     child: Text(
                       category.label,
                       style: const TextStyle(
-                        color: ReelForgeTheme.accentOrange,
+                        color: FluxForgeTheme.accentOrange,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
@@ -668,7 +668,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                   // Shortcut rows
                   Container(
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgMid,
+                      color: FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -702,9 +702,9 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             border: isLast ? null : Border(
-              bottom: BorderSide(color: ReelForgeTheme.bgDeep.withOpacity(0.5)),
+              bottom: BorderSide(color: FluxForgeTheme.bgDeep.withOpacity(0.5)),
             ),
-            color: isEditing ? ReelForgeTheme.accentBlue.withOpacity(0.1) : null,
+            color: isEditing ? FluxForgeTheme.accentBlue.withOpacity(0.1) : null,
           ),
           child: Row(
             children: [
@@ -716,7 +716,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                     Text(
                       entry.name,
                       style: const TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 13,
                       ),
                     ),
@@ -724,7 +724,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                       const Text(
                         'Customized',
                         style: TextStyle(
-                          color: ReelForgeTheme.accentCyan,
+                          color: FluxForgeTheme.accentCyan,
                           fontSize: 10,
                         ),
                       ),
@@ -737,14 +737,14 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentBlue.withOpacity(0.2),
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: ReelForgeTheme.accentBlue),
+                    border: Border.all(color: FluxForgeTheme.accentBlue),
                   ),
                   child: const Text(
                     'Press key...',
                     style: TextStyle(
-                      color: ReelForgeTheme.accentBlue,
+                      color: FluxForgeTheme.accentBlue,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -754,15 +754,15 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgDeep,
+                    color: FluxForgeTheme.bgDeep,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     entry.currentDef.display,
                     style: TextStyle(
                       color: entry.isCustomized
-                          ? ReelForgeTheme.accentCyan
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.accentCyan
+                          : FluxForgeTheme.textSecondary,
                       fontSize: 12,
                       fontFamily: 'monospace',
                       fontWeight: FontWeight.w500,
@@ -776,7 +776,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
               if (entry.isCustomized && !isEditing)
                 IconButton(
                   icon: const Icon(Icons.restore, size: 18),
-                  color: ReelForgeTheme.textMuted,
+                  color: FluxForgeTheme.textMuted,
                   tooltip: 'Reset to default',
                   onPressed: () {
                     entry.customDef = null;

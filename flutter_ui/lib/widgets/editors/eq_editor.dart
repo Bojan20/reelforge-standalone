@@ -14,7 +14,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -314,9 +314,9 @@ class _EqEditorState extends State<EqEditor> {
       onKeyEvent: _handleKeyEvent,
       child: Container(
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Column(
           children: [
@@ -342,9 +342,9 @@ class _EqEditorState extends State<EqEditor> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -353,12 +353,12 @@ class _EqEditorState extends State<EqEditor> {
           _ToolbarButton(
             label: 'Bypass',
             isActive: widget.bypassed,
-            activeColor: ReelForgeTheme.accentOrange,
+            activeColor: FluxForgeTheme.accentOrange,
             onTap: () => widget.onBypassChange?.call(!widget.bypassed),
           ),
 
           const SizedBox(width: 8),
-          Container(width: 1, height: 20, color: ReelForgeTheme.borderSubtle),
+          Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 8),
 
           // Spectrum toggles
@@ -429,7 +429,7 @@ class _EqEditorState extends State<EqEditor> {
                       painter: _SpectrumPainter(
                         spectrum: widget.spectrumPre!,
                         config: widget.config,
-                        color: ReelForgeTheme.textTertiary.withValues(alpha: 0.3),
+                        color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3),
                         filled: true,
                       ),
                     ),
@@ -440,7 +440,7 @@ class _EqEditorState extends State<EqEditor> {
                       painter: _SpectrumPainter(
                         spectrum: widget.spectrumPost!,
                         config: widget.config,
-                        color: ReelForgeTheme.accentCyan.withValues(alpha: 0.4),
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.4),
                         filled: true,
                       ),
                     ),
@@ -491,14 +491,14 @@ class _EqEditorState extends State<EqEditor> {
             }
           },
           child: AnimatedContainer(
-            duration: ReelForgeTheme.fastDuration,
+            duration: FluxForgeTheme.fastDuration,
             width: nodeSize,
             height: nodeSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: band.enabled
                   ? band.color.withValues(alpha: isSelected ? 1.0 : 0.7)
-                  : ReelForgeTheme.textDisabled,
+                  : FluxForgeTheme.textDisabled,
               border: Border.all(
                 color: isSelected ? Colors.white : Colors.transparent,
                 width: 2,
@@ -539,9 +539,9 @@ class _EqEditorState extends State<EqEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgElevated,
+          color: FluxForgeTheme.bgElevated,
           borderRadius: BorderRadius.circular(4),
-          boxShadow: ReelForgeTheme.elevatedShadow,
+          boxShadow: FluxForgeTheme.elevatedShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,17 +549,17 @@ class _EqEditorState extends State<EqEditor> {
           children: [
             Text(
               _formatFreq(band.frequency),
-              style: ReelForgeTheme.mono.copyWith(
-                color: ReelForgeTheme.accentCyan,
+              style: FluxForgeTheme.mono.copyWith(
+                color: FluxForgeTheme.accentCyan,
                 fontSize: 11,
               ),
             ),
             Text(
               '${band.gain >= 0 ? '+' : ''}${band.gain.toStringAsFixed(1)} dB',
-              style: ReelForgeTheme.mono.copyWith(
+              style: FluxForgeTheme.mono.copyWith(
                 color: band.gain >= 0
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.accentCyan,
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.accentCyan,
                 fontSize: 11,
               ),
             ),
@@ -581,9 +581,9 @@ class _EqEditorState extends State<EqEditor> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -593,8 +593,8 @@ class _EqEditorState extends State<EqEditor> {
             label: 'Type',
             child: DropdownButton<FilterType>(
               value: band.type,
-              dropdownColor: ReelForgeTheme.bgElevated,
-              style: ReelForgeTheme.body,
+              dropdownColor: FluxForgeTheme.bgElevated,
+              style: FluxForgeTheme.body,
               underline: const SizedBox(),
               items: FilterType.values.map((type) {
                 return DropdownMenuItem(
@@ -668,7 +668,7 @@ class _EqEditorState extends State<EqEditor> {
           _ToolbarButton(
             label: 'On',
             isActive: band.enabled,
-            activeColor: ReelForgeTheme.accentGreen,
+            activeColor: FluxForgeTheme.accentGreen,
             onTap: () {
               widget.onBandUpdate?.call(band.id, band.copyWith(enabled: !band.enabled));
             },
@@ -679,7 +679,7 @@ class _EqEditorState extends State<EqEditor> {
           _ToolbarButton(
             label: 'Solo',
             isActive: band.solo,
-            activeColor: ReelForgeTheme.accentYellow,
+            activeColor: FluxForgeTheme.accentYellow,
             onTap: () {
               widget.onBandUpdate?.call(band.id, band.copyWith(solo: !band.solo));
             },
@@ -691,7 +691,7 @@ class _EqEditorState extends State<EqEditor> {
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18),
             onPressed: () => widget.onBandRemove?.call(band.id),
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
@@ -878,8 +878,8 @@ class _ToolbarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive
-        ? (activeColor ?? ReelForgeTheme.accentBlue)
-        : ReelForgeTheme.textTertiary;
+        ? (activeColor ?? FluxForgeTheme.accentBlue)
+        : FluxForgeTheme.textTertiary;
 
     return GestureDetector(
       onTap: onTap,
@@ -888,11 +888,11 @@ class _ToolbarButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? (activeColor ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeepest,
+              ? (activeColor ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? color : ReelForgeTheme.borderSubtle,
+            color: isActive ? color : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -957,7 +957,7 @@ class _ControlGroup extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: ReelForgeTheme.labelTiny),
+        Text(label, style: FluxForgeTheme.labelTiny),
         child,
       ],
     );
@@ -978,13 +978,13 @@ class _ValueField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: ReelForgeTheme.borderSubtle, width: 0.5),
+        border: Border.all(color: FluxForgeTheme.borderSubtle, width: 0.5),
       ),
       child: Text(
         value,
-        style: ReelForgeTheme.mono.copyWith(fontSize: 11),
+        style: FluxForgeTheme.mono.copyWith(fontSize: 11),
       ),
     );
   }
@@ -1055,8 +1055,8 @@ class _GridPainter extends CustomPainter {
       if (freq < config.minFreq || freq > config.maxFreq) continue;
       final x = _freqToX(freq.toDouble(), size.width);
       paint.color = freq == 1000
-          ? ReelForgeTheme.borderMedium
-          : ReelForgeTheme.borderSubtle.withValues(alpha: 0.5);
+          ? FluxForgeTheme.borderMedium
+          : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
 
       // Label
@@ -1066,7 +1066,7 @@ class _GridPainter extends CustomPainter {
           text: label,
           style: TextStyle(
             fontSize: 9,
-            color: ReelForgeTheme.textDisabled,
+            color: FluxForgeTheme.textDisabled,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -1079,8 +1079,8 @@ class _GridPainter extends CustomPainter {
     for (double db = config.minDb; db <= config.maxDb; db += 6) {
       final y = _dbToY(db, size.height);
       paint.color = db == 0
-          ? ReelForgeTheme.borderMedium
-          : ReelForgeTheme.borderSubtle.withValues(alpha: 0.5);
+          ? FluxForgeTheme.borderMedium
+          : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
 
       // Label
@@ -1090,7 +1090,7 @@ class _GridPainter extends CustomPainter {
           text: label,
           style: TextStyle(
             fontSize: 9,
-            color: ReelForgeTheme.textDisabled,
+            color: FluxForgeTheme.textDisabled,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -1232,7 +1232,7 @@ class _EqCurvePainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
+        FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
         Colors.transparent,
       ],
       stops: const [0, 0.5],
@@ -1242,7 +1242,7 @@ class _EqCurvePainter extends CustomPainter {
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
       colors: [
-        ReelForgeTheme.accentCyan.withValues(alpha: 0.3),
+        FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
         Colors.transparent,
       ],
       stops: const [0, 0.5],
@@ -1267,7 +1267,7 @@ class _EqCurvePainter extends CustomPainter {
 
     // Draw curve with glow
     final curvePaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
@@ -1276,7 +1276,7 @@ class _EqCurvePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+        ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),

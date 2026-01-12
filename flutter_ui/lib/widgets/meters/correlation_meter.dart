@@ -9,7 +9,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Correlation meter display mode
 enum CorrelationDisplayMode {
@@ -33,11 +33,11 @@ class CorrelationMeterConfig {
 
   const CorrelationMeterConfig({
     this.mode = CorrelationDisplayMode.bar,
-    this.positiveColor = ReelForgeTheme.accentGreen,
-    this.warningColor = ReelForgeTheme.accentYellow,
-    this.negativeColor = ReelForgeTheme.accentRed,
-    this.backgroundColor = ReelForgeTheme.bgDeepest,
-    this.peakColor = ReelForgeTheme.textPrimary,
+    this.positiveColor = FluxForgeTheme.accentGreen,
+    this.warningColor = FluxForgeTheme.accentYellow,
+    this.negativeColor = FluxForgeTheme.accentRed,
+    this.backgroundColor = FluxForgeTheme.bgDeepest,
+    this.peakColor = FluxForgeTheme.textPrimary,
     this.showPeakHold = true,
     this.showLabels = true,
     this.showWarningZones = true,
@@ -182,7 +182,7 @@ class _CorrelationMeterState extends State<CorrelationMeter>
           decoration: BoxDecoration(
             color: widget.config.backgroundColor,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: widget.config.mode == CorrelationDisplayMode.bar
               ? _buildBarMeter(width, height)
@@ -256,7 +256,7 @@ class _BarCorrelationPainter extends CustomPainter {
 
     // Draw scale marks
     final markPaint = Paint()
-      ..color = ReelForgeTheme.borderMedium
+      ..color = FluxForgeTheme.borderMedium
       ..strokeWidth = 1;
 
     for (double v = -1; v <= 1; v += 0.25) {
@@ -306,14 +306,14 @@ class _BarCorrelationPainter extends CustomPainter {
       Offset(center, barTop),
       Offset(center, barHeight),
       Paint()
-        ..color = ReelForgeTheme.textSecondary
+        ..color = FluxForgeTheme.textSecondary
         ..strokeWidth = 2,
     );
 
     // Draw labels
     if (config.showLabels) {
       final textStyle = TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 9,
       );
 
@@ -359,7 +359,7 @@ class _ArcCorrelationPainter extends CustomPainter {
 
     // Draw arc background
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.bgMid
+      ..color = FluxForgeTheme.bgMid
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round;
@@ -424,19 +424,19 @@ class _ArcCorrelationPainter extends CustomPainter {
       center,
       needleEnd,
       Paint()
-        ..color = ReelForgeTheme.textPrimary
+        ..color = FluxForgeTheme.textPrimary
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
 
     // Needle base circle
-    canvas.drawCircle(center, 6, Paint()..color = ReelForgeTheme.textPrimary);
-    canvas.drawCircle(center, 4, Paint()..color = ReelForgeTheme.borderSubtle);
+    canvas.drawCircle(center, 6, Paint()..color = FluxForgeTheme.textPrimary);
+    canvas.drawCircle(center, 4, Paint()..color = FluxForgeTheme.borderSubtle);
 
     // Draw labels
     if (config.showLabels) {
       final textStyle = TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 10,
         fontWeight: FontWeight.bold,
       );

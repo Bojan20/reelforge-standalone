@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Context menu item definition
 class ContextMenuItem {
@@ -53,11 +53,11 @@ Future<void> showContextMenu({
     ),
     items: _buildMenuItems(context, items),
     elevation: 8,
-    color: ReelForgeTheme.bgElevated,
+    color: FluxForgeTheme.bgElevated,
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(6),
-      side: BorderSide(color: ReelForgeTheme.borderSubtle),
+      side: BorderSide(color: FluxForgeTheme.borderSubtle),
     ),
   );
 }
@@ -119,7 +119,7 @@ class _MenuItemState extends State<_MenuItem> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: _hovering && enabled
-                ? ReelForgeTheme.accentBlue.withAlpha(51)
+                ? FluxForgeTheme.accentBlue.withAlpha(51)
                 : Colors.transparent,
           ),
           child: Row(
@@ -150,8 +150,8 @@ class _MenuItemState extends State<_MenuItem> {
                   style: TextStyle(
                     fontSize: 11,
                     color: enabled
-                        ? ReelForgeTheme.textSecondary
-                        : ReelForgeTheme.textSecondary.withAlpha(77),
+                        ? FluxForgeTheme.textSecondary
+                        : FluxForgeTheme.textSecondary.withAlpha(77),
                   ),
                 ),
             ],
@@ -162,9 +162,9 @@ class _MenuItemState extends State<_MenuItem> {
   }
 
   Color _getTextColor(bool enabled, bool destructive) {
-    if (!enabled) return ReelForgeTheme.textSecondary.withAlpha(77);
-    if (destructive) return ReelForgeTheme.errorRed;
-    return ReelForgeTheme.textPrimary;
+    if (!enabled) return FluxForgeTheme.textSecondary.withAlpha(77);
+    if (destructive) return FluxForgeTheme.errorRed;
+    return FluxForgeTheme.textPrimary;
   }
 }
 
@@ -236,13 +236,13 @@ class _SubmenuItemState extends State<_SubmenuItem> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: _hovering
-              ? ReelForgeTheme.accentBlue.withAlpha(51)
+              ? FluxForgeTheme.accentBlue.withAlpha(51)
               : Colors.transparent,
         ),
         child: Row(
           children: [
             if (item.icon != null) ...[
-              Icon(item.icon, size: 16, color: ReelForgeTheme.textPrimary),
+              Icon(item.icon, size: 16, color: FluxForgeTheme.textPrimary),
               const SizedBox(width: 10),
             ],
             Expanded(
@@ -250,14 +250,14 @@ class _SubmenuItemState extends State<_SubmenuItem> {
                 item.label,
                 style: const TextStyle(
                   fontSize: 12,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               ),
             ),
             const Icon(
               Icons.chevron_right,
               size: 16,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ],
         ),
@@ -275,12 +275,12 @@ class _SubmenuPopup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       elevation: 8,
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       borderRadius: BorderRadius.circular(6),
       child: Container(
         constraints: const BoxConstraints(minWidth: 180),
         decoration: BoxDecoration(
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
@@ -291,7 +291,7 @@ class _SubmenuPopup extends StatelessWidget {
               return Container(
                 height: 1,
                 margin: const EdgeInsets.symmetric(vertical: 4),
-                color: ReelForgeTheme.borderSubtle,
+                color: FluxForgeTheme.borderSubtle,
               );
             }
             return _SubmenuEntry(item: item);
@@ -335,7 +335,7 @@ class _SubmenuEntryState extends State<_SubmenuEntry> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: _hovering && enabled
-                ? ReelForgeTheme.accentBlue.withAlpha(51)
+                ? FluxForgeTheme.accentBlue.withAlpha(51)
                 : Colors.transparent,
           ),
           child: Row(
@@ -345,8 +345,8 @@ class _SubmenuEntryState extends State<_SubmenuEntry> {
                   item.icon,
                   size: 16,
                   color: enabled
-                      ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textSecondary.withAlpha(77),
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary.withAlpha(77),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -356,8 +356,8 @@ class _SubmenuEntryState extends State<_SubmenuEntry> {
                   style: TextStyle(
                     fontSize: 12,
                     color: enabled
-                        ? ReelForgeTheme.textPrimary
-                        : ReelForgeTheme.textSecondary.withAlpha(77),
+                        ? FluxForgeTheme.textPrimary
+                        : FluxForgeTheme.textSecondary.withAlpha(77),
                   ),
                 ),
               ),
@@ -366,7 +366,7 @@ class _SubmenuEntryState extends State<_SubmenuEntry> {
                   item.shortcut!,
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textSecondary.withAlpha(enabled ? 255 : 77),
+                    color: FluxForgeTheme.textSecondary.withAlpha(enabled ? 255 : 77),
                   ),
                 ),
             ],

@@ -11,7 +11,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Log entry with timestamp and level
 class LogEntry {
@@ -148,11 +148,11 @@ class _DebugConsoleState extends State<DebugConsole> {
       case LogLevel.debug:
         return Colors.grey;
       case LogLevel.info:
-        return ReelForgeTheme.accentBlue;
+        return FluxForgeTheme.accentBlue;
       case LogLevel.warning:
-        return ReelForgeTheme.accentOrange;
+        return FluxForgeTheme.accentOrange;
       case LogLevel.error:
-        return ReelForgeTheme.accentRed;
+        return FluxForgeTheme.accentRed;
     }
   }
 
@@ -176,9 +176,9 @@ class _DebugConsoleState extends State<DebugConsole> {
       child: Container(
         margin: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.95),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -193,12 +193,12 @@ class _DebugConsoleState extends State<DebugConsole> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                color: ReelForgeTheme.bgMid,
+                color: FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.terminal, color: ReelForgeTheme.accentGreen, size: 18),
+                  const Icon(Icons.terminal, color: FluxForgeTheme.accentGreen, size: 18),
                   const SizedBox(width: 8),
                   const Text(
                     'DEBUG CONSOLE',
@@ -228,7 +228,7 @@ class _DebugConsoleState extends State<DebugConsole> {
                       },
                       selectedColor: _levelColor(level).withValues(alpha: 0.3),
                       checkmarkColor: _levelColor(level),
-                      backgroundColor: ReelForgeTheme.bgDeep,
+                      backgroundColor: FluxForgeTheme.bgDeep,
                       labelStyle: TextStyle(
                         color: _enabledLevels.contains(level) ? _levelColor(level) : Colors.white54,
                       ),
@@ -244,7 +244,7 @@ class _DebugConsoleState extends State<DebugConsole> {
                       _autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center,
                       size: 16,
                     ),
-                    color: _autoScroll ? ReelForgeTheme.accentGreen : Colors.white54,
+                    color: _autoScroll ? FluxForgeTheme.accentGreen : Colors.white54,
                     onPressed: () => setState(() => _autoScroll = !_autoScroll),
                     tooltip: 'Auto-scroll',
                     padding: EdgeInsets.zero,
@@ -278,7 +278,7 @@ class _DebugConsoleState extends State<DebugConsole> {
             // Filter bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               child: Row(
                 children: [
                   const Icon(Icons.search, size: 14, color: Colors.white38),

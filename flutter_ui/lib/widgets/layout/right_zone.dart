@@ -1,4 +1,4 @@
-/// ReelForge Right Zone (Inspector)
+/// FluxForge Studio Right Zone (Inspector)
 ///
 /// Property inspector with collapsible sections:
 /// - General (name, category, priority)
@@ -11,7 +11,7 @@
 /// 1:1 migration from React RightZone.tsx
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 
 /// Inspected object types
@@ -93,10 +93,10 @@ class _RightZoneState extends State<RightZone> {
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
           left: BorderSide(
-            color: ReelForgeTheme.borderSubtle,
+            color: FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -122,9 +122,9 @@ class _RightZoneState extends State<RightZone> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -134,7 +134,7 @@ class _RightZoneState extends State<RightZone> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -144,7 +144,7 @@ class _RightZoneState extends State<RightZone> {
               onPressed: widget.onToggleCollapse,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
         ],
       ),
@@ -161,7 +161,7 @@ class _RightZoneState extends State<RightZone> {
           Text(
             'Select an object to inspect',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -180,7 +180,7 @@ class _RightZoneState extends State<RightZone> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
@@ -196,7 +196,7 @@ class _RightZoneState extends State<RightZone> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -245,20 +245,20 @@ class _InspectorSectionWidget extends StatelessWidget {
             height: 28,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
               children: [
                 AnimatedRotation(
                   turns: expanded ? 0.25 : 0,
-                  duration: ReelForgeTheme.fastDuration,
+                  duration: FluxForgeTheme.fastDuration,
                   child: const Icon(
                     Icons.chevron_right,
                     size: 14,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -267,7 +267,7 @@ class _InspectorSectionWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
               ],
@@ -284,7 +284,7 @@ class _InspectorSectionWidget extends StatelessWidget {
           ),
           crossFadeState:
               expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          duration: ReelForgeTheme.fastDuration,
+          duration: FluxForgeTheme.fastDuration,
         ),
       ],
     );
@@ -321,16 +321,16 @@ class InspectorTextField extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Container(
             height: 28,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: TextField(
               controller: TextEditingController(text: value),
@@ -338,11 +338,11 @@ class InspectorTextField extends StatelessWidget {
               enabled: !disabled,
               style: const TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: placeholder,
-                hintStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+                hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               ),
@@ -382,27 +382,27 @@ class InspectorSelectField extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Container(
             height: 28,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
               isDense: true,
               underline: const SizedBox(),
-              dropdownColor: ReelForgeTheme.bgElevated,
+              dropdownColor: FluxForgeTheme.bgElevated,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               style: const TextStyle(
                 fontSize: 12,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
               items: options
                   .map((opt) => DropdownMenuItem(
@@ -461,7 +461,7 @@ class InspectorSliderField extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 10,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -473,7 +473,7 @@ class InspectorSliderField extends StatelessWidget {
                   child: Container(
                     height: 16,
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest,
+                      color: FluxForgeTheme.bgDeepest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Stack(
@@ -482,7 +482,7 @@ class InspectorSliderField extends StatelessWidget {
                           widthFactor: percentage,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: ReelForgeTheme.accentBlue,
+                              color: FluxForgeTheme.accentBlue,
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
@@ -503,7 +503,7 @@ class InspectorSliderField extends StatelessWidget {
                               onChanged: disabled ? null : onChange,
                               activeColor: Colors.transparent,
                               inactiveColor: Colors.transparent,
-                              thumbColor: ReelForgeTheme.textPrimary,
+                              thumbColor: FluxForgeTheme.textPrimary,
                             ),
                           ),
                         ),
@@ -516,7 +516,7 @@ class InspectorSliderField extends StatelessWidget {
                   width: 48,
                   child: Text(
                     '$displayValue${unit ?? ''}',
-                    style: ReelForgeTheme.monoSmall.copyWith(fontSize: 10),
+                    style: FluxForgeTheme.monoSmall.copyWith(fontSize: 10),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -557,13 +557,13 @@ class InspectorCheckboxField extends StatelessWidget {
               height: 16,
               decoration: BoxDecoration(
                 color: checked
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.bgDeepest,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.bgDeepest,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: checked
-                      ? ReelForgeTheme.accentBlue
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.borderSubtle,
                 ),
               ),
               child: checked
@@ -580,8 +580,8 @@ class InspectorCheckboxField extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: disabled
-                    ? ReelForgeTheme.textSecondary
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.textSecondary
+                    : FluxForgeTheme.textPrimary,
               ),
             ),
           ],

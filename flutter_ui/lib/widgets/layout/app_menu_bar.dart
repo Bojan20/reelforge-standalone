@@ -3,7 +3,7 @@
 /// Application-level menu bar with File, Edit, View, Project menus.
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 
 class AppMenuBar extends StatefulWidget {
@@ -151,13 +151,13 @@ class _MenuButton extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: isOpen ? ReelForgeTheme.bgElevated : Colors.transparent,
+              color: isOpen ? FluxForgeTheme.bgElevated : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               label,
               style: TextStyle(
-                color: isOpen ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+                color: isOpen ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -185,9 +185,9 @@ class _MenuDropdown extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minWidth: 200),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgElevated,
+        color: FluxForgeTheme.bgElevated,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -204,7 +204,7 @@ class _MenuDropdown extends StatelessWidget {
             return Container(
               height: 1,
               margin: const EdgeInsets.symmetric(vertical: 4),
-              color: ReelForgeTheme.borderSubtle,
+              color: FluxForgeTheme.borderSubtle,
             );
           }
           final menuItem = item as _MenuItem;
@@ -217,12 +217,12 @@ class _MenuDropdown extends StatelessWidget {
                 children: [
                   Text(
                     menuItem.label,
-                    style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                   ),
                   if (menuItem.shortcut != null)
                     Text(
                       menuItem.shortcut!,
-                      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
                     ),
                 ],
               ),

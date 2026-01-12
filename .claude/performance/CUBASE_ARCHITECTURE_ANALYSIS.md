@@ -1,6 +1,6 @@
 # Cubase Architecture Analysis
 
-## Reference document za ReelForge performance optimizaciju
+## Reference document za FluxForge Studio performance optimizaciju
 
 ---
 
@@ -192,7 +192,7 @@ Kad uključiš warp:
 
 ---
 
-## 9) Must-Have arhitektura za ReelForge "Cubase feeling"
+## 9) Must-Have arhitektura za FluxForge Studio "Cubase feeling"
 
 ### Audio callback thread
 - Bez lockova
@@ -247,9 +247,9 @@ zoom > 500 px/sec  → Level 0 (finest)
 
 ---
 
-## Trenutno stanje ReelForge vs Cubase
+## Trenutno stanje FluxForge Studio vs Cubase
 
-| Feature | Cubase | ReelForge | Status |
+| Feature | Cubase | FluxForge Studio | Status |
 |---------|--------|-----------|--------|
 | Audio/UI decoupling | ✅ | ✅ | OK - Rust engine odvojen |
 | Lock-free param queue | ✅ | ❓ | Treba proveriti |
@@ -262,7 +262,7 @@ zoom > 500 px/sec  → Level 0 (finest)
 
 ---
 
-## Action Items za ReelForge
+## Action Items za FluxForge Studio
 
 ### KRITIČNO (uzrokuje kočenje)
 

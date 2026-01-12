@@ -254,7 +254,7 @@ impl AudioUnitHost {
             description: AUComponentDescription::new(
                 AUType::Effect,
                 0x70617373, // 'pass'
-                0x52464f47, // 'RFOG' (ReelForge)
+                0x52464f47, // 'RFOG' (FluxForge Studio)
             ),
             bundle_path: bundle_path.to_path_buf(),
             is_sandboxed: is_v3,

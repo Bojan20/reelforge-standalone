@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Pultec EQP-1A parameter set
 class PultecParams {
@@ -150,7 +150,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
         border: Border.all(color: const Color(0xFF2A2520), width: 3),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withAlpha(128),
+            color: FluxForgeTheme.bgVoid.withAlpha(128),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -211,7 +211,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
                   color: const Color(0xFFD4C5A0),
                   shadows: [
                     Shadow(
-                      color: ReelForgeTheme.bgVoid.withAlpha(128),
+                      color: FluxForgeTheme.bgVoid.withAlpha(128),
                       offset: const Offset(1, 1),
                       blurRadius: 2,
                     ),
@@ -275,7 +275,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
         border: Border.all(color: const Color(0xFF2A2520), width: 2),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withAlpha(64),
+            color: FluxForgeTheme.bgVoid.withAlpha(64),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -583,9 +583,9 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  Color.lerp(color, ReelForgeTheme.textPrimary, 0.3)!,
+                  Color.lerp(color, FluxForgeTheme.textPrimary, 0.3)!,
                   color,
-                  Color.lerp(color, ReelForgeTheme.bgVoid, 0.3)!,
+                  Color.lerp(color, FluxForgeTheme.bgVoid, 0.3)!,
                 ],
                 stops: const [0.0, 0.5, 1.0],
               ),
@@ -595,7 +595,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
               ),
               boxShadow: [
                 BoxShadow(
-                  color: ReelForgeTheme.bgVoid.withAlpha(64),
+                  color: FluxForgeTheme.bgVoid.withAlpha(64),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -669,7 +669,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: _params.bypass ? ReelForgeTheme.textPrimary : const Color(0xFF8A8070),
+                  color: _params.bypass ? FluxForgeTheme.textPrimary : const Color(0xFF8A8070),
                 ),
               ),
             ),

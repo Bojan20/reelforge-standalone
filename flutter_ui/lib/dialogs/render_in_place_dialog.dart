@@ -9,7 +9,7 @@
 // - Replace original or create new clip
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Render in Place options
 class RenderInPlaceOptions {
@@ -152,7 +152,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         width: 520,
@@ -194,12 +194,12 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.auto_awesome, color: ReelForgeTheme.accentBlue),
+          const Icon(Icons.auto_awesome, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -208,7 +208,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                 const Text(
                   'Render in Place',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -216,7 +216,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                 Text(
                   widget.clipName,
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -224,7 +224,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: ReelForgeTheme.textSecondary),
+            icon: const Icon(Icons.close, color: FluxForgeTheme.textSecondary),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -291,10 +291,10 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                 label: Text(_getNormalizeModeName(mode)),
                 selected: isSelected,
                 onSelected: (_) => setState(() => _normalizeMode = mode),
-                backgroundColor: ReelForgeTheme.bgSurface,
-                selectedColor: ReelForgeTheme.accentBlue,
+                backgroundColor: FluxForgeTheme.bgSurface,
+                selectedColor: FluxForgeTheme.accentBlue,
                 labelStyle: TextStyle(
-                  color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                  color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                   fontSize: 12,
                 ),
               );
@@ -306,7 +306,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
               children: [
                 Text(
                   'Target Level',
-                  style: TextStyle(color: ReelForgeTheme.textSecondary),
+                  style: TextStyle(color: FluxForgeTheme.textSecondary),
                 ),
                 const Spacer(),
                 SizedBox(
@@ -352,7 +352,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
         children: [
           Text(
             'Add extra time for reverb/delay tails',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 12),
           Row(
@@ -363,7 +363,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                   min: 0,
                   max: 10,
                   divisions: 100,
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   onChanged: (v) => setState(() => _tailTime = v),
                 ),
               ),
@@ -372,7 +372,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                 child: Text(
                   '${_tailTime.toStringAsFixed(1)}s',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontFamily: 'JetBrains Mono',
                   ),
                 ),
@@ -399,9 +399,9 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
     final isSelected = (_tailTime - value).abs() < 0.01;
     return ActionChip(
       label: Text(label),
-      backgroundColor: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgSurface,
+      backgroundColor: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
       labelStyle: TextStyle(
-        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
         fontSize: 11,
       ),
       onPressed: () => setState(() => _tailTime = value),
@@ -419,13 +419,13 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             children: [
               Text(
                 'Bit Depth',
-                style: TextStyle(color: ReelForgeTheme.textSecondary),
+                style: TextStyle(color: FluxForgeTheme.textSecondary),
               ),
               const Spacer(),
               DropdownButton<int>(
                 value: _bitDepth,
-                dropdownColor: ReelForgeTheme.bgMid,
-                style: TextStyle(color: ReelForgeTheme.textPrimary),
+                dropdownColor: FluxForgeTheme.bgMid,
+                style: TextStyle(color: FluxForgeTheme.textPrimary),
                 items: [16, 24, 32].map((bits) {
                   return DropdownMenuItem(
                     value: bits,
@@ -444,13 +444,13 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             children: [
               Text(
                 'Sample Rate',
-                style: TextStyle(color: ReelForgeTheme.textSecondary),
+                style: TextStyle(color: FluxForgeTheme.textSecondary),
               ),
               const Spacer(),
               DropdownButton<int>(
                 value: _sampleRate,
-                dropdownColor: ReelForgeTheme.bgMid,
-                style: TextStyle(color: ReelForgeTheme.textPrimary),
+                dropdownColor: FluxForgeTheme.bgMid,
+                style: TextStyle(color: FluxForgeTheme.textPrimary),
                 items: [0, 44100, 48000, 88200, 96000, 192000].map((rate) {
                   return DropdownMenuItem(
                     value: rate,
@@ -470,13 +470,13 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
               children: [
                 Text(
                   'Dither',
-                  style: TextStyle(color: ReelForgeTheme.textSecondary),
+                  style: TextStyle(color: FluxForgeTheme.textSecondary),
                 ),
                 const Spacer(),
                 DropdownButton<DitherType>(
                   value: _ditherType,
-                  dropdownColor: ReelForgeTheme.bgMid,
-                  style: TextStyle(color: ReelForgeTheme.textPrimary),
+                  dropdownColor: FluxForgeTheme.bgMid,
+                  style: TextStyle(color: FluxForgeTheme.textPrimary),
                   items: DitherType.values.map((type) {
                     return DropdownMenuItem(
                       value: type,
@@ -507,13 +507,13 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             onChanged: (v) => setState(() => _destination = v!),
             title: Text(
               _getDestinationName(dest),
-              style: TextStyle(color: ReelForgeTheme.textPrimary),
+              style: TextStyle(color: FluxForgeTheme.textPrimary),
             ),
             subtitle: Text(
               _getDestinationDescription(dest),
-              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
             ),
-            activeColor: ReelForgeTheme.accentBlue,
+            activeColor: FluxForgeTheme.accentBlue,
             dense: true,
           );
         }).toList(),
@@ -528,9 +528,9 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,19 +539,19 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(icon, size: 18, color: ReelForgeTheme.accentBlue),
+                Icon(icon, size: 18, color: FluxForgeTheme.accentBlue),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Padding(
             padding: const EdgeInsets.all(12),
             child: child,
@@ -575,13 +575,13 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
         onChanged: enabled ? onChanged : null,
         title: Text(
           title,
-          style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 11),
+          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
         ),
-        activeColor: ReelForgeTheme.accentGreen,
+        activeColor: FluxForgeTheme.accentGreen,
         dense: true,
         contentPadding: EdgeInsets.zero,
       ),
@@ -592,7 +592,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
       ),
       child: Row(
@@ -608,8 +608,8 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
             icon: const Icon(Icons.auto_awesome, size: 18),
             label: const Text('Render'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
-              foregroundColor: ReelForgeTheme.textPrimary,
+              backgroundColor: FluxForgeTheme.accentBlue,
+              foregroundColor: FluxForgeTheme.textPrimary,
             ),
           ),
         ],

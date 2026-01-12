@@ -371,3 +371,143 @@ class _CachedWaveform {
 
   _CachedWaveform(this.data) : createdAt = DateTime.now();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TILE-BASED WAVEFORM CACHE (Cubase instant zoom)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Tile key for LRU cache
+class WaveformTileKey {
+  final int clipId;
+  final int tileX; // Tile index at current zoom
+  final int zoomLevel; // Quantized zoom level (prevents cache explosion)
+
+  const WaveformTileKey(this.clipId, this.tileX, this.zoomLevel);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WaveformTileKey &&
+          clipId == other.clipId &&
+          tileX == other.tileX &&
+          zoomLevel == other.zoomLevel;
+
+  @override
+  int get hashCode => Object.hash(clipId, tileX, zoomLevel);
+
+  @override
+  String toString() => 'Tile($clipId, x=$tileX, z=$zoomLevel)';
+}
+
+/// Cached tile data (min/max/rms per pixel column)
+class WaveformTileData {
+  final Float32List mins;
+  final Float32List maxs;
+  final Float32List rms;
+  final int startFrame;
+  final int endFrame;
+
+  const WaveformTileData({
+    required this.mins,
+    required this.maxs,
+    required this.rms,
+    required this.startFrame,
+    required this.endFrame,
+  });
+
+  bool get isEmpty => mins.isEmpty;
+  int get pixelCount => mins.length;
+}
+
+/// Tile-based waveform cache for instant zoom
+/// Uses LRU eviction and quantized zoom levels
+class WaveformTileCache {
+  static final WaveformTileCache _instance = WaveformTileCache._internal();
+  factory WaveformTileCache() => _instance;
+  WaveformTileCache._internal();
+
+  /// Tile width in pixels
+  static const int tileWidth = 256;
+
+  /// Maximum number of tiles in cache
+  static const int maxTiles = 2000;
+
+  /// LRU cache: key -> tile data
+  final LinkedHashMap<WaveformTileKey, WaveformTileData> _tiles = LinkedHashMap();
+
+  /// Get tile from cache (moves to end for LRU)
+  WaveformTileData? get(WaveformTileKey key) {
+    final tile = _tiles[key];
+    if (tile != null) {
+      // Move to end (most recently used)
+      _tiles.remove(key);
+      _tiles[key] = tile;
+    }
+    return tile;
+  }
+
+  /// Put tile into cache with LRU eviction
+  void put(WaveformTileKey key, WaveformTileData tile) {
+    // Evict oldest if at capacity
+    while (_tiles.length >= maxTiles) {
+      _tiles.remove(_tiles.keys.first);
+    }
+    _tiles[key] = tile;
+  }
+
+  /// Check if tile is cached
+  bool has(WaveformTileKey key) => _tiles.containsKey(key);
+
+  /// Clear all tiles for a clip
+  void clearClip(int clipId) {
+    _tiles.removeWhere((key, _) => key.clipId == clipId);
+  }
+
+  /// Clear entire cache
+  void clear() => _tiles.clear();
+
+  /// Get cache stats
+  Map<String, dynamic> get stats => {
+    'tileCount': _tiles.length,
+    'maxTiles': maxTiles,
+  };
+
+  /// Quantize zoom to prevent cache explosion
+  /// Returns a level index (0-15) that groups similar zooms together
+  static int quantizeZoom(double framesPerPixel) {
+    // Log scale quantization: each level is 2x the previous
+    // Level 0: framesPerPixel < 32
+    // Level 1: 32-64
+    // Level 2: 64-128
+    // etc.
+    if (framesPerPixel < 32) return 0;
+    if (framesPerPixel < 64) return 1;
+    if (framesPerPixel < 128) return 2;
+    if (framesPerPixel < 256) return 3;
+    if (framesPerPixel < 512) return 4;
+    if (framesPerPixel < 1024) return 5;
+    if (framesPerPixel < 2048) return 6;
+    if (framesPerPixel < 4096) return 7;
+    if (framesPerPixel < 8192) return 8;
+    if (framesPerPixel < 16384) return 9;
+    if (framesPerPixel < 32768) return 10;
+    if (framesPerPixel < 65536) return 11;
+    if (framesPerPixel < 131072) return 12;
+    if (framesPerPixel < 262144) return 13;
+    if (framesPerPixel < 524288) return 14;
+    return 15;
+  }
+
+  /// Calculate tile parameters for a given view
+  /// Returns (firstTileX, lastTileX, pixelOffsetInFirstTile)
+  static (int, int, int) calculateTileRange({
+    required int startFrame,
+    required int endFrame,
+    required double framesPerPixel,
+  }) {
+    final totalPixels = ((endFrame - startFrame) / framesPerPixel).ceil();
+    final firstTileX = 0;
+    final lastTileX = (totalPixels / tileWidth).ceil() - 1;
+    return (firstTileX, math.max(0, lastTileX), 0);
+  }
+}

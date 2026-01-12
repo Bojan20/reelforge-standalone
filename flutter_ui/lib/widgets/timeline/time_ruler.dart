@@ -8,7 +8,7 @@
 
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 
 class TimeRuler extends StatefulWidget {
@@ -166,7 +166,7 @@ class _TimeRulerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Background with subtle gradient
-    final bgPaint = Paint()..color = ReelForgeTheme.bgDeep;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgDeep;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
     // Draw loop region
@@ -200,7 +200,7 @@ class _TimeRulerPainter extends CustomPainter {
 
     // Bottom border
     final borderPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(0, size.height - 1),
@@ -211,7 +211,7 @@ class _TimeRulerPainter extends CustomPainter {
     // Hover indicator (Cubase-style position preview)
     if (hoverX >= 0 && hoverX <= size.width && !isDragging) {
       final hoverPaint = Paint()
-        ..color = ReelForgeTheme.textTertiary.withValues(alpha: 0.5)
+        ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.5)
         ..strokeWidth = 1;
       canvas.drawLine(
         Offset(hoverX, 12),
@@ -224,7 +224,7 @@ class _TimeRulerPainter extends CustomPainter {
     final playheadX = (playheadPosition - scrollOffset) * zoom;
     if (playheadX >= 0 && playheadX <= size.width) {
       final playheadPaint = Paint()
-        ..color = ReelForgeTheme.accentRed
+        ..color = FluxForgeTheme.accentRed
         ..style = PaintingStyle.fill;
 
       // Draw inverted triangle at bottom pointing down
@@ -241,7 +241,7 @@ class _TimeRulerPainter extends CustomPainter {
         Offset(playheadX, size.height - 10),
         Offset(playheadX, 0),
         Paint()
-          ..color = ReelForgeTheme.accentRed.withValues(alpha: 0.4)
+          ..color = FluxForgeTheme.accentRed.withValues(alpha: 0.4)
           ..strokeWidth = 1,
       );
     }
@@ -260,24 +260,24 @@ class _TimeRulerPainter extends CustomPainter {
   ) {
     // Bar tick paint (orange accent like grid)
     final barTickPaint = Paint()
-      ..color = ReelForgeTheme.accentOrange.withValues(alpha: 0.8)
+      ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.8)
       ..strokeWidth = 2;
 
     // Beat tick paint (cyan accent)
     final beatTickPaint = Paint()
-      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
     // Text styles
     final barTextStyle = ui.TextStyle(
-      color: ReelForgeTheme.textPrimary,
+      color: FluxForgeTheme.textPrimary,
       fontSize: 11,
       fontWeight: ui.FontWeight.w600,
       fontFamily: 'JetBrains Mono',
     );
 
     final beatTextStyle = ui.TextStyle(
-      color: ReelForgeTheme.textTertiary,
+      color: FluxForgeTheme.textTertiary,
       fontSize: 9,
       fontFamily: 'JetBrains Mono',
     );
@@ -362,11 +362,11 @@ class _TimeRulerPainter extends CustomPainter {
     double tickInterval = _calculateTickInterval();
 
     final tickPaint = Paint()
-      ..color = ReelForgeTheme.textTertiary
+      ..color = FluxForgeTheme.textTertiary
       ..strokeWidth = 1;
 
     final textStyle = ui.TextStyle(
-      color: ReelForgeTheme.textTertiary,
+      color: FluxForgeTheme.textTertiary,
       fontSize: 10,
       fontFamily: 'JetBrains Mono',
     );
@@ -417,7 +417,7 @@ class _TimeRulerPainter extends CustomPainter {
     if (loopEnabled) {
       // Active loop - filled
       final fillPaint = Paint()
-        ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.35);
+        ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.35);
       canvas.drawRect(
         Rect.fromLTWH(loopStartX, 0, loopWidth, size.height),
         fillPaint,
@@ -425,7 +425,7 @@ class _TimeRulerPainter extends CustomPainter {
 
       // Top border
       final borderPaint = Paint()
-        ..color = ReelForgeTheme.accentBlue.withValues(alpha: 0.9)
+        ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.9)
         ..strokeWidth = 2;
       canvas.drawLine(
         Offset(loopStartX, 0),

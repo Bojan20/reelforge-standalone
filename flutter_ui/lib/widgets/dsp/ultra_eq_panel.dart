@@ -10,7 +10,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Ultra EQ Band data
 class UltraEqBand {
@@ -137,8 +137,8 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -175,13 +175,13 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
               ),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Icon(Icons.auto_awesome, color: ReelForgeTheme.textPrimary, size: 16),
+            child: const Icon(Icons.auto_awesome, color: FluxForgeTheme.textPrimary, size: 16),
           ),
           const SizedBox(width: 8),
           const Text(
             'ULTRA-EQ 256',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -193,8 +193,8 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
-                  ReelForgeTheme.accentPink.withValues(alpha: 0.3),
+                  FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
+                  FluxForgeTheme.accentPink.withValues(alpha: 0.3),
                 ],
               ),
               borderRadius: BorderRadius.circular(4),
@@ -281,13 +281,13 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderMedium),
+            border: Border.all(color: FluxForgeTheme.borderMedium),
           ),
           child: DropdownButton<T>(
             value: value,
-            dropdownColor: ReelForgeTheme.bgMid,
+            dropdownColor: FluxForgeTheme.bgMid,
             style: const TextStyle(color: Color(0xFFFF9040), fontSize: 10),
             underline: const SizedBox(),
             isDense: true,
@@ -308,14 +308,14 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: enabled ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3) : ReelForgeTheme.bgMid,
+              color: enabled ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3) : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: enabled ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium),
+              border: Border.all(color: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium),
             ),
             child: Text(
               label,
               style: TextStyle(
-                color: enabled ? ReelForgeTheme.accentOrange : ReelForgeTheme.textTertiary,
+                color: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -332,8 +332,8 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
                 value: value,
                 min: min,
                 max: max,
-                activeColor: ReelForgeTheme.accentOrange,
-                inactiveColor: ReelForgeTheme.borderSubtle,
+                activeColor: FluxForgeTheme.accentOrange,
+                inactiveColor: FluxForgeTheme.borderSubtle,
                 onChanged: onSlider,
               ),
             ),
@@ -348,9 +348,9 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -392,7 +392,7 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
   void _showAddBandDialog(double freq) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -401,7 +401,7 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
           children: [
             Text(
               'Add Band at ${freq.toInt()} Hz',
-              style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -465,16 +465,16 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
 
   Color _getTypeColor(UltraFilterType type) {
     return switch (type) {
-      UltraFilterType.bell => ReelForgeTheme.accentOrange,
-      UltraFilterType.lowShelf => ReelForgeTheme.accentOrange,
-      UltraFilterType.highShelf => ReelForgeTheme.accentYellow,
-      UltraFilterType.lowCut => ReelForgeTheme.accentRed,
-      UltraFilterType.highCut => ReelForgeTheme.accentRed,
-      UltraFilterType.notch => ReelForgeTheme.accentPink,
-      UltraFilterType.bandpass => ReelForgeTheme.accentGreen,
-      UltraFilterType.tiltShelf => ReelForgeTheme.accentCyan,
-      UltraFilterType.allpass => ReelForgeTheme.textTertiary,
-      UltraFilterType.dynamic => ReelForgeTheme.accentYellow,
+      UltraFilterType.bell => FluxForgeTheme.accentOrange,
+      UltraFilterType.lowShelf => FluxForgeTheme.accentOrange,
+      UltraFilterType.highShelf => FluxForgeTheme.accentYellow,
+      UltraFilterType.lowCut => FluxForgeTheme.accentRed,
+      UltraFilterType.highCut => FluxForgeTheme.accentRed,
+      UltraFilterType.notch => FluxForgeTheme.accentPink,
+      UltraFilterType.bandpass => FluxForgeTheme.accentGreen,
+      UltraFilterType.tiltShelf => FluxForgeTheme.accentCyan,
+      UltraFilterType.allpass => FluxForgeTheme.textTertiary,
+      UltraFilterType.dynamic => FluxForgeTheme.accentYellow,
     };
   }
 
@@ -516,7 +516,7 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color : ReelForgeTheme.bgMid,
+            color: isSelected ? color : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color, width: isSelected ? 2 : 1),
           ),
@@ -526,17 +526,17 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
               if (band.satType != UltraSaturationType.off)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.whatshot, size: 10, color: ReelForgeTheme.textPrimary),
+                  child: Icon(Icons.whatshot, size: 10, color: FluxForgeTheme.textPrimary),
                 ),
               if (band.transientAware)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.flash_on, size: 10, color: ReelForgeTheme.textPrimary),
+                  child: Icon(Icons.flash_on, size: 10, color: FluxForgeTheme.textPrimary),
                 ),
               Text(
                 '${band.freq.toInt()} Hz',
                 style: TextStyle(
-                  color: isSelected ? ReelForgeTheme.textPrimary : color,
+                  color: isSelected ? FluxForgeTheme.textPrimary : color,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -581,14 +581,14 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isSelected ? _getTypeColor(type) : ReelForgeTheme.bgMid,
+                              color: isSelected ? _getTypeColor(type) : FluxForgeTheme.bgMid,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: _getTypeColor(type)),
                             ),
                             child: Text(
                               _typeName(type),
                               style: TextStyle(
-                                color: isSelected ? ReelForgeTheme.textPrimary : _getTypeColor(type),
+                                color: isSelected ? FluxForgeTheme.textPrimary : _getTypeColor(type),
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -652,14 +652,14 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
-                              color: band.satType == sat ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
+                              color: band.satType == sat ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: band.satType == sat ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium),
+                              border: Border.all(color: band.satType == sat ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium),
                             ),
                             child: Text(
                               sat.name.substring(0, sat.name.length > 4 ? 4 : sat.name.length).toUpperCase(),
                               style: TextStyle(
-                                color: band.satType == sat ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                                color: band.satType == sat ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -682,12 +682,12 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _buildSlider('Drive', band.satDrive, 0, 1, '${(band.satDrive * 100).toInt()}%', ReelForgeTheme.accentOrange, false, (v) {
+                Expanded(child: _buildSlider('Drive', band.satDrive, 0, 1, '${(band.satDrive * 100).toInt()}%', FluxForgeTheme.accentOrange, false, (v) {
                   setState(() => band.satDrive = v);
                   _updateBand(_selectedBandIndex!);
                 })),
                 const SizedBox(width: 12),
-                Expanded(child: _buildSlider('Mix', band.satMix, 0, 1, '${(band.satMix * 100).toInt()}%', ReelForgeTheme.accentOrange, false, (v) {
+                Expanded(child: _buildSlider('Mix', band.satMix, 0, 1, '${(band.satMix * 100).toInt()}%', FluxForgeTheme.accentOrange, false, (v) {
                   setState(() => band.satMix = v);
                   _updateBand(_selectedBandIndex!);
                 })),
@@ -697,7 +697,7 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
           // Row 5: Transient params (if enabled)
           if (band.transientAware) ...[
             const SizedBox(height: 8),
-            _buildSlider('Q Reduction', band.transientQReduction, 0, 1, '${(band.transientQReduction * 100).toInt()}%', ReelForgeTheme.accentCyan, false, (v) {
+            _buildSlider('Q Reduction', band.transientQReduction, 0, 1, '${(band.transientQReduction * 100).toInt()}%', FluxForgeTheme.accentCyan, false, (v) {
               setState(() => band.transientQReduction = v);
               _updateBand(_selectedBandIndex!);
             }),
@@ -713,14 +713,14 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: value ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3) : ReelForgeTheme.bgMid,
+          color: value ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: value ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium),
+          border: Border.all(color: value ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: value ? ReelForgeTheme.accentOrange : ReelForgeTheme.textTertiary,
+            color: value ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -748,7 +748,7 @@ class _UltraEqPanelState extends State<UltraEqPanel> {
           data: SliderThemeData(
             trackHeight: 4,
             activeTrackColor: color,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
             thumbColor: color,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -781,12 +781,12 @@ class _UltraEqGraphPainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Size size) {
-    final paint = Paint()..color = ReelForgeTheme.borderSubtle..strokeWidth = 1;
+    final paint = Paint()..color = FluxForgeTheme.borderSubtle..strokeWidth = 1;
     for (final freq in [100.0, 1000.0, 10000.0]) {
       final x = _freqToX(freq, size.width);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = ReelForgeTheme.borderMedium);
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint..color = FluxForgeTheme.borderMedium);
   }
 
   void _drawCurve(Canvas canvas, Size size) {
@@ -823,7 +823,7 @@ class _UltraEqGraphPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
 
     canvas.drawPath(path, Paint()
-      ..color = ReelForgeTheme.accentOrange
+      ..color = FluxForgeTheme.accentOrange
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke);
   }
@@ -849,7 +849,7 @@ class _UltraEqGraphPainter extends CustomPainter {
 
       if (i == selectedIndex) {
         canvas.drawCircle(Offset(x, y.clamp(8, size.height - 8)), 13, Paint()
-          ..color = ReelForgeTheme.textPrimary
+          ..color = FluxForgeTheme.textPrimary
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2);
       }
@@ -870,16 +870,16 @@ class _UltraEqGraphPainter extends CustomPainter {
 
   Color _getTypeColor(UltraFilterType type) {
     return switch (type) {
-      UltraFilterType.bell => ReelForgeTheme.accentOrange,
-      UltraFilterType.lowShelf => ReelForgeTheme.accentOrange,
-      UltraFilterType.highShelf => ReelForgeTheme.accentYellow,
-      UltraFilterType.lowCut => ReelForgeTheme.accentRed,
-      UltraFilterType.highCut => ReelForgeTheme.accentRed,
-      UltraFilterType.notch => ReelForgeTheme.accentPink,
-      UltraFilterType.bandpass => ReelForgeTheme.accentGreen,
-      UltraFilterType.tiltShelf => ReelForgeTheme.accentCyan,
-      UltraFilterType.allpass => ReelForgeTheme.textTertiary,
-      UltraFilterType.dynamic => ReelForgeTheme.accentYellow,
+      UltraFilterType.bell => FluxForgeTheme.accentOrange,
+      UltraFilterType.lowShelf => FluxForgeTheme.accentOrange,
+      UltraFilterType.highShelf => FluxForgeTheme.accentYellow,
+      UltraFilterType.lowCut => FluxForgeTheme.accentRed,
+      UltraFilterType.highCut => FluxForgeTheme.accentRed,
+      UltraFilterType.notch => FluxForgeTheme.accentPink,
+      UltraFilterType.bandpass => FluxForgeTheme.accentGreen,
+      UltraFilterType.tiltShelf => FluxForgeTheme.accentCyan,
+      UltraFilterType.allpass => FluxForgeTheme.textTertiary,
+      UltraFilterType.dynamic => FluxForgeTheme.accentYellow,
     };
   }
 

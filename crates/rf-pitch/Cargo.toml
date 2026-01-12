@@ -2,7 +2,7 @@
 name = "rf-pitch"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge Polyphonic Pitch Engine - Melodyne DNA level pitch manipulation"
+description = "FluxForge Studio Polyphonic Pitch Engine - Melodyne DNA level pitch manipulation"
 license = "MIT"
 
 [dependencies]

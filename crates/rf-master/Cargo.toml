@@ -2,7 +2,7 @@
 name = "rf-master"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge Intelligent Mastering Engine - AI-assisted mastering"
+description = "FluxForge Studio Intelligent Mastering Engine - AI-assisted mastering"
 license = "MIT"
 
 [dependencies]

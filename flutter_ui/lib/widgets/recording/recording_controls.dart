@@ -9,7 +9,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // Mock types until flutter_rust_bridge generates them
 class RecordingStatus {
@@ -139,9 +139,9 @@ class _RecordingControlsState extends State<RecordingControls>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -156,17 +156,17 @@ class _RecordingControlsState extends State<RecordingControls>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               _formatDuration(_duration),
               style: TextStyle(
-                fontFamily: ReelForgeTheme.monoFontFamily,
+                fontFamily: FluxForgeTheme.monoFontFamily,
                 fontSize: 24,
                 color: _isRecording
-                    ? ReelForgeTheme.accentRed
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.accentRed
+                    : FluxForgeTheme.textPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -185,10 +185,10 @@ class _RecordingControlsState extends State<RecordingControls>
                   return _buildControlButton(
                     icon: Icons.fiber_manual_record,
                     color: _isArmed
-                        ? ReelForgeTheme.accentRed.withValues(
+                        ? FluxForgeTheme.accentRed.withValues(
                             alpha: 0.5 + _blinkController.value * 0.5,
                           )
-                        : ReelForgeTheme.textTertiary,
+                        : FluxForgeTheme.textTertiary,
                     onTap: _toggleArm,
                     tooltip: _isArmed ? 'Disarm' : 'Arm Recording',
                     size: 36,
@@ -206,8 +206,8 @@ class _RecordingControlsState extends State<RecordingControls>
               _buildControlButton(
                 icon: Icons.stop,
                 color: _isRecording
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textTertiary,
                 onTap: _isRecording ? _toggleRecording : null,
                 tooltip: 'Stop Recording',
                 size: 36,
@@ -226,8 +226,8 @@ class _RecordingControlsState extends State<RecordingControls>
                     : 'Ready',
             style: TextStyle(
               color: _isRecording
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -239,11 +239,11 @@ class _RecordingControlsState extends State<RecordingControls>
   Widget _buildInputMeters() {
     return Row(
       children: [
-        Text('L', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+        Text('L', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
         const SizedBox(width: 4),
         Expanded(child: _buildMeter(_inputLevelL)),
         const SizedBox(width: 8),
-        Text('R', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+        Text('R', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
         const SizedBox(width: 4),
         Expanded(child: _buildMeter(_inputLevelR)),
       ],
@@ -254,7 +254,7 @@ class _RecordingControlsState extends State<RecordingControls>
     return Container(
       height: 8,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
       ),
       child: LayoutBuilder(
@@ -267,9 +267,9 @@ class _RecordingControlsState extends State<RecordingControls>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    ReelForgeTheme.accentGreen,
-                    level > 0.7 ? ReelForgeTheme.accentOrange : ReelForgeTheme.accentGreen,
-                    level > 0.9 ? ReelForgeTheme.accentRed : ReelForgeTheme.accentOrange,
+                    FluxForgeTheme.accentGreen,
+                    level > 0.7 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen,
+                    level > 0.9 ? FluxForgeTheme.accentRed : FluxForgeTheme.accentOrange,
                   ],
                   stops: const [0.0, 0.7, 0.9],
                 ),
@@ -291,18 +291,18 @@ class _RecordingControlsState extends State<RecordingControls>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: _isRecording
-              ? ReelForgeTheme.accentRed
-              : ReelForgeTheme.bgSurface,
+              ? FluxForgeTheme.accentRed
+              : FluxForgeTheme.bgSurface,
           border: Border.all(
             color: _isRecording
-                ? ReelForgeTheme.accentRed
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentRed
+                : FluxForgeTheme.borderSubtle,
             width: 3,
           ),
           boxShadow: _isRecording
               ? [
                   BoxShadow(
-                    color: ReelForgeTheme.accentRed.withValues(alpha: 0.5),
+                    color: FluxForgeTheme.accentRed.withValues(alpha: 0.5),
                     blurRadius: 16,
                     spreadRadius: 2,
                   ),
@@ -315,7 +315,7 @@ class _RecordingControlsState extends State<RecordingControls>
             width: _isRecording ? 20 : 24,
             height: _isRecording ? 20 : 24,
             decoration: BoxDecoration(
-              color: _isRecording ? Colors.white : ReelForgeTheme.accentRed,
+              color: _isRecording ? Colors.white : FluxForgeTheme.accentRed,
               borderRadius: BorderRadius.circular(_isRecording ? 4 : 12),
             ),
           ),
@@ -341,7 +341,7 @@ class _RecordingControlsState extends State<RecordingControls>
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: ReelForgeTheme.bgSurface,
+            color: FluxForgeTheme.bgSurface,
           ),
           child: Icon(icon, color: color, size: size * 0.6),
         ),

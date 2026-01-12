@@ -10,7 +10,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Project version data
 class ProjectVersionData {
@@ -112,7 +112,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Create Version', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -127,7 +127,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                   borderSide: BorderSide(color: Colors.white24),
                 ),
                 focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+                  borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                 ),
               ),
             ),
@@ -143,7 +143,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                   borderSide: BorderSide(color: Colors.white24),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+                  borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                 ),
               ),
             ),
@@ -162,13 +162,13 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Created version "${nameController.text}"'),
-                    backgroundColor: ReelForgeTheme.accentGreen,
+                    backgroundColor: FluxForgeTheme.accentGreen,
                   ),
                 );
               }
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: ReelForgeTheme.accentBlue),
+            style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentBlue),
             child: const Text('Create'),
           ),
         ],
@@ -185,7 +185,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Delete Version?', style: TextStyle(color: Colors.white)),
         content: Text(
           version.isMilestone
@@ -208,7 +208,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
               _loadVersions();
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: ReelForgeTheme.accentRed),
+            style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
             child: const Text('Delete'),
           ),
         ],
@@ -219,13 +219,13 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildToolbar(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(child: _buildVersionList()),
         ],
       ),
@@ -236,10 +236,10 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.history, color: ReelForgeTheme.accentGreen, size: 18),
+          const Icon(Icons.history, color: FluxForgeTheme.accentGreen, size: 18),
           const SizedBox(width: 8),
           const Text(
             'PROJECT VERSIONS',
@@ -264,7 +264,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: ReelForgeTheme.bgMid.withOpacity(0.5),
+      color: FluxForgeTheme.bgMid.withOpacity(0.5),
       child: Row(
         children: [
           // Create version button
@@ -273,7 +273,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
             icon: const Icon(Icons.add, size: 14),
             label: const Text('Save Version', style: TextStyle(fontSize: 11)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentGreen,
+              backgroundColor: FluxForgeTheme.accentGreen,
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               minimumSize: const Size(0, 26),
@@ -293,7 +293,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
               setState(() => _showMilestonesOnly = v);
               _loadVersions();
             },
-            backgroundColor: ReelForgeTheme.bgDeep,
+            backgroundColor: FluxForgeTheme.bgDeep,
             selectedColor: Colors.amber,
             checkmarkColor: Colors.black,
             labelStyle: TextStyle(
@@ -354,15 +354,15 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withOpacity(0.15)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentBlue
+                ? FluxForgeTheme.accentBlue
                 : version.isMilestone
                     ? Colors.amber.withOpacity(0.4)
-                    : ReelForgeTheme.borderSubtle,
+                    : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -374,10 +374,10 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
               decoration: BoxDecoration(
                 color: version.isMilestone
                     ? Colors.amber.withOpacity(0.2)
-                    : ReelForgeTheme.bgDeep,
+                    : FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: version.isMilestone ? Colors.amber : ReelForgeTheme.borderSubtle,
+                  color: version.isMilestone ? Colors.amber : FluxForgeTheme.borderSubtle,
                 ),
               ),
               child: Center(

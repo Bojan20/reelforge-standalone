@@ -1,4 +1,4 @@
-/// ReelForge Engine API
+/// FluxForge Studio Engine API
 ///
 /// High-level Dart API for the Rust audio engine.
 /// Uses mock data when native library is not available.

@@ -10,7 +10,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/input_bus_provider.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class InputBusPanel extends StatefulWidget {
   const InputBusPanel({super.key});
@@ -39,16 +39,16 @@ class _InputBusPanelState extends State<InputBusPanel> {
     return Consumer<InputBusProvider>(
       builder: (context, provider, _) {
         return Container(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           child: Column(
             children: [
               // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgMid,
+                  color: FluxForgeTheme.bgMid,
                   border: Border(
-                    bottom: BorderSide(color: ReelForgeTheme.bgSurface, width: 1),
+                    bottom: BorderSide(color: FluxForgeTheme.bgSurface, width: 1),
                   ),
                 ),
                 child: Row(
@@ -56,7 +56,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
                     const Text(
                       'INPUT BUSES',
                       style: TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.2,
@@ -65,7 +65,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.add, size: 16),
-                      color: ReelForgeTheme.accentBlue,
+                      color: FluxForgeTheme.accentBlue,
                       tooltip: 'Create Input Bus',
                       onPressed: () => _showCreateBusDialog(context),
                       padding: EdgeInsets.zero,
@@ -77,7 +77,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
                     const SizedBox(width: 4),
                     IconButton(
                       icon: const Icon(Icons.refresh, size: 16),
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       tooltip: 'Refresh',
                       onPressed: () => provider.refresh(),
                       padding: EdgeInsets.zero,
@@ -100,13 +100,13 @@ class _InputBusPanelState extends State<InputBusPanel> {
                             Icon(
                               Icons.input,
                               size: 48,
-                              color: ReelForgeTheme.textSecondary.withOpacity(0.3),
+                              color: FluxForgeTheme.textSecondary.withOpacity(0.3),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'No input buses',
                               style: TextStyle(
-                                color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+                                color: FluxForgeTheme.textSecondary.withOpacity(0.6),
                                 fontSize: 13,
                               ),
                             ),
@@ -116,7 +116,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
                               icon: const Icon(Icons.add, size: 16),
                               label: const Text('Create Bus'),
                               style: TextButton.styleFrom(
-                                foregroundColor: ReelForgeTheme.accentBlue,
+                                foregroundColor: FluxForgeTheme.accentBlue,
                               ),
                             ),
                           ],
@@ -151,10 +151,10 @@ class _InputBusPanelState extends State<InputBusPanel> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgMid,
+          backgroundColor: FluxForgeTheme.bgMid,
           title: const Text(
             'Create Input Bus',
-            style: TextStyle(color: ReelForgeTheme.textPrimary),
+            style: TextStyle(color: FluxForgeTheme.textPrimary),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -176,7 +176,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
                 children: [
                   const Text(
                     'Channels:',
-                    style: TextStyle(color: ReelForgeTheme.textSecondary),
+                    style: TextStyle(color: FluxForgeTheme.textSecondary),
                   ),
                   const SizedBox(width: 16),
                   ChoiceChip(
@@ -229,7 +229,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ReelForgeTheme.accentBlue,
+                backgroundColor: FluxForgeTheme.accentBlue,
               ),
               child: const Text('Create'),
             ),
@@ -266,12 +266,12 @@ class _InputBusItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: bus.enabled
-              ? ReelForgeTheme.accentBlue.withOpacity(0.3)
-              : ReelForgeTheme.bgSurface,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
+              : FluxForgeTheme.bgSurface,
         ),
       ),
       child: Column(
@@ -284,7 +284,7 @@ class _InputBusItem extends StatelessWidget {
               Switch(
                 value: bus.enabled,
                 onChanged: onToggleEnabled,
-                activeColor: ReelForgeTheme.accentGreen,
+                activeColor: FluxForgeTheme.accentGreen,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               const SizedBox(width: 8),
@@ -297,7 +297,7 @@ class _InputBusItem extends StatelessWidget {
                     Text(
                       bus.name,
                       style: const TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -305,7 +305,7 @@ class _InputBusItem extends StatelessWidget {
                     Text(
                       bus.channels == 1 ? 'Mono' : 'Stereo',
                       style: TextStyle(
-                        color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                         fontSize: 11,
                       ),
                     ),
@@ -316,7 +316,7 @@ class _InputBusItem extends StatelessWidget {
               // Delete button
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 16),
-                color: ReelForgeTheme.accentRed.withOpacity(0.7),
+                color: FluxForgeTheme.accentRed.withOpacity(0.7),
                 tooltip: 'Delete Bus',
                 onPressed: onDelete,
                 padding: EdgeInsets.zero,
@@ -358,13 +358,13 @@ class _PeakMeter extends StatelessWidget {
 
     Color meterColor;
     if (peakDb > -0.5) {
-      meterColor = ReelForgeTheme.accentRed;
+      meterColor = FluxForgeTheme.accentRed;
     } else if (peakDb > -6) {
-      meterColor = ReelForgeTheme.accentOrange;
+      meterColor = FluxForgeTheme.accentOrange;
     } else if (peakDb > -18) {
-      meterColor = ReelForgeTheme.accentGreen;
+      meterColor = FluxForgeTheme.accentGreen;
     } else {
-      meterColor = ReelForgeTheme.accentCyan;
+      meterColor = FluxForgeTheme.accentCyan;
     }
 
     return Row(
@@ -374,7 +374,7 @@ class _PeakMeter extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
               fontSize: 10,
             ),
           ),
@@ -383,7 +383,7 @@ class _PeakMeter extends StatelessWidget {
           child: Container(
             height: 4,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(2),
             ),
             child: FractionallySizedBox(
@@ -404,7 +404,7 @@ class _PeakMeter extends StatelessWidget {
           child: Text(
             peakDb > -100 ? '${peakDb.toStringAsFixed(1)} dB' : '-∞',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
               fontSize: 9,
               fontFamily: 'monospace',
             ),

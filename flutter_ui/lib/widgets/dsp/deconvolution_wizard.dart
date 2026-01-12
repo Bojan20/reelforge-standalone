@@ -7,7 +7,7 @@
 /// - IR cleanup and trimming
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Sweep type for IR capture
 enum SweepType {
@@ -84,9 +84,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       width: 560,
       constraints: const BoxConstraints(maxHeight: 700),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.6),
@@ -162,7 +162,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
   Widget _buildStepIndicator() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: WizardStep.values.map((step) {
@@ -179,7 +179,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                   height: 2,
                   color: isComplete
                       ? const Color(0xFF00BCD4)
-                      : ReelForgeTheme.border,
+                      : FluxForgeTheme.border,
                 ),
               Container(
                 width: 28,
@@ -189,12 +189,12 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                       ? const Color(0xFF00BCD4)
                       : isCurrent
                           ? const Color(0xFF00BCD4).withOpacity(0.3)
-                          : ReelForgeTheme.surface,
+                          : FluxForgeTheme.surface,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isCurrent || isComplete
                         ? const Color(0xFF00BCD4)
-                        : ReelForgeTheme.border,
+                        : FluxForgeTheme.border,
                     width: isCurrent ? 2 : 1,
                   ),
                 ),
@@ -205,8 +205,8 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                           '${index + 1}',
                           style: TextStyle(
                             color: isCurrent
-                                ? ReelForgeTheme.textPrimary
-                                : ReelForgeTheme.textSecondary,
+                                ? FluxForgeTheme.textPrimary
+                                : FluxForgeTheme.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -361,10 +361,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF00BCD4).withOpacity(0.15)
-              : ReelForgeTheme.surface,
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFF00BCD4) : ReelForgeTheme.border,
+            color: isSelected ? const Color(0xFF00BCD4) : FluxForgeTheme.border,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -374,7 +374,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               info['icon'] as IconData,
               color: isSelected
                   ? const Color(0xFF00BCD4)
-                  : ReelForgeTheme.textSecondary,
+                  : FluxForgeTheme.textSecondary,
               size: 24,
             ),
             const SizedBox(height: 8),
@@ -382,8 +382,8 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               info['name'] as String,
               style: TextStyle(
                 color: isSelected
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
@@ -393,7 +393,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             Text(
               info['desc'] as String,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary.withOpacity(0.7),
+                color: FluxForgeTheme.textSecondary.withOpacity(0.7),
                 fontSize: 9,
               ),
               textAlign: TextAlign.center,
@@ -452,7 +452,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           Text(
             _statusMessage,
             style: const TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -533,7 +533,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       height: 80,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -542,7 +542,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           const Text(
             'Input Level',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -585,7 +585,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Text(
       text,
       style: TextStyle(
-        color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+        color: FluxForgeTheme.textSecondary.withOpacity(0.6),
         fontSize: 8,
       ),
     );
@@ -610,7 +610,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           Text(
             _statusMessage,
             style: const TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
             textAlign: TextAlign.center,
@@ -642,13 +642,13 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Center(
             child: Text(
               'IR Waveform Preview',
-              style: TextStyle(color: ReelForgeTheme.textSecondary),
+              style: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
           ),
         ),
@@ -702,18 +702,18 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface,
+        color: FluxForgeTheme.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         children: [
-          Icon(icon, color: ReelForgeTheme.textSecondary, size: 18),
+          Icon(icon, color: FluxForgeTheme.textSecondary, size: 18),
           const SizedBox(height: 4),
           Text(
             label,
             style: const TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -721,7 +721,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           Text(
             value,
             style: const TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -760,7 +760,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Column(
@@ -768,32 +768,32 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Duration', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
-                  Text('2.5 seconds', style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Duration', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                  Text('2.5 seconds', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
                 ],
               ),
               SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Sample Rate', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
-                  Text('48 kHz', style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Sample Rate', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                  Text('48 kHz', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
                 ],
               ),
               SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Channels', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
-                  Text('Stereo', style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Channels', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                  Text('Stereo', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
                 ],
               ),
               SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('File Size', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
-                  Text('~720 KB', style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12)),
+                  Text('File Size', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                  Text('~720 KB', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
                 ],
               ),
             ],
@@ -811,16 +811,16 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF00BCD4).withOpacity(0.2)
-              : ReelForgeTheme.surface,
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF00BCD4) : ReelForgeTheme.border,
+            color: isSelected ? const Color(0xFF00BCD4) : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF00BCD4) : ReelForgeTheme.textSecondary,
+            color: isSelected ? const Color(0xFF00BCD4) : FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -835,7 +835,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
@@ -849,7 +849,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               icon: const Icon(Icons.arrow_back, size: 16),
               label: const Text('Back'),
               style: TextButton.styleFrom(
-                foregroundColor: ReelForgeTheme.textSecondary,
+                foregroundColor: FluxForgeTheme.textSecondary,
               ),
             ),
           const Spacer(),
@@ -882,7 +882,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Text(
       title,
       style: const TextStyle(
-        color: ReelForgeTheme.textPrimary,
+        color: FluxForgeTheme.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.bold,
       ),
@@ -893,7 +893,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Text(
       title,
       style: const TextStyle(
-        color: ReelForgeTheme.textSecondary,
+        color: FluxForgeTheme.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.w500,
       ),
@@ -920,7 +920,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -929,7 +929,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                 Text(
                   description,
                   style: const TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -945,13 +945,13 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface,
+        color: FluxForgeTheme.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Row(
         children: [
-          Icon(icon, color: ReelForgeTheme.textSecondary, size: 16),
+          Icon(icon, color: FluxForgeTheme.textSecondary, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -960,14 +960,14 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                 Text(
                   label,
                   style: const TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 9,
                   ),
                 ),
                 Text(
                   value,
                   style: const TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -986,10 +986,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: value ? const Color(0xFF00BCD4).withOpacity(0.1) : ReelForgeTheme.surface,
+          color: value ? const Color(0xFF00BCD4).withOpacity(0.1) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: value ? const Color(0xFF00BCD4).withOpacity(0.5) : ReelForgeTheme.border,
+            color: value ? const Color(0xFF00BCD4).withOpacity(0.5) : FluxForgeTheme.border,
           ),
         ),
         child: Row(
@@ -1001,7 +1001,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                 color: value ? const Color(0xFF00BCD4) : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: value ? const Color(0xFF00BCD4) : ReelForgeTheme.border,
+                  color: value ? const Color(0xFF00BCD4) : FluxForgeTheme.border,
                 ),
               ),
               child: value
@@ -1016,7 +1016,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1024,7 +1024,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                   Text(
                     description,
                     style: const TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 10,
                     ),
                   ),
@@ -1042,14 +1042,14 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       children: [
         LinearProgressIndicator(
           value: _progress,
-          backgroundColor: ReelForgeTheme.bgMid,
+          backgroundColor: FluxForgeTheme.bgMid,
           valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00BCD4)),
         ),
         const SizedBox(height: 8),
         Text(
           '${(_progress * 100).toStringAsFixed(0)}%',
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),

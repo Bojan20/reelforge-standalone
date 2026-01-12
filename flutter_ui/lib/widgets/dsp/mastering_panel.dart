@@ -1,9 +1,9 @@
-/// ReelForge Intelligent Mastering Panel
+/// FluxForge Studio Intelligent Mastering Panel
 ///
 /// Professional mastering engine with presets, analysis, and reference matching
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Mastering preset category
 enum MasteringPresetCategory {
@@ -152,7 +152,7 @@ class _MasteringPanelState extends State<MasteringPanel>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -177,10 +177,10 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
           bottom: BorderSide(
-            color: ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
+            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -188,14 +188,14 @@ class _MasteringPanelState extends State<MasteringPanel>
         children: [
           Icon(
             Icons.auto_awesome,
-            color: ReelForgeTheme.accentOrange,
+            color: FluxForgeTheme.accentOrange,
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
             'Intelligent Mastering',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -217,13 +217,13 @@ class _MasteringPanelState extends State<MasteringPanel>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _enabled
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: _enabled
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Row(
@@ -233,16 +233,16 @@ class _MasteringPanelState extends State<MasteringPanel>
               _enabled ? Icons.power_settings_new : Icons.power_off,
               size: 14,
               color: _enabled
-                  ? ReelForgeTheme.accentGreen
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentGreen
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 4),
             Text(
               _enabled ? 'ON' : 'OFF',
               style: TextStyle(
                 color: _enabled
-                    ? ReelForgeTheme.accentGreen
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentGreen
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -255,12 +255,12 @@ class _MasteringPanelState extends State<MasteringPanel>
 
   Widget _buildTabBar() {
     return Container(
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: TabBar(
         controller: _tabController,
-        labelColor: ReelForgeTheme.accentOrange,
-        unselectedLabelColor: ReelForgeTheme.textSecondary,
-        indicatorColor: ReelForgeTheme.accentOrange,
+        labelColor: FluxForgeTheme.accentOrange,
+        unselectedLabelColor: FluxForgeTheme.textSecondary,
+        indicatorColor: FluxForgeTheme.accentOrange,
         indicatorWeight: 2,
         tabs: const [
           Tab(text: 'Presets'),
@@ -280,7 +280,7 @@ class _MasteringPanelState extends State<MasteringPanel>
           Text(
             'Mastering Presets',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -326,13 +326,13 @@ class _MasteringPanelState extends State<MasteringPanel>
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentOrange.withValues(alpha: 0.15)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? ReelForgeTheme.accentOrange
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentOrange
+                : FluxForgeTheme.bgSurface,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -346,8 +346,8 @@ class _MasteringPanelState extends State<MasteringPanel>
                   preset['icon'] as IconData,
                   size: 18,
                   color: isSelected
-                      ? ReelForgeTheme.accentOrange
-                      : ReelForgeTheme.textSecondary,
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.textSecondary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -355,8 +355,8 @@ class _MasteringPanelState extends State<MasteringPanel>
                     preset['name'] as String,
                     style: TextStyle(
                       color: isSelected
-                          ? ReelForgeTheme.accentOrange
-                          : ReelForgeTheme.textPrimary,
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -365,7 +365,7 @@ class _MasteringPanelState extends State<MasteringPanel>
                 Text(
                   '${preset['targetLufs']} LUFS',
                   style: TextStyle(
-                    color: ReelForgeTheme.accentCyan,
+                    color: FluxForgeTheme.accentCyan,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -376,7 +376,7 @@ class _MasteringPanelState extends State<MasteringPanel>
             Text(
               preset['description'] as String,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 10,
               ),
               maxLines: 1,
@@ -392,7 +392,7 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -403,13 +403,13 @@ class _MasteringPanelState extends State<MasteringPanel>
               Icon(
                 Icons.compare,
                 size: 16,
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
               ),
               const SizedBox(width: 8),
               Text(
                 'Reference Matching',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -424,7 +424,7 @@ class _MasteringPanelState extends State<MasteringPanel>
                   child: Text(
                     _referencePath!.split('/').last,
                     style: TextStyle(
-                      color: ReelForgeTheme.accentGreen,
+                      color: FluxForgeTheme.accentGreen,
                       fontSize: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -434,7 +434,7 @@ class _MasteringPanelState extends State<MasteringPanel>
                   icon: Icon(
                     Icons.close,
                     size: 16,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                   onPressed: () {
                     setState(() {
@@ -451,8 +451,8 @@ class _MasteringPanelState extends State<MasteringPanel>
               icon: const Icon(Icons.file_upload_outlined, size: 16),
               label: const Text('Load Reference'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: ReelForgeTheme.accentCyan,
-                side: BorderSide(color: ReelForgeTheme.accentCyan),
+                foregroundColor: FluxForgeTheme.accentCyan,
+                side: BorderSide(color: FluxForgeTheme.accentCyan),
               ),
             ),
         ],
@@ -492,7 +492,7 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -501,7 +501,7 @@ class _MasteringPanelState extends State<MasteringPanel>
           Text(
             title,
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -574,14 +574,14 @@ class _MasteringPanelState extends State<MasteringPanel>
             Text(
               label,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 12,
               ),
             ),
             Text(
               valueLabel,
               style: TextStyle(
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -591,10 +591,10 @@ class _MasteringPanelState extends State<MasteringPanel>
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: ReelForgeTheme.accentOrange,
-            inactiveTrackColor: ReelForgeTheme.bgSurface,
-            thumbColor: ReelForgeTheme.accentOrange,
-            overlayColor: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+            activeTrackColor: FluxForgeTheme.accentOrange,
+            inactiveTrackColor: FluxForgeTheme.bgSurface,
+            thumbColor: FluxForgeTheme.accentOrange,
+            overlayColor: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
             trackHeight: 4,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
@@ -638,13 +638,13 @@ class _MasteringPanelState extends State<MasteringPanel>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: value
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: value
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.bgSurface,
           ),
         ),
         child: Row(
@@ -654,16 +654,16 @@ class _MasteringPanelState extends State<MasteringPanel>
               icon,
               size: 14,
               color: value
-                  ? ReelForgeTheme.accentGreen
-                  : ReelForgeTheme.textSecondary,
+                  ? FluxForgeTheme.accentGreen
+                  : FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 color: value
-                    ? ReelForgeTheme.accentGreen
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.accentGreen
+                    : FluxForgeTheme.textPrimary,
                 fontSize: 11,
               ),
             ),
@@ -698,7 +698,7 @@ class _MasteringPanelState extends State<MasteringPanel>
       icon: const Icon(Icons.analytics, size: 18),
       label: const Text('Analyze Audio'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: ReelForgeTheme.accentCyan,
+        backgroundColor: FluxForgeTheme.accentCyan,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         shape: RoundedRectangleBorder(
@@ -712,7 +712,7 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -721,7 +721,7 @@ class _MasteringPanelState extends State<MasteringPanel>
           Text(
             'Analysis Results',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -746,14 +746,14 @@ class _MasteringPanelState extends State<MasteringPanel>
           Text(
             label,
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 12,
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentCyan,
+              color: FluxForgeTheme.accentCyan,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -767,9 +767,9 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.accentOrange.withValues(alpha: 0.1),
+        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.accentOrange.withValues(alpha: 0.3)),
+        border: Border.all(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,13 +779,13 @@ class _MasteringPanelState extends State<MasteringPanel>
               Icon(
                 Icons.warning_amber,
                 size: 16,
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
               ),
               const SizedBox(width: 8),
               Text(
                 'Issues Found',
                 style: TextStyle(
-                  color: ReelForgeTheme.accentOrange,
+                  color: FluxForgeTheme.accentOrange,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -800,13 +800,13 @@ class _MasteringPanelState extends State<MasteringPanel>
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(color: ReelForgeTheme.textSecondary),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary),
                     ),
                     Expanded(
                       child: Text(
                         issue,
                         style: TextStyle(
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontSize: 11,
                         ),
                       ),
@@ -823,7 +823,7 @@ class _MasteringPanelState extends State<MasteringPanel>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Center(
@@ -832,13 +832,13 @@ class _MasteringPanelState extends State<MasteringPanel>
             Icon(
               Icons.analytics_outlined,
               size: 48,
-              color: ReelForgeTheme.textSecondary.withValues(alpha: 0.5),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 12),
             Text(
               'No analysis yet',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -846,7 +846,7 @@ class _MasteringPanelState extends State<MasteringPanel>
             Text(
               'Click "Analyze Audio" to get recommendations',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary.withValues(alpha: 0.7),
+                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                 fontSize: 11,
               ),
             ),

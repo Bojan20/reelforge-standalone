@@ -7,7 +7,7 @@
 /// - Plugin paths configuration
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Plugin format types (internal to this screen)
 enum _PluginFormat { vst3, au, clap, vst2 }
@@ -206,7 +206,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Found ${_plugins.length} plugins'),
-          backgroundColor: ReelForgeTheme.accentGreen,
+          backgroundColor: FluxForgeTheme.accentGreen,
         ),
       );
     }
@@ -251,9 +251,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Plugin Manager'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -261,7 +261,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: ReelForgeTheme.accentBlue,
+          indicatorColor: FluxForgeTheme.accentBlue,
           tabs: const [
             Tab(text: 'Plugins'),
             Tab(text: 'Paths'),
@@ -298,7 +298,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
   Widget _buildScanProgress() {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -314,7 +314,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                 child: Text(
                   _scanStatus,
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -325,8 +325,8 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: _scanProgress,
-            backgroundColor: ReelForgeTheme.bgSurface,
-            valueColor: AlwaysStoppedAnimation(ReelForgeTheme.accentBlue),
+            backgroundColor: FluxForgeTheme.bgSurface,
+            valueColor: AlwaysStoppedAnimation(FluxForgeTheme.accentBlue),
           ),
         ],
       ),
@@ -346,12 +346,12 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                       Icon(
                         Icons.extension_off,
                         size: 48,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'No plugins found',
-                        style: TextStyle(color: ReelForgeTheme.textSecondary),
+                        style: TextStyle(color: FluxForgeTheme.textSecondary),
                       ),
                       const SizedBox(height: 8),
                       ElevatedButton.icon(
@@ -359,7 +359,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                         icon: const Icon(Icons.search),
                         label: const Text('Scan for Plugins'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: ReelForgeTheme.accentBlue,
+                          backgroundColor: FluxForgeTheme.accentBlue,
                         ),
                       ),
                     ],
@@ -383,22 +383,22 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
         children: [
           // Search field
           TextField(
-            style: TextStyle(color: ReelForgeTheme.textPrimary),
+            style: TextStyle(color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search plugins...',
-              hintStyle: TextStyle(color: ReelForgeTheme.textTertiary),
-              prefixIcon: Icon(Icons.search, color: ReelForgeTheme.textSecondary),
+              hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+              prefixIcon: Icon(Icons.search, color: FluxForgeTheme.textSecondary),
               filled: true,
-              fillColor: ReelForgeTheme.bgSurface,
+              fillColor: FluxForgeTheme.bgSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -465,11 +465,11 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onSelected(),
-      backgroundColor: ReelForgeTheme.bgSurface,
-      selectedColor: ReelForgeTheme.accentBlue,
-      checkmarkColor: ReelForgeTheme.textPrimary,
+      backgroundColor: FluxForgeTheme.bgSurface,
+      selectedColor: FluxForgeTheme.accentBlue,
+      checkmarkColor: FluxForgeTheme.textPrimary,
       labelStyle: TextStyle(
-        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
         fontSize: 12,
       ),
     );
@@ -479,12 +479,12 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: plugin.isEnabled
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3)
-              : ReelForgeTheme.borderSubtle,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+              : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: ListTile(
@@ -512,7 +512,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
               child: Text(
                 plugin.name,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -521,13 +521,13 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentPurple.withValues(alpha: 0.2),
+                  color: FluxForgeTheme.accentPurple.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   'INST',
                   style: TextStyle(
-                    color: ReelForgeTheme.accentPurple,
+                    color: FluxForgeTheme.accentPurple,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -538,14 +538,14 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         subtitle: Text(
           '${plugin.vendor} v${plugin.version}',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
         trailing: Switch(
           value: plugin.isEnabled,
           onChanged: (_) => _togglePlugin(originalIndex),
-          activeColor: ReelForgeTheme.accentGreen,
+          activeColor: FluxForgeTheme.accentGreen,
         ),
         onTap: () => _showPluginDetails(plugin),
       ),
@@ -556,10 +556,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgElevated,
+        backgroundColor: FluxForgeTheme.bgElevated,
         title: Text(
           plugin.name,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -574,7 +574,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
             Text(
               'Path',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -582,13 +582,13 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgSurface,
+                color: FluxForgeTheme.bgSurface,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 plugin.path,
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 11,
                   fontFamily: 'JetBrains Mono',
                 ),
@@ -615,14 +615,14 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
           Text(
             label,
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 13,
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 13,
             ),
           ),
@@ -640,7 +640,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
           Text(
             'Plugin Search Paths',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -654,14 +654,14 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgSurface,
+                    color: FluxForgeTheme.bgSurface,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.folder,
-                        color: ReelForgeTheme.accentBlue,
+                        color: FluxForgeTheme.accentBlue,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -669,7 +669,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                         child: Text(
                           _scanPaths[index],
                           style: TextStyle(
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                             fontFamily: 'JetBrains Mono',
                             fontSize: 12,
                           ),
@@ -678,7 +678,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                       IconButton(
                         icon: Icon(
                           Icons.delete_outline,
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                           size: 20,
                         ),
                         onPressed: () {
@@ -704,8 +704,8 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
               icon: const Icon(Icons.add),
               label: const Text('Add Path'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: ReelForgeTheme.accentBlue,
-                side: BorderSide(color: ReelForgeTheme.accentBlue),
+                foregroundColor: FluxForgeTheme.accentBlue,
+                side: BorderSide(color: FluxForgeTheme.accentBlue),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
@@ -731,13 +731,13 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
   Color _getFormatColor(_PluginFormat format) {
     switch (format) {
       case _PluginFormat.vst3:
-        return ReelForgeTheme.accentBlue;
+        return FluxForgeTheme.accentBlue;
       case _PluginFormat.au:
-        return ReelForgeTheme.accentGreen;
+        return FluxForgeTheme.accentGreen;
       case _PluginFormat.clap:
-        return ReelForgeTheme.accentOrange;
+        return FluxForgeTheme.accentOrange;
       case _PluginFormat.vst2:
-        return ReelForgeTheme.accentPurple;
+        return FluxForgeTheme.accentPurple;
     }
   }
 }

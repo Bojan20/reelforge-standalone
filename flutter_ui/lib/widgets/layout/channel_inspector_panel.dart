@@ -11,7 +11,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/timeline_models.dart' as timeline;
 import '../../src/rust/native_ffi.dart';
@@ -80,7 +80,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
     }
 
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: ListView(
         padding: const EdgeInsets.all(8),
         children: [
@@ -114,7 +114,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
           // Divider if both channel and clip
           if (hasChannel && hasClip) ...[
             const SizedBox(height: 12),
-            Container(height: 1, color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+            Container(height: 1, color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
             const SizedBox(height: 12),
           ],
 
@@ -133,7 +133,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
 
   Widget _buildEmptyState() {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -141,7 +141,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             Icon(
               Icons.tune_outlined,
               size: 48,
-              color: ReelForgeTheme.textTertiary.withValues(alpha: 0.2),
+              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 16),
             Text(
@@ -149,7 +149,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 4),
@@ -157,7 +157,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
               'or clip to inspect',
               style: TextStyle(
                 fontSize: 11,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ],
@@ -175,7 +175,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
 
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(6),
         border: Border(
           left: BorderSide(color: ch.color, width: 4),
@@ -197,7 +197,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -229,7 +229,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             height: 6,
             margin: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(3),
             ),
             child: Row(
@@ -244,7 +244,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     child: _MeterBar(level: ch.peakL),
                   ),
                 ),
-                Container(width: 1, color: ReelForgeTheme.bgMid),
+                Container(width: 1, color: FluxForgeTheme.bgMid),
                 // Right meter
                 Expanded(
                   child: ClipRRect(
@@ -285,7 +285,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: 12,
             defaultValue: 0,
             formatValue: _formatDb,
-            color: ReelForgeTheme.accentGreen,
+            color: FluxForgeTheme.accentGreen,
             onChanged: (v) => widget.onVolumeChange?.call(ch.id, v),
           ),
           const SizedBox(height: 10),
@@ -298,7 +298,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: 100,
             defaultValue: 0,
             formatValue: _formatPan,
-            color: ReelForgeTheme.accentCyan,
+            color: FluxForgeTheme.accentCyan,
             onChanged: (v) => widget.onPanChange?.call(ch.id, v / 100),
           ),
           const SizedBox(height: 12),
@@ -311,7 +311,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   label: 'M',
                   tooltip: 'Mute',
                   active: ch.mute,
-                  activeColor: ReelForgeTheme.accentOrange,
+                  activeColor: FluxForgeTheme.accentOrange,
                   onTap: () => widget.onMuteToggle?.call(ch.id),
                 ),
               ),
@@ -321,7 +321,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   label: 'S',
                   tooltip: 'Solo',
                   active: ch.solo,
-                  activeColor: ReelForgeTheme.accentYellow,
+                  activeColor: FluxForgeTheme.accentYellow,
                   onTap: () => widget.onSoloToggle?.call(ch.id),
                 ),
               ),
@@ -331,7 +331,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   label: 'R',
                   tooltip: 'Record Arm',
                   active: ch.armed,
-                  activeColor: ReelForgeTheme.accentRed,
+                  activeColor: FluxForgeTheme.accentRed,
                   onTap: () => widget.onArmToggle?.call(ch.id),
                 ),
               ),
@@ -341,7 +341,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   label: 'I',
                   tooltip: 'Input Monitor',
                   active: ch.inputMonitor,
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   onTap: () => widget.onMonitorToggle?.call(ch.id),
                 ),
               ),
@@ -492,7 +492,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: 24,
             defaultValue: 0,
             formatValue: _formatDbWithUnit,
-            color: ReelForgeTheme.accentCyan,
+            color: FluxForgeTheme.accentCyan,
             onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(gain: _dbToLinear(v))),
           ),
           const SizedBox(height: 10),
@@ -505,7 +505,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: clip.duration * 500, // max 50% of clip
             defaultValue: 0,
             formatValue: (v) => '${v.toStringAsFixed(0)}ms',
-            color: ReelForgeTheme.accentGreen,
+            color: FluxForgeTheme.accentGreen,
             onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(fadeIn: v / 1000)),
           ),
           const SizedBox(height: 10),
@@ -518,7 +518,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: clip.duration * 500, // max 50% of clip
             defaultValue: 0,
             formatValue: (v) => '${v.toStringAsFixed(0)}ms',
-            color: ReelForgeTheme.accentOrange,
+            color: FluxForgeTheme.accentOrange,
             onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(fadeOut: v / 1000)),
           ),
           const SizedBox(height: 12),
@@ -530,7 +530,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                 child: _StateButton(
                   label: clip.muted ? 'UNMUTE' : 'MUTE',
                   active: clip.muted,
-                  activeColor: ReelForgeTheme.accentRed,
+                  activeColor: FluxForgeTheme.accentRed,
                   onTap: () => widget.onClipChanged?.call(clip.copyWith(muted: !clip.muted)),
                 ),
               ),
@@ -539,7 +539,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                 child: _StateButton(
                   label: clip.locked ? 'UNLOCK' : 'LOCK',
                   active: clip.locked,
-                  activeColor: ReelForgeTheme.accentYellow,
+                  activeColor: FluxForgeTheme.accentYellow,
                   onTap: () => widget.onClipChanged?.call(clip.copyWith(locked: !clip.locked)),
                 ),
               ),
@@ -679,11 +679,11 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(Icons.info_outline, size: 14, color: ReelForgeTheme.textTertiary),
+            Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.textTertiary),
             const SizedBox(width: 8),
             Text(
               'Time stretch not available',
-              style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
             ),
           ],
         ),
@@ -700,7 +700,7 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
           max: 400,
           defaultValue: 100,
           formatValue: (v) => '${v.toStringAsFixed(0)}%',
-          color: ReelForgeTheme.accentBlue,
+          color: FluxForgeTheme.accentBlue,
           onChanged: (v) => _setStretchRatio(v / 100),
         ),
         const SizedBox(height: 10),
@@ -716,7 +716,7 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
             if (v == 0) return '0 st';
             return '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} st';
           },
-          color: ReelForgeTheme.accentCyan,
+          color: FluxForgeTheme.accentCyan,
           onChanged: _setPitchShift,
         ),
         const SizedBox(height: 12),
@@ -767,10 +767,10 @@ class _PresetButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2) : ReelForgeTheme.bgDeepest,
+          color: isActive ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Text(
@@ -778,7 +778,7 @@ class _PresetButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w600,
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
           ),
         ),
       ),
@@ -811,7 +811,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(6),
         border: color != null
             ? Border(left: BorderSide(color: color!, width: 3))
@@ -835,7 +835,7 @@ class _Section extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         ),
                         if (subtitle != null) ...[
@@ -843,7 +843,7 @@ class _Section extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color: ReelForgeTheme.bgDeepest,
+                              color: FluxForgeTheme.bgDeepest,
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
@@ -851,7 +851,7 @@ class _Section extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 9,
                                 fontFamily: 'JetBrains Mono',
-                                color: ReelForgeTheme.textTertiary,
+                                color: FluxForgeTheme.textTertiary,
                               ),
                             ),
                           ),
@@ -862,7 +862,7 @@ class _Section extends StatelessWidget {
                   Icon(
                     expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     size: 16,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                 ],
               ),
@@ -911,7 +911,7 @@ class _FaderRow extends StatelessWidget {
           width: 48,
           child: Text(
             label,
-            style: TextStyle(fontSize: 10, color: ReelForgeTheme.textSecondary),
+            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(
@@ -927,7 +927,7 @@ class _FaderRow extends StatelessWidget {
               child: Container(
                 height: 16,
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeepest,
+                  color: FluxForgeTheme.bgDeepest,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Stack(
@@ -956,7 +956,7 @@ class _FaderRow extends StatelessWidget {
                         bottom: 0,
                         child: Container(
                           width: 1,
-                          color: ReelForgeTheme.textTertiary.withValues(alpha: 0.3),
+                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3),
                         ),
                       ),
                     ],
@@ -968,7 +968,7 @@ class _FaderRow extends StatelessWidget {
                         bottom: 0,
                         child: Container(
                           width: 1,
-                          color: ReelForgeTheme.textTertiary.withValues(alpha: 0.5),
+                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
                         ),
                       ),
                     ],
@@ -986,7 +986,7 @@ class _FaderRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontFamily: 'JetBrains Mono',
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             textAlign: TextAlign.right,
           ),
@@ -1018,10 +1018,10 @@ class _StateButton extends StatelessWidget {
       child: Container(
         height: 28,
         decoration: BoxDecoration(
-          color: active ? activeColor.withValues(alpha: 0.2) : ReelForgeTheme.bgDeepest,
+          color: active ? activeColor.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
             width: active ? 1.5 : 1,
           ),
         ),
@@ -1031,7 +1031,7 @@ class _StateButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: active ? activeColor : ReelForgeTheme.textSecondary,
+              color: active ? activeColor : FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -1065,23 +1065,23 @@ class _QuickButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2) : ReelForgeTheme.bgDeepest,
+          color: active ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary),
+            Icon(icon, size: 14, color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
             ),
           ],
@@ -1101,7 +1101,7 @@ class _MeterBar extends StatelessWidget {
     final clampedLevel = level.clamp(0.0, 1.0);
 
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       child: FractionallySizedBox(
         widthFactor: clampedLevel,
         alignment: Alignment.centerLeft,
@@ -1138,7 +1138,7 @@ class _InsertGroupLabel extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w500,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               letterSpacing: 0.3,
             ),
           ),
@@ -1146,7 +1146,7 @@ class _InsertGroupLabel extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.3),
+              color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
             ),
           ),
         ],
@@ -1174,12 +1174,12 @@ class _InsertSlotRow extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: hasPlugin ? ReelForgeTheme.bgSurface : ReelForgeTheme.bgDeepest,
+          color: hasPlugin ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: hasPlugin && !insert.bypassed
-                ? (isEq ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentBlue).withValues(alpha: 0.5)
-                : ReelForgeTheme.borderSubtle,
+                ? (isEq ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentBlue).withValues(alpha: 0.5)
+                : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -1192,13 +1192,13 @@ class _InsertSlotRow extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: hasPlugin
                     ? (insert.bypassed
-                        ? ReelForgeTheme.accentOrange.withValues(alpha: 0.5)
-                        : ReelForgeTheme.accentGreen)
-                    : ReelForgeTheme.bgMid,
+                        ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
+                        : FluxForgeTheme.accentGreen)
+                    : FluxForgeTheme.bgMid,
                 border: Border.all(
                   color: hasPlugin
-                      ? (insert.bypassed ? ReelForgeTheme.accentOrange : ReelForgeTheme.accentGreen)
-                      : ReelForgeTheme.borderSubtle,
+                      ? (insert.bypassed ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)
+                      : FluxForgeTheme.borderSubtle,
                   width: 1,
                 ),
               ),
@@ -1212,8 +1212,8 @@ class _InsertSlotRow extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
                   color: hasPlugin
-                      ? (insert.bypassed ? ReelForgeTheme.textTertiary : ReelForgeTheme.textPrimary)
-                      : ReelForgeTheme.textTertiary,
+                      ? (insert.bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary)
+                      : FluxForgeTheme.textTertiary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1223,7 +1223,7 @@ class _InsertSlotRow extends StatelessWidget {
               Icon(
                 Icons.graphic_eq,
                 size: 12,
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
               ),
           ],
         ),
@@ -1257,10 +1257,10 @@ class _SendSlotRow extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 3),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: hasDestination ? ReelForgeTheme.bgSurface : ReelForgeTheme.bgDeepest,
+          color: hasDestination ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: hasDestination ? ReelForgeTheme.accentBlue.withValues(alpha: 0.4) : ReelForgeTheme.borderSubtle,
+            color: hasDestination ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -1273,7 +1273,7 @@ class _SendSlotRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
@@ -1283,7 +1283,7 @@ class _SendSlotRow extends StatelessWidget {
                 hasDestination ? send!.destination! : 'No Send',
                 style: TextStyle(
                   fontSize: 10,
-                  color: hasDestination ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                  color: hasDestination ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1301,7 +1301,7 @@ class _SendSlotRow extends StatelessWidget {
                   child: Container(
                     height: 10,
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest,
+                      color: FluxForgeTheme.bgDeepest,
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: FractionallySizedBox(
@@ -1309,7 +1309,7 @@ class _SendSlotRow extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: ReelForgeTheme.accentBlue,
+                          color: FluxForgeTheme.accentBlue,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -1339,15 +1339,15 @@ class _RoutingRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
             ),
             const Spacer(),
             Text(
@@ -1355,11 +1355,11 @@ class _RoutingRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 14, color: ReelForgeTheme.textSecondary),
+            Icon(Icons.arrow_drop_down, size: 14, color: FluxForgeTheme.textSecondary),
           ],
         ),
       ),
@@ -1383,7 +1383,7 @@ class _InfoRow extends StatelessWidget {
             width: 56,
             child: Text(
               label,
-              style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
@@ -1392,7 +1392,7 @@ class _InfoRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontFamily: 'JetBrains Mono',
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,

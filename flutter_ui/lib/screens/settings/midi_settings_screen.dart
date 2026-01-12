@@ -8,7 +8,7 @@
 /// - MIDI learn mode
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// MIDI device info
 class MidiDeviceInfo {
@@ -130,9 +130,9 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('MIDI Settings'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -177,7 +177,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'No MIDI input devices found',
-                style: TextStyle(color: ReelForgeTheme.textSecondary),
+                style: TextStyle(color: FluxForgeTheme.textSecondary),
               ),
             )
           else
@@ -205,7 +205,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'No MIDI output devices found',
-                style: TextStyle(color: ReelForgeTheme.textSecondary),
+                style: TextStyle(color: FluxForgeTheme.textSecondary),
               ),
             )
           else
@@ -229,38 +229,38 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: device.isEnabled
-              ? ReelForgeTheme.accentGreen.withValues(alpha: 0.5)
-              : ReelForgeTheme.borderSubtle,
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.5)
+              : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: ListTile(
         leading: Icon(
           device.isInput ? Icons.input : Icons.output,
           color: device.isEnabled
-              ? ReelForgeTheme.accentGreen
-              : ReelForgeTheme.textSecondary,
+              ? FluxForgeTheme.accentGreen
+              : FluxForgeTheme.textSecondary,
         ),
         title: Text(
           device.name,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
         ),
         subtitle: Text(
           device.isEnabled ? 'Active' : 'Inactive',
           style: TextStyle(
             color: device.isEnabled
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.textTertiary,
             fontSize: 12,
           ),
         ),
         trailing: Switch(
           value: device.isEnabled,
           onChanged: (_) => onToggle(),
-          activeColor: ReelForgeTheme.accentGreen,
+          activeColor: FluxForgeTheme.accentGreen,
         ),
       ),
     );
@@ -276,7 +276,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgSurface,
+              color: FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -285,7 +285,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
                 Text(
                   'Receive Sync From',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -298,11 +298,11 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
                       label: Text(_getSyncModeName(mode)),
                       selected: isSelected,
                       onSelected: (_) => setState(() => _syncMode = mode),
-                      backgroundColor: ReelForgeTheme.bgMid,
-                      selectedColor: ReelForgeTheme.accentBlue,
+                      backgroundColor: FluxForgeTheme.bgMid,
+                      selectedColor: FluxForgeTheme.accentBlue,
                       labelStyle: TextStyle(
                         color:
-                            isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                            isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                       ),
                     );
                   }).toList(),
@@ -331,20 +331,20 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgSurface,
+                color: FluxForgeTheme.bgSurface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Text(
                     'Clock PPQ',
-                    style: TextStyle(color: ReelForgeTheme.textPrimary),
+                    style: TextStyle(color: FluxForgeTheme.textPrimary),
                   ),
                   const Spacer(),
                   DropdownButton<int>(
                     value: _midiClockPpq,
-                    dropdownColor: ReelForgeTheme.bgMid,
-                    style: TextStyle(color: ReelForgeTheme.textPrimary),
+                    dropdownColor: FluxForgeTheme.bgMid,
+                    style: TextStyle(color: FluxForgeTheme.textPrimary),
                     items: [24, 48, 96, 192, 384].map((ppq) {
                       return DropdownMenuItem(
                         value: ppq,
@@ -388,24 +388,24 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: SwitchListTile(
         title: Text(
           title,
-          style: TextStyle(color: ReelForgeTheme.textPrimary),
+          style: TextStyle(color: FluxForgeTheme.textPrimary),
         ),
         subtitle: Text(
           subtitle,
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: ReelForgeTheme.accentBlue,
+        activeColor: FluxForgeTheme.accentBlue,
       ),
     );
   }
@@ -431,12 +431,12 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, color: ReelForgeTheme.accentBlue, size: 20),
+            Icon(icon, color: FluxForgeTheme.accentBlue, size: 20),
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),

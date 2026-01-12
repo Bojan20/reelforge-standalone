@@ -1,4 +1,4 @@
-/// ReelForge Lower Zone
+/// FluxForge Studio Lower Zone
 ///
 /// Dockable panel area with tabs:
 /// - Mixer
@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 
 /// Lower zone widget
@@ -108,10 +108,10 @@ class _LowerZoneState extends State<LowerZone> {
     return Container(
       height: _height,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
           top: BorderSide(
-            color: ReelForgeTheme.borderSubtle,
+            color: FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -126,7 +126,7 @@ class _LowerZoneState extends State<LowerZone> {
 
           // Content
           Expanded(
-            child: activeTab.content,
+            child: activeTab.getContent(),
           ),
         ],
       ),
@@ -144,7 +144,7 @@ class _LowerZoneState extends State<LowerZone> {
           height: 6,
           decoration: BoxDecoration(
             color: _isDragging
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.3)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
                 : Colors.transparent,
           ),
           child: Center(
@@ -153,8 +153,8 @@ class _LowerZoneState extends State<LowerZone> {
               height: 3,
               decoration: BoxDecoration(
                 color: _isDragging
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.borderMedium,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.borderMedium,
                 borderRadius: BorderRadius.circular(1.5),
               ),
             ),
@@ -175,9 +175,9 @@ class _LowerZoneState extends State<LowerZone> {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -201,7 +201,7 @@ class _LowerZoneState extends State<LowerZone> {
               onPressed: widget.onToggleCollapse,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
         ],
       ),
@@ -223,7 +223,7 @@ class _LowerZoneState extends State<LowerZone> {
           width: 1,
           height: 20,
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          color: ReelForgeTheme.borderSubtle,
+          color: FluxForgeTheme.borderSubtle,
         ));
       }
 
@@ -245,10 +245,10 @@ class _LowerZoneState extends State<LowerZone> {
         widget.onTabChange?.call(tabId);
       },
       offset: const Offset(0, 28),
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       itemBuilder: (context) => groupTabs.map((tab) {
         final isActive = activeId == tab.id;
@@ -259,21 +259,21 @@ class _LowerZoneState extends State<LowerZone> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
-              color: isActive ? ReelForgeTheme.accentBlue : Colors.transparent,
+              color: isActive ? FluxForgeTheme.accentBlue : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (tab.icon != null) ...[
-                  Icon(tab.icon!, size: 12, color: isActive ? Colors.white : ReelForgeTheme.textSecondary),
+                  Icon(tab.icon!, size: 12, color: isActive ? Colors.white : FluxForgeTheme.textSecondary),
                   const SizedBox(width: 6),
                 ],
                 Text(
                   tab.label,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isActive ? Colors.white : ReelForgeTheme.textSecondary,
+                    color: isActive ? Colors.white : FluxForgeTheme.textSecondary,
                   ),
                 ),
               ],
@@ -284,11 +284,11 @@ class _LowerZoneState extends State<LowerZone> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActiveGroup ? ReelForgeTheme.bgElevated : Colors.transparent,
+          color: isActiveGroup ? FluxForgeTheme.bgElevated : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border(
             bottom: BorderSide(
-              color: isActiveGroup ? ReelForgeTheme.accentBlue : Colors.transparent,
+              color: isActiveGroup ? FluxForgeTheme.accentBlue : Colors.transparent,
               width: 2,
             ),
           ),
@@ -300,7 +300,7 @@ class _LowerZoneState extends State<LowerZone> {
               group.label,
               style: TextStyle(
                 fontSize: 11,
-                color: isActiveGroup ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: isActiveGroup ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                 fontWeight: isActiveGroup ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -308,7 +308,7 @@ class _LowerZoneState extends State<LowerZone> {
             Icon(
               Icons.arrow_drop_down,
               size: 14,
-              color: isActiveGroup ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              color: isActiveGroup ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             ),
           ],
         ),
@@ -327,7 +327,7 @@ class _LowerZoneState extends State<LowerZone> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive ? ReelForgeTheme.accentBlue : Colors.transparent,
+              color: isActive ? FluxForgeTheme.accentBlue : Colors.transparent,
               width: 2,
             ),
           ),
@@ -335,7 +335,7 @@ class _LowerZoneState extends State<LowerZone> {
         child: Row(
           children: [
             if (tab.icon != null) ...[
-              Icon(tab.icon!, size: 14, color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary),
+              Icon(tab.icon!, size: 14, color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary),
               const SizedBox(width: 4),
             ],
             Text(
@@ -343,8 +343,8 @@ class _LowerZoneState extends State<LowerZone> {
               style: TextStyle(
                 fontSize: 11,
                 color: isActive
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textSecondary,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -432,18 +432,18 @@ class MixerStrip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 1),
         decoration: BoxDecoration(
           color: selected
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.1)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+              : FluxForgeTheme.bgMid,
           border: Border(
             left: BorderSide(
               color: selected
-                  ? ReelForgeTheme.accentBlue
+                  ? FluxForgeTheme.accentBlue
                   : isMaster
-                      ? ReelForgeTheme.warningOrange
+                      ? FluxForgeTheme.warningOrange
                       : Colors.transparent,
               width: 2,
             ),
-            right: BorderSide(color: ReelForgeTheme.borderSubtle),
+            right: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
         ),
         child: Column(
@@ -454,10 +454,10 @@ class MixerStrip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: isMaster
-                    ? ReelForgeTheme.warningOrange.withValues(alpha: 0.2)
-                    : ReelForgeTheme.bgElevated,
+                    ? FluxForgeTheme.warningOrange.withValues(alpha: 0.2)
+                    : FluxForgeTheme.bgElevated,
                 border: Border(
-                  bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                  bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
               ),
               child: Row(
@@ -468,7 +468,7 @@ class MixerStrip extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -477,7 +477,7 @@ class MixerStrip extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.warningOrange,
+                        color: FluxForgeTheme.warningOrange,
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: const Text(
@@ -519,13 +519,13 @@ class MixerStrip extends StatelessWidget {
                         min: -1,
                         max: 1,
                         onChanged: onPanChange,
-                        activeColor: ReelForgeTheme.accentBlue,
-                        inactiveColor: ReelForgeTheme.bgDeepest,
+                        activeColor: FluxForgeTheme.accentBlue,
+                        inactiveColor: FluxForgeTheme.bgDeepest,
                       ),
                     ),
                     Text(
                       _panDisplay,
-                      style: ReelForgeTheme.monoSmall.copyWith(fontSize: 9),
+                      style: FluxForgeTheme.monoSmall.copyWith(fontSize: 9),
                     ),
                   ],
                 ),
@@ -563,7 +563,7 @@ class MixerStrip extends StatelessWidget {
                                   db.toString(),
                                   style: TextStyle(
                                     fontSize: 7,
-                                    color: ReelForgeTheme.textSecondary,
+                                    color: FluxForgeTheme.textSecondary,
                                   ),
                                 ))
                             .toList(),
@@ -579,9 +579,9 @@ class MixerStrip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text(
                 '$_volumeDbStr dB',
-                style: ReelForgeTheme.monoSmall.copyWith(
+                style: FluxForgeTheme.monoSmall.copyWith(
                   fontSize: 10,
-                  color: volume > 1 ? ReelForgeTheme.errorRed : null,
+                  color: volume > 1 ? FluxForgeTheme.errorRed : null,
                 ),
               ),
             ),
@@ -598,13 +598,13 @@ class MixerStrip extends StatelessWidget {
                         height: 20,
                         decoration: BoxDecoration(
                           color: muted
-                              ? ReelForgeTheme.errorRed
-                              : ReelForgeTheme.bgDeepest,
+                              ? FluxForgeTheme.errorRed
+                              : FluxForgeTheme.bgDeepest,
                           borderRadius: BorderRadius.circular(2),
                           border: Border.all(
                             color: muted
-                                ? ReelForgeTheme.errorRed
-                                : ReelForgeTheme.borderSubtle,
+                                ? FluxForgeTheme.errorRed
+                                : FluxForgeTheme.borderSubtle,
                           ),
                         ),
                         child: Center(
@@ -615,7 +615,7 @@ class MixerStrip extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               color: muted
                                   ? Colors.white
-                                  : ReelForgeTheme.textSecondary,
+                                  : FluxForgeTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -630,13 +630,13 @@ class MixerStrip extends StatelessWidget {
                         height: 20,
                         decoration: BoxDecoration(
                           color: soloed
-                              ? ReelForgeTheme.warningOrange
-                              : ReelForgeTheme.bgDeepest,
+                              ? FluxForgeTheme.warningOrange
+                              : FluxForgeTheme.bgDeepest,
                           borderRadius: BorderRadius.circular(2),
                           border: Border.all(
                             color: soloed
-                                ? ReelForgeTheme.warningOrange
-                                : ReelForgeTheme.borderSubtle,
+                                ? FluxForgeTheme.warningOrange
+                                : FluxForgeTheme.borderSubtle,
                           ),
                         ),
                         child: Center(
@@ -647,7 +647,7 @@ class MixerStrip extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               color: soloed
                                   ? Colors.black
-                                  : ReelForgeTheme.textSecondary,
+                                  : FluxForgeTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -674,13 +674,13 @@ class MixerStrip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: hasPlugin
-              ? ReelForgeTheme.bgElevated
-              : ReelForgeTheme.bgDeepest,
+              ? FluxForgeTheme.bgElevated
+              : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: hasPlugin && !insert.bypassed
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -692,8 +692,8 @@ class MixerStrip extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: hasPlugin && !insert.bypassed
-                    ? ReelForgeTheme.accentGreen
-                    : ReelForgeTheme.borderSubtle,
+                    ? FluxForgeTheme.accentGreen
+                    : FluxForgeTheme.borderSubtle,
               ),
             ),
             const SizedBox(width: 4),
@@ -705,9 +705,9 @@ class MixerStrip extends StatelessWidget {
                   fontSize: 8,
                   color: hasPlugin
                       ? (insert.bypassed
-                          ? ReelForgeTheme.textSecondary
-                          : ReelForgeTheme.textPrimary)
-                      : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textSecondary
+                          : FluxForgeTheme.textPrimary)
+                      : FluxForgeTheme.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -735,7 +735,7 @@ class MixerStrip extends StatelessWidget {
         child: Container(
           width: 12,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Stack(
@@ -745,7 +745,7 @@ class MixerStrip extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.borderSubtle,
+                    color: FluxForgeTheme.borderSubtle,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -758,7 +758,7 @@ class MixerStrip extends StatelessWidget {
                 child: Container(
                   height: 20,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     borderRadius: BorderRadius.circular(3),
                     boxShadow: [
                       BoxShadow(
@@ -772,7 +772,7 @@ class MixerStrip extends StatelessWidget {
                     child: Container(
                       width: 8,
                       height: 2,
-                      color: ReelForgeTheme.bgDeepest,
+                      color: FluxForgeTheme.bgDeepest,
                     ),
                   ),
                 ),
@@ -810,9 +810,9 @@ class _CanvasMeter extends StatelessWidget {
   }
 
   Color _getColor(double db) {
-    if (db >= 0) return ReelForgeTheme.errorRed;
-    if (db >= -6) return ReelForgeTheme.warningOrange;
-    return ReelForgeTheme.accentGreen;
+    if (db >= 0) return FluxForgeTheme.errorRed;
+    if (db >= -6) return FluxForgeTheme.warningOrange;
+    return FluxForgeTheme.accentGreen;
   }
 
   @override
@@ -834,7 +834,7 @@ class _CanvasMeter extends StatelessWidget {
             child: LayoutBuilder(builder: (context, constraints) {
               return Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeepest,
+                  color: FluxForgeTheme.bgDeepest,
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Stack(
@@ -860,8 +860,8 @@ class _CanvasMeter extends StatelessWidget {
                         child: Container(
                           height: 2,
                           color: dbL >= 0
-                              ? ReelForgeTheme.errorRed
-                              : ReelForgeTheme.textPrimary,
+                              ? FluxForgeTheme.errorRed
+                              : FluxForgeTheme.textPrimary,
                         ),
                       ),
                   ],
@@ -875,7 +875,7 @@ class _CanvasMeter extends StatelessWidget {
             child: LayoutBuilder(builder: (context, constraints) {
               return Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeepest,
+                  color: FluxForgeTheme.bgDeepest,
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Stack(
@@ -901,8 +901,8 @@ class _CanvasMeter extends StatelessWidget {
                         child: Container(
                           height: 2,
                           color: dbR >= 0
-                              ? ReelForgeTheme.errorRed
-                              : ReelForgeTheme.textPrimary,
+                              ? FluxForgeTheme.errorRed
+                              : FluxForgeTheme.textPrimary,
                         ),
                       ),
                   ],

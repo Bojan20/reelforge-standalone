@@ -105,7 +105,7 @@ Comprehensive research of cutting-edge audio DSP techniques from 2024-2026, cove
 2. **Character Modes** — "Subtle" (transformer) and "Warm" (tube) saturation
 3. **Phase Options** — Minimum, Linear, Hybrid (blend)
 
-**Actionable for ReelForge:**
+**Actionable for FluxForge Studio:**
 - Implement spectral dynamics (3h)
 - Add character modes with waveshaper (1h)
 
@@ -118,7 +118,7 @@ Comprehensive research of cutting-edge audio DSP techniques from 2024-2026, cove
 2. **Multi-Resolution Spectral Display** — Variable-time FFT
 3. **Advanced De-Click** — Transient-preserving click removal
 
-**Actionable for ReelForge:**
+**Actionable for FluxForge Studio:**
 - Future: ML-assisted processing (6 months+)
 - Now: Multi-resolution FFT for spectrum (2h)
 
@@ -275,7 +275,7 @@ unsafe {
 1. **Direct2D Renderer** — GPU-backed UI (Windows)
 2. **Animation Framework** — Vsync-locked easings
 
-**ReelForge Status:**
+**FluxForge Studio Status:**
 - ✅ wgpu GPU rendering (already implemented)
 - ✅ Vsync Ticker (Phase 1)
 - 🔲 Easing curves for parameters (1h, polish)

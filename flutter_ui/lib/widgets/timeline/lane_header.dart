@@ -9,7 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/comping_models.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class LaneHeader extends StatelessWidget {
   final RecordingLane lane;
@@ -44,15 +44,15 @@ class LaneHeader extends StatelessWidget {
         height: height,
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgDeep,
           border: Border(
             right: BorderSide(
               color: isActive
-                  ? ReelForgeTheme.accentBlue
-                  : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.borderSubtle,
             ),
-            bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
         ),
         child: Column(
@@ -70,7 +70,7 @@ class LaneHeader extends StatelessWidget {
                       height: 6,
                       margin: const EdgeInsets.only(right: 4),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentGreen,
+                        color: FluxForgeTheme.accentGreen,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -79,11 +79,11 @@ class LaneHeader extends StatelessWidget {
                   Expanded(
                     child: Text(
                       isCompLane ? 'Comp' : lane.displayName,
-                      style: ReelForgeTheme.label.copyWith(
+                      style: FluxForgeTheme.label.copyWith(
                         fontSize: 10,
                         color: isActive
-                            ? ReelForgeTheme.textPrimary
-                            : ReelForgeTheme.textSecondary,
+                            ? FluxForgeTheme.textPrimary
+                            : FluxForgeTheme.textSecondary,
                         fontWeight:
                             isActive ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -100,8 +100,8 @@ class LaneHeader extends StatelessWidget {
                           : Icons.visibility_off_outlined,
                       size: 12,
                       color: lane.visible
-                          ? ReelForgeTheme.textSecondary
-                          : ReelForgeTheme.textDisabled,
+                          ? FluxForgeTheme.textSecondary
+                          : FluxForgeTheme.textDisabled,
                     ),
                   ),
                 ],
@@ -119,16 +119,16 @@ class LaneHeader extends StatelessWidget {
                     _buildMiniButton(
                       label: 'M',
                       isActive: lane.muted,
-                      activeColor: ReelForgeTheme.accentOrange,
+                      activeColor: FluxForgeTheme.accentOrange,
                       onTap: onToggleMute,
                     ),
                     const SizedBox(width: 4),
                     // Take count
                     Text(
                       '${lane.takes.length}',
-                      style: ReelForgeTheme.mono.copyWith(
+                      style: FluxForgeTheme.mono.copyWith(
                         fontSize: 9,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -157,7 +157,7 @@ class LaneHeader extends StatelessWidget {
           color: isActive ? activeColor : Colors.transparent,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: isActive ? activeColor : ReelForgeTheme.borderSubtle,
+            color: isActive ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         alignment: Alignment.center,
@@ -167,8 +167,8 @@ class LaneHeader extends StatelessWidget {
             fontSize: 8,
             fontWeight: FontWeight.w600,
             color: isActive
-                ? ReelForgeTheme.bgDeepest
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.bgDeepest
+                : FluxForgeTheme.textTertiary,
           ),
         ),
       ),
@@ -206,16 +206,16 @@ class LaneHeaderExpanded extends StatelessWidget {
       height: lane.height,
       decoration: BoxDecoration(
         color: isActive
-            ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
-            : ReelForgeTheme.bgDeep,
+            ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+            : FluxForgeTheme.bgDeep,
         border: Border(
           right: BorderSide(
             color: isActive
-                ? ReelForgeTheme.accentBlue
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.borderSubtle,
             width: isActive ? 2 : 1,
           ),
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -226,7 +226,7 @@ class LaneHeaderExpanded extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
@@ -240,13 +240,13 @@ class LaneHeaderExpanded extends StatelessWidget {
                     margin: const EdgeInsets.only(right: 6),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? ReelForgeTheme.accentGreen
+                          ? FluxForgeTheme.accentGreen
                           : Colors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isActive
-                            ? ReelForgeTheme.accentGreen
-                            : ReelForgeTheme.textTertiary,
+                            ? FluxForgeTheme.accentGreen
+                            : FluxForgeTheme.textTertiary,
                         width: 1.5,
                       ),
                     ),
@@ -257,11 +257,11 @@ class LaneHeaderExpanded extends StatelessWidget {
                 Expanded(
                   child: Text(
                     lane.displayName,
-                    style: ReelForgeTheme.label.copyWith(
+                    style: FluxForgeTheme.label.copyWith(
                       fontSize: 11,
                       color: isActive
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
                       fontWeight:
                           isActive ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -276,7 +276,7 @@ class LaneHeaderExpanded extends StatelessWidget {
                   icon: Icon(
                     Icons.more_vert,
                     size: 14,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                   onSelected: (value) {
                     switch (value) {
@@ -332,14 +332,14 @@ class LaneHeaderExpanded extends StatelessWidget {
                       _buildControlButton(
                         'M',
                         lane.muted,
-                        ReelForgeTheme.accentOrange,
+                        FluxForgeTheme.accentOrange,
                         onToggleMute,
                       ),
                       const SizedBox(width: 4),
                       _buildControlButton(
                         'V',
                         lane.visible,
-                        ReelForgeTheme.accentBlue,
+                        FluxForgeTheme.accentBlue,
                         onToggleVisible,
                       ),
                     ],
@@ -351,9 +351,9 @@ class LaneHeaderExpanded extends StatelessWidget {
                   if (lane.takes.isNotEmpty) ...[
                     Text(
                       '${lane.takes.length} take${lane.takes.length > 1 ? 's' : ''}',
-                      style: ReelForgeTheme.mono.copyWith(
+                      style: FluxForgeTheme.mono.copyWith(
                         fontSize: 9,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ],
@@ -381,7 +381,7 @@ class LaneHeaderExpanded extends StatelessWidget {
           color: isActive ? activeColor : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: isActive ? activeColor : ReelForgeTheme.borderSubtle,
+            color: isActive ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         alignment: Alignment.center,
@@ -391,8 +391,8 @@ class LaneHeaderExpanded extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.w600,
             color: isActive
-                ? ReelForgeTheme.bgDeepest
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.bgDeepest
+                : FluxForgeTheme.textTertiary,
           ),
         ),
       ),

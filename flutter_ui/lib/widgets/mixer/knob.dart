@@ -8,7 +8,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class MiniKnob extends StatefulWidget {
   /// Current value (0-1 for unipolar, -1 to 1 for bipolar)
@@ -56,7 +56,7 @@ class _MiniKnobState extends State<MiniKnob>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.accentColor ?? ReelForgeTheme.accentBlue;
+    final color = widget.accentColor ?? FluxForgeTheme.accentBlue;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -132,13 +132,13 @@ class _KnobPainter extends CustomPainter {
 
     // Background circle
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.bgDeepest
+      ..color = FluxForgeTheme.bgDeepest
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, bgPaint);
 
     // Track arc (background)
     final trackPaint = Paint()
-      ..color = ReelForgeTheme.bgElevated
+      ..color = FluxForgeTheme.bgElevated
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -190,7 +190,7 @@ class _KnobPainter extends CustomPainter {
     );
 
     final indicatorPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..style = PaintingStyle.fill;
     canvas.drawCircle(indicatorPos, isDragging ? 4 : 3, indicatorPaint);
 
@@ -207,8 +207,8 @@ class _KnobPainter extends CustomPainter {
       ..color = isDragging
           ? color
           : isHovered
-              ? ReelForgeTheme.borderMedium
-              : ReelForgeTheme.borderSubtle
+              ? FluxForgeTheme.borderMedium
+              : FluxForgeTheme.borderSubtle
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawCircle(center, radius, borderPaint);
@@ -266,7 +266,7 @@ class _LargeKnobState extends State<LargeKnob> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(widget.label, style: ReelForgeTheme.label),
+        Text(widget.label, style: FluxForgeTheme.label),
         const SizedBox(height: 4),
         GestureDetector(
           onVerticalDragStart: (_) => setState(() => _isDragging = true),
@@ -281,11 +281,11 @@ class _LargeKnobState extends State<LargeKnob> {
         ),
         const SizedBox(height: 4),
         AnimatedDefaultTextStyle(
-          duration: ReelForgeTheme.fastDuration,
-          style: ReelForgeTheme.monoSmall.copyWith(
+          duration: FluxForgeTheme.fastDuration,
+          style: FluxForgeTheme.monoSmall.copyWith(
             color: _isDragging
-                ? (widget.accentColor ?? ReelForgeTheme.accentBlue)
-                : ReelForgeTheme.textSecondary,
+                ? (widget.accentColor ?? FluxForgeTheme.accentBlue)
+                : FluxForgeTheme.textSecondary,
           ),
           child: Text(_displayValue),
         ),

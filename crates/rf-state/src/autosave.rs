@@ -48,7 +48,7 @@ impl Default for AutosaveConfig {
 fn default_autosave_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ReelForge")
+        .join("FluxForge Studio")
         .join("Autosave")
 }
 

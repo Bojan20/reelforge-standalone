@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TIME STRETCH EDITOR STATE
@@ -362,7 +362,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
   Widget _buildCompactStretchIndicator() {
     final ratio = widget.state.stretchRatio;
     final isCompressed = ratio < 1.0;
-    final color = isCompressed ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange;
+    final color = isCompressed ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange;
     final text = '${(ratio * 100).toStringAsFixed(0)}%';
 
     return Positioned(
@@ -427,7 +427,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
         bottom: 0,
         width: 2,
         child: Container(
-          color: ReelForgeTheme.textTertiary.withOpacity(opacity),
+          color: FluxForgeTheme.textTertiary.withOpacity(opacity),
         ),
       );
     }).toList();
@@ -519,7 +519,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentOrange.withOpacity(0.3),
+                  FluxForgeTheme.accentOrange.withOpacity(0.3),
                   Colors.transparent,
                 ],
               ),
@@ -529,7 +529,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
                 width: 4,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentOrange,
+                  color: FluxForgeTheme.accentOrange,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -582,7 +582,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  ReelForgeTheme.accentOrange.withOpacity(0.3),
+                  FluxForgeTheme.accentOrange.withOpacity(0.3),
                 ],
               ),
             ),
@@ -591,7 +591,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
                 width: 4,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentOrange,
+                  color: FluxForgeTheme.accentOrange,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -609,9 +609,9 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest.withOpacity(0.9),
+          color: FluxForgeTheme.bgDeepest.withOpacity(0.9),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -634,7 +634,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
             _ToolbarButton(
               icon: Icons.check,
               tooltip: 'Done',
-              color: ReelForgeTheme.accentGreen,
+              color: FluxForgeTheme.accentGreen,
               onPressed: () => widget.onEditModeChanged?.call(false),
             ),
           ],
@@ -647,8 +647,8 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
     final bpm = widget.state.detectedBpm!;
     final confidence = widget.state.bpmConfidence ?? 0.0;
     final color = confidence > 0.7
-        ? ReelForgeTheme.accentGreen
-        : (confidence > 0.4 ? ReelForgeTheme.accentOrange : ReelForgeTheme.accentRed);
+        ? FluxForgeTheme.accentGreen
+        : (confidence > 0.4 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentRed);
 
     return Positioned(
       left: 14,
@@ -683,7 +683,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
   Widget _buildRatioBadge() {
     final ratio = widget.state.previewRatio ?? widget.state.stretchRatio;
     final isCompressed = ratio < 1.0;
-    final color = isCompressed ? ReelForgeTheme.accentCyan : ReelForgeTheme.accentOrange;
+    final color = isCompressed ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange;
     final text = '${(ratio * 100).toStringAsFixed(0)}%';
 
     return Positioned(
@@ -784,7 +784,7 @@ class _ToolbarButton extends StatelessWidget {
           child: Icon(
             icon,
             size: 14,
-            color: color ?? ReelForgeTheme.textSecondary,
+            color: color ?? FluxForgeTheme.textSecondary,
           ),
         ),
       ),
@@ -824,8 +824,8 @@ class _WarpMarkerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = marker.locked
-        ? ReelForgeTheme.accentRed
-        : ReelForgeTheme.accentOrange;
+        ? FluxForgeTheme.accentRed
+        : FluxForgeTheme.accentOrange;
     final opacity = isHovered || isSelected || isDragging ? 1.0 : 0.7;
 
     return MouseRegion(
@@ -913,9 +913,9 @@ class _WarpMarkerWidget extends StatelessWidget {
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 16, color: ReelForgeTheme.accentRed),
+              Icon(Icons.delete, size: 16, color: FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: ReelForgeTheme.accentRed)),
+              Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
             ],
           ),
         ),
@@ -958,8 +958,8 @@ class _StretchRegionsPainter extends CustomPainter {
 
       // Color based on stretch/compress
       final color = region.isCompressed
-          ? ReelForgeTheme.accentCyan
-          : ReelForgeTheme.accentOrange;
+          ? FluxForgeTheme.accentCyan
+          : FluxForgeTheme.accentOrange;
 
       final intensity = (region.ratio - 1.0).abs().clamp(0.0, 1.0);
 
@@ -998,7 +998,7 @@ class _StretchRegionsPainter extends CustomPainter {
             Rect.fromLTWH(textX - 3, textY - 1, textPainter.width + 6, textPainter.height + 2),
             const Radius.circular(2),
           ),
-          Paint()..color = ReelForgeTheme.bgDeepest.withOpacity(0.8),
+          Paint()..color = FluxForgeTheme.bgDeepest.withOpacity(0.8),
         );
 
         textPainter.paint(canvas, Offset(textX, textY));

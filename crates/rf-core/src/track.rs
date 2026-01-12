@@ -1,7 +1,7 @@
 //! Unified Track Architecture (REAPER Style)
 //!
 //! Unlike traditional DAWs where Audio, MIDI, and Aux tracks are separate types,
-//! ReelForge uses a unified track model where any track can contain any data type.
+//! FluxForge Studio uses a unified track model where any track can contain any data type.
 //!
 //! Benefits:
 //! - No conceptual friction between track types

@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Quality preset enum
 enum StretchQuality {
@@ -106,9 +106,9 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,12 +142,12 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.speed, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.speed, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'RF-Elastic Pro',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -232,7 +232,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           width: 90,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -241,7 +241,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -283,16 +283,16 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? ReelForgeTheme.accentBlue.withOpacity(0.3) : ReelForgeTheme.surface,
+          color: isActive ? FluxForgeTheme.accentBlue.withOpacity(0.3) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             fontSize: 10,
           ),
         ),
@@ -308,21 +308,21 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mode', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11)),
+              Text('Mode', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.surface,
+                  color: FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ReelForgeTheme.border),
+                  border: Border.all(color: FluxForgeTheme.border),
                 ),
                 child: DropdownButton<StretchMode>(
                   value: _mode,
                   isExpanded: true,
-                  dropdownColor: ReelForgeTheme.surfaceDark,
+                  dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                   items: StretchMode.values.map((m) => DropdownMenuItem(
                     value: m,
                     child: Text(_getModeLabel(m)),
@@ -346,21 +346,21 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Quality', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11)),
+              Text('Quality', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.surface,
+                  color: FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ReelForgeTheme.border),
+                  border: Border.all(color: FluxForgeTheme.border),
                 ),
                 child: DropdownButton<StretchQuality>(
                   value: _quality,
                   isExpanded: true,
-                  dropdownColor: ReelForgeTheme.surfaceDark,
+                  dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                   items: StretchQuality.values.map((q) => DropdownMenuItem(
                     value: q,
                     child: Text(_getQualityLabel(q)),
@@ -388,13 +388,13 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         children: [
           Icon(
             _showAdvanced ? Icons.expand_less : Icons.expand_more,
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             size: 16,
           ),
           const SizedBox(width: 4),
           Text(
             'Advanced Options',
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -405,7 +405,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -484,14 +484,14 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
           child: Checkbox(
             value: value,
             onChanged: (v) => onChanged(v ?? false),
-            activeColor: ReelForgeTheme.accentBlue,
-            side: BorderSide(color: ReelForgeTheme.textSecondary),
+            activeColor: FluxForgeTheme.accentBlue,
+            side: BorderSide(color: FluxForgeTheme.textSecondary),
           ),
         ),
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
         ),
       ],
     );
@@ -521,9 +521,9 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     trackHeight: 4,
     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
     overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-    activeTrackColor: ReelForgeTheme.accentBlue,
-    inactiveTrackColor: ReelForgeTheme.surface,
-    thumbColor: ReelForgeTheme.accentBlue,
-    overlayColor: ReelForgeTheme.accentBlue.withOpacity(0.2),
+    activeTrackColor: FluxForgeTheme.accentBlue,
+    inactiveTrackColor: FluxForgeTheme.surface,
+    thumbColor: FluxForgeTheme.accentBlue,
+    overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
   );
 }

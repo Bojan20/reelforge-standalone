@@ -14,7 +14,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CHANNEL TYPES
@@ -286,9 +286,9 @@ class _ChannelStripState extends State<ChannelStrip> {
         decoration: BoxDecoration(
           color: widget.selected
               ? widget.data.color.withValues(alpha: 0.1)
-              : ReelForgeTheme.bgSurface,
+              : FluxForgeTheme.bgSurface,
           border: Border(
-            right: BorderSide(color: ReelForgeTheme.borderSubtle),
+            right: BorderSide(color: FluxForgeTheme.borderSubtle),
             left: widget.selected
                 ? BorderSide(color: widget.data.color, width: 2)
                 : BorderSide.none,
@@ -343,7 +343,7 @@ class _ChannelStripState extends State<ChannelStrip> {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: ReelForgeTheme.textPrimary,
+          color: FluxForgeTheme.textPrimary,
         ),
         overflow: TextOverflow.ellipsis,
       ),
@@ -356,7 +356,7 @@ class _ChannelStripState extends State<ChannelStrip> {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -366,7 +366,7 @@ class _ChannelStripState extends State<ChannelStrip> {
               widget.data.inputSource ?? 'No Input',
               style: TextStyle(
                 fontSize: 9,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -376,7 +376,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -384,7 +384,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                 '${widget.data.inputTrim.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 8,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
@@ -407,7 +407,7 @@ class _ChannelStripState extends State<ChannelStrip> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -417,7 +417,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 2),
@@ -441,17 +441,17 @@ class _ChannelStripState extends State<ChannelStrip> {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: slot.isEmpty
-              ? ReelForgeTheme.bgDeep
+              ? FluxForgeTheme.bgDeep
               : slot.bypass
-                  ? ReelForgeTheme.bgDeep
-                  : ReelForgeTheme.accentCyan.withValues(alpha: 0.3),
+                  ? FluxForgeTheme.bgDeep
+                  : FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: slot.bypass
-                ? ReelForgeTheme.borderSubtle
+                ? FluxForgeTheme.borderSubtle
                 : slot.isEmpty
-                    ? ReelForgeTheme.borderSubtle
-                    : ReelForgeTheme.accentCyan.withValues(alpha: 0.5),
+                    ? FluxForgeTheme.borderSubtle
+                    : FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
           ),
         ),
         child: Row(
@@ -460,7 +460,7 @@ class _ChannelStripState extends State<ChannelStrip> {
               '${index + 1}',
               style: TextStyle(
                 fontSize: 8,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
             const SizedBox(width: 4),
@@ -470,10 +470,10 @@ class _ChannelStripState extends State<ChannelStrip> {
                 style: TextStyle(
                   fontSize: 9,
                   color: slot.isEmpty
-                      ? ReelForgeTheme.textTertiary
+                      ? FluxForgeTheme.textTertiary
                       : slot.bypass
-                          ? ReelForgeTheme.textTertiary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textTertiary
+                          : FluxForgeTheme.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -493,13 +493,13 @@ class _ChannelStripState extends State<ChannelStrip> {
           height: widget.expanded ? 28 : 20,
           decoration: BoxDecoration(
             color: widget.data.eqEnabled
-                ? ReelForgeTheme.accentOrange.withValues(alpha: 0.3)
-                : ReelForgeTheme.bgDeep,
+                ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
+                : FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: widget.data.eqEnabled
-                  ? ReelForgeTheme.accentOrange.withValues(alpha: 0.5)
-                  : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
+                  : FluxForgeTheme.borderSubtle,
             ),
           ),
           alignment: Alignment.center,
@@ -509,8 +509,8 @@ class _ChannelStripState extends State<ChannelStrip> {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: widget.data.eqEnabled
-                  ? ReelForgeTheme.accentOrange
-                  : ReelForgeTheme.textTertiary,
+                  ? FluxForgeTheme.accentOrange
+                  : FluxForgeTheme.textTertiary,
             ),
           ),
         ),
@@ -525,13 +525,13 @@ class _ChannelStripState extends State<ChannelStrip> {
         height: 24,
         decoration: BoxDecoration(
           color: widget.data.dynamicsEnabled
-              ? ReelForgeTheme.accentPurple.withValues(alpha: 0.3)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentPurple.withValues(alpha: 0.3)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: widget.data.dynamicsEnabled
-                ? ReelForgeTheme.accentPurple.withValues(alpha: 0.5)
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentPurple.withValues(alpha: 0.5)
+                : FluxForgeTheme.borderSubtle,
           ),
         ),
         alignment: Alignment.center,
@@ -541,8 +541,8 @@ class _ChannelStripState extends State<ChannelStrip> {
             fontSize: 9,
             fontWeight: FontWeight.w600,
             color: widget.data.dynamicsEnabled
-                ? ReelForgeTheme.accentPurple
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.accentPurple
+                : FluxForgeTheme.textTertiary,
           ),
         ),
       ),
@@ -554,7 +554,7 @@ class _ChannelStripState extends State<ChannelStrip> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -564,7 +564,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 2),
@@ -593,7 +593,7 @@ class _ChannelStripState extends State<ChannelStrip> {
               width: 24,
               height: 16,
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeep,
+                color: FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Center(
@@ -606,8 +606,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                   style: TextStyle(
                     fontSize: 8,
                     color: slot.enabled
-                        ? ReelForgeTheme.textSecondary
-                        : ReelForgeTheme.textTertiary,
+                        ? FluxForgeTheme.textSecondary
+                        : FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -620,15 +620,15 @@ class _ChannelStripState extends State<ChannelStrip> {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
                   color: slot.isEmpty
-                      ? ReelForgeTheme.bgDeep
+                      ? FluxForgeTheme.bgDeep
                       : slot.enabled
-                          ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-                          : ReelForgeTheme.bgDeep,
+                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                          : FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(2),
                   border: Border.all(
                     color: slot.enabled && !slot.isEmpty
-                        ? ReelForgeTheme.accentGreen.withValues(alpha: 0.3)
-                        : ReelForgeTheme.borderSubtle,
+                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+                        : FluxForgeTheme.borderSubtle,
                   ),
                 ),
                 alignment: Alignment.centerLeft,
@@ -637,10 +637,10 @@ class _ChannelStripState extends State<ChannelStrip> {
                   style: TextStyle(
                     fontSize: 8,
                     color: slot.isEmpty
-                        ? ReelForgeTheme.textTertiary
+                        ? FluxForgeTheme.textTertiary
                         : slot.enabled
-                            ? ReelForgeTheme.textSecondary
-                            : ReelForgeTheme.textTertiary,
+                            ? FluxForgeTheme.textSecondary
+                            : FluxForgeTheme.textTertiary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -656,7 +656,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                   style: TextStyle(
                     fontSize: 7,
                     fontWeight: FontWeight.bold,
-                    color: ReelForgeTheme.accentBlue,
+                    color: FluxForgeTheme.accentBlue,
                   ),
                 ),
               ),
@@ -683,12 +683,12 @@ class _ChannelStripState extends State<ChannelStrip> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: _panDragging
-                  ? ReelForgeTheme.accentBlue
-                  : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.borderSubtle,
             ),
           ),
           child: Stack(
@@ -702,7 +702,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                 child: Center(
                   child: Container(
                     width: 1,
-                    color: ReelForgeTheme.borderSubtle,
+                    color: FluxForgeTheme.borderSubtle,
                   ),
                 ),
               ),
@@ -714,7 +714,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                 child: Container(
                   width: 8,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentBlue,
+                    color: FluxForgeTheme.accentBlue,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -726,7 +726,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                     _panLabel,
                     style: TextStyle(
                       fontSize: 9,
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                     ),
                   ),
                 ),
@@ -777,7 +777,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeepest,
+                  color: FluxForgeTheme.bgDeepest,
                   borderRadius: BorderRadius.circular(1),
                 ),
                 child: Align(
@@ -788,8 +788,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: ReelForgeTheme.meterGradient,
-                        stops: ReelForgeTheme.meterStops,
+                        colors: FluxForgeTheme.meterGradient,
+                        stops: FluxForgeTheme.meterStops,
                       ),
                       borderRadius: BorderRadius.circular(1),
                     ),
@@ -802,7 +802,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeepest,
+                  color: FluxForgeTheme.bgDeepest,
                   borderRadius: BorderRadius.circular(1),
                 ),
                 child: Align(
@@ -813,8 +813,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: ReelForgeTheme.meterGradient,
-                        stops: ReelForgeTheme.meterStops,
+                        colors: FluxForgeTheme.meterGradient,
+                        stops: FluxForgeTheme.meterStops,
                       ),
                       borderRadius: BorderRadius.circular(1),
                     ),
@@ -849,7 +849,7 @@ class _ChannelStripState extends State<ChannelStrip> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Stack(
@@ -864,7 +864,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                     child: Container(
                       width: 4,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.bgDeepest,
+                        color: FluxForgeTheme.bgDeepest,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -877,7 +877,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                   top: trackHeight * 0.25, // 0dB at 75% fader position
                   child: Container(
                     height: 1,
-                    color: ReelForgeTheme.accentGreen.withValues(alpha: 0.5),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5),
                   ),
                 ),
                 // dB markers
@@ -889,7 +889,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                       '$db',
                       style: TextStyle(
                         fontSize: 7,
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ),
@@ -905,20 +905,20 @@ class _ChannelStripState extends State<ChannelStrip> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          ReelForgeTheme.textSecondary,
-                          ReelForgeTheme.textTertiary,
-                          ReelForgeTheme.textSecondary,
+                          FluxForgeTheme.textSecondary,
+                          FluxForgeTheme.textTertiary,
+                          FluxForgeTheme.textSecondary,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: _faderDragging
-                            ? ReelForgeTheme.accentBlue
-                            : ReelForgeTheme.borderMedium,
+                            ? FluxForgeTheme.accentBlue
+                            : FluxForgeTheme.borderMedium,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.3),
+                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -929,7 +929,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                         width: double.infinity,
                         height: 2,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: ReelForgeTheme.bgElevated,
+                        color: FluxForgeTheme.bgElevated,
                       ),
                     ),
                   ),
@@ -945,7 +945,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                       ),
                     ),
                   ),
@@ -982,14 +982,14 @@ class _ChannelStripState extends State<ChannelStrip> {
           _buildChannelButton(
             'M',
             widget.data.muted,
-            ReelForgeTheme.accentRed,
+            FluxForgeTheme.accentRed,
             () => _updateData(widget.data.copyWith(muted: !widget.data.muted)),
           ),
           // Solo
           _buildChannelButton(
             'S',
             widget.data.soloed,
-            ReelForgeTheme.accentYellow,
+            FluxForgeTheme.accentYellow,
             () => _updateData(widget.data.copyWith(soloed: !widget.data.soloed)),
           ),
           // Record
@@ -998,7 +998,7 @@ class _ChannelStripState extends State<ChannelStrip> {
             _buildChannelButton(
               'R',
               widget.data.armed,
-              ReelForgeTheme.accentRed,
+              FluxForgeTheme.accentRed,
               () => _updateData(widget.data.copyWith(armed: !widget.data.armed)),
             ),
         ],
@@ -1018,10 +1018,10 @@ class _ChannelStripState extends State<ChannelStrip> {
         width: widget.expanded ? 28 : 16,
         height: 20,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgDeep,
+          color: active ? activeColor : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         alignment: Alignment.center,
@@ -1030,7 +1030,7 @@ class _ChannelStripState extends State<ChannelStrip> {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: active ? ReelForgeTheme.bgDeepest : ReelForgeTheme.textTertiary,
+            color: active ? FluxForgeTheme.bgDeepest : FluxForgeTheme.textTertiary,
           ),
         ),
       ),
@@ -1043,16 +1043,16 @@ class _ChannelStripState extends State<ChannelStrip> {
       margin: const EdgeInsets.all(4),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       alignment: Alignment.center,
       child: Text(
         widget.data.outputDestination ?? 'Master',
         style: TextStyle(
           fontSize: 9,
-          color: ReelForgeTheme.textSecondary,
+          color: FluxForgeTheme.textSecondary,
         ),
         overflow: TextOverflow.ellipsis,
       ),

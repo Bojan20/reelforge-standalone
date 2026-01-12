@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Marker type
 enum MarkerType {
@@ -167,9 +167,9 @@ class _MarkerTrackState extends State<MarkerTrack> {
     return Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: const Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -179,14 +179,14 @@ class _MarkerTrackState extends State<MarkerTrack> {
             width: 180,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: const BoxDecoration(
-              color: ReelForgeTheme.bgSurface,
+              color: FluxForgeTheme.bgSurface,
               border: Border(
-                right: BorderSide(color: ReelForgeTheme.borderSubtle),
+                right: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.bookmark, size: 16, color: ReelForgeTheme.accentOrange),
+                const Icon(Icons.bookmark, size: 16, color: FluxForgeTheme.accentOrange),
                 const SizedBox(width: 8),
                 const Text(
                   'Markers',
@@ -196,14 +196,14 @@ class _MarkerTrackState extends State<MarkerTrack> {
                 PopupMenuButton<MarkerType>(
                   icon: const Icon(Icons.add, size: 14, color: Colors.white54),
                   tooltip: 'Add Marker',
-                  color: ReelForgeTheme.bgMid,
+                  color: FluxForgeTheme.bgMid,
                   onSelected: (type) => widget.onAddMarker?.call(0, type),
                   itemBuilder: (ctx) => [
                     const PopupMenuItem(
                       value: MarkerType.position,
                       child: Row(
                         children: [
-                          Icon(Icons.place, size: 14, color: ReelForgeTheme.accentBlue),
+                          Icon(Icons.place, size: 14, color: FluxForgeTheme.accentBlue),
                           SizedBox(width: 8),
                           Text('Position Marker', style: TextStyle(color: Colors.white, fontSize: 12)),
                         ],
@@ -213,7 +213,7 @@ class _MarkerTrackState extends State<MarkerTrack> {
                       value: MarkerType.cycle,
                       child: Row(
                         children: [
-                          Icon(Icons.loop, size: 14, color: ReelForgeTheme.accentGreen),
+                          Icon(Icons.loop, size: 14, color: FluxForgeTheme.accentGreen),
                           SizedBox(width: 8),
                           Text('Cycle Region', style: TextStyle(color: Colors.white, fontSize: 12)),
                         ],
@@ -223,7 +223,7 @@ class _MarkerTrackState extends State<MarkerTrack> {
                       value: MarkerType.arrangement,
                       child: Row(
                         children: [
-                          Icon(Icons.view_column, size: 14, color: ReelForgeTheme.accentOrange),
+                          Icon(Icons.view_column, size: 14, color: FluxForgeTheme.accentOrange),
                           SizedBox(width: 8),
                           Text('Arrangement', style: TextStyle(color: Colors.white, fontSize: 12)),
                         ],
@@ -393,11 +393,11 @@ class _MarkerTrackPainter extends CustomPainter {
       final endX = cycleEnd! * zoom - scrollOffset;
 
       final cyclePaint = Paint()
-        ..color = ReelForgeTheme.accentGreen.withValues(alpha: 0.15);
+        ..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.15);
       canvas.drawRect(Rect.fromLTRB(startX, 0, endX, size.height), cyclePaint);
 
       final cycleBorderPaint = Paint()
-        ..color = ReelForgeTheme.accentGreen
+        ..color = FluxForgeTheme.accentGreen
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawLine(Offset(startX, 0), Offset(startX, size.height), cycleBorderPaint);

@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import '../../models/comping_models.dart';
 import '../../models/timeline_models.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'lane_header.dart';
 
 /// Single lane in comping view
@@ -172,10 +172,10 @@ class _CompingLaneContentState extends State<_CompingLaneContent> {
       child: Container(
         decoration: BoxDecoration(
           color: widget.lane.isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.05)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.05)
+              : FluxForgeTheme.bgMid,
           border: Border(
-            bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
         ),
         child: Stack(
@@ -251,9 +251,9 @@ class _CompingLaneContentState extends State<_CompingLaneContent> {
       bottom: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
           border: Border.all(
-            color: ReelForgeTheme.accentBlue,
+            color: FluxForgeTheme.accentBlue,
             width: 1,
           ),
         ),
@@ -288,7 +288,7 @@ class _TakeWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: take.inComp
-              ? ReelForgeTheme.accentGreen
+              ? FluxForgeTheme.accentGreen
               : laneColor.withValues(alpha: isActive ? 1.0 : 0.5),
           width: take.inComp ? 2 : 1,
         ),
@@ -323,7 +323,7 @@ class _TakeWidget extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w500,
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       shadows: [
                         Shadow(
                           blurRadius: 2,
@@ -349,7 +349,7 @@ class _TakeWidget extends StatelessWidget {
                     margin: const EdgeInsets.only(left: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentGreen,
+                      color: FluxForgeTheme.accentGreen,
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Text(
@@ -357,7 +357,7 @@ class _TakeWidget extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 7,
                         fontWeight: FontWeight.bold,
-                        color: ReelForgeTheme.bgDeepest,
+                        color: FluxForgeTheme.bgDeepest,
                       ),
                     ),
                   ),
@@ -377,7 +377,7 @@ class _TakeWidget extends StatelessWidget {
                   child: Icon(
                     Icons.volume_off,
                     size: 16,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -401,7 +401,7 @@ class _LaneGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Calculate grid interval
@@ -561,16 +561,16 @@ class CompingView extends StatelessWidget {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Center(
         child: Text(
           'No lanes - Record to create takes',
-          style: ReelForgeTheme.label.copyWith(
-            color: ReelForgeTheme.textTertiary,
+          style: FluxForgeTheme.label.copyWith(
+            color: FluxForgeTheme.textTertiary,
             fontStyle: FontStyle.italic,
           ),
         ),

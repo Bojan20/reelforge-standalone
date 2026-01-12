@@ -1,4 +1,4 @@
-# ReelForge Audio Editor Architecture
+# FluxForge Studio Audio Editor Architecture
 
 ## ANALIZA PROBLEMA (2026-01-11)
 

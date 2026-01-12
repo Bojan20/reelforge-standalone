@@ -1,4 +1,4 @@
-# ReelForge Superiority Roadmap
+# FluxForge Studio Superiority Roadmap
 
 > **Cilj:** Postati ULTIMATIVNI DAW u ključnim oblastima
 > **Referenca:** `.claude/analysis/dsp-competitive-analysis.md`
@@ -7,7 +7,7 @@
 
 ## KATEGORIJE GDE MOŽEMO DOMINIRATI
 
-Na osnovu detaljne analize 5 konkurenata (Pyramix, REAPER, Cubase, Logic Pro, Pro Tools), identifikovane su oblasti gde ReelForge može biti **objektivno superioran**.
+Na osnovu detaljne analize 5 konkurenata (Pyramix, REAPER, Cubase, Logic Pro, Pro Tools), identifikovane su oblasti gde FluxForge Studio može biti **objektivno superioran**.
 
 ### Već Superiorno ✅
 
@@ -323,7 +323,7 @@ pub struct BandDynamics {
 
 **Features beyond Pro-Q:**
 
-| Feature | FabFilter Pro-Q 3 | ReelForge Hybrid EQ |
+| Feature | FabFilter Pro-Q 3 | FluxForge Studio Hybrid EQ |
 |---------|------------------|---------------------|
 | Bands | 24 | **64** |
 | Phase modes | Min/Linear/Natural | Min/Linear/Hybrid/Natural |
@@ -507,7 +507,7 @@ impl NativeDsdPlayer {
 }
 ```
 
-| Feature | Pyramix | Competitors | ReelForge Ultimate |
+| Feature | Pyramix | Competitors | FluxForge Studio Ultimate |
 |---------|---------|-------------|-------------------|
 | DSD64/128/256 | ✅ | ❌ | ✅ |
 | DSD512 | ❌ | ❌ | ✅ **UNIQUE** |
@@ -713,7 +713,7 @@ impl HybridScheduler {
 }
 ```
 
-| Feature | Any Competitor | ReelForge Ultimate |
+| Feature | Any Competitor | FluxForge Studio Ultimate |
 |---------|---------------|-------------------|
 | GPU FFT | ❌ | ✅ **UNIQUE** |
 | GPU Parallel EQ | ❌ | ✅ **UNIQUE** |
@@ -888,7 +888,7 @@ impl IrDeconvolver {
 }
 ```
 
-| Feature | Altiverb/Spaces | ReelForge Ultimate |
+| Feature | Altiverb/Spaces | FluxForge Studio Ultimate |
 |---------|-----------------|-------------------|
 | True Stereo | ✅ | ✅ |
 | Non-uniform partitioned | ❌ | ✅ **UNIQUE** |
@@ -1019,7 +1019,7 @@ Total Phase 2 code:
 
 ### PHASE 3 OVERVIEW
 
-| Modul | Opis | Competitors | ReelForge Advantage |
+| Modul | Opis | Competitors | FluxForge Studio Advantage |
 |-------|------|-------------|---------------------|
 | **3.1 AI Processing Suite** | SOTA neural networks | Logic AI, iZotope | All-in-one, real-time, local |
 | **3.2 Immersive Audio Engine** | Full 3D audio | Pro Tools, Nuendo | Native HOA + all formats |
@@ -2574,7 +2574,7 @@ impl NoteEditor {
 
 ### 3.8 COMPETITIVE POSITIONING (Post Phase 3)
 
-| Category | Current Leader | ReelForge Status |
+| Category | Current Leader | FluxForge Studio Status |
 |----------|----------------|------------------|
 | **AI Denoising** | iZotope RX 11 | **EQUAL** (DeepFilterNet) |
 | **Stem Separation** | RX 11 / LALAL.AI | **EQUAL** (HTDemucs) |
@@ -2588,7 +2588,7 @@ impl NoteEditor {
 | **Sony 360RA** | Limited support | **SUPERIOR** (Native) |
 | **All-in-One** | None | **UNIQUE** ✅ |
 
-**Ultimativna prednost:** ReelForge je JEDINI DAW koji ima SVE ove feature-e native, integrisane, GPU-accelerated, u jednom paketu.
+**Ultimativna prednost:** FluxForge Studio je JEDINI DAW koji ima SVE ove feature-e native, integrisane, GPU-accelerated, u jednom paketu.
 
 ---
 
@@ -2792,21 +2792,21 @@ Po završetku SVIH faza:
 
 | Category | Winner |
 |----------|--------|
-| **Sample-Accurate Automation** | **ReelForge** ✅ |
-| **Native DSP Quality** | **ReelForge** ✅ |
-| **Spectral Processing** | **ReelForge** ✅ |
-| **Modern Architecture** | **ReelForge** ✅ |
-| **DSD/DXD Support** | **ReelForge** > Pyramix |
-| **GPU Acceleration** | **ReelForge** ✅ UNIQUE |
-| **AI Processing** | **ReelForge** ✅ ALL-IN-ONE |
-| **Dolby Atmos** | **ReelForge** = Pro Tools |
-| **HOA/Ambisonics** | **ReelForge** ✅ 7th ORDER |
-| **Audio Restoration** | **ReelForge** = iZotope RX |
-| **Pitch Editing** | **ReelForge** = Melodyne |
-| **AI Mastering** | **ReelForge** ✅ INTEGRATED |
-| **All-in-One Pro Audio** | **ReelForge** ✅ UNIQUE |
+| **Sample-Accurate Automation** | **FluxForge Studio** ✅ |
+| **Native DSP Quality** | **FluxForge Studio** ✅ |
+| **Spectral Processing** | **FluxForge Studio** ✅ |
+| **Modern Architecture** | **FluxForge Studio** ✅ |
+| **DSD/DXD Support** | **FluxForge Studio** > Pyramix |
+| **GPU Acceleration** | **FluxForge Studio** ✅ UNIQUE |
+| **AI Processing** | **FluxForge Studio** ✅ ALL-IN-ONE |
+| **Dolby Atmos** | **FluxForge Studio** = Pro Tools |
+| **HOA/Ambisonics** | **FluxForge Studio** ✅ 7th ORDER |
+| **Audio Restoration** | **FluxForge Studio** = iZotope RX |
+| **Pitch Editing** | **FluxForge Studio** = Melodyne |
+| **AI Mastering** | **FluxForge Studio** ✅ INTEGRATED |
+| **All-in-One Pro Audio** | **FluxForge Studio** ✅ UNIQUE |
 
-**Zaključak:** ReelForge postaje JEDINI pro audio alat koji kombinuje DAW + RX + Melodyne + Ozone + Atmos u jednom native Rust paketu. Nema konkurencije.
+**Zaključak:** FluxForge Studio postaje JEDINI pro audio alat koji kombinuje DAW + RX + Melodyne + Ozone + Atmos u jednom native Rust paketu. Nema konkurencije.
 
 ---
 
@@ -2864,7 +2864,7 @@ Po završetku SVIH faza:
 
 ### Final Superiority Matrix
 
-| Category | Best Competitor | ReelForge | Advantage |
+| Category | Best Competitor | FluxForge Studio | Advantage |
 |----------|----------------|-----------|-----------|
 | Architecture | C++ (all) | **Rust 2024** | Memory safety |
 | I/O Channels | 384 (Pyramix) | **1024** | 2.7x |
@@ -2877,7 +2877,7 @@ Po završetku SVIH faza:
 
 ### Zaključak
 
-**ReelForge Phase 5 = OBJEKTIVNO NAJSUPERORNIJI DAW KOJI JE MOGUĆE NAPRAVITI SA TRENUTNOM TEHNOLOGIJOM**
+**FluxForge Studio Phase 5 = OBJEKTIVNO NAJSUPERORNIJI DAW KOJI JE MOGUĆE NAPRAVITI SA TRENUTNOM TEHNOLOGIJOM**
 
 - Bolji od Pyramix-a u SVAKOJ kategoriji
 - Jedini sa GPU DSP i AI processing

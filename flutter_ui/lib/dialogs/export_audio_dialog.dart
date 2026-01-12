@@ -11,7 +11,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 import '../src/rust/engine_api.dart' as api;
 
 /// Export format options
@@ -258,7 +258,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: ReelForgeTheme.accentRed,
+        backgroundColor: FluxForgeTheme.accentRed,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -272,10 +272,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       child: Container(
         width: 600,
@@ -295,9 +295,9 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
           // Header
           Row(
             children: [
-              Icon(Icons.file_download, color: ReelForgeTheme.accentGreen, size: 24),
+              Icon(Icons.file_download, color: FluxForgeTheme.accentGreen, size: 24),
               const SizedBox(width: 12),
-              Text('Export Audio', style: ReelForgeTheme.h2),
+              Text('Export Audio', style: FluxForgeTheme.h2),
             ],
           ),
           const SizedBox(height: 24),
@@ -330,10 +330,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
           ExpansionTile(
             title: Text(
               'Advanced Options',
-              style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 14),
+              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
             ),
-            iconColor: ReelForgeTheme.textSecondary,
-            collapsedIconColor: ReelForgeTheme.textSecondary,
+            iconColor: FluxForgeTheme.textSecondary,
+            collapsedIconColor: FluxForgeTheme.textSecondary,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -379,8 +379,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
                 icon: const Icon(Icons.file_download, size: 18),
                 label: const Text('Export'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.accentGreen,
-                  foregroundColor: ReelForgeTheme.textPrimary,
+                  backgroundColor: FluxForgeTheme.accentGreen,
+                  foregroundColor: FluxForgeTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -400,27 +400,27 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
         children: [
           Icon(
             Icons.file_download,
-            color: ReelForgeTheme.accentBlue,
+            color: FluxForgeTheme.accentBlue,
             size: 48,
           ),
           const SizedBox(height: 24),
-          Text('Exporting Audio', style: ReelForgeTheme.h2),
+          Text('Exporting Audio', style: FluxForgeTheme.h2),
           const SizedBox(height: 8),
           Text(
             _phase,
-            style: TextStyle(color: ReelForgeTheme.textSecondary),
+            style: TextStyle(color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(height: 32),
           LinearProgressIndicator(
             value: _progress,
-            backgroundColor: ReelForgeTheme.bgSurface,
-            valueColor: AlwaysStoppedAnimation(ReelForgeTheme.accentGreen),
+            backgroundColor: FluxForgeTheme.bgSurface,
+            valueColor: AlwaysStoppedAnimation(FluxForgeTheme.accentGreen),
           ),
           const SizedBox(height: 12),
           Text(
             '${(_progress * 100).toStringAsFixed(1)}%',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -430,7 +430,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
             onPressed: _cancelExport,
             child: Text(
               'Cancel',
-              style: TextStyle(color: ReelForgeTheme.accentRed),
+              style: TextStyle(color: FluxForgeTheme.accentRed),
             ),
           ),
         ],
@@ -444,7 +444,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
       children: [
         Text(
           title,
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         child,
@@ -463,10 +463,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
           label: Text(name),
           selected: isSelected,
           onSelected: (_) => _applyPreset(name),
-          backgroundColor: ReelForgeTheme.bgSurface,
-          selectedColor: ReelForgeTheme.accentBlue,
+          backgroundColor: FluxForgeTheme.bgSurface,
+          selectedColor: FluxForgeTheme.accentBlue,
           labelStyle: TextStyle(
-            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+            color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
             fontSize: 12,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -481,24 +481,24 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
         Expanded(
           child: TextField(
             controller: TextEditingController(text: _outputPath),
-            style: TextStyle(color: ReelForgeTheme.textPrimary),
+            style: TextStyle(color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               filled: true,
-              fillColor: ReelForgeTheme.bgSurface,
+              fillColor: FluxForgeTheme.bgSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               suffixText: '.$_formatExtension',
-              suffixStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+              suffixStyle: TextStyle(color: FluxForgeTheme.textSecondary),
             ),
             onChanged: (value) => setState(() => _outputPath = value),
           ),
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: Icon(Icons.folder_open, color: ReelForgeTheme.textSecondary),
+          icon: Icon(Icons.folder_open, color: FluxForgeTheme.textSecondary),
           onPressed: _browseOutputPath,
           tooltip: 'Browse',
         ),
@@ -509,8 +509,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   Widget _buildFormatSelector() {
     return DropdownButtonFormField<ExportFormat>(
       value: _format,
-      dropdownColor: ReelForgeTheme.bgMid,
-      style: TextStyle(color: ReelForgeTheme.textPrimary),
+      dropdownColor: FluxForgeTheme.bgMid,
+      style: TextStyle(color: FluxForgeTheme.textPrimary),
       decoration: _dropdownDecoration(),
       items: ExportFormat.values.map((format) {
         return DropdownMenuItem(
@@ -532,8 +532,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   Widget _buildSampleRateSelector() {
     return DropdownButtonFormField<int>(
       value: _sampleRate,
-      dropdownColor: ReelForgeTheme.bgMid,
-      style: TextStyle(color: ReelForgeTheme.textPrimary),
+      dropdownColor: FluxForgeTheme.bgMid,
+      style: TextStyle(color: FluxForgeTheme.textPrimary),
       decoration: _dropdownDecoration(),
       items: [44100, 48000, 88200, 96000, 176400, 192000].map((rate) {
         return DropdownMenuItem(
@@ -550,8 +550,8 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   Widget _buildBitDepthSelector() {
     return DropdownButtonFormField<int>(
       value: _bitDepth,
-      dropdownColor: ReelForgeTheme.bgMid,
-      style: TextStyle(color: ReelForgeTheme.textPrimary),
+      dropdownColor: FluxForgeTheme.bgMid,
+      style: TextStyle(color: FluxForgeTheme.textPrimary),
       decoration: _dropdownDecoration(),
       items: [16, 24, 32].map((bits) {
         return DropdownMenuItem(
@@ -574,17 +574,17 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
               value: true,
               groupValue: _exportWholeProject,
               onChanged: (v) => setState(() => _exportWholeProject = v!),
-              activeColor: ReelForgeTheme.accentBlue,
+              activeColor: FluxForgeTheme.accentBlue,
             ),
-            Text('Whole project', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+            Text('Whole project', style: TextStyle(color: FluxForgeTheme.textPrimary)),
             const SizedBox(width: 24),
             Radio<bool>(
               value: false,
               groupValue: _exportWholeProject,
               onChanged: (v) => setState(() => _exportWholeProject = v!),
-              activeColor: ReelForgeTheme.accentBlue,
+              activeColor: FluxForgeTheme.accentBlue,
             ),
-            Text('Selection', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+            Text('Selection', style: TextStyle(color: FluxForgeTheme.textPrimary)),
           ],
         ),
         if (!_exportWholeProject) ...[
@@ -595,7 +595,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
                 child: TextField(
                   decoration: _inputDecoration('Start (seconds)'),
                   keyboardType: TextInputType.number,
-                  style: TextStyle(color: ReelForgeTheme.textPrimary),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary),
                   onChanged: (v) => _startSec = double.tryParse(v) ?? 0,
                 ),
               ),
@@ -604,7 +604,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
                 child: TextField(
                   decoration: _inputDecoration('End (seconds)'),
                   keyboardType: TextInputType.number,
-                  style: TextStyle(color: ReelForgeTheme.textPrimary),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary),
                   onChanged: (v) => _endSec = double.tryParse(v) ?? widget.projectDuration,
                 ),
               ),
@@ -628,17 +628,17 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
           Checkbox(
             value: value,
             onChanged: (v) => onChanged(v ?? false),
-            activeColor: ReelForgeTheme.accentBlue,
+            activeColor: FluxForgeTheme.accentBlue,
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: ReelForgeTheme.textPrimary)),
+                Text(label, style: TextStyle(color: FluxForgeTheme.textPrimary)),
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
                   ),
               ],
             ),
@@ -653,7 +653,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
       padding: const EdgeInsets.only(left: 40, right: 16, bottom: 8),
       child: Row(
         children: [
-          Text('Target:', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
+          Text('Target:', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
           Expanded(
             child: Slider(
               value: _normalizeTarget,
@@ -661,7 +661,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
               max: 0,
               divisions: 24,
               label: '${_normalizeTarget.toStringAsFixed(1)} dB',
-              activeColor: ReelForgeTheme.accentBlue,
+              activeColor: FluxForgeTheme.accentBlue,
               onChanged: (v) => setState(() => _normalizeTarget = v),
             ),
           ),
@@ -669,7 +669,7 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
             width: 50,
             child: Text(
               '${_normalizeTarget.toStringAsFixed(1)} dB',
-              style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
             ),
           ),
         ],
@@ -682,13 +682,13 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Text('Dither:', style: TextStyle(color: ReelForgeTheme.textPrimary)),
+          Text('Dither:', style: TextStyle(color: FluxForgeTheme.textPrimary)),
           const SizedBox(width: 16),
           Expanded(
             child: DropdownButtonFormField<DitherType>(
               value: _dither,
-              dropdownColor: ReelForgeTheme.bgMid,
-              style: TextStyle(color: ReelForgeTheme.textPrimary),
+              dropdownColor: FluxForgeTheme.bgMid,
+              style: TextStyle(color: FluxForgeTheme.textPrimary),
               decoration: _dropdownDecoration(),
               items: DitherType.values.map((d) {
                 final labels = {
@@ -712,10 +712,10 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   InputDecoration _dropdownDecoration() {
     return InputDecoration(
       filled: true,
-      fillColor: ReelForgeTheme.bgSurface,
+      fillColor: FluxForgeTheme.bgSurface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
@@ -724,12 +724,12 @@ class _ExportAudioDialogState extends State<ExportAudioDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+      labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
       filled: true,
-      fillColor: ReelForgeTheme.bgSurface,
+      fillColor: FluxForgeTheme.bgSurface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );

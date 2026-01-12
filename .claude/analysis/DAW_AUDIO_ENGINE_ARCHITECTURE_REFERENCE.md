@@ -1,7 +1,7 @@
 # World-Class DAW Audio Engine Architecture Reference
 
 **Document Purpose:** Technical reference for implementing a professional-grade audio engine
-**Target:** ReelForge Standalone
+**Target:** FluxForge Studio
 **Date:** 2026-01-10
 **Author:** Chief Audio Architect
 
@@ -26,7 +26,7 @@
 
 ### Key Insights Across All DAWs
 
-| Pattern | Industry Standard | ReelForge Status |
+| Pattern | Industry Standard | FluxForge Studio Status |
 |---------|-------------------|------------------|
 | **Dual-Buffer Architecture** | Universal (ASIO-Guard, Anticipative FX) | Partial (needs Guard path) |
 | **Lock-Free Audio Thread** | Universal requirement | Needs RwLock removal |
@@ -136,7 +136,7 @@ MassCore Thread Allocation:
 - Calculates optimal thread count dynamically
 - Significant performance improvement over single-threaded
 
-### 2.3 Lessons for ReelForge
+### 2.3 Lessons for FluxForge Studio
 
 1. **Dedicated Real-Time Thread:** Consider using SCHED_FIFO (Linux) or Time Constraint Policy (macOS) to approach MassCore behavior
 2. **OS Bypass Pattern:** Investigate direct hardware access via ASIO/CoreAudio for lowest latency
@@ -269,7 +269,7 @@ DSP Mode Activation:
 - Preserves timing for playback tracks
 - Toggleable per-session
 
-### 3.5 Lessons for ReelForge
+### 3.5 Lessons for FluxForge Studio
 
 1. **Dual-Buffer Architecture:** Implement separate paths for live input (low latency) vs. playback (stability)
 2. **64-bit Float Throughout:** Match Pro Tools' precision for professional compatibility
@@ -413,7 +413,7 @@ impl PluginChain {
 // - Routing changes
 ```
 
-### 4.6 Lessons for ReelForge
+### 4.6 Lessons for FluxForge Studio
 
 1. **Implement ASIO-Guard Equivalent:** Create dual-path architecture (real-time + prefetch)
 2. **MMCSS on Windows:** Use Multimedia Class Scheduler for thread priority
@@ -541,7 +541,7 @@ Logic Node Network (32-bit only):
         └── Deprecated in 64-bit versions
 ```
 
-### 5.6 Lessons for ReelForge
+### 5.6 Lessons for FluxForge Studio
 
 1. **Single-Thread Live Path:** Accept that live monitoring is single-threaded, optimize that path
 2. **Separate Live/Mix Buffers:** Different latency requirements for different paths
@@ -663,7 +663,7 @@ Input (any format) → [64-bit float internal] → Output (any format)
                  No internal format conversions
 ```
 
-### 6.6 Lessons for ReelForge
+### 6.6 Lessons for FluxForge Studio
 
 1. **Anticipative Processing:** Implement pre-computation for non-live tracks
 2. **Per-Track PDC Bypass:** Allow disabling compensation for specific tracks
@@ -774,7 +774,7 @@ Live + Hyper-Threading:
 └── Generally beneficial for Live's threading model
 ```
 
-### 7.6 Lessons for ReelForge
+### 7.6 Lessons for FluxForge Studio
 
 1. **Real-Time Philosophy:** For live use cases, avoid pre-rendering
 2. **Critical Path Optimization:** Identify and optimize longest serial path
@@ -1134,4 +1134,4 @@ pub fn initialize_audio_thread() {
 **Document Version:** 1.0
 **Last Updated:** 2026-01-10
 **Author:** Chief Audio Architect
-**For:** ReelForge Standalone Development Team
+**For:** FluxForge Studio Development Team

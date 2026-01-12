@@ -1,4 +1,4 @@
-/// ReelForge Control Bar
+/// FluxForge Studio Control Bar
 ///
 /// Top control bar matching React ControlBar.tsx 1:1:
 /// - Logo
@@ -11,7 +11,7 @@
 /// - System meters
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
 import '../meters/pdc_display.dart';
@@ -74,7 +74,7 @@ const Map<EditorMode, ModeConfigData> modeConfigs = {
     description: 'Timeline editing',
     icon: '🎛',
     shortcut: '1',
-    accentColor: ReelForgeTheme.accentBlue,
+    accentColor: FluxForgeTheme.accentBlue,
   ),
   EditorMode.middleware: ModeConfigData(
     mode: EditorMode.middleware,
@@ -82,7 +82,7 @@ const Map<EditorMode, ModeConfigData> modeConfigs = {
     description: 'Event routing',
     icon: '🔀',
     shortcut: '2',
-    accentColor: ReelForgeTheme.accentOrange,
+    accentColor: FluxForgeTheme.accentOrange,
   ),
   EditorMode.slot: ModeConfigData(
     mode: EditorMode.slot,
@@ -90,7 +90,7 @@ const Map<EditorMode, ModeConfigData> modeConfigs = {
     description: 'Slot audio',
     icon: '🎰',
     shortcut: '3',
-    accentColor: ReelForgeTheme.accentGreen,
+    accentColor: FluxForgeTheme.accentGreen,
   ),
 };
 
@@ -207,9 +207,9 @@ class _ControlBarState extends State<ControlBar> {
   }
 
   Color get _cpuColor {
-    if (widget.cpuUsage > 80) return ReelForgeTheme.errorRed;
-    if (widget.cpuUsage > 60) return ReelForgeTheme.warningOrange;
-    return ReelForgeTheme.accentGreen;
+    if (widget.cpuUsage > 80) return FluxForgeTheme.errorRed;
+    if (widget.cpuUsage > 60) return FluxForgeTheme.warningOrange;
+    return FluxForgeTheme.accentGreen;
   }
 
   @override
@@ -217,9 +217,9 @@ class _ControlBarState extends State<ControlBar> {
     return Container(
         height: 48,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           border: Border(
-              bottom: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1)),
+              bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -355,7 +355,7 @@ class _Logo extends StatelessWidget {
             height: 24,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                  colors: [ReelForgeTheme.accentBlue, ReelForgeTheme.accentCyan]),
+                  colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentCyan]),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Center(
@@ -367,8 +367,8 @@ class _Logo extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text('ReelForge',
-              style: ReelForgeTheme.label
+          Text('FluxForge Studio',
+              style: FluxForgeTheme.label
                   .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
@@ -478,11 +478,11 @@ class _PopupMenuBtnState extends State<_PopupMenuBtn> {
   Widget build(BuildContext context) {
     return PopupMenuButton<int>(
       offset: const Offset(0, 36),
-      color: ReelForgeTheme.bgElevated,
+      color: FluxForgeTheme.bgElevated,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(6),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       elevation: 8,
       tooltip: '', // Disable default tooltip
@@ -493,14 +493,14 @@ class _PopupMenuBtnState extends State<_PopupMenuBtn> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: _isHovered ? ReelForgeTheme.bgElevated : Colors.transparent,
+            color: _isHovered ? FluxForgeTheme.bgElevated : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             widget.label,
             style: TextStyle(
               fontSize: 12,
-              color: _isHovered ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+              color: _isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -523,7 +523,7 @@ class _PopupMenuBtnState extends State<_PopupMenuBtn> {
                     item.label,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                   if (item.shortcut.isNotEmpty)
@@ -531,7 +531,7 @@ class _PopupMenuBtnState extends State<_PopupMenuBtn> {
                       item.shortcut,
                       style: TextStyle(
                         fontSize: 11,
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                       ),
                     ),
                 ],
@@ -602,7 +602,7 @@ class _ModeSwitcher extends StatelessWidget {
                         style: TextStyle(
                           color: isActive
                               ? config.accentColor
-                              : ReelForgeTheme.textSecondary,
+                              : FluxForgeTheme.textSecondary,
                           fontSize: 11,
                           fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -717,7 +717,7 @@ class _TransportControls extends StatelessWidget {
               ? 'Timeline playback disabled'
               : 'Play/Pause (Space)',
           isActive: isPlaying,
-          activeColor: ReelForgeTheme.accentGreen,
+          activeColor: FluxForgeTheme.accentGreen,
           disabled: transportDisabled,
         ),
         _TransportBtn(
@@ -725,7 +725,7 @@ class _TransportControls extends StatelessWidget {
           onPressed: onRecord,
           tooltip: 'Record (R)',
           isActive: isRecording,
-          activeColor: ReelForgeTheme.errorRed,
+          activeColor: FluxForgeTheme.errorRed,
         ),
         _TransportBtn(icon: '⏭', onPressed: onForward, tooltip: 'Forward (/)'),
 
@@ -783,8 +783,8 @@ class _TransportBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive
-        ? (activeColor ?? ReelForgeTheme.accentBlue)
-        : ReelForgeTheme.textSecondary;
+        ? (activeColor ?? FluxForgeTheme.accentBlue)
+        : FluxForgeTheme.textSecondary;
 
     return Tooltip(
       message: tooltip,
@@ -820,7 +820,7 @@ class _Divider extends StatelessWidget {
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: ReelForgeTheme.borderSubtle,
+      color: FluxForgeTheme.borderSubtle,
     );
   }
 }
@@ -837,16 +837,16 @@ class _SnapDropdown extends StatelessWidget {
       margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: DropdownButton<double>(
         value: value,
         isDense: true,
         underline: const SizedBox(),
-        dropdownColor: ReelForgeTheme.bgElevated,
-        style: const TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary),
+        dropdownColor: FluxForgeTheme.bgElevated,
+        style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
         items: const [
           DropdownMenuItem(value: 0.25, child: Text('1/16')),
           DropdownMenuItem(value: 0.5, child: Text('1/8')),
@@ -883,18 +883,18 @@ class _TempoDisplay extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(tempo.toStringAsFixed(1),
-                  style: ReelForgeTheme.monoSmall
+                  style: FluxForgeTheme.monoSmall
                       .copyWith(fontSize: 14, fontWeight: FontWeight.w600)),
               Text('BPM',
                   style:
-                      TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 9)),
+                      TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
             ],
           ),
         ),
@@ -913,11 +913,11 @@ class _TimeSignatureDisplay extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(timeSignature.toString(),
-          style: ReelForgeTheme.monoSmall.copyWith(fontSize: 13)),
+          style: FluxForgeTheme.monoSmall.copyWith(fontSize: 13)),
     );
   }
 }
@@ -940,14 +940,14 @@ class _TimeDisplay extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: ReelForgeTheme.borderSubtle),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: Row(
             children: [
               Text(formattedTime,
-                  style: ReelForgeTheme.monoSmall.copyWith(
+                  style: FluxForgeTheme.monoSmall.copyWith(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1)),
@@ -955,12 +955,12 @@ class _TimeDisplay extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(modeLabel,
                     style: TextStyle(
-                        color: ReelForgeTheme.accentBlue,
+                        color: FluxForgeTheme.accentBlue,
                         fontSize: 9,
                         fontWeight: FontWeight.w600)),
               ),
@@ -989,7 +989,7 @@ class _ProjectInfo extends StatelessWidget {
         children: [
           Text(name,
               style:
-                  TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
+                  TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
           if (onSave != null) ...[
             const SizedBox(width: 8),
             Tooltip(
@@ -1064,7 +1064,7 @@ class _ZoneBtn extends StatelessWidget {
           child: Center(
             child: Text(icon,
                 style: TextStyle(
-                    fontSize: 12, color: ReelForgeTheme.textSecondary)),
+                    fontSize: 12, color: FluxForgeTheme.textSecondary)),
           ),
         ),
       ),
@@ -1091,7 +1091,7 @@ class _SystemMeters extends StatelessWidget {
       children: [
         _MeterBar(label: 'CPU', value: cpuUsage, color: cpuColor),
         const SizedBox(width: 8),
-        _MeterBar(label: 'MEM', value: memoryUsage, color: ReelForgeTheme.accentBlue),
+        _MeterBar(label: 'MEM', value: memoryUsage, color: FluxForgeTheme.accentBlue),
       ],
     );
   }
@@ -1111,13 +1111,13 @@ class _MeterBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 9)),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
         const SizedBox(height: 2),
         Container(
           width: 40,
           height: 6,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeepest,
+            color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(3),
           ),
           child: FractionallySizedBox(

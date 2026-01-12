@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../dsp/dsd_indicator.dart';
 import '../dsp/gpu_settings_panel.dart';
 
@@ -158,9 +158,9 @@ class TransportBar extends StatelessWidget {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -233,7 +233,7 @@ class TransportBar extends StatelessWidget {
             label: 'PRE',
             isActive: preRollEnabled,
             onTap: onPreRollToggle,
-            activeColor: ReelForgeTheme.accentBlue,
+            activeColor: FluxForgeTheme.accentBlue,
           ),
 
           const SizedBox(width: 4),
@@ -244,7 +244,7 @@ class TransportBar extends StatelessWidget {
             label: 'COUNT',
             isActive: countInEnabled,
             onTap: onCountInToggle,
-            activeColor: ReelForgeTheme.accentOrange,
+            activeColor: FluxForgeTheme.accentOrange,
           ),
 
           const SizedBox(width: 8),
@@ -255,7 +255,7 @@ class TransportBar extends StatelessWidget {
             label: 'LOOP',
             isActive: loopEnabled,
             onTap: onLoopToggle,
-            activeColor: ReelForgeTheme.accentCyan,
+            activeColor: FluxForgeTheme.accentCyan,
           ),
 
           const SizedBox(width: 8),
@@ -265,7 +265,7 @@ class TransportBar extends StatelessWidget {
             label: 'CLICK',
             isActive: metronomeEnabled,
             onTap: onMetronomeToggle,
-            activeColor: ReelForgeTheme.accentOrange,
+            activeColor: FluxForgeTheme.accentOrange,
           ),
         ],
       ),
@@ -329,14 +329,14 @@ class _PunchControl extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.first_page, size: 16,
-                color: isPunchIn ? ReelForgeTheme.accentRed : null),
+                color: isPunchIn ? FluxForgeTheme.accentRed : null),
               const SizedBox(width: 8),
               const Text('Punch In'),
               const Spacer(),
               Text(_formatTimeShort(punchInTime),
                 style: TextStyle(
                   fontSize: 11,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontFamily: 'JetBrains Mono',
                 )),
             ],
@@ -347,14 +347,14 @@ class _PunchControl extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.last_page, size: 16,
-                color: isPunchOut ? ReelForgeTheme.accentRed : null),
+                color: isPunchOut ? FluxForgeTheme.accentRed : null),
               const SizedBox(width: 8),
               const Text('Punch Out'),
               const Spacer(),
               Text(_formatTimeShort(punchOutTime),
                 style: TextStyle(
                   fontSize: 11,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontFamily: 'JetBrains Mono',
                 )),
             ],
@@ -365,7 +365,7 @@ class _PunchControl extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.swap_horiz, size: 16,
-                color: mode == PunchMode.punchInOut ? ReelForgeTheme.accentRed : null),
+                color: mode == PunchMode.punchInOut ? FluxForgeTheme.accentRed : null),
               const SizedBox(width: 8),
               const Text('Punch In/Out'),
             ],
@@ -381,7 +381,7 @@ class _PunchControl extends StatelessWidget {
               const Text('Set Punch In'),
               const Spacer(),
               Text('I', style: TextStyle(
-                fontSize: 11, color: ReelForgeTheme.textTertiary)),
+                fontSize: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -394,7 +394,7 @@ class _PunchControl extends StatelessWidget {
               const Text('Set Punch Out'),
               const Spacer(),
               Text('O', style: TextStyle(
-                fontSize: 11, color: ReelForgeTheme.textTertiary)),
+                fontSize: 11, color: FluxForgeTheme.textTertiary)),
             ],
           ),
         ),
@@ -404,13 +404,13 @@ class _PunchControl extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentRed.withValues(alpha: 0.2)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentRed.withValues(alpha: 0.2)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isActive
-                ? ReelForgeTheme.accentRed
-                : ReelForgeTheme.borderSubtle,
+                ? FluxForgeTheme.accentRed
+                : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -426,8 +426,8 @@ class _PunchControl extends StatelessWidget {
                           : Icons.block,
               size: 14,
               color: isActive
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.textTertiary,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.textTertiary,
             ),
             const SizedBox(width: 4),
             Text(
@@ -437,8 +437,8 @@ class _PunchControl extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
                 color: isActive
-                    ? ReelForgeTheme.accentRed
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.accentRed
+                    : FluxForgeTheme.textTertiary,
               ),
             ),
           ],
@@ -472,9 +472,9 @@ class _TransportButtonGroup extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -498,7 +498,7 @@ class _TransportButtonGroup extends StatelessWidget {
             icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             onTap: onPlay,
             isActive: isPlaying,
-            activeColor: ReelForgeTheme.accentGreen,
+            activeColor: FluxForgeTheme.accentGreen,
             tooltip: isPlaying ? 'Pause (Space)' : 'Play (Space)',
             large: true,
           ),
@@ -508,7 +508,7 @@ class _TransportButtonGroup extends StatelessWidget {
             icon: Icons.fiber_manual_record_rounded,
             onTap: onRecord,
             isActive: isRecording,
-            activeColor: ReelForgeTheme.accentRed,
+            activeColor: FluxForgeTheme.accentRed,
             tooltip: 'Record (R)',
           ),
 
@@ -555,8 +555,8 @@ class _TransportButtonState extends State<_TransportButton>
     final size = widget.large ? 36.0 : 28.0;
     final iconSize = widget.large ? 22.0 : 18.0;
     final color = widget.isActive
-        ? (widget.activeColor ?? ReelForgeTheme.accentBlue)
-        : ReelForgeTheme.textSecondary;
+        ? (widget.activeColor ?? FluxForgeTheme.accentBlue)
+        : FluxForgeTheme.textSecondary;
 
     Widget button = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -572,18 +572,18 @@ class _TransportButtonState extends State<_TransportButton>
           height: size,
           decoration: BoxDecoration(
             color: _isHovered
-                ? ReelForgeTheme.bgHover
+                ? FluxForgeTheme.bgHover
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             boxShadow: widget.isActive
-                ? ReelForgeTheme.glowShadow(color, intensity: 0.3)
+                ? FluxForgeTheme.glowShadow(color, intensity: 0.3)
                 : null,
           ),
           transform: Matrix4.identity()..scale(_isPressed ? 0.9 : 1.0),
           child: Icon(
             widget.icon,
             size: iconSize,
-            color: _isHovered ? ReelForgeTheme.textPrimary : color,
+            color: _isHovered ? FluxForgeTheme.textPrimary : color,
           ),
         ),
       ),
@@ -648,26 +648,26 @@ class _TimeDisplay extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               _modeLabel,
-              style: ReelForgeTheme.label.copyWith(
-                color: ReelForgeTheme.accentBlue,
+              style: FluxForgeTheme.label.copyWith(
+                color: FluxForgeTheme.accentBlue,
               ),
             ),
             const SizedBox(width: 8),
             Text(
               time,
-              style: ReelForgeTheme.mono.copyWith(
+              style: FluxForgeTheme.mono.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: ReelForgeTheme.accentGreen,
+                color: FluxForgeTheme.accentGreen,
               ),
             ),
           ],
@@ -691,22 +691,22 @@ class _TempoControl extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('BPM', style: ReelForgeTheme.label),
+          Text('BPM', style: FluxForgeTheme.label),
           const SizedBox(width: 8),
           SizedBox(
             width: 50,
             child: Text(
               tempo.toStringAsFixed(1),
-              style: ReelForgeTheme.mono.copyWith(
+              style: FluxForgeTheme.mono.copyWith(
                 fontSize: 14,
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
               ),
               textAlign: TextAlign.center,
             ),
@@ -747,22 +747,22 @@ class _ToggleButtonState extends State<_ToggleButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: ReelForgeTheme.fastDuration,
+          duration: FluxForgeTheme.fastDuration,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: widget.isActive
                 ? widget.activeColor.withValues(alpha: 0.2)
                 : _isHovered
-                    ? ReelForgeTheme.bgHover
-                    : ReelForgeTheme.bgMid,
+                    ? FluxForgeTheme.bgHover
+                    : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: widget.isActive
                   ? widget.activeColor
-                  : ReelForgeTheme.borderSubtle,
+                  : FluxForgeTheme.borderSubtle,
             ),
             boxShadow: widget.isActive
-                ? ReelForgeTheme.glowShadow(widget.activeColor, intensity: 0.2)
+                ? FluxForgeTheme.glowShadow(widget.activeColor, intensity: 0.2)
                 : null,
           ),
           child: Row(
@@ -773,15 +773,15 @@ class _ToggleButtonState extends State<_ToggleButton> {
                 size: 14,
                 color: widget.isActive
                     ? widget.activeColor
-                    : ReelForgeTheme.textTertiary,
+                    : FluxForgeTheme.textTertiary,
               ),
               const SizedBox(width: 4),
               Text(
                 widget.label,
-                style: ReelForgeTheme.label.copyWith(
+                style: FluxForgeTheme.label.copyWith(
                   color: widget.isActive
                       ? widget.activeColor
-                      : ReelForgeTheme.textTertiary,
+                      : FluxForgeTheme.textTertiary,
                 ),
               ),
             ],

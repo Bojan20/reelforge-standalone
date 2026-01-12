@@ -120,7 +120,7 @@ impl InternalPlugin {
         let info = PluginInfo {
             id: id.to_string(),
             name: name.to_string(),
-            vendor: String::from("ReelForge"),
+            vendor: String::from("FluxForge Studio"),
             version: String::from("1.0.0"),
             plugin_type: PluginType::Internal,
             category,

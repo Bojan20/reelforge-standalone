@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../mixer/pro_mixer_strip.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============ Types ============
 
@@ -157,7 +157,7 @@ class ProMixerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Row(
         children: [
           // Bus channels
@@ -185,7 +185,7 @@ class ProMixerPanel extends StatelessWidget {
           if (masterBus != null)
             Container(
               width: 2,
-              color: ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
+              color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
             ),
 
           // Master bus
@@ -233,7 +233,7 @@ class MixerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Row(
         children: [
           // Bus channels
@@ -261,7 +261,7 @@ class MixerPanel extends StatelessWidget {
           if (masterBus != null) ...[
             Container(
               width: 1,
-              color: ReelForgeTheme.borderSubtle,
+              color: FluxForgeTheme.borderSubtle,
             ),
             _ChannelStrip(
               channel: masterBus!,
@@ -319,15 +319,15 @@ class _ChannelStripState extends State<_ChannelStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final channelColor = widget.channel.color ?? ReelForgeTheme.accentPurple;
+    final channelColor = widget.channel.color ?? FluxForgeTheme.accentPurple;
 
     return Container(
       width: widget.compact ? 50 : 70,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          right: BorderSide(color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)),
+          right: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)),
         ),
       ),
       child: Column(
@@ -344,7 +344,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgVoid,
+              color: FluxForgeTheme.bgVoid,
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
@@ -352,7 +352,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
               style: TextStyle(
                 fontSize: 9,
                 fontFamily: 'monospace',
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -377,7 +377,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w500,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
           overflow: TextOverflow.ellipsis,
         ),
@@ -440,7 +440,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           width: 12,
           height: height,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgVoid,
+            color: FluxForgeTheme.bgVoid,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -455,8 +455,8 @@ class _ChannelStripState extends State<_ChannelStrip> {
               width: 4,
               height: 1,
               color: db == 0
-                  ? ReelForgeTheme.accentBlue
-                  : ReelForgeTheme.borderMedium,
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.borderMedium,
             ),
           );
         }),
@@ -472,10 +472,10 @@ class _ChannelStripState extends State<_ChannelStrip> {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  ReelForgeTheme.accentGreen,
-                  ReelForgeTheme.accentGreen,
-                  ReelForgeTheme.accentYellow,
-                  ReelForgeTheme.accentRed,
+                  FluxForgeTheme.accentGreen,
+                  FluxForgeTheme.accentGreen,
+                  FluxForgeTheme.accentYellow,
+                  FluxForgeTheme.accentRed,
                 ],
                 stops: const [0, 0.7, 0.9, 1],
               ),
@@ -495,23 +495,23 @@ class _ChannelStripState extends State<_ChannelStrip> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  ReelForgeTheme.bgHover,
-                  ReelForgeTheme.bgElevated,
-                  ReelForgeTheme.bgSurface,
+                  FluxForgeTheme.bgHover,
+                  FluxForgeTheme.bgElevated,
+                  FluxForgeTheme.bgSurface,
                 ],
               ),
               borderRadius: BorderRadius.circular(3),
               border: Border.all(
                 color: _isDragging
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.borderMedium,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.borderMedium,
               ),
             ),
             child: Center(
               child: Container(
                 width: 12,
                 height: 2,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -547,9 +547,9 @@ class _ChannelStripState extends State<_ChannelStrip> {
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              activeTrackColor: ReelForgeTheme.accentBlue,
-              inactiveTrackColor: ReelForgeTheme.bgElevated,
-              thumbColor: ReelForgeTheme.textPrimary,
+              activeTrackColor: FluxForgeTheme.accentBlue,
+              inactiveTrackColor: FluxForgeTheme.bgElevated,
+              thumbColor: FluxForgeTheme.textPrimary,
             ),
             child: Slider(
               value: pan,
@@ -561,7 +561,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
         ),
         Text(
           panLabel,
-          style: TextStyle(fontSize: 8, color: ReelForgeTheme.textSecondary),
+          style: TextStyle(fontSize: 8, color: FluxForgeTheme.textSecondary),
         ),
       ],
     );
@@ -574,14 +574,14 @@ class _ChannelStripState extends State<_ChannelStrip> {
         _ChannelButton(
           label: 'M',
           active: widget.channel.muted,
-          activeColor: ReelForgeTheme.accentRed,
+          activeColor: FluxForgeTheme.accentRed,
           onTap: widget.onMuteToggle,
         ),
         const SizedBox(width: 2),
         _ChannelButton(
           label: 'S',
           active: widget.channel.solo,
-          activeColor: ReelForgeTheme.accentYellow,
+          activeColor: FluxForgeTheme.accentYellow,
           onTap: widget.onSoloToggle,
         ),
         if (!widget.isMaster && widget.onArmToggle != null) ...[
@@ -589,7 +589,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           _ChannelButton(
             label: 'R',
             active: widget.channel.armed,
-            activeColor: ReelForgeTheme.accentRed,
+            activeColor: FluxForgeTheme.accentRed,
             onTap: widget.onArmToggle,
           ),
         ],
@@ -632,10 +632,10 @@ class _ChannelButton extends StatelessWidget {
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgSurface,
+          color: active ? activeColor : FluxForgeTheme.bgSurface,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Center(
@@ -644,7 +644,7 @@ class _ChannelButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.bold,
-              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textSecondary,
+              color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -667,7 +667,7 @@ class _MeterPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgVoid,
+      Paint()..color = FluxForgeTheme.bgVoid,
     );
 
     if (reading == null) return;
@@ -683,7 +683,7 @@ class _MeterPainter extends CustomPainter {
     if (reading!.isClipping) {
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, 4),
-        Paint()..color = ReelForgeTheme.clipRed,
+        Paint()..color = FluxForgeTheme.clipRed,
       );
     }
   }
@@ -697,10 +697,10 @@ class _MeterPainter extends CustomPainter {
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
       colors: [
-        ReelForgeTheme.accentGreen,
-        ReelForgeTheme.accentGreen,
-        ReelForgeTheme.accentYellow,
-        ReelForgeTheme.accentRed,
+        FluxForgeTheme.accentGreen,
+        FluxForgeTheme.accentGreen,
+        FluxForgeTheme.accentYellow,
+        FluxForgeTheme.accentRed,
       ],
       stops: const [0, 0.6, 0.85, 1],
     );

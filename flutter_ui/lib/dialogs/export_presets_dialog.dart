@@ -10,7 +10,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Export preset data
 class ExportPreset {
@@ -284,7 +284,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 700,
@@ -292,7 +292,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
         child: Column(
           children: [
             _buildHeader(),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             Expanded(
               child: Row(
                 children: [
@@ -300,7 +300,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                     width: 280,
                     child: _buildPresetList(),
                   ),
-                  const VerticalDivider(width: 1, color: ReelForgeTheme.borderSubtle),
+                  const VerticalDivider(width: 1, color: FluxForgeTheme.borderSubtle),
                   Expanded(
                     child: _selectedPreset != null
                         ? _buildPresetDetails()
@@ -309,7 +309,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             _buildActions(),
           ],
         ),
@@ -323,12 +323,12 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          const Icon(Icons.tune, color: ReelForgeTheme.accentBlue, size: 20),
+          const Icon(Icons.tune, color: FluxForgeTheme.accentBlue, size: 20),
           const SizedBox(width: 10),
           const Text(
             'Export Presets',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -336,13 +336,13 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.add, size: 20),
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             onPressed: _createNewPreset,
             tooltip: 'New Preset',
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 20),
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -359,7 +359,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
       children: [
         const Text(
           'BUILT-IN',
-          style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
         ),
         const SizedBox(height: 8),
         ...builtIn.map((p) => _buildPresetItem(p)),
@@ -367,7 +367,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
           const SizedBox(height: 16),
           const Text(
             'USER PRESETS',
-            style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
           ),
           const SizedBox(height: 8),
           ...user.map((p) => _buildPresetItem(p)),
@@ -389,11 +389,11 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
-              : ReelForgeTheme.bgDeep,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -403,8 +403,8 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
               height: 32,
               decoration: BoxDecoration(
                 color: preset.format.isLossless
-                    ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-                    : ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                    ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                    : FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Center(
@@ -412,8 +412,8 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                   preset.format.label,
                   style: TextStyle(
                     color: preset.format.isLossless
-                        ? ReelForgeTheme.accentGreen
-                        : ReelForgeTheme.accentOrange,
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.accentOrange,
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                   ),
@@ -431,7 +431,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                         child: Text(
                           preset.name,
                           style: const TextStyle(
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -443,12 +443,12 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
+                            color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: const Text(
                             'BUILT-IN',
-                            style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 7),
+                            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 7),
                           ),
                         ),
                     ],
@@ -456,7 +456,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                   const SizedBox(height: 2),
                   Text(
                     '${preset.bitDepth}-bit ${preset.sampleRate ~/ 1000}kHz',
-                    style: const TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
+                    style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
                   ),
                 ],
               ),
@@ -484,7 +484,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                     Text(
                       preset.name,
                       style: const TextStyle(
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -493,7 +493,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                       const SizedBox(height: 4),
                       Text(
                         preset.description,
-                        style: const TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+                        style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
                       ),
                     ],
                   ],
@@ -502,20 +502,20 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
               if (!preset.isBuiltIn) ...[
                 IconButton(
                   icon: const Icon(Icons.edit, size: 18),
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   onPressed: () => setState(() => _isEditing = true),
                   tooltip: 'Edit',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 18),
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   onPressed: () => _deletePreset(preset),
                   tooltip: 'Delete',
                 ),
               ],
               IconButton(
                 icon: const Icon(Icons.copy, size: 18),
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 onPressed: () => _duplicatePreset(preset),
                 tooltip: 'Duplicate',
               ),
@@ -560,7 +560,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
         Text(
           title.toUpperCase(),
           style: const TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1,
@@ -570,7 +570,7 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgDeep,
+            color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Column(children: children),
@@ -586,13 +586,13 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
           const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 12,
               fontFamily: 'JetBrains Mono',
             ),
@@ -607,11 +607,11 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.tune, size: 48, color: ReelForgeTheme.textDisabled),
+          Icon(Icons.tune, size: 48, color: FluxForgeTheme.textDisabled),
           SizedBox(height: 16),
           Text(
             'Select a preset',
-            style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 14),
+            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 14),
           ),
         ],
       ),
@@ -652,8 +652,8 @@ class _ExportPresetsDialogState extends State<ExportPresetsDialog> {
                   }
                 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
-              foregroundColor: ReelForgeTheme.textPrimary,
+              backgroundColor: FluxForgeTheme.accentBlue,
+              foregroundColor: FluxForgeTheme.textPrimary,
             ),
             child: const Text('Use Preset'),
           ),

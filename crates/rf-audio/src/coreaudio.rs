@@ -920,7 +920,7 @@ impl AggregateDevice {
         name: &str,
     ) -> AudioResult<Self> {
         // Generate unique UID for this aggregate device
-        let _uid = format!("com.reelforge.aggregate.{}", std::process::id());
+        let _uid = format!("com.fluxforge.aggregate.{}", std::process::id());
 
         log::info!(
             "Creating aggregate device '{}' with input={} output={}",

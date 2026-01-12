@@ -22,7 +22,7 @@ class MainFlutterWindow: NSWindow {
 
     // Register native file picker channel
     let channel = FlutterMethodChannel(
-      name: "reelforge/file_picker",
+      name: "fluxforge/file_picker",
       binaryMessenger: flutterViewController.engine.binaryMessenger
     )
 
@@ -42,6 +42,8 @@ class MainFlutterWindow: NSWindow {
         } else {
           result(FlutterError(code: "INVALID_ARGS", message: "Missing arguments", details: nil))
         }
+      case "pickIrFile":
+        self.pickIrFile(result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -137,6 +139,35 @@ class MainFlutterWindow: NSWindow {
         }
       } else {
         panel.allowedFileTypes = [fileType]
+      }
+
+      panel.begin { response in
+        if response == .OK, let url = panel.url {
+          result(url.path)
+        } else {
+          result(nil)
+        }
+      }
+    }
+  }
+
+  private func pickIrFile(result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      let panel = NSOpenPanel()
+      panel.allowsMultipleSelection = false
+      panel.canChooseDirectories = false
+      panel.canChooseFiles = true
+      panel.title = "Select Impulse Response"
+
+      if #available(macOS 11.0, *) {
+        panel.allowedContentTypes = [
+          UTType.audio,
+          UTType.wav,
+          UTType.aiff,
+          UTType(filenameExtension: "flac") ?? UTType.audio,
+        ]
+      } else {
+        panel.allowedFileTypes = ["wav", "aiff", "flac"]
       }
 
       panel.begin { response in

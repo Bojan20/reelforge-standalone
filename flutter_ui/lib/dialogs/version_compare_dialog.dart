@@ -8,7 +8,7 @@
 // - Mix parameter changes
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Types of changes
 enum ChangeType {
@@ -168,7 +168,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 800,
@@ -177,7 +177,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
           children: [
             _buildHeader(),
             if (_comparison != null) _buildSummaryBar(),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             if (_comparison != null) _buildFilterBar(),
             Expanded(
               child: _isLoading
@@ -197,12 +197,12 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.compare_arrows, color: ReelForgeTheme.accentBlue),
+          const Icon(Icons.compare_arrows, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -211,7 +211,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                 const Text(
                   'Version Comparison',
                   style: TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -220,12 +220,12 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                   children: [
                     Text(
                       widget.oldVersionName,
-                      style: TextStyle(color: ReelForgeTheme.accentRed, fontSize: 12),
+                      style: TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12),
                     ),
-                    Icon(Icons.arrow_right_alt, color: ReelForgeTheme.textTertiary, size: 18),
+                    Icon(Icons.arrow_right_alt, color: FluxForgeTheme.textTertiary, size: 18),
                     Text(
                       widget.newVersionName,
-                      style: TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 12),
+                      style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 12),
                     ),
                   ],
                 ),
@@ -233,7 +233,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: ReelForgeTheme.textSecondary),
+            icon: const Icon(Icons.close, color: FluxForgeTheme.textSecondary),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -245,13 +245,13 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
     final comp = _comparison!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       child: Row(
         children: [
           _buildSummaryChip(
             comp.addedCount,
             'Added',
-            ReelForgeTheme.accentGreen,
+            FluxForgeTheme.accentGreen,
             Icons.add_circle_outline,
             () => setState(() => _filterType = _filterType == ChangeType.added ? null : ChangeType.added),
             _filterType == ChangeType.added,
@@ -260,7 +260,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
           _buildSummaryChip(
             comp.removedCount,
             'Removed',
-            ReelForgeTheme.accentRed,
+            FluxForgeTheme.accentRed,
             Icons.remove_circle_outline,
             () => setState(() => _filterType = _filterType == ChangeType.removed ? null : ChangeType.removed),
             _filterType == ChangeType.removed,
@@ -269,7 +269,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
           _buildSummaryChip(
             comp.modifiedCount,
             'Modified',
-            ReelForgeTheme.accentOrange,
+            FluxForgeTheme.accentOrange,
             Icons.edit,
             () => setState(() => _filterType = _filterType == ChangeType.modified ? null : ChangeType.modified),
             _filterType == ChangeType.modified,
@@ -278,12 +278,12 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '${comp.totalChanges} total changes',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
             ),
           ),
         ],
@@ -304,7 +304,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.2) : ReelForgeTheme.bgVoid.withValues(alpha: 0.0),
+          color: isSelected ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgVoid.withValues(alpha: 0.0),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.3)),
         ),
@@ -327,16 +327,16 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: ReelForgeTheme.bgMid.withValues(alpha: 0.5),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
       child: Row(
         children: [
           // Category filter
-          Text('Category: ', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
+          Text('Category: ', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
           const SizedBox(width: 8),
           DropdownButton<String>(
             value: _selectedCategory,
-            dropdownColor: ReelForgeTheme.bgMid,
-            style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+            dropdownColor: FluxForgeTheme.bgMid,
+            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
             underline: const SizedBox(),
             items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
             onChanged: (v) => setState(() => _selectedCategory = v ?? 'All'),
@@ -351,7 +351,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
               }),
               icon: const Icon(Icons.clear, size: 14),
               label: const Text('Clear Filters'),
-              style: TextButton.styleFrom(foregroundColor: ReelForgeTheme.textSecondary),
+              style: TextButton.styleFrom(foregroundColor: FluxForgeTheme.textSecondary),
             ),
         ],
       ),
@@ -371,14 +371,14 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                   ? Icons.filter_list_off
                   : Icons.check_circle_outline,
               size: 48,
-              color: ReelForgeTheme.textDisabled,
+              color: FluxForgeTheme.textDisabled,
             ),
             const SizedBox(height: 12),
             Text(
               _filterType != null || _selectedCategory != 'All'
                   ? 'No changes match current filters'
                   : 'No differences found',
-              style: TextStyle(color: ReelForgeTheme.textTertiary),
+              style: TextStyle(color: FluxForgeTheme.textTertiary),
             ),
           ],
         ),
@@ -411,27 +411,27 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
-          Icon(_getCategoryIcon(category), size: 16, color: ReelForgeTheme.accentBlue),
+          Icon(_getCategoryIcon(category), size: 16, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 8),
           Text(
             category,
-            style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
+              color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '$count',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
             ),
           ),
         ],
@@ -460,7 +460,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
               Expanded(
                 child: Text(
                   change.item,
-                  style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                 ),
               ),
               Container(
@@ -485,18 +485,18 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentRed.withValues(alpha: 0.1),
+                        color: FluxForgeTheme.accentRed.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.remove, size: 10, color: ReelForgeTheme.accentRed),
+                          const Icon(Icons.remove, size: 10, color: FluxForgeTheme.accentRed),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               change.oldValue!,
                               style: const TextStyle(
-                                color: ReelForgeTheme.accentRed,
+                                color: FluxForgeTheme.accentRed,
                                 fontSize: 10,
                                 fontFamily: 'JetBrains Mono',
                               ),
@@ -512,18 +512,18 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentGreen.withValues(alpha: 0.1),
+                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.add, size: 10, color: ReelForgeTheme.accentGreen),
+                          const Icon(Icons.add, size: 10, color: FluxForgeTheme.accentGreen),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               change.newValue!,
                               style: const TextStyle(
-                                color: ReelForgeTheme.accentGreen,
+                                color: FluxForgeTheme.accentGreen,
                                 fontSize: 10,
                                 fontFamily: 'JetBrains Mono',
                               ),
@@ -540,7 +540,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
             const SizedBox(height: 6),
             Text(
               change.details!,
-              style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
             ),
           ],
         ],
@@ -553,9 +553,9 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: ReelForgeTheme.accentRed),
+          const Icon(Icons.error_outline, size: 48, color: FluxForgeTheme.accentRed),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: ReelForgeTheme.textSecondary)),
+          Text(_error!, style: TextStyle(color: FluxForgeTheme.textSecondary)),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _loadComparison,
@@ -571,7 +571,7 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
       ),
       child: Row(
@@ -599,13 +599,13 @@ class _VersionCompareDialogState extends State<VersionCompareDialog> {
   (Color, IconData) _getChangeStyle(ChangeType type) {
     switch (type) {
       case ChangeType.added:
-        return (ReelForgeTheme.accentGreen, Icons.add_circle);
+        return (FluxForgeTheme.accentGreen, Icons.add_circle);
       case ChangeType.removed:
-        return (ReelForgeTheme.accentRed, Icons.remove_circle);
+        return (FluxForgeTheme.accentRed, Icons.remove_circle);
       case ChangeType.modified:
-        return (ReelForgeTheme.accentOrange, Icons.edit);
+        return (FluxForgeTheme.accentOrange, Icons.edit);
       case ChangeType.unchanged:
-        return (ReelForgeTheme.textTertiary, Icons.horizontal_rule);
+        return (FluxForgeTheme.textTertiary, Icons.horizontal_rule);
     }
   }
 

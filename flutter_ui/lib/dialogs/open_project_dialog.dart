@@ -6,7 +6,7 @@
 // - Project preview
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 class RecentProject {
   final String path;
@@ -101,7 +101,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please enter a file path'),
-          backgroundColor: ReelForgeTheme.accentRed,
+          backgroundColor: FluxForgeTheme.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -124,7 +124,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error opening project: $e'),
-            backgroundColor: ReelForgeTheme.accentRed,
+            backgroundColor: FluxForgeTheme.accentRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -159,10 +159,10 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       child: Container(
         width: 600,
@@ -175,13 +175,13 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
               children: [
                 Icon(
                   Icons.folder_open,
-                  color: ReelForgeTheme.accentBlue,
+                  color: FluxForgeTheme.accentBlue,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'Open Project',
-                  style: ReelForgeTheme.h2,
+                  style: FluxForgeTheme.h2,
                 ),
               ],
             ),
@@ -194,26 +194,26 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                   child: TextField(
                     controller: _pathController,
                     style: TextStyle(
-                      color: ReelForgeTheme.textPrimary,
-                      fontFamily: ReelForgeTheme.monoFontFamily,
+                      color: FluxForgeTheme.textPrimary,
+                      fontFamily: FluxForgeTheme.monoFontFamily,
                       fontSize: 12,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Enter file path or select from recent...',
-                      hintStyle: TextStyle(color: ReelForgeTheme.textTertiary),
+                      hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
                       filled: true,
-                      fillColor: ReelForgeTheme.bgSurface,
+                      fillColor: FluxForgeTheme.bgSurface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                        borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+                        borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -229,10 +229,10 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                   icon: const Icon(Icons.folder_open),
                   tooltip: 'Browse...',
                   style: IconButton.styleFrom(
-                    backgroundColor: ReelForgeTheme.bgSurface,
+                    backgroundColor: FluxForgeTheme.bgSurface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: ReelForgeTheme.borderSubtle),
+                      side: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
                   ),
                 ),
@@ -246,14 +246,14 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
               children: [
                 Icon(
                   Icons.history,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Recent Projects',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -272,14 +272,14 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                             children: [
                               Icon(
                                 Icons.folder_off,
-                                color: ReelForgeTheme.textTertiary,
+                                color: FluxForgeTheme.textTertiary,
                                 size: 48,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'No recent projects',
                                 style: TextStyle(
-                                  color: ReelForgeTheme.textTertiary,
+                                  color: FluxForgeTheme.textTertiary,
                                 ),
                               ),
                             ],
@@ -314,14 +314,14 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         )
                       : const Icon(Icons.folder_open, size: 18),
                   label: Text(_isOpening ? 'Opening...' : 'Open'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ReelForgeTheme.accentBlue,
-                    foregroundColor: ReelForgeTheme.textPrimary,
+                    backgroundColor: FluxForgeTheme.accentBlue,
+                    foregroundColor: FluxForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -341,7 +341,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
 
   Widget _buildRecentProjectItem(RecentProject project) {
     return Material(
-      color: ReelForgeTheme.bgVoid.withValues(alpha: 0.0),
+      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.0),
       child: InkWell(
         onTap: () {
           _pathController.text = project.path;
@@ -358,8 +358,8 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
               Icon(
                 Icons.description,
                 color: project.exists
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textTertiary,
                 size: 24,
               ),
               const SizedBox(width: 12),
@@ -371,8 +371,8 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                       project.name,
                       style: TextStyle(
                         color: project.exists
-                            ? ReelForgeTheme.textPrimary
-                            : ReelForgeTheme.textTertiary,
+                            ? FluxForgeTheme.textPrimary
+                            : FluxForgeTheme.textTertiary,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -381,9 +381,9 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                     Text(
                       project.path,
                       style: TextStyle(
-                        color: ReelForgeTheme.textTertiary,
+                        color: FluxForgeTheme.textTertiary,
                         fontSize: 11,
-                        fontFamily: ReelForgeTheme.monoFontFamily,
+                        fontFamily: FluxForgeTheme.monoFontFamily,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -394,7 +394,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
               Text(
                 _formatDate(project.lastOpened),
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 11,
                 ),
               ),
@@ -404,7 +404,7 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
                 icon: const Icon(Icons.close, size: 16),
                 tooltip: 'Remove from recent',
                 style: IconButton.styleFrom(
-                  foregroundColor: ReelForgeTheme.textTertiary,
+                  foregroundColor: FluxForgeTheme.textTertiary,
                   padding: const EdgeInsets.all(4),
                   minimumSize: const Size(24, 24),
                 ),

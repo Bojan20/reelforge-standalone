@@ -12,7 +12,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Track template data with full details
 class TrackTemplateData {
@@ -82,7 +82,7 @@ class TemplateCategory {
   const TemplateCategory(this.name, this.icon, this.color);
 
   static const Map<String, TemplateCategory> predefined = {
-    'All': TemplateCategory('All', Icons.apps, ReelForgeTheme.textSecondary),
+    'All': TemplateCategory('All', Icons.apps, FluxForgeTheme.textSecondary),
     'Favorites': TemplateCategory('Favorites', Icons.star, Color(0xFFFFD700)),
     'Vocal': TemplateCategory('Vocal', Icons.mic, Color(0xFFE91E63)),
     'Guitar': TemplateCategory('Guitar', Icons.music_note, Color(0xFF9C27B0)),
@@ -97,7 +97,7 @@ class TemplateCategory {
   };
 
   static TemplateCategory getForCategory(String name) {
-    return predefined[name] ?? TemplateCategory(name, Icons.folder, ReelForgeTheme.textSecondary);
+    return predefined[name] ?? TemplateCategory(name, Icons.folder, FluxForgeTheme.textSecondary);
   }
 }
 
@@ -224,7 +224,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Created track from "${template.templateName}"'),
-          backgroundColor: ReelForgeTheme.accentGreen,
+          backgroundColor: FluxForgeTheme.accentGreen,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -237,7 +237,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Delete Template?', style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to delete "${template.templateName}"?',
@@ -254,7 +254,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
               _loadTemplates();
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: ReelForgeTheme.accentRed),
+            style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
             child: const Text('Delete'),
           ),
         ],
@@ -265,21 +265,21 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildCategoryBar(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildToolbar(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: Row(
               children: [
                 Expanded(child: _buildTemplateGrid()),
                 if (_showPreview && _selectedTemplate != null) ...[
-                  const VerticalDivider(width: 1, color: ReelForgeTheme.borderSubtle),
+                  const VerticalDivider(width: 1, color: FluxForgeTheme.borderSubtle),
                   SizedBox(
                     width: 220,
                     child: _buildPreviewPanel(),
@@ -297,10 +297,10 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.dashboard_customize, color: ReelForgeTheme.accentBlue, size: 18),
+          const Icon(Icons.dashboard_customize, color: FluxForgeTheme.accentBlue, size: 18),
           const SizedBox(width: 8),
           const Text(
             'TRACK TEMPLATES',
@@ -322,7 +322,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
               _showPreview ? Icons.view_sidebar : Icons.view_sidebar_outlined,
               size: 16,
             ),
-            color: _showPreview ? ReelForgeTheme.accentBlue : Colors.white54,
+            color: _showPreview ? FluxForgeTheme.accentBlue : Colors.white54,
             onPressed: () => setState(() => _showPreview = !_showPreview),
             tooltip: 'Toggle Preview',
             padding: EdgeInsets.zero,
@@ -337,7 +337,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      color: ReelForgeTheme.bgMid.withValues(alpha: 0.7),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.7),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: _categories.map((cat) {
@@ -362,7 +362,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? catDef.color : ReelForgeTheme.borderSubtle,
+                      color: isSelected ? catDef.color : FluxForgeTheme.borderSubtle,
                       width: isSelected ? 1.5 : 1,
                     ),
                   ),
@@ -410,7 +410,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: ReelForgeTheme.bgMid.withValues(alpha: 0.3),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.3),
       child: Row(
         children: [
           // Search
@@ -419,9 +419,9 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
               height: 26,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeep,
+                color: FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: TextField(
                 style: const TextStyle(color: Colors.white, fontSize: 11),
@@ -443,7 +443,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
           PopupMenuButton<TemplateSortMode>(
             tooltip: 'Sort',
             icon: const Icon(Icons.sort, size: 16, color: Colors.white54),
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             onSelected: (mode) => setState(() => _sortMode = mode),
             itemBuilder: (ctx) => [
               _buildSortMenuItem(TemplateSortMode.nameAsc, 'Name (A-Z)', Icons.sort_by_alpha),
@@ -472,15 +472,15 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
       value: mode,
       child: Row(
         children: [
-          Icon(icon, size: 16, color: _sortMode == mode ? ReelForgeTheme.accentBlue : Colors.white54),
+          Icon(icon, size: 16, color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white54),
           const SizedBox(width: 8),
           Text(label, style: TextStyle(
-            color: _sortMode == mode ? ReelForgeTheme.accentBlue : Colors.white,
+            color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white,
             fontSize: 12,
           )),
           if (_sortMode == mode) ...[
             const Spacer(),
-            const Icon(Icons.check, size: 14, color: ReelForgeTheme.accentBlue),
+            const Icon(Icons.check, size: 14, color: FluxForgeTheme.accentBlue),
           ],
         ],
       ),
@@ -575,7 +575,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.15) : ReelForgeTheme.bgMid,
+            color: isSelected ? color.withValues(alpha: 0.15) : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isSelected ? color : color.withValues(alpha: 0.3),
@@ -638,12 +638,12 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                               decoration: BoxDecoration(
-                                color: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+                                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: const Text(
                                 'DEFAULT',
-                                style: TextStyle(color: ReelForgeTheme.accentBlue, fontSize: 7, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 7, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -659,17 +659,17 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                                  color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.extension, size: 8, color: ReelForgeTheme.accentOrange),
+                                    const Icon(Icons.extension, size: 8, color: FluxForgeTheme.accentOrange),
                                     const SizedBox(width: 2),
                                     Text(
                                       '${template.insertPlugins.length}',
-                                      style: const TextStyle(color: ReelForgeTheme.accentOrange, fontSize: 8),
+                                      style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 8),
                                     ),
                                   ],
                                 ),
@@ -700,7 +700,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     final catDef = TemplateCategory.getForCategory(template.category);
 
     return Container(
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -769,7 +769,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                       padding: const EdgeInsets.only(bottom: 3),
                       child: Row(
                         children: [
-                          const Icon(Icons.extension, size: 10, color: ReelForgeTheme.accentOrange),
+                          const Icon(Icons.extension, size: 10, color: FluxForgeTheme.accentOrange),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(p, style: const TextStyle(color: Colors.white70, fontSize: 10)),
@@ -803,7 +803,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
+              border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
             ),
             child: SizedBox(
               width: double.infinity,

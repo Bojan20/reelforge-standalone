@@ -1,11 +1,11 @@
-/// ReelForge Professional Multiband Dynamics Panel
+/// FluxForge Studio Professional Multiband Dynamics Panel
 ///
 /// Multi-band compressor and limiter with up to 6 bands.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Band settings class
 class BandSettings {
@@ -157,9 +157,9 @@ class _MultibandPanelState extends State<MultibandPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,12 +184,12 @@ class _MultibandPanelState extends State<MultibandPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.graphic_eq, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.graphic_eq, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Multiband',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -202,16 +202,16 @@ class _MultibandPanelState extends State<MultibandPanel> {
             decoration: BoxDecoration(
               color: _bypassed
                   ? Colors.orange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.border,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               'BYPASS',
               style: TextStyle(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -247,7 +247,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           children: [
             Text(
               'Bands',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
             ),
             const SizedBox(width: 16),
             ...List.generate(5, (i) => _buildBandCountButton(i + 2)),
@@ -264,10 +264,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
                 decoration: BoxDecoration(
                   color: _selectedBand == i
                       ? _bandColors[i].withValues(alpha: 0.3)
-                      : ReelForgeTheme.surface,
+                      : FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: _selectedBand == i ? _bandColors[i] : ReelForgeTheme.border,
+                    color: _selectedBand == i ? _bandColors[i] : FluxForgeTheme.border,
                     width: _selectedBand == i ? 2 : 1,
                   ),
                 ),
@@ -285,7 +285,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
                     Text(
                       _getBandLabel(i),
                       style: TextStyle(
-                        color: _selectedBand == i ? _bandColors[i] : ReelForgeTheme.textSecondary,
+                        color: _selectedBand == i ? _bandColors[i] : FluxForgeTheme.textSecondary,
                         fontSize: 9,
                         fontWeight: _selectedBand == i ? FontWeight.bold : FontWeight.normal,
                       ),
@@ -317,18 +317,18 @@ class _MultibandPanelState extends State<MultibandPanel> {
         margin: const EdgeInsets.only(right: 4),
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Center(
           child: Text(
             '$count',
             style: TextStyle(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               fontSize: 11,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
@@ -356,9 +356,9 @@ class _MultibandPanelState extends State<MultibandPanel> {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface,
+        color: FluxForgeTheme.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: CustomPaint(
         size: const Size(double.infinity, 40),
@@ -381,10 +381,10 @@ class _MultibandPanelState extends State<MultibandPanel> {
             margin: EdgeInsets.only(right: i < _numBands - 1 ? 4 : 0),
             height: 60,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.surface.withValues(alpha: 0.5),
+              color: FluxForgeTheme.surface.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _selectedBand == i ? _bandColors[i] : ReelForgeTheme.border,
+                color: _selectedBand == i ? _bandColors[i] : FluxForgeTheme.border,
               ),
             ),
             child: Column(
@@ -409,7 +409,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
                   child: Text(
                     '${gr.toStringAsFixed(0)}',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 8,
                     ),
                   ),
@@ -428,7 +428,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withValues(alpha: 0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: _bandColors[_selectedBand].withValues(alpha: 0.5)),
       ),
@@ -561,17 +561,17 @@ class _MultibandPanelState extends State<MultibandPanel> {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-          color: active ? activeColor.withValues(alpha: 0.3) : ReelForgeTheme.surface,
+          color: active ? activeColor.withValues(alpha: 0.3) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.border,
+            color: active ? activeColor : FluxForgeTheme.border,
           ),
         ),
         child: Center(
           child: Text(
             label,
             style: TextStyle(
-              color: active ? activeColor : ReelForgeTheme.textSecondary,
+              color: active ? activeColor : FluxForgeTheme.textSecondary,
               fontSize: 9,
               fontWeight: FontWeight.bold,
             ),
@@ -589,23 +589,23 @@ class _MultibandPanelState extends State<MultibandPanel> {
           children: [
             Text(
               'Crossover',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.surface,
+                  color: FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ReelForgeTheme.border),
+                  border: Border.all(color: FluxForgeTheme.border),
                 ),
                 child: DropdownButton<CrossoverType>(
                   value: _crossoverType,
                   isExpanded: true,
-                  dropdownColor: ReelForgeTheme.surfaceDark,
+                  dropdownColor: FluxForgeTheme.surfaceDark,
                   underline: const SizedBox(),
-                  style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 11),
+                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
                   items: const [
                     DropdownMenuItem(value: CrossoverType.butterworth12, child: Text('Butterworth 12dB')),
                     DropdownMenuItem(value: CrossoverType.linkwitzRiley24, child: Text('L-R 24dB')),
@@ -653,7 +653,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           width: 65,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
           ),
         ),
         Expanded(child: child),
@@ -662,7 +662,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),
@@ -685,7 +685,7 @@ class _MultibandPanelState extends State<MultibandPanel> {
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
         activeTrackColor: _bandColors[_selectedBand],
-        inactiveTrackColor: ReelForgeTheme.surface,
+        inactiveTrackColor: FluxForgeTheme.surface,
         thumbColor: _bandColors[_selectedBand],
         overlayColor: _bandColors[_selectedBand].withValues(alpha: 0.2),
       ),
@@ -741,7 +741,7 @@ class _CrossoverPainter extends CustomPainter {
 
     // Draw crossover lines
     final linePaint = Paint()
-      ..color = ReelForgeTheme.border
+      ..color = FluxForgeTheme.border
       ..strokeWidth = 1;
 
     for (int i = 0; i < numBands - 1; i++) {
@@ -752,7 +752,7 @@ class _CrossoverPainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: _formatFreq(crossovers[i]),
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 8),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8),
         ),
         textDirection: TextDirection.ltr,
       );
@@ -764,7 +764,7 @@ class _CrossoverPainter extends CustomPainter {
     for (final freq in [100.0, 1000.0, 10000.0]) {
       final x = freqToX(freq);
       final tickPaint = Paint()
-        ..color = ReelForgeTheme.border.withValues(alpha: 0.5)
+        ..color = FluxForgeTheme.border.withValues(alpha: 0.5)
         ..strokeWidth = 1;
       canvas.drawLine(Offset(x, size.height - 4), Offset(x, size.height), tickPaint);
     }

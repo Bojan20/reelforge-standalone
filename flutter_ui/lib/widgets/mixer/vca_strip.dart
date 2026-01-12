@@ -10,7 +10,7 @@
 // - Group-aware mute/solo
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VCA DATA MODEL
@@ -174,14 +174,14 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           width: 88,
           height: widget.height,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             border: Border.all(
               color: widget.isSelected
                   ? widget.vca.color
                   : widget.vca.spillActive
                       ? widget.vca.color.withValues(
                           alpha: 0.3 + _glowController.value * 0.4)
-                      : ReelForgeTheme.borderSubtle,
+                      : FluxForgeTheme.borderSubtle,
               width: widget.isSelected ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(4),
@@ -199,13 +199,13 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           child: Column(
             children: [
               _buildHeader(),
-              const Divider(color: ReelForgeTheme.borderSubtle, height: 1),
+              const Divider(color: FluxForgeTheme.borderSubtle, height: 1),
               _buildLinkModeRow(),
-              const Divider(color: ReelForgeTheme.borderSubtle, height: 1),
+              const Divider(color: FluxForgeTheme.borderSubtle, height: 1),
               Expanded(child: _buildFaderSection()),
-              const Divider(color: ReelForgeTheme.borderSubtle, height: 1),
+              const Divider(color: FluxForgeTheme.borderSubtle, height: 1),
               _buildControlButtons(),
-              const Divider(color: ReelForgeTheme.borderSubtle, height: 1),
+              const Divider(color: FluxForgeTheme.borderSubtle, height: 1),
               _buildMemberSection(),
             ],
           ),
@@ -253,7 +253,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
               child: Text(
                 widget.vca.name,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -328,10 +328,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
               child: Container(
                 height: 18,
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeep,
+                  color: FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
-                    color: ReelForgeTheme.borderSubtle,
+                    color: FluxForgeTheme.borderSubtle,
                     width: 1,
                   ),
                 ),
@@ -343,7 +343,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                           ? Icons.link
                           : Icons.link_off,
                       size: 10,
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                     const SizedBox(width: 2),
                     Text(
@@ -351,7 +351,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                           ? 'REL'
                           : 'ABS',
                       style: TextStyle(
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                         fontSize: 8,
                         fontWeight: FontWeight.w600,
                       ),
@@ -372,12 +372,12 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
               decoration: BoxDecoration(
                 color: widget.vca.spillActive
                     ? widget.vca.color.withValues(alpha: 0.3)
-                    : ReelForgeTheme.bgDeep,
+                    : FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: widget.vca.spillActive
                       ? widget.vca.color
-                      : ReelForgeTheme.borderSubtle,
+                      : FluxForgeTheme.borderSubtle,
                   width: 1,
                 ),
               ),
@@ -387,7 +387,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                   style: TextStyle(
                     color: widget.vca.spillActive
                         ? widget.vca.color
-                        : ReelForgeTheme.textTertiary,
+                        : FluxForgeTheme.textTertiary,
                     fontSize: 7,
                     fontWeight: FontWeight.w700,
                   ),
@@ -443,8 +443,8 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
       text,
       style: TextStyle(
         color: highlight
-            ? ReelForgeTheme.accentBlue.withValues(alpha: 0.8)
-            : ReelForgeTheme.textTertiary,
+            ? FluxForgeTheme.accentBlue.withValues(alpha: 0.8)
+            : FluxForgeTheme.textTertiary,
         fontSize: 7,
         fontWeight: highlight ? FontWeight.w600 : FontWeight.normal,
       ),
@@ -475,10 +475,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           child: Container(
             width: 28,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: ReelForgeTheme.borderSubtle,
+                color: FluxForgeTheme.borderSubtle,
                 width: 1,
               ),
             ),
@@ -493,8 +493,8 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
-                          ReelForgeTheme.bgVoid.withValues(alpha: 0.2),
+                          FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
+                          FluxForgeTheme.bgVoid.withValues(alpha: 0.2),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(2),
@@ -525,7 +525,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                   top: height * (1 - _dbToNormalized(0)),
                   child: Container(
                     height: 1,
-                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.6),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
                   ),
                 ),
                 // Automation trim indicator
@@ -540,11 +540,11 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                     child: Container(
                       height: 2,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentGreen,
+                        color: FluxForgeTheme.accentGreen,
                         boxShadow: [
                           BoxShadow(
                             color:
-                                ReelForgeTheme.accentGreen.withValues(alpha: 0.5),
+                                FluxForgeTheme.accentGreen.withValues(alpha: 0.5),
                             blurRadius: 4,
                           ),
                         ],
@@ -581,7 +581,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
         ),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
-          color: ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
+          color: FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: [
@@ -599,19 +599,19 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           Container(
             width: 14,
             height: 1,
-            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
+            color: FluxForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 2),
           Container(
             width: 14,
             height: 1,
-            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
+            color: FluxForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 2),
           Container(
             width: 14,
             height: 1,
-            color: ReelForgeTheme.textPrimary.withValues(alpha: 0.4),
+            color: FluxForgeTheme.textPrimary.withValues(alpha: 0.4),
           ),
         ],
       ),
@@ -622,7 +622,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
     if (_levelDb > 6) {
       return [
         widget.vca.color.withValues(alpha: 0.6),
-        ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+        FluxForgeTheme.accentRed.withValues(alpha: 0.6),
       ];
     } else if (_levelDb > 0) {
       return [
@@ -655,7 +655,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           const Text(
             'dB',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 7,
             ),
           ),
@@ -666,10 +666,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: ReelForgeTheme.accentGreen,
+                  color: FluxForgeTheme.accentGreen,
                   width: 1,
                 ),
               ),
@@ -677,7 +677,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                 child: Text(
                   'A',
                   style: TextStyle(
-                    color: ReelForgeTheme.accentGreen,
+                    color: FluxForgeTheme.accentGreen,
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                   ),
@@ -702,7 +702,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                 child: _buildControlButton(
                   label: 'M',
                   active: widget.vca.muted,
-                  activeColor: ReelForgeTheme.accentRed,
+                  activeColor: FluxForgeTheme.accentRed,
                   onTap: () => widget.onMuteChanged?.call(!widget.vca.muted),
                 ),
               ),
@@ -725,7 +725,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                 child: _buildControlButton(
                   label: 'AUTO',
                   active: widget.showAutomation,
-                  activeColor: ReelForgeTheme.accentGreen,
+                  activeColor: FluxForgeTheme.accentGreen,
                   onTap: widget.onShowAutomation,
                   fontSize: 7,
                 ),
@@ -735,7 +735,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                 child: _buildControlButton(
                   label: 'TRIM',
                   active: _showTrimEditor,
-                  activeColor: ReelForgeTheme.accentBlue,
+                  activeColor: FluxForgeTheme.accentBlue,
                   onTap: () => setState(() => _showTrimEditor = !_showTrimEditor),
                   fontSize: 7,
                 ),
@@ -759,10 +759,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
       child: Container(
         height: 22,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgDeep,
+          color: active ? activeColor : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.borderSubtle,
+            color: active ? activeColor : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
           boxShadow: active
@@ -778,7 +778,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           child: Text(
             label,
             style: TextStyle(
-              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
+              color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textTertiary,
               fontSize: fontSize,
               fontWeight: FontWeight.w700,
             ),
@@ -825,7 +825,7 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
         Icon(
           Icons.edit,
           size: 12,
-          color: ReelForgeTheme.textTertiary,
+          color: FluxForgeTheme.textTertiary,
         ),
       ],
     );
@@ -898,7 +898,7 @@ class _VcaMemberTrimRow extends StatelessWidget {
             child: Text(
               member.name,
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 8,
               ),
               overflow: TextOverflow.ellipsis,
@@ -911,7 +911,7 @@ class _VcaMemberTrimRow extends StatelessWidget {
               '${member.trimDb >= 0 ? '+' : ''}${member.trimDb.toStringAsFixed(1)}',
               style: TextStyle(
                 color: member.trimDb == 0
-                    ? ReelForgeTheme.textTertiary
+                    ? FluxForgeTheme.textTertiary
                     : vcaColor,
                 fontSize: 8,
                 fontWeight: FontWeight.w600,
@@ -961,15 +961,15 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
       constraints: const BoxConstraints(maxHeight: 450),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: ReelForgeTheme.borderSubtle,
+          color: FluxForgeTheme.borderSubtle,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withValues(alpha: 0.5),
+            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1012,7 +1012,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
         Text(
           'Edit ${widget.vca.name} Members',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1033,28 +1033,28 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
     return Container(
       height: 32,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: ReelForgeTheme.borderSubtle,
+          color: FluxForgeTheme.borderSubtle,
           width: 1,
         ),
       ),
       child: TextField(
         style: TextStyle(
-          color: ReelForgeTheme.textPrimary,
+          color: FluxForgeTheme.textPrimary,
           fontSize: 12,
         ),
         decoration: InputDecoration(
           hintText: 'Search tracks...',
           hintStyle: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 12,
           ),
           prefixIcon: Icon(
             Icons.search,
             size: 16,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -1110,11 +1110,11 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: isSelected ? widget.vca.color : ReelForgeTheme.bgDeep,
+                color: isSelected ? widget.vca.color : FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color:
-                      isSelected ? widget.vca.color : ReelForgeTheme.borderSubtle,
+                      isSelected ? widget.vca.color : FluxForgeTheme.borderSubtle,
                   width: 1,
                 ),
               ),
@@ -1122,7 +1122,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
                   ? Icon(
                       Icons.check,
                       size: 12,
-                      color: ReelForgeTheme.bgVoid,
+                      color: FluxForgeTheme.bgVoid,
                     )
                   : null,
             ),
@@ -1142,7 +1142,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
               child: Text(
                 track.name,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 12,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -1163,7 +1163,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
           child: Text(
             'Cancel',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
         ),
@@ -1178,7 +1178,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: widget.vca.color,
-            foregroundColor: ReelForgeTheme.bgVoid,
+            foregroundColor: FluxForgeTheme.bgVoid,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           ),
           child: const Text(
@@ -1240,11 +1240,11 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-          color: ReelForgeTheme.borderSubtle,
+          color: FluxForgeTheme.borderSubtle,
           width: 1,
         ),
       ),
@@ -1268,7 +1268,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           Text(
             widget.parentVcaId != null ? 'Create Nested VCA' : 'Create VCA Fader',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 16,
             ),
           ),
@@ -1282,12 +1282,12 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           TextField(
             controller: _nameController,
             focusNode: _focusNode,
-            style: TextStyle(color: ReelForgeTheme.textPrimary),
+            style: TextStyle(color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               labelText: 'Name',
-              labelStyle: TextStyle(color: ReelForgeTheme.textSecondary),
+              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: _selectedColor),
@@ -1299,7 +1299,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           Text(
             'Color:',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -1319,7 +1319,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
                     color: color,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: isSelected ? ReelForgeTheme.textPrimary : Colors.transparent,
+                      color: isSelected ? FluxForgeTheme.textPrimary : Colors.transparent,
                       width: 2,
                     ),
                     boxShadow: isSelected
@@ -1334,7 +1334,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
                   child: isSelected
                       ? Icon(
                           Icons.check,
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           size: 18,
                         )
                       : null,
@@ -1349,7 +1349,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(color: ReelForgeTheme.textSecondary),
+            style: TextStyle(color: FluxForgeTheme.textSecondary),
           ),
         ),
         ElevatedButton(
@@ -1363,7 +1363,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: _selectedColor,
-            foregroundColor: ReelForgeTheme.bgVoid,
+            foregroundColor: FluxForgeTheme.bgVoid,
           ),
           child: const Text(
             'Create',
@@ -1402,10 +1402,10 @@ class VcaGroupHeader extends StatelessWidget {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
           bottom: BorderSide(
-            color: ReelForgeTheme.borderSubtle,
+            color: FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -1431,7 +1431,7 @@ class VcaGroupHeader extends StatelessWidget {
           Text(
             '${vcas.length}',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 10,
             ),
           ),

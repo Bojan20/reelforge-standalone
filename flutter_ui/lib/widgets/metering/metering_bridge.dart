@@ -10,7 +10,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // K-SYSTEM METER TYPES
@@ -92,7 +92,7 @@ class _MeteringBridgeState extends State<MeteringBridge> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       child: Row(
         children: [
           // Left: K-System meters
@@ -277,7 +277,7 @@ class _KSystemMeter extends StatelessWidget {
               child: Text(
                 'RESET PEAKS',
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 8,
                 ),
               ),
@@ -309,12 +309,12 @@ class _KSystemButton extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
           color: selected
-              ? ReelForgeTheme.accentBlue.withOpacity(0.3)
+              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: selected
-                ? ReelForgeTheme.accentBlue
+                ? FluxForgeTheme.accentBlue
                 : Colors.white.withOpacity(0.2),
           ),
         ),
@@ -322,8 +322,8 @@ class _KSystemButton extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected
-                ? ReelForgeTheme.accentBlue
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.textTertiary,
             fontSize: 9,
             fontWeight: FontWeight.w500,
           ),
@@ -357,7 +357,7 @@ class _KMeterBar extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
@@ -592,7 +592,7 @@ class _GoniometerPainter extends CustomPainter {
     // Labels
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     const labelStyle = TextStyle(
-      color: ReelForgeTheme.textTertiary,
+      color: FluxForgeTheme.textTertiary,
       fontSize: 8,
     );
 
@@ -630,7 +630,7 @@ class _GoniometerPainter extends CustomPainter {
       Offset(dotX, dotY),
       3,
       Paint()
-        ..color = ReelForgeTheme.accentBlue.withOpacity(0.8)
+        ..color = FluxForgeTheme.accentBlue.withOpacity(0.8)
         ..style = PaintingStyle.fill,
     );
 
@@ -639,7 +639,7 @@ class _GoniometerPainter extends CustomPainter {
       Offset(dotX, dotY),
       6,
       Paint()
-        ..color = ReelForgeTheme.accentBlue.withOpacity(0.3)
+        ..color = FluxForgeTheme.accentBlue.withOpacity(0.3)
         ..style = PaintingStyle.fill
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
@@ -669,11 +669,11 @@ class _CorrelationMeter extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('-1', style: TextStyle(
-                color: ReelForgeTheme.textTertiary, fontSize: 8)),
+                color: FluxForgeTheme.textTertiary, fontSize: 8)),
               const Text('CORRELATION', style: TextStyle(
-                color: ReelForgeTheme.textSecondary, fontSize: 8)),
+                color: FluxForgeTheme.textSecondary, fontSize: 8)),
               const Text('+1', style: TextStyle(
-                color: ReelForgeTheme.textTertiary, fontSize: 8)),
+                color: FluxForgeTheme.textTertiary, fontSize: 8)),
             ],
           ),
           const SizedBox(height: 2),
@@ -764,7 +764,7 @@ class _BalanceMeter extends StatelessWidget {
       child: Column(
         children: [
           const Text('BALANCE', style: TextStyle(
-            color: ReelForgeTheme.textSecondary, fontSize: 8)),
+            color: FluxForgeTheme.textSecondary, fontSize: 8)),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -807,7 +807,7 @@ class _BalancePainter extends CustomPainter {
 
     canvas.drawRect(
       Rect.fromLTWH(barX, 2, barWidth, size.height - 4),
-      Paint()..color = ReelForgeTheme.accentBlue,
+      Paint()..color = FluxForgeTheme.accentBlue,
     );
   }
 
@@ -867,11 +867,11 @@ class _LoudnessValue extends StatelessWidget {
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: highlight
-              ? ReelForgeTheme.accentBlue.withOpacity(0.1)
+              ? FluxForgeTheme.accentBlue.withOpacity(0.1)
               : Colors.black.withOpacity(0.3),
           borderRadius: BorderRadius.circular(4),
           border: highlight
-              ? Border.all(color: ReelForgeTheme.accentBlue.withOpacity(0.3))
+              ? Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.3))
               : null,
         ),
         child: Column(
@@ -881,8 +881,8 @@ class _LoudnessValue extends StatelessWidget {
               label,
               style: TextStyle(
                 color: highlight
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textTertiary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textTertiary,
                 fontSize: 9,
                 fontWeight: FontWeight.w500,
               ),
@@ -891,8 +891,8 @@ class _LoudnessValue extends StatelessWidget {
               value > -70 ? value.toStringAsFixed(1) : '-∞',
               style: TextStyle(
                 color: highlight
-                    ? ReelForgeTheme.textPrimary
-                    : ReelForgeTheme.textSecondary,
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
@@ -901,7 +901,7 @@ class _LoudnessValue extends StatelessWidget {
             Text(
               unit,
               style: const TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 7,
               ),
             ),
@@ -969,7 +969,7 @@ class _LoudnessHistoryPainter extends CustomPainter {
     final targetBottom = _dbToY(-15, size.height);
     canvas.drawRect(
       Rect.fromLTRB(0, targetTop, size.width, targetBottom),
-      Paint()..color = ReelForgeTheme.accentGreen.withOpacity(0.1),
+      Paint()..color = FluxForgeTheme.accentGreen.withOpacity(0.1),
     );
 
     // History line
@@ -995,7 +995,7 @@ class _LoudnessHistoryPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = ReelForgeTheme.accentBlue
+        ..color = FluxForgeTheme.accentBlue
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -1050,7 +1050,7 @@ class _TruePeakDisplay extends StatelessWidget {
           const Text(
             'TRUE PEAK',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 9,
               fontWeight: FontWeight.w500,
             ),
@@ -1060,7 +1060,7 @@ class _TruePeakDisplay extends StatelessWidget {
             style: TextStyle(
               color: isOver
                   ? const Color(0xFFFF4040)
-                  : ReelForgeTheme.textPrimary,
+                  : FluxForgeTheme.textPrimary,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',

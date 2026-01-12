@@ -2,7 +2,7 @@
 name = "rf-spatial"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge Immersive Audio Engine - Atmos, HOA, MPEG-H, Binaural"
+description = "FluxForge Studio Immersive Audio Engine - Atmos, HOA, MPEG-H, Binaural"
 license = "MIT"
 
 [dependencies]

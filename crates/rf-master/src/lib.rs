@@ -1,4 +1,4 @@
-//! ReelForge Intelligent Mastering Engine
+//! FluxForge Studio Intelligent Mastering Engine
 //!
 //! AI-assisted mastering with genre-aware processing:
 //!

@@ -8,7 +8,7 @@
 /// - Performance monitoring
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// GPU processing mode
 enum GpuProcessingMode {
@@ -106,9 +106,9 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
       width: 400,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.4),
@@ -173,7 +173,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               Text(
                 'GPU DSP Settings',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -181,7 +181,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               Text(
                 'Hardware-accelerated audio processing',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 11,
                 ),
               ),
@@ -190,7 +190,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         ),
         IconButton(
           icon: const Icon(Icons.close, size: 18),
-          color: ReelForgeTheme.textSecondary,
+          color: FluxForgeTheme.textSecondary,
           onPressed: widget.onClose,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -205,12 +205,12 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: device.supportsCompute
               ? const Color(0xFF76B900).withOpacity(0.3)
-              : ReelForgeTheme.border,
+              : FluxForgeTheme.border,
         ),
       ),
       child: Column(
@@ -230,7 +230,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                 child: Text(
                   device.name,
                   style: const TextStyle(
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -260,14 +260,14 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         Text(
           label,
           style: const TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 9,
           ),
         ),
         Text(
           value,
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -283,7 +283,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         const Text(
           'Processing Mode',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -320,14 +320,14 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF76B900).withOpacity(0.2)
-              : ReelForgeTheme.surface,
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF76B900)
                 : canSelect
-                    ? ReelForgeTheme.border
-                    : ReelForgeTheme.border.withOpacity(0.3),
+                    ? FluxForgeTheme.border
+                    : FluxForgeTheme.border.withOpacity(0.3),
           ),
         ),
         child: Row(
@@ -339,18 +339,18 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               color: isSelected
                   ? const Color(0xFF76B900)
                   : canSelect
-                      ? ReelForgeTheme.textSecondary
-                      : ReelForgeTheme.textSecondary.withOpacity(0.3),
+                      ? FluxForgeTheme.textSecondary
+                      : FluxForgeTheme.textSecondary.withOpacity(0.3),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: isSelected
-                    ? ReelForgeTheme.textPrimary
+                    ? FluxForgeTheme.textPrimary
                     : canSelect
-                        ? ReelForgeTheme.textSecondary
-                        : ReelForgeTheme.textSecondary.withOpacity(0.3),
+                        ? FluxForgeTheme.textSecondary
+                        : FluxForgeTheme.textSecondary.withOpacity(0.3),
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -368,7 +368,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         const Text(
           'FFT Size',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -390,7 +390,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         Text(
           'Larger = better frequency resolution, higher latency',
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
             fontSize: 10,
           ),
         ),
@@ -411,17 +411,17 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? ReelForgeTheme.accentBlue.withOpacity(0.2)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           sizeK,
           style: TextStyle(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -436,7 +436,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -445,7 +445,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
           const Text(
             'Performance',
             style: TextStyle(
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
               fontSize: 10,
             ),
           ),
@@ -489,7 +489,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
             Text(
               label,
               style: const TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 10,
               ),
             ),
@@ -507,7 +507,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         Container(
           height: 4,
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(2),
           ),
           child: FractionallySizedBox(
@@ -532,14 +532,14 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         Text(
           label,
           style: const TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 9,
           ),
         ),
         Text(
           value,
           style: const TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 11,
             fontFamily: 'monospace',
           ),
@@ -558,12 +558,12 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         decoration: BoxDecoration(
           color: _enableAutoTuning
               ? const Color(0xFF76B900).withOpacity(0.1)
-              : ReelForgeTheme.surface,
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: _enableAutoTuning
                 ? const Color(0xFF76B900).withOpacity(0.5)
-                : ReelForgeTheme.border,
+                : FluxForgeTheme.border,
           ),
         ),
         child: Row(
@@ -572,7 +572,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               _enableAutoTuning ? Icons.auto_awesome : Icons.auto_awesome_outlined,
               color: _enableAutoTuning
                   ? const Color(0xFF76B900)
-                  : ReelForgeTheme.textSecondary,
+                  : FluxForgeTheme.textSecondary,
               size: 18,
             ),
             const SizedBox(width: 12),
@@ -583,7 +583,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                   Text(
                     'Auto-Tuning',
                     style: TextStyle(
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -591,7 +591,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                   Text(
                     'Automatically optimize workgroup size and batch parameters',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 10,
                     ),
                   ),
@@ -604,7 +604,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               decoration: BoxDecoration(
                 color: _enableAutoTuning
                     ? const Color(0xFF76B900)
-                    : ReelForgeTheme.bgMid,
+                    : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: AnimatedAlign(

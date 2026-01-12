@@ -1,11 +1,11 @@
-/// ReelForge Professional Spatial Processing Panel
+/// FluxForge Studio Professional Spatial Processing Panel
 ///
 /// Stereo imaging with Width, Pan, Balance, M/S processing, and Rotation.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Spatial processing mode
 enum SpatialMode {
@@ -130,9 +130,9 @@ class _SpatialPanelState extends State<SpatialPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surfaceDark,
+        color: FluxForgeTheme.surfaceDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,12 +153,12 @@ class _SpatialPanelState extends State<SpatialPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.spatial_audio, color: ReelForgeTheme.accentBlue, size: 20),
+        Icon(Icons.spatial_audio, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
           'Spatial',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -171,16 +171,16 @@ class _SpatialPanelState extends State<SpatialPanel> {
             decoration: BoxDecoration(
               color: _bypassed
                   ? Colors.orange.withValues(alpha: 0.3)
-                  : ReelForgeTheme.surface,
+                  : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.border,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.border,
               ),
             ),
             child: Text(
               'BYPASS',
               style: TextStyle(
-                color: _bypassed ? Colors.orange : ReelForgeTheme.textSecondary,
+                color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -231,11 +231,11 @@ class _SpatialPanelState extends State<SpatialPanel> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-                : ReelForgeTheme.surface,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                : FluxForgeTheme.surface,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+              color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
             ),
           ),
           child: Column(
@@ -243,14 +243,14 @@ class _SpatialPanelState extends State<SpatialPanel> {
               Icon(
                 icon,
                 size: 16,
-                color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                  color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -266,9 +266,9 @@ class _SpatialPanelState extends State<SpatialPanel> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.surface.withValues(alpha: 0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.border),
+        border: Border.all(color: FluxForgeTheme.border),
       ),
       child: Column(
         children: [
@@ -278,7 +278,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
               Text(
                 'Correlation',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -299,9 +299,9 @@ class _SpatialPanelState extends State<SpatialPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('-1', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 8)),
-              Text('0', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 8)),
-              Text('+1', style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 8)),
+              Text('-1', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
+              Text('0', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
+              Text('+1', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
             ],
           ),
         ],
@@ -403,17 +403,17 @@ class _SpatialPanelState extends State<SpatialPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
@@ -504,23 +504,23 @@ class _SpatialPanelState extends State<SpatialPanel> {
       children: [
         Text(
           'Pan Law',
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.surface,
+              color: FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.border),
+              border: Border.all(color: FluxForgeTheme.border),
             ),
             child: DropdownButton<PanLaw>(
               value: _panLaw,
               isExpanded: true,
-              dropdownColor: ReelForgeTheme.surfaceDark,
+              dropdownColor: FluxForgeTheme.surfaceDark,
               underline: const SizedBox(),
-              style: TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
               items: const [
                 DropdownMenuItem(value: PanLaw.linear, child: Text('Linear (-6dB)')),
                 DropdownMenuItem(value: PanLaw.constantPower, child: Text('Constant Power (-3dB)')),
@@ -637,14 +637,14 @@ class _SpatialPanelState extends State<SpatialPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.surface,
+          color: FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.border),
+          border: Border.all(color: FluxForgeTheme.border),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
           ),
         ),
@@ -723,17 +723,17 @@ class _SpatialPanelState extends State<SpatialPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-              : ReelForgeTheme.surface,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
             fontSize: 10,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
@@ -751,7 +751,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         const Spacer(),
         GestureDetector(
@@ -760,10 +760,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
             width: 40,
             height: 20,
             decoration: BoxDecoration(
-              color: enabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.surface,
+              color: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: enabled ? ReelForgeTheme.accentBlue : ReelForgeTheme.border,
+                color: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
               ),
             ),
             child: AnimatedAlign(
@@ -774,7 +774,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
                 height: 16,
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -796,7 +796,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
           ),
         ),
         Expanded(child: child),
@@ -805,7 +805,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
           child: Text(
             value,
             style: TextStyle(
-              color: ReelForgeTheme.accentBlue,
+              color: FluxForgeTheme.accentBlue,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -827,10 +827,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        activeTrackColor: ReelForgeTheme.accentBlue,
-        inactiveTrackColor: ReelForgeTheme.surface,
-        thumbColor: ReelForgeTheme.accentBlue,
-        overlayColor: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+        activeTrackColor: FluxForgeTheme.accentBlue,
+        inactiveTrackColor: FluxForgeTheme.surface,
+        thumbColor: FluxForgeTheme.accentBlue,
+        overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
       ),
       child: Slider(
         value: value.clamp(min, max),
@@ -853,7 +853,7 @@ class _CorrelationPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = ReelForgeTheme.surface;
+    final bgPaint = Paint()..color = FluxForgeTheme.surface;
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(2)),
       bgPaint,
@@ -875,7 +875,7 @@ class _CorrelationPainter extends CustomPainter {
 
     // Draw marker
     final markerPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 2;
     canvas.drawLine(
       Offset(markerX, 0),
@@ -901,7 +901,7 @@ class _WidthPainter extends CustomPainter {
 
     // Draw background arc
     final bgPaint = Paint()
-      ..color = ReelForgeTheme.surface
+      ..color = FluxForgeTheme.surface
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -918,7 +918,7 @@ class _WidthPainter extends CustomPainter {
     final startAngle = math.pi + (math.pi - widthAngle) / 2;
 
     final widthPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
@@ -936,14 +936,14 @@ class _WidthPainter extends CustomPainter {
 
     textPainter.text = TextSpan(
       text: 'L',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(10, centerY - 8));
 
     textPainter.text = TextSpan(
       text: 'R',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(size.width - 20, centerY - 8));
@@ -966,7 +966,7 @@ class _PanPainter extends CustomPainter {
 
     // Draw center line
     final linePaint = Paint()
-      ..color = ReelForgeTheme.border
+      ..color = FluxForgeTheme.border
       ..strokeWidth = 1;
 
     canvas.drawLine(
@@ -986,7 +986,7 @@ class _PanPainter extends CustomPainter {
     final panX = centerX + (pan * (size.width / 2 - 30));
 
     final panPaint = Paint()
-      ..color = ReelForgeTheme.accentBlue;
+      ..color = FluxForgeTheme.accentBlue;
 
     canvas.drawCircle(Offset(panX, centerY), 8, panPaint);
 
@@ -995,14 +995,14 @@ class _PanPainter extends CustomPainter {
 
     textPainter.text = TextSpan(
       text: 'L',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(5, centerY - 8));
 
     textPainter.text = TextSpan(
       text: 'R',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(size.width - 15, centerY - 8));
@@ -1026,7 +1026,7 @@ class _RotationPainter extends CustomPainter {
 
     // Draw circle
     final circlePaint = Paint()
-      ..color = ReelForgeTheme.surface
+      ..color = FluxForgeTheme.surface
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -1038,7 +1038,7 @@ class _RotationPainter extends CustomPainter {
     final lineEndY = centerY - radius * math.cos(angle);
 
     final linePaint = Paint()
-      ..color = ReelForgeTheme.accentBlue
+      ..color = FluxForgeTheme.accentBlue
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
 
@@ -1058,7 +1058,7 @@ class _RotationPainter extends CustomPainter {
 
     textPainter.text = TextSpan(
       text: 'L',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(leftX - 4, leftY - 6));
@@ -1070,7 +1070,7 @@ class _RotationPainter extends CustomPainter {
 
     textPainter.text = TextSpan(
       text: 'R',
-      style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(rightX - 4, rightY - 6));

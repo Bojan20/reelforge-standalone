@@ -6,7 +6,7 @@
 // - Initial settings
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 enum ProjectTemplate {
   empty,
@@ -64,7 +64,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please enter a project name'),
-          backgroundColor: ReelForgeTheme.accentRed,
+          backgroundColor: FluxForgeTheme.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -94,7 +94,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating project: $e'),
-            backgroundColor: ReelForgeTheme.accentRed,
+            backgroundColor: FluxForgeTheme.accentRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -107,10 +107,10 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       child: Container(
         width: 500,
@@ -123,13 +123,13 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
               children: [
                 Icon(
                   Icons.add_box,
-                  color: ReelForgeTheme.accentGreen,
+                  color: FluxForgeTheme.accentGreen,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'New Project',
-                  style: ReelForgeTheme.h2,
+                  style: FluxForgeTheme.h2,
                 ),
               ],
             ),
@@ -139,7 +139,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
             Text(
               'Project Name',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -147,21 +147,21 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: TextStyle(color: ReelForgeTheme.textPrimary),
+              style: TextStyle(color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: ReelForgeTheme.bgSurface,
+                fillColor: FluxForgeTheme.bgSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                  borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                  borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: ReelForgeTheme.accentBlue),
+                  borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -177,7 +177,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
             Text(
               'Template',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -207,21 +207,21 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                       Text(
                         'Sample Rate',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
                         value: _sampleRate,
-                        dropdownColor: ReelForgeTheme.bgMid,
-                        style: TextStyle(color: ReelForgeTheme.textPrimary),
+                        dropdownColor: FluxForgeTheme.bgMid,
+                        style: TextStyle(color: FluxForgeTheme.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: ReelForgeTheme.bgSurface,
+                          fillColor: FluxForgeTheme.bgSurface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -252,7 +252,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                       Text(
                         'Tempo (BPM)',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -260,13 +260,13 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                       TextField(
                         controller: _tempoController,
                         keyboardType: TextInputType.number,
-                        style: TextStyle(color: ReelForgeTheme.textPrimary),
+                        style: TextStyle(color: FluxForgeTheme.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: ReelForgeTheme.bgSurface,
+                          fillColor: FluxForgeTheme.bgSurface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+                            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -305,14 +305,14 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         )
                       : const Icon(Icons.add, size: 18),
                   label: Text(_isCreating ? 'Creating...' : 'Create Project'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ReelForgeTheme.accentGreen,
-                    foregroundColor: ReelForgeTheme.textPrimary,
+                    backgroundColor: FluxForgeTheme.accentGreen,
+                    foregroundColor: FluxForgeTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -340,7 +340,7 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
           Icon(
             icon,
             size: 14,
-            color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+            color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
           ),
           const SizedBox(width: 6),
           Text(label),
@@ -348,10 +348,10 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
       ),
       selected: isSelected,
       onSelected: (_) => setState(() => _selectedTemplate = template),
-      backgroundColor: ReelForgeTheme.bgSurface,
-      selectedColor: ReelForgeTheme.accentBlue,
+      backgroundColor: FluxForgeTheme.bgSurface,
+      selectedColor: FluxForgeTheme.accentBlue,
       labelStyle: TextStyle(
-        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
         fontSize: 12,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

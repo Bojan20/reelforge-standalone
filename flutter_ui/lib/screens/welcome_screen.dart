@@ -1,4 +1,4 @@
-/// ReelForge Welcome Screen
+/// FluxForge Studio Welcome Screen
 ///
 /// Professional welcome/start screen with:
 /// - New Project creation
@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
   final void Function(String name) onNewProject;
@@ -104,7 +104,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeepest,
+      backgroundColor: FluxForgeTheme.bgDeepest,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Stack(
@@ -129,7 +129,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   child: Text(
                     'Skip',
                     style: TextStyle(
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -142,17 +142,17 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               left: 16,
               child: TextButton.icon(
                 onPressed: () => Navigator.pushNamed(context, '/eq-test'),
-                icon: Icon(Icons.graphic_eq, color: ReelForgeTheme.accentBlue, size: 16),
+                icon: Icon(Icons.graphic_eq, color: FluxForgeTheme.accentBlue, size: 16),
                 label: Text(
                   'EQ Test Lab',
                   style: TextStyle(
-                    color: ReelForgeTheme.accentBlue,
+                    color: FluxForgeTheme.accentBlue,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.accentBlue.withOpacity(0.1),
+                  backgroundColor: FluxForgeTheme.accentBlue.withOpacity(0.1),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
@@ -170,8 +170,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           center: const Alignment(-0.3, -0.5),
           radius: 1.5,
           colors: [
-            ReelForgeTheme.bgMid,
-            ReelForgeTheme.bgDeepest,
+            FluxForgeTheme.bgMid,
+            FluxForgeTheme.bgDeepest,
           ],
         ),
       ),
@@ -232,10 +232,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                 // Version
                 Text(
-                  'ReelForge v0.1.0',
+                  'FluxForge Studio v0.1.0',
                   style: TextStyle(
                     fontSize: 11,
-                    color: ReelForgeTheme.textSecondary.withAlpha(128),
+                    color: FluxForgeTheme.textSecondary.withAlpha(128),
                   ),
                 ),
               ],
@@ -257,7 +257,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 2,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -266,17 +266,17 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgElevated.withAlpha(128),
+                      color: FluxForgeTheme.bgElevated.withAlpha(128),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: ReelForgeTheme.borderSubtle,
+                        color: FluxForgeTheme.borderSubtle,
                       ),
                     ),
                     child: Center(
                       child: Text(
                         'No recent projects',
                         style: TextStyle(
-                          color: ReelForgeTheme.textSecondary,
+                          color: FluxForgeTheme.textSecondary,
                           fontSize: 13,
                         ),
                       ),
@@ -312,12 +312,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                ReelForgeTheme.accentBlue.withAlpha(77),
-                ReelForgeTheme.accentCyan.withAlpha(51),
+                FluxForgeTheme.accentBlue.withAlpha(77),
+                FluxForgeTheme.accentCyan.withAlpha(51),
               ],
             ),
             border: Border.all(
-              color: ReelForgeTheme.accentBlue.withAlpha(128),
+              color: FluxForgeTheme.accentBlue.withAlpha(128),
               width: 1.5,
             ),
           ),
@@ -325,8 +325,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             child: ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentBlue,
-                  ReelForgeTheme.accentCyan,
+                  FluxForgeTheme.accentBlue,
+                  FluxForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
               child: Text(
@@ -334,7 +334,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w200,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               ),
             ),
@@ -348,27 +348,27 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentBlue,
-                  ReelForgeTheme.accentCyan,
+                  FluxForgeTheme.accentBlue,
+                  FluxForgeTheme.accentCyan,
                 ],
               ).createShader(bounds),
               child: Text(
-                'ReelForge',
+                'FluxForge Studio',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w300,
                   letterSpacing: 4,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               ),
             ),
             Text(
-              'DIGITAL AUDIO WORKSTATION',
+              'AUTHORING TOOL & DAW',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 3,
-                color: ReelForgeTheme.textSecondary.withAlpha(179),
+                color: FluxForgeTheme.textSecondary.withAlpha(179),
               ),
             ),
           ],
@@ -393,13 +393,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             color: primary
-                ? ReelForgeTheme.accentBlue.withAlpha(26)
-                : ReelForgeTheme.bgElevated.withAlpha(128),
+                ? FluxForgeTheme.accentBlue.withAlpha(26)
+                : FluxForgeTheme.bgElevated.withAlpha(128),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: primary
-                  ? ReelForgeTheme.accentBlue.withAlpha(77)
-                  : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.accentBlue.withAlpha(77)
+                  : FluxForgeTheme.borderSubtle,
             ),
           ),
           child: Row(
@@ -409,15 +409,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 height: 40,
                 decoration: BoxDecoration(
                   color: primary
-                      ? ReelForgeTheme.accentBlue.withAlpha(51)
-                      : ReelForgeTheme.bgMid,
+                      ? FluxForgeTheme.accentBlue.withAlpha(51)
+                      : FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(
                   icon,
                   color: primary
-                      ? ReelForgeTheme.accentBlue
-                      : ReelForgeTheme.textSecondary,
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.textSecondary,
                   size: 20,
                 ),
               ),
@@ -431,8 +431,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: primary
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -440,7 +440,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     sublabel,
                     style: TextStyle(
                       fontSize: 11,
-                      color: ReelForgeTheme.textSecondary.withAlpha(179),
+                      color: FluxForgeTheme.textSecondary.withAlpha(179),
                     ),
                   ),
                 ],
@@ -462,10 +462,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgElevated.withAlpha(77),
+            color: FluxForgeTheme.bgElevated.withAlpha(77),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: ReelForgeTheme.borderSubtle.withAlpha(128),
+              color: FluxForgeTheme.borderSubtle.withAlpha(128),
             ),
           ),
           child: Row(
@@ -474,12 +474,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgMid,
+                  color: FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Icon(
                   Icons.audio_file_rounded,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   size: 18,
                 ),
               ),
@@ -492,7 +492,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       project.name,
                       style: TextStyle(
                         fontSize: 13,
-                        color: ReelForgeTheme.textPrimary,
+                        color: FluxForgeTheme.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -502,7 +502,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       timeAgo,
                       style: TextStyle(
                         fontSize: 10,
-                        color: ReelForgeTheme.textSecondary.withAlpha(179),
+                        color: FluxForgeTheme.textSecondary.withAlpha(179),
                       ),
                     ),
                   ],
@@ -520,14 +520,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       width: 400,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgElevated,
+        color: FluxForgeTheme.bgElevated,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ReelForgeTheme.borderSubtle,
+          color: FluxForgeTheme.borderSubtle,
         ),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withAlpha(200),
+            color: FluxForgeTheme.bgVoid.withAlpha(200),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -542,7 +542,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 24),
@@ -554,7 +554,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -563,27 +563,27 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             autofocus: true,
             style: TextStyle(
               fontSize: 14,
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
             decoration: InputDecoration(
               filled: true,
-              fillColor: ReelForgeTheme.bgMid,
+              fillColor: FluxForgeTheme.bgMid,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide(
-                  color: ReelForgeTheme.borderSubtle,
+                  color: FluxForgeTheme.borderSubtle,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide(
-                  color: ReelForgeTheme.borderSubtle,
+                  color: FluxForgeTheme.borderSubtle,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide(
-                  color: ReelForgeTheme.accentBlue,
+                  color: FluxForgeTheme.accentBlue,
                 ),
               ),
               contentPadding: const EdgeInsets.symmetric(
@@ -605,7 +605,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 child: Text(
                   'Cancel',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
               ),
@@ -613,8 +613,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ElevatedButton(
                 onPressed: _confirmNewProject,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ReelForgeTheme.accentBlue,
-                  foregroundColor: ReelForgeTheme.textPrimary,
+                  backgroundColor: FluxForgeTheme.accentBlue,
+                  foregroundColor: FluxForgeTheme.textPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,

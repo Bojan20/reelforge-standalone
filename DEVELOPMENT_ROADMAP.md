@@ -1,4 +1,4 @@
-# ReelForge Development Roadmap
+# FluxForge Studio Development Roadmap
 
 ## Kompletan pregled svega što treba implementirati
 
@@ -347,7 +347,7 @@ Status: **NEDOSTAJE**
 
 ### vs Cubase Pro 14
 
-| Feature | Cubase | ReelForge | Gap |
+| Feature | Cubase | FluxForge Studio | Gap |
 |---------|--------|-----------|-----|
 | Audio engine | ✅ | ✅ | - |
 | MIDI editing | ✅✅✅ | ⚠️ | UI |
@@ -364,7 +364,7 @@ Status: **NEDOSTAJE**
 
 ### vs Pro Tools
 
-| Feature | Pro Tools | ReelForge | Gap |
+| Feature | Pro Tools | FluxForge Studio | Gap |
 |---------|-----------|-----------|-----|
 | Audio engine | ✅ | ✅ | - |
 | Edit modes | ✅ | ✅ | - |
@@ -379,7 +379,7 @@ Status: **NEDOSTAJE**
 
 ### vs Ableton Live 12
 
-| Feature | Live | ReelForge | Gap |
+| Feature | Live | FluxForge Studio | Gap |
 |---------|------|-----------|-----|
 | Session View | ✅✅✅ | ❌ | Full |
 | Arrangement | ✅ | ✅ | - |
@@ -392,7 +392,7 @@ Status: **NEDOSTAJE**
 
 ### vs Logic Pro 11
 
-| Feature | Logic | ReelForge | Gap |
+| Feature | Logic | FluxForge Studio | Gap |
 |---------|-------|-----------|-----|
 | Audio engine | ✅ | ✅ | - |
 | Flex Time | ✅ | ✅ DSP | UI |
@@ -406,7 +406,7 @@ Status: **NEDOSTAJE**
 
 ### vs REAPER 7
 
-| Feature | REAPER | ReelForge | Gap |
+| Feature | REAPER | FluxForge Studio | Gap |
 |---------|--------|-----------|-----|
 | Track architecture | Unified | Unified | Same |
 | Routing | ✅✅ | ✅ | - |
@@ -473,4 +473,4 @@ Status: **NEDOSTAJE**
 ---
 
 *Generisano automatski od strane Claude Code*
-*ReelForge Standalone DAW Development Roadmap*
+*FluxForge Studio DAW Development Roadmap*

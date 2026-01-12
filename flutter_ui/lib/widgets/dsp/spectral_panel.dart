@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 enum SpectralMode { noiseGate, freeze, compressor, declick }
 
@@ -97,16 +97,16 @@ class _SpectralPanelState extends State<SpectralPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildModeSelector(),
-          Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(child: _buildModeContent()),
         ],
       ),
@@ -118,12 +118,12 @@ class _SpectralPanelState extends State<SpectralPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(Icons.waves, color: ReelForgeTheme.accentCyan, size: 20),
+          Icon(Icons.waves, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
           Text(
             'SPECTRAL',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -133,7 +133,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
           Text(
             _modeName(_mode),
             style: TextStyle(
-              color: ReelForgeTheme.accentCyan,
+              color: FluxForgeTheme.accentCyan,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -166,17 +166,17 @@ class _SpectralPanelState extends State<SpectralPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.bgMid,
+                    color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: isSelected ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderMedium,
+                      color: isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.borderMedium,
                     ),
                   ),
                   child: Center(
                     child: Text(
                       _modeIcon(mode),
                       style: TextStyle(
-                        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                         fontSize: 16,
                       ),
                     ),
@@ -228,10 +228,10 @@ class _SpectralPanelState extends State<SpectralPanel> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: _learningNoise ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
+                color: _learningNoise ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: _learningNoise ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium,
+                  color: _learningNoise ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium,
                 ),
               ),
               child: Row(
@@ -239,14 +239,14 @@ class _SpectralPanelState extends State<SpectralPanel> {
                 children: [
                   Icon(
                     _learningNoise ? Icons.stop : Icons.mic,
-                    color: _learningNoise ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                    color: _learningNoise ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     _learningNoise ? 'LEARNING...' : 'LEARN NOISE PROFILE',
                     style: TextStyle(
-                      color: _learningNoise ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                      color: _learningNoise ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -302,14 +302,14 @@ class _SpectralPanelState extends State<SpectralPanel> {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _frozen ? ReelForgeTheme.accentCyan : ReelForgeTheme.bgMid,
+                color: _frozen ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgMid,
                 border: Border.all(
-                  color: _frozen ? ReelForgeTheme.accentCyan : ReelForgeTheme.borderMedium,
+                  color: _frozen ? FluxForgeTheme.accentCyan : FluxForgeTheme.borderMedium,
                   width: 3,
                 ),
                 boxShadow: _frozen ? [
                   BoxShadow(
-                    color: ReelForgeTheme.accentCyan.withValues(alpha: 0.5),
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -318,7 +318,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
               child: Center(
                 child: Icon(
                   _frozen ? Icons.ac_unit : Icons.pause,
-                  color: _frozen ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                  color: _frozen ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                   size: 48,
                 ),
               ),
@@ -328,7 +328,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
           Text(
             _frozen ? 'FROZEN' : 'TAP TO FREEZE',
             style: TextStyle(
-              color: _frozen ? ReelForgeTheme.accentCyan : ReelForgeTheme.textTertiary,
+              color: _frozen ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -387,7 +387,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
         children: [
           Text(
             'Automatically detects and removes clicks, pops, and crackles.',
-            style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12),
+            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
           ),
           const SizedBox(height: 24),
           _buildSlider('SENSITIVITY', _declickThreshold, 1, 20, 'dB', (v) {
@@ -416,7 +416,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
             Text(
               label,
               style: TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
@@ -425,7 +425,7 @@ class _SpectralPanelState extends State<SpectralPanel> {
             Text(
               '${value.toStringAsFixed(1)} $unit',
               style: TextStyle(
-                color: ReelForgeTheme.accentCyan,
+                color: FluxForgeTheme.accentCyan,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -436,11 +436,11 @@ class _SpectralPanelState extends State<SpectralPanel> {
         SliderTheme(
           data: SliderThemeData(
             trackHeight: 4,
-            activeTrackColor: ReelForgeTheme.accentCyan,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
-            thumbColor: ReelForgeTheme.accentCyan,
+            activeTrackColor: FluxForgeTheme.accentCyan,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
+            thumbColor: FluxForgeTheme.accentCyan,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+            overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value.clamp(min, max),

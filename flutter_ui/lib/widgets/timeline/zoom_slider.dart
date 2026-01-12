@@ -11,7 +11,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class ZoomSlider extends StatefulWidget {
   /// Current zoom level (pixels per second)
@@ -139,9 +139,9 @@ class _ZoomSliderState extends State<ZoomSlider> {
       width: widget.width,
       height: 24,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         children: [
@@ -179,7 +179,7 @@ class _ZoomSliderState extends State<ZoomSlider> {
                         child: Container(
                           height: 4,
                           decoration: BoxDecoration(
-                            color: ReelForgeTheme.bgDeepest,
+                            color: FluxForgeTheme.bgDeepest,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -192,7 +192,7 @@ class _ZoomSliderState extends State<ZoomSlider> {
                           width: (sliderWidth - 8) * normalized,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5),
+                            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -206,18 +206,18 @@ class _ZoomSliderState extends State<ZoomSlider> {
                           height: 16,
                           decoration: BoxDecoration(
                             color: _isDragging
-                                ? ReelForgeTheme.accentBlue
-                                : ReelForgeTheme.bgElevated,
+                                ? FluxForgeTheme.accentBlue
+                                : FluxForgeTheme.bgElevated,
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(
                               color: _isDragging
-                                  ? ReelForgeTheme.accentBlue
-                                  : ReelForgeTheme.borderMedium,
+                                  ? FluxForgeTheme.accentBlue
+                                  : FluxForgeTheme.borderMedium,
                             ),
                             boxShadow: _isDragging
                                 ? [
                                     BoxShadow(
-                                      color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                                       blurRadius: 4,
                                     ),
                                   ]
@@ -228,7 +228,7 @@ class _ZoomSliderState extends State<ZoomSlider> {
                               width: 4,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: ReelForgeTheme.textTertiary,
+                                color: FluxForgeTheme.textTertiary,
                                 borderRadius: BorderRadius.circular(1),
                               ),
                             ),
@@ -244,14 +244,14 @@ class _ZoomSliderState extends State<ZoomSlider> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             decoration: BoxDecoration(
-                              color: ReelForgeTheme.bgDeepest,
+                              color: FluxForgeTheme.bgDeepest,
                               borderRadius: BorderRadius.circular(3),
-                              border: Border.all(color: ReelForgeTheme.accentBlue),
+                              border: Border.all(color: FluxForgeTheme.accentBlue),
                             ),
                             child: Text(
                               '${_formatZoom(widget.zoom)} px/s',
-                              style: ReelForgeTheme.monoSmall.copyWith(
-                                color: ReelForgeTheme.accentBlue,
+                              style: FluxForgeTheme.monoSmall.copyWith(
+                                color: FluxForgeTheme.accentBlue,
                                 fontSize: 9,
                               ),
                             ),
@@ -300,17 +300,17 @@ class _ZoomButton extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               right: icon == Icons.remove
-                  ? BorderSide(color: ReelForgeTheme.borderSubtle)
+                  ? BorderSide(color: FluxForgeTheme.borderSubtle)
                   : BorderSide.none,
               left: icon == Icons.add
-                  ? BorderSide(color: ReelForgeTheme.borderSubtle)
+                  ? BorderSide(color: FluxForgeTheme.borderSubtle)
                   : BorderSide.none,
             ),
           ),
           child: Icon(
             icon,
             size: 14,
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
       ),
@@ -336,9 +336,9 @@ class ZoomIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -346,12 +346,12 @@ class ZoomIndicator extends StatelessWidget {
             Icon(
               Icons.zoom_in,
               size: 12,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
             const SizedBox(width: 4),
             Text(
               '${zoom.toStringAsFixed(0)} px/s',
-              style: ReelForgeTheme.monoSmall,
+              style: FluxForgeTheme.monoSmall,
             ),
           ],
         ),

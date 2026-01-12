@@ -10,7 +10,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Time stretch algorithm
 enum StretchAlgorithm {
@@ -230,14 +230,14 @@ class _WarpHandlesState extends State<WarpHandles> {
           width: handleWidth,
           decoration: BoxDecoration(
             color: (isHovered || isDragging)
-                ? ReelForgeTheme.accentOrange.withValues(alpha: 0.4)
-                : ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4)
+                : FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
             borderRadius: BorderRadius.horizontal(
               left: isLeft ? const Radius.circular(4) : Radius.zero,
               right: isLeft ? Radius.zero : const Radius.circular(4),
             ),
             border: Border.all(
-              color: ReelForgeTheme.accentOrange,
+              color: FluxForgeTheme.accentOrange,
               width: (isHovered || isDragging) ? 2 : 1,
             ),
           ),
@@ -249,7 +249,7 @@ class _WarpHandlesState extends State<WarpHandles> {
                   width: 2,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentOrange,
+                    color: FluxForgeTheme.accentOrange,
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -258,7 +258,7 @@ class _WarpHandlesState extends State<WarpHandles> {
                   width: 2,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentOrange,
+                    color: FluxForgeTheme.accentOrange,
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -301,11 +301,11 @@ class _WarpHandlesState extends State<WarpHandles> {
             width: 8,
             decoration: BoxDecoration(
               color: isDragging
-                  ? ReelForgeTheme.accentCyan.withValues(alpha: 0.5)
-                  : ReelForgeTheme.accentCyan.withValues(alpha: 0.3),
+                  ? FluxForgeTheme.accentCyan.withValues(alpha: 0.5)
+                  : FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
               border: Border.symmetric(
                 vertical: BorderSide(
-                  color: marker.isLocked ? Colors.white38 : ReelForgeTheme.accentCyan,
+                  color: marker.isLocked ? Colors.white38 : FluxForgeTheme.accentCyan,
                   width: 1,
                 ),
               ),
@@ -314,7 +314,7 @@ class _WarpHandlesState extends State<WarpHandles> {
               child: Icon(
                 marker.isLocked ? Icons.lock : Icons.drag_indicator,
                 size: 10,
-                color: marker.isLocked ? Colors.white38 : ReelForgeTheme.accentCyan,
+                color: marker.isLocked ? Colors.white38 : FluxForgeTheme.accentCyan,
               ),
             ),
           ),
@@ -327,7 +327,7 @@ class _WarpHandlesState extends State<WarpHandles> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.accentOrange.withValues(alpha: 0.9),
+        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Row(
@@ -405,7 +405,7 @@ class StretchAlgorithmSelector extends StatelessWidget {
     return PopupMenuButton<StretchAlgorithm>(
       initialValue: current,
       tooltip: 'Stretch Algorithm',
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       onSelected: onChanged,
       itemBuilder: (ctx) => StretchAlgorithm.values.map((algo) {
         return PopupMenuItem(
@@ -415,7 +415,7 @@ class StretchAlgorithmSelector extends StatelessWidget {
               Icon(
                 _getAlgorithmIcon(algo),
                 size: 16,
-                color: algo == current ? ReelForgeTheme.accentOrange : Colors.white54,
+                color: algo == current ? FluxForgeTheme.accentOrange : Colors.white54,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -425,7 +425,7 @@ class StretchAlgorithmSelector extends StatelessWidget {
                     Text(
                       algo.label,
                       style: TextStyle(
-                        color: algo == current ? ReelForgeTheme.accentOrange : Colors.white,
+                        color: algo == current ? FluxForgeTheme.accentOrange : Colors.white,
                         fontSize: 12,
                         fontWeight: algo == current ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -438,7 +438,7 @@ class StretchAlgorithmSelector extends StatelessWidget {
                 ),
               ),
               if (algo == current)
-                const Icon(Icons.check, size: 16, color: ReelForgeTheme.accentOrange),
+                const Icon(Icons.check, size: 16, color: FluxForgeTheme.accentOrange),
             ],
           ),
         );
@@ -446,14 +446,14 @@ class StretchAlgorithmSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeep,
+          color: FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_getAlgorithmIcon(current), size: 14, color: ReelForgeTheme.accentOrange),
+            Icon(_getAlgorithmIcon(current), size: 14, color: FluxForgeTheme.accentOrange),
             const SizedBox(width: 6),
             Text(
               current.label,

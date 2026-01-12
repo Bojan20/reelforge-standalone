@@ -8,7 +8,7 @@
 /// - Multi-clip selection support
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Selection range data
 class TimeSelection {
@@ -157,9 +157,9 @@ class _SelectionRangeOverlayState extends State<SelectionRangeOverlay> {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.accentBlue.withValues(alpha: 0.15),
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
                   border: Border.all(
-                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.6),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
                     width: 1,
                   ),
                 ),
@@ -181,8 +181,8 @@ class _SelectionRangeOverlayState extends State<SelectionRangeOverlay> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: _isDraggingStart
-                          ? ReelForgeTheme.accentBlue
-                          : ReelForgeTheme.accentBlue.withValues(alpha: 0.6),
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(2),
                         bottomLeft: Radius.circular(2),
@@ -208,8 +208,8 @@ class _SelectionRangeOverlayState extends State<SelectionRangeOverlay> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: _isDraggingEnd
-                          ? ReelForgeTheme.accentBlue
-                          : ReelForgeTheme.accentBlue.withValues(alpha: 0.6),
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(2),
                         bottomRight: Radius.circular(2),
@@ -230,15 +230,15 @@ class _SelectionRangeOverlayState extends State<SelectionRangeOverlay> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.9),
+                      color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5)),
+                      border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
                     ),
                     child: Text(
                       _formatDuration(selection.duration),
-                      style: ReelForgeTheme.monoSmall.copyWith(
+                      style: FluxForgeTheme.monoSmall.copyWith(
                         fontSize: 9,
-                        color: ReelForgeTheme.accentBlue,
+                        color: FluxForgeTheme.accentBlue,
                       ),
                     ),
                   ),

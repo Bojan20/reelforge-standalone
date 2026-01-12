@@ -8,7 +8,7 @@
 // - Waveform of frozen audio
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Freeze state for a track
 enum FreezeState {
@@ -207,18 +207,18 @@ class FreezeTrackOverlay extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep.withValues(alpha: 0.9),
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (info.cpuSavings > 0) ...[
-            const Icon(Icons.speed, size: 10, color: ReelForgeTheme.accentGreen),
+            const Icon(Icons.speed, size: 10, color: FluxForgeTheme.accentGreen),
             const SizedBox(width: 3),
             Text(
               '-${info.cpuSavings.toStringAsFixed(0)}% CPU',
-              style: const TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 9),
+              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
             ),
             const SizedBox(width: 6),
           ],
@@ -289,7 +289,7 @@ class FreezeTrackButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: isFrozen
                 ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
-                : ReelForgeTheme.bgDeep,
+                : FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isFrozen
@@ -343,7 +343,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       title: Row(
         children: [
           const Icon(Icons.ac_unit, color: Color(0xFF00BCD4), size: 20),
@@ -385,7 +385,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
               contentPadding: EdgeInsets.zero,
               dense: true,
             ),
-            const Divider(height: 24, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 24, color: FluxForgeTheme.borderSubtle),
             CheckboxListTile(
               value: _tailMode,
               onChanged: (v) => setState(() => _tailMode = v ?? true),

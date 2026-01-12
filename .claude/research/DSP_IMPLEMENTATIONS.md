@@ -21,7 +21,7 @@
 7. [Metering Standards](#7-metering-standards)
 8. [Spectrum Analysis](#8-spectrum-analysis)
 9. [CPU Efficiency Techniques](#9-cpu-efficiency-techniques)
-10. [Implementation Recommendations](#10-implementation-recommendations-for-reelforge)
+10. [Implementation Recommendations](#10-implementation-recommendations-for-fluxforge)
 
 ---
 
@@ -706,7 +706,7 @@ RAM: ~100-200 cycles
 
 ---
 
-## 10. Implementation Recommendations for ReelForge
+## 10. Implementation Recommendations for FluxForge Studio
 
 ### EQ Architecture
 
@@ -854,5 +854,5 @@ pub struct DynamicEqBand {
 
 ---
 
-*Document prepared for ReelForge Standalone project*
+*Document prepared for FluxForge Studio project*
 *Lead DSP Engineer Analysis — January 2026*

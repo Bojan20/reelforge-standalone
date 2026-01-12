@@ -1,4 +1,4 @@
-//! rf-bridge: Flutter-Rust Bridge for ReelForge DAW
+//! rf-bridge: Flutter-Rust Bridge for FluxForge Studio DAW
 //!
 //! Provides FFI bindings for Flutter frontend to communicate with:
 //! - Audio engine (transport, metering, routing)

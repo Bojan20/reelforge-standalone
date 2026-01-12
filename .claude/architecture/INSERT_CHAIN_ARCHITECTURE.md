@@ -1,4 +1,4 @@
-# ReelForge Insert Chain Architecture
+# FluxForge Studio Insert Chain Architecture
 
 ## IMPLEMENTED SOLUTION (2026-01-11)
 

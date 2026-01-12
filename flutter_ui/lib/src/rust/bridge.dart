@@ -1,4 +1,4 @@
-/// ReelForge Rust Bridge
+/// FluxForge Studio Rust Bridge
 ///
 /// FFI bindings for the Rust audio engine.
 /// Generated types and API wrappers for Flutter.

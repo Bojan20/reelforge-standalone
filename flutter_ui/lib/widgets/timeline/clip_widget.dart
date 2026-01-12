@@ -13,13 +13,13 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
 import '../editors/clip_fx_editor.dart';
+import '../../src/rust/native_ffi.dart';
 
 import 'stretch_overlay.dart';
-// Note: waveform_cache.dart no longer used here - using lightweight _WaveformCanvas instead
 
 /// Global flag to prevent playhead movement when interacting with fade handles
 /// Set to true when pointer down on fade handle, cleared on pointer up
@@ -200,11 +200,11 @@ class _ClipWidgetState extends State<ClipWidget> {
             value: 'audio_editor',
             child: Row(
               children: [
-                Icon(Icons.graphic_eq, size: 18, color: ReelForgeTheme.accentBlue),
+                Icon(Icons.graphic_eq, size: 18, color: FluxForgeTheme.accentBlue),
                 const SizedBox(width: 8),
-                Text('Edit Audio', style: TextStyle(color: ReelForgeTheme.accentBlue)),
+                Text('Edit Audio', style: TextStyle(color: FluxForgeTheme.accentBlue)),
                 const Spacer(),
-                Text('Double-Click', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+                Text('Double-Click', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
               ],
             ),
           ),
@@ -216,7 +216,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Rename'),
               const Spacer(),
-              Text('F2', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+              Text('F2', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -228,7 +228,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Duplicate'),
               const Spacer(),
-              Text('⌘D', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+              Text('⌘D', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -240,7 +240,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               const Text('Split at Playhead'),
               const Spacer(),
-              Text('S', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+              Text('S', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -253,7 +253,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               Text(clip.muted ? 'Unmute' : 'Mute'),
               const Spacer(),
-              Text('M', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+              Text('M', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -272,11 +272,11 @@ class _ClipWidgetState extends State<ClipWidget> {
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 18, color: ReelForgeTheme.accentRed),
+              Icon(Icons.delete, size: 18, color: FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: ReelForgeTheme.accentRed)),
+              Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
               const Spacer(),
-              Text('⌫', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 12)),
+              Text('⌫', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
           ),
         ),
@@ -494,8 +494,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                       ? TextField(
                           controller: _nameController,
                           focusNode: _focusNode,
-                          style: ReelForgeTheme.bodySmall.copyWith(
-                            color: ReelForgeTheme.textPrimary,
+                          style: FluxForgeTheme.bodySmall.copyWith(
+                            color: FluxForgeTheme.textPrimary,
                           ),
                           decoration: const InputDecoration(
                             isDense: true,
@@ -507,8 +507,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                         )
                       : Text(
                           clip.name,
-                          style: ReelForgeTheme.bodySmall.copyWith(
-                            color: ReelForgeTheme.textPrimary,
+                          style: FluxForgeTheme.bodySmall.copyWith(
+                            color: FluxForgeTheme.textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -541,15 +541,15 @@ class _ClipWidgetState extends State<ClipWidget> {
                       ),
                       decoration: BoxDecoration(
                         color: _isDraggingGain
-                            ? ReelForgeTheme.accentBlue
-                            : ReelForgeTheme.bgVoid.withValues(alpha: 0.7),
+                            ? FluxForgeTheme.accentBlue
+                            : FluxForgeTheme.bgVoid.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         _gainDisplay,
                         style: TextStyle(
                           fontSize: 9,
-                          color: ReelForgeTheme.textPrimary,
+                          color: FluxForgeTheme.textPrimary,
                           fontFamily: 'JetBrains Mono',
                         ),
                       ),
@@ -765,6 +765,7 @@ class _ClipWidgetState extends State<ClipWidget> {
 
 // ============ Ultimate Clip Waveform ============
 /// Advanced waveform widget for clips - best of all DAWs
+/// Uses Cubase-style caching: only query FFI when zoom level changes significantly
 
 class _UltimateClipWaveform extends StatefulWidget {
   final String clipId;
@@ -794,41 +795,188 @@ class _UltimateClipWaveform extends StatefulWidget {
 }
 
 class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
-  // PERFORMANCE: No more waveform data caching in state
-  // We now use _WaveformCanvas directly which has its own shouldRepaint
+  // FIXED SIZE cache - render ONCE at fixed resolution, GPU scales during zoom
+  // This is the Cubase secret: NEVER re-render on zoom, only on clip change
+  static const int _fixedPixels = 2048; // Balance between detail and smooth zoom
+
+  WaveformPixelData? _cachedData;
+  int _cachedClipId = 0;
+  double _cachedSourceOffset = -1;
+  double _cachedDuration = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCacheOnce();
+  }
+
+  @override
+  void didUpdateWidget(_UltimateClipWaveform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // ONLY reload if CLIP CONTENT changed - NEVER on zoom!
+    final clipChanged = widget.clipId != oldWidget.clipId;
+    final offsetChanged = (widget.sourceOffset - oldWidget.sourceOffset).abs() > 0.01;
+    final durationChanged = (widget.duration - oldWidget.duration).abs() > 0.01;
+
+    if (clipChanged || offsetChanged || durationChanged) {
+      _loadCacheOnce();
+    }
+  }
+
+  void _loadCacheOnce() {
+    final clipIdNum = int.tryParse(widget.clipId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (clipIdNum <= 0 || widget.duration <= 0) return;
+
+    // Skip if already cached for this clip
+    if (_cachedClipId == clipIdNum &&
+        (_cachedSourceOffset - widget.sourceOffset).abs() < 0.01 &&
+        (_cachedDuration - widget.duration).abs() < 0.01) {
+      return;
+    }
+
+    final sampleRate = NativeFFI.instance.getWaveformSampleRate(clipIdNum);
+    final totalSamples = NativeFFI.instance.getWaveformTotalSamples(clipIdNum);
+    if (totalSamples <= 0) return;
+
+    final startFrame = (widget.sourceOffset * sampleRate).round();
+    final endFrame = ((widget.sourceOffset + widget.duration) * sampleRate).round();
+
+    // Render at FIXED resolution - GPU will scale this to any zoom level
+    final data = NativeFFI.instance.queryWaveformPixels(
+      clipIdNum, startFrame, endFrame, _fixedPixels,
+    );
+
+    if (data != null && !data.isEmpty) {
+      _cachedData = data;
+      _cachedClipId = clipIdNum;
+      _cachedSourceOffset = widget.sourceOffset;
+      _cachedDuration = widget.duration;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // PERFORMANCE: Use lightweight _WaveformCanvas instead of UltimateWaveform
-    // for timeline clips. UltimateWaveform has playhead in shouldRepaint which
-    // causes unnecessary repaints during playback.
-    //
-    // _WaveformCanvas:
-    // - No playhead dependency
-    // - Simple shouldRepaint (only waveform/color changes)
-    // - 4-level LOD still provides good quality
-    // - Much lighter memory footprint
-    // - Pre-allocated Paint objects
-
-    if (widget.waveform.isEmpty) {
+    if (widget.waveform.isEmpty && _cachedData == null) {
       return const SizedBox.shrink();
     }
 
-    // Logic Pro style: CLEAN WHITE waveform on BLUE background
-    const waveColor = Color(0xFFFFFFFF); // Pure white
+    const waveColor = Color(0xFFFFFFFF);
 
+    // Cached path - GPU scales fixed-resolution waveform
+    if (_cachedData != null && !_cachedData!.isEmpty) {
+      return RepaintBoundary(
+        child: ClipRect(
+          child: Transform.scale(
+            scaleY: widget.gain,
+            child: CustomPaint(
+              // Let CustomPaint fill available space, painter stretches data
+              painter: _CubaseWaveformPainter(
+                mins: _cachedData!.mins,
+                maxs: _cachedData!.maxs,
+                rms: _cachedData!.rms,
+                color: waveColor,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback - simple legacy waveform
     return RepaintBoundary(
-      child: Transform.scale(
-        scaleY: widget.gain,
-        child: _WaveformCanvas(
-          waveform: widget.waveform,
-          sourceOffset: widget.sourceOffset,
-          duration: widget.duration,
-          color: waveColor,
+      child: ClipRect(
+        child: Transform.scale(
+          scaleY: widget.gain,
+          child: _WaveformCanvas(
+            waveform: widget.waveform,
+            sourceOffset: widget.sourceOffset,
+            duration: widget.duration,
+            color: waveColor,
+          ),
         ),
       ),
     );
   }
+}
+
+// ============ Cubase-Style Waveform Painter ============
+// Uses pre-computed min/max/rms from Rust cache for accurate rendering
+// Draws filled polygon following min/max envelope for smooth waveform look
+
+class _CubaseWaveformPainter extends CustomPainter {
+  final Float32List mins;
+  final Float32List maxs;
+  final Float32List rms;
+  final Color color;
+
+  _CubaseWaveformPainter({
+    required this.mins,
+    required this.maxs,
+    required this.rms,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (mins.isEmpty || size.width <= 0 || size.height <= 0) return;
+
+    final centerY = size.height / 2;
+    final amplitude = centerY * 0.95;
+    final numSamples = mins.length;
+    final pixelWidth = size.width / numSamples;
+
+    // ══════════════════════════════════════════════════════════════════
+    // SMOOTH WAVEFORM: Filled polygon for instant GPU scaling
+    // Peak envelope shows transients, RMS body shows energy
+    // ══════════════════════════════════════════════════════════════════
+
+    // Peak envelope (outer shape - shows transients)
+    final peakPath = Path();
+    peakPath.moveTo(0, centerY - maxs[0] * amplitude);
+    for (int i = 1; i < numSamples; i++) {
+      final x = i * pixelWidth;
+      peakPath.lineTo(x, centerY - maxs[i] * amplitude);
+    }
+    for (int i = numSamples - 1; i >= 0; i--) {
+      final x = i * pixelWidth;
+      peakPath.lineTo(x, centerY - mins[i] * amplitude);
+    }
+    peakPath.close();
+
+    // RMS body (inner shape - shows energy)
+    final rmsPath = Path();
+    rmsPath.moveTo(0, centerY - rms[0] * amplitude);
+    for (int i = 1; i < numSamples; i++) {
+      final x = i * pixelWidth;
+      rmsPath.lineTo(x, centerY - rms[i] * amplitude);
+    }
+    for (int i = numSamples - 1; i >= 0; i--) {
+      final x = i * pixelWidth;
+      rmsPath.lineTo(x, centerY + rms[i] * amplitude);
+    }
+    rmsPath.close();
+
+    // Draw peak envelope (lighter, for transient visibility)
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    canvas.drawPath(peakPath, peakPaint);
+
+    // Draw RMS body (solid)
+    final rmsPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    canvas.drawPath(rmsPath, rmsPaint);
+  }
+
+  @override
+  bool shouldRepaint(_CubaseWaveformPainter oldDelegate) =>
+      mins != oldDelegate.mins ||
+      maxs != oldDelegate.maxs ||
+      rms != oldDelegate.rms ||
+      color != oldDelegate.color;
 }
 
 // ============ Legacy Waveform Canvas (fallback) ============
@@ -1307,7 +1455,7 @@ class _FadeHandleState extends State<_FadeHandle> {
                   height: handleSize,
                   decoration: BoxDecoration(
                     color: (widget.isActive || _isHovered)
-                        ? ReelForgeTheme.accentCyan
+                        ? FluxForgeTheme.accentCyan
                         : Colors.white.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -1317,7 +1465,7 @@ class _FadeHandleState extends State<_FadeHandle> {
                       size: 10,
                       color: (widget.isActive || _isHovered)
                           ? Colors.white
-                          : ReelForgeTheme.bgDeepest,
+                          : FluxForgeTheme.bgDeepest,
                     ),
                   ),
                 ),
@@ -1334,12 +1482,12 @@ class _FadeHandleState extends State<_FadeHandle> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgDeepest.withValues(alpha: 0.95),
+                    color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
                       color: (_isHovered || widget.isActive)
-                          ? ReelForgeTheme.accentBlue
-                          : ReelForgeTheme.borderSubtle,
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.borderSubtle,
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1355,7 +1503,7 @@ class _FadeHandleState extends State<_FadeHandle> {
                       fontSize: 9,
                       fontFamily: 'JetBrains Mono',
                       color: (_isHovered || widget.isActive)
-                          ? ReelForgeTheme.accentBlue
+                          ? FluxForgeTheme.accentBlue
                           : Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1393,8 +1541,8 @@ class _FadeTrianglePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = isActive
-          ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
-          : ReelForgeTheme.textSecondary.withValues(alpha: 0.08)
+          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+          : FluxForgeTheme.textSecondary.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -1504,7 +1652,7 @@ class _EdgeHandleState extends State<_EdgeHandle> {
           child: Container(
             decoration: BoxDecoration(
               color: widget.isActive
-                  ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
                   : Colors.transparent,
               borderRadius: BorderRadius.only(
                 topLeft: widget.isLeft ? const Radius.circular(4) : Radius.zero,

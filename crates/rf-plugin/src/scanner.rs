@@ -60,7 +60,7 @@ impl PluginSecurityInfo {
     pub fn internal() -> Self {
         Self {
             status: PluginSecurityStatus::Internal,
-            signer: Some("ReelForge".to_string()),
+            signer: Some("FluxForge Studio".to_string()),
             verified_at: Some(std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -339,7 +339,7 @@ impl PluginInfo {
         Self {
             id: id.to_string(),
             name: name.to_string(),
-            vendor: String::from("ReelForge"),
+            vendor: String::from("FluxForge Studio"),
             version: String::from("1.0.0"),
             plugin_type: PluginType::Internal,
             category,
@@ -696,7 +696,7 @@ mod tests {
     #[test]
     fn test_plugin_info() {
         let info = PluginInfo::internal("test.eq", "Test EQ", PluginCategory::Effect);
-        assert_eq!(info.vendor, "ReelForge");
+        assert_eq!(info.vendor, "FluxForge Studio");
         assert_eq!(info.plugin_type, PluginType::Internal);
     }
 }

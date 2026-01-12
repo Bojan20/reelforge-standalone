@@ -340,13 +340,13 @@ criterion_main!(benches);
 ```bash
 # CPU profiling with samply (macOS)
 cargo build --release
-samply record ./target/release/reelforge
+samply record ./target/release/fluxforge
 
 # Memory profiling with heaptrack
-heaptrack ./target/release/reelforge
+heaptrack ./target/release/fluxforge
 
 # Flamegraph
-cargo flamegraph --bin reelforge
+cargo flamegraph --bin fluxforge
 ```
 
 ---

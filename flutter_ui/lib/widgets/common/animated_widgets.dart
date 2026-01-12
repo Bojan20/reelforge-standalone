@@ -1,4 +1,4 @@
-/// ReelForge Animated Widgets
+/// FluxForge Studio Animated Widgets
 ///
 /// Professional micro-interactions and animations:
 /// - Smooth hover states
@@ -10,7 +10,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ANIMATED BUTTON
@@ -67,10 +67,10 @@ class _AnimatedButtonState extends State<AnimatedButton>
   }
 
   Color get _backgroundColor {
-    if (!widget.enabled) return ReelForgeTheme.bgDeepest;
-    if (_isPressed) return widget.pressColor ?? ReelForgeTheme.bgElevated;
-    if (_isHovered) return widget.hoverColor ?? ReelForgeTheme.bgSurface;
-    return widget.color ?? ReelForgeTheme.bgMid;
+    if (!widget.enabled) return FluxForgeTheme.bgDeepest;
+    if (_isPressed) return widget.pressColor ?? FluxForgeTheme.bgElevated;
+    if (_isHovered) return widget.hoverColor ?? FluxForgeTheme.bgSurface;
+    return widget.color ?? FluxForgeTheme.bgMid;
   }
 
   @override
@@ -90,22 +90,22 @@ class _AnimatedButtonState extends State<AnimatedButton>
           animation: _glowController,
           builder: (context, child) {
             return AnimatedContainer(
-              duration: ReelForgeTheme.fastDuration,
-              curve: ReelForgeTheme.smoothCurve,
+              duration: FluxForgeTheme.fastDuration,
+              curve: FluxForgeTheme.smoothCurve,
               padding: widget.padding,
               decoration: BoxDecoration(
                 color: _backgroundColor,
                 borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
                 border: Border.all(
                   color: _isHovered && widget.enabled
-                      ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                      : FluxForgeTheme.borderSubtle,
                   width: 1,
                 ),
                 boxShadow: widget.showGlow && _isHovered
                     ? [
                         BoxShadow(
-                          color: ReelForgeTheme.accentBlue.withValues(
+                          color: FluxForgeTheme.accentBlue.withValues(
                             alpha: 0.2 + _glowController.value * 0.1,
                           ),
                           blurRadius: 8,
@@ -118,13 +118,13 @@ class _AnimatedButtonState extends State<AnimatedButton>
                   ? (Matrix4.identity()..scale(0.98))
                   : Matrix4.identity(),
               child: AnimatedDefaultTextStyle(
-                duration: ReelForgeTheme.fastDuration,
-                style: ReelForgeTheme.button.copyWith(
+                duration: FluxForgeTheme.fastDuration,
+                style: FluxForgeTheme.button.copyWith(
                   color: widget.enabled
                       ? (_isHovered
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary)
-                      : ReelForgeTheme.textDisabled,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary)
+                      : FluxForgeTheme.textDisabled,
                 ),
                 child: child!,
               ),
@@ -167,7 +167,7 @@ class AnimatedValue extends StatelessWidget {
       builder: (context, animValue, _) {
         return Text(
           formatter(animValue),
-          style: style ?? ReelForgeTheme.mono,
+          style: style ?? FluxForgeTheme.mono,
         );
       },
     );
@@ -199,12 +199,12 @@ class AnimatedProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progressColor = color ?? ReelForgeTheme.accentBlue;
+    final progressColor = color ?? FluxForgeTheme.accentBlue;
 
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: backgroundColor ?? ReelForgeTheme.bgDeepest,
+        color: backgroundColor ?? FluxForgeTheme.bgDeepest,
         borderRadius: borderRadius ?? BorderRadius.circular(height / 2),
       ),
       child: LayoutBuilder(
@@ -213,14 +213,14 @@ class AnimatedProgress extends StatelessWidget {
             children: [
               // Progress fill
               AnimatedContainer(
-                duration: ReelForgeTheme.normalDuration,
-                curve: ReelForgeTheme.smoothCurve,
+                duration: FluxForgeTheme.normalDuration,
+                curve: FluxForgeTheme.smoothCurve,
                 width: constraints.maxWidth * value.clamp(0, 1),
                 decoration: BoxDecoration(
                   color: progressColor,
                   borderRadius: borderRadius ?? BorderRadius.circular(height / 2),
                   boxShadow: showGlow && value > 0
-                      ? ReelForgeTheme.glowShadow(progressColor, intensity: 0.4)
+                      ? FluxForgeTheme.glowShadow(progressColor, intensity: 0.4)
                       : null,
                 ),
               ),
@@ -275,10 +275,10 @@ class _AnimatedIconButtonState extends State<AnimatedIconButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: ReelForgeTheme.normalDuration,
+      duration: FluxForgeTheme.normalDuration,
     );
     _rotation = Tween<double>(begin: 0, end: widget.rotationAngle)
-        .animate(CurvedAnimation(parent: _controller, curve: ReelForgeTheme.smoothCurve));
+        .animate(CurvedAnimation(parent: _controller, curve: FluxForgeTheme.smoothCurve));
   }
 
   @override
@@ -301,12 +301,12 @@ class _AnimatedIconButtonState extends State<AnimatedIconButton>
 
   Color get _iconColor {
     if (widget.isActive) {
-      return widget.activeColor ?? ReelForgeTheme.accentBlue;
+      return widget.activeColor ?? FluxForgeTheme.accentBlue;
     }
     if (_isHovered) {
-      return ReelForgeTheme.textPrimary;
+      return FluxForgeTheme.textPrimary;
     }
-    return widget.color ?? ReelForgeTheme.textSecondary;
+    return widget.color ?? FluxForgeTheme.textSecondary;
   }
 
   @override
@@ -326,14 +326,14 @@ class _AnimatedIconButtonState extends State<AnimatedIconButton>
           animation: _controller,
           builder: (context, child) {
             return AnimatedContainer(
-              duration: ReelForgeTheme.fastDuration,
+              duration: FluxForgeTheme.fastDuration,
               transform: Matrix4.identity()
                 ..scale(_isPressed ? 0.9 : (_isHovered ? 1.1 : 1.0)),
               transformAlignment: Alignment.center,
               child: Transform.rotate(
                 angle: widget.rotateOnPress ? _rotation.value : 0,
                 child: AnimatedDefaultTextStyle(
-                  duration: ReelForgeTheme.fastDuration,
+                  duration: FluxForgeTheme.fastDuration,
                   style: TextStyle(color: _iconColor),
                   child: Icon(
                     widget.icon,
@@ -363,7 +363,7 @@ class PulseIndicator extends StatefulWidget {
 
   const PulseIndicator({
     super.key,
-    this.color = ReelForgeTheme.accentRed,
+    this.color = FluxForgeTheme.accentRed,
     this.size = 8,
     this.isActive = true,
     this.duration = const Duration(milliseconds: 1000),
@@ -491,7 +491,7 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
           child: CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _SpinnerPainter(
-              color: widget.color ?? ReelForgeTheme.accentBlue,
+              color: widget.color ?? FluxForgeTheme.accentBlue,
               strokeWidth: widget.strokeWidth,
               progress: _controller.value,
             ),
@@ -625,7 +625,7 @@ class _AnimatedTooltipState extends State<AnimatedTooltip> {
           color: Colors.transparent,
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: ReelForgeTheme.fastDuration,
+            duration: FluxForgeTheme.fastDuration,
             builder: (context, opacity, child) {
               return Opacity(
                 opacity: opacity,
@@ -638,18 +638,18 @@ class _AnimatedTooltipState extends State<AnimatedTooltip> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgElevated,
+                color: FluxForgeTheme.bgElevated,
                 borderRadius: BorderRadius.circular(4),
-                boxShadow: ReelForgeTheme.elevatedShadow,
-                border: Border.all(color: ReelForgeTheme.borderSubtle),
+                boxShadow: FluxForgeTheme.elevatedShadow,
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     widget.message,
-                    style: ReelForgeTheme.bodySmall.copyWith(
-                      color: ReelForgeTheme.textPrimary,
+                    style: FluxForgeTheme.bodySmall.copyWith(
+                      color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                   if (widget.shortcut != null) ...[
@@ -657,13 +657,13 @@ class _AnimatedTooltipState extends State<AnimatedTooltip> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.bgDeepest,
+                        color: FluxForgeTheme.bgDeepest,
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         widget.shortcut!,
-                        style: ReelForgeTheme.monoSmall.copyWith(
-                          color: ReelForgeTheme.textTertiary,
+                        style: FluxForgeTheme.monoSmall.copyWith(
+                          color: FluxForgeTheme.textTertiary,
                           fontSize: 9,
                         ),
                       ),
@@ -722,7 +722,7 @@ class GlowContainer extends StatefulWidget {
   const GlowContainer({
     super.key,
     required this.child,
-    this.glowColor = ReelForgeTheme.accentBlue,
+    this.glowColor = FluxForgeTheme.accentBlue,
     this.isGlowing = false,
     this.glowIntensity = 0.5,
     this.duration = const Duration(milliseconds: 1500),

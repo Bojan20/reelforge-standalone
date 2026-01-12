@@ -13,8 +13,9 @@ import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/middleware_models.dart'; // For FadeCurve enum
+import '../../src/rust/native_ffi.dart'; // For direct FFI calls
 
 // ============ Types ============
 
@@ -116,6 +117,48 @@ enum EditorTool {
   fade,
   cut,
   slip,
+  hitpoint, // Cubase-style hitpoint editing
+}
+
+/// Hitpoint data structure (transient marker)
+class Hitpoint {
+  final int position; // Sample position
+  final double strength; // Detection strength 0-1
+  final bool isLocked;
+  final bool isManual;
+
+  const Hitpoint({
+    required this.position,
+    this.strength = 1.0,
+    this.isLocked = false,
+    this.isManual = false,
+  });
+
+  Hitpoint copyWith({
+    int? position,
+    double? strength,
+    bool? isLocked,
+    bool? isManual,
+  }) {
+    return Hitpoint(
+      position: position ?? this.position,
+      strength: strength ?? this.strength,
+      isLocked: isLocked ?? this.isLocked,
+      isManual: isManual ?? this.isManual,
+    );
+  }
+
+  /// Convert position to seconds
+  double toSeconds(int sampleRate) => position / sampleRate;
+}
+
+/// Hitpoint detection algorithm
+enum HitpointAlgorithm {
+  enhanced,     // Best general-purpose (default)
+  highEmphasis, // Emphasize high-frequency transients (drums/percussion)
+  lowEmphasis,  // Low-frequency focus (bass/kick)
+  spectralFlux, // Spectral analysis based
+  complexDomain, // Phase-based detection
 }
 
 /// Fade handle being dragged
@@ -146,6 +189,27 @@ class ClipEditor extends StatefulWidget {
   final void Function(String clipId, double newSourceOffset)? onSlipEdit;
   final ValueChanged<double>? onPlayheadChange;
 
+  // Audition (playback preview) - Cubase-style
+  final void Function(String clipId, double startTime, double endTime)? onAudition;
+  final VoidCallback? onStopAudition;
+  final bool isAuditioning;
+
+  // Hitpoint callbacks
+  final List<Hitpoint> hitpoints;
+  final bool showHitpoints;
+  final double hitpointSensitivity;
+  final HitpointAlgorithm hitpointAlgorithm;
+  final double hitpointMinGapMs;
+  final ValueChanged<List<Hitpoint>>? onHitpointsChange;
+  final ValueChanged<bool>? onShowHitpointsChange;
+  final ValueChanged<double>? onHitpointSensitivityChange;
+  final ValueChanged<HitpointAlgorithm>? onHitpointAlgorithmChange;
+  final VoidCallback? onDetectHitpoints;
+  final void Function(String clipId, List<Hitpoint> hitpoints)? onSliceAtHitpoints;
+  final void Function(int index)? onDeleteHitpoint;
+  final void Function(int index, int newPosition)? onMoveHitpoint;
+  final void Function(int samplePosition)? onAddHitpoint;
+
   const ClipEditor({
     super.key,
     this.clip,
@@ -169,13 +233,32 @@ class ClipEditor extends StatefulWidget {
     this.onSplitAtPosition,
     this.onSlipEdit,
     this.onPlayheadChange,
+    // Audition
+    this.onAudition,
+    this.onStopAudition,
+    this.isAuditioning = false,
+    // Hitpoint defaults
+    this.hitpoints = const [],
+    this.showHitpoints = false,
+    this.hitpointSensitivity = 0.5,
+    this.hitpointAlgorithm = HitpointAlgorithm.enhanced,
+    this.hitpointMinGapMs = 20.0,
+    this.onHitpointsChange,
+    this.onShowHitpointsChange,
+    this.onHitpointSensitivityChange,
+    this.onHitpointAlgorithmChange,
+    this.onDetectHitpoints,
+    this.onSliceAtHitpoints,
+    this.onDeleteHitpoint,
+    this.onMoveHitpoint,
+    this.onAddHitpoint,
   });
 
   @override
   State<ClipEditor> createState() => _ClipEditorState();
 }
 
-class _ClipEditorState extends State<ClipEditor> {
+class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
   EditorTool _tool = EditorTool.select;
   bool _isDragging = false;
   double? _dragStart;
@@ -188,9 +271,44 @@ class _ClipEditorState extends State<ClipEditor> {
   final FocusNode _focusNode = FocusNode();
   double _containerWidth = 0;
 
+  // Hitpoint editing state
+  int? _draggingHitpointIndex;
+  int? _hoveredHitpointIndex;
+
+  // Local hitpoint storage (direct FFI, bypasses callback chain)
+  List<Hitpoint> _localHitpoints = [];
+  bool _showLocalHitpoints = true;
+
+  // SMOOTH ZOOM: Animated zoom system (Cubase-style)
+  late AnimationController _zoomAnimController;
+  late Animation<double> _zoomAnim;
+  late Animation<double> _scrollAnim;
+  double _zoomStart = 100;
+  double _zoomTarget = 100;
+  double _scrollStart = 0;
+  double _scrollTarget = 0;
+  bool _isZoomAnimating = false;
+
   @override
   void initState() {
     super.initState();
+
+    // SMOOTH ZOOM: Initialize animation controller (80ms for snappy response)
+    _zoomAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 80),
+    );
+    _zoomAnimController.addListener(_onZoomAnimUpdate);
+    _zoomAnimController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _isZoomAnimating = false;
+      }
+    });
+
+    // Initialize animations with linear (will be overridden)
+    _zoomAnim = Tween<double>(begin: 100, end: 100).animate(_zoomAnimController);
+    _scrollAnim = Tween<double>(begin: 0, end: 0).animate(_zoomAnimController);
+
     // Request focus when clip is loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.clip != null && mounted) {
@@ -214,9 +332,119 @@ class _ClipEditorState extends State<ClipEditor> {
 
   @override
   void dispose() {
+    _zoomAnimController.dispose();
     _focusNode.dispose();
     _hoverXNotifier.dispose();
     super.dispose();
+  }
+
+  /// SMOOTH ZOOM: Animation update callback
+  void _onZoomAnimUpdate() {
+    if (!mounted) return;
+    widget.onZoomChange?.call(_zoomAnim.value);
+    widget.onScrollChange?.call(_scrollAnim.value);
+  }
+
+  /// SMOOTH ZOOM: Start animated zoom to target (cursor-anchored)
+  void _animateZoomTo(double targetZoom, double anchorX, double anchorTime) {
+    final clip = widget.clip;
+    if (clip == null || _containerWidth <= 0) return;
+
+    final minZoom = _containerWidth / clip.duration;
+    final clampedZoom = targetZoom.clamp(minZoom, 50000.0);
+
+    // Calculate new scroll offset to keep anchor point fixed
+    final newScrollOffset = anchorTime - anchorX / clampedZoom;
+    final clampedScroll = newScrollOffset.clamp(
+      0.0,
+      (clip.duration - _containerWidth / clampedZoom).clamp(0.0, double.infinity),
+    );
+
+    // Set up animation from current to target
+    _zoomStart = widget.zoom;
+    _zoomTarget = clampedZoom;
+    _scrollStart = widget.scrollOffset;
+    _scrollTarget = clampedScroll;
+
+    // Create smooth animations with easeOut curve
+    _zoomAnim = Tween<double>(
+      begin: _zoomStart,
+      end: _zoomTarget,
+    ).animate(CurvedAnimation(
+      parent: _zoomAnimController,
+      curve: Curves.easeOut,
+    ));
+
+    _scrollAnim = Tween<double>(
+      begin: _scrollStart,
+      end: _scrollTarget,
+    ).animate(CurvedAnimation(
+      parent: _zoomAnimController,
+      curve: Curves.easeOut,
+    ));
+
+    // Start animation
+    _isZoomAnimating = true;
+    _zoomAnimController.forward(from: 0);
+  }
+
+  /// Direct FFI call for hitpoint detection - bypasses broken callback chain
+  void _detectHitpointsDirect(ClipEditorClip clip) {
+    debugPrint('[ClipEditor] _detectHitpointsDirect for clip ${clip.id}');
+
+    try {
+      // Parse clip ID to int
+      final clipId = int.tryParse(clip.id) ?? 0;
+      if (clipId == 0) {
+        debugPrint('[ClipEditor] Invalid clip ID: ${clip.id}');
+        return;
+      }
+
+      // Map algorithm enum to int
+      final algorithmInt = widget.hitpointAlgorithm.index;
+
+      // Call FFI directly
+      final results = NativeFFI.instance.detectClipTransients(
+        clipId,
+        sensitivity: widget.hitpointSensitivity,
+        algorithm: algorithmInt,
+        minGapMs: widget.hitpointMinGapMs,
+        maxCount: 2000,
+      );
+
+      debugPrint('[ClipEditor] FFI returned ${results.length} hitpoints');
+
+      // Convert to Hitpoint objects
+      final hitpoints = results.map((r) => Hitpoint(
+        position: r.position,
+        strength: r.strength,
+      )).toList();
+
+      // Update local state
+      setState(() {
+        _localHitpoints = hitpoints;
+        _showLocalHitpoints = true;
+      });
+
+      // Also notify parent if callback exists
+      widget.onHitpointsChange?.call(hitpoints);
+
+      debugPrint('[ClipEditor] Hitpoints stored locally: ${_localHitpoints.length}');
+    } catch (e) {
+      debugPrint('[ClipEditor] FFI error: $e');
+    }
+  }
+
+  /// Get effective hitpoints (local or from widget)
+  List<Hitpoint> get _effectiveHitpoints {
+    // Prefer local hitpoints if available
+    if (_localHitpoints.isNotEmpty) return _localHitpoints;
+    return widget.hitpoints;
+  }
+
+  /// Whether to show hitpoints
+  bool get _shouldShowHitpoints {
+    return _showLocalHitpoints || widget.showHitpoints;
   }
 
   @override
@@ -226,7 +454,7 @@ class _ClipEditorState extends State<ClipEditor> {
       autofocus: widget.clip != null,
       onKeyEvent: (node, event) {
         _handleKeyEvent(event);
-        // Consume zoom and fade keys
+        // Consume zoom, fade, tool, and hitpoint keys
         final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
             event.logicalKey == LogicalKeyboardKey.keyH;
         final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
@@ -235,8 +463,11 @@ class _ClipEditorState extends State<ClipEditor> {
             event.logicalKey == LogicalKeyboardKey.digit2 ||
             event.logicalKey == LogicalKeyboardKey.digit3 ||
             event.logicalKey == LogicalKeyboardKey.digit4 ||
-            event.logicalKey == LogicalKeyboardKey.digit5;
-        if (isZoomKey || isFadeKey || isToolKey) {
+            event.logicalKey == LogicalKeyboardKey.digit5 ||
+            event.logicalKey == LogicalKeyboardKey.digit6;
+        final isHitpointKey = event.logicalKey == LogicalKeyboardKey.keyD;
+        final isAuditionKey = event.logicalKey == LogicalKeyboardKey.space;
+        if (isZoomKey || isFadeKey || isToolKey || isHitpointKey || isAuditionKey) {
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -246,9 +477,9 @@ class _ClipEditorState extends State<ClipEditor> {
         onTap: () => _focusNode.requestFocus(),
         child: Container(
           decoration: const BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             border: Border(
-              top: BorderSide(color: ReelForgeTheme.borderSubtle),
+              top: BorderSide(color: FluxForgeTheme.borderSubtle),
             ),
           ),
           child: Column(
@@ -282,28 +513,26 @@ class _ClipEditorState extends State<ClipEditor> {
 
     debugPrint('[ClipEditor] Key: ${event.logicalKey.keyLabel}');
 
-    // G - zoom out (center-screen anchor)
+    // G - zoom out (SMOOTH animated, center-screen anchor)
     if (event.logicalKey == LogicalKeyboardKey.keyG && clip != null && _containerWidth > 0) {
-      final minZoom = _containerWidth / clip.duration;
+      // Use target zoom if animating, otherwise current zoom
+      final currentZoom = _isZoomAnimating ? _zoomTarget : widget.zoom;
       final centerX = _containerWidth / 2;
-      final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(minZoom, 50000.0);
-      final newScrollOffset = centerTime - centerX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      final currentScroll = _isZoomAnimating ? _scrollTarget : widget.scrollOffset;
+      final centerTime = currentScroll + centerX / currentZoom;
+      final newZoom = currentZoom * 0.85; // Slightly larger step for smooth feel
+      _animateZoomTo(newZoom, centerX, centerTime);
     }
 
-    // H - zoom in (center-screen anchor)
+    // H - zoom in (SMOOTH animated, center-screen anchor)
     if (event.logicalKey == LogicalKeyboardKey.keyH && clip != null && _containerWidth > 0) {
-      final minZoom = _containerWidth / clip.duration;
+      // Use target zoom if animating, otherwise current zoom
+      final currentZoom = _isZoomAnimating ? _zoomTarget : widget.zoom;
       final centerX = _containerWidth / 2;
-      final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(minZoom, 50000.0);
-      final newScrollOffset = centerTime - centerX / newZoom;
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
-          (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      final currentScroll = _isZoomAnimating ? _scrollTarget : widget.scrollOffset;
+      final centerTime = currentScroll + centerX / currentZoom;
+      final newZoom = currentZoom * 1.18; // Slightly larger step for smooth feel
+      _animateZoomTo(newZoom, centerX, centerTime);
     }
 
     // [ and ] keys - fade nudge
@@ -359,6 +588,38 @@ class _ClipEditorState extends State<ClipEditor> {
     if (event.logicalKey == LogicalKeyboardKey.digit5) {
       setState(() => _tool = EditorTool.slip);
     }
+    if (event.logicalKey == LogicalKeyboardKey.digit6) {
+      setState(() => _tool = EditorTool.hitpoint);
+    }
+
+    // D - detect hitpoints (direct FFI call - bypasses callback chain)
+    if (event.logicalKey == LogicalKeyboardKey.keyD) {
+      if (clip != null) {
+        _detectHitpointsDirect(clip);
+      }
+    }
+
+    // Delete - remove selected/hovered hitpoint
+    if ((event.logicalKey == LogicalKeyboardKey.delete ||
+         event.logicalKey == LogicalKeyboardKey.backspace) &&
+        _hoveredHitpointIndex != null &&
+        _tool == EditorTool.hitpoint) {
+      widget.onDeleteHitpoint?.call(_hoveredHitpointIndex!);
+    }
+
+    // Space - Audition (play clip or selection)
+    if (event.logicalKey == LogicalKeyboardKey.space && clip != null) {
+      if (widget.isAuditioning) {
+        widget.onStopAudition?.call();
+      } else {
+        final sel = widget.selection;
+        if (sel != null && sel.isValid) {
+          widget.onAudition?.call(clip.id, sel.start, sel.end);
+        } else {
+          widget.onAudition?.call(clip.id, 0, clip.duration);
+        }
+      }
+    }
   }
 
   Widget _buildHeader() {
@@ -366,30 +627,30 @@ class _ClipEditorState extends State<ClipEditor> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.edit, size: 14, color: ReelForgeTheme.accentBlue),
+          Icon(Icons.edit, size: 14, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 8),
           Text(
             widget.clip?.name ?? 'Clip Editor',
-            style: ReelForgeTheme.h3,
+            style: FluxForgeTheme.h3,
           ),
           if (widget.clip != null) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeep,
+                color: FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
                 _formatTime(widget.clip!.duration),
-                style: ReelForgeTheme.monoSmall,
+                style: FluxForgeTheme.monoSmall,
               ),
             ),
           ],
@@ -438,23 +699,111 @@ class _ClipEditorState extends State<ClipEditor> {
           isActive: _tool == EditorTool.slip,
           onTap: () => setState(() => _tool = EditorTool.slip),
         ),
+        _ToolButton(
+          icon: Icons.flash_on,
+          label: 'Hitpoints (6)',
+          isActive: _tool == EditorTool.hitpoint,
+          onTap: () => setState(() => _tool = EditorTool.hitpoint),
+        ),
         const SizedBox(width: 8),
-        Container(width: 1, height: 16, color: ReelForgeTheme.borderSubtle),
+        Container(width: 1, height: 16, color: FluxForgeTheme.borderSubtle),
         const SizedBox(width: 8),
-        // Zoom controls
+        // Hitpoint controls (visible when hitpoint tool selected)
+        if (_tool == EditorTool.hitpoint || _shouldShowHitpoints) ...[
+          _ToolButton(
+            icon: Icons.auto_fix_high,
+            label: 'Detect (D)',
+            isEnabled: hasClip,
+            onTap: hasClip ? () {
+              if (widget.clip != null) {
+                _detectHitpointsDirect(widget.clip!);
+              }
+            } : null,
+          ),
+          // Show/Hide toggle
+          _ToolButton(
+            icon: _shouldShowHitpoints ? Icons.visibility : Icons.visibility_off,
+            label: _shouldShowHitpoints ? 'Hide Hitpoints' : 'Show Hitpoints',
+            isActive: _shouldShowHitpoints,
+            onTap: () {
+              setState(() {
+                _showLocalHitpoints = !_showLocalHitpoints;
+              });
+              widget.onShowHitpointsChange?.call(!_shouldShowHitpoints);
+            },
+          ),
+          // Hitpoint count
+          if (_effectiveHitpoints.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '${_effectiveHitpoints.length}',
+                style: FluxForgeTheme.monoSmall.copyWith(
+                  color: FluxForgeTheme.accentOrange,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 16, color: FluxForgeTheme.borderSubtle),
+          const SizedBox(width: 8),
+        ],
+        // Zoom controls (SMOOTH ANIMATED)
         _ToolButton(
           icon: Icons.zoom_out,
           label: 'Zoom Out',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 0.8).clamp(1, 50000)),
+          onTap: () {
+            if (widget.clip == null || _containerWidth <= 0) return;
+            final currentZoom = _isZoomAnimating ? _zoomTarget : widget.zoom;
+            final currentScroll = _isZoomAnimating ? _scrollTarget : widget.scrollOffset;
+            final centerX = _containerWidth / 2;
+            final centerTime = currentScroll + centerX / currentZoom;
+            _animateZoomTo(currentZoom * 0.75, centerX, centerTime);
+          },
         ),
-        Text('${widget.zoom.toInt()}%', style: ReelForgeTheme.monoSmall),
+        Text('${widget.zoom.toInt()}%', style: FluxForgeTheme.monoSmall),
         _ToolButton(
           icon: Icons.zoom_in,
           label: 'Zoom In',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 1.25).clamp(1, 50000)),
+          onTap: () {
+            if (widget.clip == null || _containerWidth <= 0) return;
+            final currentZoom = _isZoomAnimating ? _zoomTarget : widget.zoom;
+            final currentScroll = _isZoomAnimating ? _scrollTarget : widget.scrollOffset;
+            final centerX = _containerWidth / 2;
+            final centerTime = currentScroll + centerX / currentZoom;
+            _animateZoomTo(currentZoom * 1.33, centerX, centerTime);
+          },
         ),
         const SizedBox(width: 8),
-        Container(width: 1, height: 16, color: ReelForgeTheme.borderSubtle),
+        Container(width: 1, height: 16, color: FluxForgeTheme.borderSubtle),
+        const SizedBox(width: 8),
+        // AUDITION - Cubase-style playback preview (Space key)
+        _ToolButton(
+          icon: widget.isAuditioning ? Icons.stop : Icons.play_arrow,
+          label: widget.isAuditioning ? 'Stop' : 'Audition',
+          isEnabled: hasClip,
+          isActive: widget.isAuditioning,
+          onTap: hasClip
+              ? () {
+                  if (widget.isAuditioning) {
+                    widget.onStopAudition?.call();
+                  } else {
+                    // Play selection or entire clip
+                    final sel = widget.selection;
+                    if (sel != null && sel.isValid) {
+                      widget.onAudition?.call(widget.clip!.id, sel.start, sel.end);
+                    } else {
+                      widget.onAudition?.call(widget.clip!.id, 0, widget.clip!.duration);
+                    }
+                  }
+                }
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Container(width: 1, height: 16, color: FluxForgeTheme.borderSubtle),
         const SizedBox(width: 8),
         // Actions
         _ToolButton(
@@ -462,7 +811,10 @@ class _ClipEditorState extends State<ClipEditor> {
           label: 'Normalize',
           isEnabled: hasClip,
           onTap: hasClip
-              ? () => widget.onNormalize?.call(widget.clip!.id)
+              ? () {
+                  debugPrint('[ClipEditor] Normalize clicked for clip ${widget.clip!.id}');
+                  widget.onNormalize?.call(widget.clip!.id);
+                }
               : null,
         ),
         _ToolButton(
@@ -470,7 +822,10 @@ class _ClipEditorState extends State<ClipEditor> {
           label: 'Reverse',
           isEnabled: hasClip,
           onTap: hasClip
-              ? () => widget.onReverse?.call(widget.clip!.id)
+              ? () {
+                  debugPrint('[ClipEditor] Reverse clicked for clip ${widget.clip!.id}');
+                  widget.onReverse?.call(widget.clip!.id);
+                }
               : null,
         ),
         _ToolButton(
@@ -493,17 +848,17 @@ class _ClipEditorState extends State<ClipEditor> {
           Icon(
             Icons.graphic_eq,
             size: 48,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
           const SizedBox(height: 12),
           Text(
             'Select a clip to edit',
-            style: ReelForgeTheme.body.copyWith(color: ReelForgeTheme.textSecondary),
+            style: FluxForgeTheme.body.copyWith(color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
             'Double-click a clip on the timeline',
-            style: ReelForgeTheme.bodySmall.copyWith(color: ReelForgeTheme.textTertiary),
+            style: FluxForgeTheme.bodySmall.copyWith(color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -555,9 +910,9 @@ class _ClipEditorState extends State<ClipEditor> {
     return Container(
       height: 24,
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: LayoutBuilder(
@@ -619,7 +974,7 @@ class _ClipEditorState extends State<ClipEditor> {
                         selection: widget.selection,
                         fadeIn: widget.clip!.fadeIn,
                         fadeOut: widget.clip!.fadeOut,
-                        color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
+                        color: widget.clip!.color ?? FluxForgeTheme.accentBlue,
                         channels: widget.clip!.channels,
                         hoverX: -1, // Disabled - hover line is separate
                       ),
@@ -646,6 +1001,9 @@ class _ClipEditorState extends State<ClipEditor> {
                   ),
                   // Fade handles
                   _buildFadeHandles(constraints),
+                  // Hitpoints (Cubase-style transient markers)
+                  if (_shouldShowHitpoints || _tool == EditorTool.hitpoint)
+                    _buildHitpoints(constraints),
                   // Playhead
                   _buildPlayhead(constraints),
                   // Hover info - wrapped in ValueListenableBuilder
@@ -789,9 +1147,148 @@ class _ClipEditorState extends State<ClipEditor> {
       child: RepaintBoundary(
         child: Container(
           width: 2,
-          color: ReelForgeTheme.accentRed,
+          color: FluxForgeTheme.accentRed,
         ),
       ),
+    );
+  }
+
+  /// Build hitpoint markers (Cubase-style transient lines)
+  Widget _buildHitpoints(BoxConstraints constraints) {
+    final hitpoints = _effectiveHitpoints;
+    if (hitpoints.isEmpty || widget.clip == null) {
+      return const SizedBox.shrink();
+    }
+
+    final sampleRate = widget.clip!.sampleRate;
+    final maxW = constraints.maxWidth;
+    final maxH = constraints.maxHeight;
+
+    return Stack(
+      children: [
+        for (int i = 0; i < hitpoints.length; i++)
+          Builder(
+            builder: (context) {
+              final hp = hitpoints[i];
+              final timeSeconds = hp.position / sampleRate;
+              final x = (timeSeconds - widget.scrollOffset) * widget.zoom;
+
+              // Skip if outside visible range
+              if (x < -10 || x > maxW + 10) return const SizedBox.shrink();
+
+              final isHovered = _hoveredHitpointIndex == i;
+              final isDragging = _draggingHitpointIndex == i;
+              final isInHitpointMode = _tool == EditorTool.hitpoint;
+
+              return Positioned(
+                left: x - 5,
+                top: 0,
+                bottom: 0,
+                child: MouseRegion(
+                  onEnter: (_) {
+                    if (isInHitpointMode) {
+                      setState(() => _hoveredHitpointIndex = i);
+                    }
+                  },
+                  onExit: (_) {
+                    if (_hoveredHitpointIndex == i) {
+                      setState(() => _hoveredHitpointIndex = null);
+                    }
+                  },
+                  child: GestureDetector(
+                    onPanStart: isInHitpointMode && !hp.isLocked
+                        ? (details) {
+                            setState(() => _draggingHitpointIndex = i);
+                          }
+                        : null,
+                    onPanUpdate: isInHitpointMode && !hp.isLocked
+                        ? (details) {
+                            final deltaX = details.delta.dx;
+                            final deltaSamples = (deltaX / widget.zoom * sampleRate).round();
+                            final newPosition = (hp.position + deltaSamples).clamp(0, (widget.clip!.duration * sampleRate).round());
+                            widget.onMoveHitpoint?.call(i, newPosition);
+                          }
+                        : null,
+                    onPanEnd: isInHitpointMode
+                        ? (details) {
+                            setState(() => _draggingHitpointIndex = null);
+                          }
+                        : null,
+                    onTap: isInHitpointMode
+                        ? () {
+                            // Double-tap to delete (single tap does nothing for now)
+                          }
+                        : null,
+                    onDoubleTap: isInHitpointMode && !hp.isLocked
+                        ? () => widget.onDeleteHitpoint?.call(i)
+                        : null,
+                    child: Container(
+                      width: 10,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Main line
+                          Positioned(
+                            left: 4.5,
+                            top: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: isDragging ? 2 : 1,
+                              decoration: BoxDecoration(
+                                color: hp.isManual
+                                    ? FluxForgeTheme.accentCyan
+                                    : (isHovered || isDragging
+                                        ? FluxForgeTheme.accentOrange
+                                        : FluxForgeTheme.accentOrange.withValues(alpha: 0.7)),
+                                boxShadow: (isHovered || isDragging)
+                                    ? [
+                                        BoxShadow(
+                                          color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5),
+                                          blurRadius: 4,
+                                          spreadRadius: 1,
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          // Triangle marker at top
+                          Positioned(
+                            left: 2,
+                            top: 0,
+                            child: CustomPaint(
+                              painter: _HitpointMarkerPainter(
+                                isHovered: isHovered || isDragging,
+                                isManual: hp.isManual,
+                                isLocked: hp.isLocked,
+                                strength: hp.strength,
+                              ),
+                              size: const Size(6, 8),
+                            ),
+                          ),
+                          // Strength indicator (small bar at bottom)
+                          if (hp.strength < 1.0)
+                            Positioned(
+                              left: 3,
+                              bottom: 4,
+                              child: Container(
+                                width: 4,
+                                height: maxH * 0.1 * hp.strength,
+                                decoration: BoxDecoration(
+                                  color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -813,13 +1310,13 @@ class _ClipEditorState extends State<ClipEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgSurface.withValues(alpha: 0.9),
+          color: FluxForgeTheme.bgSurface.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Text(
           _formatTime(time),
-          style: ReelForgeTheme.monoSmall,
+          style: FluxForgeTheme.monoSmall,
         ),
       ),
     );
@@ -829,9 +1326,9 @@ class _ClipEditorState extends State<ClipEditor> {
     return Container(
       height: 40,
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: LayoutBuilder(
@@ -859,7 +1356,7 @@ class _ClipEditorState extends State<ClipEditor> {
                   duration: widget.clip!.duration,
                   viewportStart: widget.scrollOffset,
                   viewportEnd: widget.scrollOffset + constraints.maxWidth / widget.zoom,
-                  color: widget.clip!.color ?? ReelForgeTheme.accentBlue,
+                  color: widget.clip!.color ?? FluxForgeTheme.accentBlue,
                   selection: widget.selection,
                 ),
                 size: Size(constraints.maxWidth, 40),
@@ -883,12 +1380,16 @@ class _ClipEditorState extends State<ClipEditor> {
         return SystemMouseCursors.click;
       case EditorTool.slip:
         return SystemMouseCursors.resizeLeftRight;
+      case EditorTool.hitpoint:
+        return _hoveredHitpointIndex != null
+            ? SystemMouseCursors.grab
+            : SystemMouseCursors.precise;
     }
   }
 
   void _handleWheel(PointerScrollEvent event) {
     // ══════════════════════════════════════════════════════════════════
-    // DAW-STANDARD SCROLL/ZOOM (matching Timeline behavior)
+    // DAW-STANDARD SCROLL/ZOOM (SMOOTH ANIMATED - Cubase-style)
     // ══════════════════════════════════════════════════════════════════
     final clip = widget.clip;
     if (clip == null || _containerWidth <= 0) return;
@@ -902,25 +1403,26 @@ class _ClipEditorState extends State<ClipEditor> {
 
     if (isZoomModifier) {
       // ════════════════════════════════════════════════════════════════
-      // ZOOM TO CURSOR
+      // SMOOTH ANIMATED ZOOM TO CURSOR
       // ════════════════════════════════════════════════════════════════
       final mouseX = event.localPosition.dx;
 
+      // Use target zoom if animating, otherwise current zoom
+      final currentZoom = _isZoomAnimating ? _zoomTarget : widget.zoom;
+      final currentScroll = _isZoomAnimating ? _scrollTarget : widget.scrollOffset;
+
       // Simple zoom factor based on scroll direction
       final zoomIn = event.scrollDelta.dy < 0;
-      final zoomFactor = zoomIn ? 1.15 : 0.87;
-      // Clamp between minZoom (fit to width) and max zoom
-      final newZoom = (widget.zoom * zoomFactor).clamp(minZoom, 50000.0);
+      final zoomFactor = zoomIn ? 1.2 : 0.83; // Slightly larger for smooth feel
 
-      final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
-      final newScrollOffset = mouseTime - mouseX / newZoom;
+      final newZoom = currentZoom * zoomFactor;
+      final mouseTime = currentScroll + mouseX / currentZoom;
 
-      widget.onZoomChange?.call(newZoom);
-      widget.onScrollChange?.call(newScrollOffset.clamp(
-          0.0, (clip.duration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+      // Use animated zoom
+      _animateZoomTo(newZoom, mouseX, mouseTime);
     } else {
       // ════════════════════════════════════════════════════════════════
-      // HORIZONTAL SCROLL (only if zoomed in)
+      // HORIZONTAL SCROLL (only if zoomed in) - instant, no animation
       // ════════════════════════════════════════════════════════════════
       // Don't scroll if at minZoom (entire clip visible)
       if (widget.zoom <= minZoom) return;
@@ -956,6 +1458,13 @@ class _ClipEditorState extends State<ClipEditor> {
           widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 50000));
         } else {
           widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 50000));
+        }
+        break;
+      case EditorTool.hitpoint:
+        // Click to add manual hitpoint (if not clicking on existing one)
+        if (_hoveredHitpointIndex == null) {
+          final samplePosition = (time * widget.clip!.sampleRate).round();
+          widget.onAddHitpoint?.call(samplePosition);
         }
         break;
       default:
@@ -1057,11 +1566,11 @@ class _ToolButton extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.2)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: isActive
-                ? Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4))
+                ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4))
                 : null,
           ),
           child: Center(
@@ -1069,8 +1578,8 @@ class _ToolButton extends StatelessWidget {
               icon,
               size: 16,
               color: isEnabled
-                  ? (isActive ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary)
-                  : ReelForgeTheme.textTertiary.withValues(alpha: 0.5),
+                  ? (isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary)
+                  : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -1115,9 +1624,9 @@ class _InfoSidebar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          left: BorderSide(color: ReelForgeTheme.borderSubtle),
+          left: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: SingleChildScrollView(
@@ -1138,7 +1647,7 @@ class _InfoSidebar extends StatelessWidget {
 
             // Section: Selection
             if (selection != null && selection!.isValid) ...[
-              const Divider(height: 24, color: ReelForgeTheme.borderSubtle),
+              const Divider(height: 24, color: FluxForgeTheme.borderSubtle),
               _SectionHeader(title: 'Selection'),
               const SizedBox(height: 8),
               _InfoRow(
@@ -1160,11 +1669,11 @@ class _InfoSidebar extends StatelessWidget {
             ],
 
             // Section: Fades
-            const Divider(height: 24, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 24, color: FluxForgeTheme.borderSubtle),
             _SectionHeader(title: 'Fades'),
             const SizedBox(height: 8),
 
-            Text('Fade In', style: ReelForgeTheme.label),
+            Text('Fade In', style: FluxForgeTheme.label),
             const SizedBox(height: 4),
             _FadeControl(
               value: clip.fadeIn,
@@ -1181,7 +1690,7 @@ class _InfoSidebar extends StatelessWidget {
             ),
 
             const SizedBox(height: 12),
-            Text('Fade Out', style: ReelForgeTheme.label),
+            Text('Fade Out', style: FluxForgeTheme.label),
             const SizedBox(height: 4),
             _FadeControl(
               value: clip.fadeOut,
@@ -1198,7 +1707,7 @@ class _InfoSidebar extends StatelessWidget {
             ),
 
             // Section: Gain
-            const Divider(height: 24, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 24, color: FluxForgeTheme.borderSubtle),
             _SectionHeader(title: 'Gain'),
             const SizedBox(height: 8),
             Row(
@@ -1209,12 +1718,12 @@ class _InfoSidebar extends StatelessWidget {
                       trackHeight: 3,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                       activeTrackColor: clip.gain >= 0
-                          ? ReelForgeTheme.accentGreen
-                          : ReelForgeTheme.accentRed,
-                      inactiveTrackColor: ReelForgeTheme.borderSubtle,
+                          ? FluxForgeTheme.accentGreen
+                          : FluxForgeTheme.accentRed,
+                      inactiveTrackColor: FluxForgeTheme.borderSubtle,
                       thumbColor: clip.gain >= 0
-                          ? ReelForgeTheme.accentGreen
-                          : ReelForgeTheme.accentRed,
+                          ? FluxForgeTheme.accentGreen
+                          : FluxForgeTheme.accentRed,
                     ),
                     child: Slider(
                       value: clip.gain,
@@ -1228,10 +1737,10 @@ class _InfoSidebar extends StatelessWidget {
                   width: 60,
                   child: Text(
                     '${clip.gain >= 0 ? '+' : ''}${clip.gain.toStringAsFixed(1)} dB',
-                    style: ReelForgeTheme.monoSmall.copyWith(
+                    style: FluxForgeTheme.monoSmall.copyWith(
                       color: clip.gain >= 0
-                          ? ReelForgeTheme.accentGreen
-                          : ReelForgeTheme.accentRed,
+                          ? FluxForgeTheme.accentGreen
+                          : FluxForgeTheme.accentRed,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -1254,9 +1763,9 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: ReelForgeTheme.h3.copyWith(
+      style: FluxForgeTheme.h3.copyWith(
         fontSize: 11,
-        color: ReelForgeTheme.textSecondary,
+        color: FluxForgeTheme.textSecondary,
       ),
     );
   }
@@ -1275,8 +1784,8 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: ReelForgeTheme.label),
-          Text(value, style: ReelForgeTheme.monoSmall),
+          Text(label, style: FluxForgeTheme.label),
+          Text(value, style: FluxForgeTheme.monoSmall),
         ],
       ),
     );
@@ -1311,7 +1820,7 @@ class _TimeRulerPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgSurface,
+      Paint()..color = FluxForgeTheme.bgSurface,
     );
 
     // Determine tick spacing based on zoom
@@ -1336,8 +1845,8 @@ class _TimeRulerPainter extends CustomPainter {
 
       final tickHeight = isMajor ? 12.0 : 6.0;
       final tickColor = isMajor
-          ? ReelForgeTheme.textSecondary
-          : ReelForgeTheme.borderSubtle;
+          ? FluxForgeTheme.textSecondary
+          : FluxForgeTheme.borderSubtle;
 
       canvas.drawLine(
         Offset(x, size.height - tickHeight),
@@ -1354,7 +1863,7 @@ class _TimeRulerPainter extends CustomPainter {
           text: label,
           style: TextStyle(
             fontSize: 10,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontFamily: 'monospace',
           ),
         );
@@ -1373,7 +1882,7 @@ class _TimeRulerPainter extends CustomPainter {
         text: snapIndicator,
         style: TextStyle(
           fontSize: 9,
-          color: ReelForgeTheme.accentBlue,
+          color: FluxForgeTheme.accentBlue,
         ),
       );
       textPainter.layout();
@@ -1437,7 +1946,7 @@ class _WaveformPainter extends CustomPainter {
     // Background only for clip area
     canvas.drawRect(
       Rect.fromLTWH(0, 0, visibleClipWidth, size.height),
-      Paint()..color = ReelForgeTheme.bgDeepest,
+      Paint()..color = FluxForgeTheme.bgDeepest,
     );
 
     // Darker background for area beyond clip (if any)
@@ -1462,7 +1971,7 @@ class _WaveformPainter extends CustomPainter {
       Offset(0, centerY),
       Offset(visibleClipWidth, centerY),
       Paint()
-        ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.5)
+        ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)
         ..strokeWidth = 1,
     );
 
@@ -1487,7 +1996,7 @@ class _WaveformPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.15)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.15)
       ..strokeWidth = 1;
 
     // Vertical grid (time)
@@ -1502,7 +2011,7 @@ class _WaveformPainter extends CustomPainter {
         s += gridStep) {
       final x = (s - scrollOffset) * zoom;
       if (x >= 0 && x <= size.width) {
-        gridPaint.color = ReelForgeTheme.borderSubtle.withValues(
+        gridPaint.color = FluxForgeTheme.borderSubtle.withValues(
           alpha: s % 1 == 0 ? 0.25 : 0.1,
         );
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
@@ -1516,12 +2025,12 @@ class _WaveformPainter extends CustomPainter {
       canvas.drawLine(
         Offset(0, size.height / 2 - y),
         Offset(size.width, size.height / 2 - y),
-        Paint()..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.1),
+        Paint()..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.1),
       );
       canvas.drawLine(
         Offset(0, size.height / 2 + y),
         Offset(size.width, size.height / 2 + y),
-        Paint()..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.1),
+        Paint()..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.1),
       );
     }
   }
@@ -1955,12 +2464,12 @@ class _WaveformPainter extends CustomPainter {
           endX.clamp(0, size.width),
           size.height,
         ),
-        Paint()..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.15),
+        Paint()..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
       );
 
       // Borders
       final borderPaint = Paint()
-        ..color = ReelForgeTheme.accentCyan
+        ..color = FluxForgeTheme.accentCyan
         ..strokeWidth = 2;
 
       if (startX >= 0 && startX <= size.width) {
@@ -2015,7 +2524,7 @@ class _WaveformPainter extends CustomPainter {
         canvas.drawPath(
           path,
           Paint()
-            ..color = ReelForgeTheme.accentCyan
+            ..color = FluxForgeTheme.accentCyan
             ..strokeWidth = 2
             ..style = PaintingStyle.stroke,
         );
@@ -2068,7 +2577,7 @@ class _WaveformPainter extends CustomPainter {
         canvas.drawPath(
           path,
           Paint()
-            ..color = ReelForgeTheme.accentCyan
+            ..color = FluxForgeTheme.accentCyan
             ..strokeWidth = 2
             ..style = PaintingStyle.stroke,
         );
@@ -2111,7 +2620,7 @@ class _OverviewPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgDeep,
+      Paint()..color = FluxForgeTheme.bgDeep,
     );
 
     // Draw mini waveform
@@ -2160,7 +2669,7 @@ class _OverviewPainter extends CustomPainter {
       final endX = (selection!.end / duration) * size.width;
       canvas.drawRect(
         Rect.fromLTRB(startX, 0, endX, size.height),
-        Paint()..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.2),
+        Paint()..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
       );
     }
 
@@ -2182,7 +2691,7 @@ class _OverviewPainter extends CustomPainter {
     canvas.drawRect(
       Rect.fromLTRB(vpStartX, 0, vpEndX, size.height),
       Paint()
-        ..color = ReelForgeTheme.accentBlue
+        ..color = FluxForgeTheme.accentBlue
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke,
     );
@@ -2226,6 +2735,27 @@ class ConnectedClipEditor extends StatefulWidget {
   final void Function(String clipId, double newSourceOffset)? onSlipEdit;
   final ValueChanged<double>? onPlayheadChange;
 
+  // Audition (playback preview) - Cubase-style
+  final void Function(String clipId, double startTime, double endTime)? onAudition;
+  final VoidCallback? onStopAudition;
+  final bool isAuditioning;
+
+  // Hitpoint callbacks (Cubase-style sample editor)
+  final List<Hitpoint> hitpoints;
+  final bool showHitpoints;
+  final double hitpointSensitivity;
+  final HitpointAlgorithm hitpointAlgorithm;
+  final double hitpointMinGapMs;
+  final ValueChanged<List<Hitpoint>>? onHitpointsChange;
+  final ValueChanged<bool>? onShowHitpointsChange;
+  final ValueChanged<double>? onHitpointSensitivityChange;
+  final ValueChanged<HitpointAlgorithm>? onHitpointAlgorithmChange;
+  final VoidCallback? onDetectHitpoints;
+  final void Function(String clipId, List<Hitpoint> hitpoints)? onSliceAtHitpoints;
+  final void Function(int index)? onDeleteHitpoint;
+  final void Function(int index, int newPosition)? onMoveHitpoint;
+  final void Function(int samplePosition)? onAddHitpoint;
+
   const ConnectedClipEditor({
     super.key,
     this.selectedClipId,
@@ -2254,6 +2784,25 @@ class ConnectedClipEditor extends StatefulWidget {
     this.onSplitAtPosition,
     this.onSlipEdit,
     this.onPlayheadChange,
+    // Audition
+    this.onAudition,
+    this.onStopAudition,
+    this.isAuditioning = false,
+    // Hitpoint defaults
+    this.hitpoints = const [],
+    this.showHitpoints = false,
+    this.hitpointSensitivity = 0.5,
+    this.hitpointAlgorithm = HitpointAlgorithm.enhanced,
+    this.hitpointMinGapMs = 20.0,
+    this.onHitpointsChange,
+    this.onShowHitpointsChange,
+    this.onHitpointSensitivityChange,
+    this.onHitpointAlgorithmChange,
+    this.onDetectHitpoints,
+    this.onSliceAtHitpoints,
+    this.onDeleteHitpoint,
+    this.onMoveHitpoint,
+    this.onAddHitpoint,
   });
 
   @override
@@ -2328,6 +2877,28 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
           onSplitAtPosition: widget.onSplitAtPosition,
           onSlipEdit: widget.onSlipEdit,
           onPlayheadChange: widget.onPlayheadChange,
+          // Audition passthrough
+          onAudition: widget.onAudition,
+          onStopAudition: widget.onStopAudition,
+          isAuditioning: widget.isAuditioning,
+          // Hitpoint passthrough
+          hitpoints: widget.hitpoints,
+          showHitpoints: widget.showHitpoints,
+          hitpointSensitivity: widget.hitpointSensitivity,
+          hitpointAlgorithm: widget.hitpointAlgorithm,
+          hitpointMinGapMs: widget.hitpointMinGapMs,
+          onHitpointsChange: widget.onHitpointsChange,
+          onShowHitpointsChange: widget.onShowHitpointsChange,
+          onHitpointSensitivityChange: widget.onHitpointSensitivityChange,
+          onHitpointAlgorithmChange: widget.onHitpointAlgorithmChange,
+          onDetectHitpoints: () {
+            debugPrint('[ConnectedClipEditor] onDetectHitpoints wrapper called, parent callback=${widget.onDetectHitpoints != null}');
+            widget.onDetectHitpoints?.call();
+          },
+          onSliceAtHitpoints: widget.onSliceAtHitpoints,
+          onDeleteHitpoint: widget.onDeleteHitpoint,
+          onMoveHitpoint: widget.onMoveHitpoint,
+          onAddHitpoint: widget.onAddHitpoint,
         );
       },
     );
@@ -2370,9 +2941,9 @@ class _FadeControl extends StatelessWidget {
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              activeTrackColor: ReelForgeTheme.accentCyan,
-              inactiveTrackColor: ReelForgeTheme.borderSubtle,
-              thumbColor: ReelForgeTheme.accentCyan,
+              activeTrackColor: FluxForgeTheme.accentCyan,
+              inactiveTrackColor: FluxForgeTheme.borderSubtle,
+              thumbColor: FluxForgeTheme.accentCyan,
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
             ),
             child: Slider(
@@ -2399,7 +2970,7 @@ class _FadeControl extends StatelessWidget {
           width: 48,
           child: Text(
             '${(value * 1000).toStringAsFixed(0)}ms',
-            style: ReelForgeTheme.monoSmall,
+            style: FluxForgeTheme.monoSmall,
             textAlign: TextAlign.right,
           ),
         ),
@@ -2430,16 +3001,16 @@ class _ArrowButton extends StatelessWidget {
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgSurface,
+          color: FluxForgeTheme.bgSurface,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Icon(
           icon,
           size: 14,
           color: onTap != null
-              ? ReelForgeTheme.textSecondary
-              : ReelForgeTheme.textTertiary,
+              ? FluxForgeTheme.textSecondary
+              : FluxForgeTheme.textTertiary,
         ),
       ),
     );
@@ -2463,24 +3034,24 @@ class _CurveSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: ReelForgeTheme.bodySmall.copyWith(color: ReelForgeTheme.textSecondary)),
+        Text(label, style: FluxForgeTheme.bodySmall.copyWith(color: FluxForgeTheme.textSecondary)),
         const SizedBox(width: 8),
         Expanded(
           child: Container(
             height: 28,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<FadeCurve>(
                 value: value,
                 isDense: true,
-                dropdownColor: ReelForgeTheme.bgDeep,
-                style: ReelForgeTheme.monoSmall.copyWith(color: ReelForgeTheme.textPrimary),
-                icon: const Icon(Icons.arrow_drop_down, size: 16, color: ReelForgeTheme.textSecondary),
+                dropdownColor: FluxForgeTheme.bgDeep,
+                style: FluxForgeTheme.monoSmall.copyWith(color: FluxForgeTheme.textPrimary),
+                icon: const Icon(Icons.arrow_drop_down, size: 16, color: FluxForgeTheme.textSecondary),
                 items: FadeCurve.values.map((curve) {
                   return DropdownMenuItem<FadeCurve>(
                     value: curve,
@@ -2520,7 +3091,7 @@ class _CurvePreviewPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ReelForgeTheme.accentCyan
+      ..color = FluxForgeTheme.accentCyan
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -2640,7 +3211,7 @@ class _EditorFadeArrowState extends State<_EditorFadeArrow> {
           height: size,
           decoration: BoxDecoration(
             color: isActive
-                ? ReelForgeTheme.accentCyan
+                ? FluxForgeTheme.accentCyan
                 : widget.hasFade
                     ? Colors.white.withValues(alpha: 0.9)
                     : Colors.white.withValues(alpha: 0.5),
@@ -2648,7 +3219,7 @@ class _EditorFadeArrowState extends State<_EditorFadeArrow> {
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: ReelForgeTheme.accentCyan.withValues(alpha: 0.5),
+                      color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
                       blurRadius: 6,
                     ),
                   ]
@@ -2658,7 +3229,7 @@ class _EditorFadeArrowState extends State<_EditorFadeArrow> {
             child: Icon(
               widget.isLeft ? Icons.chevron_right : Icons.chevron_left,
               size: 14,
-              color: isActive ? Colors.white : ReelForgeTheme.bgDeepest,
+              color: isActive ? Colors.white : FluxForgeTheme.bgDeepest,
             ),
           ),
         ),
@@ -2679,7 +3250,7 @@ class _FadeOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.25)
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -2715,7 +3286,7 @@ class _FadeOverlayPainter extends CustomPainter {
 
     // Draw the curve line
     final linePaint = Paint()
-      ..color = ReelForgeTheme.accentCyan
+      ..color = FluxForgeTheme.accentCyan
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -2772,4 +3343,75 @@ class _FadeOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FadeOverlayPainter oldDelegate) =>
       oldDelegate.isLeft != isLeft || oldDelegate.curve != curve;
+}
+
+/// Hitpoint marker painter (triangle indicator)
+class _HitpointMarkerPainter extends CustomPainter {
+  final bool isHovered;
+  final bool isManual;
+  final bool isLocked;
+  final double strength;
+
+  _HitpointMarkerPainter({
+    required this.isHovered,
+    required this.isManual,
+    required this.isLocked,
+    required this.strength,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final baseColor = isManual
+        ? FluxForgeTheme.accentCyan
+        : FluxForgeTheme.accentOrange;
+
+    final color = isHovered
+        ? baseColor
+        : baseColor.withValues(alpha: 0.7 * strength.clamp(0.5, 1.0));
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // Draw downward-pointing triangle
+    final path = Path()
+      ..moveTo(size.width / 2, size.height)  // Bottom point
+      ..lineTo(0, 0)                          // Top left
+      ..lineTo(size.width, 0)                 // Top right
+      ..close();
+
+    canvas.drawPath(path, paint);
+
+    // Draw lock icon if locked
+    if (isLocked) {
+      final lockPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+
+      final lockSize = size.width * 0.4;
+      final cx = size.width / 2;
+      final cy = size.height * 0.3;
+
+      // Simple lock shape
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset(cx, cy), width: lockSize, height: lockSize * 0.8),
+        lockPaint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(center: Offset(cx, cy - lockSize * 0.4), width: lockSize * 0.6, height: lockSize * 0.6),
+        math.pi,
+        math.pi,
+        false,
+        lockPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HitpointMarkerPainter oldDelegate) =>
+      oldDelegate.isHovered != isHovered ||
+      oldDelegate.isManual != isManual ||
+      oldDelegate.isLocked != isLocked ||
+      oldDelegate.strength != strength;
 }

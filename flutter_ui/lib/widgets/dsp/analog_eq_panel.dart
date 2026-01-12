@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Analog EQ model type
 enum AnalogEqModel {
@@ -116,16 +116,16 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgVoid,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgVoid,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildModelSelector(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(child: _buildModelContent()),
         ],
       ),
@@ -137,12 +137,12 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.graphic_eq, color: ReelForgeTheme.accentOrange, size: 20),
+          const Icon(Icons.graphic_eq, color: FluxForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 8),
           const Text(
             'ANALOG EQ',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -152,7 +152,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           Text(
             _modelName(_model),
             style: const TextStyle(
-              color: ReelForgeTheme.accentOrange,
+              color: FluxForgeTheme.accentOrange,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -175,17 +175,17 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _bypassed
-              ? ReelForgeTheme.accentRed.withValues(alpha:0.3)
-              : ReelForgeTheme.accentGreen.withValues(alpha:0.2),
+              ? FluxForgeTheme.accentRed.withValues(alpha:0.3)
+              : FluxForgeTheme.accentGreen.withValues(alpha:0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
+            color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
           ),
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
           style: TextStyle(
-            color: _bypassed ? ReelForgeTheme.accentRed : ReelForgeTheme.accentGreen,
+            color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -216,17 +216,17 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
+                    color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.borderMedium,
+                      color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderMedium,
                     ),
                   ),
                   child: Center(
                     child: Text(
                       _modelShortName(model),
                       style: TextStyle(
-                        color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                        color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -475,7 +475,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           const Text(
             'Proportional Q: narrower at higher gain settings',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 11,
               fontStyle: FontStyle.italic,
             ),
@@ -541,21 +541,21 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _neve1073HpEnabled
-                        ? ReelForgeTheme.accentOrange.withValues(alpha:0.3)
-                        : ReelForgeTheme.bgMid,
+                        ? FluxForgeTheme.accentOrange.withValues(alpha:0.3)
+                        : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: _neve1073HpEnabled
-                          ? ReelForgeTheme.accentOrange
-                          : ReelForgeTheme.borderMedium,
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.borderMedium,
                     ),
                   ),
                   child: Text(
                     _neve1073HpEnabled ? 'ON' : 'OFF',
                     style: TextStyle(
                       color: _neve1073HpEnabled
-                          ? ReelForgeTheme.accentOrange
-                          : ReelForgeTheme.textTertiary,
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textTertiary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -629,7 +629,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           const Text(
             'Inductor-based EQ with transformer coloration',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 11,
               fontStyle: FontStyle.italic,
             ),
@@ -674,7 +674,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
     return Text(
       title,
       style: const TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
@@ -695,7 +695,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         Text(
           label,
           style: const TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -712,19 +712,19 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? ReelForgeTheme.accentOrange
-                      : ReelForgeTheme.bgMid,
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
                     color: isSelected
-                        ? ReelForgeTheme.accentOrange
-                        : ReelForgeTheme.borderMedium,
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.borderMedium,
                   ),
                 ),
                 child: Text(
                   formatter(v),
                   style: TextStyle(
-                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                    color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -754,7 +754,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
             Text(
               label,
               style: const TextStyle(
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
@@ -763,7 +763,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
             Text(
               '${value.toStringAsFixed(1)} $unit',
               style: const TextStyle(
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -774,11 +774,11 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         SliderTheme(
           data: SliderThemeData(
             trackHeight: 4,
-            activeTrackColor: ReelForgeTheme.accentOrange,
-            inactiveTrackColor: ReelForgeTheme.borderSubtle,
-            thumbColor: ReelForgeTheme.accentOrange,
+            activeTrackColor: FluxForgeTheme.accentOrange,
+            inactiveTrackColor: FluxForgeTheme.borderSubtle,
+            thumbColor: FluxForgeTheme.accentOrange,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: ReelForgeTheme.accentOrange.withValues(alpha:0.2),
+            overlayColor: FluxForgeTheme.accentOrange.withValues(alpha:0.2),
           ),
           child: Slider(
             value: value.clamp(min, max),
@@ -806,11 +806,11 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           height: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: ReelForgeTheme.bgMid,
-            border: Border.all(color: ReelForgeTheme.borderMedium, width: 2),
+            color: FluxForgeTheme.bgMid,
+            border: Border.all(color: FluxForgeTheme.borderMedium, width: 2),
             boxShadow: [
               BoxShadow(
-                color: ReelForgeTheme.accentOrange.withValues(alpha:0.1),
+                color: FluxForgeTheme.accentOrange.withValues(alpha:0.1),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -826,7 +826,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
                   width: 4,
                   height: 24,
                   decoration: const BoxDecoration(
-                    color: ReelForgeTheme.accentOrange,
+                    color: FluxForgeTheme.accentOrange,
                     borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
                   ),
                 ),
@@ -835,7 +835,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
               Text(
                 knob.value.toStringAsFixed(1),
                 style: const TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -847,7 +847,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
         Text(
           knob.label,
           style: const TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -858,9 +858,9 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           child: SliderTheme(
             data: SliderThemeData(
               trackHeight: 2,
-              activeTrackColor: ReelForgeTheme.borderMedium,
-              inactiveTrackColor: ReelForgeTheme.borderSubtle,
-              thumbColor: ReelForgeTheme.accentOrange,
+              activeTrackColor: FluxForgeTheme.borderMedium,
+              inactiveTrackColor: FluxForgeTheme.borderSubtle,
+              thumbColor: FluxForgeTheme.accentOrange,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               overlayColor: Colors.transparent,
             ),

@@ -14,7 +14,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -252,10 +252,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         width: width,
         decoration: BoxDecoration(
           color: d.selected
-              ? ReelForgeTheme.accentBlue.withValues(alpha: 0.08)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.08)
+              : FluxForgeTheme.bgMid,
           border: Border(
-            right: BorderSide(color: ReelForgeTheme.borderSubtle, width: 1),
+            right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
             left: d.selected
                 ? BorderSide(color: d.trackColor, width: 2)
                 : BorderSide.none,
@@ -302,15 +302,15 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         gradient: d.isMaster
             ? LinearGradient(
                 colors: [
-                  ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
-                  ReelForgeTheme.accentOrange.withValues(alpha: 0.1),
+                  FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
+                  FluxForgeTheme.accentOrange.withValues(alpha: 0.1),
                 ],
               )
             : null,
-        color: d.isMaster ? null : ReelForgeTheme.bgSurface,
+        color: d.isMaster ? null : FluxForgeTheme.bgSurface,
         border: Border(
           top: BorderSide(color: d.trackColor, width: 3),
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -326,7 +326,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -343,18 +343,18 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle, width: 0.5),
+        border: Border.all(color: FluxForgeTheme.borderSubtle, width: 0.5),
       ),
       child: Row(
         children: [
-          Icon(Icons.input, size: 11, color: ReelForgeTheme.textTertiary),
+          Icon(Icons.input, size: 11, color: FluxForgeTheme.textTertiary),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
               d.type == 'audio' ? 'Stereo In' : 'No Input',
-              style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary),
+              style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -378,7 +378,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -396,17 +396,17 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: slot.isEmpty
-                    ? ReelForgeTheme.bgDeepest
+                    ? FluxForgeTheme.bgDeepest
                     : (slot.bypassed
-                        ? ReelForgeTheme.bgDeep
-                        : ReelForgeTheme.bgSurface),
+                        ? FluxForgeTheme.bgDeep
+                        : FluxForgeTheme.bgSurface),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: slot.isEmpty
                       ? Colors.transparent
                       : (isPreFader
-                          ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
-                          : ReelForgeTheme.accentOrange.withValues(alpha: 0.5)),
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                          : FluxForgeTheme.accentOrange.withValues(alpha: 0.5)),
                   width: 0.5,
                 ),
               ),
@@ -419,12 +419,12 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: slot.isEmpty
-                          ? ReelForgeTheme.borderSubtle
+                          ? FluxForgeTheme.borderSubtle
                           : (slot.bypassed
-                              ? ReelForgeTheme.textDisabled
+                              ? FluxForgeTheme.textDisabled
                               : (isPreFader
-                                  ? ReelForgeTheme.accentBlue
-                                  : ReelForgeTheme.accentOrange)),
+                                  ? FluxForgeTheme.accentBlue
+                                  : FluxForgeTheme.accentOrange)),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -434,8 +434,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       style: TextStyle(
                         fontSize: 9,
                         color: slot.bypassed
-                            ? ReelForgeTheme.textDisabled
-                            : ReelForgeTheme.textSecondary,
+                            ? FluxForgeTheme.textDisabled
+                            : FluxForgeTheme.textSecondary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -462,10 +462,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         offset.dx + 300,
         offset.dy + 200,
       ),
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: ReelForgeTheme.borderMedium),
+        side: BorderSide(color: FluxForgeTheme.borderMedium),
       ),
       items: [
         // Header
@@ -477,7 +477,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               letterSpacing: 0.5,
             ),
           ),
@@ -490,9 +490,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           height: 24,
           child: Row(
             children: [
-              Icon(Icons.add_box_outlined, size: 12, color: ReelForgeTheme.accentBlue),
+              Icon(Icons.add_box_outlined, size: 12, color: FluxForgeTheme.accentBlue),
               const SizedBox(width: 6),
-              Text('INSERT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: ReelForgeTheme.accentBlue)),
+              Text('INSERT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentBlue)),
             ],
           ),
         ),
@@ -506,9 +506,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           height: 24,
           child: Row(
             children: [
-              Icon(Icons.call_split, size: 12, color: ReelForgeTheme.accentCyan),
+              Icon(Icons.call_split, size: 12, color: FluxForgeTheme.accentCyan),
               const SizedBox(width: 6),
-              Text('AUX SEND', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: ReelForgeTheme.accentCyan)),
+              Text('AUX SEND', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentCyan)),
             ],
           ),
         ),
@@ -522,9 +522,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           height: 24,
           child: Row(
             children: [
-              Icon(Icons.alt_route, size: 12, color: ReelForgeTheme.accentGreen),
+              Icon(Icons.alt_route, size: 12, color: FluxForgeTheme.accentGreen),
               const SizedBox(width: 6),
-              Text('BUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: ReelForgeTheme.accentGreen)),
+              Text('BUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentGreen)),
             ],
           ),
         ),
@@ -540,9 +540,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             height: 32,
             child: Row(
               children: [
-                Icon(Icons.clear, size: 14, color: ReelForgeTheme.accentRed),
+                Icon(Icons.clear, size: 14, color: FluxForgeTheme.accentRed),
                 const SizedBox(width: 8),
-                Text('Clear Slot', style: TextStyle(fontSize: 11, color: ReelForgeTheme.accentRed)),
+                Text('Clear Slot', style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentRed)),
               ],
             ),
           ),
@@ -571,7 +571,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       child: Row(
         children: [
           const SizedBox(width: 18),
-          Text(plugin, style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary)),
+          Text(plugin, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -600,7 +600,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Text(bus.name, style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary)),
+          Text(bus.name, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -630,7 +630,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Text(bus.name, style: TextStyle(fontSize: 11, color: ReelForgeTheme.textPrimary)),
+          Text(bus.name, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -651,7 +651,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -671,10 +671,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 color: slot.isEmpty
-                    ? ReelForgeTheme.bgDeepest
+                    ? FluxForgeTheme.bgDeepest
                     : slot.muted
-                        ? ReelForgeTheme.bgDeepest.withValues(alpha: 0.7)
-                        : ReelForgeTheme.bgSurface,
+                        ? FluxForgeTheme.bgDeepest.withValues(alpha: 0.7)
+                        : FluxForgeTheme.bgSurface,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Row(
@@ -689,13 +689,13 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       height: 14,
                       decoration: BoxDecoration(
                         color: slot.muted
-                            ? ReelForgeTheme.accentOrange.withValues(alpha: 0.8)
-                            : ReelForgeTheme.bgDeepest,
+                            ? FluxForgeTheme.accentOrange.withValues(alpha: 0.8)
+                            : FluxForgeTheme.bgDeepest,
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(
                           color: slot.muted
-                              ? ReelForgeTheme.accentOrange
-                              : ReelForgeTheme.borderSubtle,
+                              ? FluxForgeTheme.accentOrange
+                              : FluxForgeTheme.borderSubtle,
                           width: 1,
                         ),
                       ),
@@ -707,7 +707,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                             fontWeight: FontWeight.w700,
                             color: slot.muted
                                 ? Colors.white
-                                : ReelForgeTheme.textTertiary,
+                                : FluxForgeTheme.textTertiary,
                           ),
                         ),
                       ),
@@ -719,7 +719,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     width: 12,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest,
+                      color: FluxForgeTheme.bgDeepest,
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: FractionallySizedBox(
@@ -729,8 +729,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              (slot.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan).withValues(alpha: 0.6),
-                              slot.muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentCyan,
+                              (slot.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan).withValues(alpha: 0.6),
+                              slot.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
                             ],
                           ),
                           borderRadius: BorderRadius.circular(2),
@@ -746,10 +746,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 120),
                       offset: const Offset(0, 20),
-                      color: ReelForgeTheme.bgSurface,
+                      color: FluxForgeTheme.bgSurface,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
-                        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+                        side: BorderSide(color: FluxForgeTheme.borderSubtle),
                       ),
                       onSelected: (dest) {
                         widget.onSendDestinationChange?.call(i, dest == 'none' ? null : dest);
@@ -760,7 +760,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           height: 24,
                           child: Text(
                             '-- None --',
-                            style: TextStyle(fontSize: 10, color: ReelForgeTheme.textTertiary),
+                            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
                           ),
                         ),
                         ...fxBuses.map((bus) => PopupMenuItem<String>(
@@ -779,7 +779,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                               ),
                               Text(
                                 bus.name,
-                                style: TextStyle(fontSize: 10, color: ReelForgeTheme.textPrimary),
+                                style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
                               ),
                             ],
                           ),
@@ -792,8 +792,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           style: TextStyle(
                             fontSize: 8,
                             color: slot.muted
-                                ? ReelForgeTheme.textTertiary
-                                : ReelForgeTheme.textSecondary,
+                                ? FluxForgeTheme.textTertiary
+                                : FluxForgeTheme.textSecondary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -809,13 +809,13 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
                       decoration: BoxDecoration(
                         color: slot.preFader
-                            ? ReelForgeTheme.accentCyan.withValues(alpha: 0.25)
-                            : ReelForgeTheme.bgDeepest,
+                            ? FluxForgeTheme.accentCyan.withValues(alpha: 0.25)
+                            : FluxForgeTheme.bgDeepest,
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(
                           color: slot.preFader
-                              ? ReelForgeTheme.accentCyan.withValues(alpha: 0.5)
-                              : ReelForgeTheme.borderSubtle,
+                              ? FluxForgeTheme.accentCyan.withValues(alpha: 0.5)
+                              : FluxForgeTheme.borderSubtle,
                           width: 1,
                         ),
                       ),
@@ -825,8 +825,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           fontSize: 6,
                           fontWeight: FontWeight.w600,
                           color: slot.preFader
-                              ? ReelForgeTheme.accentCyan
-                              : ReelForgeTheme.textTertiary,
+                              ? FluxForgeTheme.accentCyan
+                              : FluxForgeTheme.textTertiary,
                         ),
                       ),
                     ),
@@ -875,7 +875,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgDeepest,
+                      color: FluxForgeTheme.bgDeepest,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -911,8 +911,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                                 fontSize: 8,
                                 fontWeight: db == '0' ? FontWeight.w600 : FontWeight.w400,
                                 color: db == '0'
-                                    ? ReelForgeTheme.accentBlue
-                                    : ReelForgeTheme.textDisabled,
+                                    ? FluxForgeTheme.accentBlue
+                                    : FluxForgeTheme.textDisabled,
                               ),
                             ))
                         .toList(),
@@ -933,14 +933,14 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            ReelForgeTheme.bgDeep,
-                            ReelForgeTheme.bgSurface,
-                            ReelForgeTheme.bgDeep,
+                            FluxForgeTheme.bgDeep,
+                            FluxForgeTheme.bgSurface,
+                            FluxForgeTheme.bgDeep,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
-                          color: ReelForgeTheme.borderMedium,
+                          color: FluxForgeTheme.borderMedium,
                           width: 0.5,
                         ),
                       ),
@@ -956,10 +956,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                   child: Container(
                     height: 2,
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentBlue,
+                      color: FluxForgeTheme.accentBlue,
                       boxShadow: [
                         BoxShadow(
-                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5),
+                          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                           blurRadius: 4,
                         ),
                       ],
@@ -987,10 +987,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.clipRed,
+                        color: FluxForgeTheme.clipRed,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        boxShadow: ReelForgeTheme.glowShadow(
-                          ReelForgeTheme.clipRed,
+                        boxShadow: FluxForgeTheme.glowShadow(
+                          FluxForgeTheme.clipRed,
                           intensity: 0.8,
                         ),
                       ),
@@ -1000,7 +1000,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           style: TextStyle(
                             fontSize: 6,
                             fontWeight: FontWeight.w700,
-                            color: ReelForgeTheme.textPrimary,
+                            color: FluxForgeTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -1026,8 +1026,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         child: Container(
           height: 1,
           color: isMajor
-              ? ReelForgeTheme.borderMedium
-              : ReelForgeTheme.borderSubtle,
+              ? FluxForgeTheme.borderMedium
+              : FluxForgeTheme.borderSubtle,
         ),
       );
     }).toList();
@@ -1110,25 +1110,25 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     gradient: RadialGradient(
                       center: const Alignment(-0.3, -0.3),
                       colors: [
-                        ReelForgeTheme.bgSurface,
-                        ReelForgeTheme.bgDeepest,
+                        FluxForgeTheme.bgSurface,
+                        FluxForgeTheme.bgDeepest,
                       ],
                     ),
                     border: Border.all(
                       color: _isDraggingPan
-                          ? ReelForgeTheme.accentBlue
-                          : ReelForgeTheme.borderMedium,
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.borderMedium,
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
+                        color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
                       if (_isDraggingPan)
                         BoxShadow(
-                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
+                          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                           blurRadius: 8,
                         ),
                     ],
@@ -1178,7 +1178,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -1196,20 +1196,20 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isOver
-              ? ReelForgeTheme.accentRed
+              ? FluxForgeTheme.accentRed
               : (_isDraggingFader
-                  ? ReelForgeTheme.accentBlue
-                  : ReelForgeTheme.borderSubtle),
+                  ? FluxForgeTheme.accentBlue
+                  : FluxForgeTheme.borderSubtle),
           width: _isDraggingFader ? 1.5 : 0.5,
         ),
         boxShadow: _isDraggingFader
             ? [
                 BoxShadow(
-                  color: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                   blurRadius: 6,
                 ),
               ]
@@ -1223,10 +1223,10 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             fontWeight: FontWeight.w600,
             fontFamily: 'monospace',
             color: isOver
-                ? ReelForgeTheme.accentRed
+                ? FluxForgeTheme.accentRed
                 : (_isDraggingFader
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textPrimary),
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textPrimary),
           ),
         ),
       ),
@@ -1244,7 +1244,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             child: _ChannelButton(
               label: 'M',
               isActive: d.muted,
-              activeColor: ReelForgeTheme.accentRed,
+              activeColor: FluxForgeTheme.accentRed,
               onTap: widget.onMuteToggle,
             ),
           ),
@@ -1254,7 +1254,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             child: _ChannelButton(
               label: 'S',
               isActive: d.soloed,
-              activeColor: ReelForgeTheme.accentYellow,
+              activeColor: FluxForgeTheme.accentYellow,
               onTap: widget.onSoloToggle,
             ),
           ),
@@ -1265,7 +1265,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               child: _ChannelButton(
                 label: 'R',
                 isActive: d.armed,
-                activeColor: ReelForgeTheme.accentRed,
+                activeColor: FluxForgeTheme.accentRed,
                 onTap: widget.onArmToggle,
                 pulsing: d.armed,
               ),
@@ -1284,22 +1284,22 @@ class _ProMixerStripState extends State<ProMixerStrip> {
         margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle, width: 0.5),
+          border: Border.all(color: FluxForgeTheme.borderSubtle, width: 0.5),
         ),
         child: Row(
           children: [
-            Icon(Icons.output, size: 11, color: ReelForgeTheme.textTertiary),
+            Icon(Icons.output, size: 11, color: FluxForgeTheme.textTertiary),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
                 d.output ?? (d.isMaster ? 'Out 1-2' : 'Master'),
-                style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary),
+                style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.keyboard_arrow_down, size: 12, color: ReelForgeTheme.textTertiary),
+            Icon(Icons.keyboard_arrow_down, size: 12, color: FluxForgeTheme.textTertiary),
           ],
         ),
       ),
@@ -1342,27 +1342,27 @@ class _TypeIcon extends StatelessWidget {
     switch (type) {
       case 'audio':
         icon = Icons.music_note;
-        color = ReelForgeTheme.accentCyan;
+        color = FluxForgeTheme.accentCyan;
         break;
       case 'instrument':
         icon = Icons.piano;
-        color = ReelForgeTheme.accentPurple;
+        color = FluxForgeTheme.accentPurple;
         break;
       case 'bus':
         icon = Icons.alt_route;
-        color = ReelForgeTheme.accentGreen;
+        color = FluxForgeTheme.accentGreen;
         break;
       case 'fx':
         icon = Icons.auto_fix_high;
-        color = ReelForgeTheme.accentOrange;
+        color = FluxForgeTheme.accentOrange;
         break;
       case 'master':
         icon = Icons.surround_sound;
-        color = ReelForgeTheme.accentOrange;
+        color = FluxForgeTheme.accentOrange;
         break;
       default:
         icon = Icons.audiotrack;
-        color = ReelForgeTheme.textSecondary;
+        color = FluxForgeTheme.textSecondary;
     }
 
     return Icon(icon, size: 13, color: color);
@@ -1389,8 +1389,8 @@ class _ChannelButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: ReelForgeTheme.fastDuration,
-        curve: ReelForgeTheme.smoothCurve,
+        duration: FluxForgeTheme.fastDuration,
+        curve: FluxForgeTheme.smoothCurve,
         decoration: BoxDecoration(
           gradient: isActive
               ? LinearGradient(
@@ -1402,14 +1402,14 @@ class _ChannelButton extends StatelessWidget {
                   ],
                 )
               : null,
-          color: isActive ? null : ReelForgeTheme.bgDeepest,
+          color: isActive ? null : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isActive ? activeColor : ReelForgeTheme.borderSubtle,
+            color: isActive ? activeColor : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
           boxShadow: isActive
-              ? ReelForgeTheme.glowShadow(activeColor, intensity: 0.4)
+              ? FluxForgeTheme.glowShadow(activeColor, intensity: 0.4)
               : null,
         ),
         child: Center(
@@ -1419,8 +1419,8 @@ class _ChannelButton extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: isActive
-                  ? ReelForgeTheme.textInverse
-                  : ReelForgeTheme.textTertiary,
+                  ? FluxForgeTheme.textInverse
+                  : FluxForgeTheme.textTertiary,
             ),
           ),
         ),
@@ -1460,12 +1460,12 @@ class _FaderThumb extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isDragging ? trackColor : ReelForgeTheme.borderMedium,
+          color: isDragging ? trackColor : FluxForgeTheme.borderMedium,
           width: isDragging ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withValues(alpha: 0.5),
+            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -1487,7 +1487,7 @@ class _FaderThumb extends StatelessWidget {
               height: 2,
               margin: const EdgeInsets.symmetric(vertical: 1),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeep,
+                color: FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(1),
               ),
             ),
@@ -1567,7 +1567,7 @@ class _MeterBar extends StatelessWidget {
 
           return Container(
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(2),
             ),
             child: Stack(
@@ -1626,12 +1626,12 @@ class _MeterBar extends StatelessWidget {
                       height: 2,
                       decoration: BoxDecoration(
                         color: isClipping
-                            ? ReelForgeTheme.clipRed
-                            : ReelForgeTheme.peakHoldColor,
+                            ? FluxForgeTheme.clipRed
+                            : FluxForgeTheme.peakHoldColor,
                         boxShadow: isClipping
                             ? [
                                 BoxShadow(
-                                  color: ReelForgeTheme.clipRed.withValues(alpha: 0.8),
+                                  color: FluxForgeTheme.clipRed.withValues(alpha: 0.8),
                                   blurRadius: 4,
                                 ),
                               ]
@@ -1648,10 +1648,10 @@ class _MeterBar extends StatelessWidget {
   }
 
   Color _getPeakColor(double level) {
-    if (level > 0.92) return ReelForgeTheme.accentRed;
-    if (level > 0.85) return ReelForgeTheme.accentOrange;
-    if (level > 0.7) return ReelForgeTheme.accentYellow;
-    return ReelForgeTheme.accentGreen;
+    if (level > 0.92) return FluxForgeTheme.accentRed;
+    if (level > 0.85) return FluxForgeTheme.accentOrange;
+    if (level > 0.7) return FluxForgeTheme.accentYellow;
+    return FluxForgeTheme.accentGreen;
   }
 }
 
@@ -1674,7 +1674,7 @@ class _PanArcPainter extends CustomPainter {
       270 * math.pi / 180,
       false,
       Paint()
-        ..color = ReelForgeTheme.borderSubtle
+        ..color = FluxForgeTheme.borderSubtle
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
@@ -1700,7 +1700,7 @@ class _PanArcPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(center.dx, center.dy - radius),
       2,
-      Paint()..color = ReelForgeTheme.textSecondary,
+      Paint()..color = FluxForgeTheme.textSecondary,
     );
   }
 

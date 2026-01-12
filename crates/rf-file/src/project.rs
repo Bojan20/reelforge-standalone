@@ -44,7 +44,7 @@ impl Default for ProjectHeader {
 
         Self {
             version: PROJECT_VERSION,
-            app_name: "ReelForge".to_string(),
+            app_name: "FluxForge Studio".to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             created_at: now,
             modified_at: now,

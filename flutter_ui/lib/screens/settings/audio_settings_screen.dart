@@ -8,7 +8,7 @@
 /// - Test audio output
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart' as api;
 
 class AudioHostInfo {
@@ -171,9 +171,9 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgDeep,
+      backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgMid,
+        backgroundColor: FluxForgeTheme.bgMid,
         title: const Text('Audio Settings'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -224,15 +224,15 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         children: [
           Icon(
             Icons.audiotrack,
-            color: ReelForgeTheme.accentBlue,
+            color: FluxForgeTheme.accentBlue,
             size: 32,
           ),
           const SizedBox(width: 16),
@@ -242,14 +242,14 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               Text(
                 'Audio Backend',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 12,
                 ),
               ),
               Text(
                 hostType,
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -267,18 +267,18 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       icon: Icons.speaker,
       child: DropdownButtonFormField<String>(
         value: _selectedOutputDevice,
-        dropdownColor: ReelForgeTheme.bgMid,
-        style: TextStyle(color: ReelForgeTheme.textPrimary),
+        dropdownColor: FluxForgeTheme.bgMid,
+        style: TextStyle(color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           filled: true,
-          fillColor: ReelForgeTheme.bgSurface,
+          fillColor: FluxForgeTheme.bgSurface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
         ),
         items: _outputDevices.map((device) {
@@ -294,13 +294,13 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'Default',
                       style: TextStyle(
-                        color: ReelForgeTheme.accentGreen,
+                        color: FluxForgeTheme.accentGreen,
                         fontSize: 10,
                       ),
                     ),
@@ -309,7 +309,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 Text(
                   '${device.channels}ch',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -328,18 +328,18 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       icon: Icons.mic,
       child: DropdownButtonFormField<String>(
         value: _selectedInputDevice,
-        dropdownColor: ReelForgeTheme.bgMid,
-        style: TextStyle(color: ReelForgeTheme.textPrimary),
+        dropdownColor: FluxForgeTheme.bgMid,
+        style: TextStyle(color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           filled: true,
-          fillColor: ReelForgeTheme.bgSurface,
+          fillColor: FluxForgeTheme.bgSurface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: ReelForgeTheme.borderSubtle),
+            borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
           ),
         ),
         items: _inputDevices.map((device) {
@@ -355,13 +355,13 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'Default',
                       style: TextStyle(
-                        color: ReelForgeTheme.accentGreen,
+                        color: FluxForgeTheme.accentGreen,
                         fontSize: 10,
                       ),
                     ),
@@ -370,7 +370,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 Text(
                   '${device.channels}ch',
                   style: TextStyle(
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -403,15 +403,15 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             label: Text('${rate ~/ 1000}.${(rate % 1000) ~/ 100} kHz'),
             selected: isSelected,
             onSelected: isAvailable ? (_) => _setSampleRate(rate) : null,
-            backgroundColor: ReelForgeTheme.bgSurface,
-            selectedColor: ReelForgeTheme.accentBlue,
-            disabledColor: ReelForgeTheme.bgMid,
+            backgroundColor: FluxForgeTheme.bgSurface,
+            selectedColor: FluxForgeTheme.accentBlue,
+            disabledColor: FluxForgeTheme.bgMid,
             labelStyle: TextStyle(
               color: isSelected
-                  ? ReelForgeTheme.textPrimary
+                  ? FluxForgeTheme.textPrimary
                   : isAvailable
-                      ? ReelForgeTheme.textPrimary
-                      : ReelForgeTheme.textSecondary.withValues(alpha: 0.5),
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
           );
         }).toList(),
@@ -435,10 +435,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 label: Text('$size'),
                 selected: isSelected,
                 onSelected: (_) => _setBufferSize(size),
-                backgroundColor: ReelForgeTheme.bgSurface,
-                selectedColor: ReelForgeTheme.accentBlue,
+                backgroundColor: FluxForgeTheme.bgSurface,
+                selectedColor: FluxForgeTheme.accentBlue,
                 labelStyle: TextStyle(
-                  color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textPrimary,
+                  color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                 ),
               );
             }).toList(),
@@ -449,13 +449,13 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               Icon(
                 Icons.info_outline,
                 size: 14,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
               const SizedBox(width: 8),
               Text(
                 'Lower = less latency, higher CPU usage',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -474,23 +474,23 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     String latencyLabel;
 
     if (latency < 3) {
-      latencyColor = ReelForgeTheme.accentGreen;
+      latencyColor = FluxForgeTheme.accentGreen;
       latencyLabel = 'Excellent';
     } else if (latency < 6) {
-      latencyColor = ReelForgeTheme.accentBlue;
+      latencyColor = FluxForgeTheme.accentBlue;
       latencyLabel = 'Good';
     } else if (latency < 12) {
-      latencyColor = ReelForgeTheme.accentOrange;
+      latencyColor = FluxForgeTheme.accentOrange;
       latencyLabel = 'Moderate';
     } else {
-      latencyColor = ReelForgeTheme.accentRed;
+      latencyColor = FluxForgeTheme.accentRed;
       latencyLabel = 'High';
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: latencyColor.withOpacity(0.5)),
       ),
@@ -504,7 +504,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               Text(
                 'Latency',
                 style: TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -546,7 +546,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
         Text(
           value,
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -554,7 +554,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
         Text(
           label,
           style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -573,14 +573,14 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               )
             : const Icon(Icons.play_arrow),
         label: Text(_isTesting ? 'Playing...' : 'Test Audio Output'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: ReelForgeTheme.accentBlue,
-          foregroundColor: ReelForgeTheme.textPrimary,
+          backgroundColor: FluxForgeTheme.accentBlue,
+          foregroundColor: FluxForgeTheme.textPrimary,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -600,12 +600,12 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, color: ReelForgeTheme.accentBlue, size: 20),
+            Icon(icon, color: FluxForgeTheme.accentBlue, size: 20),
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),

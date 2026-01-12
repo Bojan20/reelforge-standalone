@@ -14,7 +14,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart';
 import 'pro_meter.dart';
 import 'correlation_meter.dart';
@@ -50,7 +50,7 @@ class DynamicRangeMeter extends StatelessWidget {
           Text(
             'DR',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -60,9 +60,9 @@ class DynamicRangeMeter extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: CustomPaint(
               size: Size(width, height),
@@ -88,10 +88,10 @@ class DynamicRangeMeter extends StatelessWidget {
   }
 
   Color _getDrColor(double dr) {
-    if (dr < 6) return ReelForgeTheme.accentRed;
-    if (dr < 10) return ReelForgeTheme.accentOrange;
-    if (dr < 14) return ReelForgeTheme.accentYellow;
-    return ReelForgeTheme.accentGreen;
+    if (dr < 6) return FluxForgeTheme.accentRed;
+    if (dr < 10) return FluxForgeTheme.accentOrange;
+    if (dr < 14) return FluxForgeTheme.accentYellow;
+    return FluxForgeTheme.accentGreen;
   }
 }
 
@@ -116,10 +116,10 @@ class _DynamicRangePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          ReelForgeTheme.accentRed.withValues(alpha: 0.3),
-          ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
-          ReelForgeTheme.accentYellow.withValues(alpha: 0.3),
-          ReelForgeTheme.accentGreen.withValues(alpha: 0.3),
+          FluxForgeTheme.accentRed.withValues(alpha: 0.3),
+          FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
+          FluxForgeTheme.accentYellow.withValues(alpha: 0.3),
+          FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
         ],
         stops: const [0.0, 0.25, 0.5, 1.0],
       ).createShader(rect);
@@ -136,10 +136,10 @@ class _DynamicRangePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          dynamicRange < 6 ? ReelForgeTheme.accentRed :
-          dynamicRange < 10 ? ReelForgeTheme.accentOrange :
-          dynamicRange < 14 ? ReelForgeTheme.accentYellow : ReelForgeTheme.accentGreen,
-          ReelForgeTheme.accentGreen.withValues(alpha: 0.5),
+          dynamicRange < 6 ? FluxForgeTheme.accentRed :
+          dynamicRange < 10 ? FluxForgeTheme.accentOrange :
+          dynamicRange < 14 ? FluxForgeTheme.accentYellow : FluxForgeTheme.accentGreen,
+          FluxForgeTheme.accentGreen.withValues(alpha: 0.5),
         ],
       ).createShader(Rect.fromLTWH(0, size.height - barHeight, size.width, barHeight));
 
@@ -150,7 +150,7 @@ class _DynamicRangePainter extends CustomPainter {
 
     // Scale markers
     final markerPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     for (final db in [6, 10, 14, 20, 30, 40]) {
@@ -203,9 +203,9 @@ class StereoBalanceMeter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('L', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
-              Text('Balance', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
-              Text('R', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10)),
+              Text('L', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+              Text('Balance', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+              Text('R', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
             ],
           ),
           const SizedBox(height: 2),
@@ -213,9 +213,9 @@ class StereoBalanceMeter extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: CustomPaint(
               size: Size(width, height),
@@ -227,7 +227,7 @@ class StereoBalanceMeter extends StatelessWidget {
             balance.abs() < 0.05 ? 'C' :
               '${balance > 0 ? "R" : "L"} ${(balance.abs() * 100).toStringAsFixed(0)}%',
             style: TextStyle(
-              color: balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange,
+              color: balance.abs() < 0.1 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
               fontSize: 10,
             ),
           ),
@@ -247,7 +247,7 @@ class _BalancePainter extends CustomPainter {
     final center = size.width / 2;
 
     // Background
-    final bgPaint = Paint()..color = ReelForgeTheme.bgDeep;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgDeep;
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(2)),
       bgPaint,
@@ -255,7 +255,7 @@ class _BalancePainter extends CustomPainter {
 
     // Center line
     final centerPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(center, 0),
@@ -268,7 +268,7 @@ class _BalancePainter extends CustomPainter {
     final indicatorX = center + (balance * (size.width / 2 - indicatorWidth / 2));
 
     final indicatorPaint = Paint()
-      ..color = balance.abs() < 0.1 ? ReelForgeTheme.accentGreen : ReelForgeTheme.accentOrange;
+      ..color = balance.abs() < 0.1 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange;
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -287,9 +287,9 @@ class _BalancePainter extends CustomPainter {
     final rightWidth = (1 + balance) / 2 * (size.width - 20);
 
     final leftPaint = Paint()
-      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.4);
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.4);
     final rightPaint = Paint()
-      ..color = ReelForgeTheme.accentCyan.withValues(alpha: 0.4);
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.4);
 
     // Left bar (from left edge)
     canvas.drawRect(
@@ -356,13 +356,13 @@ class KSystemMeter extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               'K-$headroom',
               style: const TextStyle(
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
@@ -373,9 +373,9 @@ class KSystemMeter extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeepest,
+              color: FluxForgeTheme.bgDeepest,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: CustomPaint(
               size: Size(width, height),
@@ -438,7 +438,7 @@ class _KMeterPainter extends CustomPainter {
 
   void _drawScale(Canvas canvas, Size size, double meterWidth) {
     final linePaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.2)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     // Scale marks: +3, 0, -3, -6, -9, -12, -20, -30, -40
@@ -464,11 +464,11 @@ class _KMeterPainter extends CustomPainter {
 
     final rmsPaint = Paint();
     if (rmsDb > -headroom + 3) {
-      rmsPaint.color = ReelForgeTheme.accentRed;
+      rmsPaint.color = FluxForgeTheme.accentRed;
     } else if (rmsDb > -headroom) {
-      rmsPaint.color = ReelForgeTheme.accentYellow;
+      rmsPaint.color = FluxForgeTheme.accentYellow;
     } else {
-      rmsPaint.color = ReelForgeTheme.accentGreen;
+      rmsPaint.color = FluxForgeTheme.accentGreen;
     }
 
     canvas.drawRect(
@@ -481,7 +481,7 @@ class _KMeterPainter extends CustomPainter {
     final peakY = height * (1 - peakNorm);
 
     final peakPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary
+      ..color = FluxForgeTheme.textPrimary
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -537,7 +537,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
     final rmsR = _dbToLinear(m.masterRmsR);
 
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -579,7 +579,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
           ),
 
           // Divider
-          Container(width: 1, color: ReelForgeTheme.borderSubtle),
+          Container(width: 1, color: FluxForgeTheme.borderSubtle),
 
           // Center section: Phase/Stereo
           Expanded(
@@ -591,7 +591,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   Text(
                     'STEREO ANALYSIS',
                     style: TextStyle(
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -637,7 +637,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
           ),
 
           // Divider
-          Container(width: 1, color: ReelForgeTheme.borderSubtle),
+          Container(width: 1, color: FluxForgeTheme.borderSubtle),
 
           // Right section: LUFS & Loudness
           Expanded(
@@ -650,7 +650,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   Text(
                     'LOUDNESS (EBU R128)',
                     style: TextStyle(
-                      color: ReelForgeTheme.textTertiary,
+                      color: FluxForgeTheme.textTertiary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -677,7 +677,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
         Text(
           'MODE: ',
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -694,13 +694,13 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.bgMid,
+                  color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   mode.name.toUpperCase(),
                   style: TextStyle(
-                    color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+                    color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -719,7 +719,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
         Text(
           _selectedMeterMode.name.toUpperCase(),
           style: TextStyle(
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -759,13 +759,13 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isSelected ? ReelForgeTheme.accentOrange : ReelForgeTheme.bgMid,
+                    color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
                     'K$label',
                     style: TextStyle(
-                      color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                      color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
@@ -794,26 +794,26 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLufsRow('Momentary', m.masterLufsM, ReelForgeTheme.accentCyan),
+        _buildLufsRow('Momentary', m.masterLufsM, FluxForgeTheme.accentCyan),
         const SizedBox(height: 8),
-        _buildLufsRow('Short-term', m.masterLufsS, ReelForgeTheme.accentGreen),
+        _buildLufsRow('Short-term', m.masterLufsS, FluxForgeTheme.accentGreen),
         const SizedBox(height: 8),
-        _buildLufsRow('Integrated', m.masterLufsI, ReelForgeTheme.accentOrange),
+        _buildLufsRow('Integrated', m.masterLufsI, FluxForgeTheme.accentOrange),
         const SizedBox(height: 16),
         // Target comparison
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             children: [
-              Icon(Icons.flag, size: 14, color: ReelForgeTheme.textTertiary),
+              Icon(Icons.flag, size: 14, color: FluxForgeTheme.textTertiary),
               const SizedBox(width: 8),
               Text(
                 'Target: -14 LUFS',
-                style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
               ),
               const Spacer(),
               Text(
@@ -850,12 +850,12 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10),
+                style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
               ),
               Text(
                 '${displayValue.toStringAsFixed(1)} LUFS',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -874,17 +874,17 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isOver ? ReelForgeTheme.accentRed.withValues(alpha: 0.2) : ReelForgeTheme.bgMid,
+        color: isOver ? FluxForgeTheme.accentRed.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.borderSubtle,
+          color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
         children: [
           Icon(
             isOver ? Icons.warning : Icons.show_chart,
-            color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textTertiary,
+            color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textTertiary,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -894,7 +894,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               Text(
                 'TRUE PEAK',
                 style: TextStyle(
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -902,7 +902,7 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               Text(
                 '${tp.toStringAsFixed(1)} dBTP',
                 style: TextStyle(
-                  color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary,
+                  color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -914,13 +914,13 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentRed,
+                color: FluxForgeTheme.accentRed,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
                 'OVER',
                 style: TextStyle(
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -939,10 +939,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
   }
 
   Color _getTargetColor(double current, double target) {
-    if (!current.isFinite) return ReelForgeTheme.textTertiary;
+    if (!current.isFinite) return FluxForgeTheme.textTertiary;
     final diff = (current - target).abs();
-    if (diff < 1) return ReelForgeTheme.accentGreen;
-    if (diff < 3) return ReelForgeTheme.accentYellow;
-    return ReelForgeTheme.accentRed;
+    if (diff < 1) return FluxForgeTheme.accentGreen;
+    if (diff < 3) return FluxForgeTheme.accentYellow;
+    return FluxForgeTheme.accentRed;
   }
 }

@@ -284,8 +284,8 @@ class BuiltInWorkspaces {
 
 /// Workspace provider
 class WorkspaceProvider extends ChangeNotifier {
-  static const _prefsKey = 'reelforge_workspaces';
-  static const _currentKey = 'reelforge_current_workspace';
+  static const _prefsKey = 'fluxforge_workspaces';
+  static const _currentKey = 'fluxforge_current_workspace';
 
   List<Workspace> _workspaces = [];
   Workspace? _currentWorkspace;

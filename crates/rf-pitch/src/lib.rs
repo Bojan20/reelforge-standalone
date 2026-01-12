@@ -1,4 +1,4 @@
-//! ReelForge Polyphonic Pitch Engine
+//! FluxForge Studio Polyphonic Pitch Engine
 //!
 //! Melodyne DNA-level pitch manipulation for polyphonic audio:
 //!

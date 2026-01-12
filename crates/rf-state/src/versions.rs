@@ -457,7 +457,7 @@ impl Default for VersionManager {
     fn default() -> Self {
         let default_dir = dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("ReelForge")
+            .join("FluxForge Studio")
             .join("Versions");
 
         Self::new("Untitled", &default_dir)

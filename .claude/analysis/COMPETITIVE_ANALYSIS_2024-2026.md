@@ -1,4 +1,4 @@
-# ReelForge DAW — Competitive Analysis 2024-2026
+# FluxForge Studio DAW — Competitive Analysis 2024-2026
 
 **Report Date:** 2026-01-09
 **Analysis Period:** 2024-2026
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This comprehensive competitive analysis compares ReelForge's current and planned implementation against industry leaders across 7 major categories:
+This comprehensive competitive analysis compares FluxForge Studio's current and planned implementation against industry leaders across 7 major categories:
 
 1. **Timeline/Arrangement View** — Logic Pro X, Cubase Pro 14, Pro Tools 2024.10, Ableton Live 12, Studio One 7
 2. **Audio Engine** — KONTAKT 7, VST3 hosting, Ableton Live, REAPER
@@ -24,7 +24,7 @@ This comprehensive competitive analysis compares ReelForge's current and planned
 
 ### 1.1 Competitor Feature Matrix
 
-| Feature | Logic Pro X 10.7 | Cubase Pro 14 | Pro Tools 2024.10 | Ableton Live 12 | Studio One 7 | ReelForge Current |
+| Feature | Logic Pro X 10.7 | Cubase Pro 14 | Pro Tools 2024.10 | Ableton Live 12 | Studio One 7 | FluxForge Studio Current |
 |---------|------------------|---------------|-------------------|-----------------|--------------|-------------------|
 | **Dual View (Session + Arrangement)** | ✅ Live Loops + Timeline | ❌ Single view | ❌ Single view | ✅ Session + Arrangement | ✅ Launcher + Timeline | ❌ Single timeline |
 | **Non-destructive Clip Editing** | ✅ Flex Time/Pitch | ✅ AudioWarp | ✅ Elastic Audio | ✅ Warp/Complex Pro | ✅ Bend markers | ⚠️ Basic (planned) |
@@ -66,7 +66,7 @@ This comprehensive competitive analysis compares ReelForge's current and planned
 - **5 Rulers:** Timeline, Beats, Tempo, Chord, Key with hidden features
 - **Auto-Set Locators:** Cycle automatically follows region selection
 
-### 1.3 Missing Features in ReelForge
+### 1.3 Missing Features in FluxForge Studio
 
 | Priority | Feature | Competitors | Implementation Effort |
 |----------|---------|-------------|----------------------|
@@ -131,7 +131,7 @@ impl MouseHandler {
 
 ### 2.1 Engine Comparison Matrix
 
-| Feature | KONTAKT 7 | Ableton Live 12 | REAPER | VST3 Host Spec | ReelForge Current |
+| Feature | KONTAKT 7 | Ableton Live 12 | REAPER | VST3 Host Spec | FluxForge Studio Current |
 |---------|-----------|-----------------|--------|---------------|-------------------|
 | **Multi-core Utilization** | ✅ Efficient | ✅ Up to 64 cores (P-cores only on M1) | ✅ Automatic | N/A | ⚠️ Basic (needs testing) |
 | **Latency Compensation** | ✅ Automatic | ✅ Automatic PDC | ✅ Automatic PDC | ✅ IComponentHandler | ⚠️ Basic (needs testing) |
@@ -234,7 +234,7 @@ Benefits:
 - Better CPU usage
 ```
 
-### 2.5 Missing Features in ReelForge
+### 2.5 Missing Features in FluxForge Studio
 
 | Priority | Feature | Implementation Effort | Impact |
 |----------|---------|----------------------|--------|
@@ -325,7 +325,7 @@ impl DiskStreamingEngine {
 
 ### 3.1 EQ Feature Comparison Matrix
 
-| Feature | FabFilter Pro-Q 4 | iZotope Ozone 11 | Waves F6 | DMG EQuilibrium | Sonnox Oxford | ReelForge VanEQ |
+| Feature | FabFilter Pro-Q 4 | iZotope Ozone 11 | Waves F6 | DMG EQuilibrium | Sonnox Oxford | FluxForge Studio VanEQ |
 |---------|-------------------|------------------|----------|-----------------|---------------|-----------------|
 | **Max Bands** | 24 | 8 | 6 + HP/LP | 32 | 5 + HP/LP | **64** ✅ |
 | **Dynamic EQ** | ✅ Per-band | ✅ Transient/Sustain | ✅ Per-band | ❌ | ✅ Oxford Dynamic EQ | ⚠️ Planned |
@@ -401,7 +401,7 @@ Shelves: 1st/2nd order, Vintage, Tilt
 - Pre/Post/Sidechain monitoring
 - Frequency/Note/Amplitude display
 
-### 3.5 Missing Features in ReelForge VanEQ
+### 3.5 Missing Features in FluxForge Studio VanEQ
 
 | Priority | Feature | Competitor | Implementation Effort |
 |----------|---------|------------|----------------------|
@@ -519,7 +519,7 @@ pub fn calculate_slope_stages(slope_db_oct: f64) -> (usize, f64) {
 
 ### 4.1 Dynamics Processor Comparison Matrix
 
-| Feature | FabFilter Pro-C 2 | iZotope Ozone 11 Maximizer | Waves SSL G-Master | UA 1176 | ReelForge |
+| Feature | FabFilter Pro-C 2 | iZotope Ozone 11 Maximizer | Waves SSL G-Master | UA 1176 | FluxForge Studio |
 |---------|-------------------|---------------------------|-------------------|---------|-----------|
 | **Compression Styles** | 8 (Clean, Classic, Opto, Vocal, Mastering, Bus, Punch, Pumping) | Vintage/Modern | SSL Bus Comp | FET (program-dependent) | ⚠️ Basic VCA |
 | **Lookahead** | Up to 20ms | ✅ ✅ | ❌ | ❌ | ⚠️ Planned |
@@ -598,7 +598,7 @@ Performance:
 - **2013:** End-to-end circuit modeling update
 - **Legacy vs Modern:** Legacy has less I/O distortion modeling (cleaner)
 
-### 4.5 Missing Features in ReelForge
+### 4.5 Missing Features in FluxForge Studio
 
 | Priority | Feature | Implementation Effort | Competitors |
 |----------|---------|----------------------|-------------|
@@ -707,7 +707,7 @@ impl ProgramDependentRelease {
 
 ### 5.1 Metering Tool Comparison Matrix
 
-| Feature | iZotope Insight 2 | Nugen VisLM | TC Clarity M | Waves WLM | ReelForge |
+| Feature | iZotope Insight 2 | Nugen VisLM | TC Clarity M | Waves WLM | FluxForge Studio |
 |---------|-------------------|-------------|--------------|-----------|-----------|
 | **ITU-R BS.1770-4 Compliance** | ✅ Full | ✅ Rev 1-4 | ✅ Rev 4 | ✅ ✅ | ⚠️ Planned |
 | **LUFS Modes** | M, S, I, LRA | M, S, I | M, S, I | M, S, I | ⚠️ Basic planned |
@@ -794,7 +794,7 @@ impl ProgramDependentRelease {
 - Film mode
 - Music/Podcast mode
 
-### 5.5 Missing Features in ReelForge
+### 5.5 Missing Features in FluxForge Studio
 
 | Priority | Feature | Implementation Effort | Competitors |
 |----------|---------|----------------------|-------------|
@@ -918,7 +918,7 @@ fn spectrum_gradient(t: f32) -> vec4<f32> {
 
 ### 6.1 UI/UX Comparison Matrix
 
-| Aspect | Bitwig Studio | FL Studio | Studio One 7 | Logic Pro X | ReelForge |
+| Aspect | Bitwig Studio | FL Studio | Studio One 7 | Logic Pro X | FluxForge Studio |
 |--------|---------------|-----------|--------------|-------------|-----------|
 | **Design Philosophy** | Modular, experimental | Drag-drop, visual | Drag-drop, single-window | Apple HIG, consistent | ⚠️ Developing |
 | **GPU Acceleration** | ✅ 2024 update | ✅ ✅ | ✅ ✅ | ✅ Metal | ✅ wgpu planned |
@@ -983,7 +983,7 @@ fn spectrum_gradient(t: f32) -> vec4<f32> {
 
 ### 6.5 Color Scheme Analysis
 
-#### **ReelForge Current Palette**
+#### **FluxForge Studio Current Palette**
 ```
 Backgrounds:
 ├── #0a0a0c  deepest
@@ -1158,7 +1158,7 @@ VST3 Module:
 - Visual patching
 - CPU-efficient parallel processing
 
-### 7.3 Missing Features in ReelForge
+### 7.3 Missing Features in FluxForge Studio
 
 | Priority | Feature | Implementation Effort |
 |----------|---------|----------------------|

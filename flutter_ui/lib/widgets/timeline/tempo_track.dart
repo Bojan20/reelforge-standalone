@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Tempo change point
 class TempoPoint {
@@ -106,9 +106,9 @@ class _TempoTrackState extends State<TempoTrack> {
           Container(
             height: widget.height,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               border: const Border(
-                bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+                bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
             child: ClipRect(
@@ -150,9 +150,9 @@ class _TempoTrackState extends State<TempoTrack> {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         border: const Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -166,7 +166,7 @@ class _TempoTrackState extends State<TempoTrack> {
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.speed, size: 14, color: ReelForgeTheme.accentOrange),
+          const Icon(Icons.speed, size: 14, color: FluxForgeTheme.accentOrange),
           const SizedBox(width: 6),
           const Text(
             'Tempo',
@@ -177,13 +177,13 @@ class _TempoTrackState extends State<TempoTrack> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+              color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               '${currentTempo.toStringAsFixed(1)} BPM',
               style: const TextStyle(
-                color: ReelForgeTheme.accentOrange,
+                color: FluxForgeTheme.accentOrange,
                 fontSize: 11,
                 fontFamily: 'JetBrains Mono',
                 fontWeight: FontWeight.bold,
@@ -242,15 +242,15 @@ class _TempoTrackState extends State<TempoTrack> {
               height: 12,
               decoration: BoxDecoration(
                 color: isHovered || isDragging
-                    ? ReelForgeTheme.accentOrange
-                    : ReelForgeTheme.accentOrange.withValues(alpha: 0.8),
+                    ? FluxForgeTheme.accentOrange
+                    : FluxForgeTheme.accentOrange.withValues(alpha: 0.8),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Colors.white,
                   width: isHovered || isDragging ? 2 : 1,
                 ),
                 boxShadow: isHovered || isDragging
-                    ? [BoxShadow(color: ReelForgeTheme.accentOrange.withValues(alpha: 0.5), blurRadius: 8)]
+                    ? [BoxShadow(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5), blurRadius: 8)]
                     : null,
               ),
               child: isDragging
@@ -327,7 +327,7 @@ class _TempoTrackState extends State<TempoTrack> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgMid,
+          backgroundColor: FluxForgeTheme.bgMid,
           title: const Text('Edit Tempo Point', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -356,8 +356,8 @@ class _TempoTrackState extends State<TempoTrack> {
                     label: Text(_getRampTypeName(type)),
                     selected: isSelected,
                     onSelected: (_) => setDialogState(() => selectedRampType = type),
-                    backgroundColor: ReelForgeTheme.bgDeep,
-                    selectedColor: ReelForgeTheme.accentOrange,
+                    backgroundColor: FluxForgeTheme.bgDeep,
+                    selectedColor: FluxForgeTheme.accentOrange,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.white70,
                       fontSize: 11,
@@ -373,7 +373,7 @@ class _TempoTrackState extends State<TempoTrack> {
                 children: [
                   DropdownButton<int>(
                     value: tsNum,
-                    dropdownColor: ReelForgeTheme.bgMid,
+                    dropdownColor: FluxForgeTheme.bgMid,
                     style: const TextStyle(color: Colors.white),
                     items: [2, 3, 4, 5, 6, 7, 8, 9, 12].map((n) {
                       return DropdownMenuItem(value: n, child: Text('$n'));
@@ -383,7 +383,7 @@ class _TempoTrackState extends State<TempoTrack> {
                   const Text(' / ', style: TextStyle(color: Colors.white, fontSize: 16)),
                   DropdownButton<int>(
                     value: tsDenom,
-                    dropdownColor: ReelForgeTheme.bgMid,
+                    dropdownColor: FluxForgeTheme.bgMid,
                     style: const TextStyle(color: Colors.white),
                     items: [2, 4, 8, 16].map((n) {
                       return DropdownMenuItem(value: n, child: Text('$n'));
@@ -400,7 +400,7 @@ class _TempoTrackState extends State<TempoTrack> {
                 widget.onTempoPointDelete?.call(point.id);
                 Navigator.pop(ctx);
               },
-              child: const Text('Delete', style: TextStyle(color: ReelForgeTheme.accentRed)),
+              child: const Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -417,7 +417,7 @@ class _TempoTrackState extends State<TempoTrack> {
                 ));
                 Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: ReelForgeTheme.accentOrange),
+              style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentOrange),
               child: const Text('Apply'),
             ),
           ],
@@ -530,14 +530,14 @@ class _TempoTrackPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          ReelForgeTheme.accentOrange.withValues(alpha: 0.3),
-          ReelForgeTheme.accentOrange.withValues(alpha: 0.05),
+          FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
+          FluxForgeTheme.accentOrange.withValues(alpha: 0.05),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
     final linePaint = Paint()
-      ..color = ReelForgeTheme.accentOrange
+      ..color = FluxForgeTheme.accentOrange
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

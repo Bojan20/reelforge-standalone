@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../timeline/stretch_overlay.dart';
 
 /// Professional clip inspector panel
@@ -55,7 +55,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
   Widget build(BuildContext context) {
     return Container(
       width: widget.width,
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       child: widget.clip == null
           ? _buildEmptyState()
           : _buildInspector(widget.clip!),
@@ -70,7 +70,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           Icon(
             Icons.touch_app_outlined,
             size: 48,
-            color: ReelForgeTheme.textTertiary.withValues(alpha: 0.4),
+            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
           Text(
@@ -78,7 +78,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -86,7 +86,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             'Select a clip to inspect',
             style: TextStyle(
               fontSize: 12,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
         ],
@@ -127,7 +127,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           expanded: _fxExpanded,
           onToggle: () => setState(() => _fxExpanded = !_fxExpanded),
           badge: clip.hasFx ? '${clip.fxChain.activeSlots.length}' : null,
-          badgeColor: clip.hasFx ? ReelForgeTheme.accentBlue : null,
+          badgeColor: clip.hasFx ? FluxForgeTheme.accentBlue : null,
           child: _buildFxSection(clip),
         ),
 
@@ -156,9 +156,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Row(
         children: [
@@ -186,7 +186,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -199,7 +199,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               clip.muted ? Icons.volume_off : Icons.volume_up,
               size: 18,
             ),
-            color: clip.muted ? ReelForgeTheme.accentRed : ReelForgeTheme.textSecondary,
+            color: clip.muted ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary,
             onPressed: () {
               widget.onClipChanged?.call(clip.copyWith(muted: !clip.muted));
             },
@@ -224,9 +224,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         children: [
@@ -238,14 +238,14 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  Icon(icon, size: 16, color: ReelForgeTheme.textSecondary),
+                  Icon(icon, size: 16, color: FluxForgeTheme.textSecondary),
                   const SizedBox(width: 8),
                   Text(
                     title,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                   if (badge != null) ...[
@@ -253,7 +253,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                       decoration: BoxDecoration(
-                        color: badgeColor ?? ReelForgeTheme.accentBlue,
+                        color: badgeColor ?? FluxForgeTheme.accentBlue,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -270,7 +270,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   Icon(
                     expanded ? Icons.expand_less : Icons.expand_more,
                     size: 18,
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                   ),
                 ],
               ),
@@ -318,7 +318,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           },
         ),
 
-        const Divider(height: 16, color: ReelForgeTheme.borderSubtle),
+        const Divider(height: 16, color: FluxForgeTheme.borderSubtle),
 
         // Fade In
         _buildSliderRow(
@@ -364,7 +364,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             'No effects applied',
             style: TextStyle(
               fontSize: 11,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 8),
@@ -386,7 +386,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               '+${chain.slots.length - 3} more...',
               style: TextStyle(
                 fontSize: 10,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ),
@@ -403,7 +403,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 icon: const Icon(Icons.open_in_new, size: 14),
                 label: const Text('Edit', style: TextStyle(fontSize: 11)),
                 style: TextButton.styleFrom(
-                  foregroundColor: ReelForgeTheme.textSecondary,
+                  foregroundColor: FluxForgeTheme.textSecondary,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 onPressed: widget.onOpenFxEditor,
@@ -421,8 +421,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: slot.bypass
-            ? ReelForgeTheme.bgDeepest.withValues(alpha: 0.5)
-            : ReelForgeTheme.bgDeepest,
+            ? FluxForgeTheme.bgDeepest.withValues(alpha: 0.5)
+            : FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -431,7 +431,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             clipFxTypeIcon(slot.type),
             size: 14,
             color: slot.bypass
-                ? ReelForgeTheme.textTertiary
+                ? FluxForgeTheme.textTertiary
                 : clipFxTypeColor(slot.type),
           ),
           const SizedBox(width: 8),
@@ -441,8 +441,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               style: TextStyle(
                 fontSize: 11,
                 color: slot.bypass
-                    ? ReelForgeTheme.textTertiary
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.textTertiary
+                    : FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -460,8 +460,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: slot.bypass
-                    ? ReelForgeTheme.accentOrange.withValues(alpha: 0.2)
-                    : ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                    ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
+                    : FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -470,8 +470,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   fontSize: 8,
                   fontWeight: FontWeight.bold,
                   color: slot.bypass
-                      ? ReelForgeTheme.accentOrange
-                      : ReelForgeTheme.accentGreen,
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.accentGreen,
                 ),
               ),
             ),
@@ -511,21 +511,21 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
+          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.3)),
+          border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, size: 14, color: ReelForgeTheme.accentBlue),
+            Icon(Icons.add, size: 14, color: FluxForgeTheme.accentBlue),
             SizedBox(width: 4),
             Text(
               'Add FX',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
               ),
             ),
           ],
@@ -557,7 +557,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             'No time stretch applied',
             style: TextStyle(
               fontSize: 11,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
       ],
@@ -584,7 +584,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             label,
             style: TextStyle(
               fontSize: 11,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const Spacer(),
@@ -593,7 +593,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             style: const TextStyle(
               fontSize: 11,
               fontFamily: 'JetBrains Mono',
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
         ],
@@ -620,7 +620,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
               const Spacer(),
@@ -631,7 +631,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   style: const TextStyle(
                     fontSize: 11,
                     fontFamily: 'JetBrains Mono',
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
               ),
@@ -649,8 +649,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               min: min,
               max: max,
               onChanged: onChanged,
-              activeColor: ReelForgeTheme.accentBlue,
-              inactiveColor: ReelForgeTheme.borderSubtle,
+              activeColor: FluxForgeTheme.accentBlue,
+              inactiveColor: FluxForgeTheme.borderSubtle,
             ),
           ),
         ],

@@ -153,7 +153,7 @@ Za time stretch:
 
 ---
 
-## ReelForge Implementacija
+## FluxForge Studio Implementacija
 
 ### Trenutno Stanje
 
@@ -252,7 +252,7 @@ pub struct WarpedClip {
 
 ---
 
-## Preporučena Implementacija za ReelForge
+## Preporučena Implementacija za FluxForge Studio
 
 ### Faza 1: Basic WSOLA Real-Time
 1. Implementirati WSOLA u `rf-dsp/src/timestretch/wsola.rs` ✓ (već postoji)

@@ -9,7 +9,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'grid_lines.dart';
 import 'clip_widget.dart';
 import 'crossfade_overlay.dart';
@@ -113,9 +113,9 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
       height: widget.trackHeight,
       decoration: BoxDecoration(
         // Blend track color with dark background (Logic Pro style visible tint)
-        color: Color.lerp(ReelForgeTheme.bgDeep, trackColor, 0.18),
+        color: Color.lerp(FluxForgeTheme.bgDeep, trackColor, 0.18),
         border: Border(
-          bottom: BorderSide(color: ReelForgeTheme.borderSubtle),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: LayoutBuilder(
@@ -151,7 +151,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                   top: halfHeight - 0.5,
                   height: 1,
                   child: Container(
-                    color: ReelForgeTheme.borderSubtle.withValues(alpha: 0.5),
+                    color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
                   ),
                 ),
                 // L channel label
@@ -161,7 +161,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgVoid.withValues(alpha: 0.6),
+                      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Text(
@@ -169,7 +169,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                       ),
                     ),
                   ),
@@ -181,7 +181,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgVoid.withValues(alpha: 0.6),
+                      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Text(
@@ -189,7 +189,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: ReelForgeTheme.textSecondary,
+                        color: FluxForgeTheme.textSecondary,
                       ),
                     ),
                   ),

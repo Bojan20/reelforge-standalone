@@ -1,4 +1,4 @@
-# ReelForge Code Cleanup Checklist
+# FluxForge Studio Code Cleanup Checklist
 
 **Status:** Post deep-dive codebase analysis
 **Goal:** Remove dead code, reduce complexity, improve maintainability
@@ -243,7 +243,7 @@ class AudioUtils {
 }
 
 // Usage everywhere:
-import 'package:reelforge_ui/utils/audio_utils.dart';
+import 'package:fluxforge_ui/utils/audio_utils.dart';
 
 _ffi.mixerSetMasterVolume(AudioUtils.volumeToDb(volume));
 ```
@@ -258,16 +258,16 @@ _ffi.mixerSetMasterVolume(AudioUtils.volumeToDb(volume));
 ---
 
 ### G. Color Theme Duplication
-**Problem:** ReelForge color palette defined in 2 places
+**Problem:** FluxForge Studio color palette defined in 2 places
 
 **Files:**
-1. `flutter_ui/lib/theme/reelforge_theme.dart` (primary)
+1. `flutter_ui/lib/theme/fluxforge_theme.dart` (primary)
 2. `flutter_ui/lib/widgets/timeline/timeline_theme.dart` (partial copy)
 
 **Refactor:**
 ```dart
-// Keep ONLY reelforge_theme.dart
-class ReelForgeTheme {
+// Keep ONLY fluxforge_theme.dart
+class FluxForge StudioTheme {
     static const bgDeepest = Color(0xFF0a0a0c);
     static const bgDeep = Color(0xFF121216);
     static const bgMid = Color(0xFF1a1a20);
@@ -278,12 +278,12 @@ class ReelForgeTheme {
     // ... full palette
 }
 
-// timeline_theme.dart: IMPORT from reelforge_theme
-import 'package:reelforge_ui/theme/reelforge_theme.dart';
+// timeline_theme.dart: IMPORT from fluxforge_theme
+import 'package:fluxforge_ui/theme/fluxforge_theme.dart';
 
 class TimelineTheme {
-    static Color get trackBackground => ReelForgeTheme.bgMid;
-    static Color get selectionColor => ReelForgeTheme.accentBlue;
+    static Color get trackBackground => FluxForge StudioTheme.bgMid;
+    static Color get selectionColor => FluxForge StudioTheme.accentBlue;
 }
 ```
 

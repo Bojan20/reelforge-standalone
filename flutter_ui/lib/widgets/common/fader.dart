@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============ Types ============
 
@@ -31,12 +31,12 @@ const _peakHoldTime = 1500; // ms
 const _peakDecayRate = 0.003;
 
 const _meterColors = (
-  green: ReelForgeTheme.accentGreen,
+  green: FluxForgeTheme.accentGreen,
   greenDark: Color(0xFF287048), // Darker variant of accentGreen
-  yellow: ReelForgeTheme.accentYellow,
-  orange: ReelForgeTheme.accentOrange,
-  red: ReelForgeTheme.accentRed,
-  clip: ReelForgeTheme.clipRed,
+  yellow: FluxForgeTheme.accentYellow,
+  orange: FluxForgeTheme.accentOrange,
+  red: FluxForgeTheme.accentRed,
+  clip: FluxForgeTheme.clipRed,
 );
 
 const _scaleMarks = [12.0, 6.0, 3.0, 0.0, -3.0, -6.0, -12.0, -18.0, -24.0, -36.0, -48.0, -60.0];
@@ -414,7 +414,7 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
 
   Widget _buildVerticalFader() {
     final normalized = _dbToNormalized(widget.value);
-    final accentColor = widget.accentColor ?? ReelForgeTheme.accentBlue;
+    final accentColor = widget.accentColor ?? FluxForgeTheme.accentBlue;
     // ignore: unused_local_variable
     final trackHeight = widget.height - 40;
 
@@ -450,7 +450,7 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
 
   Widget _buildHorizontalFader() {
     final normalized = _dbToNormalized(widget.value);
-    final accentColor = widget.accentColor ?? ReelForgeTheme.accentBlue;
+    final accentColor = widget.accentColor ?? FluxForgeTheme.accentBlue;
 
     return GestureDetector(
       onHorizontalDragStart: _onDragStart,
@@ -461,9 +461,9 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgDeepest,
+          color: FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: ReelForgeTheme.borderSubtle),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Stack(
           children: [
@@ -488,7 +488,7 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
                   color: accentColor,
                   borderRadius: BorderRadius.circular(2),
                   boxShadow: _isDragging
-                      ? ReelForgeTheme.glowShadow(accentColor)
+                      ? FluxForgeTheme.glowShadow(accentColor)
                       : null,
                 ),
               ),
@@ -551,7 +551,7 @@ class _VerticalFaderPainter extends CustomPainter {
     // Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = ReelForgeTheme.bgMid,
+      Paint()..color = FluxForgeTheme.bgMid,
     );
 
     // Draw scale
@@ -568,12 +568,12 @@ class _VerticalFaderPainter extends CustomPainter {
       // Meter backgrounds
       canvas.drawRect(
         Rect.fromLTWH(meterX, 0, meterW, faderH),
-        Paint()..color = ReelForgeTheme.bgDeepest,
+        Paint()..color = FluxForgeTheme.bgDeepest,
       );
       if (stereo) {
         canvas.drawRect(
           Rect.fromLTWH(meterX + meterW + _meterGap, 0, meterW, faderH),
-          Paint()..color = ReelForgeTheme.bgDeepest,
+          Paint()..color = FluxForgeTheme.bgDeepest,
         );
       }
 
@@ -601,7 +601,7 @@ class _VerticalFaderPainter extends CustomPainter {
     if (!showMeters) {
       canvas.drawRect(
         Rect.fromLTWH(trackX + (size.width - scaleW - 8) / 2 - 3, 0, trackW, faderH),
-        Paint()..color = ReelForgeTheme.bgDeepest,
+        Paint()..color = FluxForgeTheme.bgDeepest,
       );
 
       // Fill
@@ -618,7 +618,7 @@ class _VerticalFaderPainter extends CustomPainter {
     canvas.drawLine(
       Offset(scaleW, unityY),
       Offset(size.width, unityY),
-      Paint()..color = ReelForgeTheme.accentGreen.withValues(alpha: 0.5)..strokeWidth = 1,
+      Paint()..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.5)..strokeWidth = 1,
     );
 
     // Fader thumb
@@ -633,7 +633,7 @@ class _VerticalFaderPainter extends CustomPainter {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: ReelForgeTheme.textPrimary,
+          color: FluxForgeTheme.textPrimary,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -657,12 +657,12 @@ class _VerticalFaderPainter extends CustomPainter {
 
       canvas.drawRect(
         Rect.fromLTWH(_scaleWidth - 8, y - 0.5, 6, 1),
-        Paint()..color = mark == 0 ? ReelForgeTheme.accentGreen : ReelForgeTheme.textTertiary,
+        Paint()..color = mark == 0 ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
       );
 
       textPainter.text = TextSpan(
         text: mark == 0 ? '0' : (mark > 0 ? '+${mark.toInt()}' : '${mark.toInt()}'),
-        style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary),
+        style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(_scaleWidth - 10 - textPainter.width, y - textPainter.height / 2));
@@ -673,7 +673,7 @@ class _VerticalFaderPainter extends CustomPainter {
       final y = faderH - norm * faderH;
       canvas.drawRect(
         Rect.fromLTWH(_scaleWidth - 4, y - 0.5, 3, 1),
-        Paint()..color = ReelForgeTheme.textTertiary.withValues(alpha: 0.5),
+        Paint()..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
       );
     }
   }
@@ -711,7 +711,7 @@ class _VerticalFaderPainter extends CustomPainter {
     // Shadow
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(x + 1, y + 2, w, h), const Radius.circular(4)),
-      Paint()..color = ReelForgeTheme.bgVoid.withValues(alpha: 0.6),
+      Paint()..color = FluxForgeTheme.bgVoid.withValues(alpha: 0.6),
     );
 
     // Body
@@ -719,9 +719,9 @@ class _VerticalFaderPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        ReelForgeTheme.bgElevated,
-        ReelForgeTheme.bgMid,
-        ReelForgeTheme.bgDeep,
+        FluxForgeTheme.bgElevated,
+        FluxForgeTheme.bgMid,
+        FluxForgeTheme.bgDeep,
       ],
     );
 
@@ -735,7 +735,7 @@ class _VerticalFaderPainter extends CustomPainter {
       RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(4)),
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = isDragging ? accentColor : ReelForgeTheme.borderMedium
+        ..color = isDragging ? accentColor : FluxForgeTheme.borderMedium
         ..strokeWidth = isDragging ? 2 : 1,
     );
 
@@ -745,7 +745,7 @@ class _VerticalFaderPainter extends CustomPainter {
       canvas.drawLine(
         Offset(x + 4, lineY + i * 3),
         Offset(x + w - 4, lineY + i * 3),
-        Paint()..color = ReelForgeTheme.textTertiary..strokeWidth = 1,
+        Paint()..color = FluxForgeTheme.textTertiary..strokeWidth = 1,
       );
     }
   }

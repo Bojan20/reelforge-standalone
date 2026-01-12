@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart' as api;
 
 class ExportDialog extends StatefulWidget {
@@ -163,7 +163,7 @@ class _ExportDialogState extends State<ExportDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Export complete: $_outputPath'),
-          backgroundColor: ReelForgeTheme.accentGreen,
+          backgroundColor: FluxForgeTheme.accentGreen,
         ),
       );
     }
@@ -186,7 +186,7 @@ class _ExportDialogState extends State<ExportDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgElevated,
+      backgroundColor: FluxForgeTheme.bgElevated,
       child: Container(
         width: 600,
         padding: const EdgeInsets.all(24),
@@ -205,19 +205,19 @@ class _ExportDialogState extends State<ExportDialog> {
         // Header
         Row(
           children: [
-            const Icon(Icons.file_download, color: ReelForgeTheme.accentBlue),
+            const Icon(Icons.file_download, color: FluxForgeTheme.accentBlue),
             const SizedBox(width: 12),
             const Text(
               'Export Audio',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
             const Spacer(),
             IconButton(
-              icon: const Icon(Icons.close, color: ReelForgeTheme.textSecondary),
+              icon: const Icon(Icons.close, color: FluxForgeTheme.textSecondary),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -258,7 +258,7 @@ class _ExportDialogState extends State<ExportDialog> {
               icon: const Icon(Icons.play_arrow),
               label: const Text('Start Export'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ReelForgeTheme.accentGreen,
+                backgroundColor: FluxForgeTheme.accentGreen,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
@@ -282,7 +282,7 @@ class _ExportDialogState extends State<ExportDialog> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 32),
@@ -290,8 +290,8 @@ class _ExportDialogState extends State<ExportDialog> {
         // Progress bar
         LinearProgressIndicator(
           value: progress.percent / 100.0,
-          backgroundColor: ReelForgeTheme.bgMid,
-          valueColor: const AlwaysStoppedAnimation(ReelForgeTheme.accentGreen),
+          backgroundColor: FluxForgeTheme.bgMid,
+          valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentGreen),
           minHeight: 8,
         ),
         const SizedBox(height: 16),
@@ -305,7 +305,7 @@ class _ExportDialogState extends State<ExportDialog> {
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: ReelForgeTheme.textPrimary,
+                color: FluxForgeTheme.textPrimary,
               ),
             ),
             Column(
@@ -313,11 +313,11 @@ class _ExportDialogState extends State<ExportDialog> {
               children: [
                 Text(
                   'Speed: ${progress.speedFactor.toStringAsFixed(1)}x',
-                  style: const TextStyle(color: ReelForgeTheme.textSecondary),
+                  style: const TextStyle(color: FluxForgeTheme.textSecondary),
                 ),
                 Text(
                   'ETA: ${_formatTime(progress.etaSecs)}',
-                  style: const TextStyle(color: ReelForgeTheme.textSecondary),
+                  style: const TextStyle(color: FluxForgeTheme.textSecondary),
                 ),
               ],
             ),
@@ -331,12 +331,12 @@ class _ExportDialogState extends State<ExportDialog> {
             const Icon(
               Icons.graphic_eq,
               size: 16,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
             const SizedBox(width: 8),
             Text(
               'Peak: ${_formatDb(progress.peakLevel)}',
-              style: const TextStyle(color: ReelForgeTheme.textSecondary),
+              style: const TextStyle(color: FluxForgeTheme.textSecondary),
             ),
           ],
         ),
@@ -348,8 +348,8 @@ class _ExportDialogState extends State<ExportDialog> {
           icon: const Icon(Icons.cancel),
           label: const Text('Cancel Export'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: ReelForgeTheme.errorRed,
-            side: const BorderSide(color: ReelForgeTheme.errorRed),
+            foregroundColor: FluxForgeTheme.errorRed,
+            side: const BorderSide(color: FluxForgeTheme.errorRed),
           ),
         ),
       ],
@@ -364,7 +364,7 @@ class _ExportDialogState extends State<ExportDialog> {
           'Output File',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -373,21 +373,21 @@ class _ExportDialogState extends State<ExportDialog> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: Row(
               children: [
-                const Icon(Icons.folder, color: ReelForgeTheme.textSecondary),
+                const Icon(Icons.folder, color: FluxForgeTheme.textSecondary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     _outputPath ?? 'Click to select output file...',
                     style: TextStyle(
                       color: _outputPath != null
-                          ? ReelForgeTheme.textPrimary
-                          : ReelForgeTheme.textSecondary,
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -407,7 +407,7 @@ class _ExportDialogState extends State<ExportDialog> {
           'Format',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -432,23 +432,23 @@ class _ExportDialogState extends State<ExportDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15) : ReelForgeTheme.bgMid,
+            color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+              color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
             ),
           ),
           child: Column(
             children: [
               Icon(
                 icon,
-                color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+                  color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -467,7 +467,7 @@ class _ExportDialogState extends State<ExportDialog> {
           'Quality',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -482,15 +482,15 @@ class _ExportDialogState extends State<ExportDialog> {
                     'Bit Depth',
                     style: TextStyle(
                       fontSize: 12,
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   DropdownButton<api.ExportBitDepth>(
                     value: _bitDepth,
                     isExpanded: true,
-                    dropdownColor: ReelForgeTheme.bgElevated,
-                    style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                    dropdownColor: FluxForgeTheme.bgElevated,
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary),
                     items: const [
                       DropdownMenuItem(
                         value: api.ExportBitDepth.int16,
@@ -524,15 +524,15 @@ class _ExportDialogState extends State<ExportDialog> {
                     'Sample Rate',
                     style: TextStyle(
                       fontSize: 12,
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   DropdownButton<int>(
                     value: _sampleRate,
                     isExpanded: true,
-                    dropdownColor: ReelForgeTheme.bgElevated,
-                    style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                    dropdownColor: FluxForgeTheme.bgElevated,
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary),
                     items: const [
                       DropdownMenuItem(value: 0, child: Text('Project Rate')),
                       DropdownMenuItem(value: 44100, child: Text('44.1 kHz (CD)')),
@@ -566,7 +566,7 @@ class _ExportDialogState extends State<ExportDialog> {
           'Time Range',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -599,17 +599,17 @@ class _ExportDialogState extends State<ExportDialog> {
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isSelected ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15) : ReelForgeTheme.bgMid,
+          color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.borderSubtle,
+            color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
           children: [
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? ReelForgeTheme.accentBlue : ReelForgeTheme.textSecondary,
+              color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -617,7 +617,7 @@ class _ExportDialogState extends State<ExportDialog> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? ReelForgeTheme.textPrimary : ReelForgeTheme.textSecondary,
+                  color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -625,7 +625,7 @@ class _ExportDialogState extends State<ExportDialog> {
             Text(
               duration,
               style: const TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -639,9 +639,9 @@ class _ExportDialogState extends State<ExportDialog> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -651,13 +651,13 @@ class _ExportDialogState extends State<ExportDialog> {
               Checkbox(
                 value: _normalize,
                 onChanged: (value) => setState(() => _normalize = value ?? false),
-                activeColor: ReelForgeTheme.accentGreen,
+                activeColor: FluxForgeTheme.accentGreen,
               ),
               const Text(
                 'Normalize Audio',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: ReelForgeTheme.textPrimary,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               ),
             ],
@@ -673,7 +673,7 @@ class _ExportDialogState extends State<ExportDialog> {
                     'Target Level (dBFS)',
                     style: TextStyle(
                       fontSize: 12,
-                      color: ReelForgeTheme.textSecondary,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                   ),
                   Row(
@@ -685,7 +685,7 @@ class _ExportDialogState extends State<ExportDialog> {
                           max: -0.1,
                           divisions: 59,
                           label: '${_normalizeTarget.toStringAsFixed(1)} dB',
-                          activeColor: ReelForgeTheme.accentGreen,
+                          activeColor: FluxForgeTheme.accentGreen,
                           onChanged: (value) => setState(() => _normalizeTarget = value),
                         ),
                       ),
@@ -693,7 +693,7 @@ class _ExportDialogState extends State<ExportDialog> {
                         width: 60,
                         child: Text(
                           '${_normalizeTarget.toStringAsFixed(1)} dB',
-                          style: const TextStyle(color: ReelForgeTheme.textPrimary),
+                          style: const TextStyle(color: FluxForgeTheme.textPrimary),
                           textAlign: TextAlign.right,
                         ),
                       ),

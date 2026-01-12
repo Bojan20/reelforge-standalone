@@ -17,7 +17,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============ Types ============
 
@@ -166,9 +166,9 @@ class SpectrumConfig {
     this.showCollisions = true,
     this.fillSpectrum = true,
     this.waterfallDepth = 100,
-    this.primaryColor = ReelForgeTheme.accentCyan,
-    this.peakColor = ReelForgeTheme.accentOrange,
-    this.backgroundColor = ReelForgeTheme.bgDeepest,
+    this.primaryColor = FluxForgeTheme.accentCyan,
+    this.peakColor = FluxForgeTheme.accentOrange,
+    this.backgroundColor = FluxForgeTheme.bgDeepest,
   });
 
   SpectrumConfig copyWith({
@@ -474,8 +474,8 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border(bottom: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgDeep,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
@@ -557,15 +557,15 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
           isDense: true,
-          dropdownColor: ReelForgeTheme.bgMid,
-          style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 10),
+          dropdownColor: FluxForgeTheme.bgMid,
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
           items: items.map((e) => DropdownMenuItem(
             value: e,
             child: Text(labelBuilder(e)),
@@ -592,13 +592,13 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
           height: 24,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: isActive ? ReelForgeTheme.accentBlue.withAlpha(77) : Colors.transparent,
+            color: isActive ? FluxForgeTheme.accentBlue.withAlpha(77) : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Icon(
             icon,
             size: 14,
-            color: isActive ? ReelForgeTheme.accentBlue : Colors.white54,
+            color: isActive ? FluxForgeTheme.accentBlue : Colors.white54,
           ),
         ),
       ),
@@ -690,8 +690,8 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border(top: BorderSide(color: ReelForgeTheme.borderSubtle)),
+        color: FluxForgeTheme.bgDeep,
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
@@ -699,7 +699,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
             Text(
               _formatFrequency(_hoverFrequency!),
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -709,7 +709,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
             Text(
               '${_hoverDb!.toStringAsFixed(1)} dB',
               style: TextStyle(
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -721,7 +721,7 @@ class _SpectrumAnalyzerState extends State<SpectrumAnalyzer>
           if (_zoomLevel > 1.0)
             Text(
               'Zoom: ${(_zoomLevel * 100).toInt()}%',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 9),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9),
             ),
 
           if (_isFrozen) ...[
@@ -883,7 +883,7 @@ class _SpectrumPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Rect rect) {
     final paint = Paint()
-      ..color = ReelForgeTheme.borderSubtle.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Horizontal lines (dB)
@@ -1010,7 +1010,7 @@ class _SpectrumPainter extends CustomPainter {
 
   void _drawDbScale(Canvas canvas, Rect rect) {
     final textStyle = TextStyle(
-      color: ReelForgeTheme.textSecondary,
+      color: FluxForgeTheme.textSecondary,
       fontSize: 9,
     );
 
@@ -1029,7 +1029,7 @@ class _SpectrumPainter extends CustomPainter {
 
   void _drawFreqLabels(Canvas canvas, Rect rect) {
     final textStyle = TextStyle(
-      color: ReelForgeTheme.textSecondary,
+      color: FluxForgeTheme.textSecondary,
       fontSize: 9,
     );
 
@@ -1344,7 +1344,7 @@ class _SpectrumAnalyzerDemoState extends State<SpectrumAnalyzerDemo>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       child: SpectrumAnalyzer(
         data: _demoData,
         sampleRate: 48000,

@@ -1,4 +1,4 @@
-# flutter_rust_bridge configuration for ReelForge
+# flutter_rust_bridge configuration for FluxForge Studio
 
 rust_input: ../crates/rf-bridge/src/api.rs
 dart_output: lib/src/rust/api.dart

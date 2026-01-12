@@ -4,7 +4,7 @@
 // - PluginInfo: Plugin metadata with categories
 // - PluginCategory: EQ, Dynamics, Reverb, etc.
 // - InsertState: Per-slot state (plugin + bypass)
-// - Built-in plugins list (ReelForge native)
+// - Built-in plugins list (FluxForge Studio native)
 
 import 'package:flutter/material.dart';
 
@@ -196,7 +196,7 @@ class InsertChain {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BUILT-IN PLUGINS - ReelForge Native
+// BUILT-IN PLUGINS - FluxForge Studio Native
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// All available plugins (built-in + scanned)
@@ -208,7 +208,7 @@ class PluginRegistry {
       name: 'Pro EQ',
       shortName: 'EQ',
       category: PluginCategory.eq,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -216,7 +216,7 @@ class PluginRegistry {
       name: 'Channel EQ',
       shortName: 'Ch EQ',
       category: PluginCategory.eq,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -224,7 +224,7 @@ class PluginRegistry {
       name: 'Linear Phase EQ',
       shortName: 'Lin EQ',
       category: PluginCategory.eq,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -234,7 +234,7 @@ class PluginRegistry {
       name: 'Compressor',
       shortName: 'Comp',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -242,14 +242,14 @@ class PluginRegistry {
       name: 'Limiter',
       shortName: 'Limit',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-gate',
       name: 'Gate',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -257,7 +257,7 @@ class PluginRegistry {
       name: 'Expander',
       shortName: 'Exp',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -265,7 +265,7 @@ class PluginRegistry {
       name: 'Multiband Compressor',
       shortName: 'MB Comp',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -273,7 +273,7 @@ class PluginRegistry {
       name: 'De-Esser',
       shortName: 'DeEss',
       category: PluginCategory.dynamics,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -283,7 +283,7 @@ class PluginRegistry {
       name: 'Plate Reverb',
       shortName: 'Plate',
       category: PluginCategory.reverb,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -291,7 +291,7 @@ class PluginRegistry {
       name: 'Hall Reverb',
       shortName: 'Hall',
       category: PluginCategory.reverb,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -299,7 +299,7 @@ class PluginRegistry {
       name: 'Room Reverb',
       shortName: 'Room',
       category: PluginCategory.reverb,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -307,7 +307,7 @@ class PluginRegistry {
       name: 'Convolution Reverb',
       shortName: 'Convo',
       category: PluginCategory.reverb,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -317,7 +317,7 @@ class PluginRegistry {
       name: 'Stereo Delay',
       shortName: 'Delay',
       category: PluginCategory.delay,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -325,7 +325,7 @@ class PluginRegistry {
       name: 'Ping Pong Delay',
       shortName: 'PingPong',
       category: PluginCategory.delay,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -333,7 +333,7 @@ class PluginRegistry {
       name: 'Tape Delay',
       shortName: 'Tape',
       category: PluginCategory.delay,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -342,28 +342,28 @@ class PluginRegistry {
       id: 'rf-chorus',
       name: 'Chorus',
       category: PluginCategory.modulation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-flanger',
       name: 'Flanger',
       category: PluginCategory.modulation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-phaser',
       name: 'Phaser',
       category: PluginCategory.modulation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
       id: 'rf-tremolo',
       name: 'Tremolo',
       category: PluginCategory.modulation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -373,7 +373,7 @@ class PluginRegistry {
       name: 'Tape Saturation',
       shortName: 'Tape Sat',
       category: PluginCategory.saturation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -381,7 +381,7 @@ class PluginRegistry {
       name: 'Tube Saturation',
       shortName: 'Tube',
       category: PluginCategory.saturation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -389,7 +389,7 @@ class PluginRegistry {
       name: 'Distortion',
       shortName: 'Dist',
       category: PluginCategory.saturation,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -399,7 +399,7 @@ class PluginRegistry {
       name: 'Low Pass Filter',
       shortName: 'LPF',
       category: PluginCategory.filter,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -407,7 +407,7 @@ class PluginRegistry {
       name: 'High Pass Filter',
       shortName: 'HPF',
       category: PluginCategory.filter,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -415,7 +415,7 @@ class PluginRegistry {
       name: 'Band Pass Filter',
       shortName: 'BPF',
       category: PluginCategory.filter,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -424,7 +424,7 @@ class PluginRegistry {
       id: 'rf-gain',
       name: 'Gain',
       category: PluginCategory.utility,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -432,7 +432,7 @@ class PluginRegistry {
       name: 'Stereo Width',
       shortName: 'Width',
       category: PluginCategory.utility,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -440,7 +440,7 @@ class PluginRegistry {
       name: 'Mid/Side',
       shortName: 'M/S',
       category: PluginCategory.utility,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -448,7 +448,7 @@ class PluginRegistry {
       name: 'Mono Maker',
       shortName: 'Mono',
       category: PluginCategory.utility,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
 
@@ -458,7 +458,7 @@ class PluginRegistry {
       name: 'Spectrum Analyzer',
       shortName: 'Spectrum',
       category: PluginCategory.analyzer,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -466,7 +466,7 @@ class PluginRegistry {
       name: 'Loudness Meter',
       shortName: 'LUFS',
       category: PluginCategory.analyzer,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -474,7 +474,7 @@ class PluginRegistry {
       name: 'Correlation Meter',
       shortName: 'Corr',
       category: PluginCategory.analyzer,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
     PluginInfo(
@@ -482,7 +482,7 @@ class PluginRegistry {
       name: 'Oscilloscope',
       shortName: 'Scope',
       category: PluginCategory.analyzer,
-      vendor: 'ReelForge',
+      vendor: 'FluxForge Studio',
       version: '1.0',
     ),
   ];

@@ -2,7 +2,7 @@
 name = "rf-restore"
 version = "0.1.0"
 edition = "2021"
-description = "ReelForge Audio Restoration Suite - Professional audio repair"
+description = "FluxForge Studio Audio Restoration Suite - Professional audio repair"
 license = "MIT"
 
 [dependencies]

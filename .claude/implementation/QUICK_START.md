@@ -1,4 +1,4 @@
-# ReelForge Quick Start — Next Session
+# FluxForge Studio Quick Start — Next Session
 
 **Continue from:** P2 Architecture + UI Integration Complete
 

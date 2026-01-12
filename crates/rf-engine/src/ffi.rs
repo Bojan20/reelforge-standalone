@@ -1239,6 +1239,184 @@ pub extern "C" fn engine_get_samples_per_peak(lod_level: u32) -> usize {
     SAMPLES_PER_PEAK[level]
 }
 
+/// Pixel-exact waveform query (Cubase-style)
+///
+/// Returns min/max/rms data for each pixel column.
+/// Output format: [min0, max0, rms0, min1, max1, rms1, ...]
+///
+/// Parameters:
+/// - clip_id: Clip to query
+/// - start_frame: Start frame in source audio
+/// - end_frame: End frame in source audio
+/// - num_pixels: Number of output pixels
+/// - out_data: Output buffer (must be num_pixels * 3 floats)
+///
+/// Returns: Number of pixels written, or 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_query_waveform_pixels(
+    clip_id: u64,
+    start_frame: u64,
+    end_frame: u64,
+    num_pixels: u32,
+    out_data: *mut f32,
+) -> u32 {
+    if out_data.is_null() || num_pixels == 0 {
+        return 0;
+    }
+
+    let key = format!("clip_{}", clip_id);
+
+    if let Some(waveform) = WAVEFORM_CACHE.cache.read().get(&key) {
+        let buckets = waveform.query_pixels_combined(
+            start_frame as usize,
+            end_frame as usize,
+            num_pixels as usize,
+        );
+
+        let count = buckets.len().min(num_pixels as usize);
+
+        unsafe {
+            for (i, b) in buckets.iter().take(count).enumerate() {
+                *out_data.add(i * 3) = b.min;
+                *out_data.add(i * 3 + 1) = b.max;
+                *out_data.add(i * 3 + 2) = b.rms;
+            }
+        }
+
+        return count as u32;
+    }
+
+    0
+}
+
+/// Get waveform sample rate for a clip
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_waveform_sample_rate(clip_id: u64) -> u32 {
+    let key = format!("clip_{}", clip_id);
+
+    if let Some(waveform) = WAVEFORM_CACHE.cache.read().get(&key) {
+        return waveform.sample_rate();
+    }
+
+    48000 // Default
+}
+
+/// Get waveform total samples for a clip
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_waveform_total_samples(clip_id: u64) -> u64 {
+    let key = format!("clip_{}", clip_id);
+
+    if let Some(waveform) = WAVEFORM_CACHE.cache.read().get(&key) {
+        return waveform.total_samples() as u64;
+    }
+
+    0
+}
+
+/// Batch query waveform tiles (Cubase-style zero-hitch zoom)
+///
+/// This is the CRITICAL API for smooth zoom - batches multiple tile queries
+/// into a single FFI call to minimize overhead.
+///
+/// Input format (per tile, 4 values):
+///   [clip_id, start_frame, end_frame, num_pixels] repeated for each tile
+///
+/// Output format (per tile, num_pixels * 3 values):
+///   [min0, max0, rms0, min1, max1, rms1, ...] per tile
+///
+/// Returns: Total number of floats written to output
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_query_waveform_tiles_batch(
+    queries: *const f64,      // Input: [clip_id, start, end, pixels] × num_tiles
+    num_tiles: u32,
+    out_data: *mut f32,       // Output: packed min/max/rms per pixel per tile
+    out_capacity: u32,        // Max floats that can be written
+) -> u32 {
+    if queries.is_null() || out_data.is_null() || num_tiles == 0 {
+        return 0;
+    }
+
+    let cache = WAVEFORM_CACHE.cache.read();
+    let mut total_written: u32 = 0;
+
+    unsafe {
+        for tile_idx in 0..num_tiles as usize {
+            let base = tile_idx * 4;
+            let clip_id = *queries.add(base) as u64;
+            let start_frame = *queries.add(base + 1) as u64;
+            let end_frame = *queries.add(base + 2) as u64;
+            let num_pixels = *queries.add(base + 3) as u32;
+
+            // Check capacity
+            let floats_needed = num_pixels * 3;
+            if total_written + floats_needed > out_capacity {
+                break;
+            }
+
+            let key = format!("clip_{}", clip_id);
+            if let Some(waveform) = cache.get(&key) {
+                let buckets = waveform.query_pixels_combined(
+                    start_frame as usize,
+                    end_frame as usize,
+                    num_pixels as usize,
+                );
+
+                let out_offset = total_written as usize;
+                for (i, b) in buckets.iter().enumerate() {
+                    *out_data.add(out_offset + i * 3) = b.min;
+                    *out_data.add(out_offset + i * 3 + 1) = b.max;
+                    *out_data.add(out_offset + i * 3 + 2) = b.rms;
+                }
+                total_written += (buckets.len() * 3) as u32;
+            } else {
+                // Fill with zeros for missing clip
+                for i in 0..num_pixels as usize {
+                    *out_data.add(total_written as usize + i * 3) = 0.0;
+                    *out_data.add(total_written as usize + i * 3 + 1) = 0.0;
+                    *out_data.add(total_written as usize + i * 3 + 2) = 0.0;
+                }
+                total_written += floats_needed;
+            }
+        }
+    }
+
+    total_written
+}
+
+/// Query raw samples for sample-mode rendering (ultra zoom-in)
+/// Returns actual sample values for polyline drawing
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_query_raw_samples(
+    clip_id: u64,
+    start_frame: u64,
+    num_frames: u32,
+    out_samples: *mut f32,
+    out_capacity: u32,
+) -> u32 {
+    if out_samples.is_null() || num_frames == 0 {
+        return 0;
+    }
+
+    let key = format!("clip_{}", clip_id);
+
+    // Try to get from IMPORTED_AUDIO (has raw samples)
+    if let Some(audio) = IMPORTED_AUDIO.read().get(&ClipId(clip_id)) {
+        let start = start_frame as usize;
+        let end = (start + num_frames as usize).min(audio.samples.len());
+        let count = (end - start).min(out_capacity as usize);
+
+        unsafe {
+            for (i, &sample) in audio.samples[start..start + count].iter().enumerate() {
+                *out_samples.add(i) = sample;
+            }
+        }
+
+        return count as u32;
+    }
+
+    0
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CROSSFADE FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2708,6 +2886,116 @@ pub extern "C" fn transient_detect(
     count as u32
 }
 
+/// Detect transients in a clip (by clip ID)
+/// Returns number of transients detected, fills out_positions and out_strengths
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_detect_clip_transients(
+    clip_id: u64,
+    sensitivity: f32,
+    algorithm: u32,
+    min_gap_ms: f32,
+    out_positions: *mut u64,
+    out_strengths: *mut f32,
+    out_capacity: u32,
+) -> u32 {
+    use rf_dsp::transient::{DetectionAlgorithm, DetectionSettings, TransientDetector};
+
+    if out_positions.is_null() || out_strengths.is_null() || out_capacity == 0 {
+        return 0;
+    }
+
+    // Security: Validate output capacity
+    if !validate_array_count(out_capacity as usize, "detect_clip_transients") {
+        return 0;
+    }
+
+    // Get clip audio data
+    let audio_map = IMPORTED_AUDIO.read();
+    eprintln!("[FFI] engine_detect_clip_transients: looking for clip {}, available clips: {:?}",
+        clip_id, audio_map.keys().collect::<Vec<_>>());
+    let Some(audio) = audio_map.get(&ClipId(clip_id)) else {
+        eprintln!("[FFI] engine_detect_clip_transients: clip {} not found in {} clips",
+            clip_id, audio_map.len());
+        return 0;
+    };
+    eprintln!("[FFI] engine_detect_clip_transients: found clip {}, {} samples, {} Hz",
+        clip_id, audio.samples.len(), audio.sample_rate);
+
+    // Configure detector
+    let algo = match algorithm {
+        1 => DetectionAlgorithm::HighEmphasis,
+        2 => DetectionAlgorithm::LowEmphasis,
+        3 => DetectionAlgorithm::SpectralFlux,
+        4 => DetectionAlgorithm::ComplexDomain,
+        _ => DetectionAlgorithm::Enhanced,
+    };
+
+    let settings = DetectionSettings {
+        algorithm: algo,
+        sensitivity: sensitivity as f64,
+        min_gap_samples: ((min_gap_ms / 1000.0) * audio.sample_rate as f32) as u64,
+        ..Default::default()
+    };
+
+    let mut detector = TransientDetector::with_settings(audio.sample_rate as f64, settings);
+
+    // Convert to mono f64 for analysis
+    let mono: Vec<f64> = if audio.channels == 2 {
+        audio
+            .samples
+            .chunks(2)
+            .map(|chunk| {
+                let l = chunk.first().copied().unwrap_or(0.0);
+                let r = chunk.get(1).copied().unwrap_or(0.0);
+                ((l + r) * 0.5) as f64
+            })
+            .collect()
+    } else {
+        audio.samples.iter().map(|&s| s as f64).collect()
+    };
+
+    // Detect transients
+    let markers = detector.analyze(&mono);
+
+    // Copy to output buffers
+    let count = markers.len().min(out_capacity as usize);
+
+    unsafe {
+        for (i, marker) in markers.iter().take(count).enumerate() {
+            *out_positions.add(i) = marker.position;
+            *out_strengths.add(i) = marker.strength as f32;
+        }
+    }
+
+    count as u32
+}
+
+/// Get clip sample rate (needed for time calculations)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_clip_sample_rate(clip_id: u64) -> u32 {
+    let audio_map = IMPORTED_AUDIO.read();
+    audio_map
+        .get(&ClipId(clip_id))
+        .map(|a| a.sample_rate)
+        .unwrap_or(48000)
+}
+
+/// Get clip total frames
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_clip_total_frames(clip_id: u64) -> u64 {
+    let audio_map = IMPORTED_AUDIO.read();
+    audio_map
+        .get(&ClipId(clip_id))
+        .map(|a| {
+            if a.channels == 2 {
+                (a.samples.len() / 2) as u64
+            } else {
+                a.samples.len() as u64
+            }
+        })
+        .unwrap_or(0)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PITCH DETECTION FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3088,8 +3376,8 @@ pub extern "C" fn engine_get_memory_usage() -> f32 {
     // This represents how full the LRU cache is relative to its max size
     let cache_utilization = PLAYBACK_ENGINE.cache().utilization();
 
-    // Return as percentage (0-100)
-    (cache_utilization * 100.0) as f32
+    // Return as percentage (0-100), capped at 100
+    (cache_utilization * 100.0).min(100.0) as f32
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3941,13 +4229,23 @@ pub extern "C" fn mixer_set_master_volume(volume_db: f64) -> i32 {
 /// Normalize clip to target dB
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
-    log::debug!("Normalize clip {} to {} dB", clip_id, target_db);
+    eprintln!("[FFI] clip_normalize: clip_id={}, target_db={}", clip_id, target_db);
 
     // Get clip info
     let clip = match TRACK_MANAGER.get_clip(ClipId(clip_id)) {
-        Some(c) => c,
+        Some(c) => {
+            eprintln!("[FFI] clip_normalize: found clip in TRACK_MANAGER");
+            c
+        }
         None => {
-            log::error!("Clip {} not found for normalization", clip_id);
+            eprintln!("[FFI] clip_normalize: clip {} NOT FOUND in TRACK_MANAGER", clip_id);
+            // Try to get from IMPORTED_AUDIO directly
+            if let Some(audio) = IMPORTED_AUDIO.read().get(&ClipId(clip_id)) {
+                eprintln!("[FFI] clip_normalize: clip {} EXISTS in IMPORTED_AUDIO ({} samples)",
+                    clip_id, audio.samples.len());
+            } else {
+                eprintln!("[FFI] clip_normalize: clip {} NOT in IMPORTED_AUDIO either", clip_id);
+            }
             return 0;
         }
     };
@@ -10912,7 +11210,7 @@ pub extern "C" fn version_init(project_name: *const c_char, base_dir: *const c_c
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| {
             std::env::temp_dir()
-                .join("ReelForge")
+                .join("FluxForge Studio")
                 .join("Versions")
         });
 
@@ -12981,7 +13279,7 @@ pub extern "C" fn export_preset_delete(preset_id: *const c_char) -> i32 {
 pub extern "C" fn export_get_default_path() -> *mut c_char {
     // Use home directory or fallback to current directory
     let path = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join("Documents").join("ReelForge Exports"))
+        .map(|h| PathBuf::from(h).join("Documents").join("FluxForge Studio Exports"))
         .unwrap_or_else(|_| PathBuf::from("./exports"));
 
     CString::new(path.to_string_lossy().into_owned())
@@ -13243,7 +13541,7 @@ lazy_static::lazy_static! {
         let cache_dir = std::env::var("HOME")
             .map(|h| std::path::PathBuf::from(h).join("Library").join("Caches"))
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .join("reelforge")
+            .join("fluxforge")
             .join("waveform_cache");
         crate::wave_cache::WaveCacheManager::new(cache_dir)
     };

@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -224,7 +224,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     widget.auxes.any((c) => c.soloed);
 
     return Container(
-      color: ReelForgeTheme.bgDeepest,
+      color: FluxForgeTheme.bgDeepest,
       child: Column(
         children: [
           // Toolbar
@@ -240,7 +240,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                   const SizedBox(width: 4),
                   // Track channels
                   if (widget.channels.isNotEmpty) ...[
-                    _SectionHeader(label: 'TRACKS', color: ReelForgeTheme.accentBlue),
+                    _SectionHeader(label: 'TRACKS', color: FluxForgeTheme.accentBlue),
                     ...widget.channels.map((ch) => _UltimateChannelStrip(
                       key: ValueKey(ch.id),
                       channel: ch,
@@ -266,7 +266,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                   ],
                   // Aux returns
                   if (widget.auxes.isNotEmpty) ...[
-                    _SectionHeader(label: 'AUX', color: ReelForgeTheme.accentPurple),
+                    _SectionHeader(label: 'AUX', color: FluxForgeTheme.accentPurple),
                     ...widget.auxes.map((aux) => _UltimateChannelStrip(
                       key: ValueKey(aux.id),
                       channel: aux,
@@ -284,7 +284,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                   ],
                   // Buses
                   if (widget.buses.isNotEmpty) ...[
-                    _SectionHeader(label: 'BUS', color: ReelForgeTheme.accentOrange),
+                    _SectionHeader(label: 'BUS', color: FluxForgeTheme.accentOrange),
                     ...widget.buses.map((bus) => _UltimateChannelStrip(
                       key: ValueKey(bus.id),
                       channel: bus,
@@ -302,7 +302,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                   ],
                   // VCAs
                   if (widget.vcas.isNotEmpty) ...[
-                    _SectionHeader(label: 'VCA', color: ReelForgeTheme.accentGreen),
+                    _SectionHeader(label: 'VCA', color: FluxForgeTheme.accentGreen),
                     ...widget.vcas.map((vca) => _VcaStrip(
                       key: ValueKey(vca.id),
                       channel: vca,
@@ -314,7 +314,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     const _SectionDivider(),
                   ],
                   // Master
-                  _SectionHeader(label: 'MASTER', color: ReelForgeTheme.textPrimary),
+                  _SectionHeader(label: 'MASTER', color: FluxForgeTheme.textPrimary),
                   _MasterStrip(
                     channel: widget.master,
                     width: kMasterStripWidth,
@@ -337,13 +337,13 @@ class _UltimateMixerState extends State<UltimateMixer> {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border(bottom: BorderSide(color: ReelForgeTheme.textPrimary.withOpacity(0.1))),
+        color: FluxForgeTheme.bgDeep,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.textPrimary.withOpacity(0.1))),
       ),
       child: Row(
         children: [
           const Text('MIX CONSOLE', style: TextStyle(
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
@@ -363,7 +363,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.add, size: 16),
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             onPressed: () {},
@@ -456,13 +456,13 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
               color: ch.selected
-                  ? ReelForgeTheme.bgMid.withOpacity(0.8)
-                  : ReelForgeTheme.bgDeep,
+                  ? FluxForgeTheme.bgMid.withOpacity(0.8)
+                  : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: ch.selected
                     ? ch.color.withOpacity(0.6)
-                    : ReelForgeTheme.textPrimary.withOpacity(0.05),
+                    : FluxForgeTheme.textPrimary.withOpacity(0.05),
               ),
             ),
             child: Column(
@@ -617,8 +617,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           widget.channel.name,
           style: TextStyle(
             color: widget.channel.selected
-                ? ReelForgeTheme.textPrimary
-                : ReelForgeTheme.textSecondary,
+                ? FluxForgeTheme.textPrimary
+                : FluxForgeTheme.textSecondary,
             fontSize: 9,
             fontWeight: FontWeight.w500,
           ),
@@ -728,7 +728,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   bottom: 4,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgVoid.withOpacity(0.4),
+                      color: FluxForgeTheme.bgVoid.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -753,7 +753,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
                         BoxShadow(
-                          color: ReelForgeTheme.bgVoid.withOpacity(0.3),
+                          color: FluxForgeTheme.bgVoid.withOpacity(0.3),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -763,7 +763,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       child: Container(
                         width: 8,
                         height: 1,
-                        color: ReelForgeTheme.bgVoid.withOpacity(0.3),
+                        color: FluxForgeTheme.bgVoid.withOpacity(0.3),
                       ),
                     ),
                   ),
@@ -780,8 +780,8 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _isDragging
-                            ? ReelForgeTheme.accentBlue
-                            : ReelForgeTheme.textSecondary,
+                            ? FluxForgeTheme.accentBlue
+                            : FluxForgeTheme.textSecondary,
                         fontSize: 8,
                         fontWeight: FontWeight.w500,
                       ),
@@ -965,7 +965,7 @@ class _PanKnobPainter extends CustomPainter {
         sweepAngle,
         false,
         Paint()
-          ..color = ReelForgeTheme.accentBlue
+          ..color = FluxForgeTheme.accentBlue
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
           ..strokeCap = StrokeCap.round,
@@ -973,14 +973,14 @@ class _PanKnobPainter extends CustomPainter {
     }
 
     // Center dot
-    canvas.drawCircle(center, 2, Paint()..color = ReelForgeTheme.textSecondary);
+    canvas.drawCircle(center, 2, Paint()..color = FluxForgeTheme.textSecondary);
 
     // L/R labels
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: value < -0.01 ? 'L' : value > 0.01 ? 'R' : 'C',
       style: const TextStyle(
-        color: ReelForgeTheme.textTertiary,
+        color: FluxForgeTheme.textTertiary,
         fontSize: 7,
         fontWeight: FontWeight.w500,
       ),
@@ -1015,13 +1015,13 @@ class _InsertSlot extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 1),
         decoration: BoxDecoration(
           color: insert.isEmpty
-              ? ReelForgeTheme.bgVoid.withOpacity(0.3)
-              : ReelForgeTheme.accentBlue.withOpacity(0.3),
+              ? FluxForgeTheme.bgVoid.withOpacity(0.3)
+              : FluxForgeTheme.accentBlue.withOpacity(0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: insert.bypassed
                 ? Colors.orange.withOpacity(0.5)
-                : ReelForgeTheme.textPrimary.withOpacity(0.1),
+                : FluxForgeTheme.textPrimary.withOpacity(0.1),
           ),
         ),
         child: Center(
@@ -1029,8 +1029,8 @@ class _InsertSlot extends StatelessWidget {
             insert.pluginName ?? '—',
             style: TextStyle(
               color: insert.isEmpty
-                  ? ReelForgeTheme.textTertiary
-                  : ReelForgeTheme.textPrimary,
+                  ? FluxForgeTheme.textTertiary
+                  : FluxForgeTheme.textPrimary,
               fontSize: 7,
             ),
             overflow: TextOverflow.ellipsis,
@@ -1071,13 +1071,13 @@ class _SendSlot extends StatelessWidget {
               height: 12,
               decoration: BoxDecoration(
                 color: send.muted
-                    ? ReelForgeTheme.accentOrange.withOpacity(0.8)
-                    : ReelForgeTheme.bgVoid.withOpacity(0.3),
+                    ? FluxForgeTheme.accentOrange.withOpacity(0.8)
+                    : FluxForgeTheme.bgVoid.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
                 border: Border.all(
                   color: send.muted
-                      ? ReelForgeTheme.accentOrange
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.borderSubtle,
                   width: 0.5,
                 ),
               ),
@@ -1087,7 +1087,7 @@ class _SendSlot extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 6,
                     fontWeight: FontWeight.w700,
-                    color: send.muted ? Colors.white : ReelForgeTheme.textTertiary,
+                    color: send.muted ? Colors.white : FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -1101,10 +1101,10 @@ class _SendSlot extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: send.isEmpty
-                      ? ReelForgeTheme.bgVoid.withOpacity(0.3)
+                      ? FluxForgeTheme.bgVoid.withOpacity(0.3)
                       : send.muted
-                          ? ReelForgeTheme.bgVoid.withOpacity(0.5)
-                          : ReelForgeTheme.accentPurple.withOpacity(0.3),
+                          ? FluxForgeTheme.bgVoid.withOpacity(0.5)
+                          : FluxForgeTheme.accentPurple.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Center(
@@ -1112,8 +1112,8 @@ class _SendSlot extends StatelessWidget {
                     send.destination ?? '—',
                     style: TextStyle(
                       color: send.isEmpty || send.muted
-                          ? ReelForgeTheme.textTertiary
-                          : ReelForgeTheme.textPrimary,
+                          ? FluxForgeTheme.textTertiary
+                          : FluxForgeTheme.textPrimary,
                       fontSize: 7,
                     ),
                   ),
@@ -1129,13 +1129,13 @@ class _SendSlot extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 color: send.preFader
-                    ? ReelForgeTheme.accentCyan.withOpacity(0.3)
-                    : ReelForgeTheme.bgVoid.withOpacity(0.3),
+                    ? FluxForgeTheme.accentCyan.withOpacity(0.3)
+                    : FluxForgeTheme.bgVoid.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
                 border: Border.all(
                   color: send.preFader
-                      ? ReelForgeTheme.accentCyan.withOpacity(0.5)
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.accentCyan.withOpacity(0.5)
+                      : FluxForgeTheme.borderSubtle,
                   width: 0.5,
                 ),
               ),
@@ -1145,8 +1145,8 @@ class _SendSlot extends StatelessWidget {
                   fontSize: 5,
                   fontWeight: FontWeight.w600,
                   color: send.preFader
-                      ? ReelForgeTheme.accentCyan
-                      : ReelForgeTheme.textTertiary,
+                      ? FluxForgeTheme.accentCyan
+                      : FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
@@ -1177,16 +1177,16 @@ class _SendSlot extends StatelessWidget {
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(0, 0, 0, 0),
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: ReelForgeTheme.borderSubtle),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
       ),
       items: [
         PopupMenuItem<String>(
           value: '',
           height: 20,
-          child: Text('-- None --', style: TextStyle(fontSize: 9, color: ReelForgeTheme.textTertiary)),
+          child: Text('-- None --', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
         ),
         ...fxBuses.map((bus) => PopupMenuItem<String>(
           value: bus.$1,
@@ -1198,7 +1198,7 @@ class _SendSlot extends StatelessWidget {
                 margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(color: bus.$3, borderRadius: BorderRadius.circular(1)),
               ),
-              Text(bus.$2, style: TextStyle(fontSize: 9, color: ReelForgeTheme.textPrimary)),
+              Text(bus.$2, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textPrimary)),
             ],
           ),
         )),
@@ -1230,7 +1230,7 @@ class _MiniSendLevel extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgVoid.withOpacity(0.4),
+          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
           borderRadius: BorderRadius.circular(2),
         ),
         child: FractionallySizedBox(
@@ -1238,7 +1238,7 @@ class _MiniSendLevel extends StatelessWidget {
           heightFactor: level,
           child: Container(
             decoration: BoxDecoration(
-              color: muted ? ReelForgeTheme.textTertiary : ReelForgeTheme.accentPurple,
+              color: muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentPurple,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1273,10 +1273,10 @@ class _StripButton extends StatelessWidget {
         width: 18,
         height: 14,
         decoration: BoxDecoration(
-          color: active ? activeColor : ReelForgeTheme.bgVoid.withOpacity(0.3),
+          color: active ? activeColor : FluxForgeTheme.bgVoid.withOpacity(0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : ReelForgeTheme.textPrimary.withOpacity(0.1),
+            color: active ? activeColor : FluxForgeTheme.textPrimary.withOpacity(0.1),
             width: 0.5,
           ),
         ),
@@ -1284,7 +1284,7 @@ class _StripButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: active ? ReelForgeTheme.bgVoid : ReelForgeTheme.textTertiary,
+              color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textTertiary,
               fontSize: 8,
               fontWeight: FontWeight.w600,
             ),
@@ -1321,9 +1321,9 @@ class _VcaStrip extends StatelessWidget {
       width: width,
       margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
+        color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.accentGreen.withOpacity(0.3)),
+        border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -1359,7 +1359,7 @@ class _VcaStrip extends StatelessWidget {
               child: Text(
                 channel.name,
                 style: const TextStyle(
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1393,7 +1393,7 @@ class _VcaFader extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: ReelForgeTheme.bgVoid.withOpacity(0.4),
+          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
           borderRadius: BorderRadius.circular(2),
         ),
         child: LayoutBuilder(
@@ -1448,12 +1448,12 @@ class _MasterStrip extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            ReelForgeTheme.bgMid,
-            ReelForgeTheme.bgDeep,
+            FluxForgeTheme.bgMid,
+            FluxForgeTheme.bgDeep,
           ],
         ),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: ReelForgeTheme.accentOrange.withOpacity(0.3)),
+        border: Border.all(color: FluxForgeTheme.accentOrange.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -1502,7 +1502,7 @@ class _MasterStrip extends StatelessWidget {
             height: 20,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgVoid.withOpacity(0.4),
+              color: FluxForgeTheme.bgVoid.withOpacity(0.4),
               borderRadius: BorderRadius.circular(2),
             ),
             child: Center(
@@ -1525,7 +1525,7 @@ class _MasterStrip extends StatelessWidget {
               child: Text(
                 'STEREO OUT',
                 style: TextStyle(
-                  color: ReelForgeTheme.warningOrange,
+                  color: FluxForgeTheme.warningOrange,
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1550,11 +1550,11 @@ String _formatLufs(double lufs) {
 
 /// Get color based on LUFS value relative to streaming target (-14 LUFS)
 Color _getLufsColor(double lufs) {
-  if (lufs <= -70.0) return ReelForgeTheme.textMuted;
-  if (lufs > -12.0) return ReelForgeTheme.accentRed; // Too loud
-  if (lufs > -14.0) return ReelForgeTheme.warningOrange; // Slightly loud
-  if (lufs < -16.0) return ReelForgeTheme.accentCyan; // Quiet
-  return ReelForgeTheme.accentGreen; // On target (-14 to -16 LUFS)
+  if (lufs <= -70.0) return FluxForgeTheme.textMuted;
+  if (lufs > -12.0) return FluxForgeTheme.accentRed; // Too loud
+  if (lufs > -14.0) return FluxForgeTheme.warningOrange; // Slightly loud
+  if (lufs < -16.0) return FluxForgeTheme.accentCyan; // Quiet
+  return FluxForgeTheme.accentGreen; // On target (-14 to -16 LUFS)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1599,7 +1599,7 @@ class _SectionDivider extends StatelessWidget {
       width: 2,
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.textPrimary.withOpacity(0.1),
+        color: FluxForgeTheme.textPrimary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(1),
       ),
     );
@@ -1625,19 +1625,19 @@ class _ToolbarToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: active
-              ? ReelForgeTheme.accentBlue.withOpacity(0.3)
+              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: active
-                ? ReelForgeTheme.accentBlue
-                : ReelForgeTheme.textPrimary.withOpacity(0.2),
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.textPrimary.withOpacity(0.2),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? ReelForgeTheme.accentBlue : ReelForgeTheme.textTertiary,
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
             fontSize: 10,
             fontWeight: FontWeight.w500,
           ),

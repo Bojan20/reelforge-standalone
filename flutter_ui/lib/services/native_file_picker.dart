@@ -6,7 +6,7 @@
 import 'package:flutter/services.dart';
 
 class NativeFilePicker {
-  static const _channel = MethodChannel('reelforge/file_picker');
+  static const _channel = MethodChannel('fluxforge/file_picker');
 
   /// Pick multiple audio files
   /// Returns list of file paths or empty list if cancelled

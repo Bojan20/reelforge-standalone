@@ -11,7 +11,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Neve 1073 EQ parameter set
 class Neve1073Params {
@@ -139,7 +139,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
         border: Border.all(color: const Color(0xFF2A2A30), width: 3),
         boxShadow: [
           BoxShadow(
-            color: ReelForgeTheme.bgVoid.withAlpha(128),
+            color: FluxForgeTheme.bgVoid.withAlpha(128),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -222,7 +222,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2,
-              color: ReelForgeTheme.textSecondary,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
         ],
@@ -268,7 +268,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             'HPF',
             style: TextStyle(
               fontSize: 8,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
 
@@ -302,7 +302,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: _params.phaseInvert ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                  color: _params.phaseInvert ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
@@ -310,7 +310,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           const SizedBox(height: 2),
           const Text(
             'PHASE',
-            style: TextStyle(fontSize: 7, color: ReelForgeTheme.textTertiary),
+            style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -344,7 +344,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: ReelForgeTheme.textPrimary,
+                      color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -413,7 +413,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           '12kHz',
           style: TextStyle(
             fontSize: 9,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
         ),
 
@@ -436,7 +436,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           style: const TextStyle(
             fontSize: 9,
             fontFamily: 'monospace',
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
 
@@ -444,7 +444,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
         const Text(
           'SHELF',
-          style: TextStyle(fontSize: 7, color: ReelForgeTheme.textTertiary),
+          style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -498,7 +498,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           style: const TextStyle(
             fontSize: 9,
             fontFamily: 'monospace',
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
 
@@ -506,7 +506,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
         const Text(
           'PEAK',
-          style: TextStyle(fontSize: 7, color: ReelForgeTheme.textTertiary),
+          style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -560,7 +560,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           style: const TextStyle(
             fontSize: 9,
             fontFamily: 'monospace',
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
 
@@ -581,7 +581,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               style: const TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.bold,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -622,7 +622,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               border: Border.all(color: const Color(0xFF3A3A40), width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: ReelForgeTheme.bgVoid.withAlpha(64),
+                  color: FluxForgeTheme.bgVoid.withAlpha(64),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -740,7 +740,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
         children: [
           const Text(
             'OUTPUT',
-            style: TextStyle(fontSize: 9, color: ReelForgeTheme.textSecondary),
+            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(width: 8),
           SizedBox(
@@ -761,7 +761,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               style: const TextStyle(
                 fontSize: 9,
                 fontFamily: 'monospace',
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -790,7 +790,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 7, color: ReelForgeTheme.textTertiary),
+          style: const TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
         ),
         const SizedBox(height: 2),
         Container(
@@ -810,8 +810,8 @@ class _Neve1073EqState extends State<Neve1073Eq> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: normalized > 0.9
-                      ? [ReelForgeTheme.accentGreen, ReelForgeTheme.accentYellow, ReelForgeTheme.accentRed]
-                      : [ReelForgeTheme.accentGreen, ReelForgeTheme.accentGreen.withAlpha(200)],
+                      ? [FluxForgeTheme.accentGreen, FluxForgeTheme.accentYellow, FluxForgeTheme.accentRed]
+                      : [FluxForgeTheme.accentGreen, FluxForgeTheme.accentGreen.withAlpha(200)],
                 ),
                 borderRadius: BorderRadius.circular(1),
               ),

@@ -57,7 +57,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.eq.parametric',
         name: 'Parametric EQ',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -65,7 +65,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.eq.graphic',
         name: 'Graphic EQ',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -73,7 +73,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.dynamics.compressor',
         name: 'Compressor',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -81,7 +81,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.dynamics.limiter',
         name: 'Limiter',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -89,7 +89,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.dynamics.gate',
         name: 'Gate',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -97,7 +97,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.reverb.algorithmic',
         name: 'Algorithmic Reverb',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -105,7 +105,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.reverb.convolution',
         name: 'Convolution Reverb',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -113,7 +113,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.delay.stereo',
         name: 'Stereo Delay',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.effect,
         hasEditor: true,
@@ -121,7 +121,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.analysis.spectrum',
         name: 'Spectrum Analyzer',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.analyzer,
         hasEditor: true,
@@ -129,7 +129,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.analysis.loudness',
         name: 'Loudness Meter',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.analyzer,
         hasEditor: true,
@@ -137,7 +137,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
       const NativePluginInfo(
         id: 'rf.utility.gain',
         name: 'Gain',
-        vendor: 'ReelForge',
+        vendor: 'FluxForge Studio',
         type: NativePluginType.internal,
         category: NativePluginCategory.utility,
         hasEditor: true,

@@ -3,7 +3,7 @@
 // Test screen to preview all EQ widgets before integration
 
 import 'package:flutter/material.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 import '../widgets/eq/pro_eq_editor.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
@@ -43,17 +43,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ReelForgeTheme.bgVoid,
+      backgroundColor: FluxForgeTheme.bgVoid,
       appBar: AppBar(
-        backgroundColor: ReelForgeTheme.bgDeep,
+        backgroundColor: FluxForgeTheme.bgDeep,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: ReelForgeTheme.textSecondary),
+          icon: Icon(Icons.arrow_back, color: FluxForgeTheme.textSecondary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'EQ Test Lab',
           style: TextStyle(
-            color: ReelForgeTheme.textPrimary,
+            color: FluxForgeTheme.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -61,9 +61,9 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          indicatorColor: ReelForgeTheme.accentBlue,
-          labelColor: ReelForgeTheme.accentBlue,
-          unselectedLabelColor: ReelForgeTheme.textTertiary,
+          indicatorColor: FluxForgeTheme.accentBlue,
+          labelColor: FluxForgeTheme.accentBlue,
+          unselectedLabelColor: FluxForgeTheme.textTertiary,
           tabs: const [
             Tab(text: 'Pro EQ 64'),
             Tab(text: 'Pultec'),
@@ -89,7 +89,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
   Widget _buildProEqTab() {
     // Fullscreen Pro-EQ with VanEQ Pro styling
     return Container(
-      color: ReelForgeTheme.bgVoid, // VanEQ Pro background
+      color: FluxForgeTheme.bgVoid, // VanEQ Pro background
       child: LayoutBuilder(
         builder: (context, constraints) {
           return Center(
@@ -109,7 +109,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Wrap(
@@ -131,15 +131,15 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgSurface,
+        color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: ReelForgeTheme.accentBlue),
+          Icon(icon, size: 14, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 12)),
+          Text(label, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
         ],
       ),
     );
@@ -154,7 +154,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Pultec EQP-1A',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -163,7 +163,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Legendary passive tube EQ • Famous "Boost & Cut" trick • Smooth musical curves',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -189,17 +189,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline, color: ReelForgeTheme.accentOrange, size: 20),
+          Icon(Icons.lightbulb_outline, color: FluxForgeTheme.accentOrange, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Pro tip: Boost AND cut at the same frequency for the famous "Pultec trick" - adds harmonic richness!',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -216,7 +216,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'API 550A',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -225,7 +225,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             '3-band discrete EQ • Proportional Q • Punchy American character',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -251,17 +251,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(Icons.music_note, color: ReelForgeTheme.accentGreen, size: 20),
+          Icon(Icons.music_note, color: FluxForgeTheme.accentGreen, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Classic on drums, vocals, and guitars. The proportional Q gives it that "musical" feel.',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -278,7 +278,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Neve 1073',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -287,7 +287,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Legendary preamp/EQ • Inductor-based filters • Transformer saturation',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -313,17 +313,17 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_awesome, color: ReelForgeTheme.accentCyan, size: 20),
+          Icon(Icons.auto_awesome, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'The sound of countless hit records. Smooth highs, punchy lows, musical in any setting.',
-              style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
             ),
           ),
         ],
@@ -340,7 +340,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'Preset Morph Pad',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -349,7 +349,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Text(
             'XY pad for blending between 4 presets • Smooth interpolation • Pro-Q 4 doesn\'t have this!',
             style: TextStyle(
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
               fontSize: 14,
             ),
           ),
@@ -367,22 +367,22 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
                   },
                   presetA: MorphPreset(
                     name: 'Warm',
-                    color: ReelForgeTheme.accentOrange,
+                    color: FluxForgeTheme.accentOrange,
                     parameters: {'bass': 3.0, 'mid': -1.0, 'treble': -2.0},
                   ),
                   presetB: MorphPreset(
                     name: 'Bright',
-                    color: ReelForgeTheme.accentCyan,
+                    color: FluxForgeTheme.accentCyan,
                     parameters: {'bass': -1.0, 'mid': 1.0, 'treble': 4.0},
                   ),
                   presetC: MorphPreset(
                     name: 'Flat',
-                    color: ReelForgeTheme.textTertiary,
+                    color: FluxForgeTheme.textTertiary,
                     parameters: {'bass': 0.0, 'mid': 0.0, 'treble': 0.0},
                   ),
                   presetD: MorphPreset(
                     name: 'Scooped',
-                    color: ReelForgeTheme.accentPurple,
+                    color: FluxForgeTheme.accentPurple,
                     parameters: {'bass': 4.0, 'mid': -4.0, 'treble': 3.0},
                   ),
                 ),
@@ -400,7 +400,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgMid,
+        color: FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -408,18 +408,18 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Row(
             children: [
-              Icon(Icons.touch_app, color: ReelForgeTheme.accentOrange, size: 20),
+              Icon(Icons.touch_app, color: FluxForgeTheme.accentOrange, size: 20),
               const SizedBox(width: 12),
               Text(
                 'Drag to blend between presets',
-                style: TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 13),
+                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Position: X=${_morphPosition.dx.toStringAsFixed(2)}, Y=${_morphPosition.dy.toStringAsFixed(2)}',
-            style: TextStyle(color: ReelForgeTheme.accentBlue, fontSize: 12, fontFamily: 'monospace'),
+            style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 12, fontFamily: 'monospace'),
           ),
         ],
       ),

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "GPU-accelerated visualizations for ReelForge"
+description = "GPU-accelerated visualizations for FluxForge Studio"
 
 [dependencies]
 rf-core = { workspace = true }

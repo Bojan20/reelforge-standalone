@@ -1,4 +1,4 @@
-// ReelForge DAW - Flutter Frontend
+// FluxForge Studio DAW - Flutter Frontend
 //
 // Professional digital audio workstation with:
 // - Cubase-inspired multi-zone layout
@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'theme/reelforge_theme.dart';
+import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -30,11 +30,11 @@ import 'providers/routing_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ReelForgeApp());
+  runApp(const FluxForgeApp());
 }
 
-class ReelForgeApp extends StatelessWidget {
-  const ReelForgeApp({super.key});
+class FluxForgeApp extends StatelessWidget {
+  const FluxForgeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -83,9 +83,9 @@ class ReelForgeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RoutingProvider()),
       ],
       child: MaterialApp(
-        title: 'ReelForge',
+        title: 'FluxForge Studio',
         debugShowCheckedModeBanner: false,
-        theme: ReelForgeTheme.darkTheme,
+        theme: FluxForgeTheme.darkTheme,
         initialRoute: '/',
         routes: {
           '/': (context) => const _AppInitializer(),

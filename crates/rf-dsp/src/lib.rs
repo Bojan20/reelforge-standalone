@@ -1,4 +1,4 @@
-//! rf-dsp: DSP processors for ReelForge
+//! rf-dsp: DSP processors for FluxForge Studio
 //!
 //! High-performance, SIMD-optimized audio processing.
 //!

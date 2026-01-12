@@ -1,4 +1,4 @@
-//! SIMD Dispatch System for ReelForge DSP
+//! SIMD Dispatch System for FluxForge Studio DSP
 //!
 //! Runtime SIMD feature detection with lazy-static dispatch tables.
 //! Supports AVX-512, AVX2, SSE4.2, and NEON (ARM).

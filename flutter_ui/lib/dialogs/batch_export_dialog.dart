@@ -11,7 +11,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
-import '../theme/reelforge_theme.dart';
+import '../theme/fluxforge_theme.dart';
 import 'export_presets_dialog.dart';
 
 /// Batch export item (track/region to export)
@@ -103,10 +103,10 @@ extension BatchExportTypeExt on BatchExportType {
 
   Color get color {
     switch (this) {
-      case BatchExportType.track: return ReelForgeTheme.accentBlue;
-      case BatchExportType.stem: return ReelForgeTheme.accentGreen;
-      case BatchExportType.region: return ReelForgeTheme.accentOrange;
-      case BatchExportType.marker: return ReelForgeTheme.accentCyan;
+      case BatchExportType.track: return FluxForgeTheme.accentBlue;
+      case BatchExportType.stem: return FluxForgeTheme.accentGreen;
+      case BatchExportType.region: return FluxForgeTheme.accentOrange;
+      case BatchExportType.marker: return FluxForgeTheme.accentCyan;
       case BatchExportType.full: return const Color(0xFF9C27B0);
     }
   }
@@ -168,7 +168,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ReelForgeTheme.bgMid,
+      backgroundColor: FluxForgeTheme.bgMid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 800,
@@ -176,14 +176,14 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
         child: Column(
           children: [
             _buildHeader(),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             if (_isExporting)
               _buildProgressBar()
             else
               _buildSettingsBar(),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             Expanded(child: _buildItemList()),
-            const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+            const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
             _buildActions(),
           ],
         ),
@@ -197,12 +197,12 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          const Icon(Icons.download_for_offline, color: ReelForgeTheme.accentGreen, size: 22),
+          const Icon(Icons.download_for_offline, color: FluxForgeTheme.accentGreen, size: 22),
           const SizedBox(width: 10),
           const Text(
             'Batch Export',
             style: TextStyle(
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -211,31 +211,31 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               '$_selectedCount items selected',
-              style: const TextStyle(color: ReelForgeTheme.textSecondary, fontSize: 11),
+              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
             ),
           ),
           const Spacer(),
           if (_isExporting) ...[
             Text(
               '$_completedCount / $_selectedCount completed',
-              style: const TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 12),
+              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 12),
             ),
             if (_failedCount > 0) ...[
               const SizedBox(width: 8),
               Text(
                 '$_failedCount failed',
-                style: const TextStyle(color: ReelForgeTheme.accentRed, fontSize: 12),
+                style: const TextStyle(color: FluxForgeTheme.accentRed, fontSize: 12),
               ),
             ],
           ],
           IconButton(
             icon: const Icon(Icons.close, size: 20),
-            color: ReelForgeTheme.textSecondary,
+            color: FluxForgeTheme.textSecondary,
             onPressed: _isExporting ? null : () => Navigator.pop(context),
           ),
         ],
@@ -247,7 +247,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Row(
         children: [
           // Preset selector
@@ -255,16 +255,16 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Preset', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+              const Text('Preset', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
               const SizedBox(height: 2),
               GestureDetector(
                 onTap: _selectPreset,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.bgMid,
+                    color: FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: ReelForgeTheme.borderSubtle),
+                    border: Border.all(color: FluxForgeTheme.borderSubtle),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -272,12 +272,12 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                       Text(
                         _selectedPreset?.name ?? 'Select preset...',
                         style: TextStyle(
-                          color: _selectedPreset != null ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                          color: _selectedPreset != null ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                           fontSize: 12,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.arrow_drop_down, size: 16, color: ReelForgeTheme.textSecondary),
+                      const Icon(Icons.arrow_drop_down, size: 16, color: FluxForgeTheme.textSecondary),
                     ],
                   ),
                 ),
@@ -291,26 +291,26 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Output Folder', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+                const Text('Output Folder', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
                 const SizedBox(height: 2),
                 GestureDetector(
                   onTap: _selectOutputFolder,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: ReelForgeTheme.bgMid,
+                      color: FluxForgeTheme.bgMid,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: ReelForgeTheme.borderSubtle),
+                      border: Border.all(color: FluxForgeTheme.borderSubtle),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.folder, size: 14, color: ReelForgeTheme.textTertiary),
+                        const Icon(Icons.folder, size: 14, color: FluxForgeTheme.textTertiary),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _outputFolder.isEmpty ? 'Select folder...' : _outputFolder,
                             style: TextStyle(
-                              color: _outputFolder.isNotEmpty ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                              color: _outputFolder.isNotEmpty ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                               fontSize: 11,
                             ),
                             maxLines: 1,
@@ -330,20 +330,20 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Naming', style: TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 9)),
+              const Text('Naming', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
               const SizedBox(height: 2),
               Container(
                 width: 180,
                 height: 28,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgMid,
+                  color: FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ReelForgeTheme.borderSubtle),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
                 ),
                 child: TextField(
                   controller: TextEditingController(text: _namingTemplate),
-                  style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono'),
+                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono'),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
@@ -363,7 +363,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -373,13 +373,13 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                 _currentIndex >= 0 && _currentIndex < _items.length
                     ? 'Exporting: ${_items[_currentIndex].name}'
                     : 'Preparing...',
-                style: const TextStyle(color: ReelForgeTheme.textPrimary, fontSize: 12),
+                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
               ),
               const Spacer(),
               Text(
                 '${(_overallProgress * 100).toInt()}%',
                 style: const TextStyle(
-                  color: ReelForgeTheme.accentGreen,
+                  color: FluxForgeTheme.accentGreen,
                   fontSize: 12,
                   fontFamily: 'JetBrains Mono',
                 ),
@@ -391,8 +391,8 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: _overallProgress,
-              backgroundColor: ReelForgeTheme.bgMid,
-              valueColor: const AlwaysStoppedAnimation(ReelForgeTheme.accentGreen),
+              backgroundColor: FluxForgeTheme.bgMid,
+              valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentGreen),
               minHeight: 6,
             ),
           ),
@@ -415,17 +415,17 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: item.status == ExportItemStatus.exporting
-            ? ReelForgeTheme.accentGreen.withValues(alpha: 0.1)
+            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
             : item.status == ExportItemStatus.failed
-                ? ReelForgeTheme.accentRed.withValues(alpha: 0.1)
-                : ReelForgeTheme.bgSurface,
+                ? FluxForgeTheme.accentRed.withValues(alpha: 0.1)
+                : FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: item.status == ExportItemStatus.exporting
-              ? ReelForgeTheme.accentGreen
+              ? FluxForgeTheme.accentGreen
               : item.status == ExportItemStatus.failed
-                  ? ReelForgeTheme.accentRed
-                  : ReelForgeTheme.borderSubtle,
+                  ? FluxForgeTheme.accentRed
+                  : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
@@ -439,8 +439,8 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                   _items[index] = item.copyWith(isSelected: v ?? false);
                 });
               },
-              activeColor: ReelForgeTheme.accentBlue,
-              side: const BorderSide(color: ReelForgeTheme.textTertiary),
+              activeColor: FluxForgeTheme.accentBlue,
+              side: const BorderSide(color: FluxForgeTheme.textTertiary),
             ),
           // Type icon
           Container(
@@ -461,7 +461,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                 Text(
                   item.name,
                   style: TextStyle(
-                    color: item.isSelected || _isExporting ? ReelForgeTheme.textPrimary : ReelForgeTheme.textTertiary,
+                    color: item.isSelected || _isExporting ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -475,7 +475,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                     const SizedBox(width: 8),
                     Text(
                       item.durationLabel,
-                      style: const TextStyle(color: ReelForgeTheme.textTertiary, fontSize: 10, fontFamily: 'JetBrains Mono'),
+                      style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10, fontFamily: 'JetBrains Mono'),
                     ),
                   ],
                 ),
@@ -492,8 +492,8 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: item.progress,
-                  backgroundColor: ReelForgeTheme.bgDeep,
-                  valueColor: const AlwaysStoppedAnimation(ReelForgeTheme.accentGreen),
+                  backgroundColor: FluxForgeTheme.bgDeep,
+                  valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentGreen),
                   minHeight: 4,
                 ),
               ),
@@ -513,22 +513,22 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
         return const SizedBox(width: 80);
       case ExportItemStatus.exporting:
         icon = Icons.sync;
-        color = ReelForgeTheme.accentGreen;
+        color = FluxForgeTheme.accentGreen;
         label = 'Exporting';
         break;
       case ExportItemStatus.completed:
         icon = Icons.check_circle;
-        color = ReelForgeTheme.accentGreen;
+        color = FluxForgeTheme.accentGreen;
         label = 'Done';
         break;
       case ExportItemStatus.failed:
         icon = Icons.error;
-        color = ReelForgeTheme.accentRed;
+        color = FluxForgeTheme.accentRed;
         label = 'Failed';
         break;
       case ExportItemStatus.skipped:
         icon = Icons.skip_next;
-        color = ReelForgeTheme.textTertiary;
+        color = FluxForgeTheme.textTertiary;
         label = 'Skipped';
         break;
     }
@@ -601,8 +601,8 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
               icon: const Icon(Icons.download, size: 16),
               label: Text('Export $_selectedCount Items'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ReelForgeTheme.accentGreen,
-                foregroundColor: ReelForgeTheme.bgVoid,
+                backgroundColor: FluxForgeTheme.accentGreen,
+                foregroundColor: FluxForgeTheme.bgVoid,
               ),
             ),
           ],

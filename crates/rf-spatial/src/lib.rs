@@ -1,4 +1,4 @@
-//! ReelForge Immersive Audio Engine
+//! FluxForge Studio Immersive Audio Engine
 //!
 //! Industry-leading spatial audio processing:
 //!

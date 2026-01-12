@@ -330,7 +330,7 @@ class SessionUI {
 
 class SessionPersistenceProvider extends ChangeNotifier {
   static const int _sessionVersion = 1;
-  static const String _storageKey = 'reelforge_session';
+  static const String _storageKey = 'fluxforge_session';
 
   Timer? _saveTimer;
   SessionState? _pendingState;

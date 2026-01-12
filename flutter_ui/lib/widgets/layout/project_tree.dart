@@ -7,7 +7,7 @@
 /// - Selection highlighting
 
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -138,8 +138,8 @@ class _ProjectTreeState extends State<ProjectTree> {
               icon: const Icon(Icons.add, size: 14),
               label: const Text('Add Event', style: TextStyle(fontSize: 11)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ReelForgeTheme.bgElevated,
-                foregroundColor: ReelForgeTheme.textPrimary,
+                backgroundColor: FluxForgeTheme.bgElevated,
+                foregroundColor: FluxForgeTheme.textPrimary,
                 minimumSize: const Size(double.infinity, 28),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
@@ -199,11 +199,11 @@ class _TreeItem extends StatelessWidget {
       padding: EdgeInsets.only(left: 12.0 + level * 16),
       decoration: BoxDecoration(
         color: isSelected
-            ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
+            ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
             : Colors.transparent,
         border: Border(
           left: BorderSide(
-            color: isSelected ? ReelForgeTheme.accentBlue : Colors.transparent,
+            color: isSelected ? FluxForgeTheme.accentBlue : Colors.transparent,
             width: 2,
           ),
         ),
@@ -217,7 +217,7 @@ class _TreeItem extends StatelessWidget {
                 ? Icon(
                     isExpanded ? Icons.expand_more : Icons.chevron_right,
                     size: 14,
-                    color: ReelForgeTheme.textSecondary,
+                    color: FluxForgeTheme.textSecondary,
                   )
                 : null,
           ),
@@ -237,8 +237,8 @@ class _TreeItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: matchesSearch
-                    ? ReelForgeTheme.accentBlue
-                    : ReelForgeTheme.textPrimary,
+                    ? FluxForgeTheme.accentBlue
+                    : FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -252,7 +252,7 @@ class _TreeItem extends StatelessWidget {
                 node.duration!,
                 style: TextStyle(
                   fontSize: 10,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
@@ -262,14 +262,14 @@ class _TreeItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgElevated,
+                color: FluxForgeTheme.bgElevated,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 '${node.count}',
                 style: TextStyle(
                   fontSize: 10,
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
             ),
@@ -288,9 +288,9 @@ class _TreeItem extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgSurface,
+              color: FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: ReelForgeTheme.accentBlue),
+              border: Border.all(color: FluxForgeTheme.accentBlue),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.3),
@@ -311,7 +311,7 @@ class _TreeItem extends StatelessWidget {
                   node.label,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: ReelForgeTheme.textPrimary,
+                    color: FluxForgeTheme.textPrimary,
                   ),
                 ),
               ],

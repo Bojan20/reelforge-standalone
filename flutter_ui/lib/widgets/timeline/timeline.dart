@@ -18,12 +18,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
 import 'track_header_simple.dart';
-// import 'track_header_reelforge.dart'; // Alternative: richer track headers
+// import 'track_header_fluxforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
 
@@ -128,6 +128,9 @@ class Timeline extends StatefulWidget {
   /// Returns (filePath, trackId, startTime) - trackId can be null for new track
   final void Function(String filePath, String? trackId, double startTime)? onFileDrop;
 
+  /// Import audio files callback (Shift+Cmd+I)
+  final VoidCallback? onImportAudio;
+
   /// Pool file drop callback (for drag from Audio Pool)
   /// Called when PoolAudioFile is dropped on timeline
   /// Returns (poolFile, trackId, startTime) - trackId can be null for new track
@@ -214,6 +217,7 @@ class Timeline extends StatefulWidget {
     this.snapValue = 1,
     this.isPlaying = false,
     this.onFileDrop,
+    this.onImportAudio,
     this.onPoolFileDrop,
     this.onTrackDuplicate,
     this.onTrackDelete,
@@ -394,8 +398,8 @@ class _TimelineState extends State<Timeline> {
         child: Container(
           width: 4,
           color: _isResizingHeader
-              ? ReelForgeTheme.accentBlue
-              : ReelForgeTheme.borderMedium,
+              ? FluxForgeTheme.accentBlue
+              : FluxForgeTheme.borderMedium,
         ),
       ),
     );
@@ -628,9 +632,11 @@ class _TimelineState extends State<Timeline> {
         HardwareKeyboard.instance.isControlPressed;
     final isShift = HardwareKeyboard.instance.isShiftPressed;
 
-    // Pass through Cmd+Shift+I (Import Audio Files) to global shortcuts
+    // Cmd+Shift+I - Import Audio Files
     if (isCmd && isShift && event.logicalKey == LogicalKeyboardKey.keyI) {
-      return KeyEventResult.ignored;
+      debugPrint('[Timeline] Cmd+Shift+I detected, calling onImportAudio');
+      widget.onImportAudio?.call();
+      return KeyEventResult.handled;
     }
 
     final selectedClip = widget.clips.cast<TimelineClip?>().firstWhere(
@@ -1164,7 +1170,7 @@ class _TimelineState extends State<Timeline> {
 
               return Container(
                 // Logic Pro-style timeline background
-                color: ReelForgeTheme.bgMid,
+                color: FluxForgeTheme.bgMid,
                 child: Stack(
                   children: [
                     Column(
@@ -1177,7 +1183,7 @@ class _TimelineState extends State<Timeline> {
                         // Header spacer
                         Container(
                           width: _headerWidth,
-                          color: ReelForgeTheme.bgMid,
+                          color: FluxForgeTheme.bgMid,
                         ),
                         // Resize handle
                         _buildHeaderResizeHandle(),
@@ -1231,12 +1237,12 @@ class _TimelineState extends State<Timeline> {
                                     children: [
                                       Container(
                                         width: _headerWidth,
-                                        color: ReelForgeTheme.bgMid,
+                                        color: FluxForgeTheme.bgMid,
                                         child: Center(
                                           child: Text(
                                             '+ Add Track',
-                                            style: ReelForgeTheme.bodySmall.copyWith(
-                                              color: ReelForgeTheme.textTertiary,
+                                            style: FluxForgeTheme.bodySmall.copyWith(
+                                              color: FluxForgeTheme.textTertiary,
                                             ),
                                           ),
                                         ),
@@ -1245,7 +1251,7 @@ class _TimelineState extends State<Timeline> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             border: Border.all(
-                                              color: ReelForgeTheme.borderSubtle,
+                                              color: FluxForgeTheme.borderSubtle,
                                               style: BorderStyle.solid,
                                             ),
                                           ),
@@ -1254,8 +1260,8 @@ class _TimelineState extends State<Timeline> {
                                               _visibleTracks.isEmpty
                                                   ? 'Drop audio files here to create tracks'
                                                   : '+ Drop to add track',
-                                              style: ReelForgeTheme.bodySmall.copyWith(
-                                                color: ReelForgeTheme.textTertiary,
+                                              style: FluxForgeTheme.bodySmall.copyWith(
+                                                color: FluxForgeTheme.textTertiary,
                                               ),
                                             ),
                                           ),
@@ -1332,7 +1338,7 @@ class _TimelineState extends State<Timeline> {
                                         marker.name,
                                         style: TextStyle(
                                           fontSize: 9,
-                                          color: ReelForgeTheme.textPrimary,
+                                          color: FluxForgeTheme.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -1360,15 +1366,15 @@ class _TimelineState extends State<Timeline> {
                                     width: _draggingClip!.duration * widget.zoom,
                                     height: _defaultTrackHeight - 4,
                                     decoration: BoxDecoration(
-                                      color: (_draggingClip!.color ?? ReelForgeTheme.accentBlue).withValues(alpha: 0.7),
+                                      color: (_draggingClip!.color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                        color: ReelForgeTheme.textPrimary,
+                                        color: FluxForgeTheme.textPrimary,
                                         width: 2,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: ReelForgeTheme.bgVoid.withValues(alpha: 0.4),
+                                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
                                           blurRadius: 8,
                                           offset: const Offset(2, 2),
                                         ),
@@ -1396,8 +1402,8 @@ class _TimelineState extends State<Timeline> {
                                             top: 2,
                                             child: Text(
                                               _draggingClip!.name,
-                                              style: ReelForgeTheme.bodySmall.copyWith(
-                                                color: ReelForgeTheme.textPrimary,
+                                              style: FluxForgeTheme.bodySmall.copyWith(
+                                                color: FluxForgeTheme.textPrimary,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -1420,10 +1426,10 @@ class _TimelineState extends State<Timeline> {
                                 child: Container(
                                   width: 2,
                                   decoration: BoxDecoration(
-                                    color: ReelForgeTheme.accentCyan.withOpacity(0.8),
+                                    color: FluxForgeTheme.accentCyan.withOpacity(0.8),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: ReelForgeTheme.accentCyan.withOpacity(0.5),
+                                        color: FluxForgeTheme.accentCyan.withOpacity(0.5),
                                         blurRadius: 6,
                                         spreadRadius: 1,
                                       ),
@@ -1441,13 +1447,13 @@ class _TimelineState extends State<Timeline> {
                   Container(
                     height: 20,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    color: ReelForgeTheme.bgMid,
+                    color: FluxForgeTheme.bgMid,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
                           '${widget.zoom.toStringAsFixed(0)}px/s',
-                          style: ReelForgeTheme.monoSmall,
+                          style: FluxForgeTheme.monoSmall,
                         ),
                       ],
                     ),
@@ -1459,7 +1465,7 @@ class _TimelineState extends State<Timeline> {
                     if (_isDroppingFile)
                       Positioned.fill(
                         child: Container(
-                          color: ReelForgeTheme.accentBlue.withValues(alpha: 0.05),
+                          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.05),
                         ),
                       ),
 
@@ -1487,9 +1493,9 @@ class _TimelineState extends State<Timeline> {
                                   height: _defaultTrackHeight,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: ReelForgeTheme.accentBlue.withValues(alpha: 0.1),
+                                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
                                       border: Border.all(
-                                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                                         width: 1,
                                       ),
                                     ),
@@ -1504,15 +1510,15 @@ class _TimelineState extends State<Timeline> {
                                   width: ghostWidth,
                                   height: ghostHeight,
                                   decoration: BoxDecoration(
-                                    color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(
-                                      color: ReelForgeTheme.accentBlue,
+                                      color: FluxForgeTheme.accentBlue,
                                       width: 2,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: ReelForgeTheme.accentBlue.withValues(alpha: 0.4),
+                                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                                         blurRadius: 12,
                                         spreadRadius: 2,
                                       ),
@@ -1530,9 +1536,9 @@ class _TimelineState extends State<Timeline> {
                                                 begin: Alignment.topCenter,
                                                 end: Alignment.bottomCenter,
                                                 colors: [
-                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
-                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.1),
-                                                  ReelForgeTheme.textPrimary.withValues(alpha: 0.2),
+                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
+                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
+                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
                                                 ],
                                               ),
                                             ),
@@ -1544,7 +1550,7 @@ class _TimelineState extends State<Timeline> {
                                         child: Icon(
                                           Icons.audio_file,
                                           size: 20,
-                                          color: ReelForgeTheme.textPrimary.withValues(alpha: 0.7),
+                                          color: FluxForgeTheme.textPrimary.withValues(alpha: 0.7),
                                         ),
                                       ),
                                     ],
@@ -1559,7 +1565,7 @@ class _TimelineState extends State<Timeline> {
                                 bottom: 0,
                                 child: Container(
                                   width: 2,
-                                  color: ReelForgeTheme.accentBlue,
+                                  color: FluxForgeTheme.accentBlue,
                                 ),
                               ),
 
@@ -1570,14 +1576,14 @@ class _TimelineState extends State<Timeline> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: ReelForgeTheme.bgMid,
+                                    color: FluxForgeTheme.bgMid,
                                     borderRadius: BorderRadius.circular(3),
-                                    border: Border.all(color: ReelForgeTheme.accentBlue),
+                                    border: Border.all(color: FluxForgeTheme.accentBlue),
                                   ),
                                   child: Text(
                                     _formatDropTime(_dropPosition!.dx),
-                                    style: ReelForgeTheme.monoSmall.copyWith(
-                                      color: ReelForgeTheme.accentBlue,
+                                    style: FluxForgeTheme.monoSmall.copyWith(
+                                      color: FluxForgeTheme.accentBlue,
                                     ),
                                   ),
                                 ),
@@ -1632,7 +1638,7 @@ class _TimelineState extends State<Timeline> {
                   },
                   child: Container(
                     color: _isDraggingLoopLeft
-                        ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
                         : Colors.transparent,
                   ),
                 ),
@@ -1656,7 +1662,7 @@ class _TimelineState extends State<Timeline> {
                   },
                   child: Container(
                     color: _isDraggingLoopRight
-                        ? ReelForgeTheme.accentBlue.withValues(alpha: 0.5)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
                         : Colors.transparent,
                   ),
                 ),
@@ -1678,13 +1684,13 @@ class _PlayheadPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Cubase-style playhead triangle with shadow
     final shadowPaint = Paint()
-      ..color = ReelForgeTheme.bgVoid.withValues(alpha: 0.4)
+      ..color = FluxForgeTheme.bgVoid.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
 
     final paint = Paint()
       ..color = isDragging
-          ? ReelForgeTheme.accentRed
-          : ReelForgeTheme.accentRed.withValues(alpha: 0.95)
+          ? FluxForgeTheme.accentRed
+          : FluxForgeTheme.accentRed.withValues(alpha: 0.95)
       ..style = PaintingStyle.fill;
 
     // Shadow
@@ -1706,7 +1712,7 @@ class _PlayheadPainter extends CustomPainter {
     // Inner highlight for 3D effect
     if (isDragging) {
       final highlightPaint = Paint()
-        ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+        ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1;
       final highlightPath = Path()
@@ -1737,7 +1743,7 @@ class _GhostWaveformPainter extends CustomPainter {
     final samplesPerPixel = waveform.length / size.width;
 
     final paint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -1835,7 +1841,7 @@ class _IsolatedPlayhead extends StatelessWidget {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+                            color: FluxForgeTheme.accentRed.withValues(alpha: 0.6),
                             blurRadius: 12,
                             spreadRadius: 2,
                           ),
@@ -1850,7 +1856,7 @@ class _IsolatedPlayhead extends StatelessWidget {
                     child: Container(
                       width: isDragging ? 3 : 2,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentRed,
+                        color: FluxForgeTheme.accentRed,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.5),
@@ -1979,7 +1985,7 @@ class _PlayheadOverlayState extends State<PlayheadOverlay> {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: ReelForgeTheme.accentRed.withValues(alpha: 0.6),
+                            color: FluxForgeTheme.accentRed.withValues(alpha: 0.6),
                             blurRadius: 12,
                             spreadRadius: 2,
                           ),
@@ -1993,7 +1999,7 @@ class _PlayheadOverlayState extends State<PlayheadOverlay> {
                     child: Container(
                       width: _isDragging ? 3 : 2,
                       decoration: BoxDecoration(
-                        color: ReelForgeTheme.accentRed,
+                        color: FluxForgeTheme.accentRed,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.5),

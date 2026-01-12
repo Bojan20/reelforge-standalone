@@ -13,7 +13,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // METER TYPES
@@ -259,7 +259,7 @@ class _ProMeterPainter extends CustomPainter {
     final meterHeight = size.height - 4;
 
     // Background
-    final bgPaint = Paint()..color = ReelForgeTheme.bgDeepest;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgDeepest;
     canvas.drawRect(Rect.fromLTWH(labelWidth, 2, size.width - labelWidth, meterHeight), bgPaint);
 
     // Draw scale labels
@@ -313,11 +313,11 @@ class _ProMeterPainter extends CustomPainter {
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
       colors: const [
-        ReelForgeTheme.accentCyan, // Blue (low)
-        ReelForgeTheme.accentGreen, // Green (mid-low)
-        ReelForgeTheme.accentYellow, // Yellow (mid)
-        ReelForgeTheme.accentOrange, // Orange (high)
-        ReelForgeTheme.accentRed, // Red (peak)
+        FluxForgeTheme.accentCyan, // Blue (low)
+        FluxForgeTheme.accentGreen, // Green (mid-low)
+        FluxForgeTheme.accentYellow, // Yellow (mid)
+        FluxForgeTheme.accentOrange, // Orange (high)
+        FluxForgeTheme.accentRed, // Red (peak)
       ],
       stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
     ).createShader(rect);
@@ -337,7 +337,7 @@ class _ProMeterPainter extends CustomPainter {
     final rmsHeight = rect.height * rmsNormalized;
 
     final rmsPaint = Paint()
-      ..color = ReelForgeTheme.textPrimary.withValues(alpha: 0.3)
+      ..color = FluxForgeTheme.textPrimary.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
@@ -352,7 +352,7 @@ class _ProMeterPainter extends CustomPainter {
       final peakY = rect.bottom - rect.height * peakNormalized;
 
       final peakPaint = Paint()
-        ..color = peakDb > -3 ? ReelForgeTheme.accentRed : ReelForgeTheme.textPrimary
+        ..color = peakDb > -3 ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary
         ..strokeWidth = 2;
 
       canvas.drawLine(
@@ -364,7 +364,7 @@ class _ProMeterPainter extends CustomPainter {
 
     // Draw segment lines (tick marks)
     final segmentPaint = Paint()
-      ..color = ReelForgeTheme.bgDeepest.withValues(alpha: 0.5)
+      ..color = FluxForgeTheme.bgDeepest.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
     final segments = [-60, -48, -36, -24, -18, -12, -6, -3, 0, 3];
@@ -381,7 +381,7 @@ class _ProMeterPainter extends CustomPainter {
 
   void _drawScaleLabels(Canvas canvas, Size size, double offsetY) {
     final textStyle = ui.TextStyle(
-      color: ReelForgeTheme.textTertiary,
+      color: FluxForgeTheme.textTertiary,
       fontSize: 9,
     );
 
@@ -421,8 +421,8 @@ class _ProMeterPainter extends CustomPainter {
 
     final leftClipPaint = Paint()
       ..color = readings.clippedLeft
-          ? ReelForgeTheme.accentRed
-          : ReelForgeTheme.bgMid;
+          ? FluxForgeTheme.accentRed
+          : FluxForgeTheme.bgMid;
 
     canvas.drawRect(leftClipRect, leftClipPaint);
 
@@ -436,8 +436,8 @@ class _ProMeterPainter extends CustomPainter {
 
     final rightClipPaint = Paint()
       ..color = readings.clippedRight
-          ? ReelForgeTheme.accentRed
-          : ReelForgeTheme.bgMid;
+          ? FluxForgeTheme.accentRed
+          : FluxForgeTheme.bgMid;
 
     canvas.drawRect(rightClipRect, rightClipPaint);
   }
@@ -545,8 +545,8 @@ class StereoMeterStrip extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgDeep,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -556,7 +556,7 @@ class StereoMeterStrip extends StatelessWidget {
             height: 20,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
             ),
             child: Text(
@@ -564,7 +564,7 @@ class StereoMeterStrip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -620,9 +620,9 @@ class StereoMeterStrip extends StatelessWidget {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Column(
@@ -635,7 +635,7 @@ class StereoMeterStrip extends StatelessWidget {
                 'LUFS',
                 style: TextStyle(
                   fontSize: 8,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
               Text(
@@ -647,10 +647,10 @@ class StereoMeterStrip extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontFamily: 'monospace',
                   color: readings.lufsIntegrated > -14
-                      ? ReelForgeTheme.accentRed
+                      ? FluxForgeTheme.accentRed
                       : readings.lufsIntegrated > -23
-                          ? ReelForgeTheme.accentOrange
-                          : ReelForgeTheme.textPrimary,
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textPrimary,
                 ),
               ),
             ],
@@ -662,7 +662,7 @@ class StereoMeterStrip extends StatelessWidget {
                 'LRA',
                 style: TextStyle(
                   fontSize: 8,
-                  color: ReelForgeTheme.textTertiary,
+                  color: FluxForgeTheme.textTertiary,
                 ),
               ),
               Text(
@@ -670,7 +670,7 @@ class StereoMeterStrip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 9,
                   fontFamily: 'monospace',
-                  color: ReelForgeTheme.textSecondary,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
             ],
@@ -689,10 +689,10 @@ class StereoMeterStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: isOver
-            ? ReelForgeTheme.accentRed.withAlpha(51)
-            : ReelForgeTheme.bgDeepest,
+            ? FluxForgeTheme.accentRed.withAlpha(51)
+            : FluxForgeTheme.bgDeepest,
         border: Border(
-          top: BorderSide(color: ReelForgeTheme.borderSubtle),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -702,7 +702,7 @@ class StereoMeterStrip extends StatelessWidget {
             'TP',
             style: TextStyle(
               fontSize: 9,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           Text(
@@ -711,7 +711,7 @@ class StereoMeterStrip extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
-              color: isOver ? ReelForgeTheme.accentRed : ReelForgeTheme.textSecondary,
+              color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary,
             ),
           ),
         ],
@@ -724,7 +724,7 @@ class StereoMeterStrip extends StatelessWidget {
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(3)),
       ),
       child: Row(
@@ -733,7 +733,7 @@ class StereoMeterStrip extends StatelessWidget {
             'L',
             style: TextStyle(
               fontSize: 8,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           Expanded(
@@ -749,7 +749,7 @@ class StereoMeterStrip extends StatelessWidget {
             'R',
             style: TextStyle(
               fontSize: 8,
-              color: ReelForgeTheme.textTertiary,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
         ],
@@ -770,12 +770,12 @@ class _CorrelationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Background
-    final bgPaint = Paint()..color = ReelForgeTheme.bgMid;
+    final bgPaint = Paint()..color = FluxForgeTheme.bgMid;
     canvas.drawRect(Rect.fromLTWH(0, 2, size.width, size.height - 4), bgPaint);
 
     // Center line
     final centerPaint = Paint()
-      ..color = ReelForgeTheme.borderSubtle
+      ..color = FluxForgeTheme.borderSubtle
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(size.width / 2, 0),
@@ -789,10 +789,10 @@ class _CorrelationPainter extends CustomPainter {
     final indicatorX = normalizedPos * size.width;
 
     final indicatorColor = correlation < 0
-        ? ReelForgeTheme.accentRed // Out of phase - red
+        ? FluxForgeTheme.accentRed // Out of phase - red
         : correlation < 0.5
-            ? ReelForgeTheme.accentOrange // Low correlation - orange
-            : ReelForgeTheme.accentGreen; // Good correlation - green
+            ? FluxForgeTheme.accentOrange // Low correlation - orange
+            : FluxForgeTheme.accentGreen; // Good correlation - green
 
     final indicatorPaint = Paint()
       ..color = indicatorColor
@@ -833,8 +833,8 @@ class LufsMeter extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeep,
-        border: Border.all(color: ReelForgeTheme.borderSubtle),
+        color: FluxForgeTheme.bgDeep,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -844,7 +844,7 @@ class LufsMeter extends StatelessWidget {
             height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgMid,
+              color: FluxForgeTheme.bgMid,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
             ),
             child: Text(
@@ -852,7 +852,7 @@ class LufsMeter extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: ReelForgeTheme.textSecondary,
+                color: FluxForgeTheme.textSecondary,
               ),
             ),
           ),
@@ -883,10 +883,10 @@ class LufsMeter extends StatelessWidget {
   Widget _buildLufsValue(String label, double value, String description) {
     final isValid = value > -70;
     final color = value > -14
-        ? ReelForgeTheme.accentRed
+        ? FluxForgeTheme.accentRed
         : value > -23
-            ? ReelForgeTheme.accentGreen
-            : ReelForgeTheme.textPrimary;
+            ? FluxForgeTheme.accentGreen
+            : FluxForgeTheme.textPrimary;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -899,14 +899,14 @@ class LufsMeter extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: ReelForgeTheme.accentBlue,
+                color: FluxForgeTheme.accentBlue,
               ),
             ),
             Text(
               description,
               style: TextStyle(
                 fontSize: 8,
-                color: ReelForgeTheme.textTertiary,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ],
@@ -924,7 +924,7 @@ class LufsMeter extends StatelessWidget {
           'LUFS',
           style: TextStyle(
             fontSize: 9,
-            color: ReelForgeTheme.textTertiary,
+            color: FluxForgeTheme.textTertiary,
           ),
         ),
       ],
@@ -935,7 +935,7 @@ class LufsMeter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ReelForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeepest,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -946,7 +946,7 @@ class LufsMeter extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: ReelForgeTheme.accentCyan,
+              color: FluxForgeTheme.accentCyan,
             ),
           ),
           Text(
@@ -955,7 +955,7 @@ class LufsMeter extends StatelessWidget {
               fontSize: 16,
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
-              color: ReelForgeTheme.textPrimary,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
         ],
@@ -971,8 +971,8 @@ class LufsMeter extends StatelessWidget {
       height: 28,
       decoration: BoxDecoration(
         color: isOnTarget
-            ? ReelForgeTheme.accentGreen.withAlpha(51)
-            : ReelForgeTheme.bgDeepest,
+            ? FluxForgeTheme.accentGreen.withAlpha(51)
+            : FluxForgeTheme.bgDeepest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(3)),
       ),
       child: Row(
@@ -982,8 +982,8 @@ class LufsMeter extends StatelessWidget {
             isOnTarget ? Icons.check_circle : Icons.info_outline,
             size: 14,
             color: isOnTarget
-                ? ReelForgeTheme.accentGreen
-                : ReelForgeTheme.textTertiary,
+                ? FluxForgeTheme.accentGreen
+                : FluxForgeTheme.textTertiary,
           ),
           const SizedBox(width: 4),
           Text(
@@ -991,8 +991,8 @@ class LufsMeter extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               color: isOnTarget
-                  ? ReelForgeTheme.accentGreen
-                  : ReelForgeTheme.textTertiary,
+                  ? FluxForgeTheme.accentGreen
+                  : FluxForgeTheme.textTertiary,
             ),
           ),
         ],

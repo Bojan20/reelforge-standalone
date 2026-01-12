@@ -13,7 +13,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../debug/debug_console.dart';
 
 /// Audio file metadata
@@ -244,7 +244,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: ReelForgeTheme.bgMid,
+          backgroundColor: FluxForgeTheme.bgMid,
           title: const Text('File In Use', style: TextStyle(color: Colors.white)),
           content: Text(
             '"${file.name}" is used in ${file.usedInClips.length} clip(s). Remove anyway?',
@@ -262,7 +262,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                 _loadFiles();
                 Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: ReelForgeTheme.accentRed),
+              style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentRed),
               child: const Text('Remove'),
             ),
           ],
@@ -300,21 +300,21 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildToolbar(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           _buildFilterBar(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: Row(
               children: [
                 Expanded(child: _buildFileList()),
                 if (_showPreview && _selectedFile != null) ...[
-                  const VerticalDivider(width: 1, color: ReelForgeTheme.borderSubtle),
+                  const VerticalDivider(width: 1, color: FluxForgeTheme.borderSubtle),
                   SizedBox(
                     width: 240,
                     child: _buildPreviewPanel(),
@@ -334,10 +334,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.folder_special, color: ReelForgeTheme.accentBlue, size: 18),
+          const Icon(Icons.folder_special, color: FluxForgeTheme.accentBlue, size: 18),
           const SizedBox(width: 8),
           const Text(
             'AUDIO POOL',
@@ -358,17 +358,17 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentRed.withValues(alpha: 0.2),
+                color: FluxForgeTheme.accentRed.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.warning, size: 12, color: ReelForgeTheme.accentRed),
+                  const Icon(Icons.warning, size: 12, color: FluxForgeTheme.accentRed),
                   const SizedBox(width: 4),
                   Text(
                     '$missingCount missing',
-                    style: const TextStyle(color: ReelForgeTheme.accentRed, fontSize: 10),
+                    style: const TextStyle(color: FluxForgeTheme.accentRed, fontSize: 10),
                   ),
                 ],
               ),
@@ -380,7 +380,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               _showPreview ? Icons.view_sidebar : Icons.view_sidebar_outlined,
               size: 16,
             ),
-            color: _showPreview ? ReelForgeTheme.accentBlue : Colors.white54,
+            color: _showPreview ? FluxForgeTheme.accentBlue : Colors.white54,
             onPressed: () => setState(() => _showPreview = !_showPreview),
             tooltip: 'Toggle Preview',
             padding: EdgeInsets.zero,
@@ -395,7 +395,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: ReelForgeTheme.bgMid.withValues(alpha: 0.5),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
       child: Row(
         children: [
           // Import button
@@ -404,7 +404,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             icon: const Icon(Icons.add, size: 14),
             label: const Text('Import', style: TextStyle(fontSize: 11)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.accentBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               minimumSize: const Size(0, 26),
@@ -417,7 +417,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               height: 26,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.bgDeep,
+                color: FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: TextField(
@@ -440,7 +440,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           PopupMenuButton<AudioPoolSortMode>(
             tooltip: 'Sort',
             icon: const Icon(Icons.sort, size: 16, color: Colors.white54),
-            color: ReelForgeTheme.bgMid,
+            color: FluxForgeTheme.bgMid,
             onSelected: (mode) => setState(() => _sortMode = mode),
             itemBuilder: (ctx) => [
               _buildSortMenuItem(AudioPoolSortMode.nameAsc, 'Name (A-Z)'),
@@ -470,12 +470,12 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
       child: Row(
         children: [
           Text(label, style: TextStyle(
-            color: _sortMode == mode ? ReelForgeTheme.accentBlue : Colors.white,
+            color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white,
             fontSize: 12,
           )),
           if (_sortMode == mode) ...[
             const Spacer(),
-            const Icon(Icons.check, size: 14, color: ReelForgeTheme.accentBlue),
+            const Icon(Icons.check, size: 14, color: FluxForgeTheme.accentBlue),
           ],
         ],
       ),
@@ -486,7 +486,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: ReelForgeTheme.bgMid.withValues(alpha: 0.3),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.3),
       child: Row(
         children: AudioPoolFilter.values.map((filter) {
           final isSelected = _filter == filter;
@@ -497,11 +497,11 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               selected: isSelected,
               label: Text('${filter.name.toUpperCase()} ($count)', style: const TextStyle(fontSize: 10)),
               onSelected: (_) => setState(() => _filter = filter),
-              backgroundColor: ReelForgeTheme.bgDeep,
-              selectedColor: ReelForgeTheme.accentBlue.withValues(alpha: 0.3),
-              checkmarkColor: ReelForgeTheme.accentBlue,
+              backgroundColor: FluxForgeTheme.bgDeep,
+              selectedColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
+              checkmarkColor: FluxForgeTheme.accentBlue,
               labelStyle: TextStyle(
-                color: isSelected ? ReelForgeTheme.accentBlue : Colors.white70,
+                color: isSelected ? FluxForgeTheme.accentBlue : Colors.white70,
               ),
               padding: EdgeInsets.zero,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -570,7 +570,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           width: 200,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: ReelForgeTheme.accentBlue.withValues(alpha: 0.9),
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -603,15 +603,15 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isSelected
-                ? ReelForgeTheme.accentBlue.withValues(alpha: 0.15)
-                : ReelForgeTheme.bgMid,
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: file.isMissing
-                  ? ReelForgeTheme.accentRed.withValues(alpha: 0.5)
+                  ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
                   : isSelected
-                      ? ReelForgeTheme.accentBlue
-                      : ReelForgeTheme.borderSubtle,
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.borderSubtle,
             ),
           ),
           child: Row(
@@ -624,8 +624,8 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   height: 28,
                   decoration: BoxDecoration(
                     color: isPlayingThis
-                        ? ReelForgeTheme.accentGreen
-                        : ReelForgeTheme.bgDeep,
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.bgDeep,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
@@ -646,13 +646,13 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                         if (file.isMissing)
                           const Padding(
                             padding: EdgeInsets.only(right: 4),
-                            child: Icon(Icons.warning, size: 12, color: ReelForgeTheme.accentRed),
+                            child: Icon(Icons.warning, size: 12, color: FluxForgeTheme.accentRed),
                           ),
                         Expanded(
                           child: Text(
                             file.name,
                             style: TextStyle(
-                              color: file.isMissing ? ReelForgeTheme.accentRed : Colors.white,
+                              color: file.isMissing ? FluxForgeTheme.accentRed : Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -684,12 +684,12 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
-                              color: ReelForgeTheme.accentGreen.withValues(alpha: 0.2),
+                              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
                               '${file.usedInClips.length}x',
-                              style: const TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 9),
+                              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
                             ),
                           ),
                       ],
@@ -701,7 +701,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               if (file.isMissing)
                 IconButton(
                   icon: const Icon(Icons.search, size: 16),
-                  color: ReelForgeTheme.accentOrange,
+                  color: FluxForgeTheme.accentOrange,
                   onPressed: () => _locateMissingFile(file),
                   tooltip: 'Locate File',
                   padding: EdgeInsets.zero,
@@ -727,7 +727,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
     final isPlayingThis = _isPlaying && _selectedFile?.id == file.id;
 
     return Container(
-      color: ReelForgeTheme.bgSurface,
+      color: FluxForgeTheme.bgSurface,
       child: Column(
         children: [
           // Waveform preview
@@ -735,9 +735,9 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             height: 80,
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ReelForgeTheme.bgDeep,
+              color: FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: ReelForgeTheme.borderSubtle),
+              border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: Center(
               child: Icon(
@@ -758,7 +758,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                     isPlayingThis ? Icons.stop : Icons.play_arrow,
                     size: 32,
                   ),
-                  color: isPlayingThis ? ReelForgeTheme.accentGreen : Colors.white,
+                  color: isPlayingThis ? FluxForgeTheme.accentGreen : Colors.white,
                   onPressed: () => _togglePreview(file),
                 ),
               ],
@@ -797,7 +797,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                     const SizedBox(height: 12),
                     Text(
                       'Used in ${file.usedInClips.length} clip(s)',
-                      style: const TextStyle(color: ReelForgeTheme.accentGreen, fontSize: 10),
+                      style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 10),
                     ),
                   ],
                 ],

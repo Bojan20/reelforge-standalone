@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Flutter-Rust bridge for ReelForge DAW"
+description = "Flutter-Rust bridge for FluxForge Studio DAW"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

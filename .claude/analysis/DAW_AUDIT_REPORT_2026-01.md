@@ -7,7 +7,7 @@
 
 ## IZVRŠNI REZIME
 
-ReelForge Standalone je profesionalni DAW sa solidnom Rust arhitekturom, ali sa kritičnim nedostacima u plugin hosting-u, recording-u i export-u. **Potrebno 8-12 sedmica** za production-ready status.
+FluxForge Studio je profesionalni DAW sa solidnom Rust arhitekturom, ali sa kritičnim nedostacima u plugin hosting-u, recording-u i export-u. **Potrebno 8-12 sedmica** za production-ready status.
 
 ### Trenutno Stanje: 68% Feature Completeness
 
@@ -891,7 +891,7 @@ pub fn match_eq(reference: &[f64], target: &[f64]) -> Vec<EqBand> {
 
 ### vs Cubase Pro 14
 
-| Feature | ReelForge | Cubase 14 | Gap |
+| Feature | FluxForge Studio | Cubase 14 | Gap |
 |---------|-----------|-----------|-----|
 | Timeline editing | ✅ 95% | ✅ 100% | ⚠️ 5% |
 | Plugin hosting | ❌ 5% | ✅ 100% | 🔴 95% |
@@ -907,7 +907,7 @@ pub fn match_eq(reference: &[f64], target: &[f64]) -> Vec<EqBand> {
 
 ### vs FabFilter Pro-Q 4
 
-| Feature | ReelForge EQ | Pro-Q 4 | Gap |
+| Feature | FluxForge Studio EQ | Pro-Q 4 | Gap |
 |---------|--------------|---------|-----|
 | Band count | ✅ 64 | ⚠️ 24 | ✅ +166% BOLJE |
 | Dynamic EQ | ❌ Stub | ✅ Full | 🔴 100% |
@@ -924,7 +924,7 @@ pub fn match_eq(reference: &[f64], target: &[f64]) -> Vec<EqBand> {
 
 ### CPU Usage (@ 48kHz, 256 samples, 10 tracks)
 
-| Scenario | ReelForge | Cubase 14 | FabFilter | Gap |
+| Scenario | FluxForge Studio | Cubase 14 | FabFilter | Gap |
 |----------|-----------|-----------|-----------|-----|
 | **Idle** | 2% | 1% | N/A | +1% |
 | **Playback only** | 5% | 3% | N/A | +2% |
@@ -941,7 +941,7 @@ pub fn match_eq(reference: &[f64], target: &[f64]) -> Vec<EqBand> {
 
 ### Latency (Round-trip @ 256 samples, 48kHz)
 
-| Metric | ReelForge | Industry Std | Gap |
+| Metric | FluxForge Studio | Industry Std | Gap |
 |--------|-----------|--------------|-----|
 | **Theoretical** | 5.33ms | 5.33ms | ✅ On par |
 | **Measured (idle)** | 7.2ms | 6.1ms | +1.1ms |

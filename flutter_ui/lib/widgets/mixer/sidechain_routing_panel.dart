@@ -10,7 +10,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../theme/reelforge_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Sidechain connection data
 class SidechainConnection {
@@ -119,11 +119,11 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ReelForgeTheme.bgDeep,
+      color: FluxForgeTheme.bgDeep,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: ReelForgeTheme.borderSubtle),
+          const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           Expanded(
             child: widget.connections.isEmpty
                 ? _buildEmptyState()
@@ -138,10 +138,10 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: ReelForgeTheme.bgMid,
+      color: FluxForgeTheme.bgMid,
       child: Row(
         children: [
-          const Icon(Icons.call_split, color: ReelForgeTheme.accentCyan, size: 18),
+          const Icon(Icons.call_split, color: FluxForgeTheme.accentCyan, size: 18),
           const SizedBox(width: 8),
           const Text(
             'SIDECHAIN ROUTING',
@@ -214,11 +214,11 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: ReelForgeTheme.accentCyan.withValues(alpha: 0.3),
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
-                    border: Border.all(color: ReelForgeTheme.accentCyan, width: 2),
+                    border: Border.all(color: FluxForgeTheme.accentCyan, width: 2),
                   ),
-                  child: const Icon(Icons.call_split, size: 20, color: ReelForgeTheme.accentCyan),
+                  child: const Icon(Icons.call_split, size: 20, color: FluxForgeTheme.accentCyan),
                 ),
               ),
           ],
@@ -230,10 +230,10 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
   Widget _buildConnectionCard(SidechainConnection connection) {
     final isHovered = _hoveredConnection == connection.id;
     final grColor = connection.gainReduction < -6
-        ? ReelForgeTheme.accentRed
+        ? FluxForgeTheme.accentRed
         : connection.gainReduction < -3
-            ? ReelForgeTheme.accentOrange
-            : ReelForgeTheme.accentGreen;
+            ? FluxForgeTheme.accentOrange
+            : FluxForgeTheme.accentGreen;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredConnection = connection.id),
@@ -243,15 +243,15 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isHovered
-              ? ReelForgeTheme.accentCyan.withValues(alpha: 0.1)
-              : ReelForgeTheme.bgMid,
+              ? FluxForgeTheme.accentCyan.withValues(alpha: 0.1)
+              : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isHovered
-                ? ReelForgeTheme.accentCyan
+                ? FluxForgeTheme.accentCyan
                 : connection.isActive
-                    ? ReelForgeTheme.borderSubtle
-                    : ReelForgeTheme.borderSubtle.withValues(alpha: 0.3),
+                    ? FluxForgeTheme.borderSubtle
+                    : FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -260,14 +260,14 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentBlue.withValues(alpha: 0.2),
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: ReelForgeTheme.accentBlue.withValues(alpha: 0.5)),
+                border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.volume_up, size: 12, color: ReelForgeTheme.accentBlue),
+                  const Icon(Icons.volume_up, size: 12, color: FluxForgeTheme.accentBlue),
                   const SizedBox(width: 4),
                   Text(
                     connection.sourceName,
@@ -295,9 +295,9 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: ReelForgeTheme.accentOrange.withValues(alpha: 0.2),
+                color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: ReelForgeTheme.accentOrange.withValues(alpha: 0.5)),
+                border: Border.all(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +306,7 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.graphic_eq, size: 12, color: ReelForgeTheme.accentOrange),
+                      const Icon(Icons.graphic_eq, size: 12, color: FluxForgeTheme.accentOrange),
                       const SizedBox(width: 4),
                       Text(
                         connection.targetName,
@@ -329,7 +329,7 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
                 height: 24,
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
-                  color: ReelForgeTheme.bgDeep,
+                  color: FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Column(
@@ -355,17 +355,17 @@ class _SidechainRoutingPanelState extends State<SidechainRoutingPanel>
                 height: 24,
                 decoration: BoxDecoration(
                   color: connection.isActive
-                      ? ReelForgeTheme.accentGreen.withValues(alpha: 0.2)
-                      : ReelForgeTheme.bgDeep,
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                      : FluxForgeTheme.bgDeep,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: connection.isActive ? ReelForgeTheme.accentGreen : Colors.white24,
+                    color: connection.isActive ? FluxForgeTheme.accentGreen : Colors.white24,
                   ),
                 ),
                 child: Icon(
                   connection.isActive ? Icons.power : Icons.power_off,
                   size: 12,
-                  color: connection.isActive ? ReelForgeTheme.accentGreen : Colors.white38,
+                  color: connection.isActive ? FluxForgeTheme.accentGreen : Colors.white38,
                 ),
               ),
             ),
@@ -430,7 +430,7 @@ class _ArrowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = isActive
-          ? ReelForgeTheme.accentCyan.withValues(alpha: 0.6)
+          ? FluxForgeTheme.accentCyan.withValues(alpha: 0.6)
           : Colors.white24
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
@@ -460,7 +460,7 @@ class _ArrowPainter extends CustomPainter {
     if (isActive) {
       final pulseX = startX + (endX - startX) * progress;
       final pulsePaint = Paint()
-        ..color = ReelForgeTheme.accentCyan.withValues(alpha: 1 - progress)
+        ..color = FluxForgeTheme.accentCyan.withValues(alpha: 1 - progress)
         ..strokeWidth = 4
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(Offset(pulseX, y), Offset(pulseX + 10, y), pulsePaint);
