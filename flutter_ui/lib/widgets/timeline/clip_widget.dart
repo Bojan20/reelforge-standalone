@@ -809,45 +809,63 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   void _buildWaveformData() {
     _lastWaveform = widget.waveform;
 
-    // CRITICAL: Limit sample count to prevent crash on large files
-    // For timeline clips, we don't need full resolution - max 10000 points is enough
-    const maxSamples = 10000;
+    // SAFETY: Handle empty waveform
+    if (widget.waveform.isEmpty) {
+      _waveformData = null;
+      return;
+    }
+
+    // PERFORMANCE: Limit sample count - 2000 is enough for timeline overview
+    const maxSamples = 2000;
 
     List<double> leftSamples;
     List<double>? rightSamples;
 
-    if (widget.waveform.length > maxSamples) {
-      // Downsample by taking min/max pairs
-      final step = widget.waveform.length / maxSamples;
-      leftSamples = [];
-      for (int i = 0; i < maxSamples; i++) {
-        final start = (i * step).floor();
-        final end = ((i + 1) * step).floor().clamp(start + 1, widget.waveform.length);
-        double minVal = widget.waveform[start];
-        double maxVal = widget.waveform[start];
-        for (int j = start; j < end; j++) {
-          final s = widget.waveform[j];
-          if (s < minVal) minVal = s;
-          if (s > maxVal) maxVal = s;
+    final waveformLength = widget.waveform.length;
+
+    if (waveformLength > maxSamples) {
+      // Fast downsampling - just take min/max per chunk
+      final step = waveformLength ~/ maxSamples;
+      if (step == 0) {
+        leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
+      } else {
+        leftSamples = List<double>.filled(maxSamples, 0);
+        for (int i = 0; i < maxSamples; i++) {
+          final start = i * step;
+          if (start >= waveformLength) break;
+          final end = (start + step).clamp(0, waveformLength);
+          double minVal = widget.waveform[start];
+          double maxVal = minVal;
+          for (int j = start + 1; j < end; j++) {
+            final s = widget.waveform[j];
+            if (s < minVal) minVal = s;
+            else if (s > maxVal) maxVal = s;
+          }
+          leftSamples[i] = i.isEven ? minVal.toDouble() : maxVal.toDouble();
         }
-        // Alternate min/max to preserve waveform shape
-        leftSamples.add(i.isEven ? minVal.toDouble() : maxVal.toDouble());
       }
 
-      // Same for right channel
-      if (widget.waveformRight != null) {
-        rightSamples = [];
-        for (int i = 0; i < maxSamples; i++) {
-          final start = (i * step).floor();
-          final end = ((i + 1) * step).floor().clamp(start + 1, widget.waveformRight!.length);
-          double minVal = widget.waveformRight![start];
-          double maxVal = widget.waveformRight![start];
-          for (int j = start; j < end; j++) {
-            final s = widget.waveformRight![j];
-            if (s < minVal) minVal = s;
-            if (s > maxVal) maxVal = s;
+      // Right channel - only if needed
+      if (widget.waveformRight != null && widget.waveformRight!.isNotEmpty) {
+        final rightLength = widget.waveformRight!.length;
+        final rightStep = rightLength ~/ maxSamples;
+        if (rightStep == 0) {
+          rightSamples = widget.waveformRight!.map((s) => s.toDouble()).toList();
+        } else {
+          rightSamples = List<double>.filled(maxSamples, 0);
+          for (int i = 0; i < maxSamples; i++) {
+            final start = i * rightStep;
+            if (start >= rightLength) break;
+            final end = (start + rightStep).clamp(0, rightLength);
+            double minVal = widget.waveformRight![start];
+            double maxVal = minVal;
+            for (int j = start + 1; j < end; j++) {
+              final s = widget.waveformRight![j];
+              if (s < minVal) minVal = s;
+              else if (s > maxVal) maxVal = s;
+            }
+            rightSamples[i] = i.isEven ? minVal.toDouble() : maxVal.toDouble();
           }
-          rightSamples.add(i.isEven ? minVal.toDouble() : maxVal.toDouble());
         }
       }
     } else {
@@ -858,7 +876,8 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     _waveformData = UltimateWaveformData.fromSamples(
       leftSamples,
       rightChannelSamples: rightSamples,
-      sampleRate: 48000, // Default, could be passed from clip
+      sampleRate: 48000,
+      maxSamples: 2000,
     );
   }
 
@@ -888,15 +907,17 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       transparentBackground: true,
     );
 
-    return Transform.scale(
-      scaleY: widget.gain,
-      child: UltimateWaveform(
-        data: _waveformData!,
-        config: config,
-        height: widget.trackHeight,
-        zoom: 1, // Zoom handled by clip width
-        scrollOffset: 0,
-        isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
+    return RepaintBoundary(
+      child: Transform.scale(
+        scaleY: widget.gain,
+        child: UltimateWaveform(
+          data: _waveformData!,
+          config: config,
+          height: widget.trackHeight,
+          zoom: 1, // Zoom handled by clip width
+          scrollOffset: 0,
+          isStereoSplit: isStereo && widget.zoom > 40, // Split at higher zoom
+        ),
       ),
     );
   }

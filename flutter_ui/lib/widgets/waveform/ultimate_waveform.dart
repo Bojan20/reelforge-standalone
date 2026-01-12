@@ -90,6 +90,15 @@ class UltimateWaveformData {
     List<double>? rightChannelSamples,
     int maxSamples = 50000, // Limit to prevent crash on large files
   }) {
+    // PERFORMANCE: For small sample counts (timeline clips), use fast path
+    if (rawSamples.length <= 3000) {
+      return UltimateWaveformData._fastFromSamples(
+        rawSamples,
+        sampleRate: sampleRate,
+        rightChannelSamples: rightChannelSamples,
+      );
+    }
+
     // Downsample if too many samples
     final leftData = rawSamples.length > maxSamples
         ? _downsampleRaw(rawSamples, maxSamples)
@@ -107,6 +116,46 @@ class UltimateWaveformData {
     if (rightData != null) {
       rightChannel = _analyzeSamples(rightData);
       rightLods = _generateLodLevels(rightChannel);
+    }
+
+    return UltimateWaveformData(
+      samples: samples,
+      lodLevels: lodLevels,
+      sampleRate: sampleRate,
+      isStereo: rightChannelSamples != null,
+      rightChannel: rightChannel,
+      rightLodLevels: rightLods,
+    );
+  }
+
+  /// FAST path for timeline clips - minimal processing
+  factory UltimateWaveformData._fastFromSamples(
+    List<double> rawSamples, {
+    double sampleRate = 48000,
+    List<double>? rightChannelSamples,
+  }) {
+    // Create simple points without analysis
+    final samples = rawSamples.map((s) => UltimateWaveformPoint(
+      min: s,
+      max: s,
+      rms: s.abs(),
+      peak: s.abs(),
+    )).toList();
+
+    // Only create one LOD level
+    final lodLevels = <int, List<UltimateWaveformPoint>>{1: samples};
+
+    List<UltimateWaveformPoint>? rightChannel;
+    Map<int, List<UltimateWaveformPoint>>? rightLods;
+
+    if (rightChannelSamples != null) {
+      rightChannel = rightChannelSamples.map((s) => UltimateWaveformPoint(
+        min: s,
+        max: s,
+        rms: s.abs(),
+        peak: s.abs(),
+      )).toList();
+      rightLods = {1: rightChannel};
     }
 
     return UltimateWaveformData(
