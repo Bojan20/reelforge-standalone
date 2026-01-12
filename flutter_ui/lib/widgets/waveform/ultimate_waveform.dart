@@ -346,6 +346,12 @@ class _UltimateWaveformPainter extends CustomPainter {
     required this.isStereoSplit,
   });
 
+  /// LOD Levels for smooth zoom (Professional DAW standard)
+  /// - ULTRA (<1 spp): Individual samples with Catmull-Rom interpolation
+  /// - SAMPLE (1-10 spp): Catmull-Rom curves through samples
+  /// - DETAIL (10-100 spp): Smooth bezier envelope
+  /// - OVERVIEW (>100 spp): Min/Max envelope with RMS
+
   @override
   void paint(Canvas canvas, Size size) {
     if (data.samples.isEmpty) return;
@@ -372,12 +378,26 @@ class _UltimateWaveformPainter extends CustomPainter {
       _drawGrid(canvas, size, samplesPerPixel);
     }
 
-    // Draw waveform based on style and stereo mode
+    // Draw waveform based on style, stereo mode, and LOD level
     if (data.isStereo && isStereoSplit) {
       _drawStereoSplit(canvas, size, lodData, data.getLod(samplesPerPixel, rightCh: true),
           startSample ~/ lodFactor, samplesPerPixel / lodFactor);
     } else {
-      _drawMonoWaveform(canvas, size, lodData, startSample ~/ lodFactor, samplesPerPixel / lodFactor);
+      // Choose rendering method based on LOD level
+      final effectiveSpp = samplesPerPixel / lodFactor;
+      if (effectiveSpp < 1) {
+        // ULTRA ZOOM: Catmull-Rom interpolation between samples
+        _drawUltraZoomWaveform(canvas, size, lodData, startSample ~/ lodFactor, effectiveSpp);
+      } else if (effectiveSpp < 10) {
+        // SAMPLE MODE: Catmull-Rom through actual samples
+        _drawCatmullRomWaveform(canvas, size, lodData, startSample ~/ lodFactor, effectiveSpp);
+      } else if (effectiveSpp < 100) {
+        // DETAIL MODE: Smooth bezier envelope
+        _drawSmoothEnvelope(canvas, size, lodData, startSample ~/ lodFactor, effectiveSpp);
+      } else {
+        // OVERVIEW MODE: Min/Max with RMS (standard DAW view)
+        _drawMonoWaveform(canvas, size, lodData, startSample ~/ lodFactor, effectiveSpp);
+      }
     }
 
     // Draw transient markers
@@ -388,11 +408,6 @@ class _UltimateWaveformPainter extends CustomPainter {
     // Draw clipping indicators
     if (config.showClipping) {
       _drawClippingIndicators(canvas, size, lodData, startSample ~/ lodFactor, samplesPerPixel / lodFactor);
-    }
-
-    // Draw sample dots at extreme zoom
-    if (config.showSampleDots && samplesPerPixel < 0.5) {
-      _drawSampleDots(canvas, size, lodData, startSample ~/ lodFactor, samplesPerPixel / lodFactor);
     }
 
     // Draw zero crossings at high zoom
@@ -409,6 +424,206 @@ class _UltimateWaveformPainter extends CustomPainter {
     if (!config.transparentBackground) {
       _drawBorder(canvas, size);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CATMULL-ROM INTERPOLATION (Professional DAW smooth waveforms)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Catmull-Rom spline interpolation for silky smooth waveforms
+  double _catmullRom(double p0, double p1, double p2, double p3, double t) {
+    final t2 = t * t;
+    final t3 = t2 * t;
+    final a0 = -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
+    final a1 = p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
+    final a2 = -0.5 * p0 + 0.5 * p2;
+    final a3 = p1;
+    return a0 * t3 + a1 * t2 + a2 * t + a3;
+  }
+
+  /// ULTRA ZOOM: Sub-sample interpolation (oscilloscope view)
+  void _drawUltraZoomWaveform(
+    Canvas canvas,
+    Size size,
+    List<UltimateWaveformPoint> data,
+    int startIndex,
+    double samplesPerPixel,
+  ) {
+    final centerY = size.height / 2;
+    final halfHeight = size.height / 2 - 4;
+    final pixelsPerSample = 1.0 / samplesPerPixel;
+
+    final path = Path();
+    bool started = false;
+
+    // Draw interpolated curve through samples
+    for (double x = 0; x < size.width; x++) {
+      final exactSample = startIndex + x * samplesPerPixel;
+      final sampleIdx = exactSample.floor();
+
+      if (sampleIdx < 1 || sampleIdx >= data.length - 2) continue;
+
+      // Get 4 samples for Catmull-Rom
+      final p0 = data[sampleIdx - 1].max;
+      final p1 = data[sampleIdx].max;
+      final p2 = data[sampleIdx + 1].max;
+      final p3 = data[(sampleIdx + 2).clamp(0, data.length - 1)].max;
+
+      final t = exactSample - sampleIdx;
+      final interpolated = _catmullRom(p0, p1, p2, p3, t);
+      final y = centerY - interpolated * halfHeight;
+
+      if (!started) {
+        path.moveTo(x, y);
+        started = true;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Draw with glow effect (oscilloscope style)
+    final glowPaint = Paint()
+      ..color = config.primaryColor.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+      ..isAntiAlias = true;
+    canvas.drawPath(path, glowPaint);
+
+    final linePaint = Paint()
+      ..color = config.primaryColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, linePaint);
+  }
+
+  /// SAMPLE MODE: Catmull-Rom through sample points
+  void _drawCatmullRomWaveform(
+    Canvas canvas,
+    Size size,
+    List<UltimateWaveformPoint> data,
+    int startIndex,
+    double samplesPerPixel,
+  ) {
+    final centerY = size.height / 2;
+    final halfHeight = size.height / 2 - 4;
+
+    // Collect sample points for this view
+    final points = <Offset>[];
+    final pixelsPerSample = 1.0 / samplesPerPixel;
+
+    for (int i = 0; i < (size.width * samplesPerPixel).ceil() + 4; i++) {
+      final sampleIdx = startIndex + i;
+      if (sampleIdx < 0 || sampleIdx >= data.length) continue;
+
+      final x = (i - 0) * pixelsPerSample;
+      final y = centerY - data[sampleIdx].max * halfHeight;
+      points.add(Offset(x, y));
+    }
+
+    if (points.length < 4) return;
+
+    // Build Catmull-Rom path
+    final path = Path();
+    path.moveTo(points[0].dx, points[0].dy);
+
+    for (int i = 0; i < points.length - 1; i++) {
+      final p0 = points[math.max(0, i - 1)];
+      final p1 = points[i];
+      final p2 = points[math.min(points.length - 1, i + 1)];
+      final p3 = points[math.min(points.length - 1, i + 2)];
+
+      // Interpolate between p1 and p2
+      const segments = 8;
+      for (int s = 1; s <= segments; s++) {
+        final t = s / segments;
+        final x = _catmullRom(p0.dx, p1.dx, p2.dx, p3.dx, t);
+        final y = _catmullRom(p0.dy, p1.dy, p2.dy, p3.dy, t);
+        path.lineTo(x, y);
+      }
+    }
+
+    // Glow effect
+    final glowPaint = Paint()
+      ..color = config.primaryColor.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2)
+      ..isAntiAlias = true;
+    canvas.drawPath(path, glowPaint);
+
+    // Main line
+    final linePaint = Paint()
+      ..color = config.primaryColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, linePaint);
+  }
+
+  /// DETAIL MODE: Vertical lines - TRUE min/max per pixel (no smoothing)
+  /// Shows actual transients and dynamics as they are in the audio
+  void _drawSmoothEnvelope(
+    Canvas canvas,
+    Size size,
+    List<UltimateWaveformPoint> data,
+    int startIndex,
+    double samplesPerPixel,
+  ) {
+    final centerY = size.height / 2;
+    final halfHeight = size.height / 2 - 4;
+
+    final peakPaint = Paint()
+      ..color = config.primaryColor.withValues(alpha: 0.3)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    final rmsPaint = Paint()
+      ..color = config.primaryColor.withValues(alpha: 0.9)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    for (double x = 0; x < size.width; x++) {
+      final sampleIdx = startIndex + (x * samplesPerPixel).round();
+      if (sampleIdx < 0 || sampleIdx >= data.length) continue;
+
+      final endIdx = math.min(sampleIdx + samplesPerPixel.ceil(), data.length);
+      double minVal = 1, maxVal = -1, rmsSum = 0;
+      int count = 0;
+
+      for (int i = sampleIdx; i < endIdx; i++) {
+        minVal = math.min(minVal, data[i].min);
+        maxVal = math.max(maxVal, data[i].max);
+        rmsSum += data[i].rms * data[i].rms;
+        count++;
+      }
+
+      final rms = count > 0 ? math.sqrt(rmsSum / count) : 0;
+
+      // Peak line - TRUE min/max (shows transients)
+      final peakTop = centerY - maxVal * halfHeight;
+      final peakBottom = centerY - minVal * halfHeight;
+      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), peakPaint);
+
+      // RMS line (solid inner)
+      if (config.showRms) {
+        final rmsTop = centerY - rms * halfHeight;
+        final rmsBottom = centerY + rms * halfHeight;
+        canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), rmsPaint);
+      }
+    }
+
+    // Zero line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5,
+    );
   }
 
   void _drawBackground(Canvas canvas, Size size) {
@@ -497,9 +712,9 @@ class _UltimateWaveformPainter extends CustomPainter {
     double samplesPerPixel,
   ) {
     final halfHeight = size.height / 2;
-    final channelHeight = halfHeight - 4;
+    final channelHeight = halfHeight / 2; // Each channel gets quarter of total height
 
-    // Divider line
+    // Divider line between L and R
     canvas.drawLine(
       Offset(0, halfHeight),
       Offset(size.width, halfHeight),
@@ -508,19 +723,19 @@ class _UltimateWaveformPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    // Left channel (top)
+    // Left channel (top half) - TRUE waveform with center at quarterHeight
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, halfHeight));
-    _drawChannelWaveform(canvas, size, leftData, startIndex, samplesPerPixel,
-        halfHeight - 2, channelHeight - 4, config.primaryColor, true);
+    _drawTrueChannelWaveform(canvas, size, leftData, startIndex, samplesPerPixel,
+        halfHeight / 2, channelHeight - 4, config.primaryColor);
     canvas.restore();
 
-    // Right channel (bottom)
+    // Right channel (bottom half) - TRUE waveform with center at 3/4 height
     final rightColor = Color.lerp(config.primaryColor, ReelForgeTheme.accentCyan, 0.4)!;
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, halfHeight, size.width, halfHeight));
-    _drawChannelWaveform(canvas, size, rightData, startIndex, samplesPerPixel,
-        halfHeight + 2, channelHeight - 4, rightColor, false);
+    _drawTrueChannelWaveform(canvas, size, rightData, startIndex, samplesPerPixel,
+        halfHeight + halfHeight / 2, channelHeight - 4, rightColor);
     canvas.restore();
 
     // Channel labels
@@ -528,6 +743,70 @@ class _UltimateWaveformPainter extends CustomPainter {
     _drawChannelLabel(canvas, 'R', 4, halfHeight + 4, rightColor);
   }
 
+  /// Draw TRUE waveform for a single channel - vertical lines, NO smoothing
+  /// Shows actual transients and dynamics
+  void _drawTrueChannelWaveform(
+    Canvas canvas,
+    Size size,
+    List<UltimateWaveformPoint> data,
+    int startIndex,
+    double samplesPerPixel,
+    double centerY,
+    double halfHeight,
+    Color color,
+  ) {
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    final rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+
+    final visibleWidth = size.width.toInt();
+
+    for (int x = 0; x < visibleWidth; x++) {
+      final sampleIdx = startIndex + (x * samplesPerPixel).round();
+      if (sampleIdx < 0 || sampleIdx >= data.length) continue;
+
+      final endIdx = math.min(sampleIdx + samplesPerPixel.ceil(), data.length);
+      double minVal = data[sampleIdx].min;
+      double maxVal = data[sampleIdx].max;
+      double rmsSum = 0;
+      int count = 0;
+
+      for (int i = sampleIdx; i < endIdx; i++) {
+        final p = data[i];
+        minVal = math.min(minVal, p.min);
+        maxVal = math.max(maxVal, p.max);
+        rmsSum += p.rms * p.rms;
+        count++;
+      }
+
+      final rms = count > 0 ? math.sqrt(rmsSum / count) : 0;
+
+      // Peak line - TRUE min/max (shows transients)
+      final peakTop = centerY - maxVal * halfHeight;
+      final peakBottom = centerY - minVal * halfHeight;
+      canvas.drawLine(Offset(x.toDouble(), peakTop), Offset(x.toDouble(), peakBottom), peakPaint);
+
+      // RMS line (solid inner)
+      final rmsTop = centerY - rms * halfHeight;
+      final rmsBottom = centerY + rms * halfHeight;
+      canvas.drawLine(Offset(x.toDouble(), rmsTop), Offset(x.toDouble(), rmsBottom), rmsPaint);
+    }
+
+    // Zero line (center of this channel)
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.08)..strokeWidth = 0.5,
+    );
+  }
+
+  // Legacy method kept for compatibility
   void _drawChannelWaveform(
     Canvas canvas,
     Size size,
@@ -1024,48 +1303,7 @@ class _UltimateWaveformPainter extends CustomPainter {
     }
   }
 
-  void _drawSampleDots(
-    Canvas canvas,
-    Size size,
-    List<UltimateWaveformPoint> data,
-    int startIndex,
-    double samplesPerPixel,
-  ) {
-    final dotPaint = Paint()
-      ..color = config.primaryColor
-      ..style = PaintingStyle.fill;
-
-    final centerY = size.height / 2;
-    final halfHeight = size.height / 2 - 4;
-    final pixelsPerSample = size.width / (data.length / zoom);
-
-    for (int i = 0; i < (size.width / pixelsPerSample).ceil(); i++) {
-      final idx = startIndex + i;
-      if (idx < 0 || idx >= data.length) continue;
-
-      final x = i * pixelsPerSample;
-      final y = centerY - data[idx].max * halfHeight;
-
-      canvas.drawCircle(Offset(x, y), 3, dotPaint);
-
-      // Connect dots with lines
-      if (i > 0) {
-        final prevIdx = startIndex + i - 1;
-        if (prevIdx >= 0) {
-          final prevX = (i - 1) * pixelsPerSample;
-          final prevY = centerY - data[prevIdx].max * halfHeight;
-          canvas.drawLine(
-            Offset(prevX, prevY),
-            Offset(x, y),
-            Paint()
-              ..color = config.primaryColor.withValues(alpha: 0.6)
-              ..strokeWidth = 1.5
-              ..isAntiAlias = true,
-          );
-        }
-      }
-    }
-  }
+  // Sample dots removed - using smooth Catmull-Rom curves instead
 
   void _drawZeroCrossings(
     Canvas canvas,

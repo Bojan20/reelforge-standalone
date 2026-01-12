@@ -282,7 +282,7 @@ class _ClipEditorState extends State<ClipEditor> {
       final minZoom = _containerWidth / clip.duration;
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(minZoom, 500.0);
+      final newZoom = (widget.zoom * 0.92).clamp(minZoom, 50000.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -294,7 +294,7 @@ class _ClipEditorState extends State<ClipEditor> {
       final minZoom = _containerWidth / clip.duration;
       final centerX = _containerWidth / 2;
       final centerTime = widget.scrollOffset + centerX / widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(minZoom, 500.0);
+      final newZoom = (widget.zoom * 1.08).clamp(minZoom, 50000.0);
       final newScrollOffset = centerTime - centerX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -440,13 +440,13 @@ class _ClipEditorState extends State<ClipEditor> {
         _ToolButton(
           icon: Icons.zoom_out,
           label: 'Zoom Out',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 0.8).clamp(1, 500)),
+          onTap: () => widget.onZoomChange?.call((widget.zoom * 0.8).clamp(1, 50000)),
         ),
         Text('${widget.zoom.toInt()}%', style: ReelForgeTheme.monoSmall),
         _ToolButton(
           icon: Icons.zoom_in,
           label: 'Zoom In',
-          onTap: () => widget.onZoomChange?.call((widget.zoom * 1.25).clamp(1, 500)),
+          onTap: () => widget.onZoomChange?.call((widget.zoom * 1.25).clamp(1, 50000)),
         ),
         const SizedBox(width: 8),
         Container(width: 1, height: 16, color: ReelForgeTheme.borderSubtle),
@@ -863,7 +863,7 @@ class _ClipEditorState extends State<ClipEditor> {
       final zoomIn = event.scrollDelta.dy < 0;
       final zoomFactor = zoomIn ? 1.15 : 0.87;
       // Clamp between minZoom (fit to width) and max zoom
-      final newZoom = (widget.zoom * zoomFactor).clamp(minZoom, 500.0);
+      final newZoom = (widget.zoom * zoomFactor).clamp(minZoom, 50000.0);
 
       final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
       final newScrollOffset = mouseTime - mouseX / newZoom;
@@ -906,9 +906,9 @@ class _ClipEditorState extends State<ClipEditor> {
       case EditorTool.zoom:
         // Zoom in on click, zoom out on alt+click (but not below minZoom)
         if (HardwareKeyboard.instance.isAltPressed) {
-          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 500));
+          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 50000));
         } else {
-          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 500));
+          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 50000));
         }
         break;
       default:
@@ -1497,68 +1497,91 @@ class _WaveformPainter extends CustomPainter {
     }
   }
 
-  /// HIGH ZOOM: Sample-accurate rendering with interpolation and transients
+  /// HIGH ZOOM: Sample-accurate rendering with Catmull-Rom interpolation
+  /// Professional DAW style - TRUE waveform shape (not rectified)
   void _drawDetailedWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
-    final fillPaint = Paint()
-      ..color = color.withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
-
-    final linePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    bool pathStarted = false;
+    // Collect min/max per pixel for true waveform
+    final minValues = <double>[];
+    final maxValues = <double>[];
+    final envelopes = <double>[];
 
     for (double x = 0; x < size.width; x++) {
-      final time = scrollOffset + x / zoom;
-      if (time < 0 || time > duration) continue;
+      final timeStart = scrollOffset + x / zoom;
+      final timeEnd = scrollOffset + (x + 1) / zoom;
+      if (timeEnd < 0 || timeStart > duration) {
+        minValues.add(0);
+        maxValues.add(0);
+        envelopes.add(0);
+        continue;
+      }
 
-      final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
-      final nextIndex = ((scrollOffset + (x + 1) / zoom) * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final startSample = (timeStart * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final endSample = (timeEnd * samplesPerSecond).ceil().clamp(startSample + 1, waveform!.length);
 
-      final sample = waveform![sampleIndex];
-      final t = (time * samplesPerSecond) - sampleIndex.floor();
-      final interpolated = nextIndex < waveform!.length
-          ? sample * (1 - t) + waveform![nextIndex] * t
-          : sample;
+      double minVal = waveform![startSample];
+      double maxVal = waveform![startSample];
+
+      for (int i = startSample; i < endSample && i < waveform!.length; i++) {
+        final s = waveform![i];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
+      }
 
       // Apply fade envelope
+      final midTime = (timeStart + timeEnd) / 2;
       double envelope = 1;
-      if (fadeIn > 0 && time < fadeIn) {
-        envelope = time / fadeIn;
-      } else if (fadeOut > 0 && time > duration - fadeOut) {
-        envelope = (duration - time) / fadeOut;
+      if (fadeIn > 0 && midTime < fadeIn) {
+        envelope = midTime / fadeIn;
+      } else if (fadeOut > 0 && midTime > duration - fadeOut) {
+        envelope = (duration - midTime) / fadeOut;
       }
 
-      final y = centerY - interpolated * amplitude * envelope;
+      minValues.add(minVal);
+      maxValues.add(maxVal);
+      envelopes.add(envelope);
+    }
 
-      if (!pathStarted) {
-        path.moveTo(x, y);
-        pathStarted = true;
+    if (maxValues.isEmpty) return;
+
+    // Build smooth waveform path with bezier
+    final peakPath = Path();
+    peakPath.moveTo(0, centerY - maxValues[0] * amplitude * envelopes[0]);
+
+    for (int i = 1; i < maxValues.length; i++) {
+      final prevY = centerY - maxValues[i - 1] * amplitude * envelopes[i - 1];
+      final currY = centerY - maxValues[i] * amplitude * envelopes[i];
+      final midX = (i - 0.5);
+      final midY = (prevY + currY) / 2;
+      peakPath.quadraticBezierTo((i - 1).toDouble(), prevY, midX, midY);
+    }
+    peakPath.lineTo((maxValues.length - 1).toDouble(), centerY - maxValues.last * amplitude * envelopes.last);
+
+    // Connect to minValues in reverse (TRUE waveform shape)
+    for (int i = minValues.length - 1; i >= 0; i--) {
+      if (i > 0) {
+        final currY = centerY - minValues[i] * amplitude * envelopes[i];
+        final prevY = centerY - minValues[i - 1] * amplitude * envelopes[i - 1];
+        final midX = (i - 0.5);
+        final midY = (prevY + currY) / 2;
+        peakPath.quadraticBezierTo(i.toDouble(), currY, midX, midY);
       } else {
-        path.lineTo(x, y);
+        peakPath.lineTo(0, centerY - minValues[0] * amplitude * envelopes[0]);
       }
     }
+    peakPath.close();
 
-    // Draw filled area
-    if (pathStarted) {
-      final fillPath = Path()..addPath(path, Offset.zero);
-      for (double x = size.width - 1; x >= 0; x--) {
-        final time = scrollOffset + x / zoom;
-        if (time < 0 || time > duration) continue;
-        final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
-        double envelope = 1;
-        if (fadeIn > 0 && time < fadeIn) envelope = time / fadeIn;
-        else if (fadeOut > 0 && time > duration - fadeOut) envelope = (duration - time) / fadeOut;
-        fillPath.lineTo(x, centerY + waveform![sampleIndex].abs() * amplitude * envelope);
-      }
-      fillPath.close();
-      canvas.drawPath(fillPath, fillPaint);
-      canvas.drawPath(path, linePaint);
-    }
+    // 1. Fill
+    canvas.drawPath(peakPath, Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true);
+
+    // 2. Outline
+    canvas.drawPath(peakPath, Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..isAntiAlias = true);
 
     // Draw transient markers
     _drawTransientMarkers(canvas, size, centerY, samplesPerSecond);
@@ -1695,56 +1718,121 @@ class _WaveformPainter extends CustomPainter {
     );
   }
 
-  /// LOW ZOOM: RMS overview waveform
+  /// LOW ZOOM: True min/max overview - shows REAL waveform shape
   void _drawOverviewWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
-    final rmsPaint = Paint()
-      ..color = color.withValues(alpha: 0.9)
-      ..style = PaintingStyle.fill;
-
-    final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
+    // TRUE min/max - preserves actual waveform shape
+    final minValues = <double>[];
+    final maxValues = <double>[];
+    final rmsValues = <double>[];
+    final envelopes = <double>[];
 
     for (double x = 0; x < size.width; x++) {
-      final time = scrollOffset + x / zoom;
-      if (time < 0 || time > duration) continue;
+      final timeStart = scrollOffset + x / zoom;
+      final timeEnd = scrollOffset + (x + 1) / zoom;
+      if (timeEnd < 0 || timeStart > duration) {
+        minValues.add(0);
+        maxValues.add(0);
+        rmsValues.add(0);
+        envelopes.add(0);
+        continue;
+      }
 
-      final sampleIndex = (time * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
-      final sample = waveform![sampleIndex].abs();
+      final startSample = (timeStart * samplesPerSecond).floor().clamp(0, waveform!.length - 1);
+      final endSample = (timeEnd * samplesPerSecond).ceil().clamp(startSample + 1, waveform!.length);
+
+      double minVal = waveform![startSample];
+      double maxVal = waveform![startSample];
+      double sumSq = 0;
+      int count = 0;
+
+      for (int i = startSample; i < endSample && i < waveform!.length; i++) {
+        final s = waveform![i];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
+        sumSq += s * s;
+        count++;
+      }
 
       // Apply fade envelope
+      final midTime = (timeStart + timeEnd) / 2;
       double envelope = 1;
-      if (fadeIn > 0 && time < fadeIn) {
-        envelope = time / fadeIn;
-      } else if (fadeOut > 0 && time > duration - fadeOut) {
-        envelope = (duration - time) / fadeOut;
+      if (fadeIn > 0 && midTime < fadeIn) {
+        envelope = midTime / fadeIn;
+      } else if (fadeOut > 0 && midTime > duration - fadeOut) {
+        envelope = (duration - midTime) / fadeOut;
       }
 
-      final peak = sample * envelope;
-      final rms = peak * 0.7;
+      minValues.add(minVal);
+      maxValues.add(maxVal);
+      rmsValues.add(count > 0 ? math.sqrt(sumSq / count) : 0);
+      envelopes.add(envelope);
+    }
 
-      final rmsHeight = rms * amplitude;
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(x, centerY),
-          width: 1,
-          height: rmsHeight * 2,
-        ),
-        rmsPaint,
-      );
+    if (maxValues.isEmpty) return;
 
-      final peakHeight = peak * amplitude;
-      if (peakHeight > rmsHeight) {
-        canvas.drawRect(
-          Rect.fromLTRB(x, centerY - peakHeight, x + 1, centerY - rmsHeight),
-          peakPaint,
-        );
-        canvas.drawRect(
-          Rect.fromLTRB(x, centerY + rmsHeight, x + 1, centerY + peakHeight),
-          peakPaint,
-        );
+    // Build TRUE waveform path with bezier smoothing
+    final peakPath = Path();
+    peakPath.moveTo(0, centerY - maxValues[0] * amplitude * envelopes[0]);
+
+    for (int i = 1; i < maxValues.length; i++) {
+      final prevY = centerY - maxValues[i - 1] * amplitude * envelopes[i - 1];
+      final currY = centerY - maxValues[i] * amplitude * envelopes[i];
+      final midX = (i - 0.5);
+      final midY = (prevY + currY) / 2;
+      peakPath.quadraticBezierTo((i - 1).toDouble(), prevY, midX, midY);
+    }
+    peakPath.lineTo((maxValues.length - 1).toDouble(), centerY - maxValues.last * amplitude * envelopes.last);
+
+    // Connect to minValues in reverse (negative values go BELOW center)
+    for (int i = minValues.length - 1; i >= 0; i--) {
+      if (i > 0) {
+        final currY = centerY - minValues[i] * amplitude * envelopes[i];
+        final prevY = centerY - minValues[i - 1] * amplitude * envelopes[i - 1];
+        final midX = (i - 0.5);
+        final midY = (prevY + currY) / 2;
+        peakPath.quadraticBezierTo(i.toDouble(), currY, midX, midY);
+      } else {
+        peakPath.lineTo(0, centerY - minValues[0] * amplitude * envelopes[0]);
       }
     }
+    peakPath.close();
+
+    // Build RMS path (symmetric around center)
+    final rmsPath = Path();
+    rmsPath.moveTo(0, centerY - rmsValues[0] * amplitude * envelopes[0]);
+    for (int i = 1; i < rmsValues.length; i++) {
+      rmsPath.lineTo(i.toDouble(), centerY - rmsValues[i] * amplitude * envelopes[i]);
+    }
+    for (int i = rmsValues.length - 1; i >= 0; i--) {
+      rmsPath.lineTo(i.toDouble(), centerY + rmsValues[i] * amplitude * envelopes[i]);
+    }
+    rmsPath.close();
+
+    // 1. Peak envelope (transparent outer)
+    canvas.drawPath(peakPath, Paint()
+      ..color = color.withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true);
+
+    // 2. RMS core (solid inner)
+    canvas.drawPath(rmsPath, Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true);
+
+    // 3. Peak outline
+    canvas.drawPath(peakPath, Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.6
+      ..isAntiAlias = true);
+
+    // Zero line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()..color = Colors.white.withValues(alpha: 0.1)..strokeWidth = 0.5,
+    );
   }
 
   void _drawDemoWaveform(Canvas canvas, Size size, double centerY) {
@@ -2167,7 +2255,7 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
             : 100.0;
 
         // Use fit zoom if not set yet, clamp to minimum
-        final effectiveZoom = (_zoom ?? fitZoom).clamp(fitZoom, 500.0);
+        final effectiveZoom = (_zoom ?? fitZoom).clamp(fitZoom, 50000.0);
         // When at fit zoom, scroll must be 0 (no empty space)
         final effectiveScrollOffset = effectiveZoom <= fitZoom ? 0.0 : _scrollOffset;
 
@@ -2180,7 +2268,7 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
           snapEnabled: widget.snapEnabled,
           snapValue: widget.snapValue,
           onSelectionChange: (sel) => setState(() => _selection = sel),
-          onZoomChange: (z) => setState(() => _zoom = z.clamp(fitZoom, 500.0)),
+          onZoomChange: (z) => setState(() => _zoom = z.clamp(fitZoom, 50000.0)),
           onScrollChange: (o) => setState(() => _scrollOffset = o),
           onFadeInChange: widget.onFadeInChange,
           onFadeOutChange: widget.onFadeOutChange,

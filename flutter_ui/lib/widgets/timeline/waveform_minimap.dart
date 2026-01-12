@@ -253,8 +253,9 @@ class _MinimapPainter extends CustomPainter {
     final amplitude = (rect.height / 2) * 0.8;
     final samplesPerPixel = waveform.length / rect.width;
 
-    final path = Path();
-    bool started = false;
+    // Collect peak values for smooth bezier rendering
+    final topPoints = <Offset>[];
+    final bottomPoints = <Offset>[];
 
     for (double x = 0; x < rect.width; x += 2) {
       final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
@@ -266,37 +267,45 @@ class _MinimapPainter extends CustomPainter {
         if (s > maxVal) maxVal = s;
       }
 
-      final yTop = centerY - maxVal * amplitude;
-      final yBottom = centerY + maxVal * amplitude;
+      topPoints.add(Offset(rect.left + x, centerY - maxVal * amplitude));
+      bottomPoints.add(Offset(rect.left + x, centerY + maxVal * amplitude));
+    }
 
-      if (!started) {
-        path.moveTo(rect.left + x, yTop);
-        started = true;
+    if (topPoints.isEmpty) return;
+
+    // Build smooth path with quadratic bezier through midpoints
+    final path = Path();
+    path.moveTo(topPoints.first.dx, topPoints.first.dy);
+
+    // Top edge with bezier smoothing
+    for (int i = 1; i < topPoints.length; i++) {
+      final prev = topPoints[i - 1];
+      final curr = topPoints[i];
+      final midX = (prev.dx + curr.dx) / 2;
+      final midY = (prev.dy + curr.dy) / 2;
+      path.quadraticBezierTo(prev.dx, prev.dy, midX, midY);
+    }
+    path.lineTo(topPoints.last.dx, topPoints.last.dy);
+
+    // Bottom edge in reverse with bezier smoothing
+    for (int i = bottomPoints.length - 1; i >= 0; i--) {
+      if (i > 0) {
+        final curr = bottomPoints[i];
+        final prev = bottomPoints[i - 1];
+        final midX = (prev.dx + curr.dx) / 2;
+        final midY = (prev.dy + curr.dy) / 2;
+        path.quadraticBezierTo(curr.dx, curr.dy, midX, midY);
       } else {
-        path.lineTo(rect.left + x, yTop);
+        path.lineTo(bottomPoints[i].dx, bottomPoints[i].dy);
       }
     }
-
-    // Return path for bottom
-    for (double x = rect.width - 2; x >= 0; x -= 2) {
-      final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
-      final endIdx = ((x + 2) * samplesPerPixel).ceil().clamp(startIdx + 1, waveform.length);
-
-      double maxVal = 0;
-      for (int i = startIdx; i < endIdx; i++) {
-        final s = waveform[i].abs();
-        if (s > maxVal) maxVal = s;
-      }
-
-      final yBottom = centerY + maxVal * amplitude;
-      path.lineTo(rect.left + x, yBottom);
-    }
-
     path.close();
 
     canvas.drawPath(
       path,
-      Paint()..color = color.withValues(alpha: 0.7),
+      Paint()
+        ..color = color.withValues(alpha: 0.7)
+        ..isAntiAlias = true,
     );
   }
 

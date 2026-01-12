@@ -928,18 +928,70 @@ class _WaveformPainter extends CustomPainter {
     final amplitude = centerY * 0.9;
     final samplesPerPixel = waveform.length / size.width;
 
-    // LOD: Choose rendering method based on zoom level (Cubase/Pro Tools style)
-    // High zoom (< 4 samples/pixel) = sample-accurate with interpolation
-    // Medium zoom (4-100 samples/pixel) = true min/max envelope (shows all transients)
-    // Low zoom (> 100 samples/pixel) = RMS + peak overview
+    // 4-Level LOD System (Professional DAW standard)
+    // ULTRA (<1 spp): Sub-sample Catmull-Rom interpolation
+    // SAMPLE (1-10 spp): Catmull-Rom curves through samples
+    // DETAIL (10-100 spp): Smooth bezier envelope
+    // OVERVIEW (>100 spp): Min/Max + RMS
 
-    if (samplesPerPixel < 4) {
+    if (samplesPerPixel < 1) {
+      _drawUltraZoomWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
+    } else if (samplesPerPixel < 10) {
       _drawDetailedWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
     } else if (samplesPerPixel < 100) {
       _drawMinMaxWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
     } else {
       _drawOverviewWaveform(canvas, size, centerY, amplitude, samplesPerPixel);
     }
+  }
+
+  /// ULTRA ZOOM: Sub-sample Catmull-Rom interpolation (oscilloscope view)
+  void _drawUltraZoomWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
+    final path = Path();
+    bool started = false;
+
+    for (double x = 0; x < size.width; x++) {
+      final exactSample = x * samplesPerPixel;
+      final sampleIdx = exactSample.floor();
+
+      if (sampleIdx < 1 || sampleIdx >= waveform.length - 2) continue;
+
+      // Get 4 samples for Catmull-Rom
+      final p0 = waveform[sampleIdx - 1];
+      final p1 = waveform[sampleIdx];
+      final p2 = waveform[sampleIdx + 1];
+      final p3 = waveform[(sampleIdx + 2).clamp(0, waveform.length - 1)];
+
+      final t = exactSample - sampleIdx;
+      final interpolated = _catmullRom(p0, p1, p2, p3, t);
+      final y = centerY - interpolated * amplitude;
+
+      if (!started) {
+        path.moveTo(x, y);
+        started = true;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // Glow effect (oscilloscope style)
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+      ..isAntiAlias = true;
+    canvas.drawPath(path, glowPaint);
+
+    // Main line
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, linePaint);
   }
 
   /// HIGH ZOOM: Sample-accurate waveform with sinc interpolation appearance
@@ -1022,22 +1074,21 @@ class _WaveformPainter extends CustomPainter {
   }
 
   /// MEDIUM ZOOM: True min/max envelope - the standard DAW waveform view
-  /// This is critical for accuracy: shows ACTUAL peaks, not averaged
+  /// NO SMOOTHING - shows EXACT peaks and transients as they are in the audio
+  /// Pro Tools / Cubase style: sharp transients, true dynamics
   void _drawMinMaxWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
-    // Peak envelope (outer) - shows true transients
-    final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
+    // Draw vertical lines for each pixel - TRUE min/max (no smoothing!)
+    // This is how pro DAWs show transients - sharp and accurate
 
-    // RMS envelope (inner) - shows perceived loudness
+    final peakPaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 1
+      ..isAntiAlias = false; // Sharp pixels for accuracy
+
     final rmsPaint = Paint()
       ..color = color.withValues(alpha: 0.9)
-      ..style = PaintingStyle.fill;
-
-    // Collect min/max for path-based rendering (smoother)
-    final minValues = <double>[];
-    final maxValues = <double>[];
-    final rmsValues = <double>[];
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
 
     for (double x = 0; x < size.width; x++) {
       final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
@@ -1056,45 +1107,18 @@ class _WaveformPainter extends CustomPainter {
         count++;
       }
 
-      minValues.add(minVal);
-      maxValues.add(maxVal);
-      rmsValues.add(count > 0 ? math.sqrt(sumSq / count) : 0);
-    }
+      final rms = count > 0 ? math.sqrt(sumSq / count) : 0;
 
-    // Draw peak envelope as filled path (more accurate than rectangles)
-    final peakPath = Path();
-    for (int i = 0; i < maxValues.length; i++) {
-      final y = centerY - maxValues[i] * amplitude;
-      if (i == 0) {
-        peakPath.moveTo(i.toDouble(), y);
-      } else {
-        peakPath.lineTo(i.toDouble(), y);
-      }
-    }
-    // Connect to min values in reverse
-    for (int i = minValues.length - 1; i >= 0; i--) {
-      final y = centerY - minValues[i] * amplitude;
-      peakPath.lineTo(i.toDouble(), y);
-    }
-    peakPath.close();
-    canvas.drawPath(peakPath, peakPaint);
+      // Peak line (full extent) - shows transients
+      final peakTop = centerY - maxVal * amplitude;
+      final peakBottom = centerY - minVal * amplitude;
+      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), peakPaint);
 
-    // Draw RMS as filled path (inner, solid)
-    final rmsPath = Path();
-    for (int i = 0; i < rmsValues.length; i++) {
-      final y = centerY - rmsValues[i] * amplitude;
-      if (i == 0) {
-        rmsPath.moveTo(i.toDouble(), y);
-      } else {
-        rmsPath.lineTo(i.toDouble(), y);
-      }
+      // RMS line (inner, solid) - shows perceived loudness
+      final rmsTop = centerY - rms * amplitude;
+      final rmsBottom = centerY + rms * amplitude;
+      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), rmsPaint);
     }
-    for (int i = rmsValues.length - 1; i >= 0; i--) {
-      final y = centerY + rmsValues[i] * amplitude;
-      rmsPath.lineTo(i.toDouble(), y);
-    }
-    rmsPath.close();
-    canvas.drawPath(rmsPath, rmsPaint);
 
     // Zero line
     canvas.drawLine(
@@ -1104,76 +1128,54 @@ class _WaveformPainter extends CustomPainter {
     );
   }
 
-  /// LOW ZOOM: RMS overview with peak indicators
+  /// LOW ZOOM: True min/max vertical lines - shows REAL dynamics
+  /// NO SMOOTHING - every pixel shows actual peak range
   void _drawOverviewWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerPixel) {
-    final rmsPaint = Paint()
-      ..color = color.withValues(alpha: 0.85)
-      ..style = PaintingStyle.fill;
-
     final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..style = PaintingStyle.fill;
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
 
-    final rmsPath = Path();
-    final peakPath = Path();
-    bool started = false;
-
-    final rmsBottom = <double>[];
-    final peakBottom = <double>[];
+    final rmsPaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
 
     for (double x = 0; x < size.width; x++) {
       final startIdx = (x * samplesPerPixel).floor().clamp(0, waveform.length - 1);
       final endIdx = ((x + 1) * samplesPerPixel).ceil().clamp(startIdx + 1, waveform.length);
 
-      double peakAbs = 0;
+      double minVal = waveform[startIdx];
+      double maxVal = waveform[startIdx];
       double sumSq = 0;
       int count = 0;
 
       for (int i = startIdx; i < endIdx; i++) {
-        final s = waveform[i].abs();
-        if (s > peakAbs) peakAbs = s;
+        final s = waveform[i];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
         sumSq += s * s;
         count++;
       }
 
       final rms = count > 0 ? math.sqrt(sumSq / count) : 0;
 
+      // Peak line - TRUE min/max (shows transients)
+      final peakTop = centerY - maxVal * amplitude;
+      final peakBottom = centerY - minVal * amplitude;
+      canvas.drawLine(Offset(x, peakTop), Offset(x, peakBottom), peakPaint);
+
+      // RMS line (solid inner)
       final rmsTop = centerY - rms * amplitude;
-      final peakTop = centerY - peakAbs * amplitude;
-
-      if (!started) {
-        rmsPath.moveTo(x, rmsTop);
-        peakPath.moveTo(x, peakTop);
-        started = true;
-      } else {
-        rmsPath.lineTo(x, rmsTop);
-        peakPath.lineTo(x, peakTop);
-      }
-
-      rmsBottom.add(centerY + rms * amplitude);
-      peakBottom.add(centerY + peakAbs * amplitude);
+      final rmsBottom = centerY + rms * amplitude;
+      canvas.drawLine(Offset(x, rmsTop), Offset(x, rmsBottom), rmsPaint);
     }
-
-    // Close peak path
-    for (int i = peakBottom.length - 1; i >= 0; i--) {
-      peakPath.lineTo(i.toDouble(), peakBottom[i]);
-    }
-    peakPath.close();
-
-    // Close RMS path
-    for (int i = rmsBottom.length - 1; i >= 0; i--) {
-      rmsPath.lineTo(i.toDouble(), rmsBottom[i]);
-    }
-    rmsPath.close();
-
-    canvas.drawPath(peakPath, peakPaint);
-    canvas.drawPath(rmsPath, rmsPaint);
 
     // Zero line
     canvas.drawLine(
       Offset(0, centerY),
       Offset(size.width, centerY),
-      Paint()..color = Colors.white.withValues(alpha: 0.06)..strokeWidth = 0.5,
+      Paint()..color = Colors.white.withValues(alpha: 0.1)..strokeWidth = 0.5,
     );
   }
 

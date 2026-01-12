@@ -41,8 +41,8 @@ class ZoomSlider extends StatefulWidget {
   const ZoomSlider({
     super.key,
     required this.zoom,
-    this.minZoom = 5.0,
-    this.maxZoom = 500.0,
+    this.minZoom = 0.1,
+    this.maxZoom = 5000.0,
     this.defaultZoom = 50.0,
     this.onZoomChange,
     this.width = 150,

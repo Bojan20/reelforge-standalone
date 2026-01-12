@@ -374,7 +374,7 @@ class _TimelineState extends State<Timeline> {
       final zoomIn = event.scrollDelta.dy < 0;
       final zoomFactor = zoomIn ? 1.15 : 0.87;
 
-      final newZoom = (widget.zoom * zoomFactor).clamp(5.0, 500.0);
+      final newZoom = (widget.zoom * zoomFactor).clamp(0.1, 5000.0);
 
       if (mouseX > 0 && _containerWidth > 0) {
         // Time position under cursor before zoom
@@ -604,7 +604,7 @@ class _TimelineState extends State<Timeline> {
     if (event.logicalKey == LogicalKeyboardKey.keyG) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(5.0, 500.0);
+      final newZoom = (widget.zoom * 0.92).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -616,7 +616,7 @@ class _TimelineState extends State<Timeline> {
     if (event.logicalKey == LogicalKeyboardKey.keyH) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(5.0, 500.0);
+      final newZoom = (widget.zoom * 1.08).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
       widget.onZoomChange?.call(newZoom);
       widget.onScrollChange?.call(newScrollOffset.clamp(0.0,
@@ -624,14 +624,23 @@ class _TimelineState extends State<Timeline> {
       return KeyEventResult.handled;
     }
 
-    // L - set loop region around selected clip (just sets region, no toggle)
+    // L - set loop region around selected clip AND toggle loop on/off
     if (event.logicalKey == LogicalKeyboardKey.keyL) {
-      if (selectedClip != null && widget.onLoopRegionChange != null) {
-        widget.onLoopRegionChange!(LoopRegion(
-          start: selectedClip.startTime,
-          end: selectedClip.endTime,
-        ));
+      if (selectedClip != null) {
+        // Set loop region around selected clip
+        if (widget.onLoopRegionChange != null) {
+          widget.onLoopRegionChange!(LoopRegion(
+            start: selectedClip.startTime,
+            end: selectedClip.endTime,
+          ));
+        }
+        // Toggle loop enabled
+        widget.onLoopToggle?.call();
+      } else {
+        // No clip selected - just toggle loop on/off
+        widget.onLoopToggle?.call();
       }
+      return KeyEventResult.handled;
     }
 
     // Arrow keys - nudge clip OR scroll timeline
