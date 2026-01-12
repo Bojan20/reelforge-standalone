@@ -222,10 +222,24 @@ pub struct StereoWaveformPeaks {
 }
 
 impl StereoWaveformPeaks {
+    /// Create empty stereo waveform peaks
+    pub fn empty(sample_rate: u32) -> Self {
+        Self {
+            left: WaveformPeaks::empty(sample_rate),
+            right: WaveformPeaks::empty(sample_rate),
+        }
+    }
+
     /// Create from interleaved stereo samples
     pub fn from_interleaved(samples: &[f32], sample_rate: u32) -> Self {
+        // Safety: handle empty sample arrays
+        if samples.is_empty() {
+            return Self::empty(sample_rate);
+        }
+
         let (left, right): (Vec<f32>, Vec<f32>) = samples
             .chunks(2)
+            .filter(|chunk| !chunk.is_empty())
             .map(|chunk| (chunk[0], chunk.get(1).copied().unwrap_or(chunk[0])))
             .unzip();
 
@@ -237,6 +251,11 @@ impl StereoWaveformPeaks {
 
     /// Create mono waveform (same peaks for both channels)
     pub fn from_mono(samples: &[f32], sample_rate: u32) -> Self {
+        // Safety: handle empty sample arrays
+        if samples.is_empty() {
+            return Self::empty(sample_rate);
+        }
+
         let peaks = WaveformPeaks::from_samples(samples, sample_rate);
         Self {
             left: peaks.clone(),

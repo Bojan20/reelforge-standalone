@@ -806,6 +806,22 @@ pub extern "C" fn engine_get_track_ids(out_ids: *mut u64, max_count: usize) -> u
 /// Returns clip ID or 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_time: f64) -> u64 {
+    // Wrap entire function in catch_unwind to prevent panics from crashing the app
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        engine_import_audio_inner(path, track_id, start_time)
+    }));
+
+    match result {
+        Ok(clip_id) => clip_id,
+        Err(e) => {
+            eprintln!("[FFI Import] PANIC caught: {:?}", e);
+            0
+        }
+    }
+}
+
+/// Inner implementation of engine_import_audio (can panic safely)
+fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64) -> u64 {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(p) => p,
         None => {
@@ -868,8 +884,11 @@ pub extern "C" fn engine_import_audio(path: *const c_char, track_id: u64, start_
         duration,
     );
 
-    // Generate waveform peaks and cache
-    let peaks = if imported.channels == 2 {
+    // Generate waveform peaks and cache (with safety check for empty samples)
+    let peaks = if imported.samples.is_empty() {
+        eprintln!("[FFI Import] WARNING: Empty samples, creating empty waveform");
+        StereoWaveformPeaks::empty(imported.sample_rate)
+    } else if imported.channels == 2 {
         StereoWaveformPeaks::from_interleaved(&imported.samples, imported.sample_rate)
     } else {
         StereoWaveformPeaks::from_mono(&imported.samples, imported.sample_rate)

@@ -83,19 +83,29 @@ class UltimateWaveformData {
   });
 
   /// Create from raw float samples with full analysis
+  /// IMPORTANT: Limits sample count to prevent memory issues with large files
   factory UltimateWaveformData.fromSamples(
     List<double> rawSamples, {
     double sampleRate = 48000,
     List<double>? rightChannelSamples,
+    int maxSamples = 50000, // Limit to prevent crash on large files
   }) {
-    final samples = _analyzeSamples(rawSamples);
+    // Downsample if too many samples
+    final leftData = rawSamples.length > maxSamples
+        ? _downsampleRaw(rawSamples, maxSamples)
+        : rawSamples;
+    final rightData = rightChannelSamples != null && rightChannelSamples.length > maxSamples
+        ? _downsampleRaw(rightChannelSamples, maxSamples)
+        : rightChannelSamples;
+
+    final samples = _analyzeSamples(leftData);
     final lodLevels = _generateLodLevels(samples);
 
     List<UltimateWaveformPoint>? rightChannel;
     Map<int, List<UltimateWaveformPoint>>? rightLods;
 
-    if (rightChannelSamples != null) {
-      rightChannel = _analyzeSamples(rightChannelSamples);
+    if (rightData != null) {
+      rightChannel = _analyzeSamples(rightData);
       rightLods = _generateLodLevels(rightChannel);
     }
 
@@ -107,6 +117,29 @@ class UltimateWaveformData {
       rightChannel: rightChannel,
       rightLodLevels: rightLods,
     );
+  }
+
+  /// Downsample raw samples preserving min/max peaks
+  static List<double> _downsampleRaw(List<double> raw, int targetCount) {
+    final step = raw.length / targetCount;
+    final result = <double>[];
+
+    for (int i = 0; i < targetCount; i++) {
+      final start = (i * step).floor();
+      final end = ((i + 1) * step).floor().clamp(start + 1, raw.length);
+
+      double minVal = raw[start];
+      double maxVal = raw[start];
+      for (int j = start; j < end; j++) {
+        final s = raw[j];
+        if (s < minVal) minVal = s;
+        if (s > maxVal) maxVal = s;
+      }
+      // Alternate min/max to preserve waveform shape
+      result.add(i.isEven ? minVal : maxVal);
+    }
+
+    return result;
   }
 
   /// Analyze samples for transients, clipping, spectral content

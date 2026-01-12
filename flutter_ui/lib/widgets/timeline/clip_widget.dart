@@ -808,9 +808,52 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
   void _buildWaveformData() {
     _lastWaveform = widget.waveform;
-    // Convert Float32List to List<double> for UltimateWaveformData
-    final leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
-    final rightSamples = widget.waveformRight?.map((s) => s.toDouble()).toList();
+
+    // CRITICAL: Limit sample count to prevent crash on large files
+    // For timeline clips, we don't need full resolution - max 10000 points is enough
+    const maxSamples = 10000;
+
+    List<double> leftSamples;
+    List<double>? rightSamples;
+
+    if (widget.waveform.length > maxSamples) {
+      // Downsample by taking min/max pairs
+      final step = widget.waveform.length / maxSamples;
+      leftSamples = [];
+      for (int i = 0; i < maxSamples; i++) {
+        final start = (i * step).floor();
+        final end = ((i + 1) * step).floor().clamp(start + 1, widget.waveform.length);
+        double minVal = widget.waveform[start];
+        double maxVal = widget.waveform[start];
+        for (int j = start; j < end; j++) {
+          final s = widget.waveform[j];
+          if (s < minVal) minVal = s;
+          if (s > maxVal) maxVal = s;
+        }
+        // Alternate min/max to preserve waveform shape
+        leftSamples.add(i.isEven ? minVal.toDouble() : maxVal.toDouble());
+      }
+
+      // Same for right channel
+      if (widget.waveformRight != null) {
+        rightSamples = [];
+        for (int i = 0; i < maxSamples; i++) {
+          final start = (i * step).floor();
+          final end = ((i + 1) * step).floor().clamp(start + 1, widget.waveformRight!.length);
+          double minVal = widget.waveformRight![start];
+          double maxVal = widget.waveformRight![start];
+          for (int j = start; j < end; j++) {
+            final s = widget.waveformRight![j];
+            if (s < minVal) minVal = s;
+            if (s > maxVal) maxVal = s;
+          }
+          rightSamples.add(i.isEven ? minVal.toDouble() : maxVal.toDouble());
+        }
+      }
+    } else {
+      leftSamples = widget.waveform.map((s) => s.toDouble()).toList();
+      rightSamples = widget.waveformRight?.map((s) => s.toDouble()).toList();
+    }
 
     _waveformData = UltimateWaveformData.fromSamples(
       leftSamples,
