@@ -238,7 +238,8 @@ class _TimelineState extends State<Timeline> {
   double _headerWidth = 180;
   static const double _headerWidthMin = 140;
   static const double _headerWidthMax = 300;
-  static const double _defaultTrackHeight = 80;
+  // Logic Pro style: taller tracks for better waveform visibility
+  static const double _defaultTrackHeight = 100;
   static const double _rulerHeight = 28;
 
   // Selected track for highlighting
@@ -1005,6 +1006,7 @@ class _TimelineState extends State<Timeline> {
                       onMuteToggle: () => widget.onTrackMuteToggle?.call(track.id),
                       onSoloToggle: () => widget.onTrackSoloToggle?.call(track.id),
                       onArmToggle: () => widget.onTrackArmToggle?.call(track.id),
+                      onInputMonitorToggle: () => widget.onTrackMonitorToggle?.call(track.id),
                       onVolumeChange: (v) => widget.onTrackVolumeChange?.call(track.id, v),
                       onClick: () {
                         setState(() => _selectedTrackId = track.id);

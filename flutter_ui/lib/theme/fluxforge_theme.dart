@@ -640,10 +640,10 @@ class FluxForgeTheme {
   static const double iconSizeSmall = 12;
   static const double iconSizeLarge = 20;
 
-  // Track sizing
-  static const double trackHeightMin = 40;
-  static const double trackHeightDefault = 80;
-  static const double trackHeightMax = 200;
+  // Track sizing - Logic Pro style: taller tracks for better waveform visibility
+  static const double trackHeightMin = 60;
+  static const double trackHeightDefault = 100;
+  static const double trackHeightMax = 250;
   static const double trackColorBarWidth = 6;
 
   // Mixer sizing

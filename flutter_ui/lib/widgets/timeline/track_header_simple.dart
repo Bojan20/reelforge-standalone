@@ -25,6 +25,7 @@ class TrackHeaderSimple extends StatefulWidget {
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle;
+  final VoidCallback? onInputMonitorToggle;
   final VoidCallback? onClick;
   final ValueChanged<double>? onVolumeChange;
   final ValueChanged<String>? onRename;
@@ -42,6 +43,7 @@ class TrackHeaderSimple extends StatefulWidget {
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
+    this.onInputMonitorToggle,
     this.onClick,
     this.onVolumeChange,
     this.onRename,
@@ -135,10 +137,12 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
                           // Name
                           Expanded(child: _buildName()),
                           const SizedBox(width: 4),
-                          // M/S/R buttons
+                          // M/S/I/R buttons
                           _MiniButton('M', track.muted, FluxForgeTheme.accentOrange, widget.onMuteToggle),
                           const SizedBox(width: 2),
                           _MiniButton('S', track.soloed, FluxForgeTheme.accentYellow, widget.onSoloToggle),
+                          const SizedBox(width: 2),
+                          _MiniButton('I', track.inputMonitor, FluxForgeTheme.accentCyan, widget.onInputMonitorToggle),
                           const SizedBox(width: 2),
                           _RecordButton(track.armed, widget.onArmToggle),
                         ],
@@ -275,7 +279,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
 // MINI COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _MiniButton extends StatelessWidget {
+class _MiniButton extends StatefulWidget {
   final String label;
   final bool active;
   final Color activeColor;
@@ -284,27 +288,42 @@ class _MiniButton extends StatelessWidget {
   const _MiniButton(this.label, this.active, this.activeColor, this.onTap);
 
   @override
+  State<_MiniButton> createState() => _MiniButtonState();
+}
+
+class _MiniButtonState extends State<_MiniButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    // Show pressed state OR active state for instant feedback
+    final showActive = _pressed ? !widget.active : widget.active;
+
     return GestureDetector(
-      onTap: onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
       child: Container(
         width: 16,
         height: 16,
         decoration: BoxDecoration(
-          color: active ? activeColor : FluxForgeTheme.bgDeepest,
+          color: showActive ? widget.activeColor : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : FluxForgeTheme.borderSubtle,
+            color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
         child: Center(
           child: Text(
-            label,
+            widget.label,
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: active ? Colors.white : FluxForgeTheme.textTertiary,
+              color: showActive ? Colors.white : FluxForgeTheme.textTertiary,
             ),
           ),
         ),
@@ -313,24 +332,39 @@ class _MiniButton extends StatelessWidget {
   }
 }
 
-class _RecordButton extends StatelessWidget {
+class _RecordButton extends StatefulWidget {
   final bool armed;
   final VoidCallback? onTap;
 
   const _RecordButton(this.armed, this.onTap);
 
   @override
+  State<_RecordButton> createState() => _RecordButtonState();
+}
+
+class _RecordButtonState extends State<_RecordButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    // Show pressed state OR armed state for instant feedback
+    final showArmed = _pressed ? !widget.armed : widget.armed;
+
     return GestureDetector(
-      onTap: onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
       child: Container(
         width: 16,
         height: 16,
         decoration: BoxDecoration(
-          color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
+          color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: armed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
+            color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
             width: 1,
           ),
         ),
@@ -340,7 +374,7 @@ class _RecordButton extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: armed ? Colors.white : FluxForgeTheme.textTertiary,
+              color: showArmed ? Colors.white : FluxForgeTheme.textTertiary,
             ),
           ),
         ),

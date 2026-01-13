@@ -351,7 +351,9 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
     if (clip == null || _containerWidth <= 0) return;
 
     final minZoom = _containerWidth / clip.duration;
-    final clampedZoom = targetZoom.clamp(minZoom, 50000.0);
+    // Max zoom = 100000 pixels/sec to support sample-accurate view at 96kHz
+    // (Cubase spec: framesPerPixel <= 1.5 for sample mode)
+    final clampedZoom = targetZoom.clamp(minZoom, 100000.0);
 
     // Calculate new scroll offset to keep anchor point fixed
     final newScrollOffset = anchorTime - anchorX / clampedZoom;
@@ -1454,10 +1456,11 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
         break;
       case EditorTool.zoom:
         // Zoom in on click, zoom out on alt+click (but not below minZoom)
+        // Max zoom 100000 for sample-accurate view at 96kHz
         if (HardwareKeyboard.instance.isAltPressed) {
-          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 50000));
+          widget.onZoomChange?.call((widget.zoom * 0.7).clamp(minZoom, 100000.0));
         } else {
-          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 50000));
+          widget.onZoomChange?.call((widget.zoom * 1.4).clamp(minZoom, 100000.0));
         }
         break;
       case EditorTool.hitpoint:
@@ -2039,18 +2042,107 @@ class _WaveformPainter extends CustomPainter {
     final amplitude = size.height / 2 - 4;
     final samplesPerSecond = waveform!.length / duration;
 
-    // Calculate samples per pixel for LOD decision
+    // Calculate frames (samples) per pixel for LOD decision (Cubase spec)
     final visibleDuration = size.width / zoom;
-    final samplesPerPixel = (visibleDuration * samplesPerSecond) / size.width;
+    final framesPerPixel = (visibleDuration * samplesPerSecond) / size.width;
 
     // LOD: Choose rendering method based on zoom level (Cubase-style)
-    if (samplesPerPixel < 4) {
+    // Sample mode when framesPerPixel <= 1.5 - draw actual sample polyline
+    if (framesPerPixel <= 1.5) {
+      _drawSampleModeWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
+    } else if (framesPerPixel < 4) {
       _drawDetailedWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
-    } else if (samplesPerPixel < 50) {
+    } else if (framesPerPixel < 50) {
       _drawMinMaxWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
     } else {
       _drawOverviewWaveform(canvas, size, centerY, amplitude, samplesPerSecond);
     }
+  }
+
+  /// SAMPLE MODE (Cubase spec): framesPerPixel <= 1.5
+  /// Draw actual samples as polyline - enables pencil/sample editing
+  void _drawSampleModeWaveform(Canvas canvas, Size size, double centerY, double amplitude, double samplesPerSecond) {
+    final path = Path();
+    bool firstPoint = true;
+
+    // Sample dots for extreme zoom (visible individual samples)
+    final showDots = (size.width / zoom) * samplesPerSecond / size.width < 0.5;
+    final dotPositions = <Offset>[];
+
+    for (double x = 0; x < size.width; x++) {
+      final time = scrollOffset + x / zoom;
+      if (time < 0 || time > duration) continue;
+
+      // Get exact sample value with linear interpolation
+      final exactSample = time * samplesPerSecond;
+      final sampleIndex = exactSample.floor();
+      final frac = exactSample - sampleIndex;
+
+      if (sampleIndex < 0 || sampleIndex >= waveform!.length) continue;
+
+      // Linear interpolation between samples
+      double value = waveform![sampleIndex];
+      if (sampleIndex + 1 < waveform!.length) {
+        value = value * (1 - frac) + waveform![sampleIndex + 1] * frac;
+      }
+
+      // Apply fade envelope
+      double envelope = 1;
+      if (fadeIn > 0 && time < fadeIn) {
+        envelope = time / fadeIn;
+      } else if (fadeOut > 0 && time > duration - fadeOut) {
+        envelope = (duration - time) / fadeOut;
+      }
+
+      final y = centerY - value * amplitude * envelope;
+
+      if (firstPoint) {
+        path.moveTo(x, y);
+        firstPoint = false;
+      } else {
+        path.lineTo(x, y);
+      }
+
+      // Collect dot positions for sample points
+      if (showDots && (exactSample - sampleIndex).abs() < 0.01) {
+        dotPositions.add(Offset(x, y));
+      }
+    }
+
+    // Draw polyline stroke
+    canvas.drawPath(path, Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..isAntiAlias = true
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round);
+
+    // Draw sample dots at extreme zoom
+    if (showDots) {
+      final dotPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      for (final pos in dotPositions) {
+        canvas.drawCircle(pos, 3, dotPaint);
+      }
+      // White center for visibility
+      final dotCenterPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      for (final pos in dotPositions) {
+        canvas.drawCircle(pos, 1.5, dotCenterPaint);
+      }
+    }
+
+    // Zero line indicator for sample mode
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.2)
+        ..strokeWidth = 0.5,
+    );
   }
 
   /// HIGH ZOOM: Sample-accurate rendering with Catmull-Rom interpolation
@@ -2851,7 +2943,8 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
             : 100.0;
 
         // Use fit zoom if not set yet, clamp to minimum
-        final effectiveZoom = (_zoom ?? fitZoom).clamp(fitZoom, 50000.0);
+        // Max zoom 100000 for sample-accurate view at 96kHz (Cubase spec)
+        final effectiveZoom = (_zoom ?? fitZoom).clamp(fitZoom, 100000.0);
         // When at fit zoom, scroll must be 0 (no empty space)
         final effectiveScrollOffset = effectiveZoom <= fitZoom ? 0.0 : _scrollOffset;
 
@@ -2864,7 +2957,7 @@ class _ConnectedClipEditorState extends State<ConnectedClipEditor> {
           snapEnabled: widget.snapEnabled,
           snapValue: widget.snapValue,
           onSelectionChange: (sel) => setState(() => _selection = sel),
-          onZoomChange: (z) => setState(() => _zoom = z.clamp(fitZoom, 50000.0)),
+          onZoomChange: (z) => setState(() => _zoom = z.clamp(fitZoom, 100000.0)),
           onScrollChange: (o) => setState(() => _scrollOffset = o),
           onFadeInChange: widget.onFadeInChange,
           onFadeOutChange: widget.onFadeOutChange,

@@ -996,7 +996,7 @@ class _FaderRow extends StatelessWidget {
   }
 }
 
-class _StateButton extends StatelessWidget {
+class _StateButton extends StatefulWidget {
   final String label;
   final String? tooltip;
   final bool active;
@@ -1012,34 +1012,49 @@ class _StateButton extends StatelessWidget {
   });
 
   @override
+  State<_StateButton> createState() => _StateButtonState();
+}
+
+class _StateButtonState extends State<_StateButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    // Show pressed state OR active state for instant feedback
+    final showActive = _pressed ? !widget.active : widget.active;
+
     final button = GestureDetector(
-      onTap: onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
       child: Container(
         height: 28,
         decoration: BoxDecoration(
-          color: active ? activeColor.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
+          color: showActive ? widget.activeColor.withValues(alpha: 0.2) : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: active ? activeColor : FluxForgeTheme.borderSubtle,
-            width: active ? 1.5 : 1,
+            color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
+            width: showActive ? 1.5 : 1,
           ),
         ),
         child: Center(
           child: Text(
-            label,
+            widget.label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: active ? activeColor : FluxForgeTheme.textSecondary,
+              color: showActive ? widget.activeColor : FluxForgeTheme.textSecondary,
             ),
           ),
         ),
       ),
     );
 
-    if (tooltip != null) {
-      return Tooltip(message: tooltip!, child: button);
+    if (widget.tooltip != null) {
+      return Tooltip(message: widget.tooltip!, child: button);
     }
     return button;
   }

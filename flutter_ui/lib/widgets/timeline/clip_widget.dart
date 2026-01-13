@@ -11,6 +11,7 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -466,21 +467,19 @@ class _ClipWidgetState extends State<ClipWidget> {
           child: Stack(
             children: [
               // Ultimate Waveform Display (best-in-class DAW waveform)
+              // NO padding - waveform fills entire clip from edge to edge
               if (clip.waveform != null && width > 20)
                 Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: _UltimateClipWaveform(
-                      clipId: clip.id,
-                      waveform: clip.waveform!,
-                      waveformRight: clip.waveformRight, // Stereo support
-                      sourceOffset: clip.sourceOffset,
-                      duration: clip.duration,
-                      gain: clip.gain,
-                      zoom: widget.zoom,
-                      clipColor: clipColor,
-                      trackHeight: widget.trackHeight,
-                    ),
+                  child: _UltimateClipWaveform(
+                    clipId: clip.id,
+                    waveform: clip.waveform!,
+                    waveformRight: clip.waveformRight, // Stereo support
+                    sourceOffset: clip.sourceOffset,
+                    duration: clip.duration,
+                    gain: clip.gain,
+                    zoom: widget.zoom,
+                    clipColor: clipColor,
+                    trackHeight: widget.trackHeight,
                   ),
                 ),
 
@@ -796,8 +795,8 @@ class _UltimateClipWaveform extends StatefulWidget {
 
 class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   // FIXED SIZE cache - render ONCE at fixed resolution, GPU scales during zoom
-  // This is the Cubase secret: NEVER re-render on zoom, only on clip change
-  static const int _fixedPixels = 2048; // Balance between detail and smooth zoom
+  // 1024 gives good transient detail while staying fast
+  static const int _fixedPixels = 1024;
 
   WaveformPixelData? _cachedData;
   int _cachedClipId = 0;
@@ -869,7 +868,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
           child: Transform.scale(
             scaleY: widget.gain,
             child: CustomPaint(
-              // Let CustomPaint fill available space, painter stretches data
+              size: Size.infinite, // Fill entire available space
               painter: _CubaseWaveformPainter(
                 mins: _cachedData!.mins,
                 maxs: _cachedData!.maxs,
@@ -887,11 +886,14 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       child: ClipRect(
         child: Transform.scale(
           scaleY: widget.gain,
-          child: _WaveformCanvas(
-            waveform: widget.waveform,
-            sourceOffset: widget.sourceOffset,
-            duration: widget.duration,
-            color: waveColor,
+          child: CustomPaint(
+            size: Size.infinite, // Fill entire available space
+            painter: _WaveformPainter(
+              waveform: widget.waveform,
+              sourceOffset: widget.sourceOffset,
+              duration: widget.duration,
+              color: waveColor,
+            ),
           ),
         ),
       ),
@@ -899,9 +901,12 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   }
 }
 
-// ============ Cubase-Style Waveform Painter ============
-// Uses pre-computed min/max/rms from Rust cache for accurate rendering
-// Draws filled polygon following min/max envelope for smooth waveform look
+// ============ Cubase Style Waveform Painter (Timeline) ============
+// TRUE Cubase style based on research:
+// - Filled waveform with gradient shading
+// - Thin dark outline around peaks (amplitude marker)
+// - Min/Max vertical lines per pixel column
+// - Uses Path for GPU-accelerated rendering (no per-pixel draw calls)
 
 class _CubaseWaveformPainter extends CustomPainter {
   final Float32List mins;
@@ -923,52 +928,71 @@ class _CubaseWaveformPainter extends CustomPainter {
     final centerY = size.height / 2;
     final amplitude = centerY * 0.95;
     final numSamples = mins.length;
-    final pixelWidth = size.width / numSamples;
+    final scaleX = size.width / numSamples;
 
     // ══════════════════════════════════════════════════════════════════
-    // SMOOTH WAVEFORM: Filled polygon for instant GPU scaling
-    // Peak envelope shows transients, RMS body shows energy
+    // CUBASE STYLE RENDERING:
+    // 1. Build filled polygon from min/max envelope (GPU path)
+    // 2. Add gradient shading effect
+    // 3. Draw thin outline for peak definition
     // ══════════════════════════════════════════════════════════════════
 
-    // Peak envelope (outer shape - shows transients)
-    final peakPath = Path();
-    peakPath.moveTo(0, centerY - maxs[0] * amplitude);
+    // Build waveform envelope path (true min/max, not rectified)
+    // Top edge follows MAX values, bottom edge follows MIN values
+    // IMPORTANT: Scale X so that sample 0 = x:0, sample N-1 = x:width
+    final wavePath = Path();
+
+    // Helper to map sample index to X coordinate (fills entire width)
+    double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
+
+    // Start at first max point (x = 0)
+    wavePath.moveTo(0, centerY - maxs[0] * amplitude);
+
+    // Draw top edge (max values) left to right
     for (int i = 1; i < numSamples; i++) {
-      final x = i * pixelWidth;
-      peakPath.lineTo(x, centerY - maxs[i] * amplitude);
+      wavePath.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
     }
+
+    // Draw bottom edge (min values) right to left
     for (int i = numSamples - 1; i >= 0; i--) {
-      final x = i * pixelWidth;
-      peakPath.lineTo(x, centerY - mins[i] * amplitude);
+      wavePath.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
     }
-    peakPath.close();
 
-    // RMS body (inner shape - shows energy)
-    final rmsPath = Path();
-    rmsPath.moveTo(0, centerY - rms[0] * amplitude);
-    for (int i = 1; i < numSamples; i++) {
-      final x = i * pixelWidth;
-      rmsPath.lineTo(x, centerY - rms[i] * amplitude);
-    }
-    for (int i = numSamples - 1; i >= 0; i--) {
-      final x = i * pixelWidth;
-      rmsPath.lineTo(x, centerY + rms[i] * amplitude);
-    }
-    rmsPath.close();
+    wavePath.close();
 
-    // Draw peak envelope (lighter, for transient visibility)
-    final peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.35)
+    // 1. Draw filled waveform with gradient
+    final gradient = ui.Gradient.linear(
+      Offset(0, centerY - amplitude),
+      Offset(0, centerY + amplitude),
+      [
+        color.withValues(alpha: 0.9),
+        color.withValues(alpha: 0.6),
+        color.withValues(alpha: 0.6),
+        color.withValues(alpha: 0.9),
+      ],
+      [0.0, 0.45, 0.55, 1.0],
+    );
+
+    canvas.drawPath(wavePath, Paint()
+      ..shader = gradient
       ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    canvas.drawPath(peakPath, peakPaint);
+      ..isAntiAlias = true);
 
-    // Draw RMS body (solid)
-    final rmsPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    canvas.drawPath(rmsPath, rmsPaint);
+    // 2. Draw dark outline for peak definition (Cubase's amplitude marker)
+    canvas.drawPath(wavePath, Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true);
+
+    // 3. Draw center line (zero crossing reference)
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..strokeWidth = 0.5,
+    );
   }
 
   @override
@@ -978,6 +1002,7 @@ class _CubaseWaveformPainter extends CustomPainter {
       rms != oldDelegate.rms ||
       color != oldDelegate.color;
 }
+
 
 // ============ Legacy Waveform Canvas (fallback) ============
 
@@ -1028,13 +1053,14 @@ class _WaveformPainter extends CustomPainter {
     required this.duration,
   }) {
     // Initialize paints once in constructor
+    // Cubase style: peaks are LIGHTER (transient extent), RMS is SOLID (body)
     _peakPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
+      ..color = color.withValues(alpha: 0.4)
       ..strokeWidth = 1
       ..isAntiAlias = false;
 
     _rmsPaint = Paint()
-      ..color = color.withValues(alpha: 0.9)
+      ..color = color
       ..strokeWidth = 1
       ..isAntiAlias = false;
 
@@ -1054,7 +1080,7 @@ class _WaveformPainter extends CustomPainter {
       ..isAntiAlias = true;
 
     _fillPaint = Paint()
-      ..color = color.withValues(alpha: 0.35)
+      ..color = color.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
 
     _zeroLinePaint = Paint()
@@ -1067,7 +1093,8 @@ class _WaveformPainter extends CustomPainter {
     if (waveform.isEmpty || size.width <= 0 || size.height <= 0) return;
 
     final centerY = size.height / 2;
-    final amplitude = centerY * 0.9;
+    // FULL HEIGHT for maximum waveform visibility (Logic Pro style)
+    final amplitude = centerY * 0.98;
     final samplesPerPixel = waveform.length / size.width;
 
     // 4-Level LOD System (Professional DAW standard)
