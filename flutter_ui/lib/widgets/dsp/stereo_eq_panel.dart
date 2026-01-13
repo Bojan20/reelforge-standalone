@@ -676,7 +676,18 @@ class _StereoEqCurvePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _StereoEqCurvePainter old) {
+    if (bands.length != old.bands.length) return true;
+    if (selectedIndex != old.selectedIndex) return true;
+    for (int i = 0; i < bands.length; i++) {
+      final b = bands[i], o = old.bands[i];
+      if (b.freq != o.freq || b.gain != o.gain || b.q != o.q ||
+          b.mode != o.mode || b.enabled != o.enabled) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 class _StereoFieldPainter extends CustomPainter {
@@ -738,5 +749,14 @@ class _StereoFieldPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _StereoFieldPainter old) {
+    if (bands.length != old.bands.length) return true;
+    for (int i = 0; i < bands.length; i++) {
+      final b = bands[i], o = old.bands[i];
+      if (b.freq != o.freq || b.gain != o.gain || b.mode != o.mode) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

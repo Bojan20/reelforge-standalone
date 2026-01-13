@@ -1071,5 +1071,19 @@ class _ProEqGraphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ProEqGraphPainter old) {
+    if (bands.length != old.bands.length) return true;
+    if (selectedIndex != old.selectedIndex) return true;
+    if (analyzerMode != old.analyzerMode) return true;
+    if (spectrum != old.spectrum) return true;
+    if (eqCurve != old.eqCurve) return true;
+    for (int i = 0; i < bands.length; i++) {
+      final b = bands[i], o = old.bands[i];
+      if (b.freq != o.freq || b.gain != o.gain || b.q != o.q ||
+          b.shape != o.shape || b.enabled != o.enabled) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

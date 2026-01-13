@@ -1008,7 +1008,10 @@ class _LoudnessHistoryPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LoudnessHistoryPainter oldDelegate) => true;
+  bool shouldRepaint(_LoudnessHistoryPainter oldDelegate) {
+    // History is a rolling buffer - repaint if index changed or list reference changed
+    return currentIndex != oldDelegate.currentIndex || history != oldDelegate.history;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

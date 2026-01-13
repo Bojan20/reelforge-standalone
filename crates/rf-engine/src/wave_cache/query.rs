@@ -5,7 +5,7 @@
 //! - Tile batching for efficient rendering
 //! - Memory-efficient iteration over visible tiles
 
-use super::format::{WfcFile, TileData, MIP_TILE_SAMPLES};
+use super::format::{WfcFile, TileData, MIP_TILE_SAMPLES, NUM_MIP_LEVELS};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TILE REQUEST/RESPONSE

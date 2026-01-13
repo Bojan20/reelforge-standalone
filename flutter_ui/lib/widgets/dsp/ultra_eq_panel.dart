@@ -884,5 +884,16 @@ class _UltraEqGraphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _UltraEqGraphPainter old) {
+    if (bands.length != old.bands.length) return true;
+    if (selectedIndex != old.selectedIndex) return true;
+    for (int i = 0; i < bands.length; i++) {
+      final b = bands[i], o = old.bands[i];
+      if (b.freq != o.freq || b.gain != o.gain || b.q != o.q ||
+          b.type != o.type || b.enabled != o.enabled) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

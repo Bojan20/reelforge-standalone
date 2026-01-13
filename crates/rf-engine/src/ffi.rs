@@ -1230,12 +1230,15 @@ pub extern "C" fn engine_get_waveform_peaks_in_range(
         let peaks = stereo_peaks
             .left
             .get_peaks_in_range(start_time, end_time, pixels_per_second);
-        let count = peaks.len().min(max_peaks);
+        // Each peak needs 2 slots (min, max), so limit to max_peaks/2
+        let count = peaks.len().min(max_peaks / 2);
 
         unsafe {
             for (i, peak) in peaks.iter().take(count).enumerate() {
-                *out_peaks.add(i * 2) = peak.min;
-                *out_peaks.add(i * 2 + 1) = peak.max;
+                // SAFETY: i < count <= max_peaks/2, so i*2+1 < max_peaks
+                let idx = i.checked_mul(2).expect("overflow in peak index");
+                *out_peaks.add(idx) = peak.min;
+                *out_peaks.add(idx + 1) = peak.max;
             }
         }
 
@@ -1292,13 +1295,16 @@ pub extern "C" fn engine_query_waveform_pixels(
             num_pixels as usize,
         );
 
-        let count = buckets.len().min(num_pixels as usize);
+        // Each bucket needs 3 slots (min, max, rms), so limit to num_pixels/3
+        let count = buckets.len().min((num_pixels as usize) / 3);
 
         unsafe {
             for (i, b) in buckets.iter().take(count).enumerate() {
-                *out_data.add(i * 3) = b.min;
-                *out_data.add(i * 3 + 1) = b.max;
-                *out_data.add(i * 3 + 2) = b.rms;
+                // SAFETY: i < count <= num_pixels/3, so i*3+2 < num_pixels
+                let idx = i.checked_mul(3).expect("overflow in bucket index");
+                *out_data.add(idx) = b.min;
+                *out_data.add(idx + 1) = b.max;
+                *out_data.add(idx + 2) = b.rms;
             }
         }
 
@@ -1382,17 +1388,21 @@ pub extern "C" fn engine_query_waveform_tiles_batch(
 
                 let out_offset = total_written as usize;
                 for (i, b) in buckets.iter().enumerate() {
-                    *out_data.add(out_offset + i * 3) = b.min;
-                    *out_data.add(out_offset + i * 3 + 1) = b.max;
-                    *out_data.add(out_offset + i * 3 + 2) = b.rms;
+                    // SAFETY: capacity check above ensures out_offset + i*3+2 < out_capacity
+                    let idx = i.checked_mul(3).unwrap_or(0);
+                    *out_data.add(out_offset + idx) = b.min;
+                    *out_data.add(out_offset + idx + 1) = b.max;
+                    *out_data.add(out_offset + idx + 2) = b.rms;
                 }
                 total_written += (buckets.len() * 3) as u32;
             } else {
                 // Fill with zeros for missing clip
                 for i in 0..num_pixels as usize {
-                    *out_data.add(total_written as usize + i * 3) = 0.0;
-                    *out_data.add(total_written as usize + i * 3 + 1) = 0.0;
-                    *out_data.add(total_written as usize + i * 3 + 2) = 0.0;
+                    let base = total_written as usize;
+                    let idx = i.checked_mul(3).unwrap_or(0);
+                    *out_data.add(base + idx) = 0.0;
+                    *out_data.add(base + idx + 1) = 0.0;
+                    *out_data.add(base + idx + 2) = 0.0;
                 }
                 total_written += floats_needed;
             }

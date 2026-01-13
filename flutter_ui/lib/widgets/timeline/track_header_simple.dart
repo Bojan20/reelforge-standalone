@@ -311,11 +311,11 @@ class _MiniButtonState extends State<_MiniButton> {
         },
         onTapCancel: () => setState(() => _pressed = false),
         child: Container(
-          width: 16,
-          height: 16,
+          width: 22,
+          height: 22,
           decoration: BoxDecoration(
             color: showActive ? widget.activeColor : FluxForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
             border: Border.all(
               color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
               width: 1,
@@ -325,7 +325,7 @@ class _MiniButtonState extends State<_MiniButton> {
             child: Text(
               widget.label,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: showActive ? Colors.white : FluxForgeTheme.textTertiary,
               ),
@@ -364,11 +364,11 @@ class _RecordButtonState extends State<_RecordButton> {
         },
         onTapCancel: () => setState(() => _pressed = false),
         child: Container(
-          width: 16,
-          height: 16,
+          width: 22,
+          height: 22,
           decoration: BoxDecoration(
             color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
             border: Border.all(
               color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
               width: 1,
@@ -376,8 +376,8 @@ class _RecordButtonState extends State<_RecordButton> {
           ),
           child: Center(
             child: Container(
-              width: 6,
-              height: 6,
+              width: 8,
+              height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: showArmed ? Colors.white : FluxForgeTheme.textTertiary,

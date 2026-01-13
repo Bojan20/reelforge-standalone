@@ -684,23 +684,25 @@ impl TruePeakLimiter {
     }
 
     /// Upsample a sample (zero-stuffing + filtering)
-    fn upsample(&mut self, input: f64) -> Vec<f64> {
+    /// Returns (samples_array, count) - stack-allocated, no heap allocation
+    #[inline(always)]
+    fn upsample(&mut self, input: f64) -> ([f64; 8], usize) {
         let factor = self.oversampling.factor();
-        if factor == 1 {
-            return vec![input];
-        }
+        let mut samples = [0.0f64; 8];
 
-        let mut samples = Vec::with_capacity(factor);
+        if factor == 1 {
+            samples[0] = input;
+            return (samples, 1);
+        }
 
         // Simple zero-stuffing with single filter pass
         // (proper implementation would use polyphase)
         for i in 0..factor {
             let x = if i == 0 { input * factor as f64 } else { 0.0 };
-            let filtered = self.upsample_filters[0].process(x);
-            samples.push(filtered);
+            samples[i] = self.upsample_filters[0].process(x);
         }
 
-        samples
+        (samples, factor)
     }
 
     /// Downsample (filter + decimate)
@@ -719,13 +721,15 @@ impl TruePeakLimiter {
     }
 
     /// Find true peak in oversampled signal
+    #[inline(always)]
     fn find_true_peak(&mut self, left: Sample, right: Sample) -> f64 {
-        let up_l = self.upsample(left);
-        let up_r = self.upsample(right);
+        let (up_l, count_l) = self.upsample(left);
+        let (up_r, count_r) = self.upsample(right);
+        let count = count_l.min(count_r);
 
         let mut max_peak: f64 = 0.0;
-        for (l, r) in up_l.iter().zip(up_r.iter()) {
-            max_peak = max_peak.max(l.abs()).max(r.abs());
+        for i in 0..count {
+            max_peak = max_peak.max(up_l[i].abs()).max(up_r[i].abs());
         }
 
         max_peak

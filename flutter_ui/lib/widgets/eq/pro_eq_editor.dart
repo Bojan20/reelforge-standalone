@@ -2977,5 +2977,22 @@ class _EQDisplayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _EQDisplayPainter old) => true;
+  bool shouldRepaint(covariant _EQDisplayPainter old) {
+    if (bands.length != old.bands.length) return true;
+    if (selectedBand != old.selectedBand) return true;
+    if (hoveredBand != old.hoveredBand) return true;
+    if (range != old.range) return true;
+    if (signalLevel != old.signalLevel) return true;
+    if (glowValue != old.glowValue) return true;
+    if (spectrum != old.spectrum) return true;
+    // Deep compare bands
+    for (int i = 0; i < bands.length; i++) {
+      final b = bands[i], o = old.bands[i];
+      if (b.freq != o.freq || b.gain != o.gain || b.q != o.q ||
+          b.shape != o.shape || b.enabled != o.enabled || b.bypassed != o.bypassed) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
