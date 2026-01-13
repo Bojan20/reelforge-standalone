@@ -911,8 +911,8 @@ impl EqBand {
         //
         // Pre-computed Q values for common orders:
         match order {
-            1 => 0.7071067811865476, // 6dB/oct - single pole, Q=1/sqrt(2)
-            2 => 0.7071067811865476, // 12dB/oct - Q = 1/sqrt(2)
+            1 => std::f64::consts::FRAC_1_SQRT_2, // 6dB/oct - single pole, Q=1/sqrt(2)
+            2 => std::f64::consts::FRAC_1_SQRT_2, // 12dB/oct - Q = 1/sqrt(2)
             3 => {
                 // 18dB/oct - 1 real pole + 1 conjugate pair
                 match stage {
@@ -931,7 +931,7 @@ impl EqBand {
                 // 36dB/oct - 3 conjugate pairs
                 match stage {
                     0 => 0.5176380902050415, // Q1
-                    1 => 0.7071067811865476, // Q2
+                    1 => std::f64::consts::FRAC_1_SQRT_2, // Q2
                     _ => 1.9318516525781366, // Q3
                 }
             }

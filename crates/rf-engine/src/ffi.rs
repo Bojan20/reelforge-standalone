@@ -494,18 +494,35 @@ pub extern "C" fn engine_set_track_color(track_id: u64, color: u32) -> i32 {
 /// Set track mute state
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_mute(track_id: u64, muted: i32) -> i32 {
+    let mute_state = muted != 0;
+    log::debug!("[FFI] set_track_mute: track_id={}, muted={}", track_id, mute_state);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-        track.muted = muted != 0;
+        track.muted = mute_state;
     });
     1
 }
 
-/// Set track solo state
+/// Set track solo state (Cubase-style: when any track is soloed, non-soloed tracks are silent)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_solo(track_id: u64, solo: i32) -> i32 {
-    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-        track.soloed = solo != 0;
-    });
+    let solo_state = solo != 0;
+    log::debug!("[FFI] set_track_solo: track_id={}, solo={}", track_id, solo_state);
+    TRACK_MANAGER.set_track_solo(TrackId(track_id), solo_state);
+    let any_solo = TRACK_MANAGER.is_solo_active();
+    log::debug!("[FFI] solo_active after change: {}", any_solo);
+    1
+}
+
+/// Check if solo mode is active (any track is soloed)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_is_solo_active() -> i32 {
+    if TRACK_MANAGER.is_solo_active() { 1 } else { 0 }
+}
+
+/// Clear all track solos
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_clear_all_solos() -> i32 {
+    TRACK_MANAGER.clear_all_solos();
     1
 }
 
@@ -513,6 +530,7 @@ pub extern "C" fn engine_set_track_solo(track_id: u64, solo: i32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
     let is_armed = armed != 0;
+    log::debug!("[FFI] set_track_armed: track_id={}, armed={}", track_id, is_armed);
     let tid = TrackId(track_id);
 
     // Get track name for recording (before updating state)
@@ -539,6 +557,7 @@ pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
 /// Set track volume (0.0 - 2.0, 1.0 = unity)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_volume(track_id: u64, volume: f64) -> i32 {
+    log::trace!("[FFI] set_track_volume: track_id={}, volume={:.3}", track_id, volume);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.volume = volume.clamp(0.0, 2.0);
     });

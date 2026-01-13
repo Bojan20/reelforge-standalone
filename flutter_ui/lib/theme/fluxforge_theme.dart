@@ -45,6 +45,8 @@ class FluxForgeTheme {
 
   // Primary Blue - focus, selection, primary actions
   static const Color accentBlue = Color(0xFF5AA8FF);
+  // Track Blue - default audio track color (Logic Pro style)
+  static const Color trackBlue = Color(0xFF5B9BD5);
   // Cyan - information, spectrum display, EQ cuts
   static const Color accentCyan = Color(0xFF50D8FF);
   // Orange - warnings, EQ boosts, active states

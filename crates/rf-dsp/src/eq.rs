@@ -65,10 +65,10 @@ impl FilterSlope {
     pub fn butterworth_qs(&self) -> &'static [f64] {
         match self {
             FilterSlope::Db6 => &[0.5],
-            FilterSlope::Db12 => &[0.7071067811865476], // 1/sqrt(2)
+            FilterSlope::Db12 => &[std::f64::consts::FRAC_1_SQRT_2], // 1/sqrt(2)
             FilterSlope::Db18 => &[0.5, 1.0],
             FilterSlope::Db24 => &[0.5411961001461969, 1.3065629648763764],
-            FilterSlope::Db36 => &[0.5176380902050415, 0.7071067811865476, 1.9318516525781366],
+            FilterSlope::Db36 => &[0.5176380902050415, std::f64::consts::FRAC_1_SQRT_2, 1.9318516525781366],
             FilterSlope::Db48 => &[
                 0.5097956518498039,
                 0.6013448869350453,

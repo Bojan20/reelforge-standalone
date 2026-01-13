@@ -201,7 +201,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                 ...widget.clips.expand((clip) => [
                   // LEFT CHANNEL (top half)
                   _StereoClipChannel(
-                    key: ValueKey('${clip.id}_L'),
+                    key: ValueKey('${clip.id}_${clip.color?.value ?? 0}_L'),
                     clip: clip,
                     zoom: widget.zoom,
                     scrollOffset: widget.scrollOffset,
@@ -212,7 +212,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                   ),
                   // RIGHT CHANNEL (bottom half)
                   _StereoClipChannel(
-                    key: ValueKey('${clip.id}_R'),
+                    key: ValueKey('${clip.id}_${clip.color?.value ?? 0}_R'),
                     clip: clip,
                     zoom: widget.zoom,
                     scrollOffset: widget.scrollOffset,
@@ -225,7 +225,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
               else
                 // Normal mode - single clip (Positioned must be direct child of Stack)
                 ...widget.clips.map((clip) => ClipWidget(
-                      key: ValueKey(clip.id),
+                      key: ValueKey('${clip.id}_${clip.color?.value ?? 0}'),
                       clip: clip,
                       zoom: widget.zoom,
                       scrollOffset: widget.scrollOffset,

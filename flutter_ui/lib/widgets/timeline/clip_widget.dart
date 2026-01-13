@@ -22,9 +22,16 @@ import '../../src/rust/native_ffi.dart';
 
 import 'stretch_overlay.dart';
 
-/// Global flag to prevent playhead movement when interacting with fade handles
-/// Set to true when pointer down on fade handle, cleared on pointer up
-bool fadeHandleActiveGlobal = false;
+/// ValueNotifier to coordinate fade handle interactions across clip widgets
+/// Replaces the anti-pattern of a mutable global boolean
+/// When true, other clip widgets should ignore drag events to prevent conflicts
+final ValueNotifier<bool> fadeHandleActiveNotifier = ValueNotifier<bool>(false);
+
+/// Convenience getter for cleaner code
+bool get fadeHandleActiveGlobal => fadeHandleActiveNotifier.value;
+
+/// Convenience setter that notifies listeners
+set fadeHandleActiveGlobal(bool value) => fadeHandleActiveNotifier.value = value;
 
 class ClipWidget extends StatefulWidget {
   final TimelineClip clip;
@@ -104,6 +111,11 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingMove = false;
   bool _isSlipEditing = false;
   bool _isEditing = false;
+
+  // Trackpad two-finger gesture detection
+  // Two-finger pan on trackpad should scroll, not drag clips
+  // Only three-finger drag (equivalent to click+drag) should move clips
+  bool _isTrackpadPanActive = false;
 
   // Double-tap detection
   DateTime? _lastTapTime;
@@ -324,8 +336,8 @@ class _ClipWidgetState extends State<ClipWidget> {
     if (x + width < 0 || x > 2000) return const SizedBox.shrink();
 
     final clipHeight = widget.trackHeight - 4;
-    // Logic Pro style: Pastel blue background with white waveform
-    const clipColor = Color(0xFF4A90C2); // Logic Pro audio region blue
+    // Use clip's color (synced with track color) or fallback to default track blue
+    final clipColor = clip.color ?? FluxForgeTheme.trackBlue;
 
     // PERFORMANCE FIX: Minimum width must scale with zoom to maintain proportionality
     // At very low zoom, clips can legitimately be < 4px wide
@@ -338,58 +350,73 @@ class _ClipWidgetState extends State<ClipWidget> {
       top: 2,
       width: clampedWidth,
       height: clipHeight,
-      child: GestureDetector(
-        onTapDown: (details) {
-          if (fadeHandleActiveGlobal) return;
-          if (_isDraggingFadeIn || _isDraggingFadeOut) return;
+      // Listener detects trackpad two-finger pan (scroll gesture)
+      // to prevent it from being interpreted as clip drag
+      child: Listener(
+        onPointerPanZoomStart: (_) {
+          // Two-finger trackpad gesture started - this is scroll, not drag
+          _isTrackpadPanActive = true;
+        },
+        onPointerPanZoomEnd: (_) {
+          // Two-finger trackpad gesture ended
+          _isTrackpadPanActive = false;
+        },
+        child: GestureDetector(
+          onTapDown: (details) {
+            if (fadeHandleActiveGlobal) return;
+            if (_isDraggingFadeIn || _isDraggingFadeOut) return;
 
-          final clickX = details.localPosition.dx;
-          final clickY = details.localPosition.dy;
-          // Ignore fade handle zones (top 20px corners)
-          const fadeHandleZone = 20.0;
-          if (clickY < fadeHandleZone) {
-            if (clickX < fadeHandleZone || clickX > width - fadeHandleZone) {
+            final clickX = details.localPosition.dx;
+            final clickY = details.localPosition.dy;
+            // Ignore fade handle zones (top 20px corners)
+            const fadeHandleZone = 20.0;
+            if (clickY < fadeHandleZone) {
+              if (clickX < fadeHandleZone || clickX > width - fadeHandleZone) {
+                return;
+              }
+            }
+            // Just select clip, don't move playhead
+            widget.onSelect?.call(false);
+          },
+          onDoubleTap: _startEditing,
+          onSecondaryTapDown: (details) {
+            // Select clip on right-click before showing menu
+            widget.onSelect?.call(false);
+            _showContextMenu(context, details.globalPosition);
+          },
+          onPanStart: (details) {
+            // IGNORE if trackpad two-finger pan is active (that's scroll, not drag)
+            // Only three-finger drag (equivalent to click+drag) should move clips
+            if (_isTrackpadPanActive) return;
+
+            // IGNORE if clip is locked
+            if (clip.locked) return;
+
+            // IGNORE if fade handle is being dragged
+            if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
               return;
             }
-          }
-          // Just select clip, don't move playhead
-          widget.onSelect?.call(false);
-        },
-        onDoubleTap: _startEditing,
-        onSecondaryTapDown: (details) {
-          // Select clip on right-click before showing menu
-          widget.onSelect?.call(false);
-          _showContextMenu(context, details.globalPosition);
-        },
-        onPanStart: (details) {
-          // IGNORE if clip is locked
-          if (clip.locked) return;
 
-          // IGNORE if fade handle is being dragged
-          if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
-            return;
-          }
+            // Check for modifier keys for slip edit
+            if (HardwareKeyboard.instance.isMetaPressed ||
+                HardwareKeyboard.instance.isControlPressed) {
+              _dragStartSourceOffset = clip.sourceOffset;
+              _dragStartMouseX = details.globalPosition.dx;
+              setState(() => _isSlipEditing = true);
+            } else {
+              _dragStartTime = clip.startTime;
+              _dragStartMouseX = details.globalPosition.dx;
+              _dragStartMouseY = details.globalPosition.dy;
+              _lastDragPosition = details.globalPosition;
+              _wasCrossTrackDrag = false; // Reset at start of drag
+              setState(() => _isDraggingMove = true);
 
-          // Check for modifier keys for slip edit
-          if (HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed) {
-            _dragStartSourceOffset = clip.sourceOffset;
-            _dragStartMouseX = details.globalPosition.dx;
-            setState(() => _isSlipEditing = true);
-          } else {
-            _dragStartTime = clip.startTime;
-            _dragStartMouseX = details.globalPosition.dx;
-            _dragStartMouseY = details.globalPosition.dy;
-            _lastDragPosition = details.globalPosition;
-            _wasCrossTrackDrag = false; // Reset at start of drag
-            setState(() => _isDraggingMove = true);
-
-            // Start smooth drag with ghost preview (Cubase-style)
-            if (widget.onDragStart != null) {
-              widget.onDragStart!(details.globalPosition, details.localPosition);
+              // Start smooth drag with ghost preview (Cubase-style)
+              if (widget.onDragStart != null) {
+                widget.onDragStart!(details.globalPosition, details.localPosition);
+              }
             }
-          }
-        },
+          },
         onPanUpdate: (details) {
           // IGNORE if fade handle is being dragged
           if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
@@ -528,9 +555,13 @@ class _ClipWidgetState extends State<ClipWidget> {
                   left: (width - 40) / 2,
                   child: GestureDetector(
                     onVerticalDragStart: (_) {
+                      // IGNORE if clip is locked
+                      if (clip.locked) return;
                       setState(() => _isDraggingGain = true);
                     },
                     onVerticalDragUpdate: (details) {
+                      // IGNORE if clip is locked
+                      if (clip.locked) return;
                       // Up = louder, down = quieter
                       final delta = -details.delta.dy / 50;
                       final newGain = (widget.clip.gain + delta).clamp(0.0, 2.0);
@@ -539,7 +570,11 @@ class _ClipWidgetState extends State<ClipWidget> {
                     onVerticalDragEnd: (_) {
                       setState(() => _isDraggingGain = false);
                     },
-                    onDoubleTap: () => widget.onGainChange?.call(1), // Reset
+                    onDoubleTap: () {
+                      // IGNORE if clip is locked
+                      if (clip.locked) return;
+                      widget.onGainChange?.call(1); // Reset
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 4,
@@ -766,7 +801,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             ],
           ),
         ),
-      ),
+      ), // Close GestureDetector
+      ), // Close Listener
     );
   }
 }

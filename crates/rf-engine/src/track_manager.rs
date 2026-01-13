@@ -10,7 +10,7 @@
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::input_bus::{InputBusId, MonitorMode};
 
@@ -1167,6 +1167,8 @@ pub struct TrackManager {
     pub comp_regions: RwLock<HashMap<TrackId, Vec<CompRegion>>>,
     /// Track templates (user-saved and defaults)
     pub templates: RwLock<HashMap<String, TrackTemplate>>,
+    /// Solo active flag - true if any track is soloed (Cubase-style solo behavior)
+    pub solo_active: AtomicBool,
 }
 
 impl TrackManager {
@@ -1196,6 +1198,7 @@ impl TrackManager {
             takes: RwLock::new(HashMap::new()),
             comp_regions: RwLock::new(HashMap::new()),
             templates: RwLock::new(templates),
+            solo_active: AtomicBool::new(false),
         }
     }
 
@@ -1343,6 +1346,63 @@ impl TrackManager {
                 track.order = idx;
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SOLO OPERATIONS (Cubase-style exclusive solo)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Update solo_active flag based on current track states
+    /// Call this after any track solo state changes
+    pub fn update_solo_state(&self) {
+        let tracks = self.tracks.read();
+        let any_soloed = tracks.values().any(|t| t.soloed);
+        self.solo_active.store(any_soloed, Ordering::SeqCst);
+    }
+
+    /// Check if solo mode is active (any track is soloed)
+    pub fn is_solo_active(&self) -> bool {
+        self.solo_active.load(Ordering::SeqCst)
+    }
+
+    /// Check if a track should be audible considering solo state
+    /// Returns true if track should play, false if it should be silent
+    /// Logic: If solo_active AND this track is NOT soloed AND NOT muted → silent
+    ///        If track is muted → silent
+    ///        Otherwise → audible
+    pub fn is_track_audible(&self, track_id: TrackId) -> bool {
+        let tracks = self.tracks.read();
+        if let Some(track) = tracks.get(&track_id) {
+            // Muted tracks are never audible
+            if track.muted {
+                return false;
+            }
+            // If solo is active, only soloed tracks are audible
+            if self.solo_active.load(Ordering::SeqCst) && !track.soloed {
+                return false;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set track solo state and update global solo_active flag
+    pub fn set_track_solo(&self, track_id: TrackId, soloed: bool) {
+        if let Some(track) = self.tracks.write().get_mut(&track_id) {
+            track.soloed = soloed;
+        }
+        self.update_solo_state();
+    }
+
+    /// Clear all solos (unsolo all tracks)
+    pub fn clear_all_solos(&self) {
+        let mut tracks = self.tracks.write();
+        for track in tracks.values_mut() {
+            track.soloed = false;
+        }
+        drop(tracks);
+        self.solo_active.store(false, Ordering::SeqCst);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

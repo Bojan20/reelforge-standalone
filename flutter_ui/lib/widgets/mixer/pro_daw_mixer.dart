@@ -8,8 +8,9 @@
 /// - Master section
 /// - Real-time metering
 
-import 'dart:math' show cos, sin;
+import 'dart:math' show cos, sin, log, pow, ln10;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mixer_provider.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -845,7 +846,7 @@ class _PanKnobPainter extends CustomPainter {
   bool shouldRepaint(_PanKnobPainter oldDelegate) => value != oldDelegate.value;
 }
 
-class _VerticalFader extends StatelessWidget {
+class _VerticalFader extends StatefulWidget {
   final double value;
   final ValueChanged<double>? onChanged;
   final Color color;
@@ -857,97 +858,158 @@ class _VerticalFader extends StatelessWidget {
   });
 
   @override
+  State<_VerticalFader> createState() => _VerticalFaderState();
+}
+
+class _VerticalFaderState extends State<_VerticalFader> {
+  // Logic Pro style: linear dB mapping
+  static const double _minDb = -60.0;
+  static const double _maxDb = 6.0;
+
+  // Convert linear amplitude (0.0-1.5) to dB (-inf to +3.5dB)
+  double _linearToDb(double linear) {
+    if (linear <= 0.0001) return _minDb;
+    return 20.0 * log(linear) / ln10;
+  }
+
+  // Convert dB to linear amplitude
+  double _dbToLinear(double db) {
+    if (db <= _minDb) return 0.0;
+    return pow(10.0, db / 20.0).toDouble();
+  }
+
+  // Logic Pro style: linear dB mapping
+  // dB is already logarithmic, so linear slider = linear dB change
+  double _dbToNormalized(double db) {
+    if (db <= _minDb) return 0.0;
+    if (db >= _maxDb) return 1.0;
+    return (db - _minDb) / (_maxDb - _minDb);
+  }
+
+  double _normalizedToDb(double normalized) {
+    if (normalized <= 0.0) return _minDb;
+    if (normalized >= 1.0) return _maxDb;
+    return _minDb + (normalized * (_maxDb - _minDb));
+  }
+
+  void _handleScroll(PointerSignalEvent event) {
+    if (widget.onChanged == null) return;
+    if (event is PointerScrollEvent) {
+      final currentDb = _linearToDb(widget.value);
+      final currentNorm = _dbToNormalized(currentDb);
+      // Scroll up = louder, down = quieter
+      final delta = event.scrollDelta.dy > 0 ? -0.02 : 0.02;
+      final newNorm = (currentNorm + delta).clamp(0.0, 1.0);
+      final newDb = _normalizedToDb(newNorm);
+      final newLinear = _dbToLinear(newDb).clamp(0.0, 1.5);
+      widget.onChanged!(newLinear);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque, // Capture all drag events
-      onVerticalDragUpdate: (details) {
-        if (onChanged != null) {
-          final delta = -details.delta.dy / 150;
-          final newValue = (value + delta).clamp(0.0, 1.5);
-          onChanged!(newValue);
-        }
-      },
-      onDoubleTap: () => onChanged?.call(1.0), // Reset to 0dB
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final height = constraints.maxHeight;
-          final faderPosition = (1 - (value / 1.5)) * (height - 20);
+    return Listener(
+      onPointerSignal: _handleScroll,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque, // Capture all drag events
+        onVerticalDragUpdate: (details) {
+          if (widget.onChanged != null) {
+            // Logic Pro style: drag in normalized space for consistent feel
+            final currentDb = _linearToDb(widget.value);
+            final currentNorm = _dbToNormalized(currentDb);
+            // Negative because dragging UP should increase volume
+            final normDelta = -details.delta.dy / 150.0;
+            final newNorm = (currentNorm + normDelta).clamp(0.0, 1.0);
+            final newDb = _normalizedToDb(newNorm);
+            final newLinear = _dbToLinear(newDb).clamp(0.0, 1.5);
+            widget.onChanged!(newLinear);
+          }
+        },
+        onDoubleTap: () => widget.onChanged?.call(1.0), // Reset to 0dB
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final height = constraints.maxHeight;
+            // Convert linear to normalized position via dB
+            final db = _linearToDb(widget.value);
+            final normalized = _dbToNormalized(db);
+            final faderPosition = (1 - normalized) * (height - 20);
 
-          return Container(
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgDeepest,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Stack(
-              children: [
-                // Track
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 4,
-                  bottom: 4,
-                  child: Center(
-                    child: Container(
-                      width: 4,
-                      decoration: BoxDecoration(
-                        color: FluxForgeTheme.bgMid,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 0dB line
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: height * (1 - 1/1.5) - 1,
-                  child: Container(
-                    height: 2,
-                    color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-                  ),
-                ),
-
-                // Fader handle
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: faderPosition,
-                  child: Container(
-                    height: 20,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          color.withValues(alpha: 0.9),
-                          color.withValues(alpha: 0.6),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
+            return Container(
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgDeepest,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Stack(
+                children: [
+                  // Track
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 4,
+                    bottom: 4,
                     child: Center(
                       child: Container(
-                        width: double.infinity,
-                        height: 2,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: FluxForgeTheme.textPrimary.withValues(alpha: 0.5),
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgMid,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+
+                  // 0dB line (at Logic Pro style normalized position)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: (1 - _dbToNormalized(0)) * (height - 20) + 9,
+                    child: Container(
+                      height: 2,
+                      color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+                    ),
+                  ),
+
+                  // Fader handle
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: faderPosition,
+                    child: Container(
+                      height: 20,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            widget.color.withValues(alpha: 0.9),
+                            widget.color.withValues(alpha: 0.6),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: double.infinity,
+                          height: 2,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          color: FluxForgeTheme.textPrimary.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

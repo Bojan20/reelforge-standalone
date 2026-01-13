@@ -65,17 +65,17 @@ impl LRFilter {
         for i in 0..num_stages {
             // Q values for Butterworth cascaded to create LR
             let q = match crossover_type {
-                CrossoverType::Butterworth12 => 0.7071,
+                CrossoverType::Butterworth12 => std::f64::consts::FRAC_1_SQRT_2,
                 CrossoverType::LinkwitzRiley24 => {
                     if i == 0 {
-                        0.7071
+                        std::f64::consts::FRAC_1_SQRT_2
                     } else {
-                        0.7071
+                        std::f64::consts::FRAC_1_SQRT_2
                     }
                 }
                 CrossoverType::LinkwitzRiley48 => {
                     // LR48 uses 4 cascaded Butterworth 2nd order
-                    0.7071
+                    std::f64::consts::FRAC_1_SQRT_2
                 }
             };
 
@@ -95,8 +95,8 @@ impl LRFilter {
 
         for _i in 0..num_stages {
             let q = match crossover_type {
-                CrossoverType::Butterworth12 => 0.7071,
-                CrossoverType::LinkwitzRiley24 | CrossoverType::LinkwitzRiley48 => 0.7071,
+                CrossoverType::Butterworth12 => std::f64::consts::FRAC_1_SQRT_2,
+                CrossoverType::LinkwitzRiley24 | CrossoverType::LinkwitzRiley48 => std::f64::consts::FRAC_1_SQRT_2,
             };
 
             let coeffs = BiquadCoeffs::highpass(freq, q, sample_rate);
@@ -124,9 +124,9 @@ impl LRFilter {
     fn update(&mut self, freq: f64, sample_rate: f64, is_lowpass: bool) {
         for stage in &mut self.stages {
             let coeffs = if is_lowpass {
-                BiquadCoeffs::lowpass(freq, 0.7071, sample_rate)
+                BiquadCoeffs::lowpass(freq, std::f64::consts::FRAC_1_SQRT_2, sample_rate)
             } else {
-                BiquadCoeffs::highpass(freq, 0.7071, sample_rate)
+                BiquadCoeffs::highpass(freq, std::f64::consts::FRAC_1_SQRT_2, sample_rate)
             };
             stage.set_coeffs(coeffs);
         }

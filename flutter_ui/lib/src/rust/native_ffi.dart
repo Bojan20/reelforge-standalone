@@ -143,6 +143,12 @@ typedef EngineSetTrackMuteDart = int Function(int trackId, int muted);
 typedef EngineSetTrackSoloNative = Int32 Function(Uint64 trackId, Int32 solo);
 typedef EngineSetTrackSoloDart = int Function(int trackId, int solo);
 
+typedef EngineIsSoloActiveNative = Int32 Function();
+typedef EngineIsSoloActiveDart = int Function();
+
+typedef EngineClearAllSolosNative = Int32 Function();
+typedef EngineClearAllSolosDart = int Function();
+
 typedef EngineSetTrackArmedNative = Int32 Function(Uint64 trackId, Int32 armed);
 typedef EngineSetTrackArmedDart = int Function(int trackId, int armed);
 
@@ -822,6 +828,8 @@ class NativeFFI {
   late final EngineSetTrackNameDart _setTrackName;
   late final EngineSetTrackMuteDart _setTrackMute;
   late final EngineSetTrackSoloDart _setTrackSolo;
+  late final EngineIsSoloActiveDart _isSoloActive;
+  late final EngineClearAllSolosDart _clearAllSolos;
   late final EngineSetTrackArmedDart _setTrackArmed;
   late final EngineSetTrackVolumeDart _setTrackVolume;
   late final EngineSetTrackPanDart _setTrackPan;
@@ -1096,6 +1104,8 @@ class NativeFFI {
     _setTrackName = _lib.lookupFunction<EngineSetTrackNameNative, EngineSetTrackNameDart>('engine_set_track_name');
     _setTrackMute = _lib.lookupFunction<EngineSetTrackMuteNative, EngineSetTrackMuteDart>('engine_set_track_mute');
     _setTrackSolo = _lib.lookupFunction<EngineSetTrackSoloNative, EngineSetTrackSoloDart>('engine_set_track_solo');
+    _isSoloActive = _lib.lookupFunction<EngineIsSoloActiveNative, EngineIsSoloActiveDart>('engine_is_solo_active');
+    _clearAllSolos = _lib.lookupFunction<EngineClearAllSolosNative, EngineClearAllSolosDart>('engine_clear_all_solos');
     _setTrackArmed = _lib.lookupFunction<EngineSetTrackArmedNative, EngineSetTrackArmedDart>('engine_set_track_armed');
     _setTrackVolume = _lib.lookupFunction<EngineSetTrackVolumeNative, EngineSetTrackVolumeDart>('engine_set_track_volume');
     _setTrackPan = _lib.lookupFunction<EngineSetTrackPanNative, EngineSetTrackPanDart>('engine_set_track_pan');
@@ -1382,10 +1392,22 @@ class NativeFFI {
     return _setTrackMute(trackId, muted ? 1 : 0) != 0;
   }
 
-  /// Set track solo state
+  /// Set track solo state (Cubase-style: when any track is soloed, non-soloed tracks are silent)
   bool setTrackSolo(int trackId, bool solo) {
     if (!_loaded) return false;
     return _setTrackSolo(trackId, solo ? 1 : 0) != 0;
+  }
+
+  /// Check if solo mode is active (any track is soloed)
+  bool isSoloActive() {
+    if (!_loaded) return false;
+    return _isSoloActive() != 0;
+  }
+
+  /// Clear all track solos
+  bool clearAllSolos() {
+    if (!_loaded) return false;
+    return _clearAllSolos() != 0;
   }
 
   /// Set track armed (record ready) state

@@ -1715,9 +1715,14 @@ impl PlaybackEngine {
         let track_l = unsafe { std::slice::from_raw_parts_mut(track_l, frames) };
         let track_r = unsafe { std::slice::from_raw_parts_mut(track_r, frames) };
 
+        // Get solo state ONCE (atomic - no lock needed)
+        // Cubase-style: when any track is soloed, only soloed tracks are audible
+        let solo_active = self.track_manager.is_solo_active();
+
         // Process each track → route to its bus
         for track in tracks.values() {
-            if track.muted {
+            // Skip muted tracks, or non-soloed tracks when solo is active
+            if track.muted || (solo_active && !track.soloed) {
                 continue;
             }
 
@@ -2285,9 +2290,13 @@ impl PlaybackEngine {
             channel.clear_input();
         }
 
+        // Get solo state ONCE (atomic - no lock needed)
+        let solo_active = self.track_manager.is_solo_active();
+
         // Process each track → feed to routing graph channel
         for track in tracks.values() {
-            if track.muted {
+            // Skip muted tracks, or non-soloed tracks when solo is active
+            if track.muted || (solo_active && !track.soloed) {
                 continue;
             }
 
@@ -2427,11 +2436,15 @@ impl PlaybackEngine {
         let clips = self.track_manager.clips.read();
         let crossfades = self.track_manager.crossfades.read();
 
+        // Get solo state for offline rendering
+        let solo_active = self.track_manager.is_solo_active();
+
         let mut track_l = vec![0.0f64; frames];
         let mut track_r = vec![0.0f64; frames];
 
         for track in tracks.values() {
-            if track.muted {
+            // Skip muted tracks, or non-soloed tracks when solo is active
+            if track.muted || (solo_active && !track.soloed) {
                 continue;
             }
 

@@ -83,6 +83,7 @@ import '../widgets/metering/metering_bridge.dart';
 import '../widgets/meters/pdc_display.dart';
 import '../src/rust/engine_api.dart';
 import '../src/rust/native_ffi.dart';
+import '../services/waveform_cache.dart';
 import '../dialogs/export_audio_dialog.dart';
 import '../dialogs/batch_export_dialog.dart';
 import '../dialogs/export_presets_dialog.dart';
@@ -487,22 +488,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // TRACK MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Track colors palette (Logic Pro style - audio blue first)
-  static const List<Color> _trackColors = [
-    Color(0xFF5B9BD5), // Logic Pro Audio Blue
-    Color(0xFF70C050), // Logic Pro Green (Instrument/MIDI)
-    Color(0xFFD4A84B), // Logic Pro Gold (Bus)
-    Color(0xFFFF5858), // Warm Red
-    Color(0xFFFF8C42), // Orange
-    Color(0xFFFFD93D), // Yellow
-    Color(0xFF4ECDC4), // Teal
-    Color(0xFF8B5CF6), // Purple
-  ];
+  /// Default track color - all new tracks use this (Cubase style)
+  static Color get _defaultTrackColor => FluxForgeTheme.trackBlue;
 
   /// Add a new track
   void _handleAddTrack() {
     final trackIndex = _tracks.length;
-    final color = _trackColors[trackIndex % _trackColors.length];
+    final color = _defaultTrackColor;
     final trackName = 'Audio ${trackIndex + 1}';
     final trackId = engine.createTrack(
       name: trackName,
@@ -529,7 +521,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Delete a track
   void _handleDeleteTrack(String trackId) {
-    engine.deleteTrack(trackId);
+    EngineApi.instance.deleteTrack(trackId);
 
     // Remove mixer channel (Cubase-style: track delete = fader delete)
     final mixerProvider = context.read<MixerProvider>();
@@ -578,14 +570,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final menuItems = ContextMenus.track(
       onRename: () {
         // TODO: Show rename dialog
-        Navigator.pop(context);
       },
       onDuplicate: () {
-        Navigator.pop(context);
         _handleDuplicateTrack(trackId);
       },
       onMute: () {
-        Navigator.pop(context);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) return t.copyWith(muted: !t.muted);
@@ -594,7 +583,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onSolo: () {
-        Navigator.pop(context);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) return t.copyWith(soloed: !t.soloed);
@@ -603,7 +591,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onFreeze: () {
-        Navigator.pop(context);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) return t.copyWith(frozen: !t.frozen);
@@ -612,11 +599,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onColor: () {
-        Navigator.pop(context);
-        // Color picker is shown on track header
+        _showTrackColorPicker(trackId, track.color);
       },
       onDelete: () {
-        Navigator.pop(context);
         _handleDeleteTrack(trackId);
       },
       isMuted: track.muted,
@@ -629,6 +614,88 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       position: position,
       items: menuItems,
     );
+  }
+
+  /// Show color picker dialog for track
+  void _showTrackColorPicker(String trackId, Color currentColor) {
+    // Cubase-style track colors
+    final colors = [
+      const Color(0xFF4A9EFF), // Blue
+      const Color(0xFF40FF90), // Green
+      const Color(0xFFFF4060), // Red
+      const Color(0xFFAA40FF), // Purple
+      const Color(0xFFFF9040), // Orange
+      const Color(0xFF40C8FF), // Cyan
+      const Color(0xFFFFFF40), // Yellow
+      const Color(0xFFFF40AA), // Pink
+      const Color(0xFF8B5A2B), // Brown
+      const Color(0xFF607D8B), // Blue Grey
+      const Color(0xFF9E9E9E), // Grey
+      const Color(0xFF00BFA5), // Teal
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgSurface,
+        title: Text(
+          'Track Color',
+          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+        ),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final color in colors)
+              GestureDetector(
+                onTap: () {
+                  // Update track color FIRST (this also updates clips and mixer channel)
+                  _handleTrackColorChange(trackId, color);
+                  // Then close dialog
+                  Navigator.of(ctx).pop();
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                    border: currentColor.value == color.value
+                        ? Border.all(color: Colors.white, width: 2)
+                        : Border.all(color: Colors.black26, width: 1),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle track color change - updates track, clips, and mixer channel
+  void _handleTrackColorChange(String trackId, Color color) {
+    EngineApi.instance.updateTrack(trackId, color: color.value);
+
+    setState(() {
+      // Update track color
+      _tracks = _tracks.map((t) {
+        if (t.id == trackId) {
+          return t.copyWith(color: color);
+        }
+        return t;
+      }).toList();
+      // Update all clips on this track to match new color
+      _clips = _clips.map((c) {
+        if (c.trackId == trackId) {
+          return c.copyWith(color: color);
+        }
+        return c;
+      }).toList();
+    });
+
+    // Update mixer channel color
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.updateChannelColor(trackId, color);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -748,7 +815,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     timeline.OutputBus? bus,
   ]) async {
     final trackIndex = _tracks.length;
-    final color = _trackColors[trackIndex % _trackColors.length];
+    final color = _defaultTrackColor;
     final clipBus = bus ?? poolFile.defaultBus;
 
     // Create track with audio file name (without extension)
@@ -800,7 +867,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     setState(() {
       _tracks = [..._tracks, newTrack];
-      _clips = [..._clips, newClip];
+      // Deselect all existing clips, select the new one
+      _clips = _clips.map((c) => c.copyWith(selected: false)).toList();
+      _clips = [..._clips, newClip.copyWith(selected: true)];
+
+      // Auto-select new track and open Channel tab
+      _selectedTrackId = nativeTrackId;
+      _activeLeftTab = LeftZoneTab.channel;
 
       // Update _audioPool with real duration from engine
       if (clipInfo != null) {
@@ -1146,6 +1219,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       for (final clip in _clipboardClips) {
         final newId = 'clip-${DateTime.now().millisecondsSinceEpoch}-${clip.id}';
         final offset = clip.startTime - minStart;
+        // Get target track color
+        final targetTrack = _tracks.firstWhere(
+          (t) => t.id == clip.trackId,
+          orElse: () => _tracks.first,
+        );
         _clips.add(timeline.TimelineClip(
           id: newId,
           trackId: clip.trackId,
@@ -1154,7 +1232,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           duration: clip.duration,
           sourceDuration: clip.sourceDuration,
           sourceOffset: clip.sourceOffset,
-          color: clip.color,
+          color: targetTrack.color, // Sync with track color
           waveform: clip.waveform,
           gain: clip.gain,
           fadeIn: clip.fadeIn,
@@ -1170,9 +1248,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final selectedIds = _clips.where((c) => c.selected).map((c) => c.id).toSet();
     if (selectedIds.isEmpty) return;
 
-    // Delete from engine
+    // Delete from engine and invalidate waveform cache
+    final cache = WaveformCache();
     for (final id in selectedIds) {
       engine.deleteClip(id);
+      cache.remove(id); // Invalidate waveform cache entry
     }
 
     setState(() {
@@ -2394,6 +2474,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
       isPlaying: transport.isPlaying, // For R button pulsing animation
+      selectedTrackId: _selectedTrackId, // Sync track selection with Timeline
       // Import audio shortcut (Shift+Cmd+I)
       onImportAudio: _openFilePicker,
       // Playhead callbacks
@@ -2485,15 +2566,29 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           targetTrackId: targetTrackId,
           startTime: newStartTime,
         );
+        // Get target track's color
+        final targetTrack = _tracks.firstWhere(
+          (t) => t.id == targetTrackId,
+          orElse: () => _tracks.first,
+        );
+        debugPrint('[UI] onClipMoveToTrack: clipId=$clipId, targetTrackId=$targetTrackId, targetTrack.color=${targetTrack.color}');
         setState(() {
+          // Auto-select the target track
+          _selectedTrackId = targetTrackId;
+          _activeLeftTab = LeftZoneTab.channel;
+
           _clips = _clips.map((c) {
             if (c.id == clipId) {
+              debugPrint('[UI] Updating clip $clipId color to ${targetTrack.color}');
               return c.copyWith(
                 trackId: targetTrackId,
                 startTime: newStartTime,
+                color: targetTrack.color, // Sync clip color with target track
+                selected: true, // Select the moved clip
               );
             }
-            return c;
+            // Deselect other clips
+            return c.copyWith(selected: false);
           }).toList();
         });
       },
@@ -2501,7 +2596,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         // Create a new track - use engine's returned ID
         final trackIndex = _tracks.length;
         final trackName = 'Audio ${trackIndex + 1}';
-        final color = _trackColors[trackIndex % _trackColors.length];
+        final color = _defaultTrackColor;
+        debugPrint('[UI] onClipMoveToNewTrack: clipId=$clipId, newTrackIndex=$trackIndex, color=$color');
 
         // Create track in native engine - GET THE REAL ID
         final newTrackId = engine.createTrack(
@@ -2533,38 +2629,79 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             ),
           ];
 
-          // Update clip's track assignment
+          // Auto-select the new track
+          _selectedTrackId = newTrackId;
+          _activeLeftTab = LeftZoneTab.channel;
+
+          // Update clip's track assignment and color
           _clips = _clips.map((c) {
             if (c.id == clipId) {
               return c.copyWith(
                 trackId: newTrackId,
                 startTime: newStartTime,
+                color: color, // Sync clip color with new track
+                selected: true, // Select the moved clip
               );
             }
-            return c;
+            // Deselect other clips
+            return c.copyWith(selected: false);
           }).toList();
         });
       },
       onClipResize: (clipId, newStartTime, newDuration, newOffset) {
-        // Notify engine
-        engine.resizeClip(
-          clipId: clipId,
-          startTime: newStartTime,
-          duration: newDuration,
-          sourceOffset: newOffset ?? 0.0,
+        // Validate resize parameters
+        if (newDuration < 0.01) {
+          debugPrint('[ClipResize] Invalid duration: $newDuration (min 0.01s)');
+          return;
+        }
+        if (newStartTime < 0) {
+          debugPrint('[ClipResize] Invalid start time: $newStartTime (must be >= 0)');
+          return;
+        }
+
+        // Find clip for additional validation
+        final clip = _clips.firstWhere(
+          (c) => c.id == clipId,
+          orElse: () => timeline.TimelineClip(
+            id: '', trackId: '', name: '', startTime: 0, duration: 0,
+          ),
         );
-        setState(() {
-          _clips = _clips.map((c) {
-            if (c.id == clipId) {
-              return c.copyWith(
-                startTime: newStartTime,
-                duration: newDuration,
-                sourceOffset: newOffset ?? c.sourceOffset,
-              );
-            }
-            return c;
-          }).toList();
-        });
+        if (clip.id.isEmpty) {
+          debugPrint('[ClipResize] Clip not found: $clipId');
+          return;
+        }
+
+        // Validate source offset bounds
+        final effectiveOffset = newOffset ?? clip.sourceOffset;
+        if (clip.sourceDuration != null && effectiveOffset > clip.sourceDuration!) {
+          debugPrint('[ClipResize] Source offset exceeds source duration');
+          return;
+        }
+
+        // Notify engine with error handling
+        try {
+          engine.resizeClip(
+            clipId: clipId,
+            startTime: newStartTime,
+            duration: newDuration,
+            sourceOffset: effectiveOffset,
+          );
+          setState(() {
+            _clips = _clips.map((c) {
+              if (c.id == clipId) {
+                return c.copyWith(
+                  startTime: newStartTime,
+                  duration: newDuration,
+                  sourceOffset: effectiveOffset,
+                );
+              }
+              return c;
+            }).toList();
+          });
+        } catch (e) {
+          debugPrint('[ClipResize] Engine error: $e');
+          _showSnackBar('Failed to resize clip');
+        }
       },
       onClipGainChange: (clipId, gain) {
         // Notify engine
@@ -2686,8 +2823,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onClipDelete: (clipId) {
-        // Notify engine
+        // Notify engine and invalidate waveform cache
         engine.deleteClip(clipId);
+        WaveformCache().remove(clipId);
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
         });
@@ -2764,15 +2902,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onTrackColorChange: (trackId, color) {
-        engine.updateTrack(trackId, color: color.value);
-        setState(() {
-          _tracks = _tracks.map((t) {
-            if (t.id == trackId) {
-              return t.copyWith(color: color);
-            }
-            return t;
-          }).toList();
-        });
+        _handleTrackColorChange(trackId, color);
       },
       onTrackBusChange: (trackId, bus) {
         engine.updateTrack(trackId, busId: bus.index);
@@ -2891,10 +3021,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onTrackDuplicate: (trackId) => _handleDuplicateTrack(trackId),
       onTrackDelete: (trackId) => _handleDeleteTrackById(trackId),
       // Track selection for Channel tab - auto switch to Channel tab
+      // Also auto-select first clip on this track to show Gain & Fades section
       onTrackSelect: (trackId) {
         setState(() {
           _selectedTrackId = trackId;
           _activeLeftTab = LeftZoneTab.channel;
+
+          // Auto-select first clip on this track (for Gain & Fades section)
+          // First deselect all clips
+          _clips = _clips.map((c) => c.copyWith(selected: false)).toList();
+
+          // Find first clip on this track and select it
+          final trackClips = _clips.where((c) => c.trackId == trackId).toList();
+          if (trackClips.isNotEmpty) {
+            // Sort by start time and select first
+            trackClips.sort((a, b) => a.startTime.compareTo(b.startTime));
+            final firstClip = trackClips.first;
+            _clips = _clips.map((c) {
+              if (c.id == firstClip.id) return c.copyWith(selected: true);
+              return c;
+            }).toList();
+          }
         });
       },
       // Track context menu

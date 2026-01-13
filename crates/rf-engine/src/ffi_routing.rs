@@ -61,7 +61,9 @@ pub extern "C" fn routing_init(sender_ptr: *mut RoutingCommandSender) -> i32 {
 /// Create new routing channel
 /// kind: 0=Audio, 1=Bus, 2=Aux, 3=VCA, 4=Master
 /// Returns: callback_id for tracking response (0 on failure)
+/// SAFETY: Caller must ensure name points to valid C string or is null
 #[unsafe(no_mangle)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn routing_create_channel(kind: u32, name: *const c_char) -> u32 {
     let name_str = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Unnamed".to_string());
 

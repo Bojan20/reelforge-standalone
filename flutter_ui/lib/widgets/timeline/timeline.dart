@@ -141,6 +141,8 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onTrackDelete;
   /// Context menu callback for tracks (pass track ID and position)
   final void Function(String trackId, Offset position)? onTrackContextMenu;
+  /// Currently selected track ID (controlled from parent)
+  final String? selectedTrackId;
 
   // Automation callbacks
   /// Toggle automation lanes visibility for a track
@@ -222,6 +224,7 @@ class Timeline extends StatefulWidget {
     this.onTrackDuplicate,
     this.onTrackDelete,
     this.onTrackContextMenu,
+    this.selectedTrackId,
     this.onTrackAutomationToggle,
     this.onAutomationLaneChanged,
     this.onAddAutomationLane,
@@ -242,8 +245,11 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   static const double _defaultTrackHeight = 100;
   static const double _rulerHeight = 28;
 
-  // Selected track for highlighting
-  String? _selectedTrackId;
+  // Selected track for highlighting (use widget.selectedTrackId if provided, else internal)
+  String? _internalSelectedTrackId;
+
+  /// Get effective selected track ID (prefer parent-controlled, fallback to internal)
+  String? get _selectedTrackId => widget.selectedTrackId ?? _internalSelectedTrackId;
 
   // Momentum scrolling (trackpad inertia)
   late AnimationController _momentumController;
@@ -404,6 +410,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       widget.tracks.where((t) => !t.hidden).toList();
 
   /// Get the end time of the last clip (actual content end)
+  /// Adds extra space after content for Cubase-style scrolling (4 bars padding)
   double get _contentEndTime {
     if (widget.clips.isEmpty) return 0;
     double maxEnd = 0;
@@ -411,7 +418,13 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       final clipEnd = clip.startTime + clip.duration;
       if (clipEnd > maxEnd) maxEnd = clipEnd;
     }
-    return maxEnd;
+    // Add 4 bars of padding after last clip (Cubase style)
+    // At 120 BPM, 4/4 time: 4 bars = 8 seconds
+    final beatsPerBar = widget.timeSignatureNum;
+    final secondsPerBeat = 60.0 / widget.tempo;
+    final barsOfPadding = 4;
+    final paddingSeconds = barsOfPadding * beatsPerBar * secondsPerBeat;
+    return maxEnd + paddingSeconds;
   }
 
   /// Check if scrolling is needed (content extends beyond visible area)
@@ -766,15 +779,19 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   KeyEventResult _handleKeyEvent(KeyEvent event) {
     debugPrint('[Timeline] Key event: ${event.logicalKey.keyLabel} (${event.runtimeType})');
 
-    // G/H zoom and [ ] fade - allow repeat (hold key for continuous adjustment)
+    // Keys that allow repeat (hold key for continuous adjustment)
     final isZoomKey = event.logicalKey == LogicalKeyboardKey.keyG ||
         event.logicalKey == LogicalKeyboardKey.keyH;
     final isFadeKey = event.logicalKey == LogicalKeyboardKey.bracketLeft ||
         event.logicalKey == LogicalKeyboardKey.bracketRight;
+    final isArrowKey = event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.arrowUp ||
+        event.logicalKey == LogicalKeyboardKey.arrowDown;
 
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
-    // Only allow repeat for zoom and fade keys
-    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey) return KeyEventResult.ignored;
+    // Only allow repeat for zoom, fade, and arrow keys
+    if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey && !isArrowKey) return KeyEventResult.ignored;
 
     // Check for Cmd modifier - pass through Cmd shortcuts we don't handle
     final isCmd = HardwareKeyboard.instance.isMetaPressed ||
@@ -855,34 +872,45 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       return KeyEventResult.handled;
     }
 
-    // Arrow keys - nudge clip OR scroll timeline
-    final isArrowKey = event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+    // ↑/↓ Arrow keys - navigate between tracks
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      final visibleTracks = _visibleTracks;
+      if (visibleTracks.isEmpty) return KeyEventResult.ignored;
+
+      // Find current track index
+      int currentIndex = -1;
+      if (_selectedTrackId != null) {
+        currentIndex = visibleTracks.indexWhere((t) => t.id == _selectedTrackId);
+      }
+
+      int newIndex;
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        // Go to previous track (or last if at top/none selected)
+        newIndex = currentIndex <= 0 ? visibleTracks.length - 1 : currentIndex - 1;
+      } else {
+        // Go to next track (or first if at bottom/none selected)
+        newIndex = currentIndex >= visibleTracks.length - 1 ? 0 : currentIndex + 1;
+      }
+
+      final newTrack = visibleTracks[newIndex];
+      setState(() => _internalSelectedTrackId = newTrack.id);
+      widget.onTrackSelect?.call(newTrack.id);
+      return KeyEventResult.handled;
+    }
+
+    // ←/→ Arrow keys - move playhead OR nudge clip (with Alt)
+    final isHorizontalArrow = event.logicalKey == LogicalKeyboardKey.arrowLeft ||
         event.logicalKey == LogicalKeyboardKey.arrowRight;
 
-    if (isArrowKey) {
-      // Alt+Arrow = scroll timeline
-      if (HardwareKeyboard.instance.isAltPressed) {
-        final scrollAmount = HardwareKeyboard.instance.isShiftPressed
-            ? 2.0  // Fast scroll
-            : 0.5; // Normal scroll
+    if (isHorizontalArrow) {
+      final beatsPerSecond = widget.tempo / 60;
 
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          final newOffset = (widget.scrollOffset - scrollAmount)
-              .clamp(0.0, widget.totalDuration);
-          _notifyScrollChange(newOffset);
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          final newOffset = (widget.scrollOffset + scrollAmount)
-              .clamp(0.0, widget.totalDuration);
-          _notifyScrollChange(newOffset);
-        }
-      }
-      // Arrow without Alt = nudge selected clip
-      else if (selectedClip != null && widget.onClipMove != null) {
-        final beatsPerSecond = widget.tempo / 60;
+      // Alt+Arrow = nudge selected clip
+      if (HardwareKeyboard.instance.isAltPressed && selectedClip != null && widget.onClipMove != null) {
         final nudgeAmount = HardwareKeyboard.instance.isShiftPressed
-            ? 1 / beatsPerSecond
-            : 0.25 / beatsPerSecond;
+            ? 1 / beatsPerSecond  // 1 beat
+            : 0.25 / beatsPerSecond;  // 1/4 beat
 
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
           final newTime = (selectedClip.startTime - nudgeAmount).clamp(0.0, double.infinity);
@@ -891,24 +919,23 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
         if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
           widget.onClipMove!(selectedClip.id, selectedClip.startTime + nudgeAmount);
         }
+        return KeyEventResult.handled;
       }
-      // No clip selected - scroll timeline
-      else if (selectedClip == null) {
-        final scrollAmount = HardwareKeyboard.instance.isShiftPressed
-            ? 2.0  // Fast scroll
-            : 0.5; // Normal scroll
 
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          final newOffset = (widget.scrollOffset - scrollAmount)
-              .clamp(0.0, widget.totalDuration);
-          _notifyScrollChange(newOffset);
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          final newOffset = (widget.scrollOffset + scrollAmount)
-              .clamp(0.0, widget.totalDuration);
-          _notifyScrollChange(newOffset);
-        }
+      // Arrow without Alt = move playhead (Cubase-style)
+      final playheadNudge = HardwareKeyboard.instance.isShiftPressed
+          ? 1 / beatsPerSecond  // 1 beat with Shift
+          : 0.25 / beatsPerSecond;  // 1/4 beat normal
+
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        final newPos = (widget.playheadPosition - playheadNudge).clamp(0.0, widget.totalDuration);
+        widget.onPlayheadChange?.call(newPos);
       }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        final newPos = (widget.playheadPosition + playheadNudge).clamp(0.0, widget.totalDuration);
+        widget.onPlayheadChange?.call(newPos);
+      }
+      return KeyEventResult.handled;
     }
 
     // [ and ] keys - fade nudge (Pro Tools style)
@@ -1022,6 +1049,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       // Check if dropping below all existing tracks → create new track
       if (_crossTrackTargetIndex >= widget.tracks.length) {
         // Move to NEW track (will be created by the handler)
+        // Track selection will be handled by onClipMoveToNewTrack callback
         widget.onClipMoveToNewTrack?.call(clipId, _crossTrackDragTime);
       } else {
         final targetTrack = widget.tracks[_crossTrackTargetIndex];
@@ -1033,7 +1061,9 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
         );
 
         if (clip.trackId != targetTrack.id) {
-          // Move to different track
+          // Move to different track - also select the target track
+          setState(() => _internalSelectedTrackId = targetTrack.id);
+          widget.onTrackSelect?.call(targetTrack.id);
           widget.onClipMoveToTrack?.call(clipId, targetTrack.id, _crossTrackDragTime);
         } else {
           // Same track, just update time
@@ -1130,7 +1160,9 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       0.0, (sum, lane) => sum + lane.height);
     final totalHeight = trackHeight + automationHeight;
 
+    // Key includes track ID and color to force rebuild when color changes
     return SizedBox(
+      key: ValueKey('track_${track.id}_${track.color.value}'),
       height: totalHeight,
       child: Column(
         children: [
@@ -1157,7 +1189,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                       onInputMonitorToggle: () => widget.onTrackMonitorToggle?.call(track.id),
                       onVolumeChange: (v) => widget.onTrackVolumeChange?.call(track.id, v),
                       onClick: () {
-                        setState(() => _selectedTrackId = track.id);
+                        setState(() => _internalSelectedTrackId = track.id);
                         widget.onTrackSelect?.call(track.id);
                       },
                       onRename: (n) => widget.onTrackRename?.call(track.id, n),
@@ -1166,9 +1198,10 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                     );
                   },
                 ),
-                // Track lane
+                // Track lane - key includes track color for rebuild on color change
                 Expanded(
                   child: TrackLane(
+                    key: ValueKey('lane_${track.id}_${track.color.value}'),
                     track: track,
                     trackHeight: trackHeight,
                     clips: trackClips,

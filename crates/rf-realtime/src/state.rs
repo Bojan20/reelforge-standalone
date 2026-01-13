@@ -36,6 +36,8 @@ impl<T: Clone + Default> TripleBuffer<T> {
     }
 
     /// Get mutable reference to write buffer (producer side)
+    /// SAFETY: Triple-buffering ensures write buffer is never read while being written
+    #[allow(clippy::mut_from_ref)]
     pub fn write(&self) -> &mut T {
         let state = self.state.load(Ordering::Acquire);
         let write_idx = (state & 0b11) as usize;

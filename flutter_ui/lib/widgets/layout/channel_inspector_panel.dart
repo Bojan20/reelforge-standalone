@@ -79,8 +79,24 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       return _buildEmptyState();
     }
 
+    // Use channel color as subtle background tint
+    final channelColor = hasChannel ? widget.channel!.color : FluxForgeTheme.bgDeep;
+
     return Container(
-      color: FluxForgeTheme.bgDeep,
+      // Tint the entire panel with the channel's color
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeep,
+        gradient: hasChannel
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  channelColor.withValues(alpha: 0.15),
+                  channelColor.withValues(alpha: 0.05),
+                ],
+              )
+            : null,
+      ),
       child: ListView(
         padding: const EdgeInsets.all(8),
         children: [
@@ -909,28 +925,45 @@ class _FaderRow extends StatefulWidget {
 class _FaderRowState extends State<_FaderRow> {
   // Track drag start position and value for smooth linear dragging
   double _dragStartX = 0;
-  double _dragStartValue = 0;
+  double _dragStartNorm = 0;
+
+  // Check if this is a Volume fader
+  bool get _isVolumeFader => widget.label == 'Volume';
+
+  // Logic Pro style: linear mapping for all faders
+  // dB is already logarithmic, so linear slider = linear dB change
+  double _valueToNormalized(double value) {
+    if (value <= widget.min) return 0.0;
+    if (value >= widget.max) return 1.0;
+    return (value - widget.min) / (widget.max - widget.min);
+  }
+
+  double _normalizedToValue(double normalized) {
+    if (normalized <= 0.0) return widget.min;
+    if (normalized >= 1.0) return widget.max;
+    return widget.min + (normalized * (widget.max - widget.min));
+  }
 
   void _handleDragStart(DragStartDetails details, double width) {
     _dragStartX = details.localPosition.dx;
-    _dragStartValue = widget.value;
+    _dragStartNorm = _valueToNormalized(widget.value);
   }
 
   void _handleDragUpdate(DragUpdateDetails details, double width) {
     if (widget.onChanged == null) return;
 
-    // Calculate new value based on absolute position from drag start
+    // Calculate new normalized position based on drag delta
     final deltaX = details.localPosition.dx - _dragStartX;
-    final deltaPercent = deltaX / width;
-    final deltaValue = deltaPercent * (widget.max - widget.min);
-    final newValue = (_dragStartValue + deltaValue).clamp(widget.min, widget.max);
+    final deltaNorm = deltaX / width;
+    final newNorm = (_dragStartNorm + deltaNorm).clamp(0.0, 1.0);
+    final newValue = _normalizedToValue(newNorm);
 
     widget.onChanged!(newValue);
   }
 
   @override
   Widget build(BuildContext context) {
-    final percentage = ((widget.value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
+    final percentage = _valueToNormalized(widget.value);
 
     return Row(
       children: [
@@ -972,10 +1005,10 @@ class _FaderRowState extends State<_FaderRow> {
                         ),
                       ),
                     ),
-                    // 0dB mark for volume faders
-                    if (widget.label == 'Volume') ...[
+                    // 0dB mark for volume faders (using Cubase-style curve position)
+                    if (_isVolumeFader) ...[
                       Positioned(
-                        left: ((0 - widget.min) / (widget.max - widget.min)) * constraints.maxWidth,
+                        left: _valueToNormalized(0) * constraints.maxWidth,
                         top: 0,
                         bottom: 0,
                         child: Container(

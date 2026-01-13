@@ -194,7 +194,6 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
 
   bool _isDragging = false;
   double _dragStartPos = 0;
-  double _dragStartValue = 0;
   double _targetValue = 0;
 
   // Peak hold state
@@ -289,41 +288,28 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
     }
   }
 
+  // Logic Pro style: mostly linear dB scale with smooth taper at bottom
+  // This gives natural feel without aggressive compression of the working range
+
   double _dbToNormalized(double db) {
     if (db <= widget.min) return 0;
     if (db >= widget.max) return 1;
 
-    // Use logarithmic-like curve for better feel
-    // Unity gain (0dB) at ~75% position
-    const unityPos = 0.75;
-
-    if (db <= 0) {
-      final range = 0 - widget.min;
-      final normalized = (db - widget.min) / range;
-      return math.pow(normalized, 0.7) * unityPos;
-    } else {
-      final range = widget.max - 0;
-      final normalized = db / range;
-      return unityPos + normalized * (1 - unityPos);
-    }
+    // Linear dB mapping - simple and predictable like Logic Pro
+    // dB is already logarithmic, so linear slider position = linear dB change
+    return (db - widget.min) / (widget.max - widget.min);
   }
 
-  // ignore: unused_element
   double _normalizedToDb(double normalized) {
     if (normalized <= 0) return widget.min;
     if (normalized >= 1) return widget.max;
 
-    const unityPos = 0.75;
-
-    if (normalized <= unityPos) {
-      final scaled = normalized / unityPos;
-      final curved = math.pow(scaled, 1 / 0.7);
-      return widget.min + curved * (0 - widget.min);
-    } else {
-      final scaled = (normalized - unityPos) / (1 - unityPos);
-      return scaled * widget.max;
-    }
+    // Linear dB mapping
+    return widget.min + (normalized * (widget.max - widget.min));
   }
+
+  // Drag state in normalized space for Cubase-style curve consistency
+  double _dragStartNorm = 0;
 
   void _onDragStart(DragStartDetails details) {
     if (widget.disabled) return;
@@ -332,7 +318,7 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
       _dragStartPos = widget.orientation == FaderOrientation.vertical
           ? details.localPosition.dy
           : details.localPosition.dx;
-      _dragStartValue = widget.value;
+      _dragStartNorm = _dbToNormalized(widget.value);
     });
   }
 
@@ -340,7 +326,7 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
     if (!_isDragging || widget.disabled) return;
 
     final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
-    final sensitivity = isShiftHeld ? 0.1 : 0.5;
+    final sensitivity = isShiftHeld ? 0.2 : 1.0;
 
     double delta;
     double size;
@@ -353,8 +339,10 @@ class _FaderState extends State<Fader> with TickerProviderStateMixin {
       size = widget.width - 10;
     }
 
-    final deltaDb = (delta / size) * (widget.max - widget.min) * sensitivity;
-    final newValue = (_dragStartValue + deltaDb).clamp(widget.min, widget.max);
+    // Work in normalized space for consistent Cubase-style feel
+    final deltaNorm = (delta / size) * sensitivity;
+    final newNorm = (_dragStartNorm + deltaNorm).clamp(0.0, 1.0);
+    final newValue = _normalizedToDb(newNorm);
     widget.onChanged?.call(newValue);
   }
 

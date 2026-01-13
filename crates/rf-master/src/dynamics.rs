@@ -70,7 +70,7 @@ impl LRCrossover {
         let omega = 2.0 * std::f64::consts::PI * freq as f64 / sample_rate as f64;
         let cos_omega = omega.cos();
         let sin_omega = omega.sin();
-        let alpha = sin_omega / (2.0 * 0.7071); // Q = 0.7071 for Butterworth
+        let alpha = sin_omega / (2.0 * std::f64::consts::FRAC_1_SQRT_2); // Q = 1/sqrt(2) for Butterworth
 
         // Lowpass coefficients
         let b0 = (1.0 - cos_omega) / 2.0;

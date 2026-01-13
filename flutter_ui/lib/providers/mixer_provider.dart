@@ -890,6 +890,16 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update channel color (syncs with track header color)
+  void updateChannelColor(String trackId, Color color) {
+    final channelId = 'ch_$trackId';
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    _channels[channelId] = channel.copyWith(color: color);
+    notifyListeners();
+  }
+
   /// Alias for toggleChannelArm
   void toggleArm(String id) => toggleChannelArm(id);
 

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 // Forward declaration for automation types (full impl in automation_lane.dart)
 import '../widgets/timeline/automation_lane.dart';
 import 'middleware_models.dart' show FadeCurve;
+import 'comping_models.dart';
 
 /// Clip on a timeline track
 class TimelineClip {
@@ -174,6 +175,8 @@ class TimelineTrack {
   final bool hidden;
   /// Whether track content is expanded (for stereo waveform display)
   final bool isExpanded;
+  /// Comping state (multi-take recording lanes)
+  final CompState? compState;
 
   const TimelineTrack({
     required this.id,
@@ -198,19 +201,33 @@ class TimelineTrack {
     this.indentLevel = 0,
     this.hidden = false,
     this.isExpanded = false,
+    this.compState,
   });
 
   /// Whether this is a folder track
   bool get isFolder => trackType == TrackType.folder;
 
-  /// Total height including automation lanes if expanded
+  /// Total height including automation lanes and comping lanes if expanded
   double get totalHeight {
-    if (!automationExpanded || automationLanes.isEmpty) return height;
-    final automationHeight = automationLanes
-        .where((l) => l.visible)
-        .fold<double>(0, (sum, lane) => sum + lane.height);
-    return height + automationHeight;
+    double total = height;
+
+    // Add automation lanes height
+    if (automationExpanded && automationLanes.isNotEmpty) {
+      total += automationLanes
+          .where((l) => l.visible)
+          .fold<double>(0, (sum, lane) => sum + lane.height);
+    }
+
+    // Add comping lanes height
+    if (compState != null && compState!.lanesExpanded) {
+      total += compState!.expandedHeight;
+    }
+
+    return total;
   }
+
+  /// Whether comping lanes are shown
+  bool get hasCompingLanes => compState != null && compState!.lanes.isNotEmpty;
 
   /// Get visible automation lanes
   List<AutomationLaneData> get visibleAutomationLanes =>
@@ -239,6 +256,7 @@ class TimelineTrack {
     int? indentLevel,
     bool? hidden,
     bool? isExpanded,
+    CompState? compState,
   }) {
     return TimelineTrack(
       id: id ?? this.id,
@@ -263,6 +281,7 @@ class TimelineTrack {
       indentLevel: indentLevel ?? this.indentLevel,
       hidden: hidden ?? this.hidden,
       isExpanded: isExpanded ?? this.isExpanded,
+      compState: compState ?? this.compState,
     );
   }
 }

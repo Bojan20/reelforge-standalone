@@ -101,9 +101,12 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
+            // Always show track color - brighter when selected, subtle when not
             color: widget.isSelected
-                ? track.color.withValues(alpha: 0.12)
-                : (_isHovered ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgMid),
+                ? track.color.withValues(alpha: 0.18)
+                : (_isHovered
+                    ? track.color.withValues(alpha: 0.10)
+                    : track.color.withValues(alpha: 0.06)),
             border: Border(
               left: BorderSide(color: track.color, width: 3),
               bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
@@ -299,31 +302,33 @@ class _MiniButtonState extends State<_MiniButton> {
     // Show pressed state OR active state for instant feedback
     final showActive = _pressed ? !widget.active : widget.active;
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap?.call();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: Container(
-        width: 16,
-        height: 16,
-        decoration: BoxDecoration(
-          color: showActive ? widget.activeColor : FluxForgeTheme.bgDeepest,
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
-            width: 1,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap?.call();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: showActive ? widget.activeColor : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: showActive ? widget.activeColor : FluxForgeTheme.borderSubtle,
+              width: 1,
+            ),
           ),
-        ),
-        child: Center(
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: showActive ? Colors.white : FluxForgeTheme.textTertiary,
+          child: Center(
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: showActive ? Colors.white : FluxForgeTheme.textTertiary,
+              ),
             ),
           ),
         ),
@@ -350,31 +355,33 @@ class _RecordButtonState extends State<_RecordButton> {
     // Show pressed state OR armed state for instant feedback
     final showArmed = _pressed ? !widget.armed : widget.armed;
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap?.call();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: Container(
-        width: 16,
-        height: 16,
-        decoration: BoxDecoration(
-          color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
-            width: 1,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap?.call();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: showArmed ? FluxForgeTheme.accentRed : FluxForgeTheme.borderSubtle,
+              width: 1,
+            ),
           ),
-        ),
-        child: Center(
-          child: Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: showArmed ? Colors.white : FluxForgeTheme.textTertiary,
+          child: Center(
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: showArmed ? Colors.white : FluxForgeTheme.textTertiary,
+              ),
             ),
           ),
         ),
@@ -387,22 +394,58 @@ class _VolumeSlider extends StatelessWidget {
   final double value;
   final ValueChanged<double>? onChanged;
 
+  // Logic Pro style: linear dB mapping
+  static const double _minDb = -60.0;
+  static const double _maxDb = 6.0;
+
   const _VolumeSlider({required this.value, this.onChanged});
+
+  // Convert linear amplitude (0.0-1.5) to dB (-inf to +3.5dB)
+  double _linearToDb(double linear) {
+    if (linear <= 0.0001) return _minDb;
+    return 20.0 * math.log(linear) / math.ln10;
+  }
+
+  // Convert dB to linear amplitude
+  double _dbToLinear(double db) {
+    if (db <= _minDb) return 0.0;
+    return math.pow(10.0, db / 20.0).toDouble();
+  }
+
+  // Logic Pro style: linear dB to normalized fader position
+  // dB is already logarithmic, so linear slider = linear dB change
+  double _dbToNormalized(double db) {
+    if (db <= _minDb) return 0.0;
+    if (db >= _maxDb) return 1.0;
+    return (db - _minDb) / (_maxDb - _minDb);
+  }
+
+  // Linear: normalized fader position to dB
+  double _normalizedToDb(double normalized) {
+    if (normalized <= 0.0) return _minDb;
+    if (normalized >= 1.0) return _maxDb;
+    return _minDb + (normalized * (_maxDb - _minDb));
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final normalized = (value / 1.5).clamp(0.0, 1.0);
+        // Convert linear volume to dB, then to normalized position
+        final db = _linearToDb(value);
+        final normalized = _dbToNormalized(db);
 
         return GestureDetector(
           onHorizontalDragUpdate: (d) {
             if (onChanged != null) {
-              final newValue = ((d.localPosition.dx / constraints.maxWidth) * 1.5).clamp(0.0, 1.5);
-              onChanged!(newValue);
+              // Convert UI position to dB, then to linear
+              final normalizedPos = (d.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+              final newDb = _normalizedToDb(normalizedPos);
+              final newLinear = _dbToLinear(newDb).clamp(0.0, 1.5);
+              onChanged!(newLinear);
             }
           },
-          onDoubleTap: () => onChanged?.call(1.0),
+          onDoubleTap: () => onChanged?.call(1.0), // Reset to 0dB
           child: Container(
             height: 8,
             decoration: BoxDecoration(
@@ -410,7 +453,7 @@ class _VolumeSlider extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: FractionallySizedBox(
-              widthFactor: normalized,
+              widthFactor: normalized.clamp(0.0, 1.0),
               alignment: Alignment.centerLeft,
               child: Container(
                 decoration: BoxDecoration(
