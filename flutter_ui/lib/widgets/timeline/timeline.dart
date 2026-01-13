@@ -233,7 +233,7 @@ class Timeline extends StatefulWidget {
   State<Timeline> createState() => _TimelineState();
 }
 
-class _TimelineState extends State<Timeline> {
+class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin {
   // Header width is now resizable (min 140, max 300)
   double _headerWidth = 180;
   static const double _headerWidthMin = 140;
@@ -244,6 +244,12 @@ class _TimelineState extends State<Timeline> {
 
   // Selected track for highlighting
   String? _selectedTrackId;
+
+  // Momentum scrolling (trackpad inertia)
+  late AnimationController _momentumController;
+  double _scrollVelocity = 0;
+  static const double _friction = 0.92; // Deceleration factor (lower = faster stop)
+  static const double _velocityThreshold = 0.5; // Stop when velocity below this
 
   bool _isDraggingPlayhead = false;
   bool _isDraggingLoopLeft = false;
@@ -294,6 +300,10 @@ class _TimelineState extends State<Timeline> {
   @override
   void initState() {
     super.initState();
+    // Momentum scrolling controller
+    _momentumController = AnimationController.unbounded(vsync: this)
+      ..addListener(_applyMomentum);
+
     // Auto-focus after first frame to enable keyboard shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -302,8 +312,44 @@ class _TimelineState extends State<Timeline> {
 
   @override
   void dispose() {
+    _momentumController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Apply momentum scrolling (called every frame during inertia)
+  void _applyMomentum() {
+    if (_scrollVelocity.abs() < _velocityThreshold) {
+      _momentumController.stop();
+      _scrollVelocity = 0;
+      return;
+    }
+
+    // Apply friction
+    _scrollVelocity *= _friction;
+
+    // Calculate scroll delta in seconds
+    final scrollSeconds = _scrollVelocity / widget.zoom;
+
+    final maxOffset = (widget.totalDuration - _containerWidth / widget.zoom)
+        .clamp(0.0, double.infinity);
+    final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
+
+    _notifyScrollChange(newOffset);
+  }
+
+  /// Start momentum scrolling with initial velocity
+  void _startMomentum(double velocity) {
+    _scrollVelocity = velocity;
+    if (velocity.abs() > _velocityThreshold) {
+      _momentumController.repeat(); // Continuously call listener
+    }
+  }
+
+  /// Stop any ongoing momentum
+  void _stopMomentum() {
+    _momentumController.stop();
+    _scrollVelocity = 0;
   }
 
   /// PERFORMANCE: Debounced zoom change notification
@@ -356,6 +402,25 @@ class _TimelineState extends State<Timeline> {
   /// Get visible tracks (filter out hidden)
   List<TimelineTrack> get _visibleTracks =>
       widget.tracks.where((t) => !t.hidden).toList();
+
+  /// Get the end time of the last clip (actual content end)
+  double get _contentEndTime {
+    if (widget.clips.isEmpty) return 0;
+    double maxEnd = 0;
+    for (final clip in widget.clips) {
+      final clipEnd = clip.startTime + clip.duration;
+      if (clipEnd > maxEnd) maxEnd = clipEnd;
+    }
+    return maxEnd;
+  }
+
+  /// Check if scrolling is needed (content extends beyond visible area)
+  bool get _canScroll {
+    if (_containerWidth <= 0) return false;
+    final visibleDuration = _containerWidth / widget.zoom;
+    // Allow scroll only if content end is beyond visible area
+    return _contentEndTime > visibleDuration;
+  }
 
   Map<String, List<TimelineClip>> get _clipsByTrack {
     final map = <String, List<TimelineClip>>{};
@@ -454,25 +519,108 @@ class _TimelineState extends State<Timeline> {
       }
     } else {
       // ════════════════════════════════════════════════════════════════
-      // HORIZONTAL SCROLL
+      // HORIZONTAL SCROLL ONLY (ignore vertical)
       // ════════════════════════════════════════════════════════════════
-      // Prefer horizontal delta (trackpad), fallback to vertical (mouse wheel)
-      final rawDelta = event.scrollDelta.dx.abs() > event.scrollDelta.dy.abs()
-          ? event.scrollDelta.dx
-          : event.scrollDelta.dy;
+      // Timeline scrolls ONLY horizontally:
+      // - Mouse wheel vertical (dy) → horizontal scroll
+      // - Trackpad horizontal swipe (dx) → horizontal scroll
+      // - Trackpad vertical swipe → IGNORED (no vertical scroll on timeline)
 
-      // Speed multiplier: Shift = 3x faster
-      final speedMultiplier = isShiftHeld ? 3.0 : 1.0;
+      // Cubase-style: no scroll if all content fits in visible area
+      if (!_canScroll) {
+        return;
+      }
 
-      // Scroll amount in seconds
+      // Calculate max scroll based on content end (not total project duration)
+      final maxOffset = (_contentEndTime - _containerWidth / widget.zoom)
+          .clamp(0.0, double.infinity);
+
+      final dx = event.scrollDelta.dx;
+      final dy = event.scrollDelta.dy;
+
+      // ONLY use horizontal delta (dx) for trackpad horizontal swipe
+      // Vertical scroll (dy) from mouse wheel also scrolls horizontally
+      // But pure vertical trackpad swipe is IGNORED
+      double rawDelta;
+      if (dx.abs() > 1.0) {
+        // Trackpad horizontal swipe - use it
+        rawDelta = dx;
+      } else if (dy.abs() > 1.0 && dx.abs() < 0.5) {
+        // Pure vertical scroll (mouse wheel) - convert to horizontal
+        rawDelta = dy;
+      } else {
+        // Ignore small movements / diagonal gestures
+        return;
+      }
+
+      // Stop any existing momentum
+      _stopMomentum();
+
+      // Speed multiplier: 2.5x base speed, Shift = 4x faster
+      final speedMultiplier = isShiftHeld ? 10.0 : 2.5;
+
+      // Scroll amount in seconds (scale by zoom for consistent feel)
       final scrollSeconds = (rawDelta / widget.zoom) * speedMultiplier;
 
-      final maxOffset = (widget.totalDuration - _containerWidth / widget.zoom)
-          .clamp(0.0, double.infinity);
       final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
 
       _notifyScrollChange(newOffset);
     }
+  }
+
+  // Track velocity for momentum scrolling
+  double _lastPanVelocity = 0;
+  DateTime _lastPanTime = DateTime.now();
+
+  /// Handle macOS trackpad two-finger pan gesture with momentum
+  void _handleTrackpadPan(PointerPanZoomUpdateEvent event) {
+    final panDelta = event.panDelta;
+
+    // ONLY horizontal pan scrolls timeline (ignore vertical)
+    if (panDelta.dx.abs() < 0.5) return;
+
+    // Cubase-style: no scroll if all content fits in visible area
+    if (!_canScroll) {
+      return;
+    }
+
+    // Calculate max scroll based on content end
+    final maxOffset = (_contentEndTime - _containerWidth / widget.zoom)
+        .clamp(0.0, double.infinity);
+
+    // Stop previous momentum
+    _stopMomentum();
+
+    // Calculate velocity for momentum (pixels per frame)
+    final now = DateTime.now();
+    final dt = now.difference(_lastPanTime).inMilliseconds;
+    _lastPanTime = now;
+
+    // Track velocity for momentum when gesture ends
+    if (dt > 0 && dt < 100) {
+      // Average with previous to smooth out
+      _lastPanVelocity = (_lastPanVelocity * 0.3) + (-panDelta.dx * 0.7);
+    } else {
+      _lastPanVelocity = -panDelta.dx;
+    }
+
+    // Speed multiplier for faster scrolling
+    const speedMultiplier = 3.0;
+    final scrollSeconds = -panDelta.dx * speedMultiplier / widget.zoom;
+
+    final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
+
+    _notifyScrollChange(newOffset);
+  }
+
+  /// Handle trackpad gesture end - start momentum
+  void _handleTrackpadEnd(PointerPanZoomEndEvent event) {
+    // Start momentum with accumulated velocity
+    if (_lastPanVelocity.abs() > 2.0) {
+      // Amplify velocity for smoother momentum
+      _startMomentum(_lastPanVelocity * 3.0);
+    }
+    _lastPanVelocity = 0;
   }
 
   void _handleTimelineClick(TapDownDetails details) {
@@ -1166,6 +1314,14 @@ class _TimelineState extends State<Timeline> {
               _handleWheel(event);
             }
           },
+          onPointerPanZoomUpdate: (event) {
+            // macOS trackpad two-finger pan gesture
+            _handleTrackpadPan(event);
+          },
+          onPointerPanZoomEnd: (event) {
+            // Start momentum when gesture ends
+            _handleTrackpadEnd(event);
+          },
           child: LayoutBuilder(
             builder: (context, constraints) {
               _containerWidth = constraints.maxWidth - _headerWidth;
@@ -1228,7 +1384,11 @@ class _TimelineState extends State<Timeline> {
                       child: Stack(
                         children: [
                           // Track rows (filter hidden tracks)
+                          // CRITICAL: NeverScrollableScrollPhysics prevents ListView from
+                          // capturing scroll gestures - we handle horizontal scroll ourselves
+                          // and vertical scroll should NOT move the track list (Cubase-style)
                           ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
                             itemCount: _visibleTracks.length + 1, // +1 for new track zone
                             itemBuilder: (context, index) {
                               if (index == _visibleTracks.length) {

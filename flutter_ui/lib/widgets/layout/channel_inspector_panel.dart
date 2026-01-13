@@ -484,20 +484,21 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       onToggle: () => setState(() => _clipGainExpanded = !_clipGainExpanded),
       child: Column(
         children: [
-          // Gain
+          // Gain - uses linear slider (0-2) with dB display for Cubase-like feel
+          // DISABLED when clip is locked
           _FaderRow(
             label: 'Gain',
-            value: _linearToDb(clip.gain),
-            min: -24,
-            max: 24,
-            defaultValue: 0,
-            formatValue: _formatDbWithUnit,
-            color: FluxForgeTheme.accentCyan,
-            onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(gain: _dbToLinear(v))),
+            value: clip.gain,
+            min: 0,
+            max: 2,
+            defaultValue: 1,
+            formatValue: (v) => _formatDbWithUnit(_linearToDb(v)),
+            color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
+            onChanged: clip.locked ? null : (v) => widget.onClipChanged?.call(clip.copyWith(gain: v)),
           ),
           const SizedBox(height: 10),
 
-          // Fade In
+          // Fade In - DISABLED when locked
           _FaderRow(
             label: 'Fade In',
             value: clip.fadeIn * 1000, // to ms
@@ -505,12 +506,12 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: clip.duration * 500, // max 50% of clip
             defaultValue: 0,
             formatValue: (v) => '${v.toStringAsFixed(0)}ms',
-            color: FluxForgeTheme.accentGreen,
-            onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(fadeIn: v / 1000)),
+            color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentGreen,
+            onChanged: clip.locked ? null : (v) => widget.onClipChanged?.call(clip.copyWith(fadeIn: v / 1000)),
           ),
           const SizedBox(height: 10),
 
-          // Fade Out
+          // Fade Out - DISABLED when locked
           _FaderRow(
             label: 'Fade Out',
             value: clip.fadeOut * 1000, // to ms
@@ -518,8 +519,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             max: clip.duration * 500, // max 50% of clip
             defaultValue: 0,
             formatValue: (v) => '${v.toStringAsFixed(0)}ms',
-            color: FluxForgeTheme.accentOrange,
-            onChanged: (v) => widget.onClipChanged?.call(clip.copyWith(fadeOut: v / 1000)),
+            color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentOrange,
+            onChanged: clip.locked ? null : (v) => widget.onClipChanged?.call(clip.copyWith(fadeOut: v / 1000)),
           ),
           const SizedBox(height: 12),
 
@@ -880,7 +881,7 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _FaderRow extends StatelessWidget {
+class _FaderRow extends StatefulWidget {
   final String label;
   final double value;
   final double min;
@@ -902,28 +903,51 @@ class _FaderRow extends StatelessWidget {
   });
 
   @override
+  State<_FaderRow> createState() => _FaderRowState();
+}
+
+class _FaderRowState extends State<_FaderRow> {
+  // Track drag start position and value for smooth linear dragging
+  double _dragStartX = 0;
+  double _dragStartValue = 0;
+
+  void _handleDragStart(DragStartDetails details, double width) {
+    _dragStartX = details.localPosition.dx;
+    _dragStartValue = widget.value;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details, double width) {
+    if (widget.onChanged == null) return;
+
+    // Calculate new value based on absolute position from drag start
+    final deltaX = details.localPosition.dx - _dragStartX;
+    final deltaPercent = deltaX / width;
+    final deltaValue = deltaPercent * (widget.max - widget.min);
+    final newValue = (_dragStartValue + deltaValue).clamp(widget.min, widget.max);
+
+    widget.onChanged!(newValue);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final percentage = ((value - min) / (max - min)).clamp(0.0, 1.0);
+    final percentage = ((widget.value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
 
     return Row(
       children: [
         SizedBox(
           width: 48,
           child: Text(
-            label,
+            widget.label,
             style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) => GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                if (onChanged == null) return;
-                final delta = details.delta.dx / constraints.maxWidth;
-                final newValue = (value + delta * (max - min)).clamp(min, max);
-                onChanged!(newValue);
-              },
-              onDoubleTap: () => onChanged?.call(defaultValue),
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (d) => _handleDragStart(d, constraints.maxWidth),
+              onHorizontalDragUpdate: (d) => _handleDragUpdate(d, constraints.maxWidth),
+              onDoubleTap: () => widget.onChanged?.call(widget.defaultValue),
               child: Container(
                 height: 16,
                 decoration: BoxDecoration(
@@ -940,8 +964,8 @@ class _FaderRow extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              color.withValues(alpha: 0.6),
-                              color,
+                              widget.color.withValues(alpha: 0.6),
+                              widget.color,
                             ],
                           ),
                           borderRadius: BorderRadius.circular(4),
@@ -949,9 +973,9 @@ class _FaderRow extends StatelessWidget {
                       ),
                     ),
                     // 0dB mark for volume faders
-                    if (label == 'Volume') ...[
+                    if (widget.label == 'Volume') ...[
                       Positioned(
-                        left: ((0 - min) / (max - min)) * constraints.maxWidth,
+                        left: ((0 - widget.min) / (widget.max - widget.min)) * constraints.maxWidth,
                         top: 0,
                         bottom: 0,
                         child: Container(
@@ -961,7 +985,7 @@ class _FaderRow extends StatelessWidget {
                       ),
                     ],
                     // Center mark for pan
-                    if (label == 'Pan') ...[
+                    if (widget.label == 'Pan') ...[
                       Positioned(
                         left: constraints.maxWidth / 2 - 0.5,
                         top: 0,
@@ -982,7 +1006,7 @@ class _FaderRow extends StatelessWidget {
         SizedBox(
           width: 44,
           child: Text(
-            formatValue(value),
+            widget.formatValue(widget.value),
             style: TextStyle(
               fontSize: 10,
               fontFamily: 'JetBrains Mono',
@@ -1247,7 +1271,7 @@ class _InsertSlotRow extends StatelessWidget {
   }
 }
 
-class _SendSlotRow extends StatelessWidget {
+class _SendSlotRow extends StatefulWidget {
   final int index;
   final SendSlot? send;
   final VoidCallback? onTap;
@@ -1261,12 +1285,40 @@ class _SendSlotRow extends StatelessWidget {
   });
 
   @override
+  State<_SendSlotRow> createState() => _SendSlotRowState();
+}
+
+class _SendSlotRowState extends State<_SendSlotRow> {
+  double _dragStartX = 0;
+  double _dragStartValue = 0;
+  static const double _faderWidth = 50.0;
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragStartX = details.localPosition.dx;
+    _dragStartValue = widget.send?.level ?? 0.0;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (widget.onLevelChange == null) return;
+    final deltaX = details.localPosition.dx - _dragStartX;
+    final deltaPercent = deltaX / _faderWidth;
+    final newValue = (_dragStartValue + deltaPercent).clamp(0.0, 1.0);
+    widget.onLevelChange!(newValue);
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.onLevelChange == null) return;
+    final percent = (details.localPosition.dx / _faderWidth).clamp(0.0, 1.0);
+    widget.onLevelChange!(percent);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasDestination = send?.destination != null && send!.destination!.isNotEmpty;
-    final level = send?.level ?? 0.0;
+    final hasDestination = widget.send?.destination != null && widget.send!.destination!.isNotEmpty;
+    final level = widget.send?.level ?? 0.0;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         height: 28,
         margin: const EdgeInsets.only(bottom: 3),
@@ -1284,7 +1336,7 @@ class _SendSlotRow extends StatelessWidget {
             SizedBox(
               width: 20,
               child: Text(
-                '${index + 1}',
+                '${widget.index + 1}',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1295,7 +1347,7 @@ class _SendSlotRow extends StatelessWidget {
             // Destination
             Expanded(
               child: Text(
-                hasDestination ? send!.destination! : 'No Send',
+                hasDestination ? widget.send!.destination! : 'No Send',
                 style: TextStyle(
                   fontSize: 10,
                   color: hasDestination ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
@@ -1307,12 +1359,11 @@ class _SendSlotRow extends StatelessWidget {
             if (hasDestination) ...[
               const SizedBox(width: 8),
               SizedBox(
-                width: 50,
+                width: _faderWidth,
                 child: GestureDetector(
-                  onHorizontalDragUpdate: (d) {
-                    final delta = d.delta.dx / 50;
-                    onLevelChange?.call((level + delta).clamp(0.0, 1.0));
-                  },
+                  onHorizontalDragStart: _handleDragStart,
+                  onHorizontalDragUpdate: _handleDragUpdate,
+                  onTapDown: _handleTapDown,
                   child: Container(
                     height: 10,
                     decoration: BoxDecoration(

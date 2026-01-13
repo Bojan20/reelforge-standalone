@@ -789,7 +789,15 @@ class EngineApi {
 
   /// Set clip mute state
   void setClipMuted(String clipId, bool muted) {
-    print('[Engine] Set clip $clipId muted to $muted');
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipMuted(nativeClipId, muted);
+        print('[Engine] Set clip $clipId muted to $muted via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId muted to $muted (mock)');
   }
 
   /// Normalize clip to target dB

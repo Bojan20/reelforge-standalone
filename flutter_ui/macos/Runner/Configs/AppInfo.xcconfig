@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = reelforge_ui
+PRODUCT_NAME = FluxForge Studio
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.reelforge.reelforgeUi
+PRODUCT_BUNDLE_IDENTIFIER = com.fluxforge.studio
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.reelforge. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 FluxForge. All rights reserved.

@@ -1224,10 +1224,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (oldClip.fadeOut != updatedClip.fadeOut) {
       EngineApi.instance.fadeOutClip(updatedClip.id, updatedClip.fadeOut);
     }
-    // Sync gain changes to audio engine
+    // Sync gain changes to audio engine (linear gain: 0-2, where 1 = unity)
     if (oldClip.gain != updatedClip.gain) {
-      EngineApi.instance.applyGainToClip(updatedClip.id, 20 * _log10(updatedClip.gain));
+      EngineApi.instance.setClipGain(updatedClip.id, updatedClip.gain);
     }
+    // Sync mute state to audio engine
+    if (oldClip.muted != updatedClip.muted) {
+      EngineApi.instance.setClipMuted(updatedClip.id, updatedClip.muted);
+    }
+    // Note: locked is UI-only state, no engine sync needed
   }
 
   /// Open FX editor for selected clip
@@ -2128,10 +2133,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onChannelMuteToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.toggleMute(channelId);
+              // Sync back to _tracks for track header
+              final trackId = channelId.replaceFirst('ch_', '');
+              final channel = mixerProvider.getChannel(channelId);
+              if (channel != null) {
+                setState(() {
+                  _tracks = _tracks.map((t) {
+                    if (t.id == trackId) return t.copyWith(muted: channel.muted);
+                    return t;
+                  }).toList();
+                });
+              }
             },
             onChannelSoloToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.toggleSolo(channelId);
+              // Sync back to _tracks for track header
+              final trackId = channelId.replaceFirst('ch_', '');
+              final channel = mixerProvider.getChannel(channelId);
+              if (channel != null) {
+                setState(() {
+                  _tracks = _tracks.map((t) {
+                    if (t.id == trackId) return t.copyWith(soloed: channel.soloed);
+                    return t;
+                  }).toList();
+                });
+              }
             },
             onChannelInsertClick: (channelId, slotIndex) {
               _onInsertClick(channelId, slotIndex);
@@ -2157,10 +2184,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onChannelArmToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.toggleArm(channelId);
+              // Sync back to _tracks for track header
+              final trackId = channelId.replaceFirst('ch_', '');
+              final channel = mixerProvider.getChannel(channelId);
+              if (channel != null) {
+                setState(() {
+                  _tracks = _tracks.map((t) {
+                    if (t.id == trackId) return t.copyWith(armed: channel.armed);
+                    return t;
+                  }).toList();
+                });
+              }
             },
             onChannelMonitorToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.toggleInputMonitor(channelId);
+              // Sync back to _tracks for track header
+              final trackId = channelId.replaceFirst('ch_', '');
+              final channel = mixerProvider.getChannel(channelId);
+              if (channel != null) {
+                setState(() {
+                  _tracks = _tracks.map((t) {
+                    if (t.id == trackId) return t.copyWith(inputMonitor: channel.monitorInput);
+                    return t;
+                  }).toList();
+                });
+              }
             },
             onChannelSendClick: (channelId, sendIndex) {
               _onSendClick(channelId, sendIndex);
@@ -2388,6 +2437,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             }
             return multiSelect ? c : c.copyWith(selected: false);
           }).toList();
+
+          // Auto-set loop region to selected clip bounds when loop is enabled
+          final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+            (c) => c?.id == clipId,
+            orElse: () => null,
+          );
+          if (selectedClip != null && engine.transport.loopEnabled) {
+            final clipStart = selectedClip.startTime;
+            final clipEnd = selectedClip.startTime + selectedClip.duration;
+            _loopRegion = timeline.LoopRegion(start: clipStart, end: clipEnd);
+            engine.setLoopRegion(clipStart, clipEnd);
+          }
         });
       },
       onClipMove: (clipId, newStartTime) {
@@ -2631,14 +2692,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _clips = _clips.where((c) => c.id != clipId).toList();
         });
       },
-      // Track callbacks
+      // Track callbacks - SYNC both _tracks AND MixerProvider
       onTrackMuteToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
-        engine.updateTrack(trackId, muted: !track.muted);
+        final newMuted = !track.muted;
+        engine.updateTrack(trackId, muted: newMuted);
+        // Sync with MixerProvider
+        final mixerProv = context.read<MixerProvider>();
+        mixerProv.setMuted('ch_$trackId', newMuted);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
-              return t.copyWith(muted: !t.muted);
+              return t.copyWith(muted: newMuted);
             }
             return t;
           }).toList();
@@ -2646,11 +2711,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       onTrackSoloToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
-        engine.updateTrack(trackId, soloed: !track.soloed);
+        final newSoloed = !track.soloed;
+        engine.updateTrack(trackId, soloed: newSoloed);
+        // Sync with MixerProvider
+        final mixerProv = context.read<MixerProvider>();
+        mixerProv.setSoloed('ch_$trackId', newSoloed);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
-              return t.copyWith(soloed: !t.soloed);
+              return t.copyWith(soloed: newSoloed);
             }
             return t;
           }).toList();
@@ -2658,11 +2727,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       onTrackArmToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
-        engine.updateTrack(trackId, armed: !track.armed);
+        final newArmed = !track.armed;
+        engine.updateTrack(trackId, armed: newArmed);
+        // Sync with MixerProvider
+        final mixerProv = context.read<MixerProvider>();
+        mixerProv.setArmed('ch_$trackId', newArmed);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
-              return t.copyWith(armed: !t.armed);
+              return t.copyWith(armed: newArmed);
             }
             return t;
           }).toList();
@@ -2764,10 +2837,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onTrackMonitorToggle: (trackId) {
+        final track = _tracks.firstWhere((t) => t.id == trackId);
+        final newMonitor = !track.inputMonitor;
+        // Sync with MixerProvider
+        final mixerProv = context.read<MixerProvider>();
+        mixerProv.setInputMonitor('ch_$trackId', newMonitor);
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
-              return t.copyWith(inputMonitor: !t.inputMonitor);
+              return t.copyWith(inputMonitor: newMonitor);
             }
             return t;
           }).toList();
@@ -2812,9 +2890,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Track duplicate/delete
       onTrackDuplicate: (trackId) => _handleDuplicateTrack(trackId),
       onTrackDelete: (trackId) => _handleDeleteTrackById(trackId),
-      // Track selection for Channel tab
+      // Track selection for Channel tab - auto switch to Channel tab
       onTrackSelect: (trackId) {
-        setState(() => _selectedTrackId = trackId);
+        setState(() {
+          _selectedTrackId = trackId;
+          _activeLeftTab = LeftZoneTab.channel;
+        });
       },
       // Track context menu
       onTrackContextMenu: (trackId, position) {

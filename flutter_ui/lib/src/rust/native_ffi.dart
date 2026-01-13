@@ -205,6 +205,9 @@ typedef EngineDeleteClipDart = int Function(int clipId);
 typedef EngineSetClipGainNative = Int32 Function(Uint64 clipId, Double gain);
 typedef EngineSetClipGainDart = int Function(int clipId, double gain);
 
+typedef EngineSetClipMutedNative = Int32 Function(Uint64 clipId, Int32 muted);
+typedef EngineSetClipMutedDart = int Function(int clipId, int muted);
+
 typedef EngineGetClipDurationNative = Double Function(Uint64 clipId);
 typedef EngineGetClipDurationDart = double Function(int clipId);
 
@@ -841,6 +844,7 @@ class NativeFFI {
   late final EngineDuplicateClipDart _duplicateClip;
   late final EngineDeleteClipDart _deleteClip;
   late final EngineSetClipGainDart _setClipGain;
+  late final EngineSetClipMutedDart _setClipMuted;
   late final EngineGetClipDurationDart _getClipDuration;
   late final EngineGetClipSourceDurationDart _getClipSourceDuration;
   late final EngineGetAudioFileDurationDart _getAudioFileDuration;
@@ -1114,6 +1118,7 @@ class NativeFFI {
     _duplicateClip = _lib.lookupFunction<EngineDuplicateClipNative, EngineDuplicateClipDart>('engine_duplicate_clip');
     _deleteClip = _lib.lookupFunction<EngineDeleteClipNative, EngineDeleteClipDart>('engine_delete_clip');
     _setClipGain = _lib.lookupFunction<EngineSetClipGainNative, EngineSetClipGainDart>('engine_set_clip_gain');
+    _setClipMuted = _lib.lookupFunction<EngineSetClipMutedNative, EngineSetClipMutedDart>('engine_set_clip_muted');
     _getClipDuration = _lib.lookupFunction<EngineGetClipDurationNative, EngineGetClipDurationDart>('engine_get_clip_duration');
     _getClipSourceDuration = _lib.lookupFunction<EngineGetClipSourceDurationNative, EngineGetClipSourceDurationDart>('engine_get_clip_source_duration');
     _getAudioFileDuration = _lib.lookupFunction<EngineGetAudioFileDurationNative, EngineGetAudioFileDurationDart>('engine_get_audio_file_duration');
@@ -1594,6 +1599,12 @@ class NativeFFI {
   bool setClipGain(int clipId, double gain) {
     if (!_loaded) return false;
     return _setClipGain(clipId, gain) != 0;
+  }
+
+  /// Set clip muted state
+  bool setClipMuted(int clipId, bool muted) {
+    if (!_loaded) return false;
+    return _setClipMuted(clipId, muted ? 1 : 0) != 0;
   }
 
   /// Get clip duration (in seconds)

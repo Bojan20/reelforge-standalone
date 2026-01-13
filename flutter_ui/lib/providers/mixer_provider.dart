@@ -901,6 +901,60 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set channel muted state directly (for sync with track header)
+  void setMuted(String id, bool muted) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+
+    channel.muted = muted;
+
+    // Send to engine if track channel
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.setTrackMute(channel.trackIndex!, muted);
+    }
+
+    notifyListeners();
+  }
+
+  /// Set channel soloed state directly (for sync with track header)
+  void setSoloed(String id, bool soloed) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+
+    channel.soloed = soloed;
+
+    if (soloed) {
+      _soloedChannels.add(id);
+    } else {
+      _soloedChannels.remove(id);
+    }
+
+    // Send to engine if track channel
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.setTrackSolo(channel.trackIndex!, soloed);
+    }
+
+    notifyListeners();
+  }
+
+  /// Set channel armed state directly (for sync with track header)
+  void setArmed(String id, bool armed) {
+    final channel = _channels[id];
+    if (channel == null) return;
+
+    _channels[id] = channel.copyWith(armed: armed);
+    notifyListeners();
+  }
+
+  /// Set channel input monitor state directly (for sync with track header)
+  void setInputMonitor(String id, bool monitor) {
+    final channel = _channels[id];
+    if (channel == null) return;
+
+    _channels[id] = channel.copyWith(monitorInput: monitor);
+    notifyListeners();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // VCA CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════

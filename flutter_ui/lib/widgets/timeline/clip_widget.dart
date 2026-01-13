@@ -211,11 +211,12 @@ class _ClipWidgetState extends State<ClipWidget> {
           ),
         PopupMenuItem(
           value: 'rename',
+          enabled: !clip.locked,
           child: Row(
             children: [
-              const Icon(Icons.edit, size: 18),
+              Icon(Icons.edit, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              const Text('Rename'),
+              Text('Rename', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
               Text('F2', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
@@ -223,11 +224,12 @@ class _ClipWidgetState extends State<ClipWidget> {
         ),
         PopupMenuItem(
           value: 'duplicate',
+          enabled: !clip.locked,
           child: Row(
             children: [
-              const Icon(Icons.copy, size: 18),
+              Icon(Icons.copy, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              const Text('Duplicate'),
+              Text('Duplicate', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
               Text('⌘D', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
@@ -235,11 +237,12 @@ class _ClipWidgetState extends State<ClipWidget> {
         ),
         PopupMenuItem(
           value: 'split',
+          enabled: !clip.locked,
           child: Row(
             children: [
-              const Icon(Icons.content_cut, size: 18),
+              Icon(Icons.content_cut, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              const Text('Split at Playhead'),
+              Text('Split at Playhead', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
               Text('S', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
@@ -271,11 +274,12 @@ class _ClipWidgetState extends State<ClipWidget> {
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
+          enabled: !clip.locked,
           child: Row(
             children: [
-              Icon(Icons.delete, size: 18, color: FluxForgeTheme.accentRed),
+              Icon(Icons.delete, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+              Text('Delete', style: TextStyle(color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentRed)),
               const Spacer(),
               Text('⌫', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
             ],
@@ -289,13 +293,13 @@ class _ClipWidgetState extends State<ClipWidget> {
           widget.onOpenAudioEditor?.call();
           break;
         case 'rename':
-          _startEditing();
+          if (!clip.locked) _startEditing();
           break;
         case 'duplicate':
-          widget.onDuplicate?.call();
+          if (!clip.locked) widget.onDuplicate?.call();
           break;
         case 'split':
-          widget.onSplit?.call();
+          if (!clip.locked) widget.onSplit?.call();
           break;
         case 'mute':
           widget.onMute?.call();
@@ -304,7 +308,7 @@ class _ClipWidgetState extends State<ClipWidget> {
           widget.onOpenFxEditor?.call();
           break;
         case 'delete':
-          widget.onDelete?.call();
+          if (!clip.locked) widget.onDelete?.call();
           break;
       }
     });
@@ -358,6 +362,9 @@ class _ClipWidgetState extends State<ClipWidget> {
           _showContextMenu(context, details.globalPosition);
         },
         onPanStart: (details) {
+          // IGNORE if clip is locked
+          if (clip.locked) return;
+
           // IGNORE if fade handle is being dragged
           if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
             return;
@@ -584,8 +591,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
-              // Fade in handle (ON TOP of edge handle)
-              // Minimum 20px width for easy hover/click even when fade is 0
+              // Fade in handle (ON TOP of edge handle) - hidden when locked
+              if (!clip.locked)
               _FadeHandle(
                 width: (clip.fadeIn * widget.zoom).clamp(20.0, double.infinity),
                 fadeTime: clip.fadeIn,
@@ -603,8 +610,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                 onDragEnd: () => setState(() => _isDraggingFadeIn = false),
               ),
 
-              // Fade out handle
-              // Minimum 20px width for easy hover/click even when fade is 0
+              // Fade out handle - hidden when locked
+              if (!clip.locked)
               _FadeHandle(
                 width: (clip.fadeOut * widget.zoom).clamp(20.0, double.infinity),
                 fadeTime: clip.fadeOut,
@@ -623,6 +630,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               ),
 
               // Left edge resize handle (ON TOP - always accessible)
+              if (!clip.locked)
               _EdgeHandle(
                 isLeft: true,
                 isActive: _isDraggingLeftEdge,
@@ -689,6 +697,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               ),
 
               // Right edge resize handle (ON TOP - always accessible)
+              if (!clip.locked)
               _EdgeHandle(
                 isLeft: false,
                 isActive: _isDraggingRightEdge,

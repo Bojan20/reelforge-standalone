@@ -7,9 +7,9 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 RUST_LIB="$PROJECT_ROOT/target/release/librf_bridge.dylib"
 FLUTTER_DIR="$PROJECT_ROOT/flutter_ui"
-APP_BUNDLE="$FLUTTER_DIR/build/macos/Build/Products/Debug/reelforge_ui.app"
+APP_BUNDLE="$FLUTTER_DIR/build/macos/Build/Products/Debug/FluxForge Studio.app"
 
-echo "=== ReelForge Development Build ==="
+echo "=== FluxForge Studio Development Build ==="
 echo "Project root: $PROJECT_ROOT"
 
 # Build Rust library
@@ -62,6 +62,6 @@ echo ">>> App bundle signed"
 
 # Run Flutter app directly to see stderr output
 echo ""
-echo ">>> Launching ReelForge (direct)..."
+echo ">>> Launching FluxForge Studio..."
 echo ""
-"$APP_BUNDLE/Contents/MacOS/reelforge_ui"
+"$APP_BUNDLE/Contents/MacOS/FluxForge Studio"
