@@ -156,22 +156,23 @@ Ti si elite multi-disciplinary professional sa 20+ godina iskustva:
 
 ## Tech Stack
 
-| Layer             | Tehnologija | Svrha                         |
-| ----------------- | ----------- | ----------------------------- |
-| **App Shell**     | Tauri 2.0   | Native window, menus, dialogs |
-| **GUI**           | iced 0.13+  | GPU-accelerated Rust UI       |
-| **Graphics**      | wgpu + WGSL | Spectrum, waveforms, meters   |
-| **Audio I/O**     | cpal + ASIO | Cross-platform, low-latency   |
-| **DSP**           | Rust + SIMD | AVX-512/AVX2/NEON             |
-| **Plugin Format** | nih-plug    | VST3/AU/CLAP                  |
-| **Serialization** | serde       | JSON/Binary projects          |
+| Layer             | Tehnologija      | Svrha                            |
+| ----------------- | ---------------- | -------------------------------- |
+| **App Shell**     | Flutter Desktop  | Native macOS/Windows/Linux app   |
+| **GUI**           | Flutter + Dart   | Cross-platform UI framework      |
+| **Graphics**      | Skia/Impeller    | GPU-accelerated 2D rendering     |
+| **Audio Engine**  | Rust + FFI       | Real-time DSP, lock-free state   |
+| **Audio I/O**     | cpal + ASIO      | Cross-platform, low-latency      |
+| **DSP**           | Rust + SIMD      | AVX-512/AVX2/NEON                |
+| **Plugin Format** | nih-plug         | VST3/AU/CLAP                     |
+| **Serialization** | serde            | JSON/Binary projects             |
 
 ### Jezici
 
 ```
-Rust:  96%  — core, DSP, UI, audio I/O
-WGSL:   3%  — GPU shaders
-C:      1%  — ASIO bindings only
+Dart:   45%  — Flutter UI, state management
+Rust:   54%  — DSP, audio engine, FFI bridge
+WGSL:    1%  — GPU shaders (rf-viz, future)
 ```
 
 ---
@@ -180,39 +181,39 @@ C:      1%  — ASIO bindings only
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ LAYER 7: Application Shell (Tauri 2.0)                          │
-│ ├── Native window management                                     │
-│ ├── File dialogs, menus, tray                                   │
+│ LAYER 7: Application Shell (Flutter Desktop)                     │
+│ ├── Native macOS/Windows/Linux app                               │
+│ ├── File dialogs, menus (platform native)                       │
 │ ├── Project save/load/autosave                                  │
 │ └── Plugin hosting (VST3/AU/CLAP scanner)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 6: GUI Framework (iced)                                    │
-│ ├── wgpu backend — GPU accelerated                              │
-│ ├── Custom widgets: knobs, meters, waveforms                    │
-│ ├── 120fps capable (high refresh displays)                      │
-│ └── Immediate mode rendering                                     │
+│ LAYER 6: GUI Framework (Flutter + Dart)                          │
+│ ├── Skia/Impeller backend — GPU accelerated                     │
+│ ├── Custom widgets: knobs, faders, meters, waveforms            │
+│ ├── 120fps capable (Impeller on supported platforms)            │
+│ └── Provider state management                                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 5: Visualization Engine (wgpu + WGSL)                      │
-│ ├── Spectrum analyzer (GPU FFT)                                  │
-│ ├── Waveform rendering (LOD, instancing)                        │
-│ ├── EQ curve (anti-aliased, glow)                               │
-│ └── Meters: VU, PPM, K-System, LUFS, True Peak                  │
+│ LAYER 5: FFI Bridge (dart:ffi → Rust)                            │
+│ ├── native_ffi.dart — 6000+ LOC bindings                        │
+│ ├── Lock-free parameter sync                                     │
+│ ├── Real-time metering data                                      │
+│ └── DSP processor control                                        │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 4: State Management                                        │
+│ LAYER 4: State Management (Dart Providers)                       │
 │ ├── Undo/Redo (command pattern)                                 │
 │ ├── A/B comparison                                               │
 │ ├── Preset management (JSON schema)                             │
 │ ├── Parameter automation (sample-accurate)                      │
 │ └── Project serialization (versioned)                           │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 3: Audio Engine                                            │
+│ LAYER 3: Audio Engine (Rust: rf-engine)                          │
 │ ├── Dual-path: Real-time + Guard (async lookahead)              │
 │ ├── Graph-based routing                                          │
 │ ├── 6 buses + master                                             │
 │ ├── Insert/Send effects                                          │
 │ └── Sidechain support                                            │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 2: DSP Processors                                          │
+│ LAYER 2: DSP Processors (Rust: rf-dsp)                           │
 │ ├── EQ: 64-band, TDF-II biquads, linear/hybrid phase            │
 │ ├── Dynamics: Compressor, Limiter, Gate, Expander               │
 │ ├── Spatial: Panner, Width, M/S                                 │
@@ -220,7 +221,7 @@ C:      1%  — ASIO bindings only
 │ ├── Analysis: FFT, LUFS, True Peak, Correlation                 │
 │ └── ALL SIMD optimized (AVX-512/AVX2/SSE4.2/NEON)               │
 ├─────────────────────────────────────────────────────────────────┤
-│ LAYER 1: Audio I/O (cpal)                                        │
+│ LAYER 1: Audio I/O (Rust: cpal)                                  │
 │ ├── ASIO (Windows) — via asio-sys                               │
 │ ├── CoreAudio (macOS) — native                                  │
 │ ├── JACK/PipeWire (Linux)                                       │
@@ -243,10 +244,11 @@ fluxforge-studio/
 │   ├── rf-core/            # Shared types, traits
 │   ├── rf-dsp/             # DSP processors (SIMD)
 │   ├── rf-audio/           # Audio I/O (cpal)
-│   ├── rf-engine/          # Audio graph, routing
+│   ├── rf-engine/          # Audio graph, routing, FFI
+│   ├── rf-bridge/          # Flutter-Rust FFI bridge
 │   ├── rf-state/           # Undo/redo, presets
-│   ├── rf-gui/             # iced widgets
-│   ├── rf-viz/             # wgpu visualizations
+│   ├── rf-file/            # Audio file I/O
+│   ├── rf-viz/             # wgpu visualizations (future)
 │   ├── rf-plugin/          # nih-plug wrappers
 │   │
 │   │   # ═══ ADVANCED FEATURES ═══
@@ -257,15 +259,21 @@ fluxforge-studio/
 │   ├── rf-script/          # Lua scripting API
 │   └── rf-video/           # Video playback engine
 │
-├── shaders/                # WGSL shaders
-│   ├── spectrum.wgsl
-│   ├── waveform.wgsl
-│   └── eq_curve.wgsl
+├── flutter_ui/             # Flutter Desktop GUI
+│   ├── lib/
+│   │   ├── models/         # Data models
+│   │   ├── providers/      # State management
+│   │   ├── screens/        # Main screens
+│   │   ├── widgets/        # Custom widgets
+│   │   │   ├── common/     # Knobs, faders, meters
+│   │   │   ├── dsp/        # DSP processor panels
+│   │   │   ├── mixer/      # Mixer components
+│   │   │   └── timeline/   # Timeline/arrangement
+│   │   └── src/rust/       # FFI bindings (native_ffi.dart)
+│   └── macos/windows/linux # Platform runners
 │
-├── assets/                 # Fonts, icons
-├── flutter_ui/             # Flutter frontend (GUI)
-└── src/
-    └── main.rs             # Tauri entry point
+├── shaders/                # WGSL shaders (rf-viz)
+└── assets/                 # Fonts, icons
 ```
 
 ---
