@@ -247,7 +247,15 @@ fluxforge-studio/
 │   ├── rf-state/           # Undo/redo, presets
 │   ├── rf-gui/             # iced widgets
 │   ├── rf-viz/             # wgpu visualizations
-│   └── rf-plugin/          # nih-plug wrappers
+│   ├── rf-plugin/          # nih-plug wrappers
+│   │
+│   │   # ═══ ADVANCED FEATURES ═══
+│   ├── rf-master/          # AI mastering engine
+│   ├── rf-ml/              # Neural audio processing
+│   ├── rf-realtime/        # Zero-latency DSP core
+│   ├── rf-restore/         # Audio restoration suite
+│   ├── rf-script/          # Lua scripting API
+│   └── rf-video/           # Video playback engine
 │
 ├── shaders/                # WGSL shaders
 │   ├── spectrum.wgsl
@@ -255,9 +263,100 @@ fluxforge-studio/
 │   └── eq_curve.wgsl
 │
 ├── assets/                 # Fonts, icons
+├── flutter_ui/             # Flutter frontend (GUI)
 └── src/
     └── main.rs             # Tauri entry point
 ```
+
+---
+
+## Advanced Crates (Detailed)
+
+### rf-master — AI Mastering Engine (4,921 LOC)
+
+Intelligent mastering with genre-aware processing:
+
+| Feature | Description |
+|---------|-------------|
+| **Genre Analysis** | Auto-detect genre for context-aware processing |
+| **Loudness Targeting** | LUFS-based normalization (Streaming: -14, Broadcast: -23, Club: -8) |
+| **Spectral Balance** | EQ matching and tonal correction |
+| **Dynamic Control** | Adaptive multiband dynamics with genre profiles |
+| **Stereo Enhancement** | Width optimization, mono compatibility |
+| **True Peak Limiting** | ISP-safe limiting with 8x oversampling |
+| **Reference Matching** | Match spectral/dynamic profile of reference tracks |
+
+**Presets:** CD/Lossless, Streaming, Apple Music, Broadcast, Club, Vinyl, Podcast, Film
+
+### rf-ml — Neural Audio Processing (1,541 LOC)
+
+State-of-the-art ML/AI audio processing via ONNX Runtime:
+
+| Module | Model | Latency | Use Case |
+|--------|-------|---------|----------|
+| **Denoising** | DeepFilterNet3, FRCRN | ~10ms | Background noise removal |
+| **Stem Separation** | HTDemucs v4 | Offline | Vocals/drums/bass/other split |
+| **Speech Enhancement** | aTENNuate SSM | ~5ms | Voice clarity |
+| **EQ Matching** | Spectral Transfer | — | Reference matching |
+| **Genre Classification** | Custom CNN | — | Auto-genre detection |
+
+**Backends:** CUDA/TensorRT (NVIDIA), CoreML (Apple Silicon), tract (CPU/WASM fallback)
+
+### rf-realtime — Zero-Latency DSP Core (5,253 LOC)
+
+MassCore++ inspired ultra-low-latency processing:
+
+| Feature | Description |
+|---------|-------------|
+| **Triple-Buffer State** | Lock-free UI↔Audio communication |
+| **SIMD Dispatch** | Runtime AVX-512/AVX2/SSE4.2/NEON selection |
+| **Zero-Copy Processing** | Pre-allocated ring buffers |
+| **Deterministic Timing** | No allocations in audio callback |
+| **Guard Path** | Async lookahead for complex processing |
+
+**Target:** < 1ms internal latency at 128 samples
+
+### rf-restore — Audio Restoration Suite (550 LOC)
+
+Professional audio repair and restoration:
+
+| Module | Function |
+|--------|----------|
+| **Declip** | Hard/soft clipping reconstruction (spline interpolation) |
+| **Dehum** | Multi-harmonic hum removal (50/60 Hz + harmonics) |
+| **Declick** | Impulsive noise detection, vinyl crackle removal |
+| **Denoise** | Spectral subtraction with psychoacoustic weighting |
+| **Dereverb** | Reverb suppression, early reflections removal |
+
+**Pipeline:** Chainable modules with automatic latency compensation
+
+### rf-script — Lua Scripting API (978 LOC)
+
+Automation and extensibility via embedded Lua:
+
+| Capability | Examples |
+|------------|----------|
+| **Macros** | Batch rename, auto-fade, normalize selected |
+| **Automation** | Custom LFOs, randomization, algorithmic edits |
+| **Analysis** | Custom meters, spectral analysis scripts |
+| **Integration** | External tool control, OSC/MIDI scripting |
+
+**API:** Full access to tracks, clips, parameters, transport
+
+### rf-video — Video Playback Engine (2,022 LOC)
+
+Professional video for post-production:
+
+| Feature | Description |
+|---------|-------------|
+| **Codecs** | H.264, H.265, ProRes, DNxHD (via FFmpeg) |
+| **Seeking** | Frame-accurate with keyframe indexing |
+| **Sync** | Sample-accurate A/V sync via timecode |
+| **Thumbnails** | Strip generation for timeline preview |
+| **Timecode** | SMPTE formats (23.976, 24, 25, 29.97df, 30) |
+| **Import** | EDL/AAF support |
+
+**Frame Cache:** LRU cache with background preloading
 
 ---
 
