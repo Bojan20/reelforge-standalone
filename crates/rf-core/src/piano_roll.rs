@@ -20,6 +20,7 @@ pub const TICKS_PER_BEAT: u64 = 960;
 
 /// Grid divisions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum GridDivision {
     /// 1 bar (4 beats in 4/4)
     Bar,
@@ -30,6 +31,7 @@ pub enum GridDivision {
     /// Eighth note
     Eighth,
     /// Sixteenth note
+    #[default]
     Sixteenth,
     /// Thirty-second note
     ThirtySecond,
@@ -71,11 +73,6 @@ impl GridDivision {
     }
 }
 
-impl Default for GridDivision {
-    fn default() -> Self {
-        GridDivision::Sixteenth
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EDIT TOOL
@@ -83,8 +80,10 @@ impl Default for GridDivision {
 
 /// Piano roll editing tool
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum PianoRollTool {
     /// Select and move notes
+    #[default]
     Select,
     /// Draw new notes
     Draw,
@@ -100,11 +99,6 @@ pub enum PianoRollTool {
     Mute,
 }
 
-impl Default for PianoRollTool {
-    fn default() -> Self {
-        PianoRollTool::Select
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NOTE SELECTION
@@ -924,7 +918,7 @@ impl PianoRollState {
         let mut tick = (start_tick / grid_ticks) * grid_ticks;
 
         while tick <= end_tick {
-            let is_bar = tick % bar_ticks == 0;
+            let is_bar = tick.is_multiple_of(bar_ticks);
             lines.push((tick, is_bar));
             tick += grid_ticks;
         }

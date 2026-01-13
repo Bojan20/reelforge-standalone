@@ -117,7 +117,7 @@ impl OfflineRenderer {
         let mut output_r = vec![0.0f64; total_samples];
 
         // Process in blocks
-        let num_blocks = (total_samples + self.block_size - 1) / self.block_size;
+        let num_blocks = total_samples.div_ceil(self.block_size);
 
         for block_idx in 0..num_blocks {
             let block_start = block_idx * self.block_size;
@@ -163,10 +163,8 @@ impl OfflineRenderer {
             insert_chain.process_all(&mut block_l, &mut block_r);
 
             // Copy to output
-            for i in 0..block_len {
-                output_l[block_start + i] = block_l[i];
-                output_r[block_start + i] = block_r[i];
-            }
+            output_l[block_start..block_start + block_len].copy_from_slice(&block_l[..block_len]);
+            output_r[block_start..block_start + block_len].copy_from_slice(&block_r[..block_len]);
 
             // Report progress
             if let Some(callback) = progress_callback {

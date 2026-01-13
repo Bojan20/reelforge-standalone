@@ -119,8 +119,8 @@ impl MappingCurve {
             Self::Logarithmic => v.sqrt(),
             Self::SCurve => {
                 // Smooth S-curve using smoothstep
-                let t = v * v * (3.0 - 2.0 * v);
-                t
+                
+                v * v * (3.0 - 2.0 * v)
             }
         }
     }
@@ -293,11 +293,10 @@ impl FxContainer {
         if let Some(path) = self.paths.get_mut(path_id.0 as usize) {
             // Find first empty slot
             for i in 0..8 {
-                if let Some(slot) = path.chain.slot(i) {
-                    if !slot.is_loaded() {
+                if let Some(slot) = path.chain.slot(i)
+                    && !slot.is_loaded() {
                         return path.chain.load(i, processor);
                     }
-                }
             }
             false
         } else {

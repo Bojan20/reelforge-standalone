@@ -286,7 +286,7 @@ impl RoomMeasurement {
             let freq = i as f64 * self.sample_rate / ROOM_FFT_SIZE as f64;
 
             // Skip below 20Hz and above 500Hz (typical modal range)
-            if freq < 20.0 || freq > 500.0 {
+            if !(20.0..=500.0).contains(&freq) {
                 continue;
             }
 

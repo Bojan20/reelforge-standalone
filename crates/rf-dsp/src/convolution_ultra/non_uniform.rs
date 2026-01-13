@@ -39,7 +39,7 @@ impl PartitionScheme {
             let count = if remaining >= current_size * 4 {
                 4 // Use 4 partitions of this size before doubling
             } else {
-                (remaining + current_size - 1) / current_size
+                remaining.div_ceil(current_size)
             };
 
             for _ in 0..count {

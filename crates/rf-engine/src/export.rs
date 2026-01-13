@@ -21,20 +21,17 @@ use crate::track_manager::TrackManager;
 
 /// Export format
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ExportFormat {
     /// 16-bit PCM WAV
     Wav16,
     /// 24-bit PCM WAV
+    #[default]
     Wav24,
     /// 32-bit float WAV
     Wav32Float,
 }
 
-impl Default for ExportFormat {
-    fn default() -> Self {
-        Self::Wav24
-    }
-}
 
 /// Export configuration
 #[derive(Debug, Clone)]
@@ -159,7 +156,7 @@ impl ExportEngine {
         self.progress.store(0.0_f64.to_bits(), Ordering::Relaxed);
 
         // Render in blocks
-        let num_blocks = (total_samples + config.block_size - 1) / config.block_size;
+        let num_blocks = total_samples.div_ceil(config.block_size);
 
         for block_idx in 0..num_blocks {
             let block_start = block_idx * config.block_size;

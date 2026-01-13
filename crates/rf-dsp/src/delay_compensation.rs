@@ -207,8 +207,8 @@ impl DelayCompensationManager {
 
     /// Register a new node
     pub fn register_node(&mut self, node_id: NodeId) {
-        if !self.node_latencies.contains_key(&node_id) {
-            self.node_latencies.insert(node_id, NodeLatency::default());
+        if let std::collections::hash_map::Entry::Vacant(e) = self.node_latencies.entry(node_id) {
+            e.insert(NodeLatency::default());
             self.delay_lines
                 .insert(node_id, StereoDelayLine::new(MAX_COMPENSATION_SAMPLES));
         }
@@ -223,12 +223,11 @@ impl DelayCompensationManager {
 
     /// Report plugin latency for a node
     pub fn report_latency(&mut self, node_id: NodeId, latency: LatencySamples) {
-        if let Some(info) = self.node_latencies.get_mut(&node_id) {
-            if info.plugin_latency != latency {
+        if let Some(info) = self.node_latencies.get_mut(&node_id)
+            && info.plugin_latency != latency {
                 info.plugin_latency = latency;
                 self.recalculate();
             }
-        }
     }
 
     /// Get latency info for a node

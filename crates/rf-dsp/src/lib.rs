@@ -27,6 +27,10 @@
 
 #![feature(portable_simd)]
 #![allow(dead_code)]
+// DSP code uses explicit indexing for SIMD optimization and cache-friendly access
+#![allow(clippy::needless_range_loop)]
+// Complex DSP types are intentional for zero-copy processing
+#![allow(clippy::type_complexity)]
 // GPU feature is conditional
 #![allow(unexpected_cfgs)]
 

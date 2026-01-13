@@ -109,7 +109,7 @@ pub extern "C" fn control_room_get_monitor_source() -> u8 {
 #[unsafe(no_mangle)]
 pub extern "C" fn control_room_set_monitor_level(level_db: f64) -> i32 {
     // SECURITY: Validate dB range
-    if !level_db.is_finite() || level_db < -120.0 || level_db > 24.0 {
+    if !level_db.is_finite() || !(-120.0..=24.0).contains(&level_db) {
         return 0;
     }
 

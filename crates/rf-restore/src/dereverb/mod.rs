@@ -275,7 +275,7 @@ impl Dereverb {
             // Apply with mix control
             let final_gain = mix * gain + (1.0 - mix);
 
-            *spectrum_bin = *spectrum_bin * final_gain;
+            *spectrum_bin *= final_gain;
         }
     }
 
@@ -492,7 +492,7 @@ impl WpeDereverb {
             }
 
             // Subtract prediction (dereverberate)
-            spectrum[bin] = spectrum[bin] - prediction * self.config.mix;
+            spectrum[bin] -= prediction * self.config.mix;
         }
 
         // Update filters (simplified LMS)

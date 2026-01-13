@@ -7,6 +7,7 @@
 //! - Undo/Redo command pattern
 //! - Lock-free updates to audio thread
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,7 +60,9 @@ fn next_id() -> u64 {
 
 /// Output bus routing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum OutputBus {
+    #[default]
     Master = 0,
     Music = 1,
     Sfx = 2,
@@ -68,11 +71,6 @@ pub enum OutputBus {
     Aux = 5,
 }
 
-impl Default for OutputBus {
-    fn default() -> Self {
-        Self::Master
-    }
-}
 
 impl From<u32> for OutputBus {
     fn from(value: u32) -> Self {
@@ -781,10 +779,12 @@ impl Clip {
 
 /// Crossfade curve type
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum CrossfadeCurve {
     /// Straight line (0dB at midpoint)
     Linear,
     /// Equal power/constant power (-3dB at midpoint)
+    #[default]
     EqualPower,
     /// Smooth S-curve (slow start/end, fast middle)
     SCurve,
@@ -797,11 +797,6 @@ pub enum CrossfadeCurve {
     Custom(Vec<(f32, f32)>),
 }
 
-impl Default for CrossfadeCurve {
-    fn default() -> Self {
-        Self::EqualPower
-    }
-}
 
 impl CrossfadeCurve {
     /// Calculate curve value at normalized position (0.0 to 1.0)
@@ -1143,12 +1138,12 @@ impl PunchRegion {
 
 /// Central manager for all tracks, clips, crossfades, and markers
 pub struct TrackManager {
-    /// All tracks (pub for lock-free audio thread access via try_read)
-    pub tracks: RwLock<HashMap<TrackId, Track>>,
-    /// All clips (pub for lock-free audio thread access via try_read)
-    pub clips: RwLock<HashMap<ClipId, Clip>>,
-    /// Crossfades between clips
-    pub crossfades: RwLock<HashMap<CrossfadeId, Crossfade>>,
+    /// All tracks - DashMap for lock-free concurrent access (audio thread safe)
+    pub tracks: DashMap<TrackId, Track>,
+    /// All clips - DashMap for lock-free concurrent access (audio thread safe)
+    pub clips: DashMap<ClipId, Clip>,
+    /// Crossfades between clips - DashMap for lock-free concurrent access
+    pub crossfades: DashMap<CrossfadeId, Crossfade>,
     /// Timeline markers
     pub markers: RwLock<Vec<Marker>>,
     /// Loop region
@@ -1186,9 +1181,9 @@ impl TrackManager {
         }
 
         Self {
-            tracks: RwLock::new(HashMap::new()),
-            clips: RwLock::new(HashMap::new()),
-            crossfades: RwLock::new(HashMap::new()),
+            tracks: DashMap::new(),
+            clips: DashMap::new(),
+            crossfades: DashMap::new(),
             markers: RwLock::new(Vec::new()),
             loop_region: RwLock::new(LoopRegion::default()),
             cycle_region: RwLock::new(CycleRegion::default()),
@@ -1283,7 +1278,7 @@ impl TrackManager {
         track.order = order.len();
         order.push(id);
 
-        self.tracks.write().insert(id, track);
+        self.tracks.insert(id, track);
         id
     }
 
@@ -1292,10 +1287,9 @@ impl TrackManager {
         // Remove all clips on this track
         let clip_ids: Vec<ClipId> = self
             .clips
-            .read()
-            .values()
-            .filter(|c| c.track_id == track_id)
-            .map(|c| c.id)
+            .iter()
+            .filter(|entry| entry.value().track_id == track_id)
+            .map(|entry| entry.value().id)
             .collect();
 
         for clip_id in clip_ids {
@@ -1306,21 +1300,20 @@ impl TrackManager {
         self.track_order.write().retain(|&id| id != track_id);
 
         // Remove track
-        self.tracks.write().remove(&track_id);
+        self.tracks.remove(&track_id);
     }
 
     /// Get track by ID
     pub fn get_track(&self, track_id: TrackId) -> Option<Track> {
-        self.tracks.read().get(&track_id).cloned()
+        self.tracks.get(&track_id).map(|r| r.clone())
     }
 
     /// Get all tracks in order
     pub fn get_all_tracks(&self) -> Vec<Track> {
-        let tracks = self.tracks.read();
         let order = self.track_order.read();
         order
             .iter()
-            .filter_map(|id| tracks.get(id).cloned())
+            .filter_map(|id| self.tracks.get(id).map(|r| r.clone()))
             .collect()
     }
 
@@ -1329,8 +1322,8 @@ impl TrackManager {
     where
         F: FnOnce(&mut Track),
     {
-        if let Some(track) = self.tracks.write().get_mut(&track_id) {
-            f(track);
+        if let Some(mut track) = self.tracks.get_mut(&track_id) {
+            f(&mut track);
         }
     }
 
@@ -1340,9 +1333,8 @@ impl TrackManager {
         *order = new_order;
 
         // Update track order fields
-        let mut tracks = self.tracks.write();
         for (idx, id) in order.iter().enumerate() {
-            if let Some(track) = tracks.get_mut(id) {
+            if let Some(mut track) = self.tracks.get_mut(id) {
                 track.order = idx;
             }
         }
@@ -1355,8 +1347,7 @@ impl TrackManager {
     /// Update solo_active flag based on current track states
     /// Call this after any track solo state changes
     pub fn update_solo_state(&self) {
-        let tracks = self.tracks.read();
-        let any_soloed = tracks.values().any(|t| t.soloed);
+        let any_soloed = self.tracks.iter().any(|entry| entry.value().soloed);
         self.solo_active.store(any_soloed, Ordering::SeqCst);
     }
 
@@ -1371,8 +1362,7 @@ impl TrackManager {
     ///        If track is muted → silent
     ///        Otherwise → audible
     pub fn is_track_audible(&self, track_id: TrackId) -> bool {
-        let tracks = self.tracks.read();
-        if let Some(track) = tracks.get(&track_id) {
+        if let Some(track) = self.tracks.get(&track_id) {
             // Muted tracks are never audible
             if track.muted {
                 return false;
@@ -1389,7 +1379,7 @@ impl TrackManager {
 
     /// Set track solo state and update global solo_active flag
     pub fn set_track_solo(&self, track_id: TrackId, soloed: bool) {
-        if let Some(track) = self.tracks.write().get_mut(&track_id) {
+        if let Some(mut track) = self.tracks.get_mut(&track_id) {
             track.soloed = soloed;
         }
         self.update_solo_state();
@@ -1397,11 +1387,9 @@ impl TrackManager {
 
     /// Clear all solos (unsolo all tracks)
     pub fn clear_all_solos(&self) {
-        let mut tracks = self.tracks.write();
-        for track in tracks.values_mut() {
-            track.soloed = false;
+        for mut entry in self.tracks.iter_mut() {
+            entry.value_mut().soloed = false;
         }
-        drop(tracks);
         self.solo_active.store(false, Ordering::SeqCst);
     }
 
@@ -1412,7 +1400,7 @@ impl TrackManager {
     /// Add a new clip
     pub fn add_clip(&self, clip: Clip) -> ClipId {
         let id = clip.id;
-        self.clips.write().insert(id, clip);
+        self.clips.insert(id, clip);
         id
     }
 
@@ -1436,44 +1424,45 @@ impl TrackManager {
         // Remove associated crossfades
         let xfade_ids: Vec<CrossfadeId> = self
             .crossfades
-            .read()
-            .values()
-            .filter(|x| x.clip_a_id == clip_id || x.clip_b_id == clip_id)
-            .map(|x| x.id)
+            .iter()
+            .filter(|entry| {
+                let x = entry.value();
+                x.clip_a_id == clip_id || x.clip_b_id == clip_id
+            })
+            .map(|entry| entry.value().id)
             .collect();
 
         for xfade_id in xfade_ids {
-            self.crossfades.write().remove(&xfade_id);
+            self.crossfades.remove(&xfade_id);
         }
 
-        self.clips.write().remove(&clip_id);
+        self.clips.remove(&clip_id);
     }
 
     /// Get clip by ID
     pub fn get_clip(&self, clip_id: ClipId) -> Option<Clip> {
-        self.clips.read().get(&clip_id).cloned()
+        self.clips.get(&clip_id).map(|r| r.clone())
     }
 
     /// Get all clips for a track
     pub fn get_clips_for_track(&self, track_id: TrackId) -> Vec<Clip> {
         self.clips
-            .read()
-            .values()
-            .filter(|c| c.track_id == track_id)
-            .cloned()
+            .iter()
+            .filter(|entry| entry.value().track_id == track_id)
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
     /// Get all clips sorted by start time
     pub fn get_all_clips(&self) -> Vec<Clip> {
-        let mut clips: Vec<_> = self.clips.read().values().cloned().collect();
+        let mut clips: Vec<_> = self.clips.iter().map(|entry| entry.value().clone()).collect();
         clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
         clips
     }
 
     /// Move clip to new position (and optionally new track)
     pub fn move_clip(&self, clip_id: ClipId, new_track_id: TrackId, new_start_time: f64) {
-        if let Some(clip) = self.clips.write().get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.track_id = new_track_id;
             clip.start_time = new_start_time.max(0.0);
         }
@@ -1487,7 +1476,7 @@ impl TrackManager {
         new_duration: f64,
         new_source_offset: f64,
     ) {
-        if let Some(clip) = self.clips.write().get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.start_time = new_start_time.max(0.0);
             clip.duration = new_duration.max(0.001);
             clip.source_offset = new_source_offset.max(0.0);
@@ -1506,12 +1495,9 @@ impl TrackManager {
         let split_offset = split_time - original.start_time;
 
         // Create left clip (modify original in place)
-        {
-            let mut clips = self.clips.write();
-            if let Some(clip) = clips.get_mut(&clip_id) {
-                clip.duration = split_offset;
-                clip.name = format!("{} (L)", original.name);
-            }
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
+            clip.duration = split_offset;
+            clip.name = format!("{} (L)", original.name);
         }
 
         // Create right clip
@@ -1558,8 +1544,8 @@ impl TrackManager {
     where
         F: FnOnce(&mut Clip),
     {
-        if let Some(clip) = self.clips.write().get_mut(&clip_id) {
-            f(clip);
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
+            f(&mut clip);
         }
     }
 
@@ -1570,18 +1556,17 @@ impl TrackManager {
 
     /// Clear all clip selections
     pub fn clear_selection(&self) {
-        for clip in self.clips.write().values_mut() {
-            clip.selected = false;
+        for mut entry in self.clips.iter_mut() {
+            entry.value_mut().selected = false;
         }
     }
 
     /// Get selected clips
     pub fn get_selected_clips(&self) -> Vec<Clip> {
         self.clips
-            .read()
-            .values()
-            .filter(|c| c.selected)
-            .cloned()
+            .iter()
+            .filter(|entry| entry.value().selected)
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
@@ -1591,18 +1576,12 @@ impl TrackManager {
 
     /// Add FX to a clip's chain
     pub fn add_clip_fx(&self, clip_id: ClipId, fx_type: ClipFxType) -> Option<ClipFxSlotId> {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
-            Some(clip.add_fx(fx_type))
-        } else {
-            None
-        }
+        self.clips.get_mut(&clip_id).map(|mut clip| clip.add_fx(fx_type))
     }
 
     /// Add FX slot to a clip's chain
     pub fn add_clip_fx_slot(&self, clip_id: ClipId, slot: ClipFxSlot) -> Option<ClipFxSlotId> {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             Some(clip.fx_chain.add_slot(slot))
         } else {
             None
@@ -1616,8 +1595,7 @@ impl TrackManager {
         index: usize,
         fx_type: ClipFxType,
     ) -> Option<ClipFxSlotId> {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             let slot = ClipFxSlot::new(fx_type);
             Some(clip.fx_chain.insert_slot(index, slot))
         } else {
@@ -1627,8 +1605,7 @@ impl TrackManager {
 
     /// Remove FX from a clip's chain
     pub fn remove_clip_fx(&self, clip_id: ClipId, slot_id: ClipFxSlotId) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.remove_fx(slot_id)
         } else {
             false
@@ -1637,8 +1614,7 @@ impl TrackManager {
 
     /// Move FX slot to new position in clip's chain
     pub fn move_clip_fx(&self, clip_id: ClipId, slot_id: ClipFxSlotId, new_index: usize) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.fx_chain.move_slot(slot_id, new_index)
         } else {
             false
@@ -1647,20 +1623,17 @@ impl TrackManager {
 
     /// Bypass/enable a specific FX slot
     pub fn set_clip_fx_bypass(&self, clip_id: ClipId, slot_id: ClipFxSlotId, bypass: bool) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
-            if let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id)
+            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
                 slot.bypass = bypass;
                 return true;
             }
-        }
         false
     }
 
     /// Bypass/enable entire clip FX chain
     pub fn set_clip_fx_chain_bypass(&self, clip_id: ClipId, bypass: bool) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.set_fx_bypass(bypass);
             true
         } else {
@@ -1673,25 +1646,22 @@ impl TrackManager {
     where
         F: FnOnce(&mut ClipFxSlot),
     {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
-            if let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id)
+            && let Some(slot) = clip.fx_chain.get_slot_mut(slot_id) {
                 f(slot);
                 return true;
             }
-        }
         false
     }
 
     /// Get clip's FX chain
     pub fn get_clip_fx_chain(&self, clip_id: ClipId) -> Option<ClipFxChain> {
-        self.clips.read().get(&clip_id).map(|c| c.fx_chain.clone())
+        self.clips.get(&clip_id).map(|c| c.fx_chain.clone())
     }
 
     /// Get specific FX slot from a clip
     pub fn get_clip_fx_slot(&self, clip_id: ClipId, slot_id: ClipFxSlotId) -> Option<ClipFxSlot> {
         self.clips
-            .read()
             .get(&clip_id)
             .and_then(|c| c.fx_chain.get_slot(slot_id).cloned())
     }
@@ -1699,17 +1669,15 @@ impl TrackManager {
     /// Get all clips that have active FX processing
     pub fn get_clips_with_fx(&self) -> Vec<Clip> {
         self.clips
-            .read()
-            .values()
-            .filter(|c| c.has_fx())
-            .cloned()
+            .iter()
+            .filter(|entry| entry.value().has_fx())
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
     /// Clear all FX from a clip
     pub fn clear_clip_fx(&self, clip_id: ClipId) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.fx_chain.clear();
             true
         } else {
@@ -1719,14 +1687,10 @@ impl TrackManager {
 
     /// Copy FX chain from one clip to another
     pub fn copy_clip_fx(&self, source_clip_id: ClipId, target_clip_id: ClipId) -> bool {
-        let source_chain = {
-            let clips = self.clips.read();
-            clips.get(&source_clip_id).map(|c| c.fx_chain.clone())
-        };
+        let source_chain = self.clips.get(&source_clip_id).map(|c| c.fx_chain.clone());
 
-        if let Some(chain) = source_chain {
-            let mut clips = self.clips.write();
-            if let Some(target_clip) = clips.get_mut(&target_clip_id) {
+        if let Some(chain) = source_chain
+            && let Some(mut target_clip) = self.clips.get_mut(&target_clip_id) {
                 // Clone chain but regenerate slot IDs
                 target_clip.fx_chain.bypass = chain.bypass;
                 target_clip.fx_chain.input_gain_db = chain.input_gain_db;
@@ -1743,14 +1707,12 @@ impl TrackManager {
                 }
                 return true;
             }
-        }
         false
     }
 
     /// Set clip FX chain input gain
     pub fn set_clip_fx_input_gain(&self, clip_id: ClipId, gain_db: f64) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.fx_chain.input_gain_db = gain_db.clamp(-96.0, 12.0);
             true
         } else {
@@ -1760,8 +1722,7 @@ impl TrackManager {
 
     /// Set clip FX chain output gain
     pub fn set_clip_fx_output_gain(&self, clip_id: ClipId, gain_db: f64) -> bool {
-        let mut clips = self.clips.write();
-        if let Some(clip) = clips.get_mut(&clip_id) {
+        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
             clip.fx_chain.output_gain_db = gain_db.clamp(-96.0, 12.0);
             true
         } else {
@@ -1829,7 +1790,7 @@ impl TrackManager {
         xfade.shape = shape;
 
         let id = xfade.id;
-        self.crossfades.write().insert(id, xfade);
+        self.crossfades.insert(id, xfade);
 
         Some(id)
     }
@@ -1837,30 +1798,28 @@ impl TrackManager {
     /// Get all crossfades for a track
     pub fn get_crossfades_for_track(&self, track_id: TrackId) -> Vec<Crossfade> {
         self.crossfades
-            .read()
-            .values()
-            .filter(|x| x.track_id == track_id)
-            .cloned()
+            .iter()
+            .filter(|entry| entry.value().track_id == track_id)
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
     /// Get crossfade by ID
     pub fn get_crossfade(&self, xfade_id: CrossfadeId) -> Option<Crossfade> {
-        self.crossfades.read().get(&xfade_id).cloned()
+        self.crossfades.get(&xfade_id).map(|r| r.clone())
     }
 
     /// Find crossfade at given time on a track
     pub fn get_crossfade_at_time(&self, track_id: TrackId, time: f64) -> Option<Crossfade> {
         self.crossfades
-            .read()
-            .values()
-            .find(|x| x.track_id == track_id && x.contains_time(time))
-            .cloned()
+            .iter()
+            .find(|entry| entry.value().track_id == track_id && entry.value().contains_time(time))
+            .map(|entry| entry.value().clone())
     }
 
     /// Update crossfade duration and curve (symmetric)
     pub fn update_crossfade(&self, xfade_id: CrossfadeId, duration: f64, curve: CrossfadeCurve) {
-        if let Some(xfade) = self.crossfades.write().get_mut(&xfade_id) {
+        if let Some(mut xfade) = self.crossfades.get_mut(&xfade_id) {
             xfade.duration = duration;
             xfade.shape = CrossfadeShape::Symmetric(curve.clone());
             xfade.curve = curve;
@@ -1874,7 +1833,7 @@ impl TrackManager {
         duration: f64,
         shape: CrossfadeShape,
     ) {
-        if let Some(xfade) = self.crossfades.write().get_mut(&xfade_id) {
+        if let Some(mut xfade) = self.crossfades.get_mut(&xfade_id) {
             xfade.duration = duration;
             xfade.shape = shape;
         }
@@ -1882,7 +1841,7 @@ impl TrackManager {
 
     /// Delete crossfade
     pub fn delete_crossfade(&self, xfade_id: CrossfadeId) {
-        self.crossfades.write().remove(&xfade_id);
+        self.crossfades.remove(&xfade_id);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1936,9 +1895,9 @@ impl TrackManager {
 
     /// Clear all data (new project)
     pub fn clear(&self) {
-        self.tracks.write().clear();
-        self.clips.write().clear();
-        self.crossfades.write().clear();
+        self.tracks.clear();
+        self.clips.clear();
+        self.crossfades.clear();
         self.markers.write().clear();
         self.track_order.write().clear();
         *self.loop_region.write() = LoopRegion::default();
@@ -1947,20 +1906,19 @@ impl TrackManager {
     /// Get total project duration (end of last clip)
     pub fn get_duration(&self) -> f64 {
         self.clips
-            .read()
-            .values()
-            .map(|c| c.end_time())
+            .iter()
+            .map(|entry| entry.value().end_time())
             .fold(0.0, f64::max)
     }
 
     /// Get track count
     pub fn track_count(&self) -> usize {
-        self.tracks.read().len()
+        self.tracks.len()
     }
 
     /// Get clip count
     pub fn clip_count(&self) -> usize {
-        self.clips.read().len()
+        self.clips.len()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2036,7 +1994,7 @@ impl TrackManager {
         take_id: TakeId,
     ) {
         let mut regions = self.comp_regions.write();
-        let track_regions = regions.entry(track_id).or_insert_with(Vec::new);
+        let track_regions = regions.entry(track_id).or_default();
 
         // Remove overlapping regions
         track_regions.retain(|r| r.end_time <= start_time || r.start_time >= end_time);
@@ -2108,7 +2066,7 @@ impl TrackManager {
             end - start,
         );
         let clip_id = clip.id;
-        self.clips.write().insert(clip_id, clip);
+        self.clips.insert(clip_id, clip);
 
         Some(clip_id)
     }
@@ -2124,9 +2082,8 @@ impl TrackManager {
         template_name: &str,
         category: &str,
     ) -> Option<String> {
-        let tracks = self.tracks.read();
-        let track = tracks.get(&track_id)?;
-        let template = TrackTemplate::from_track(track, template_name, category);
+        let track = self.tracks.get(&track_id)?;
+        let template = TrackTemplate::from_track(&track, template_name, category);
         let template_id = template.id.clone();
         self.templates.write().insert(template_id.clone(), template);
         Some(template_id)
@@ -2140,12 +2097,10 @@ impl TrackManager {
         let track_id = track.id;
         drop(templates); // Release read lock before write
 
-        let mut tracks = self.tracks.write();
-        let order = tracks.len();
+        let order = self.tracks.len();
         let mut track = track;
         track.order = order;
-        tracks.insert(track_id, track);
-        drop(tracks);
+        self.tracks.insert(track_id, track);
 
         self.track_order.write().push(track_id);
         Some(track_id)

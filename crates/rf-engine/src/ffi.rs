@@ -1426,8 +1426,6 @@ pub extern "C" fn engine_query_raw_samples(
         return 0;
     }
 
-    let key = format!("clip_{}", clip_id);
-
     // Try to get from IMPORTED_AUDIO (has raw samples)
     if let Some(audio) = IMPORTED_AUDIO.read().get(&ClipId(clip_id)) {
         let start = start_frame as usize;
@@ -11225,8 +11223,8 @@ impl ProjectSnapshot {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as u64)
                 .unwrap_or(0),
-            track_count: TRACK_MANAGER.tracks.read().len(),
-            clip_count: TRACK_MANAGER.clips.read().len(),
+            track_count: TRACK_MANAGER.tracks.len(),
+            clip_count: TRACK_MANAGER.clips.len(),
         }
     }
 }
@@ -12318,11 +12316,10 @@ pub extern "C" fn bounce_get_peak_level() -> f32 {
 /// Cancel bounce
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_cancel() {
-    if let Ok(guard) = BOUNCE_RENDERER.lock() {
-        if let Some(ref renderer) = *guard {
+    if let Ok(guard) = BOUNCE_RENDERER.lock()
+        && let Some(ref renderer) = *guard {
             renderer.cancel();
         }
-    }
 }
 
 /// Check if bounce is active
@@ -12404,14 +12401,12 @@ pub extern "C" fn recording_get_output_dir() -> *mut c_char {
 pub extern "C" fn recording_arm_track(track_id: u64, num_channels: u16) -> i32 {
     let track_id = TrackId(track_id);
 
-    // Get track name
-    let track_name = {
-        let tracks = TRACK_MANAGER.tracks.read();
-        tracks
-            .get(&track_id)
-            .map(|t| t.name.clone())
-            .unwrap_or_else(|| format!("Track_{}", track_id.0))
-    };
+    // Get track name (DashMap provides lock-free access via get())
+    let track_name = TRACK_MANAGER
+        .tracks
+        .get(&track_id)
+        .map(|t| t.name.clone())
+        .unwrap_or_else(|| format!("Track_{}", track_id.0));
 
     if RECORDING_MANAGER.arm_track(track_id, num_channels, &track_name) {
         1
@@ -12631,8 +12626,8 @@ pub extern "C" fn input_bus_get_peak(bus_id: u32, channel: i32) -> f32 {
 /// bus_id=0 means no input routing (disable)
 #[unsafe(no_mangle)]
 pub extern "C" fn track_set_input_bus(track_id: u64, bus_id: u32) {
-    let mut tracks = TRACK_MANAGER.tracks.write();
-    if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
+    // DashMap provides lock-free mutable access via get_mut()
+    if let Some(mut track) = TRACK_MANAGER.tracks.get_mut(&TrackId(track_id)) {
         track.input_bus = if bus_id == 0 {
             None
         } else {
@@ -12646,12 +12641,12 @@ pub extern "C" fn track_set_input_bus(track_id: u64, bus_id: u32) {
 /// Returns 0 if no input routing
 #[unsafe(no_mangle)]
 pub extern "C" fn track_get_input_bus(track_id: u64) -> u32 {
-    let tracks = TRACK_MANAGER.tracks.read();
-    if let Some(track) = tracks.get(&TrackId(track_id)) {
-        track.input_bus.unwrap_or(0)
-    } else {
-        0
-    }
+    // DashMap provides lock-free read access via get()
+    TRACK_MANAGER
+        .tracks
+        .get(&TrackId(track_id))
+        .map(|track| track.input_bus.unwrap_or(0))
+        .unwrap_or(0)
 }
 
 /// Set track monitor mode
@@ -12664,8 +12659,8 @@ pub extern "C" fn track_set_monitor_mode(track_id: u64, mode: i32) {
         _ => crate::input_bus::MonitorMode::Auto,
     };
 
-    let mut tracks = TRACK_MANAGER.tracks.write();
-    if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
+    // DashMap provides lock-free mutable access via get_mut()
+    if let Some(mut track) = TRACK_MANAGER.tracks.get_mut(&TrackId(track_id)) {
         track.monitor_mode = monitor_mode;
         PROJECT_STATE.mark_dirty();
     }
@@ -12675,16 +12670,16 @@ pub extern "C" fn track_set_monitor_mode(track_id: u64, mode: i32) {
 /// Returns: 0=Auto, 1=Manual, 2=Off
 #[unsafe(no_mangle)]
 pub extern "C" fn track_get_monitor_mode(track_id: u64) -> i32 {
-    let tracks = TRACK_MANAGER.tracks.read();
-    if let Some(track) = tracks.get(&TrackId(track_id)) {
-        match track.monitor_mode {
+    // DashMap provides lock-free read access via get()
+    TRACK_MANAGER
+        .tracks
+        .get(&TrackId(track_id))
+        .map(|track| match track.monitor_mode {
             crate::input_bus::MonitorMode::Auto => 0,
             crate::input_bus::MonitorMode::Manual => 1,
             crate::input_bus::MonitorMode::Off => 2,
-        }
-    } else {
-        0
-    }
+        })
+        .unwrap_or(0)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13716,7 +13711,9 @@ pub extern "C" fn wave_cache_query_tiles(
     }
 
     // Allocate and copy
-    let ptr = unsafe {
+    
+
+    unsafe {
         let layout = match std::alloc::Layout::array::<f32>(flat.len()) {
             Ok(l) => l,
             Err(_) => return std::ptr::null_mut(),
@@ -13727,9 +13724,7 @@ pub extern "C" fn wave_cache_query_tiles(
         }
         std::ptr::copy_nonoverlapping(flat.as_ptr(), ptr, flat.len());
         ptr
-    };
-
-    ptr
+    }
 }
 
 /// Free tiles returned by wave_cache_query_tiles

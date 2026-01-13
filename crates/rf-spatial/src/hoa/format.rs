@@ -101,7 +101,7 @@ impl FormatConverter {
     /// Convert format
     pub fn convert(&self, input: &[Vec<f32>]) -> Vec<Vec<f32>> {
         let num_channels = self.order.channel_count();
-        let samples = input.get(0).map(|v| v.len()).unwrap_or(0);
+        let samples = input.first().map(|v| v.len()).unwrap_or(0);
         let mut output = vec![vec![0.0f32; samples]; num_channels];
 
         for (src_ch, &target_ch) in self.reorder_map.iter().enumerate() {

@@ -192,8 +192,8 @@ impl AudioSource for AudioFilePlayer {
                 self.position += 1;
             } else if self.looping {
                 self.position = 0;
-                *l = self.samples_l.get(0).copied().unwrap_or(0.0);
-                *r = self.samples_r.get(0).copied().unwrap_or(*l);
+                *l = self.samples_l.first().copied().unwrap_or(0.0);
+                *r = self.samples_r.first().copied().unwrap_or(*l);
             } else {
                 *l = 0.0;
                 *r = 0.0;

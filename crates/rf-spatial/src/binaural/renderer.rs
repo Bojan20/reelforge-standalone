@@ -298,7 +298,7 @@ impl BinauralRenderer {
         ];
 
         // Simple first-order decoding to virtual speakers
-        for (_spk_idx, spk_pos) in virtual_speakers.iter().enumerate() {
+        for spk_pos in virtual_speakers.iter() {
             let spherical = spk_pos.to_spherical();
             let az = spherical.azimuth.to_radians();
             let el = spherical.elevation.to_radians();
@@ -443,8 +443,8 @@ impl SpatialRenderer for BinauralRenderer {
 
             // Apply gain to output (simplified - full would use convolution)
             for (i, &s) in audio_slice.iter().enumerate() {
-                left[i] = s * smooth_gain * hrir.left.get(0).copied().unwrap_or(1.0);
-                right[i] = s * smooth_gain * hrir.right.get(0).copied().unwrap_or(1.0);
+                left[i] = s * smooth_gain * hrir.left.first().copied().unwrap_or(1.0);
+                right[i] = s * smooth_gain * hrir.right.first().copied().unwrap_or(1.0);
             }
 
             // Interleave to output

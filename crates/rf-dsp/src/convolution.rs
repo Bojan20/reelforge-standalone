@@ -68,7 +68,7 @@ impl PartitionScheme {
     /// Create uniform partition scheme
     pub fn uniform(ir_length: usize, partition_size: usize) -> Self {
         let partition_size = partition_size.clamp(MIN_PARTITION_SIZE, MAX_PARTITION_SIZE);
-        let num_partitions = (ir_length + partition_size - 1) / partition_size;
+        let num_partitions = ir_length.div_ceil(partition_size);
 
         let sizes = vec![partition_size; num_partitions];
         let offsets: Vec<usize> = (0..num_partitions).map(|i| i * partition_size).collect();
@@ -145,7 +145,7 @@ impl ConvolutionChannel {
         let mut planner = RealFftPlanner::<f64>::new();
 
         // Get unique partition sizes
-        let mut unique_sizes: Vec<usize> = scheme.sizes.iter().copied().collect();
+        let mut unique_sizes: Vec<usize> = scheme.sizes.to_vec();
         unique_sizes.sort();
         unique_sizes.dedup();
 
@@ -284,7 +284,7 @@ impl ConvolutionChannel {
         // Process remaining partitions in frequency domain with non-uniform scheduling
 
         // Skip first partition (already processed via direct convolution)
-        for (_partition_idx, partition) in self.partitions.iter().skip(1).enumerate() {
+        for partition in self.partitions.iter().skip(1) {
             let partition_size = partition.size;
 
             // Find which unique size this partition belongs to
@@ -296,7 +296,7 @@ impl ConvolutionChannel {
             // Determine if this partition should be processed this block
             // Larger partitions are triggered less frequently (non-uniform scheduling)
             let trigger_interval = partition_size / block_size;
-            if self.block_counter % trigger_interval != 0 {
+            if !self.block_counter.is_multiple_of(trigger_interval) {
                 continue;  // Skip this partition this block
             }
 

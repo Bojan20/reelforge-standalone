@@ -85,7 +85,7 @@ pub struct WfcHeader {
 impl WfcHeader {
     pub fn new(channels: u8, sample_rate: u32, total_frames: u64) -> Self {
         let duration_secs = total_frames as f64 / sample_rate as f64;
-        let num_base_tiles = ((total_frames as usize + BASE_TILE_SAMPLES - 1) / BASE_TILE_SAMPLES) as u32;
+        let num_base_tiles = (total_frames as usize).div_ceil(BASE_TILE_SAMPLES) as u32;
 
         Self {
             magic: WFC_MAGIC,
@@ -104,7 +104,7 @@ impl WfcHeader {
     /// Calculate number of tiles at a given mip level
     pub fn tiles_at_level(&self, level: usize) -> usize {
         let samples_per_tile = MIP_TILE_SAMPLES[level.min(NUM_MIP_LEVELS - 1)];
-        (self.total_frames as usize + samples_per_tile - 1) / samples_per_tile
+        (self.total_frames as usize).div_ceil(samples_per_tile)
     }
 
     /// Validate header

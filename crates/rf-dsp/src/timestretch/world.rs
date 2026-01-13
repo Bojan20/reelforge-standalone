@@ -190,8 +190,7 @@ impl WorldVocoder {
 
         // Interpolate spectral envelope
         let num_bins = analysis
-            .spectral_envelope
-            .get(0)
+            .spectral_envelope.first()
             .map(|v| v.len())
             .unwrap_or(0);
         let mut new_envelope = vec![vec![0.0; num_bins]; new_len];
@@ -219,7 +218,7 @@ impl WorldVocoder {
         }
 
         // Interpolate aperiodicity
-        let ap_bins = analysis.aperiodicity.get(0).map(|v| v.len()).unwrap_or(0);
+        let ap_bins = analysis.aperiodicity.first().map(|v| v.len()).unwrap_or(0);
         let mut new_aperiodicity = vec![vec![0.0; ap_bins]; new_len];
 
         for (i, frame) in new_aperiodicity.iter_mut().enumerate() {

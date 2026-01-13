@@ -127,7 +127,9 @@ impl MeterData {
 
 /// Transport state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum TransportState {
+    #[default]
     Stopped,
     Playing,
     Paused,
@@ -156,11 +158,6 @@ impl TransportState {
     }
 }
 
-impl Default for TransportState {
-    fn default() -> Self {
-        Self::Stopped
-    }
-}
 
 /// Transport position (atomic for lock-free access)
 #[derive(Debug)]

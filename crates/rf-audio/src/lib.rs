@@ -20,6 +20,11 @@
 //! elevation for deterministic audio latency. Call `set_realtime_priority()`
 //! at the start of your audio callback thread.
 
+// Audio I/O uses explicit indexing for buffer processing
+#![allow(clippy::needless_range_loop)]
+// Complex audio config types
+#![allow(clippy::type_complexity)]
+
 pub mod aoip;
 mod device;
 pub mod dsd_output;

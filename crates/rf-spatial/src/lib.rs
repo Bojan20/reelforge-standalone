@@ -34,6 +34,12 @@
 
 #![allow(missing_docs)]
 #![allow(dead_code)]
+// Spatial audio uses explicit indexing for SIMD and speaker array processing
+#![allow(clippy::needless_range_loop)]
+// Complex 3D audio types are intentional
+#![allow(clippy::type_complexity)]
+// Many arguments needed for spatial transforms
+#![allow(clippy::too_many_arguments)]
 
 pub mod atmos;
 pub mod binaural;
@@ -276,10 +282,10 @@ impl PositionAutomation {
 
         // Interpolate
         match self.interpolation {
-            InterpolationType::Step => Some(prev.1.clone()),
+            InterpolationType::Step => Some(prev.1),
             InterpolationType::Linear => {
                 if prev.0 == next.0 {
-                    return Some(prev.1.clone());
+                    return Some(prev.1);
                 }
                 let t = (sample - prev.0) as f64 / (next.0 - prev.0) as f64;
                 Some(prev.1.lerp(&next.1, t as f32))

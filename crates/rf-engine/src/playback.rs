@@ -831,11 +831,10 @@ impl PlaybackEngine {
     /// Send routing command (convenience method)
     #[cfg(feature = "unified_routing")]
     pub fn send_routing_command(&self, cmd: crate::routing::RoutingCommand) -> bool {
-        if let Some(mut guard) = self.routing_sender() {
-            if let Some(sender) = guard.as_mut() {
+        if let Some(mut guard) = self.routing_sender()
+            && let Some(sender) = guard.as_mut() {
                 return sender.send(cmd);
             }
-        }
         false
     }
 
@@ -844,22 +843,20 @@ impl PlaybackEngine {
     pub fn create_routing_channel(&self, kind: ChannelKind, name: &str) -> bool {
         static CALLBACK_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let id = CALLBACK_ID.fetch_add(1, Ordering::Relaxed);
-        if let Some(mut guard) = self.routing_sender() {
-            if let Some(sender) = guard.as_mut() {
+        if let Some(mut guard) = self.routing_sender()
+            && let Some(sender) = guard.as_mut() {
                 return sender.create_channel(kind, name.to_string(), id);
             }
-        }
         false
     }
 
     /// Set channel output in routing graph
     #[cfg(feature = "unified_routing")]
     pub fn set_routing_output(&self, channel: ChannelId, dest: OutputDestination) -> bool {
-        if let Some(mut guard) = self.routing_sender() {
-            if let Some(sender) = guard.as_mut() {
+        if let Some(mut guard) = self.routing_sender()
+            && let Some(sender) = guard.as_mut() {
                 return sender.set_output(channel, dest);
             }
-        }
         false
     }
 
@@ -1034,11 +1031,10 @@ impl PlaybackEngine {
 
     /// Set bypass for track insert slot
     pub fn set_track_insert_bypass(&self, track_id: u64, slot_index: usize, bypass: bool) {
-        if let Some(chain) = self.insert_chains.read().get(&track_id) {
-            if let Some(slot) = chain.slot(slot_index) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id)
+            && let Some(slot) = chain.slot(slot_index) {
                 slot.set_bypass(bypass);
             }
-        }
     }
 
     /// Get master insert chain
@@ -1146,11 +1142,10 @@ impl PlaybackEngine {
 
     /// Set mix for track insert slot
     pub fn set_track_insert_mix(&self, track_id: u64, slot_index: usize, mix: f64) {
-        if let Some(chain) = self.insert_chains.read().get(&track_id) {
-            if let Some(slot) = chain.slot(slot_index) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id)
+            && let Some(slot) = chain.slot(slot_index) {
                 slot.set_mix(mix);
             }
-        }
     }
 
     /// Set parameter on track insert processor (LOCK-FREE via ring buffer)
@@ -1298,15 +1293,14 @@ impl PlaybackEngine {
     pub fn set_track_insert_position(&self, track_id: u64, slot_index: usize, pre_fader: bool) {
         use crate::insert_chain::InsertPosition;
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index) {
                 slot.set_position(if pre_fader {
                     InsertPosition::PreFader
                 } else {
                     InsertPosition::PostFader
                 });
             }
-        }
     }
 
     /// Bypass all inserts on track
@@ -1670,21 +1664,9 @@ impl PlaybackEngine {
             self.control_room.resize_buffers(frames);
         }
 
-        // Get tracks (try to read, skip if locked)
-        // NOTE: Combined try_read pattern - if ANY lock fails, skip processing
-        // This reduces lock overhead by failing fast instead of acquiring partial locks
-        let tracks = match self.track_manager.tracks.try_read() {
-            Some(t) => t,
-            None => return,
-        };
-        let clips = match self.track_manager.clips.try_read() {
-            Some(c) => c,
-            None => return,
-        };
-        let crossfades = match self.track_manager.crossfades.try_read() {
-            Some(x) => x,
-            None => return,
-        };
+        // DashMap provides lock-free concurrent read access via sharded locks
+        // No try_read() needed - direct iteration is always available without blocking
+        // This is the main benefit of DashMap over RwLock<HashMap>
 
         // Use thread-local scratch buffers (ZERO lock contention - audio thread only)
         // This eliminates 2 try_write() calls that were causing lock contention
@@ -1720,7 +1702,9 @@ impl PlaybackEngine {
         let solo_active = self.track_manager.is_solo_active();
 
         // Process each track → route to its bus
-        for track in tracks.values() {
+        // DashMap iter() returns references that auto-release shard locks
+        for entry in self.track_manager.tracks.iter() {
+            let track = entry.value();
             // Skip muted tracks, or non-soloed tracks when solo is active
             if track.muted || (solo_active && !track.soloed) {
                 continue;
@@ -1732,8 +1716,8 @@ impl PlaybackEngine {
 
             // === INPUT MONITORING & RECORDING ===
             // If track has input bus routing, get audio from that bus
-            if let Some(input_bus_id) = track.input_bus {
-                if let Some(bus) = self.input_bus_manager.get_bus(input_bus_id) {
+            if let Some(input_bus_id) = track.input_bus
+                && let Some(bus) = self.input_bus_manager.get_bus(input_bus_id) {
                     // Check monitor mode and armed state
                     let should_monitor = match track.monitor_mode {
                         MonitorMode::Manual => true,
@@ -1761,13 +1745,13 @@ impl PlaybackEngine {
                         }
                     }
                 }
-            }
 
             // Find crossfades active in this track for this time range (iterate without collect)
             // Store matching crossfade IDs to avoid lifetime issues
             let mut active_crossfade_ids: [Option<u64>; 8] = [None; 8];
             let mut crossfade_count = 0;
-            for xf in crossfades.values() {
+            for xf_entry in self.track_manager.crossfades.iter() {
+                let xf = xf_entry.value();
                 if xf.track_id == track.id
                     && xf.start_time < end_time
                     && xf.end_time() > start_time
@@ -1779,7 +1763,8 @@ impl PlaybackEngine {
             }
 
             // Get clips for this track that overlap with current time range
-            for clip in clips.values() {
+            for clip_entry in self.track_manager.clips.iter() {
+                let clip = clip_entry.value();
                 if clip.track_id != track.id || clip.muted {
                     continue;
                 }
@@ -1800,9 +1785,15 @@ impl PlaybackEngine {
                     .iter()
                     .filter_map(|&id| id)
                     .find_map(|xf_id| {
-                        crossfades.values().find(|xf| {
-                            xf.id.0 == xf_id
+                        self.track_manager.crossfades.iter().find_map(|xf_entry| {
+                            let xf = xf_entry.value();
+                            if xf.id.0 == xf_id
                                 && (xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
+                            {
+                                Some(xf.clone())
+                            } else {
+                                None
+                            }
                         })
                     });
 
@@ -1811,7 +1802,7 @@ impl PlaybackEngine {
                     clip,
                     track,
                     &audio,
-                    crossfade,
+                    crossfade.as_ref(),
                     start_sample,
                     sample_rate,
                     track_l,
@@ -1821,11 +1812,10 @@ impl PlaybackEngine {
 
             // Process track insert chain (pre-fader inserts applied before volume)
             // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
-            if let Some(mut chains) = self.insert_chains.try_write() {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(mut chains) = self.insert_chains.try_write()
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     chain.process_pre_fader(track_l, track_r);
                 }
-            }
 
             // === PFL TAP POINT (Pre-Fade Listen) ===
             // Capture pre-fader signal for PFL monitoring
@@ -1840,15 +1830,14 @@ impl PlaybackEngine {
 
             // === CUE MIX SENDS (Pre-Fader) ===
             // Independent headphone mixes are typically pre-fader
-            for (_cue_idx, cue_mix) in self.control_room.cue_mixes.iter().enumerate() {
+            for cue_mix in self.control_room.cue_mixes.iter() {
                 if !cue_mix.enabled.load(Ordering::Relaxed) {
                     continue;
                 }
-                if let Some(send) = cue_mix.get_send(channel_id) {
-                    if send.pre_fader {
+                if let Some(send) = cue_mix.get_send(channel_id)
+                    && send.pre_fader {
                         cue_mix.add_signal(track_l, track_r, &send);
                     }
-                }
             }
 
             // Apply track volume and pan (fader stage)
@@ -1889,11 +1878,10 @@ impl PlaybackEngine {
 
             // Process track insert chain (post-fader inserts applied after volume)
             // Use try_write to avoid blocking audio thread - skip inserts if lock contended
-            if let Some(mut chains) = self.insert_chains.try_write() {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(mut chains) = self.insert_chains.try_write()
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     chain.process_post_fader(track_l, track_r);
                 }
-            }
 
             // Apply delay compensation for tracks with lower latency than max
             // This aligns all tracks in time regardless of plugin latency
@@ -1909,15 +1897,14 @@ impl PlaybackEngine {
             }
 
             // === CUE MIX SENDS (Post-Fader) ===
-            for (_cue_idx, cue_mix) in self.control_room.cue_mixes.iter().enumerate() {
+            for cue_mix in self.control_room.cue_mixes.iter() {
                 if !cue_mix.enabled.load(Ordering::Relaxed) {
                     continue;
                 }
-                if let Some(send) = cue_mix.get_send(channel_id) {
-                    if !send.pre_fader {
+                if let Some(send) = cue_mix.get_send(channel_id)
+                    && !send.pre_fader {
                         cue_mix.add_signal(track_l, track_r, &send);
                     }
-                }
             }
 
             // Process sends - route to send buses (Aux, Sfx, etc.)
@@ -2193,11 +2180,10 @@ impl PlaybackEngine {
                     }
                     "mute" => {
                         // Mute is binary - no smoothing needed (would cause glitches)
+                        // DashMap provides lock-free write access via get_mut()
                         let muted = change.value > 0.5;
-                        if let Some(mut tracks) = self.track_manager.tracks.try_write() {
-                            if let Some(track) = tracks.get_mut(&TrackId(track_id)) {
-                                track.muted = muted;
-                            }
+                        if let Some(mut track) = self.track_manager.tracks.get_mut(&TrackId(track_id)) {
+                            track.muted = muted;
                         }
                     }
                     _ => {
@@ -2255,16 +2241,8 @@ impl PlaybackEngine {
         let start_time = start_sample as f64 / sample_rate;
         let end_time = (start_sample + frames as u64) as f64 / sample_rate;
 
-        // Get tracks (try to read, skip if locked)
-        let tracks = match self.track_manager.tracks.try_read() {
-            Some(t) => t,
-            None => return,
-        };
-
-        let clips = match self.track_manager.clips.try_read() {
-            Some(c) => c,
-            None => return,
-        };
+        // DashMap provides lock-free concurrent read access via sharded locks
+        // No try_read() needed - direct iteration is always available without blocking
 
         // Use thread-local scratch buffers (ZERO lock contention - audio thread only)
         let (track_l, track_r) = SCRATCH_BUFFER_L.with(|buf_l| {
@@ -2294,7 +2272,9 @@ impl PlaybackEngine {
         let solo_active = self.track_manager.is_solo_active();
 
         // Process each track → feed to routing graph channel
-        for track in tracks.values() {
+        // DashMap iter() returns references that auto-release shard locks
+        for track_entry in self.track_manager.tracks.iter() {
+            let track = track_entry.value();
             // Skip muted tracks, or non-soloed tracks when solo is active
             if track.muted || (solo_active && !track.soloed) {
                 continue;
@@ -2304,7 +2284,8 @@ impl PlaybackEngine {
             track_r.fill(0.0);
 
             // Get clips for this track that overlap with current time range
-            for clip in clips.values() {
+            for clip_entry in self.track_manager.clips.iter() {
+                let clip = clip_entry.value();
                 if clip.track_id != track.id || clip.muted {
                     continue;
                 }
@@ -2431,10 +2412,8 @@ impl PlaybackEngine {
         }
         bus_buffers.clear();
 
-        // Get data (blocking - safe for offline)
-        let tracks = self.track_manager.tracks.read();
-        let clips = self.track_manager.clips.read();
-        let crossfades = self.track_manager.crossfades.read();
+        // DashMap provides lock-free access - safe for offline processing
+        // No blocking locks needed
 
         // Get solo state for offline rendering
         let solo_active = self.track_manager.is_solo_active();
@@ -2442,7 +2421,18 @@ impl PlaybackEngine {
         let mut track_l = vec![0.0f64; frames];
         let mut track_r = vec![0.0f64; frames];
 
-        for track in tracks.values() {
+        // Collect crossfades for this time range (need owned copies for lifetime)
+        let crossfades_snapshot: Vec<Crossfade> = self.track_manager.crossfades
+            .iter()
+            .filter(|entry| {
+                let xf = entry.value();
+                xf.start_time < end_time && xf.end_time() > start_time
+            })
+            .map(|entry| entry.value().clone())
+            .collect();
+
+        for track_entry in self.track_manager.tracks.iter() {
+            let track = track_entry.value();
             // Skip muted tracks, or non-soloed tracks when solo is active
             if track.muted || (solo_active && !track.soloed) {
                 continue;
@@ -2451,15 +2441,13 @@ impl PlaybackEngine {
             track_l.fill(0.0);
             track_r.fill(0.0);
 
-            let track_crossfades: Vec<&Crossfade> = crossfades
-                .values()
-                .filter(|xf| {
-                    xf.track_id == track.id
-                        && (xf.start_time < end_time && xf.end_time() > start_time)
-                })
+            let track_crossfades: Vec<&Crossfade> = crossfades_snapshot
+                .iter()
+                .filter(|xf| xf.track_id == track.id)
                 .collect();
 
-            for clip in clips.values() {
+            for clip_entry in self.track_manager.clips.iter() {
+                let clip = clip_entry.value();
                 if clip.track_id != track.id || clip.muted {
                     continue;
                 }

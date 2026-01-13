@@ -144,7 +144,7 @@ impl MztCoeffs {
         Self {
             b0: b0 * norm,
             b1: b1 * norm,
-            b2: b2,
+            b2,
             a1: a1_coeff,
             a2: a2_coeff,
         }

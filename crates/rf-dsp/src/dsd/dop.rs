@@ -221,9 +221,7 @@ impl DopDecoder {
         let marker = ((pcm >> 16) & 0xFF) as u8;
 
         // Validate marker
-        if Self::is_valid_marker(marker, self.expected_marker_toggle).is_none() {
-            return None;
-        }
+        Self::is_valid_marker(marker, self.expected_marker_toggle)?;
 
         self.expected_marker_toggle = !self.expected_marker_toggle;
 
@@ -240,7 +238,7 @@ impl DopDecoder {
 
     /// Decode DoP stream to DSD
     pub fn decode(&mut self, pcm: &[i32]) -> Option<Vec<u8>> {
-        if !self.detected_mode.is_some() && !self.detect(pcm) {
+        if self.detected_mode.is_none() && !self.detect(pcm) {
             return None;
         }
 

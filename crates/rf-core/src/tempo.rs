@@ -93,7 +93,7 @@ impl TimeSignature {
 
     /// Is compound meter (6/8, 9/8, 12/8)
     pub fn is_compound(&self) -> bool {
-        self.denominator == 8 && self.numerator % 3 == 0
+        self.denominator == 8 && self.numerator.is_multiple_of(3)
     }
 
     /// Display string (e.g., "4/4")
@@ -280,8 +280,8 @@ impl TempoMap {
         let event = &self.tempo_events[idx];
 
         // Check if we need to interpolate (ramp)
-        if let Some(next) = self.tempo_events.get(idx + 1) {
-            if event.ramp != TempoRamp::Instant && tick < next.tick {
+        if let Some(next) = self.tempo_events.get(idx + 1)
+            && event.ramp != TempoRamp::Instant && tick < next.tick {
                 let t = (tick - event.tick) as f64 / (next.tick - event.tick) as f64;
                 return match event.ramp {
                     TempoRamp::Linear => event.bpm + (next.bpm - event.bpm) * t,
@@ -292,7 +292,6 @@ impl TempoMap {
                     TempoRamp::Instant => event.bpm,
                 };
             }
-        }
 
         event.bpm
     }
@@ -344,9 +343,7 @@ impl TempoMap {
         }
 
         self.time_sig_events
-            .iter()
-            .filter(|e| e.bar <= bar)
-            .last()
+            .iter().rfind(|e| e.bar <= bar)
             .map(|e| e.time_signature)
             .unwrap_or_default()
     }
@@ -702,6 +699,7 @@ impl TempoMap {
 
 /// Grid/quantize values
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum GridValue {
     /// Whole note
     Whole,
@@ -712,6 +710,7 @@ pub enum GridValue {
     /// Eighth note
     Eighth,
     /// Sixteenth note
+    #[default]
     Sixteenth,
     /// Thirty-second note
     ThirtySecond,
@@ -733,11 +732,6 @@ pub enum GridValue {
     Custom(u32),
 }
 
-impl Default for GridValue {
-    fn default() -> Self {
-        Self::Sixteenth
-    }
-}
 
 impl GridValue {
     /// Convert to ticks

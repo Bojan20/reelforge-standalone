@@ -208,7 +208,7 @@ impl WaveCacheManager {
         // Delete all .wfc files
         if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
             for entry in entries.flatten() {
-                if entry.path().extension().map_or(false, |e| e == "wfc") {
+                if entry.path().extension().is_some_and(|e| e == "wfc") {
                     std::fs::remove_file(entry.path()).ok();
                 }
             }

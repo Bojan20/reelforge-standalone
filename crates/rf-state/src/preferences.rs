@@ -17,6 +17,7 @@ const MAX_RECENT_PROJECTS: usize = 20;
 /// Application preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct AppPreferences {
     /// Audio settings
     pub audio: AudioPreferences,
@@ -32,18 +33,6 @@ pub struct AppPreferences {
     pub window: WindowState,
 }
 
-impl Default for AppPreferences {
-    fn default() -> Self {
-        Self {
-            audio: AudioPreferences::default(),
-            ui: UiPreferences::default(),
-            editor: EditorPreferences::default(),
-            recording: RecordingPreferences::default(),
-            recent_projects: Vec::new(),
-            window: WindowState::default(),
-        }
-    }
-}
 
 /// Audio preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,7 +220,7 @@ impl AppPreferences {
         }
 
         let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         fs::write(path, json)
     }
 

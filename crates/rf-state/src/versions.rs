@@ -222,11 +222,9 @@ impl VersionManager {
             .write()
             .iter_mut()
             .find(|v| v.id == version_id)
-        {
-            if !v.tags.contains(&tag.to_string()) {
+            && !v.tags.contains(&tag.to_string()) {
                 v.tags.push(tag.to_string());
             }
-        }
 
         Ok(())
     }
@@ -255,11 +253,10 @@ impl VersionManager {
         let meta_path = dir.join(format!("{}.meta.json", version_id));
 
         // Check if milestone - don't delete milestones without force
-        if let Some(v) = self.versions.read().iter().find(|v| v.id == version_id) {
-            if v.is_milestone {
+        if let Some(v) = self.versions.read().iter().find(|v| v.id == version_id)
+            && v.is_milestone {
                 return Err(VersionError::MilestoneProtected(version_id.to_string()));
             }
-        }
 
         if data_path.exists() {
             std::fs::remove_file(&data_path)?;
@@ -361,14 +358,11 @@ impl VersionManager {
                         .file_name()
                         .map(|n| n.to_string_lossy().ends_with(".meta.json"))
                         .unwrap_or(false)
-                {
-                    if let Ok(json) = std::fs::read_to_string(&path) {
-                        if let Ok(version) = serde_json::from_str::<ProjectVersion>(&json) {
+                    && let Ok(json) = std::fs::read_to_string(&path)
+                        && let Ok(version) = serde_json::from_str::<ProjectVersion>(&json) {
                             max_number = max_number.max(version.number);
                             versions.push(version);
                         }
-                    }
-                }
             }
         }
 

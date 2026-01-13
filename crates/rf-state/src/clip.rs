@@ -712,9 +712,7 @@ impl WaveformData {
     pub fn get_lod(&self, samples_per_pixel: u32) -> Option<&WaveformLod> {
         // Find the LOD level with closest samples_per_peak <= samples_per_pixel
         self.levels
-            .iter()
-            .filter(|l| l.samples_per_peak <= samples_per_pixel.max(64))
-            .last()
+            .iter().rfind(|l| l.samples_per_peak <= samples_per_pixel.max(64))
             .or_else(|| self.levels.first())
     }
 }
@@ -1009,31 +1007,27 @@ impl EventManager {
 
         // Add grouped events
         for &id in event_ids {
-            if let Some(e) = self.audio_events.get(&id) {
-                if let Some(group_id) = e.group_id {
-                    if let Some(group) = self.groups.get(&group_id) {
+            if let Some(e) = self.audio_events.get(&id)
+                && let Some(group_id) = e.group_id
+                    && let Some(group) = self.groups.get(&group_id) {
                         for &gid in &group.event_ids {
                             if !all_ids.contains(&gid) {
                                 all_ids.push(gid);
                             }
                         }
                     }
-                }
-            }
         }
 
         // Move all
         for id in all_ids {
-            if let Some(e) = self.audio_events.get_mut(&id) {
-                if !e.locked {
+            if let Some(e) = self.audio_events.get_mut(&id)
+                && !e.locked {
                     e.position = (e.position as i64 + delta_samples).max(0) as u64;
                 }
-            }
-            if let Some(e) = self.midi_events.get_mut(&id) {
-                if !e.locked {
+            if let Some(e) = self.midi_events.get_mut(&id)
+                && !e.locked {
                     e.position_ticks = (e.position_ticks as i64 + delta_samples).max(0) as u64;
                 }
-            }
         }
     }
 }

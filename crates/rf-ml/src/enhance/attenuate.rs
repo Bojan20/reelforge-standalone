@@ -352,7 +352,7 @@ impl SpeechEnhancer for ATENNuate {
         };
 
         let frame_size = self.config.frame_size;
-        let num_frames = (mono.len() + frame_size - 1) / frame_size;
+        let num_frames = mono.len().div_ceil(frame_size);
 
         let mut output = Vec::with_capacity(mono.len());
         self.reset();

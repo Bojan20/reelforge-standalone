@@ -23,8 +23,10 @@ pub type Sample = f64;
 /// Monitor source selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum MonitorSource {
     /// Main master bus output
+    #[default]
     MasterBus = 0,
     /// Cue mix output (0-3)
     CueMix(u8) = 1,
@@ -32,11 +34,6 @@ pub enum MonitorSource {
     External(u8) = 2,
 }
 
-impl Default for MonitorSource {
-    fn default() -> Self {
-        Self::MasterBus
-    }
-}
 
 impl MonitorSource {
     /// Encode to u32 for atomic storage
@@ -911,8 +908,8 @@ impl ControlRoom {
                 }
             }
             MonitorSource::CueMix(idx) => {
-                if let Some(cue) = self.cue_mixes.get(idx as usize) {
-                    if let (Some(cue_l), Some(cue_r)) =
+                if let Some(cue) = self.cue_mixes.get(idx as usize)
+                    && let (Some(cue_l), Some(cue_r)) =
                         (cue.output_l.try_read(), cue.output_r.try_read())
                     {
                         let out_l = self.monitor_out_l.try_write();
@@ -924,7 +921,6 @@ impl ControlRoom {
                         }
                         return;
                     }
-                }
                 (master_l, master_r)
             }
             MonitorSource::External(_) => {
@@ -996,8 +992,8 @@ impl ControlRoom {
         let destinations = self.talkback.destinations.load(Ordering::Relaxed);
 
         for (idx, cue) in self.cue_mixes.iter().enumerate() {
-            if (destinations >> idx) & 1 != 0 {
-                if let (Some(mut cue_l), Some(mut cue_r)) =
+            if (destinations >> idx) & 1 != 0
+                && let (Some(mut cue_l), Some(mut cue_r)) =
                     (cue.output_l.try_write(), cue.output_r.try_write())
                 {
                     let len = talkback_l.len().min(talkback_r.len())
@@ -1007,7 +1003,6 @@ impl ControlRoom {
                         cue_r[i] += talkback_r[i] * level;
                     }
                 }
-            }
         }
     }
 

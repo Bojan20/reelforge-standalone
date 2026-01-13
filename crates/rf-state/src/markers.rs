@@ -36,8 +36,10 @@ fn new_marker_id() -> MarkerId {
 
 /// Marker type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MarkerType {
     /// Simple position marker
+    #[default]
     Position,
     /// Cycle/loop region
     Cycle,
@@ -51,11 +53,6 @@ pub enum MarkerType {
     Cue,
 }
 
-impl Default for MarkerType {
-    fn default() -> Self {
-        Self::Position
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKER
@@ -453,11 +450,10 @@ impl MarkerTrack {
 
     /// Set cycle from marker
     pub fn set_cycle_from_marker(&mut self, id: MarkerId) {
-        if let Some(marker) = self.markers.get(&id) {
-            if marker.end_position.is_some() {
+        if let Some(marker) = self.markers.get(&id)
+            && marker.end_position.is_some() {
                 self.locators.set_from_cycle(marker);
             }
-        }
     }
 
     /// Create quick marker at position

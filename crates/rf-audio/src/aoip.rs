@@ -20,10 +20,12 @@ use std::time::Instant;
 
 /// AoIP Protocol type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum AoipProtocol {
     /// SMPTE ST 2110-30 (broadcast standard)
     Smpte2110,
     /// AES67 (studio standard)
+    #[default]
     Aes67,
     /// Dante (proprietary but common)
     Dante,
@@ -31,18 +33,15 @@ pub enum AoipProtocol {
     Ravenna,
 }
 
-impl Default for AoipProtocol {
-    fn default() -> Self {
-        Self::Aes67
-    }
-}
 
 /// Audio encoding for AoIP
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum AoipEncoding {
     /// Linear PCM 16-bit
     Pcm16,
     /// Linear PCM 24-bit
+    #[default]
     Pcm24,
     /// Linear PCM 32-bit
     Pcm32,
@@ -50,11 +49,6 @@ pub enum AoipEncoding {
     Float32,
 }
 
-impl Default for AoipEncoding {
-    fn default() -> Self {
-        Self::Pcm24
-    }
-}
 
 impl AoipEncoding {
     /// Bytes per sample
@@ -69,8 +63,10 @@ impl AoipEncoding {
 
 /// PTP Clock status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum PtpStatus {
     /// Not synchronized
+    #[default]
     Unsynchronized,
     /// Synchronizing
     Acquiring,
@@ -80,11 +76,6 @@ pub enum PtpStatus {
     Freerun,
 }
 
-impl Default for PtpStatus {
-    fn default() -> Self {
-        Self::Unsynchronized
-    }
-}
 
 /// AoIP Stream configuration
 #[derive(Debug, Clone)]
@@ -465,11 +456,10 @@ impl AoipReceiver {
         socket.set_nonblocking(true)?;
 
         // Join multicast if configured
-        if let Some(multicast) = self.config.multicast_addr {
-            if let IpAddr::V4(addr) = multicast {
+        if let Some(multicast) = self.config.multicast_addr
+            && let IpAddr::V4(addr) = multicast {
                 socket.join_multicast_v4(&addr, &std::net::Ipv4Addr::UNSPECIFIED)?;
             }
-        }
 
         self.socket = Some(socket);
         self.running.store(true, Ordering::Release);

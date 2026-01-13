@@ -273,7 +273,7 @@ impl WaveCacheBuilder {
         let samples_per_tile = MIP_TILE_SAMPLES[level_idx];
 
         for (ch_idx, channel_samples) in audio.channels.iter().enumerate() {
-            let num_tiles = (channel_samples.len() + samples_per_tile - 1) / samples_per_tile;
+            let num_tiles = channel_samples.len().div_ceil(samples_per_tile);
             level.tiles[ch_idx] = Vec::with_capacity(num_tiles);
 
             for chunk in channel_samples.chunks(samples_per_tile) {
@@ -356,7 +356,7 @@ pub fn build_from_samples(
         let samples_per_tile = MIP_TILE_SAMPLES[level_idx];
 
         for (ch_idx, ch_samples) in channel_data.iter().enumerate() {
-            let num_tiles = (ch_samples.len() + samples_per_tile - 1) / samples_per_tile;
+            let num_tiles = ch_samples.len().div_ceil(samples_per_tile);
             wfc.mip_levels[level_idx].tiles[ch_idx] = Vec::with_capacity(num_tiles);
 
             for chunk in ch_samples.chunks(samples_per_tile) {

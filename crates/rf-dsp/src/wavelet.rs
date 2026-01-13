@@ -80,7 +80,7 @@ impl WaveletFilter {
                     0.7148465705529156,
                     0.6308807679298589,
                     -0.0279837694168599,
-                    -0.1870348117190930,
+                    -0.187_034_811_719_093,
                     0.0308413818355607,
                     0.0328830116668852,
                     -0.0105974017850690,
@@ -92,7 +92,7 @@ impl WaveletFilter {
                     0.4946238903984533,
                     0.7511339080210959,
                     0.3152503517091982,
-                    -0.2262646939654400,
+                    -0.226_264_693_965_44,
                     -0.1297668675672625,
                     0.0975016055873225,
                     0.0275228655303053,
@@ -159,8 +159,8 @@ impl WaveletFilter {
                     -0.0156557285289848,
                     -0.0727326213410511,
                     0.3848648565381134,
-                    0.8525720416423900,
-                    0.3378976709511590,
+                    0.852_572_041_642_39,
+                    0.337_897_670_951_159,
                     -0.0727322757411889,
                 ]
             }
@@ -172,7 +172,7 @@ impl WaveletFilter {
                     0.0211018340249299,
                     0.0997835515523118,
                     -0.0975016055873225,
-                    -0.2262646939654400,
+                    -0.226_264_693_965_44,
                     0.3152503517091982,
                     0.7511339080210959,
                     0.4946238903984533,
@@ -187,7 +187,7 @@ impl WaveletFilter {
                     0.7148465705529156,
                     0.6308807679298589,
                     -0.0279837694168599,
-                    -0.1870348117190930,
+                    -0.187_034_811_719_093,
                     0.0308413818355607,
                     0.0328830116668852,
                     -0.0105974017850690,
@@ -344,7 +344,7 @@ impl DWT {
     fn convolve_downsample(&self, signal: &[f64], filter: &[f64]) -> Vec<f64> {
         let n = signal.len();
         let m = filter.len();
-        let out_len = (n - m + 1) / 2;
+        let out_len = (n - m).div_ceil(2);
 
         (0..out_len)
             .map(|i| {
@@ -897,7 +897,7 @@ impl MultiResolutionAnalyzer {
             // High frequencies: use DWT for better time resolution
             let decomp = self.dwt.decompose(signal, 6);
             // Return detail levels as "spectrogram"
-            decomp.details.iter().map(|d| d.clone()).collect()
+            decomp.details.to_vec()
         } else {
             // Mid frequencies: use CQT for musical analysis
             self.cqt.transform(signal).magnitude()

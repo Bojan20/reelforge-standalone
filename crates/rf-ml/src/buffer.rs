@@ -59,7 +59,7 @@ impl AudioFrame {
                 .collect()
         } else {
             // Mono: return left channel
-            self.data.iter().copied().collect()
+            self.data.to_vec()
         }
     }
 

@@ -213,11 +213,10 @@ impl AudioUnitHost {
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
-                if entry_path.extension().map_or(false, |e| e == "component") {
-                    if let Ok(desc) = self.scan_component(&entry_path) {
+                if entry_path.extension().is_some_and(|e| e == "component")
+                    && let Ok(desc) = self.scan_component(&entry_path) {
                         descriptors.push(desc);
                     }
-                }
             }
         }
         Ok(())
@@ -440,7 +439,7 @@ impl AudioUnitInstance {
 
     /// Get gain value
     fn get_gain(&self) -> f32 {
-        let normalized = self.param_values.get(0).copied().unwrap_or(0.5);
+        let normalized = self.param_values.first().copied().unwrap_or(0.5);
         let db = -60.0 + normalized * 72.0;
         10.0_f32.powf(db as f32 / 20.0)
     }

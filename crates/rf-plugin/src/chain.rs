@@ -445,15 +445,14 @@ impl ZeroCopyChain {
                 };
 
                 // Now copy to output buffer
-                if let Some(out_buf) = self.buffer_pool.get_mut(*out_idx) {
-                    if let Some(src_data) = data_to_copy {
+                if let Some(out_buf) = self.buffer_pool.get_mut(*out_idx)
+                    && let Some(src_data) = data_to_copy {
                         for (j, out_ch) in out_buf.data.iter_mut().enumerate() {
                             if let Some(in_ch) = src_data.get(j) {
                                 out_ch.copy_from_slice(in_ch);
                             }
                         }
                     }
-                }
             } else {
                 // Create temporary input buffer
                 let input_data: Vec<Vec<f32>> = if use_external_input {

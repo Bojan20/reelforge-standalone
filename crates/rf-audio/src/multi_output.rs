@@ -242,7 +242,8 @@ impl MultiOutputEngine {
         let buffer_size = settings.buffer_size.as_usize();
         let sample_rate = settings.sample_rate.as_u32() as u64;
 
-        let engine = Self {
+        
+        Self {
             settings: RwLock::new(settings),
             main: Mutex::new(OutputChannel::new(buffer_size)),
             monitor: Mutex::new(OutputChannel::new(buffer_size)),
@@ -250,8 +251,7 @@ impl MultiOutputEngine {
             running: AtomicBool::new(false),
             sample_rate: AtomicU64::new(sample_rate),
             block_size: AtomicU64::new(buffer_size as u64),
-        };
-        engine
+        }
     }
 
     /// Get sample rate
@@ -407,8 +407,8 @@ impl MultiOutputEngine {
         )?;
 
         // Start monitor output (if enabled and device specified)
-        if settings.monitor_output.enabled {
-            if let Err(e) = self.start_output_stream(
+        if settings.monitor_output.enabled
+            && let Err(e) = self.start_output_stream(
                 &mut self.monitor.lock(),
                 &settings.monitor_output,
                 sample_rate,
@@ -416,12 +416,11 @@ impl MultiOutputEngine {
             ) {
                 log::warn!("Failed to start monitor output: {}", e);
             }
-        }
 
         // Start cue outputs (if enabled)
         for (i, cue_config) in settings.cue_outputs.iter().enumerate() {
-            if cue_config.enabled {
-                if let Err(e) = self.start_output_stream(
+            if cue_config.enabled
+                && let Err(e) = self.start_output_stream(
                     &mut self.cues[i].lock(),
                     cue_config,
                     sample_rate,
@@ -429,7 +428,6 @@ impl MultiOutputEngine {
                 ) {
                     log::warn!("Failed to start cue output {}: {}", i, e);
                 }
-            }
         }
 
         self.running.store(true, Ordering::Release);

@@ -233,7 +233,7 @@ impl Timecode {
         };
 
         // Handle both separators for flexibility
-        let parts: Vec<&str> = s.split(|c| c == ':' || c == ';').collect();
+        let parts: Vec<&str> = s.split([':', ';']).collect();
 
         if parts.len() != 4 {
             return Err(VideoError::InvalidTimecode(format!(

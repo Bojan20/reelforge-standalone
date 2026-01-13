@@ -268,12 +268,11 @@ impl UltraEqWrapper {
     ) -> Option<usize> {
         // Find free band
         for i in 0..rf_dsp::ULTRA_MAX_BANDS {
-            if let Some(band) = self.eq.band(i) {
-                if !band.enabled {
+            if let Some(band) = self.eq.band(i)
+                && !band.enabled {
                     self.eq.set_band(i, freq, gain, q, filter_type);
                     return Some(i);
                 }
-            }
         }
         None
     }
@@ -748,10 +747,7 @@ impl InsertProcessor for RoomCorrectionWrapper {
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        match index {
-            0 => self.eq.enabled = value > 0.5,
-            _ => {}
-        }
+        if index == 0 { self.eq.enabled = value > 0.5 }
     }
 
     fn param_name(&self, index: usize) -> &str {

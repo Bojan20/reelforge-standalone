@@ -854,11 +854,10 @@ end
             let entry = entry?;
             let path = entry.path();
 
-            if path.extension().map(|e| e == "lua").unwrap_or(false) {
-                if self.engine.load_script(&path).is_ok() {
+            if path.extension().map(|e| e == "lua").unwrap_or(false)
+                && self.engine.load_script(&path).is_ok() {
                     count += 1;
                 }
-            }
         }
 
         Ok(count)

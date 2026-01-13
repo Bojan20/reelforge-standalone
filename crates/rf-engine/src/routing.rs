@@ -720,8 +720,8 @@ impl Channel {
         self.output_right[..len].copy_from_slice(&self.input_right[..len]);
 
         // Process through plugin chain first (if present)
-        if let Some(plugin_chain) = &mut self.plugin_chain {
-            if !plugin_chain.is_empty() {
+        if let Some(plugin_chain) = &mut self.plugin_chain
+            && !plugin_chain.is_empty() {
                 // Convert f64 buffers to f32 for plugin API
                 let mut plugin_input = PluginAudioBuffer::new(2, len);
                 for i in 0..len {
@@ -740,7 +740,6 @@ impl Channel {
                     }
                 }
             }
-        }
 
         // Process with DSP strip after plugins
         if let Some(strip) = &mut self.strip {
@@ -802,7 +801,7 @@ impl Channel {
         self.output_right.resize(block_size, 0.0);
 
         // Recreate plugin chain with new block size
-        if let Some(_) = &self.plugin_chain {
+        if self.plugin_chain.is_some() {
             self.plugin_chain = Some(ZeroCopyChain::new(8, 2, block_size));
         }
     }
@@ -1125,8 +1124,8 @@ impl RoutingGraph {
                 return true;
             }
 
-            if visited.insert(current) {
-                if let Some(channel) = self.channels.get(&current) {
+            if visited.insert(current)
+                && let Some(channel) = self.channels.get(&current) {
                     // Check output
                     if let Some(target) = channel.output.target_channel() {
                         stack.push(target);
@@ -1136,7 +1135,6 @@ impl RoutingGraph {
                         stack.push(send.destination);
                     }
                 }
-            }
         }
 
         false
@@ -1257,11 +1255,10 @@ impl RoutingGraph {
             // Second pass: route to destinations
             let (out_l, out_r, target, sends) = routing_info;
 
-            if let Some(target_id) = target {
-                if let Some(target) = self.channels.get_mut(&target_id) {
+            if let Some(target_id) = target
+                && let Some(target) = self.channels.get_mut(&target_id) {
                     target.add_to_input(&out_l, &out_r);
                 }
-            }
 
             // Process sends
             for (dest_id, gain) in sends {
@@ -1442,11 +1439,10 @@ impl RoutingGraphRT {
                 send_index,
                 level_db,
             } => {
-                if let Some(channel) = self.graph.get_mut(from) {
-                    if let Some(send) = channel.sends.get_mut(send_index) {
+                if let Some(channel) = self.graph.get_mut(from)
+                    && let Some(send) = channel.sends.get_mut(send_index) {
                         send.level_db = level_db.clamp(-60.0, 12.0);
                     }
-                }
             }
 
             RoutingCommand::SetSendEnabled {
@@ -1454,11 +1450,10 @@ impl RoutingGraphRT {
                 send_index,
                 enabled,
             } => {
-                if let Some(channel) = self.graph.get_mut(from) {
-                    if let Some(send) = channel.sends.get_mut(send_index) {
+                if let Some(channel) = self.graph.get_mut(from)
+                    && let Some(send) = channel.sends.get_mut(send_index) {
                         send.enabled = enabled;
                     }
-                }
             }
 
             RoutingCommand::SetVolume { id, db } => {
@@ -1487,107 +1482,94 @@ impl RoutingGraphRT {
 
             // DSP commands
             RoutingCommand::SetInputGain { id, db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_input_gain_db(db);
                     }
-                }
             }
 
             RoutingCommand::SetOutputGain { id, db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_output_gain_db(db);
                     }
-                }
             }
 
             RoutingCommand::SetHpfEnabled { id, enabled } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_hpf_enabled(enabled);
                     }
-                }
             }
 
             RoutingCommand::SetHpfFreq { id, freq } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_hpf_freq(freq);
                     }
-                }
             }
 
             RoutingCommand::SetGateEnabled { id, enabled } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_gate_enabled(enabled);
                     }
-                }
             }
 
             RoutingCommand::SetGateThreshold { id, db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_gate_threshold(db);
                     }
-                }
             }
 
             RoutingCommand::SetCompEnabled { id, enabled } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_comp_enabled(enabled);
                     }
-                }
             }
 
             RoutingCommand::SetCompThreshold { id, db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_comp_threshold(db);
                     }
-                }
             }
 
             RoutingCommand::SetCompRatio { id, ratio } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_comp_ratio(ratio);
                     }
-                }
             }
 
             RoutingCommand::SetCompAttack { id, ms } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_comp_attack(ms);
                     }
-                }
             }
 
             RoutingCommand::SetCompRelease { id, ms } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_comp_release(ms);
                     }
-                }
             }
 
             RoutingCommand::SetEqEnabled { id, enabled } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_eq_enabled(enabled);
                     }
-                }
             }
 
             RoutingCommand::SetEqLow { id, freq, gain_db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_eq_low(freq, gain_db);
                     }
-                }
             }
 
             RoutingCommand::SetEqLowMid {
@@ -1596,11 +1578,10 @@ impl RoutingGraphRT {
                 gain_db,
                 q,
             } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_eq_low_mid(freq, gain_db, q);
                     }
-                }
             }
 
             RoutingCommand::SetEqHighMid {
@@ -1609,43 +1590,38 @@ impl RoutingGraphRT {
                 gain_db,
                 q,
             } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_eq_high_mid(freq, gain_db, q);
                     }
-                }
             }
 
             RoutingCommand::SetEqHigh { id, freq, gain_db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_eq_high(freq, gain_db);
                     }
-                }
             }
 
             RoutingCommand::SetLimiterEnabled { id, enabled } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_limiter_enabled(enabled);
                     }
-                }
             }
 
             RoutingCommand::SetLimiterThreshold { id, db } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_limiter_threshold(db);
                     }
-                }
             }
 
             RoutingCommand::SetWidth { id, width } => {
-                if let Some(channel) = self.graph.get_mut(id) {
-                    if let Some(strip) = channel.strip_mut() {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(strip) = channel.strip_mut() {
                         strip.set_width(width);
                     }
-                }
             }
         }
     }

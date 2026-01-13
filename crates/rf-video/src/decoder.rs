@@ -205,7 +205,7 @@ impl VideoDecoder {
             24.0 // Default
         };
 
-        let duration_frames = (duration_secs * frame_rate as f64) as u64;
+        let duration_frames = (duration_secs * frame_rate) as u64;
 
         let frame_rate_enum = if (frame_rate - 24.0).abs() < 0.01 {
             FrameRate::Fps24
@@ -224,7 +224,7 @@ impl VideoDecoder {
         } else if (frame_rate - 60.0).abs() < 0.01 {
             FrameRate::Fps60
         } else {
-            FrameRate::Custom(frame_rate as f64)
+            FrameRate::Custom(frame_rate)
         };
 
         // Check for audio

@@ -305,11 +305,10 @@ impl HistoryBrowser {
     pub fn go_forward(&mut self) -> Option<&HistoryEntry> {
         if self.current_index < self.entries.len() {
             // Update current flags
-            if self.current_index > 0 {
-                if let Some(current) = self.entries.get_mut(self.current_index - 1) {
+            if self.current_index > 0
+                && let Some(current) = self.entries.get_mut(self.current_index - 1) {
                     current.is_current = false;
                 }
-            }
 
             self.current_index += 1;
 

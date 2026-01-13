@@ -19,13 +19,12 @@ impl EngineBridge {
                 self.transport.position_samples as f64 / self.config.sample_rate.as_f64();
 
             // Loop handling
-            if self.transport.loop_enabled {
-                if self.transport.position_seconds >= self.transport.loop_end {
+            if self.transport.loop_enabled
+                && self.transport.position_seconds >= self.transport.loop_end {
                     self.transport.position_seconds = self.transport.loop_start;
                     self.transport.position_samples =
                         (self.transport.loop_start * self.config.sample_rate.as_f64()) as u64;
                 }
-            }
         }
 
         // TODO: Route through DualPathEngine

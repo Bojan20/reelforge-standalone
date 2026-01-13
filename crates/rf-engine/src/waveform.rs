@@ -192,7 +192,7 @@ impl WaveformData {
             return Vec::new();
         }
 
-        let num_buckets = (samples.len() + samples_per_bucket - 1) / samples_per_bucket;
+        let num_buckets = samples.len().div_ceil(samples_per_bucket);
         let mut buckets = Vec::with_capacity(num_buckets);
 
         for chunk in samples.chunks(samples_per_bucket) {
@@ -241,7 +241,7 @@ impl WaveformData {
 
             // Convert to bucket indices
             let bucket_start = px_start_frame / bucket_samples;
-            let bucket_end = (px_end_frame + bucket_samples - 1) / bucket_samples; // Round up
+            let bucket_end = px_end_frame.div_ceil(bucket_samples); // Round up
 
             // Clamp to valid range
             let bucket_start = bucket_start.min(buckets.len());

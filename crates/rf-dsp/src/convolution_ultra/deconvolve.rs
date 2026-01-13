@@ -362,7 +362,7 @@ pub struct MlsGenerator {
 impl MlsGenerator {
     /// Create MLS generator with given order
     pub fn new(order: u32) -> Self {
-        assert!(order >= 8 && order <= 24, "Order must be between 8 and 24");
+        assert!((8..=24).contains(&order), "Order must be between 8 and 24");
 
         let length = (1 << order) - 1;
         let sequence = Self::generate_mls(order);

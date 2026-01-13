@@ -17,6 +17,13 @@
 #![allow(dead_code)]
 // Flutter Rust Bridge uses custom cfg attributes
 #![allow(unexpected_cfgs)]
+// Both api::* and rf_engine::ffi::* export some functions with same names
+// This is intentional - api provides Flutter Rust Bridge bindings, ffi provides C FFI
+#![allow(ambiguous_glob_reexports)]
+// Audio processing functions need many arguments for zero-copy
+#![allow(clippy::too_many_arguments)]
+// Field reassign pattern is common in FFI bridge init
+#![allow(clippy::field_reassign_with_default)]
 
 pub mod advanced_metering;
 mod api;

@@ -138,7 +138,7 @@ impl AudioBlockPool {
 
         // Initialize free stack with all indices
         let free_stack: Vec<AtomicUsize> = (0..pool_size)
-            .map(|i| AtomicUsize::new(i))
+            .map(AtomicUsize::new)
             .collect();
 
         Self {
@@ -375,7 +375,7 @@ impl DualPathEngine {
                                 .store(elapsed, Ordering::Relaxed);
                             stats.guard_blocks.fetch_add(1, Ordering::Relaxed);
 
-                            if let Err(_) = guard_output_tx.try_send(block) {
+                            if guard_output_tx.try_send(block).is_err() {
                                 // Output queue full - we're producing faster than consuming
                                 log::warn!("Guard output queue full");
                             }

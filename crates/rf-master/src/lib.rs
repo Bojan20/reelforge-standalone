@@ -27,6 +27,8 @@
 
 #![warn(missing_docs)]
 #![allow(dead_code)]
+// Mastering algorithms use explicit indexing
+#![allow(clippy::needless_range_loop)]
 
 pub mod analysis;
 pub mod chain;

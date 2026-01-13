@@ -77,7 +77,7 @@ impl ConvolutionReverb {
     /// Load stereo impulse response
     pub fn load_ir(&mut self, left: &[Sample], right: &[Sample]) {
         let ir_len = left.len().max(right.len());
-        let num_partitions = (ir_len + PARTITION_SIZE - 1) / PARTITION_SIZE;
+        let num_partitions = ir_len.div_ceil(PARTITION_SIZE);
         let fft_size = PARTITION_SIZE * 2;
 
         self.ir_partitions_l.clear();
@@ -218,10 +218,8 @@ impl ConvolutionReverb {
         }
 
         // Save the second half for next overlap
-        for i in 0..PARTITION_SIZE {
-            self.overlap_l[i] = output_l[PARTITION_SIZE + i];
-            self.overlap_r[i] = output_r[PARTITION_SIZE + i];
-        }
+        self.overlap_l[..PARTITION_SIZE].copy_from_slice(&output_l[PARTITION_SIZE..PARTITION_SIZE * 2]);
+        self.overlap_r[..PARTITION_SIZE].copy_from_slice(&output_r[PARTITION_SIZE..PARTITION_SIZE * 2]);
 
         self.partition_index = (self.partition_index + 1) % num_partitions.max(1);
     }

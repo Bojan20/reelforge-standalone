@@ -301,7 +301,7 @@ impl Denoise {
             self.prev_gains[i] = smoothed_gain;
 
             // Apply gain to complex spectrum
-            *spectrum_bin = *spectrum_bin * smoothed_gain;
+            *spectrum_bin *= smoothed_gain;
         }
     }
 

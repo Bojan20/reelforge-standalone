@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 
 /// Enhancement mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum EnhanceMode {
     /// Real-time mode (minimum latency)
     Realtime,
     /// Balanced mode (good quality, low latency)
+    #[default]
     Balanced,
     /// Quality mode (best quality, higher latency)
     Quality,
@@ -15,11 +17,6 @@ pub enum EnhanceMode {
     Broadcast,
 }
 
-impl Default for EnhanceMode {
-    fn default() -> Self {
-        Self::Balanced
-    }
-}
 
 /// Enhancement configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

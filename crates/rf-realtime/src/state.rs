@@ -199,21 +199,13 @@ unsafe impl Sync for AtomicSnapshot {}
 
 /// A single state snapshot
 #[derive(Clone)]
+#[derive(Default)]
 pub struct StateSnapshot {
     pub id: u64,
     pub timestamp: u64,
     pub params: Vec<(u32, f64)>,
 }
 
-impl Default for StateSnapshot {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            timestamp: 0,
-            params: Vec::new(),
-        }
-    }
-}
 
 impl AtomicSnapshot {
     pub fn new(max_snapshots: usize) -> Self {

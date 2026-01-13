@@ -231,7 +231,7 @@ impl AnticipatoryScheduler {
 
         // Send to workers
         for job in jobs {
-            if let Err(_) = self.job_tx.try_send(job) {
+            if self.job_tx.try_send(job).is_err() {
                 log::warn!("Job queue full, dropping job");
             }
         }

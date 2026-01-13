@@ -29,6 +29,8 @@
 
 #![allow(missing_docs)]
 #![allow(dead_code)]
+// Restoration algorithms use explicit indexing for sample-level processing
+#![allow(clippy::needless_range_loop)]
 
 pub mod declick;
 pub mod declip;

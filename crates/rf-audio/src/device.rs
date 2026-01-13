@@ -140,11 +140,10 @@ pub fn get_output_device_by_name(name: &str) -> AudioResult<Device> {
         .output_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(device_name) = device.name() {
-            if device_name == name {
+        if let Ok(device_name) = device.name()
+            && device_name == name {
                 return Ok(device);
             }
-        }
     }
 
     Err(AudioError::DeviceNotFound(name.to_string()))
@@ -158,11 +157,10 @@ pub fn get_input_device_by_name(name: &str) -> AudioResult<Device> {
         .input_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(device_name) = device.name() {
-            if device_name == name {
+        if let Ok(device_name) = device.name()
+            && device_name == name {
                 return Ok(device);
             }
-        }
     }
 
     Err(AudioError::DeviceNotFound(name.to_string()))

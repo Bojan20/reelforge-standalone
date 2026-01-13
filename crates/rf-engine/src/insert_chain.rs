@@ -166,7 +166,6 @@ impl InsertSlot {
                 processor.process_stereo(left, right);
             } else if mix <= 0.001 {
                 // Full dry - skip processing
-                return;
             } else {
                 // Wet/dry blend using pre-allocated buffers (no audio thread allocation!)
                 let dry_gain = 1.0 - mix;
@@ -308,7 +307,7 @@ impl std::fmt::Debug for InsertChain {
 impl InsertChain {
     pub fn new(sample_rate: f64) -> Self {
         Self {
-            pre_slots: std::array::from_fn(|i| InsertSlot::new(i)),
+            pre_slots: std::array::from_fn(InsertSlot::new),
             post_slots: std::array::from_fn(|i| InsertSlot::new(i + MAX_INSERT_SLOTS / 2)),
             total_latency: 0,
             sample_rate,

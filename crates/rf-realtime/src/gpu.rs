@@ -475,7 +475,7 @@ impl GpuConvolution {
             pass.set_bind_group(0, &self.bind_group, &[]);
 
             let output_len = audio.len() + self.ir_length - 1;
-            let workgroups = ((output_len + 255) / 256) as u32;
+            let workgroups = output_len.div_ceil(256) as u32;
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
 

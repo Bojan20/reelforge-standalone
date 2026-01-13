@@ -495,11 +495,10 @@ impl AudioRecorder {
         // Write pre-roll if enabled
         if config.capture_pre_roll && *state == RecordingState::Armed {
             let pre_roll_data = self.pre_roll.lock().read_all();
-            if !pre_roll_data.is_empty() {
-                if let Some(writer) = self.disk_writer.lock().as_mut() {
+            if !pre_roll_data.is_empty()
+                && let Some(writer) = self.disk_writer.lock().as_mut() {
                     writer.write_samples(&pre_roll_data)?;
                 }
-            }
         }
 
         // Reset stats

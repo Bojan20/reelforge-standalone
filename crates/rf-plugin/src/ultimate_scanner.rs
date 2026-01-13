@@ -114,8 +114,8 @@ impl PluginCache {
 
     /// Check if cache is valid for a file
     pub fn is_valid(&self, path: &Path) -> bool {
-        if let Some(entry) = self.entries.get(path) {
-            if let Ok(meta) = std::fs::metadata(path) {
+        if let Some(entry) = self.entries.get(path)
+            && let Ok(meta) = std::fs::metadata(path) {
                 let mtime = meta
                     .modified()
                     .ok()
@@ -126,7 +126,6 @@ impl PluginCache {
 
                 return entry.mtime == mtime && entry.size == size;
             }
-        }
         false
     }
 
@@ -412,11 +411,10 @@ impl UltimateScanner {
         };
 
         // Save cache
-        if self.config.use_cache {
-            if let Some(ref cache_path) = self.config.cache_path {
+        if self.config.use_cache
+            && let Some(ref cache_path) = self.config.cache_path {
                 let _ = self.cache.read().save(cache_path);
             }
-        }
 
         self.stats = stats.clone();
         Ok(stats)
@@ -432,9 +430,9 @@ impl UltimateScanner {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_dir() && path.extension().map_or(false, |e| e == extension) {
+                if path.is_dir() && path.extension().is_some_and(|e| e == extension) {
                     files.push((path, plugin_type));
-                } else if path.is_file() && path.extension().map_or(false, |e| e == extension) {
+                } else if path.is_file() && path.extension().is_some_and(|e| e == extension) {
                     files.push((path, plugin_type));
                 }
             }
@@ -461,8 +459,8 @@ impl UltimateScanner {
         }
 
         // Check cache
-        if config.use_cache && cache.read().is_valid(path) {
-            if let Some(entry) = cache.read().get(path) {
+        if config.use_cache && cache.read().is_valid(path)
+            && let Some(entry) = cache.read().get(path) {
                 return PluginScanResult {
                     info: Some(entry.info.clone()),
                     scan_duration: start.elapsed(),
@@ -471,14 +469,13 @@ impl UltimateScanner {
                     profile: entry.profile.clone(),
                 };
             }
-        }
 
         // Actually scan the plugin
         let result = Self::do_scan_plugin(path, plugin_type, config);
 
         // Update cache
-        if let Some(ref info) = result.info {
-            if let Ok(meta) = std::fs::metadata(path) {
+        if let Some(ref info) = result.info
+            && let Ok(meta) = std::fs::metadata(path) {
                 let mtime = meta
                     .modified()
                     .ok()
@@ -501,7 +498,6 @@ impl UltimateScanner {
 
                 cache.write().insert(path.to_path_buf(), entry);
             }
-        }
 
         // Auto-blacklist crashers
         if config.auto_blacklist && result.validation == ValidationStatus::Crashed {

@@ -270,7 +270,7 @@ impl AmbisonicDecoder {
         let virtual_speakers = Self::create_tdesign(2 * order.as_usize() + 1);
 
         // For each virtual speaker, find VBAP gains to real speakers
-        for (_v_idx, v_pos) in virtual_speakers.iter().enumerate() {
+        for v_pos in virtual_speakers.iter() {
             let vbap_gains = Self::compute_vbap_gains(v_pos, speakers);
 
             // Compute SH coefficients for virtual speaker
@@ -294,7 +294,7 @@ impl AmbisonicDecoder {
     /// Create t-design points on sphere
     fn create_tdesign(t: usize) -> Vec<Position3D> {
         // Simplified t-design using Fibonacci spiral
-        let n = ((t + 1) * (t + 1)) as usize;
+        let n = (t + 1) * (t + 1);
         let mut points = Vec::with_capacity(n);
 
         let golden_ratio = (1.0 + 5.0_f32.sqrt()) / 2.0;

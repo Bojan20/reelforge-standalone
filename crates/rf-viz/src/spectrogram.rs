@@ -272,7 +272,7 @@ impl WindowFunction {
                     WindowFunction::FlatTop => {
                         let a0 = 0.21557895;
                         let a1 = 0.41663158;
-                        let a2 = 0.277263158;
+                        let a2 = 0.277_263_16;
                         let a3 = 0.083578947;
                         let a4 = 0.006947368;
                         a0 - a1 * (2.0 * std::f32::consts::PI * x).cos()

@@ -14,10 +14,12 @@ use std::time::{Duration, Instant};
 
 /// Performance target levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum PerformanceTarget {
     /// Minimum viable (30% CPU budget)
     Minimum,
     /// Standard (20% CPU budget)
+    #[default]
     Standard,
     /// Professional (10% CPU budget)
     Professional,
@@ -47,11 +49,6 @@ impl PerformanceTarget {
     }
 }
 
-impl Default for PerformanceTarget {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 /// Timing measurement
 #[derive(Debug, Clone, Default)]

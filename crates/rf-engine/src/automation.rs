@@ -550,20 +550,18 @@ impl AutomationEngine {
         if matches!(
             mode,
             AutomationMode::Touch | AutomationMode::Latch | AutomationMode::Write
-        ) {
-            if self.touched_params.read().contains_key(param_id) {
+        )
+            && self.touched_params.read().contains_key(param_id) {
                 return None;
             }
-        }
 
         // Read automation
         let lanes = self.lanes.read();
-        if let Some(lane) = lanes.get(param_id) {
-            if lane.enabled && !lane.points.is_empty() {
+        if let Some(lane) = lanes.get(param_id)
+            && lane.enabled && !lane.points.is_empty() {
                 let pos = self.position();
                 return Some(lane.value_at(pos));
             }
-        }
 
         None
     }
@@ -577,11 +575,10 @@ impl AutomationEngine {
         }
 
         let lanes = self.lanes.read();
-        if let Some(lane) = lanes.get(param_id) {
-            if lane.enabled && !lane.points.is_empty() {
+        if let Some(lane) = lanes.get(param_id)
+            && lane.enabled && !lane.points.is_empty() {
                 return Some(lane.value_at(time_samples));
             }
-        }
 
         None
     }

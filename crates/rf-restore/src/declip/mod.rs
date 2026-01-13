@@ -137,14 +137,8 @@ impl Declip {
         }
 
         // Get boundary points
-        let left_points: Vec<f32> = audio[start.saturating_sub(margin * 2)..start]
-            .iter()
-            .copied()
-            .collect();
-        let right_points: Vec<f32> = audio[end..(end + margin * 2).min(audio.len())]
-            .iter()
-            .copied()
-            .collect();
+        let left_points: Vec<f32> = audio[start.saturating_sub(margin * 2)..start].to_vec();
+        let right_points: Vec<f32> = audio[end..(end + margin * 2).min(audio.len())].to_vec();
 
         if left_points.is_empty() || right_points.is_empty() {
             return audio[start..end].to_vec();

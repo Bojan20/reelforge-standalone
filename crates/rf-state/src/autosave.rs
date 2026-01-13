@@ -197,8 +197,8 @@ impl AutosaveManager {
             path.parent()
                 .and_then(|p| p.canonicalize().ok())
                 .or_else(|| config.autosave_dir.canonicalize().ok()),
-        ) {
-            if !canonical_path.starts_with(&canonical_dir) {
+        )
+            && !canonical_path.starts_with(&canonical_dir) {
                 log::error!(
                     "Path traversal attempt detected: {} escapes {}",
                     path.display(),
@@ -207,7 +207,6 @@ impl AutosaveManager {
                 // Return a safe fallback path
                 return config.autosave_dir.join(format!("unnamed_autosave_{}.rfproj", timestamp));
             }
-        }
 
         path
     }
@@ -395,11 +394,9 @@ impl AutosaveManager {
                     .file_name()
                     .to_string_lossy()
                     .starts_with(&name_prefix)
-                {
-                    if std::fs::remove_file(entry.path()).is_ok() {
+                    && std::fs::remove_file(entry.path()).is_ok() {
                         count += 1;
                     }
-                }
             }
         }
 

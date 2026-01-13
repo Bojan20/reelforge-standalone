@@ -10,10 +10,12 @@ use rf_core::Sample;
 
 /// Sigma-Delta Modulator type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum SdmType {
     /// 5th order classic modulator
     Order5Classic,
     /// 5th order with TPDF dither (recommended)
+    #[default]
     Order5Dithered,
     /// 7th order ULTIMATE - best noise shaping
     Order7Ultimate,
@@ -21,11 +23,6 @@ pub enum SdmType {
     Meco,
 }
 
-impl Default for SdmType {
-    fn default() -> Self {
-        Self::Order5Dithered
-    }
-}
 
 /// Sigma-Delta Modulator state
 pub struct SigmaDeltaModulator {

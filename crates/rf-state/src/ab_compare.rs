@@ -17,7 +17,9 @@ use serde::{Deserialize, Serialize};
 /// A/B comparison slot
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum CompareSlot {
+    #[default]
     A = 0,
     B = 1,
     C = 2,
@@ -74,11 +76,6 @@ impl CompareSlot {
     }
 }
 
-impl Default for CompareSlot {
-    fn default() -> Self {
-        Self::A
-    }
-}
 
 // ============ Parameter State ============
 

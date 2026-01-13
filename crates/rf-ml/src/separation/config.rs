@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 
 /// Separation quality preset
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SeparationQuality {
     /// Fast mode (lower quality, faster)
     Fast,
     /// Default quality (balanced)
+    #[default]
     Default,
     /// High quality (slower, better)
     High,
@@ -15,11 +17,6 @@ pub enum SeparationQuality {
     Ultra,
 }
 
-impl Default for SeparationQuality {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 /// Separation configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

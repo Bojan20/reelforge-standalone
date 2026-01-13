@@ -8,22 +8,19 @@ use std::f64::consts::PI;
 
 /// Decimation quality level
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum DecimationQuality {
     /// Fast decimation, lower quality
     Fast,
     /// Standard quality (good for preview)
     Standard,
     /// High quality (recommended for export)
+    #[default]
     High,
     /// Ultimate quality (audiophile)
     Ultimate,
 }
 
-impl Default for DecimationQuality {
-    fn default() -> Self {
-        Self::High
-    }
-}
 
 impl DecimationQuality {
     /// Get filter order for this quality
@@ -89,13 +86,13 @@ impl DsdDecimator {
 
         // Prefer factors of 8, then 4, then 2
         while remaining > 1 {
-            if remaining % 8 == 0 && remaining >= 8 {
+            if remaining.is_multiple_of(8) && remaining >= 8 {
                 factors.push(8);
                 remaining /= 8;
-            } else if remaining % 4 == 0 && remaining >= 4 {
+            } else if remaining.is_multiple_of(4) && remaining >= 4 {
                 factors.push(4);
                 remaining /= 4;
-            } else if remaining % 2 == 0 {
+            } else if remaining.is_multiple_of(2) {
                 factors.push(2);
                 remaining /= 2;
             } else {

@@ -37,7 +37,7 @@ impl FftAnalyzer {
     pub fn new(fft_size: usize) -> Self {
         // Validate FFT size (must be power of 2 and within range)
         let fft_size =
-            if fft_size >= MIN_FFT_SIZE && fft_size <= MAX_FFT_SIZE && fft_size.is_power_of_two() {
+            if (MIN_FFT_SIZE..=MAX_FFT_SIZE).contains(&fft_size) && fft_size.is_power_of_two() {
                 fft_size
             } else {
                 DEFAULT_FFT_SIZE
@@ -86,7 +86,7 @@ impl FftAnalyzer {
         self.scratch_windowed.rotate_left(self.write_pos);
 
         // Perform FFT (safe: buffer sizes are validated in new())
-        if let Err(_) = self.fft.process(&mut self.scratch_windowed, &mut self.output_buffer) {
+        if self.fft.process(&mut self.scratch_windowed, &mut self.output_buffer).is_err() {
             // FFT failed - fill with silence
             for c in &mut self.output_buffer {
                 *c = Complex::new(0.0, 0.0);

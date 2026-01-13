@@ -156,16 +156,13 @@ impl KnobState {
 
 /// Slider orientation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SliderOrientation {
+    #[default]
     Horizontal,
     Vertical,
 }
 
-impl Default for SliderOrientation {
-    fn default() -> Self {
-        Self::Horizontal
-    }
-}
 
 /// Slider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,8 +211,10 @@ impl Default for SliderConfig {
 
 /// Button type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ButtonType {
     /// Standard click button
+    #[default]
     Momentary,
     /// Toggle on/off
     Toggle,
@@ -223,11 +222,6 @@ pub enum ButtonType {
     Radio,
 }
 
-impl Default for ButtonType {
-    fn default() -> Self {
-        Self::Momentary
-    }
-}
 
 /// Button configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,8 +264,10 @@ pub struct ButtonState {
 
 /// Meter type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MeterType {
     /// Peak meter
+    #[default]
     Peak,
     /// VU meter (average)
     Vu,
@@ -287,11 +283,6 @@ pub enum MeterType {
     LufsMomentary,
 }
 
-impl Default for MeterType {
-    fn default() -> Self {
-        Self::Peak
-    }
-}
 
 /// Meter configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -579,20 +570,19 @@ pub mod shortcuts {
 
 /// Layout container direction
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LayoutDirection {
+    #[default]
     Horizontal,
     Vertical,
 }
 
-impl Default for LayoutDirection {
-    fn default() -> Self {
-        Self::Horizontal
-    }
-}
 
 /// Layout alignment
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LayoutAlign {
+    #[default]
     Start,
     Center,
     End,
@@ -601,14 +591,10 @@ pub enum LayoutAlign {
     SpaceAround,
 }
 
-impl Default for LayoutAlign {
-    fn default() -> Self {
-        Self::Start
-    }
-}
 
 /// Widget size hint
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SizeHint {
     /// Fixed size
     Fixed(f32),
@@ -617,6 +603,7 @@ pub enum SizeHint {
     /// Fill with weight
     FillWeight(f32),
     /// Fit to content
+    #[default]
     FitContent,
     /// Minimum size
     Min(f32),
@@ -624,11 +611,6 @@ pub enum SizeHint {
     Max(f32),
 }
 
-impl Default for SizeHint {
-    fn default() -> Self {
-        Self::FitContent
-    }
-}
 
 #[cfg(test)]
 mod tests {

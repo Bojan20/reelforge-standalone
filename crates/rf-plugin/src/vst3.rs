@@ -176,7 +176,7 @@ impl Vst3Host {
     /// Get gain value from parameters (for passthrough processing)
     fn get_gain(&self) -> f32 {
         // Parameter 0 is gain, normalized 0-1 maps to -60dB to +12dB
-        let normalized = self.param_values.get(0).copied().unwrap_or(0.5);
+        let normalized = self.param_values.first().copied().unwrap_or(0.5);
         let db = -60.0 + normalized * 72.0; // -60 to +12 dB range
         10.0_f32.powf(db as f32 / 20.0)
     }

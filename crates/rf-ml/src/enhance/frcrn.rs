@@ -457,7 +457,7 @@ impl SpeechEnhancer for FRCRN {
         };
 
         let hop_size = self.config.hop_size;
-        let num_frames = (mono.len() + hop_size - 1) / hop_size;
+        let num_frames = mono.len().div_ceil(hop_size);
 
         let mut output = Vec::with_capacity(mono.len());
         self.reset();

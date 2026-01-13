@@ -14,8 +14,10 @@ use serde::{Deserialize, Serialize};
 
 /// Target loudness standard
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LoudnessTarget {
     /// Streaming platforms (-14 LUFS)
+    #[default]
     Streaming,
     /// CD (-9 to -12 LUFS)
     CD,
@@ -54,14 +56,10 @@ impl LoudnessTarget {
     }
 }
 
-impl Default for LoudnessTarget {
-    fn default() -> Self {
-        Self::Streaming
-    }
-}
 
 /// Genre classification for processing hints
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MusicGenre {
     Pop,
     Rock,
@@ -75,14 +73,10 @@ pub enum MusicGenre {
     Acoustic,
     Ambient,
     Orchestral,
+    #[default]
     Unknown,
 }
 
-impl Default for MusicGenre {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
 
 impl MusicGenre {
     /// Typical dynamic range for genre

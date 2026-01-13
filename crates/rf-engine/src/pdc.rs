@@ -56,8 +56,10 @@ pub const DEFAULT_CONSTRAIN_THRESHOLD: LatencySamples = 512;
 
 /// Type of processing node
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum NodeType {
     /// Audio track
+    #[default]
     Track,
     /// Group/bus channel
     Group,
@@ -113,11 +115,6 @@ pub struct NodeLatencyInfo {
     pub output_nodes: Vec<(NodeId, ConnectionType)>,
 }
 
-impl Default for NodeType {
-    fn default() -> Self {
-        NodeType::Track
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DELAY LINE
@@ -290,15 +287,12 @@ impl PdcManager {
         let mut nodes = self.nodes.write();
         let mut delay_lines = self.delay_lines.write();
 
-        if !nodes.contains_key(&node_id) {
-            nodes.insert(
-                node_id,
-                NodeLatencyInfo {
+        if let std::collections::hash_map::Entry::Vacant(e) = nodes.entry(node_id) {
+            e.insert(NodeLatencyInfo {
                     node_id,
                     node_type,
                     ..Default::default()
-                },
-            );
+                });
             delay_lines.insert(node_id, PdcDelayLine::new(MAX_PDC_SAMPLES as usize));
         }
     }
@@ -314,17 +308,15 @@ impl PdcManager {
     pub fn add_connection(&self, from: NodeId, to: NodeId, conn_type: ConnectionType) {
         let mut nodes = self.nodes.write();
 
-        if let Some(from_node) = nodes.get_mut(&from) {
-            if !from_node.output_nodes.iter().any(|(id, _)| *id == to) {
+        if let Some(from_node) = nodes.get_mut(&from)
+            && !from_node.output_nodes.iter().any(|(id, _)| *id == to) {
                 from_node.output_nodes.push((to, conn_type));
             }
-        }
 
-        if let Some(to_node) = nodes.get_mut(&to) {
-            if !to_node.input_nodes.contains(&from) {
+        if let Some(to_node) = nodes.get_mut(&to)
+            && !to_node.input_nodes.contains(&from) {
                 to_node.input_nodes.push(from);
             }
-        }
 
         self.needs_recalc.store(true, Ordering::Release);
     }
@@ -347,12 +339,11 @@ impl PdcManager {
     /// Report plugin latency for a node
     pub fn report_latency(&self, node_id: NodeId, latency: LatencySamples) {
         let mut nodes = self.nodes.write();
-        if let Some(node) = nodes.get_mut(&node_id) {
-            if node.plugin_latency != latency {
+        if let Some(node) = nodes.get_mut(&node_id)
+            && node.plugin_latency != latency {
                 node.plugin_latency = latency;
                 self.needs_recalc.store(true, Ordering::Release);
             }
-        }
     }
 
     /// Set manual delay adjustment for a track
@@ -562,11 +553,10 @@ impl PdcManager {
         }
 
         // Try to get delay line without blocking
-        if let Some(mut delay_lines) = self.delay_lines.try_write() {
-            if let Some(line) = delay_lines.get_mut(&node_id) {
+        if let Some(mut delay_lines) = self.delay_lines.try_write()
+            && let Some(line) = delay_lines.get_mut(&node_id) {
                 line.process(left, right);
             }
-        }
         // If can't acquire lock, skip this block (no glitches, just slight timing offset)
     }
 
@@ -577,13 +567,12 @@ impl PdcManager {
             return;
         }
 
-        if let Some(mut delay_lines) = self.delay_lines.try_write() {
-            if let Some(line) = delay_lines.get_mut(&node_id) {
+        if let Some(mut delay_lines) = self.delay_lines.try_write()
+            && let Some(line) = delay_lines.get_mut(&node_id) {
                 // Process mono by treating it as stereo with same buffer
                 let mut dummy = vec![0.0; buffer.len()];
                 line.process(buffer, &mut dummy);
             }
-        }
     }
 
     /// Clear all delay buffers (call on stop/seek)

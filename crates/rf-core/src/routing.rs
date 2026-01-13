@@ -19,20 +19,17 @@ pub const MAX_DIRECT_ROUTES: usize = 8;
 
 /// Direct route destination
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RouteDestination {
     /// Route to a track (including buses)
     Track(TrackId),
     /// Route to hardware output pair
     HardwareOutput(usize),
     /// Route to master bus
+    #[default]
     Master,
 }
 
-impl Default for RouteDestination {
-    fn default() -> Self {
-        Self::Master
-    }
-}
 
 /// Single direct route configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -263,34 +263,33 @@ impl ClickTrack {
         let ticks_per_bar = ticks_per_beat * beats_per_bar as u64;
 
         // Check for downbeat
-        if tick % ticks_per_bar == 0 {
+        if tick.is_multiple_of(ticks_per_bar) {
             return Some((true, false));
         }
 
         // Check for regular beat
-        if tick % ticks_per_beat == 0 {
-            if self.pattern != ClickPattern::DownbeatOnly {
+        if tick.is_multiple_of(ticks_per_beat)
+            && self.pattern != ClickPattern::DownbeatOnly {
                 return Some((false, false));
             }
-        }
 
         // Check for subdivisions
         match self.pattern {
             ClickPattern::Eighth => {
                 let subdivision_ticks = ticks_per_beat / 2;
-                if tick % subdivision_ticks == 0 && tick % ticks_per_beat != 0 {
+                if tick.is_multiple_of(subdivision_ticks) && !tick.is_multiple_of(ticks_per_beat) {
                     return Some((false, true));
                 }
             }
             ClickPattern::Sixteenth => {
                 let subdivision_ticks = ticks_per_beat / 4;
-                if tick % subdivision_ticks == 0 && tick % ticks_per_beat != 0 {
+                if tick.is_multiple_of(subdivision_ticks) && !tick.is_multiple_of(ticks_per_beat) {
                     return Some((false, true));
                 }
             }
             ClickPattern::Triplet => {
                 let subdivision_ticks = ticks_per_beat / 3;
-                if tick % subdivision_ticks == 0 && tick % ticks_per_beat != 0 {
+                if tick.is_multiple_of(subdivision_ticks) && !tick.is_multiple_of(ticks_per_beat) {
                     return Some((false, true));
                 }
             }

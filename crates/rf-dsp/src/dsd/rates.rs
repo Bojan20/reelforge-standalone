@@ -148,13 +148,13 @@ impl DsdRate {
                 let mut remaining = total_factor;
 
                 while remaining > 1 {
-                    if remaining % 8 == 0 {
+                    if remaining.is_multiple_of(8) {
                         factors.push(8);
                         remaining /= 8;
-                    } else if remaining % 4 == 0 {
+                    } else if remaining.is_multiple_of(4) {
                         factors.push(4);
                         remaining /= 4;
-                    } else if remaining % 2 == 0 {
+                    } else if remaining.is_multiple_of(2) {
                         factors.push(2);
                         remaining /= 2;
                     } else {

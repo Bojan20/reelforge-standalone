@@ -249,7 +249,7 @@ impl DeepFilterNet {
             .zip(expanded_gains.iter())
             .map(|(&m, &g)| {
                 let gain = 1.0 - self.reduction * (1.0 - g);
-                m * gain.max(0.0).min(1.0)
+                m * gain.clamp(0.0, 1.0)
             })
             .collect();
 
@@ -308,8 +308,7 @@ impl DeepFilterNet {
         let outputs = self.erb_model.run_f32(&[input, hidden_input])?;
 
         // Parse outputs
-        let gains_raw = outputs
-            .get(0)
+        let gains_raw = outputs.first()
             .ok_or_else(|| MlError::Internal("Missing ERB gains output".into()))?
             .clone();
 
@@ -363,8 +362,7 @@ impl DeepFilterNet {
 
         // Deep filter coefficients
         let _df_order = 5;
-        let coeffs_raw = outputs
-            .get(0)
+        let coeffs_raw = outputs.first()
             .ok_or_else(|| MlError::Internal("Missing DF coefficients".into()))?
             .clone();
 
@@ -391,7 +389,7 @@ impl DeepFilterNet {
         // Simplified version: just apply real part of first coefficient
         for (bin, mag) in filtered.iter_mut().enumerate() {
             let coeff = coeffs[[bin, 0]]; // First real coefficient
-            *mag *= coeff.abs().min(1.0).max(0.0);
+            *mag *= coeff.abs().clamp(0.0, 1.0);
         }
 
         filtered

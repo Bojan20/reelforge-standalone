@@ -338,8 +338,8 @@ impl LinearPhaseEq {
 
         // Apply EQ curve
         for i in 0..bins {
-            spectrum_l[i] = spectrum_l[i] * self.eq_curve[i];
-            spectrum_r[i] = spectrum_r[i] * self.eq_curve[i];
+            spectrum_l[i] *= self.eq_curve[i];
+            spectrum_r[i] *= self.eq_curve[i];
         }
 
         // Inverse FFT

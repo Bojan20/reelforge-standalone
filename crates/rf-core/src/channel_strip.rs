@@ -41,12 +41,14 @@ impl Default for EqBandPreset {
 
 /// EQ filter types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum EqFilterType {
     /// High-pass filter
     HighPass,
     /// Low-shelf
     LowShelf,
     /// Parametric bell
+    #[default]
     Bell,
     /// Notch filter
     Notch,
@@ -62,11 +64,6 @@ pub enum EqFilterType {
     Tilt,
 }
 
-impl Default for EqFilterType {
-    fn default() -> Self {
-        Self::Bell
-    }
-}
 
 /// Full EQ preset (up to 8 bands)
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -40,8 +40,10 @@ pub use widgets::*;
 /// Standard sample rate options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u32)]
+#[derive(Default)]
 pub enum SampleRate {
     Hz44100 = 44100,
+    #[default]
     Hz48000 = 48000,
     Hz88200 = 88200,
     Hz96000 = 96000,
@@ -79,19 +81,16 @@ impl SampleRate {
     }
 }
 
-impl Default for SampleRate {
-    fn default() -> Self {
-        Self::Hz48000
-    }
-}
 
 /// Buffer size options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u32)]
+#[derive(Default)]
 pub enum BufferSize {
     Samples32 = 32,
     Samples64 = 64,
     Samples128 = 128,
+    #[default]
     Samples256 = 256,
     Samples512 = 512,
     Samples1024 = 1024,
@@ -133,25 +132,17 @@ impl BufferSize {
     }
 }
 
-impl Default for BufferSize {
-    fn default() -> Self {
-        Self::Samples256
-    }
-}
 
 /// Channel configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Default)]
 pub enum ChannelConfig {
     Mono,
+    #[default]
     Stereo,
     MidSide,
 }
 
-impl Default for ChannelConfig {
-    fn default() -> Self {
-        Self::Stereo
-    }
-}
 
 /// Decibel value wrapper
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -504,8 +504,8 @@ impl SandboxedPlugin {
         self.buffer_id += 1;
 
         // Check if process is alive
-        if let Some(process) = &mut self.process {
-            if !process.is_alive() {
+        if let Some(process) = &mut self.process
+            && !process.is_alive() {
                 // Try to restart
                 if self.config.auto_restart && process.restart_count < self.config.max_restarts {
                     process.restart_count += 1;
@@ -517,7 +517,6 @@ impl SandboxedPlugin {
                     return Err(SandboxError::PluginCrashed);
                 }
             }
-        }
 
         // Send process command
         let resp = self.send_command(SandboxCommand::Process {
@@ -608,11 +607,10 @@ impl SandboxedPlugin {
             // Wait a bit for graceful shutdown
             std::thread::sleep(Duration::from_millis(100));
             // Kill if still alive
-            if let Some(process) = &mut self.process {
-                if process.is_alive() {
+            if let Some(process) = &mut self.process
+                && process.is_alive() {
                     process.kill();
                 }
-            }
         }
         self.process = None;
         self.active = false;
@@ -681,11 +679,10 @@ impl SandboxManager {
 
     /// Unload plugin
     pub fn unload_plugin(&self, instance_id: &str) {
-        if let Some(plugin) = self.plugins.write().remove(instance_id) {
-            if let Some(mut p) = plugin.try_lock() {
+        if let Some(plugin) = self.plugins.write().remove(instance_id)
+            && let Some(mut p) = plugin.try_lock() {
                 p.shutdown();
             }
-        }
     }
 
     /// Check health of all plugins
@@ -698,11 +695,10 @@ impl SandboxManager {
                 let healthy = p.is_healthy();
                 results.push((id.clone(), healthy));
 
-                if !healthy {
-                    if let Some(ref callback) = self.crash_callback {
+                if !healthy
+                    && let Some(ref callback) = self.crash_callback {
                         callback(id);
                     }
-                }
             }
         }
 

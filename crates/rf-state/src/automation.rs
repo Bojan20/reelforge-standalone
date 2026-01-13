@@ -13,7 +13,9 @@ pub struct AutomationPoint {
 
 /// Curve type between automation points
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum CurveType {
+    #[default]
     Linear,
     Step,
     Exponential,
@@ -21,11 +23,6 @@ pub enum CurveType {
     SCurve,
 }
 
-impl Default for CurveType {
-    fn default() -> Self {
-        Self::Linear
-    }
-}
 
 /// Automation lane for a single parameter
 #[derive(Debug, Clone, Serialize, Deserialize)]

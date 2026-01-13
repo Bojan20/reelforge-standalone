@@ -194,11 +194,9 @@ impl FrameCacheInner {
             .frames
             .iter()
             .min_by_key(|(_, entry)| entry.last_access)
-        {
-            if let Some(entry) = self.frames.remove(&oldest_key) {
+            && let Some(entry) = self.frames.remove(&oldest_key) {
                 self.memory_used -= entry.frame.data.len();
             }
-        }
     }
 }
 

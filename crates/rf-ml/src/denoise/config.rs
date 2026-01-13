@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 
 /// Denoising mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum DenoiseMode {
     /// Speech enhancement (optimized for voice)
     Speech,
     /// Music denoising (preserve harmonics)
     Music,
     /// Hybrid mode (auto-detect content)
+    #[default]
     Hybrid,
     /// Aggressive (maximum noise reduction)
     Aggressive,
@@ -17,11 +19,6 @@ pub enum DenoiseMode {
     Gentle,
 }
 
-impl Default for DenoiseMode {
-    fn default() -> Self {
-        Self::Hybrid
-    }
-}
 
 /// Denoiser configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -142,11 +142,11 @@ pub fn validate_plugin_path(path: &Path, expected_type: PluginType) -> Result<()
 /// - Linux: No standard code signing (returns Unsigned)
 pub fn verify_plugin_signature(path: &Path) -> PluginSecurityInfo {
     // Validate path first
-    let plugin_type = if path.extension().map_or(false, |e| e == "vst3") {
+    let plugin_type = if path.extension().is_some_and(|e| e == "vst3") {
         PluginType::Vst3
-    } else if path.extension().map_or(false, |e| e == "component") {
+    } else if path.extension().is_some_and(|e| e == "component") {
         PluginType::AudioUnit
-    } else if path.extension().map_or(false, |e| e == "clap") {
+    } else if path.extension().is_some_and(|e| e == "clap") {
         PluginType::Clap
     } else {
         PluginType::Vst3 // Default for validation
@@ -207,7 +207,7 @@ fn verify_macos_signature(path: &Path) -> PluginSecurityInfo {
                 });
 
                 // Check if it's from a known trusted authority
-                let is_trusted = signing_authority.as_ref().map_or(false, |auth| {
+                let is_trusted = signing_authority.as_ref().is_some_and(|auth| {
                     auth.contains("Apple") ||
                     auth.contains("Developer ID") ||
                     auth.contains("Mac Developer")
@@ -557,7 +557,7 @@ impl PluginScanner {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
 
-                if entry_path.extension().map_or(false, |e| e == extension) {
+                if entry_path.extension().is_some_and(|e| e == extension) {
                     match self.scan_plugin(&entry_path, plugin_type) {
                         Ok(info) => {
                             log::debug!("Found plugin: {} at {:?}", info.name, entry_path);

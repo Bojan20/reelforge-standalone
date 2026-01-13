@@ -285,7 +285,7 @@ impl TrueHdHandler {
 
         let frame_len = frame.len();
         let burst_len = frame_len + 8; // Header + data
-        let padded_len = ((burst_len + 3) / 4) * 4; // Align to 4 bytes
+        let padded_len = burst_len.div_ceil(4) * 4; // Align to 4 bytes
 
         let mut output = vec![0u8; padded_len];
 

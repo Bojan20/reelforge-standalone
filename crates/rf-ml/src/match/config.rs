@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 
 /// Matching mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MatchMode {
     /// Full spectrum matching
+    #[default]
     Full,
     /// Tonal balance only (smooth curve)
     TonalBalance,
@@ -17,14 +19,10 @@ pub enum MatchMode {
     Custom,
 }
 
-impl Default for MatchMode {
-    fn default() -> Self {
-        Self::Full
-    }
-}
 
 /// Perceptual weighting curve
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MatchWeighting {
     /// No weighting (linear)
     None,
@@ -35,14 +33,10 @@ pub enum MatchWeighting {
     /// ITU-R 468 (broadcast)
     Itu468,
     /// Custom perceptual curve
+    #[default]
     Perceptual,
 }
 
-impl Default for MatchWeighting {
-    fn default() -> Self {
-        Self::Perceptual
-    }
-}
 
 /// EQ matching configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

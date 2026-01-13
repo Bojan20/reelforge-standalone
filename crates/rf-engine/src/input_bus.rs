@@ -17,8 +17,10 @@ pub type InputBusId = u32;
 
 /// Input monitoring mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MonitorMode {
     /// Monitor when armed and playing (DAW standard)
+    #[default]
     Auto,
     /// Always monitor input
     Manual,
@@ -26,11 +28,6 @@ pub enum MonitorMode {
     Off,
 }
 
-impl Default for MonitorMode {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
 
 /// Input bus configuration
 #[derive(Debug, Clone)]

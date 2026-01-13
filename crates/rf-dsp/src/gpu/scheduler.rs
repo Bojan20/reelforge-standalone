@@ -278,8 +278,8 @@ impl HybridScheduler {
         }
 
         // Check latency constraints
-        if task.task_type.is_latency_critical() {
-            if let Some(deadline) = task.deadline {
+        if task.task_type.is_latency_critical()
+            && let Some(deadline) = task.deadline {
                 let remaining = deadline.saturating_duration_since(Instant::now());
                 if remaining.as_micros() < self.config.latency_budget_us as u128 {
                     // Not enough time for GPU round-trip
@@ -287,7 +287,6 @@ impl HybridScheduler {
                     return ProcessingTarget::Cpu;
                 }
             }
-        }
 
         // Check GPU utilization
         let current_util = self.gpu_utilization.load(Ordering::Relaxed) as f64 / 1000.0;
@@ -433,11 +432,10 @@ impl BatchScheduler {
         }
 
         // Check timeout
-        if self.last_flush[idx].elapsed() >= self.batch_timeout {
-            if !self.pending_tasks[idx].is_empty() {
+        if self.last_flush[idx].elapsed() >= self.batch_timeout
+            && !self.pending_tasks[idx].is_empty() {
                 return Some(self.flush_batch(idx));
             }
-        }
 
         None
     }

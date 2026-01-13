@@ -347,7 +347,7 @@ impl UltimateTimeStretch {
     /// Auto-select best algorithm based on content
     fn auto_select_algorithm(&self, input: &[f64], ratio: f64) -> Algorithm {
         // Extreme stretch → Granular or Hybrid
-        if ratio < 0.25 || ratio > 4.0 {
+        if !(0.25..=4.0).contains(&ratio) {
             return Algorithm::Hybrid;
         }
 

@@ -240,10 +240,10 @@ impl ParamSmootherManager {
     /// Get or create track smoother
     pub fn get_or_create_track(&self, track_id: u64) -> parking_lot::RwLockWriteGuard<'_, HashMap<u64, TrackParamSmoother>> {
         let mut smoothers = self.track_smoothers.write();
-        if !smoothers.contains_key(&track_id) {
+        smoothers.entry(track_id).or_insert_with(|| {
             let sample_rate = f64::from_bits(self.sample_rate.load(Ordering::Relaxed));
-            smoothers.insert(track_id, TrackParamSmoother::new(sample_rate));
-        }
+            TrackParamSmoother::new(sample_rate)
+        });
         smoothers
     }
 

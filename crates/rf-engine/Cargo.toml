@@ -25,6 +25,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 num_cpus = "1.16"
 lazy_static = "1.5"
+dashmap = "6.1"
 cpal = { workspace = true }
 
 # Audio file decoding (MP3, FLAC, OGG, AAC, WAV)

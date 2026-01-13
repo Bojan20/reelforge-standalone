@@ -95,8 +95,8 @@ impl AudioGraph {
         to_channel: usize,
     ) -> bool {
         // Validate connection
-        if let (Some(from), Some(to)) = (self.nodes.get(&from_node), self.nodes.get(&to_node)) {
-            if from_channel < from.num_outputs() && to_channel < to.num_inputs() {
+        if let (Some(from), Some(to)) = (self.nodes.get(&from_node), self.nodes.get(&to_node))
+            && from_channel < from.num_outputs() && to_channel < to.num_inputs() {
                 self.connections.push(Connection {
                     from_node,
                     from_channel,
@@ -106,7 +106,6 @@ impl AudioGraph {
                 self.dirty = true;
                 return true;
             }
-        }
         false
     }
 
@@ -207,9 +206,9 @@ impl AudioGraph {
 
             // Gather inputs from connections into pre-allocated buffers
             for conn in &self.connections {
-                if conn.to_node == node_id && conn.to_channel < num_inputs {
-                    if let Some(from_buffers) = self.buffers.get(&conn.from_node) {
-                        if conn.from_channel < from_buffers.len() {
+                if conn.to_node == node_id && conn.to_channel < num_inputs
+                    && let Some(from_buffers) = self.buffers.get(&conn.from_node)
+                        && conn.from_channel < from_buffers.len() {
                             // Add to input (allows summing multiple sources)
                             let input_buf = &mut self.input_buffers[conn.to_channel];
                             let from_buf = &from_buffers[conn.from_channel];
@@ -217,8 +216,6 @@ impl AudioGraph {
                                 input_buf[i] += from_buf[i];
                             }
                         }
-                    }
-                }
             }
 
             // Clear pre-allocated output buffers (only channels we need)

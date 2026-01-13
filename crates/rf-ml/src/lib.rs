@@ -26,6 +26,10 @@
 #![allow(dead_code)]
 // ONNX Runtime feature detection
 #![allow(unexpected_cfgs)]
+// ML processing uses explicit indexing for tensor operations
+#![allow(clippy::needless_range_loop)]
+// Complex neural network types
+#![allow(clippy::type_complexity)]
 
 pub mod assistant;
 pub mod denoise;

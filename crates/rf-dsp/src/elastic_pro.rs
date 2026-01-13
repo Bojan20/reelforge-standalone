@@ -192,7 +192,7 @@ impl StnDecomposer {
         for f in 0..num_frames {
             for bin in 0..self.fft_size_long / 2 + 1 {
                 let mut neighbors: Vec<f64> = Vec::new();
-                for df in -(h_radius as i32)..=(h_radius as i32) {
+                for df in -h_radius..=h_radius {
                     let nf = f as i32 + df;
                     if nf >= 0 && (nf as usize) < num_frames {
                         neighbors.push(mag_matrix[nf as usize][bin]);
@@ -308,7 +308,7 @@ impl StnDecomposer {
 
             for bin in 0..self.fft_size_short / 2 + 1 {
                 let mut neighbors: Vec<f64> = Vec::new();
-                for dbin in -(v_radius as i32)..=(v_radius as i32) {
+                for dbin in -v_radius..=v_radius {
                     let nbin = bin as i32 + dbin;
                     if nbin >= 0 && (nbin as usize) < self.fft_size_short / 2 + 1 {
                         neighbors.push(mag_matrix[f][nbin as usize]);

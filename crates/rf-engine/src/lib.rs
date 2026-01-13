@@ -8,6 +8,13 @@
 //! - Delay compensation
 //! - Lock-free communication
 
+// Audio engine uses explicit indexing for SIMD optimization
+#![allow(clippy::needless_range_loop)]
+// Complex routing types are intentional
+#![allow(clippy::type_complexity)]
+// Too many arguments is common in audio processing functions
+#![allow(clippy::too_many_arguments)]
+
 // Core modules
 mod bus;
 mod graph;

@@ -5,7 +5,7 @@
 //! - Tile batching for efficient rendering
 //! - Memory-efficient iteration over visible tiles
 
-use super::format::{WfcFile, TileData, MIP_TILE_SAMPLES, NUM_MIP_LEVELS};
+use super::format::{WfcFile, TileData, MIP_TILE_SAMPLES};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TILE REQUEST/RESPONSE
@@ -90,7 +90,7 @@ impl<'a> WaveCacheQuery<'a> {
 
         // Calculate tile range
         let start_tile = (start_frame as usize) / samples_per_tile;
-        let end_tile = ((end_frame as usize) + samples_per_tile - 1) / samples_per_tile;
+        let end_tile = (end_frame as usize).div_ceil(samples_per_tile);
 
         let num_channels = level_data.tiles.len();
 
@@ -138,7 +138,7 @@ impl<'a> WaveCacheQuery<'a> {
         let channel_data = level_data.tiles.get(channel)?;
 
         let start_tile = (start_frame as usize) / samples_per_tile;
-        let end_tile = ((end_frame as usize) + samples_per_tile - 1) / samples_per_tile;
+        let end_tile = (end_frame as usize).div_ceil(samples_per_tile);
 
         let tiles: Vec<CachedTile> = (start_tile..end_tile)
             .filter_map(|tile_idx| {
@@ -167,7 +167,7 @@ impl<'a> WaveCacheQuery<'a> {
         let samples_per_tile = MIP_TILE_SAMPLES[mip_level];
 
         let start_tile = (start_frame as usize) / samples_per_tile;
-        let end_tile = ((end_frame as usize) + samples_per_tile - 1) / samples_per_tile;
+        let end_tile = (end_frame as usize).div_ceil(samples_per_tile);
 
         let num_channels = level_data.tiles.len();
 
@@ -231,7 +231,7 @@ impl<'a> WaveCacheQuery<'a> {
         let samples_per_tile = MIP_TILE_SAMPLES[0];
 
         let start_tile = (start_frame as usize) / samples_per_tile;
-        let end_tile = ((end_frame as usize) + samples_per_tile - 1) / samples_per_tile;
+        let end_tile = (end_frame as usize).div_ceil(samples_per_tile);
 
         let mut peak_min = f32::MAX;
         let mut peak_max = f32::MIN;
@@ -329,7 +329,7 @@ pub fn tiles_to_flat_with_frames(tiles: &[CachedTile]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::format::WfcFile;
+    use super::super::format::{WfcFile, NUM_MIP_LEVELS};
 
     fn create_test_wfc() -> WfcFile {
         let mut wfc = WfcFile::new(2, 48000, 48000); // 1 second stereo

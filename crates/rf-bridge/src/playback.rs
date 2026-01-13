@@ -1276,9 +1276,7 @@ impl PlaybackEngine {
         let target_sr = if req_sr > 0 { req_sr } else { 48000 };
 
         let config = supported
-            .filter(|c| c.channels() >= 2)
-            .filter(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
-            .next()
+            .filter(|c| c.channels() >= 2).find(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
             .map(|c| c.with_sample_rate(cpal::SampleRate(target_sr)))
             .or_else(|| device.default_output_config().ok())
             .ok_or_else(|| "No suitable config found".to_string())?;

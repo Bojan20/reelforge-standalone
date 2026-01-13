@@ -10,6 +10,8 @@
 //! - Performance benchmarking (Phase 5.3)
 
 #![allow(dead_code)]
+// Real-time processing uses explicit indexing for SIMD
+#![allow(clippy::needless_range_loop)]
 
 pub mod benchmark;
 pub mod gpu;

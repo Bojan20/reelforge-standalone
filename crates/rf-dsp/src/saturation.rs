@@ -130,9 +130,9 @@ impl Saturator {
         };
 
         // Add subtle even harmonics (2nd harmonic mainly)
-        let with_harmonics = saturated + saturated.powi(2) * 0.1 * self.drive.min(2.0);
+        
 
-        with_harmonics
+        saturated + saturated.powi(2) * 0.1 * self.drive.min(2.0)
     }
 
     /// Transistor saturation
@@ -145,13 +145,13 @@ impl Saturator {
         let saturated = (3.0 * x) / (1.0 + 2.0 * x.abs() + x * x);
 
         // Crossover distortion simulation (subtle)
-        let crossover = if x.abs() < 0.1 {
+        
+
+        if x.abs() < 0.1 {
             x * 0.8 + x.powi(3) * 2.0
         } else {
             saturated
-        };
-
-        crossover
+        }
     }
 
     /// Soft clip (smooth limiter)

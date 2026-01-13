@@ -31,8 +31,10 @@ pub const MAX_LINEAR_PHASE_BANDS: usize = 32;
 
 /// Linear phase filter type
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum LinearPhaseFilterType {
     /// Bell/Peaking
+    #[default]
     Bell,
     /// Low shelf
     LowShelf,
@@ -50,11 +52,6 @@ pub enum LinearPhaseFilterType {
     Tilt,
 }
 
-impl Default for LinearPhaseFilterType {
-    fn default() -> Self {
-        Self::Bell
-    }
-}
 
 // ============ EQ Band ============
 
@@ -218,8 +215,8 @@ impl FrequencyResponseDesigner {
                 }
 
                 let order = (band.slope / 6.0).round() as i32;
-                let butterworth = 1.0 / (1.0 + (band.frequency / freq).powi(2 * order)).sqrt();
-                butterworth
+                
+                1.0 / (1.0 + (band.frequency / freq).powi(2 * order)).sqrt()
             }
 
             LinearPhaseFilterType::HighCut => {
@@ -228,8 +225,8 @@ impl FrequencyResponseDesigner {
                 }
 
                 let order = (band.slope / 6.0).round() as i32;
-                let butterworth = 1.0 / (1.0 + (freq / band.frequency).powi(2 * order)).sqrt();
-                butterworth
+                
+                1.0 / (1.0 + (freq / band.frequency).powi(2 * order)).sqrt()
             }
 
             LinearPhaseFilterType::Notch => {

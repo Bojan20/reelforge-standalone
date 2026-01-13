@@ -161,7 +161,7 @@ impl PartitionedConvolver {
     pub fn new(ir: &ImpulseResponse, partition_size: usize) -> Self {
         let fft_size = partition_size * 2;
         let ir_len = ir.len();
-        let num_partitions = (ir_len + partition_size - 1) / partition_size;
+        let num_partitions = ir_len.div_ceil(partition_size);
 
         let mut planner = FftPlanner::new();
         let fft_forward = planner.plan_fft_forward(fft_size);

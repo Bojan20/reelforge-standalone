@@ -102,22 +102,19 @@ pub enum PhaseMode {
 
 /// Track routing destination
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RoutingDestination {
     /// Route to another track
     Track(TrackId),
     /// Route to hardware output
     HardwareOutput(usize),
     /// Route to master bus
+    #[default]
     Master,
     /// No output (muted)
     None,
 }
 
-impl Default for RoutingDestination {
-    fn default() -> Self {
-        Self::Master
-    }
-}
 
 /// Send configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

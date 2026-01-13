@@ -870,7 +870,7 @@ impl GpuFilterProcessor {
             });
             pass.set_pipeline(&self.biquad_pipeline);
             pass.set_bind_group(0, &self.biquad_bind_group, &[]);
-            pass.dispatch_workgroups((num_samples as u32 + 63) / 64, 1, 1);
+            pass.dispatch_workgroups((num_samples as u32).div_ceil(64), 1, 1);
         }
 
         // Copy output to staging
@@ -959,7 +959,7 @@ impl GpuFilterProcessor {
             pass.set_pipeline(&self.stereo_pipeline);
             pass.set_bind_group(0, &self.biquad_bind_group, &[]);
             pass.set_bind_group(1, &self.stereo_bind_group, &[]);
-            pass.dispatch_workgroups((num_samples as u32 + 63) / 64, 1, 1);
+            pass.dispatch_workgroups((num_samples as u32).div_ceil(64), 1, 1);
         }
 
         // Copy output to staging
@@ -1070,7 +1070,7 @@ impl GpuFilterProcessor {
             });
             pass.set_pipeline(&self.saturation_pipeline);
             pass.set_bind_group(0, &self.saturation_bind_group, &[]);
-            pass.dispatch_workgroups((num_samples as u32 + 63) / 64, 1, 1);
+            pass.dispatch_workgroups((num_samples as u32).div_ceil(64), 1, 1);
         }
 
         // Copy output to staging

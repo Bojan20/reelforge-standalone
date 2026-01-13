@@ -104,7 +104,7 @@ impl AtmosBed {
     pub fn process(&self, input: &[Vec<f32>]) -> Vec<Vec<f32>> {
         let in_ch = self.config.input_layout.total_channels();
         let out_ch = self.config.output_layout.total_channels();
-        let samples = input.get(0).map(|v| v.len()).unwrap_or(0);
+        let samples = input.first().map(|v| v.len()).unwrap_or(0);
 
         let mut output = vec![vec![0.0f32; samples]; out_ch];
 

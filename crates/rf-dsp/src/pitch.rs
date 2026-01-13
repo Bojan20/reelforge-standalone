@@ -34,7 +34,7 @@ impl Pitch {
         // A4 = 440Hz = MIDI 69
         let midi_f = 12.0 * (freq / 440.0).log2() + 69.0;
 
-        if midi_f < 0.0 || midi_f > 127.0 {
+        if !(0.0..=127.0).contains(&midi_f) {
             return None;
         }
 
@@ -446,11 +446,10 @@ impl PitchDetector {
         }
 
         // Handle last segment
-        if let Some((start, end, pitches)) = current_segment {
-            if end - start >= min_segment_samples {
+        if let Some((start, end, pitches)) = current_segment
+            && end - start >= min_segment_samples {
                 segments.push(Self::create_segment(segment_id, start, end, &pitches));
             }
-        }
 
         segments
     }
@@ -603,11 +602,7 @@ impl Scale {
         let mut min_dist = 12u8;
 
         for &interval in intervals {
-            let dist = if interval > root_offset {
-                interval - root_offset
-            } else {
-                root_offset - interval
-            };
+            let dist = interval.abs_diff(root_offset);
             let dist = dist.min(12 - dist); // Check both directions
 
             if dist < min_dist {

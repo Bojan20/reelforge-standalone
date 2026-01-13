@@ -15,6 +15,7 @@ use std::f64::consts::PI;
 
 /// Morph mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum MorphMode {
     /// Simple time-domain crossfade
     Crossfade,
@@ -25,14 +26,10 @@ pub enum MorphMode {
     /// Full spectral interpolation (magnitude + phase)
     Spectral,
     /// Spectral envelope morphing (most natural)
+    #[default]
     SpectralEnvelope,
 }
 
-impl Default for MorphMode {
-    fn default() -> Self {
-        Self::SpectralEnvelope
-    }
-}
 
 /// IR Morpher
 pub struct IrMorpher {

@@ -183,7 +183,7 @@ impl AtmosRenderer {
         output: &mut [Vec<f32>],
     ) -> SpatialResult<()> {
         let _num_speakers = self.config.layout.total_channels();
-        let samples = audio.get(0).map(|a| a.len()).unwrap_or(0);
+        let samples = audio.first().map(|a| a.len()).unwrap_or(0);
 
         // Clear output
         for ch in output.iter_mut() {
