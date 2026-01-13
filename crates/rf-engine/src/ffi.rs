@@ -12240,9 +12240,17 @@ pub extern "C" fn bounce_start(
 
     let renderer = rf_file::OfflineRenderer::new(config);
 
-    // Store renderer
-    *BOUNCE_RENDERER.lock().unwrap() = Some(renderer);
-    *BOUNCE_OUTPUT_PATH.lock().unwrap() = Some(path);
+    // Store renderer (use ok() to handle poisoned mutex gracefully)
+    if let Ok(mut guard) = BOUNCE_RENDERER.lock() {
+        *guard = Some(renderer);
+    } else {
+        return 0;
+    }
+    if let Ok(mut guard) = BOUNCE_OUTPUT_PATH.lock() {
+        *guard = Some(path);
+    } else {
+        return 0;
+    }
 
     1
 }
@@ -12252,9 +12260,8 @@ pub extern "C" fn bounce_start(
 pub extern "C" fn bounce_get_progress() -> f32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| r.progress().percent)
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| r.progress().percent))
         .unwrap_or(0.0)
 }
 
@@ -12263,9 +12270,8 @@ pub extern "C" fn bounce_get_progress() -> f32 {
 pub extern "C" fn bounce_is_complete() -> i32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| if r.progress().is_complete { 1 } else { 0 })
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| if r.progress().is_complete { 1 } else { 0 }))
         .unwrap_or(0)
 }
 
@@ -12274,9 +12280,8 @@ pub extern "C" fn bounce_is_complete() -> i32 {
 pub extern "C" fn bounce_was_cancelled() -> i32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| if r.progress().was_cancelled { 1 } else { 0 })
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| if r.progress().was_cancelled { 1 } else { 0 }))
         .unwrap_or(0)
 }
 
@@ -12285,9 +12290,8 @@ pub extern "C" fn bounce_was_cancelled() -> i32 {
 pub extern "C" fn bounce_get_speed_factor() -> f32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| r.progress().speed_factor)
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| r.progress().speed_factor))
         .unwrap_or(1.0)
 }
 
@@ -12296,9 +12300,8 @@ pub extern "C" fn bounce_get_speed_factor() -> f32 {
 pub extern "C" fn bounce_get_eta() -> f32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| r.progress().eta_secs)
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| r.progress().eta_secs))
         .unwrap_or(0.0)
 }
 
@@ -12307,35 +12310,40 @@ pub extern "C" fn bounce_get_eta() -> f32 {
 pub extern "C" fn bounce_get_peak_level() -> f32 {
     BOUNCE_RENDERER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|r| r.progress().peak_level)
+        .ok()
+        .and_then(|g| g.as_ref().map(|r| r.progress().peak_level))
         .unwrap_or(0.0)
 }
 
 /// Cancel bounce
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_cancel() {
-    if let Some(ref renderer) = *BOUNCE_RENDERER.lock().unwrap() {
-        renderer.cancel();
+    if let Ok(guard) = BOUNCE_RENDERER.lock() {
+        if let Some(ref renderer) = *guard {
+            renderer.cancel();
+        }
     }
 }
 
 /// Check if bounce is active
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_is_active() -> i32 {
-    if BOUNCE_RENDERER.lock().unwrap().is_some() {
-        1
-    } else {
-        0
-    }
+    BOUNCE_RENDERER
+        .lock()
+        .ok()
+        .map(|g| if g.is_some() { 1 } else { 0 })
+        .unwrap_or(0)
 }
 
 /// Clear bounce state (call after complete/cancelled)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_clear() {
-    *BOUNCE_RENDERER.lock().unwrap() = None;
-    *BOUNCE_OUTPUT_PATH.lock().unwrap() = None;
+    if let Ok(mut guard) = BOUNCE_RENDERER.lock() {
+        *guard = None;
+    }
+    if let Ok(mut guard) = BOUNCE_OUTPUT_PATH.lock() {
+        *guard = None;
+    }
 }
 
 /// Get output path from last bounce
@@ -12345,9 +12353,8 @@ pub extern "C" fn bounce_clear() {
 pub extern "C" fn bounce_get_output_path() -> *mut c_char {
     BOUNCE_OUTPUT_PATH
         .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|p| p.to_str())
+        .ok()
+        .and_then(|g| g.as_ref().and_then(|p| p.to_str()).map(String::from))
         .and_then(|s| CString::new(s).ok())
         .map(|cs| cs.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -13703,9 +13710,17 @@ pub extern "C" fn wave_cache_query_tiles(
     // Convert to flat f32 array
     let flat = crate::wave_cache::tiles_to_flat_array(&merged);
 
+    // Sanity check - prevent overflow in layout calculation
+    if flat.len() > (isize::MAX as usize) / std::mem::size_of::<f32>() {
+        return std::ptr::null_mut();
+    }
+
     // Allocate and copy
     let ptr = unsafe {
-        let layout = std::alloc::Layout::array::<f32>(flat.len()).unwrap();
+        let layout = match std::alloc::Layout::array::<f32>(flat.len()) {
+            Ok(l) => l,
+            Err(_) => return std::ptr::null_mut(),
+        };
         let ptr = std::alloc::alloc(layout) as *mut f32;
         if ptr.is_null() {
             return std::ptr::null_mut();
@@ -13723,9 +13738,11 @@ pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, count: u32) {
     if ptr.is_null() || count == 0 {
         return;
     }
-    unsafe {
-        let layout = std::alloc::Layout::array::<f32>(count as usize * 2).unwrap();
-        std::alloc::dealloc(ptr as *mut u8, layout);
+    let size = (count as usize).saturating_mul(2);
+    if let Ok(layout) = std::alloc::Layout::array::<f32>(size) {
+        unsafe {
+            std::alloc::dealloc(ptr as *mut u8, layout);
+        }
     }
 }
 
