@@ -96,9 +96,11 @@ impl TimeSignature {
         self.denominator == 8 && self.numerator.is_multiple_of(3)
     }
 
-    /// Display string (e.g., "4/4")
-    pub fn to_string(&self) -> String {
-        format!("{}/{}", self.numerator, self.denominator)
+}
+
+impl std::fmt::Display for TimeSignature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.numerator, self.denominator)
     }
 }
 

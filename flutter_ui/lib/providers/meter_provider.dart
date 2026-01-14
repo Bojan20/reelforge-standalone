@@ -117,8 +117,8 @@ class MeterProvider extends ChangeNotifier {
   bool _isPlaying = false;
   int _lastNotifyMs = 0;
 
-  // OPTIMIZED: 30fps = 33ms, decay at same rate (no wasted cycles)
-  static const _updateIntervalMs = 33;
+  // OPTIMIZED: 20Hz = 50ms (matches engine metering rate, no wasted cycles)
+  static const _updateIntervalMs = 50;
 
   MeterState _masterState = MeterState.zero;
 

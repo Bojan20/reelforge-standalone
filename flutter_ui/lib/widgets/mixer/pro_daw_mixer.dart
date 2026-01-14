@@ -68,21 +68,25 @@ class _ProDawMixerState extends State<ProDawMixer> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Channel strips (from timeline tracks)
+                      // NOTE: RepaintBoundary isolates meter repaints from affecting other strips
                       if (mixer.channels.isNotEmpty) ...[
                         _buildSectionLabel('TRACKS'),
-                        ...mixer.channels.map((ch) => _ChannelStrip(
-                          key: ValueKey(ch.id),
-                          channel: ch,
-                          width: stripWidth,
-                          compact: widget.compact,
-                          onVolumeChange: (v) => mixer.setChannelVolume(ch.id, v),
-                          onPanChange: (p) => mixer.setChannelPan(ch.id, p),
-                          onMuteToggle: () => mixer.toggleChannelMute(ch.id),
-                          onSoloToggle: () => mixer.toggleChannelSolo(ch.id),
-                          onArmToggle: () => mixer.toggleChannelArm(ch.id),
-                          onOutputChange: (busId) => mixer.setChannelOutput(ch.id, busId),
-                          availableBuses: mixer.buses.isEmpty ? null : mixer.buses,
-                          hasSoloedChannels: mixer.hasSoloedChannels,
+                        ...mixer.channels.map((ch) => RepaintBoundary(
+                          key: ValueKey('rb_${ch.id}'),
+                          child: _ChannelStrip(
+                            key: ValueKey(ch.id),
+                            channel: ch,
+                            width: stripWidth,
+                            compact: widget.compact,
+                            onVolumeChange: (v) => mixer.setChannelVolume(ch.id, v),
+                            onPanChange: (p) => mixer.setChannelPan(ch.id, p),
+                            onMuteToggle: () => mixer.toggleChannelMute(ch.id),
+                            onSoloToggle: () => mixer.toggleChannelSolo(ch.id),
+                            onArmToggle: () => mixer.toggleChannelArm(ch.id),
+                            onOutputChange: (busId) => mixer.setChannelOutput(ch.id, busId),
+                            availableBuses: mixer.buses.isEmpty ? null : mixer.buses,
+                            hasSoloedChannels: mixer.hasSoloedChannels,
+                          ),
                         )),
                         const _SectionDivider(),
                       ],
@@ -90,16 +94,19 @@ class _ProDawMixerState extends State<ProDawMixer> {
                       // Aux returns
                       if (mixer.auxes.isNotEmpty) ...[
                         _buildSectionLabel('AUX'),
-                        ...mixer.auxes.map((aux) => _ChannelStrip(
-                          key: ValueKey(aux.id),
-                          channel: aux,
-                          width: stripWidth,
-                          compact: widget.compact,
-                          onVolumeChange: (v) => mixer.setChannelVolume(aux.id, v),
-                          onPanChange: (p) => mixer.setChannelPan(aux.id, p),
-                          onMuteToggle: () => mixer.toggleChannelMute(aux.id),
-                          onSoloToggle: () => mixer.toggleChannelSolo(aux.id),
-                          hasSoloedChannels: mixer.hasSoloedChannels,
+                        ...mixer.auxes.map((aux) => RepaintBoundary(
+                          key: ValueKey('rb_${aux.id}'),
+                          child: _ChannelStrip(
+                            key: ValueKey(aux.id),
+                            channel: aux,
+                            width: stripWidth,
+                            compact: widget.compact,
+                            onVolumeChange: (v) => mixer.setChannelVolume(aux.id, v),
+                            onPanChange: (p) => mixer.setChannelPan(aux.id, p),
+                            onMuteToggle: () => mixer.toggleChannelMute(aux.id),
+                            onSoloToggle: () => mixer.toggleChannelSolo(aux.id),
+                            hasSoloedChannels: mixer.hasSoloedChannels,
+                          ),
                         )),
                         const _SectionDivider(),
                       ],
@@ -107,16 +114,19 @@ class _ProDawMixerState extends State<ProDawMixer> {
                       // Bus section (only show if buses exist - user-created)
                       if (mixer.buses.isNotEmpty) ...[
                         _buildSectionLabel('BUSES'),
-                        ...mixer.buses.map((bus) => _ChannelStrip(
-                          key: ValueKey(bus.id),
-                          channel: bus,
-                          width: stripWidth,
-                          compact: widget.compact,
-                          onVolumeChange: (v) => mixer.setChannelVolume(bus.id, v),
-                          onPanChange: (p) => mixer.setChannelPan(bus.id, p),
-                          onMuteToggle: () => mixer.toggleChannelMute(bus.id),
-                          onSoloToggle: () => mixer.toggleChannelSolo(bus.id),
-                          hasSoloedChannels: mixer.hasSoloedChannels,
+                        ...mixer.buses.map((bus) => RepaintBoundary(
+                          key: ValueKey('rb_${bus.id}'),
+                          child: _ChannelStrip(
+                            key: ValueKey(bus.id),
+                            channel: bus,
+                            width: stripWidth,
+                            compact: widget.compact,
+                            onVolumeChange: (v) => mixer.setChannelVolume(bus.id, v),
+                            onPanChange: (p) => mixer.setChannelPan(bus.id, p),
+                            onMuteToggle: () => mixer.toggleChannelMute(bus.id),
+                            onSoloToggle: () => mixer.toggleChannelSolo(bus.id),
+                            hasSoloedChannels: mixer.hasSoloedChannels,
+                          ),
                         )),
                         const _SectionDivider(),
                       ],
@@ -124,24 +134,30 @@ class _ProDawMixerState extends State<ProDawMixer> {
                       // VCA section
                       if (mixer.vcas.isNotEmpty) ...[
                         _buildSectionLabel('VCA'),
-                        ...mixer.vcas.map((vca) => _VcaStrip(
-                          key: ValueKey(vca.id),
-                          vca: vca,
-                          width: stripWidth,
-                          compact: widget.compact,
-                          onLevelChange: (l) => mixer.setVcaLevel(vca.id, l),
-                          onMuteToggle: () => mixer.toggleVcaMute(vca.id),
+                        ...mixer.vcas.map((vca) => RepaintBoundary(
+                          key: ValueKey('rb_${vca.id}'),
+                          child: _VcaStrip(
+                            key: ValueKey(vca.id),
+                            vca: vca,
+                            width: stripWidth,
+                            compact: widget.compact,
+                            onLevelChange: (l) => mixer.setVcaLevel(vca.id, l),
+                            onMuteToggle: () => mixer.toggleVcaMute(vca.id),
+                          ),
                         )),
                         const _SectionDivider(),
                       ],
 
                       // Master section
                       _buildSectionLabel('MASTER'),
-                      _MasterStrip(
-                        channel: mixer.master,
-                        width: stripWidth + 20,
-                        compact: widget.compact,
-                        onVolumeChange: mixer.setMasterVolume,
+                      RepaintBoundary(
+                        key: const ValueKey('rb_master'),
+                        child: _MasterStrip(
+                          channel: mixer.master,
+                          width: stripWidth + 20,
+                          compact: widget.compact,
+                          onVolumeChange: mixer.setMasterVolume,
+                        ),
                       ),
 
                       const SizedBox(width: 8),

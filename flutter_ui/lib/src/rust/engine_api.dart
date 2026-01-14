@@ -42,7 +42,7 @@ class EngineApi {
   final _meteringController = StreamController<MeteringState>.broadcast();
 
   Timer? _updateTimer;
-  int _meteringFrameCounter = 0; // For 30fps metering (every 2nd frame)
+  int _meteringFrameCounter = 0; // For 20Hz metering (every 3rd frame @ 60fps)
 
   EngineApi._();
 
@@ -2157,11 +2157,12 @@ class EngineApi {
       _transportController.add(_transport);
     }
 
-    // Update metering at 30fps (every 2nd frame) to reduce UI thread load
-    // Transport runs at 60fps for smooth playhead, metering at 30fps is visually sufficient
+    // Update metering at 20Hz (every 3rd frame @ 60fps) to reduce UI thread load
+    // Transport runs at 60fps for smooth playhead, 20Hz is sufficient for meters
+    // (human eye can't perceive meter changes faster than ~25Hz anyway)
     _meteringFrameCounter++;
-    if (_meteringFrameCounter % 2 != 0) {
-      return; // Skip metering on odd frames
+    if (_meteringFrameCounter % 3 != 0) {
+      return; // Skip metering on non-3rd frames
     }
 
     // Update metering with mock data

@@ -27,6 +27,22 @@ import 'providers/session_persistence_provider.dart';
 import 'providers/input_bus_provider.dart';
 import 'providers/recording_provider.dart';
 import 'providers/routing_provider.dart';
+import 'providers/keyboard_focus_provider.dart';
+import 'providers/edit_mode_pro_provider.dart';
+import 'providers/smart_tool_provider.dart';
+import 'providers/razor_edit_provider.dart';
+import 'providers/direct_offline_processing_provider.dart';
+import 'providers/modulator_provider.dart';
+import 'providers/arranger_track_provider.dart';
+import 'providers/chord_track_provider.dart';
+import 'providers/expression_map_provider.dart';
+import 'providers/macro_control_provider.dart';
+import 'providers/track_versions_provider.dart';
+import 'providers/clip_gain_envelope_provider.dart';
+import 'providers/logical_editor_provider.dart';
+import 'providers/groove_quantize_provider.dart';
+import 'providers/audio_alignment_provider.dart';
+import 'providers/scale_assistant_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,6 +97,54 @@ class FluxForgeApp extends StatelessWidget {
 
         // Unified Routing System
         ChangeNotifierProvider(create: (_) => RoutingProvider()),
+
+        // Pro Tools-Style Keyboard Focus Mode
+        ChangeNotifierProvider(create: (_) => KeyboardFocusProvider()),
+
+        // Pro Tools-Style Edit Modes (Shuffle/Slip/Spot/Grid)
+        ChangeNotifierProvider(create: (_) => EditModeProProvider()),
+
+        // Smart Tool (Context-Aware Tool Selection)
+        ChangeNotifierProvider(create: (_) => SmartToolProvider()),
+
+        // Razor Editing (Cubase-style range selection)
+        ChangeNotifierProvider(create: (_) => RazorEditProvider()),
+
+        // Direct Offline Processing
+        ChangeNotifierProvider(create: (_) => DirectOfflineProcessingProvider()),
+
+        // Parameter Modulators (LFO, Envelope Follower, Step, Random)
+        ChangeNotifierProvider(create: (_) => ModulatorProvider()),
+
+        // Arranger Track (Cubase-style section-based arrangement)
+        ChangeNotifierProvider(create: (_) => ArrangerTrackProvider()),
+
+        // Chord Track (Cubase-style chord intelligence)
+        ChangeNotifierProvider(create: (_) => ChordTrackProvider()),
+
+        // Expression Maps (Cubase-style MIDI articulation switching)
+        ChangeNotifierProvider(create: (_) => ExpressionMapProvider()),
+
+        // Macro Controls (Multi-parameter control knobs)
+        ChangeNotifierProvider(create: (_) => MacroControlProvider()),
+
+        // Track Versions (Cubase-style track playlists)
+        ChangeNotifierProvider(create: (_) => TrackVersionsProvider()),
+
+        // Clip Gain Envelope (Per-clip gain automation)
+        ChangeNotifierProvider(create: (_) => ClipGainEnvelopeProvider()),
+
+        // Logical Editor (Cubase-style batch operations)
+        ChangeNotifierProvider(create: (_) => LogicalEditorProvider()),
+
+        // Groove Quantize (Humanization and groove templates)
+        ChangeNotifierProvider(create: (_) => GrooveQuantizeProvider()),
+
+        // Audio Alignment (VocAlign-style alignment)
+        ChangeNotifierProvider(create: (_) => AudioAlignmentProvider()),
+
+        // Scale Assistant (Cubase-style key/scale helper)
+        ChangeNotifierProvider(create: (_) => ScaleAssistantProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

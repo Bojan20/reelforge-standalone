@@ -86,6 +86,16 @@ class ShortcutAction {
   void Function()? onPreferences;
   void Function()? onFullscreen;
   void Function()? onImportAudioFiles;
+
+  // Advanced panel shortcuts (Cubase-style)
+  void Function()? onShowLogicalEditor;
+  void Function()? onShowScaleAssistant;
+  void Function()? onShowGrooveQuantize;
+  void Function()? onShowAudioAlignment;
+  void Function()? onShowTrackVersions;
+  void Function()? onShowMacroControls;
+  void Function()? onShowClipGainEnvelope;
+
   bool Function(String key, ShortcutModifiers modifiers)? onCustom;
 
   ShortcutAction();
@@ -179,6 +189,15 @@ const kShortcuts = <String, ShortcutDef>{
   'preferences': ShortcutDef(key: ',', mod: ShortcutModifiers(cmd: true), display: '⌘,'),
   'fullscreen': ShortcutDef(key: 'F11', display: 'F11'),
   'escape': ShortcutDef(key: 'Escape', display: 'Esc'),
+
+  // Advanced panels (Cubase-style Shift+Cmd shortcuts)
+  'logicalEditor': ShortcutDef(key: 'L', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘L'),
+  'scaleAssistant': ShortcutDef(key: 'K', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘K'),
+  'grooveQuantize': ShortcutDef(key: 'Q', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘Q'),
+  'audioAlignment': ShortcutDef(key: 'A', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘A'),
+  'trackVersions': ShortcutDef(key: 'V', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘V'),
+  'macroControls': ShortcutDef(key: 'M', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘M'),
+  'clipGainEnvelope': ShortcutDef(key: 'G', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘G'),
 };
 
 // ============ Provider ============
@@ -393,6 +412,64 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     if (key == LogicalKeyboardKey.keyI && isCmd && isShift && !isAlt) {
       if (actions.onImportAudioFiles != null) {
         actions.onImportAudioFiles!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ========== Advanced Panel Shortcuts (Shift+Cmd) ==========
+
+    // Shift+Cmd+L - Logical Editor
+    if (key == LogicalKeyboardKey.keyL && isCmd && isShift && !isAlt) {
+      if (actions.onShowLogicalEditor != null) {
+        actions.onShowLogicalEditor!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+K - Scale Assistant
+    if (key == LogicalKeyboardKey.keyK && isCmd && isShift && !isAlt) {
+      if (actions.onShowScaleAssistant != null) {
+        actions.onShowScaleAssistant!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+Q - Groove Quantize
+    if (key == LogicalKeyboardKey.keyQ && isCmd && isShift && !isAlt) {
+      if (actions.onShowGrooveQuantize != null) {
+        actions.onShowGrooveQuantize!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+A - Audio Alignment
+    if (key == LogicalKeyboardKey.keyA && isCmd && isShift && !isAlt) {
+      if (actions.onShowAudioAlignment != null) {
+        actions.onShowAudioAlignment!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+V - Track Versions
+    if (key == LogicalKeyboardKey.keyV && isCmd && isShift && !isAlt) {
+      if (actions.onShowTrackVersions != null) {
+        actions.onShowTrackVersions!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+M - Macro Controls
+    if (key == LogicalKeyboardKey.keyM && isCmd && isShift && !isAlt) {
+      if (actions.onShowMacroControls != null) {
+        actions.onShowMacroControls!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+G - Clip Gain Envelope
+    if (key == LogicalKeyboardKey.keyG && isCmd && isShift && !isAlt) {
+      if (actions.onShowClipGainEnvelope != null) {
+        actions.onShowClipGainEnvelope!();
         return KeyEventResult.handled;
       }
     }

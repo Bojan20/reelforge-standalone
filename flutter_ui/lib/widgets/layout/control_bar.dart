@@ -11,10 +11,23 @@
 /// - System meters
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
 import '../meters/pdc_display.dart';
+import '../../providers/edit_mode_pro_provider.dart';
+import '../../providers/smart_tool_provider.dart';
+import '../../providers/keyboard_focus_provider.dart';
+import '../../providers/razor_edit_provider.dart';
+import '../../providers/modulator_provider.dart';
+import '../../providers/arranger_track_provider.dart';
+import '../../providers/chord_track_provider.dart';
+import '../../providers/expression_map_provider.dart';
+import '../../providers/macro_control_provider.dart';
+import '../../providers/track_versions_provider.dart';
+import '../../providers/groove_quantize_provider.dart';
+import '../../providers/scale_assistant_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIME FORMATTING
@@ -272,6 +285,46 @@ class _ControlBarState extends State<ControlBar> {
                     onSnapValueChange: widget.onSnapValueChange,
                     compact: isCompact,
                   ),
+
+                // Pro Tools Edit Modes (Shuffle/Slip/Spot/Grid) - only in DAW mode
+                if (features.showTransport && !isVeryCompact)
+                  _ProEditModes(),
+
+                // Smart Tool indicator - only in DAW mode
+                if (features.showTransport && !isVeryCompact)
+                  _SmartToolButton(),
+
+                // Keyboard Focus Mode indicator - only in DAW mode
+                if (features.showTransport && !isUltraCompact)
+                  _KeyboardFocusButton(),
+
+                // Razor Edit indicator - only in DAW mode
+                if (features.showTransport && !isVeryCompact)
+                  _RazorEditButton(),
+
+                // Arranger Track toggle
+                if (features.showTransport && !isVeryCompact)
+                  _ArrangerTrackButton(),
+
+                // Chord Track toggle
+                if (features.showTransport && !isVeryCompact)
+                  _ChordTrackButton(),
+
+                // Scale Assistant toggle
+                if (features.showTransport && !isVeryCompact)
+                  _ScaleAssistantButton(),
+
+                // Groove Quantize toggle
+                if (features.showTransport && !isUltraCompact)
+                  _GrooveQuantizeButton(),
+
+                // Track Versions toggle
+                if (features.showTransport && !isUltraCompact)
+                  _TrackVersionsButton(),
+
+                // Macro Controls toggle
+                if (features.showTransport && !isUltraCompact)
+                  _MacroControlsButton(),
 
                 // Tempo (only in DAW mode)
                 if (features.showTempo && !isVeryCompact)
@@ -1132,6 +1185,777 @@ class _MeterBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PRO TOOLS EDIT MODES (Shuffle/Slip/Spot/Grid)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ProEditModes extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<EditModeProProvider>(
+      builder: (context, provider, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: EditMode.values.map((mode) {
+              final config = kEditModeConfigs[mode]!;
+              final isSelected = provider.mode == mode;
+
+              return Tooltip(
+                message: '${config.name} (${config.shortcut})\n${config.description}',
+                child: GestureDetector(
+                  onTap: () => provider.setMode(mode),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 28,
+                    height: 28,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? config.color.withValues(alpha: 0.2)
+                          : FluxForgeTheme.bgMid,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isSelected ? config.color : FluxForgeTheme.borderSubtle,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        config.icon,
+                        size: 14,
+                        color: isSelected ? config.color : FluxForgeTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SMART TOOL BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _SmartToolButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<SmartToolProvider>(
+      builder: (context, provider, _) {
+        final isActive = provider.enabled;
+
+        return Tooltip(
+          message: isActive
+              ? 'Smart Tool: ${provider.modeDisplayName}'
+              : 'Smart Tool (Disabled)',
+          child: GestureDetector(
+            onTap: provider.toggle,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isActive
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.borderSubtle,
+                  width: isActive ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    provider.modeIcon,
+                    size: 14,
+                    color: isActive
+                        ? FluxForgeTheme.accentBlue
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Smart',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isActive
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// KEYBOARD FOCUS MODE BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _KeyboardFocusButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<KeyboardFocusProvider>(
+      builder: (context, provider, _) {
+        final isActive = provider.isCommandsMode;
+
+        return Tooltip(
+          message: isActive
+              ? 'Commands Focus Mode (Cmd+Shift+A to exit)'
+              : 'Normal Mode (Cmd+Shift+A for Commands)',
+          child: GestureDetector(
+            onTap: provider.toggleMode,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isActive
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.borderSubtle,
+                  width: isActive ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    provider.modeIcon,
+                    size: 14,
+                    color: isActive
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isActive ? 'CMD' : 'A-Z',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isActive
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RAZOR EDIT BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _RazorEditButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<RazorEditProvider>(
+      builder: (context, provider, _) {
+        final hasSelection = provider.hasSelection;
+
+        return Tooltip(
+          message: 'Razor Edit (Alt+Drag to select range)\n'
+              '${hasSelection ? "Selection active - Del to delete" : "No selection"}',
+          child: GestureDetector(
+            onTap: hasSelection ? provider.clearSelection : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: hasSelection
+                    ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: hasSelection
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.borderSubtle,
+                  width: hasSelection ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.carpenter,
+                    size: 14,
+                    color: hasSelection
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Razor',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: hasSelection
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ARRANGER TRACK BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ArrangerTrackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ArrangerTrackProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final sectionCount = provider.sections.length;
+
+        return Tooltip(
+          message: 'Arranger Track (Cubase-style)\n'
+              '${isEnabled ? "Enabled" : "Disabled"} - $sectionCount sections',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.view_week,
+                    size: 14,
+                    color: isEnabled
+                        ? FluxForgeTheme.accentBlue
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Arr',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? FluxForgeTheme.accentBlue
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CHORD TRACK BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ChordTrackButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ChordTrackProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final chordCount = provider.events.length;
+        final currentChord = provider.currentEvent?.displayName;
+
+        return Tooltip(
+          message: 'Chord Track (Cubase-style)\n'
+              '${isEnabled ? "Enabled" : "Disabled"} - $chordCount chords\n'
+              '${currentChord != null ? "Playing: $currentChord" : ""}',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? const Color(0xFFAA40FF).withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? const Color(0xFFAA40FF)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.music_note,
+                    size: 14,
+                    color: isEnabled
+                        ? const Color(0xFFAA40FF)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    currentChord ?? 'Chord',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? const Color(0xFFAA40FF)
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODULATOR BUTTON (for menu/toolbar access)
+// ════════════════════════════════════════════════════════════════════════════
+
+class ModulatorButton extends StatelessWidget {
+  const ModulatorButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ModulatorProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final lfoCount = provider.lfos.length;
+        final envCount = provider.envelopes.length;
+
+        return Tooltip(
+          message: 'Parameter Modulators\n'
+              '${isEnabled ? "Enabled" : "Disabled"}\n'
+              '$lfoCount LFOs, $envCount Envelopes',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? FluxForgeTheme.accentCyan.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? FluxForgeTheme.accentCyan
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.waves,
+                    size: 14,
+                    color: isEnabled
+                        ? FluxForgeTheme.accentCyan
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Mod',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? FluxForgeTheme.accentCyan
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXPRESSION MAP BUTTON (for menu/toolbar access)
+// ════════════════════════════════════════════════════════════════════════════
+
+class ExpressionMapButton extends StatelessWidget {
+  const ExpressionMapButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ExpressionMapProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final mapCount = provider.maps.length;
+
+        return Tooltip(
+          message: 'Expression Maps (Cubase-style)\n'
+              '${isEnabled ? "Enabled" : "Disabled"}\n'
+              '$mapCount maps loaded',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? FluxForgeTheme.accentGreen
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.piano,
+                    size: 14,
+                    color: isEnabled
+                        ? FluxForgeTheme.accentGreen
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Expr',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? FluxForgeTheme.accentGreen
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCALE ASSISTANT BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ScaleAssistantButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ScaleAssistantProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.showScaleNotes;
+        final key = provider.globalKey;
+
+        return Tooltip(
+          message: 'Scale Assistant\n'
+              'Key: ${key.shortName}\n'
+              'Mode: ${provider.constraintMode.name}',
+          child: GestureDetector(
+            onTap: () => provider.setShowScaleNotes(!isEnabled),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? const Color(0xFFFFD700)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.music_note,
+                    size: 14,
+                    color: isEnabled
+                        ? const Color(0xFFFFD700)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    key.shortName,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? const Color(0xFFFFD700)
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GROOVE QUANTIZE BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _GrooveQuantizeButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GrooveQuantizeProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final templateName = provider.activeTemplate?.name ?? 'None';
+
+        return Tooltip(
+          message: 'Groove Quantize\n'
+              '${isEnabled ? "Enabled" : "Disabled"}\n'
+              'Template: $templateName',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? const Color(0xFFFF6B6B).withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? const Color(0xFFFF6B6B)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.graphic_eq,
+                    size: 14,
+                    color: isEnabled
+                        ? const Color(0xFFFF6B6B)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Grv',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? const Color(0xFFFF6B6B)
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TRACK VERSIONS BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _TrackVersionsButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<TrackVersionsProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final trackCount = provider.tracksWithVersions.length;
+
+        return Tooltip(
+          message: 'Track Versions (Cubase-style)\n'
+              '${isEnabled ? "Enabled" : "Disabled"}\n'
+              '$trackCount tracks with versions',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? const Color(0xFF9B59B6).withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? const Color(0xFF9B59B6)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.layers,
+                    size: 14,
+                    color: isEnabled
+                        ? const Color(0xFF9B59B6)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Ver',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? const Color(0xFF9B59B6)
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MACRO CONTROLS BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _MacroControlsButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<MacroControlProvider>(
+      builder: (context, provider, _) {
+        final isEnabled = provider.enabled;
+        final macroCount = provider.macros.length;
+        final pageCount = provider.pages.length;
+
+        return Tooltip(
+          message: 'Macro Controls\n'
+              '${isEnabled ? "Enabled" : "Disabled"}\n'
+              '$macroCount macros, $pageCount pages',
+          child: GestureDetector(
+            onTap: provider.toggleEnabled,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? const Color(0xFF1ABC9C).withValues(alpha: 0.15)
+                    : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isEnabled
+                      ? const Color(0xFF1ABC9C)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isEnabled ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune,
+                    size: 14,
+                    color: isEnabled
+                        ? const Color(0xFF1ABC9C)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Macro',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? const Color(0xFF1ABC9C)
+                          : FluxForgeTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

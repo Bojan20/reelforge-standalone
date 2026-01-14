@@ -998,9 +998,9 @@ impl EqBand {
         let (dyn_gain_l, dyn_gain_r) = if self.dynamic.enabled {
             // Apply sidechain filter if configured (filter the detector input, not audio)
             let (detect_l, detect_r) =
-                if self.sidechain_svf.is_some() && self.sidechain_coeffs.is_some() {
-                    let sc_svf = self.sidechain_svf.as_mut().unwrap();
-                    let sc_coeffs = self.sidechain_coeffs.as_ref().unwrap();
+                if let (Some(sc_svf), Some(sc_coeffs)) =
+                    (self.sidechain_svf.as_mut(), self.sidechain_coeffs.as_ref())
+                {
                     // Filter the sidechain signal for frequency-focused detection
                     let filtered = sc_svf.process(
                         (left + right) * 0.5, // Use mono for sidechain

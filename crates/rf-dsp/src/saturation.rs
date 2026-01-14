@@ -6,10 +6,15 @@
 //! - Transistor saturation
 //! - Soft/hard clipping
 //! - Waveshaping
+//!
+//! Anti-aliasing:
+//! - Oversampled processing via `OversampledSaturator`
+//! - 2x/4x/8x/16x modes for alias-free nonlinear processing
 
 use rf_core::Sample;
 use std::f64::consts::PI;
 
+use crate::oversampling::{GlobalOversampler, OversampleFactor, OversampleQuality};
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 
 /// Saturation type
@@ -463,6 +468,144 @@ impl ProcessorConfig for BitCrusher {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// OVERSAMPLED SATURATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Stereo saturator with oversampling for alias-free processing
+///
+/// Nonlinear processing (saturation, distortion) generates harmonics that can
+/// alias back into the audible range. Oversampling prevents this by:
+/// 1. Upsampling the input signal
+/// 2. Processing at higher sample rate
+/// 3. Lowpass filtering and downsampling
+///
+/// # Example
+/// ```ignore
+/// let mut sat = OversampledSaturator::new(48000.0, OversampleFactor::X4);
+/// sat.set_type(SaturationType::Tube);
+/// sat.set_drive_db(12.0);
+/// sat.process(&mut left, &mut right);
+/// ```
+#[derive(Debug, Clone)]
+pub struct OversampledSaturator {
+    /// Inner saturator (processes at oversampled rate)
+    saturator: StereoSaturator,
+    /// Oversampler handles up/down conversion
+    oversampler: GlobalOversampler,
+    /// Original sample rate
+    sample_rate: f64,
+    /// Oversampling factor
+    os_factor: OversampleFactor,
+}
+
+impl OversampledSaturator {
+    /// Create oversampled saturator with given factor
+    pub fn new(sample_rate: f64, factor: OversampleFactor) -> Self {
+        // Saturator runs at oversampled rate
+        let os_rate = sample_rate * factor.factor() as f64;
+        Self {
+            saturator: StereoSaturator::new(os_rate),
+            oversampler: GlobalOversampler::new(factor, OversampleQuality::Standard),
+            sample_rate,
+            os_factor: factor,
+        }
+    }
+
+    /// Create 4x oversampled saturator (good default for most cases)
+    pub fn x4(sample_rate: f64) -> Self {
+        Self::new(sample_rate, OversampleFactor::X4)
+    }
+
+    /// Create 8x oversampled saturator (high quality, more CPU)
+    pub fn x8(sample_rate: f64) -> Self {
+        Self::new(sample_rate, OversampleFactor::X8)
+    }
+
+    /// Set saturation type
+    pub fn set_type(&mut self, sat_type: SaturationType) {
+        self.saturator.set_both(|s| s.set_type(sat_type));
+    }
+
+    /// Set drive in dB
+    pub fn set_drive_db(&mut self, db: f64) {
+        self.saturator.set_both(|s| s.set_drive_db(db));
+    }
+
+    /// Set drive as linear gain
+    pub fn set_drive(&mut self, drive: f64) {
+        self.saturator.set_both(|s| s.set_drive(drive));
+    }
+
+    /// Set dry/wet mix (0.0 = dry, 1.0 = wet)
+    pub fn set_mix(&mut self, mix: f64) {
+        self.saturator.set_both(|s| s.set_mix(mix));
+    }
+
+    /// Set output level in dB
+    pub fn set_output_db(&mut self, db: f64) {
+        self.saturator.set_both(|s| s.set_output_db(db));
+    }
+
+    /// Set tape bias (only affects Tape mode)
+    pub fn set_tape_bias(&mut self, bias: f64) {
+        self.saturator.set_both(|s| s.set_tape_bias(bias));
+    }
+
+    /// Set oversampling factor
+    pub fn set_oversample_factor(&mut self, factor: OversampleFactor) {
+        if factor != self.os_factor {
+            self.os_factor = factor;
+            self.oversampler.set_factor(factor);
+            // Update saturator sample rate
+            let os_rate = self.sample_rate * factor.factor() as f64;
+            self.saturator.left_mut().set_sample_rate(os_rate);
+            self.saturator.right_mut().set_sample_rate(os_rate);
+        }
+    }
+
+    /// Get latency in samples (for delay compensation)
+    pub fn latency(&self) -> usize {
+        self.oversampler.latency()
+    }
+
+    /// Process stereo buffer with oversampling
+    pub fn process(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        // Capture mutable reference to saturator for closure
+        let saturator = &mut self.saturator;
+
+        self.oversampler.process(left, right, |os_l, os_r| {
+            // Process each sample at oversampled rate
+            for i in 0..os_l.len() {
+                let (out_l, out_r) = saturator.process_sample(os_l[i], os_r[i]);
+                os_l[i] = out_l;
+                os_r[i] = out_r;
+            }
+        });
+    }
+
+    /// Access inner saturator for advanced configuration
+    pub fn inner_mut(&mut self) -> &mut StereoSaturator {
+        &mut self.saturator
+    }
+}
+
+impl Processor for OversampledSaturator {
+    fn reset(&mut self) {
+        self.saturator.reset();
+        self.oversampler.reset();
+    }
+}
+
+impl ProcessorConfig for OversampledSaturator {
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        let os_rate = sample_rate * self.os_factor.factor() as f64;
+        self.saturator.left_mut().set_sample_rate(os_rate);
+        self.saturator.right_mut().set_sample_rate(os_rate);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +676,49 @@ mod tests {
             }
         }
         assert!(step_count > 50); // Many samples should be held
+    }
+
+    #[test]
+    fn test_oversampled_saturator() {
+        let mut sat = OversampledSaturator::x4(48000.0);
+        sat.set_type(SaturationType::Tube);
+        sat.set_drive_db(12.0);
+
+        // Generate test signal (1kHz sine)
+        let len = 256;
+        let mut left: Vec<f64> = (0..len)
+            .map(|i| (2.0 * PI * 1000.0 * i as f64 / 48000.0).sin() * 0.5)
+            .collect();
+        let mut right = left.clone();
+
+        // Process
+        sat.process(&mut left, &mut right);
+
+        // Check outputs are valid
+        for i in 0..len {
+            assert!(left[i].is_finite(), "Left sample {} not finite", i);
+            assert!(right[i].is_finite(), "Right sample {} not finite", i);
+            // Saturated output should be bounded
+            assert!(left[i].abs() < 2.0, "Left sample {} too large: {}", i, left[i]);
+        }
+    }
+
+    #[test]
+    fn test_oversampled_saturator_latency() {
+        let sat_x1 = OversampledSaturator::new(48000.0, OversampleFactor::X1);
+        let sat_x4 = OversampledSaturator::x4(48000.0);
+        let sat_x8 = OversampledSaturator::x8(48000.0);
+
+        // X1 should have zero latency
+        assert_eq!(sat_x1.latency(), 0);
+
+        // X4 and X8 have positive latency
+        assert!(sat_x4.latency() > 0, "X4 latency should be > 0");
+        assert!(sat_x8.latency() > 0, "X8 latency should be > 0");
+
+        // Verify latency values match oversampler calculation
+        // (filter_order / factor gives taps_per_phase)
+        assert_eq!(sat_x4.latency(), 16); // 64 / 4 = 16
+        assert_eq!(sat_x8.latency(), 12); // 96 / 8 = 12
     }
 }

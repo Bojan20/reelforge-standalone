@@ -14,6 +14,115 @@ use serde::{Deserialize, Serialize};
 use crate::{FileError, FileResult};
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PATH VALIDATION (SECURITY)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Maximum length for paths in project files (prevents DoS via huge strings)
+const MAX_PATH_LENGTH: usize = 4096;
+
+/// Validate that a path is safe to use in a project
+///
+/// SECURITY: Prevents path traversal attacks where malicious project files
+/// could reference files outside the project directory (e.g., "../../etc/passwd").
+///
+/// Returns the validated path if safe, or an error if:
+/// - Path contains ".." components (directory traversal)
+/// - Path is absolute (should be relative to project)
+/// - Path exceeds maximum length
+/// - Path contains null bytes
+fn validate_clip_path(path: &str) -> FileResult<&str> {
+    // Check for null bytes (can truncate path in C FFI)
+    if path.contains('\0') {
+        return Err(FileError::ProjectError(
+            "Invalid path: contains null bytes".to_string(),
+        ));
+    }
+
+    // Check path length
+    if path.len() > MAX_PATH_LENGTH {
+        return Err(FileError::ProjectError(format!(
+            "Path exceeds maximum length of {} bytes",
+            MAX_PATH_LENGTH
+        )));
+    }
+
+    let path_ref = Path::new(path);
+
+    // Reject absolute paths - clips should be relative to project
+    if path_ref.is_absolute() {
+        return Err(FileError::ProjectError(
+            "Absolute paths not allowed for clips - use paths relative to project".to_string(),
+        ));
+    }
+
+    // Check for path traversal attacks
+    for component in path_ref.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                return Err(FileError::ProjectError(
+                    "Path traversal detected: '..' not allowed in clip paths".to_string(),
+                ));
+            }
+            std::path::Component::Normal(s) => {
+                // Also check for Windows-style traversal attempts
+                if let Some(s_str) = s.to_str()
+                    && s_str.starts_with("..") {
+                        return Err(FileError::ProjectError(
+                            "Path traversal detected".to_string(),
+                        ));
+                    }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(path)
+}
+
+/// Validate all paths in a project file after loading
+///
+/// SECURITY: Called after deserializing a project to ensure no malicious
+/// paths were embedded in the file.
+fn validate_project_paths(project: &ProjectFile) -> FileResult<()> {
+    // Validate all clip paths
+    for clip in &project.clips {
+        validate_clip_path(&clip.file_path).map_err(|e| {
+            FileError::ProjectError(format!(
+                "Invalid path in clip '{}' (id {}): {}",
+                clip.name, clip.id, e
+            ))
+        })?;
+    }
+
+    // Validate string lengths to prevent DoS
+    if project.name.len() > 1024 {
+        return Err(FileError::ProjectError(
+            "Project name exceeds maximum length".to_string(),
+        ));
+    }
+
+    for track in &project.tracks {
+        if track.name.len() > 1024 {
+            return Err(FileError::ProjectError(format!(
+                "Track name exceeds maximum length: {}",
+                track.id
+            )));
+        }
+    }
+
+    for marker in &project.markers {
+        if marker.name.len() > 1024 {
+            return Err(FileError::ProjectError(format!(
+                "Marker name exceeds maximum length: {}",
+                marker.id
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PROJECT FILE FORMAT
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -251,8 +360,21 @@ impl ProjectFile {
     }
 
     /// Load project from file
+    ///
+    /// SECURITY: Validates all paths and string lengths after deserialization
+    /// to prevent path traversal attacks and DoS via oversized strings.
     pub fn load<P: AsRef<Path>>(path: P) -> FileResult<Self> {
         let content = fs::read_to_string(path.as_ref())?;
+
+        // SECURITY: Limit total file size to prevent DoS
+        const MAX_PROJECT_SIZE: usize = 50 * 1024 * 1024; // 50 MB
+        if content.len() > MAX_PROJECT_SIZE {
+            return Err(FileError::ProjectError(format!(
+                "Project file exceeds maximum size of {} MB",
+                MAX_PROJECT_SIZE / (1024 * 1024)
+            )));
+        }
+
         let project: ProjectFile = serde_json::from_str(&content)?;
 
         // Version check
@@ -262,6 +384,9 @@ impl ProjectFile {
                 project.header.version, PROJECT_VERSION
             )));
         }
+
+        // SECURITY: Validate all paths and string lengths
+        validate_project_paths(&project)?;
 
         Ok(project)
     }
@@ -278,7 +403,18 @@ impl ProjectFile {
     }
 
     /// Add a clip
-    pub fn add_clip(&mut self, track_id: u32, file_path: &str, start_sample: u64) -> u32 {
+    ///
+    /// SECURITY: Validates the file path to prevent path traversal attacks.
+    /// Returns Err if the path is invalid (absolute, contains "..", etc.)
+    pub fn add_clip(
+        &mut self,
+        track_id: u32,
+        file_path: &str,
+        start_sample: u64,
+    ) -> FileResult<u32> {
+        // SECURITY: Validate path before adding
+        validate_clip_path(file_path)?;
+
         let id = self.clips.len() as u32;
         self.clips.push(ClipRef {
             id,
@@ -296,7 +432,7 @@ impl ProjectFile {
             fade_in: 0,
             fade_out: 0,
         });
-        id
+        Ok(id)
     }
 }
 
@@ -480,5 +616,86 @@ mod tests {
 
         assert_eq!(loaded.name, "Warm EQ");
         assert_eq!(loaded.params.get("gain"), Some(&1.5));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SECURITY TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_valid_clip_path() {
+        let mut project = ProjectFile::new("Test");
+        project.add_track("Track 1");
+
+        // Valid relative paths should work
+        assert!(project.add_clip(0, "audio/drums.wav", 0).is_ok());
+        assert!(project.add_clip(0, "samples/kick.wav", 48000).is_ok());
+        assert!(project.add_clip(0, "vocals.wav", 96000).is_ok());
+    }
+
+    #[test]
+    fn test_path_traversal_blocked() {
+        let mut project = ProjectFile::new("Test");
+        project.add_track("Track 1");
+
+        // Path traversal attempts should fail
+        assert!(project.add_clip(0, "../etc/passwd", 0).is_err());
+        assert!(project.add_clip(0, "audio/../../../secret.txt", 0).is_err());
+        assert!(project.add_clip(0, "..\\windows\\system32\\config", 0).is_err());
+    }
+
+    #[test]
+    fn test_absolute_path_blocked() {
+        let mut project = ProjectFile::new("Test");
+        project.add_track("Track 1");
+
+        // Absolute paths should fail
+        assert!(project.add_clip(0, "/etc/passwd", 0).is_err());
+        assert!(project.add_clip(0, "/Users/victim/secret.wav", 0).is_err());
+
+        #[cfg(windows)]
+        {
+            assert!(project.add_clip(0, "C:\\Windows\\System32\\config", 0).is_err());
+            assert!(project.add_clip(0, "\\\\server\\share\\file.wav", 0).is_err());
+        }
+    }
+
+    #[test]
+    fn test_null_byte_blocked() {
+        let mut project = ProjectFile::new("Test");
+        project.add_track("Track 1");
+
+        // Null bytes should fail (C string truncation attack)
+        assert!(project.add_clip(0, "audio.wav\0.txt", 0).is_err());
+    }
+
+    #[test]
+    fn test_project_load_validates_paths() {
+        // Create a malicious project JSON with path traversal
+        let malicious_json = r##"{
+            "header": {"version": 1, "app_name": "FluxForge", "app_version": "0.1.0", "created_at": 0, "modified_at": 0},
+            "name": "Malicious Project",
+            "audio": {"sample_rate": 48000, "buffer_size": 256, "bit_depth": 32},
+            "tempo": 120.0,
+            "time_sig_num": 4,
+            "time_sig_denom": 4,
+            "tracks": [{"id": 0, "name": "Track", "color": "#fff", "volume": 1.0, "pan": 0.0, "mute": false, "solo": false, "inserts": [], "sends": {}}],
+            "clips": [{"id": 0, "track_id": 0, "name": "Evil", "file_path": "../../../etc/passwd", "start_sample": 0, "length_samples": 1000, "file_offset": 0, "gain": 1.0, "fade_in": 0, "fade_out": 0}],
+            "effects": [],
+            "master": {"volume": 1.0, "inserts": [], "limiter_enabled": true, "limiter_ceiling": -0.3},
+            "markers": []
+        }"##;
+
+        // Write to temp file and try to load
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join("malicious_test.rfproj");
+        std::fs::write(&temp_file, malicious_json).unwrap();
+
+        // Load should fail due to path traversal
+        let result = ProjectFile::load(&temp_file);
+        assert!(result.is_err());
+
+        // Cleanup
+        let _ = std::fs::remove_file(temp_file);
     }
 }

@@ -184,6 +184,11 @@ pub use delay_compensation::{DelayCompensationManager, DelayLine, StereoDelayLin
 
 pub use smoothing::{ParameterBank, SmoothedParam, SmoothedStereoParam, SmoothingType};
 
+pub use saturation::{
+    BitCrusher, OversampledSaturator, Saturator, StereoSaturator, Waveshaper, WaveshaperCurve,
+};
+// Note: SaturationType is already exported from eq_ultra
+
 use rf_core::Sample;
 
 /// Trait for all DSP processors

@@ -233,8 +233,68 @@ struct LoadedScript {
 }
 
 impl ScriptEngine {
+    /// Create a new sandboxed script engine
+    ///
+    /// SECURITY: Uses Lua::new_with() to create a restricted environment
+    /// that excludes dangerous libraries (os, io, debug, ffi, package).
+    /// Only safe standard libraries are loaded (coroutine, string, utf8, table, math).
     pub fn new() -> ScriptResult<Self> {
-        let lua = Lua::new();
+        // SECURITY: Create sandboxed Lua without dangerous libraries
+        // Excludes: os, io, debug, ffi, package
+        // Includes: coroutine, string, utf8, table, math
+        let safe_libs = mlua::StdLib::COROUTINE
+            | mlua::StdLib::STRING
+            | mlua::StdLib::UTF8
+            | mlua::StdLib::TABLE
+            | mlua::StdLib::MATH;
+
+        let lua = Lua::new_with(safe_libs, mlua::LuaOptions::default())?;
+
+        // SECURITY: Remove potentially dangerous globals that might leak through
+        {
+            let globals = lua.globals();
+            // Remove loadfile/dofile (can load external code)
+            globals.set("loadfile", mlua::Value::Nil)?;
+            globals.set("dofile", mlua::Value::Nil)?;
+            // Remove collectgarbage (can cause DoS)
+            globals.set("collectgarbage", mlua::Value::Nil)?;
+            // Remove rawget/rawset (can bypass metatables)
+            globals.set("rawget", mlua::Value::Nil)?;
+            globals.set("rawset", mlua::Value::Nil)?;
+            globals.set("rawequal", mlua::Value::Nil)?;
+            globals.set("rawlen", mlua::Value::Nil)?;
+            // Keep: assert, error, ipairs, pairs, next, pcall, xpcall,
+            //       print (we override), select, tonumber, tostring, type, _VERSION
+        }
+
+        let (action_tx, action_rx) = bounded(256);
+        let context = Arc::new(RwLock::new(ScriptContext::default()));
+
+        let engine = Self {
+            lua,
+            scripts: HashMap::new(),
+            action_tx,
+            action_rx,
+            context,
+            search_paths: Vec::new(),
+        };
+
+        engine.setup_api()?;
+
+        Ok(engine)
+    }
+
+    /// Create an UNSAFE script engine with full Lua access
+    ///
+    /// WARNING: Only use for trusted internal scripts or debugging.
+    /// This exposes os, io, debug libraries which can:
+    /// - Execute system commands
+    /// - Read/write arbitrary files
+    /// - Modify running program state
+    #[allow(dead_code)]
+    pub fn new_unsafe() -> ScriptResult<Self> {
+        // SAFETY: This is explicitly unsafe and should only be used for trusted scripts
+        let lua = unsafe { Lua::unsafe_new_with(mlua::StdLib::ALL, mlua::LuaOptions::default()) };
         let (action_tx, action_rx) = bounded(256);
         let context = Arc::new(RwLock::new(ScriptContext::default()));
 

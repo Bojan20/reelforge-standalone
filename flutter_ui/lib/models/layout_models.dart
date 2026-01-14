@@ -362,6 +362,16 @@ class MenuCallbacks {
   final VoidCallback? onMidiSettings;
   final VoidCallback? onPluginManager;
   final VoidCallback? onKeyboardShortcuts;
+  // Audio menu
+  final VoidCallback? onDirectOfflineProcessing;
+  // Advanced panels
+  final VoidCallback? onShowLogicalEditor;
+  final VoidCallback? onShowScaleAssistant;
+  final VoidCallback? onShowGrooveQuantize;
+  final VoidCallback? onShowAudioAlignment;
+  final VoidCallback? onShowTrackVersions;
+  final VoidCallback? onShowMacroControls;
+  final VoidCallback? onShowClipGainEnvelope;
 
   const MenuCallbacks({
     this.onNewProject,
@@ -401,6 +411,14 @@ class MenuCallbacks {
     this.onMidiSettings,
     this.onPluginManager,
     this.onKeyboardShortcuts,
+    this.onDirectOfflineProcessing,
+    this.onShowLogicalEditor,
+    this.onShowScaleAssistant,
+    this.onShowGrooveQuantize,
+    this.onShowAudioAlignment,
+    this.onShowTrackVersions,
+    this.onShowMacroControls,
+    this.onShowClipGainEnvelope,
   });
 }
 

@@ -92,10 +92,11 @@ criterion = "0.5"
 
 [profile.release]
 opt-level = 3
-lto = "thin"
-codegen-units = 1
-panic = "abort"
-strip = true
+lto = "fat"              # Maximum size reduction (slower build, smaller binary)
+codegen-units = 1        # Better optimization, single codegen unit
+panic = "abort"          # Smaller binary, no unwinding
+strip = true             # Remove debug symbols
+overflow-checks = false  # Disable overflow checks in release (DSP performance)
 
 [profile.dev]
 opt-level = 1

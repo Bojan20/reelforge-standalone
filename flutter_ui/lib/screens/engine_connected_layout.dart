@@ -100,6 +100,15 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
+// Advanced panel imports
+import '../widgets/panels/logical_editor_panel.dart';
+import '../widgets/panels/scale_assistant_panel.dart';
+import '../widgets/panels/groove_quantize_panel.dart';
+import '../widgets/panels/audio_alignment_panel.dart';
+import '../widgets/panels/track_versions_panel.dart';
+import '../widgets/panels/macro_controls_panel.dart';
+import '../widgets/panels/clip_gain_envelope_panel.dart';
+import '../widgets/demo/liquid_glass_demo.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -442,6 +451,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Wire up import audio shortcut
       final shortcuts = context.read<GlobalShortcutsProvider>();
       shortcuts.actions.onImportAudioFiles = _openFilePicker;
+
+      // Wire up Advanced panel shortcuts (Shift+Cmd)
+      shortcuts.actions.onShowLogicalEditor = () => _showAdvancedPanel('logical-editor');
+      shortcuts.actions.onShowScaleAssistant = () => _showAdvancedPanel('scale-assistant');
+      shortcuts.actions.onShowGrooveQuantize = () => _showAdvancedPanel('groove-quantize');
+      shortcuts.actions.onShowAudioAlignment = () => _showAdvancedPanel('audio-alignment');
+      shortcuts.actions.onShowTrackVersions = () => _showAdvancedPanel('track-versions');
+      shortcuts.actions.onShowMacroControls = () => _showAdvancedPanel('macro-controls');
+      shortcuts.actions.onShowClipGainEnvelope = () => _showAdvancedPanel('clip-gain-envelope');
     });
   }
 
@@ -1695,6 +1713,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
   }
 
+  /// Show Advanced panel in lower zone (triggered by keyboard shortcuts)
+  void _showAdvancedPanel(String tabId) {
+    setState(() {
+      _lowerVisible = true;
+      _activeLowerTab = tabId;
+    });
+  }
+
   /// Track templates dialog
   void _handleTrackTemplates() {
     showDialog(
@@ -2389,6 +2415,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onMidiSettings: () => _handleMidiSettings(),
       onPluginManager: () => _handlePluginManager(),
       onKeyboardShortcuts: () => _handleKeyboardShortcuts(),
+      // ADVANCED PANELS
+      onShowLogicalEditor: () => _showAdvancedPanel('logical-editor'),
+      onShowScaleAssistant: () => _showAdvancedPanel('scale-assistant'),
+      onShowGrooveQuantize: () => _showAdvancedPanel('groove-quantize'),
+      onShowAudioAlignment: () => _showAdvancedPanel('audio-alignment'),
+      onShowTrackVersions: () => _showAdvancedPanel('track-versions'),
+      onShowMacroControls: () => _showAdvancedPanel('macro-controls'),
+      onShowClipGainEnvelope: () => _showAdvancedPanel('clip-gain-envelope'),
     );
   }
 
@@ -6796,6 +6830,64 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: const LoadingStatesPlaceholder(),
         groupId: 'tools',
       ),
+      // ========== Advanced DAW Features (Advanced group) ==========
+      LowerZoneTab(
+        id: 'logical-editor',
+        label: 'Logical Editor',
+        icon: Icons.code,
+        content: const LogicalEditorPanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'scale-assistant',
+        label: 'Scale Assistant',
+        icon: Icons.music_note,
+        content: const ScaleAssistantPanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'groove-quantize',
+        label: 'Groove Quantize',
+        icon: Icons.grid_on,
+        content: const GrooveQuantizePanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'audio-alignment',
+        label: 'Audio Alignment',
+        icon: Icons.align_horizontal_left,
+        content: const AudioAlignmentPanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'track-versions',
+        label: 'Track Versions',
+        icon: Icons.history,
+        content: const TrackVersionsPanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'macro-controls',
+        label: 'Macro Controls',
+        icon: Icons.tune,
+        content: const MacroControlsPanel(),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'clip-gain-envelope',
+        label: 'Clip Gain',
+        icon: Icons.show_chart,
+        content: const ClipGainEnvelopePanel(),
+        groupId: 'advanced',
+      ),
+      // ========== Design Demos ==========
+      LowerZoneTab(
+        id: 'liquid-glass',
+        label: 'Liquid Glass',
+        icon: Icons.blur_on,
+        content: const LiquidGlassDemo(),
+        groupId: 'tools',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -6851,11 +6943,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Features',
         tabs: ['audio-features', 'pro-features'],
       ),
-      // Tools - Validation, console, debug
+      // Tools - Validation, console, debug, demos
       const TabGroup(
         id: 'tools',
         label: 'Tools',
-        tabs: ['validation', 'console', 'drag-drop-lab', 'loading-states'],
+        tabs: ['validation', 'console', 'drag-drop-lab', 'loading-states', 'liquid-glass'],
+      ),
+      // Advanced - Pro DAW features (Cubase-inspired)
+      const TabGroup(
+        id: 'advanced',
+        label: 'Advanced',
+        tabs: ['logical-editor', 'scale-assistant', 'groove-quantize', 'audio-alignment', 'track-versions', 'macro-controls', 'clip-gain-envelope'],
       ),
     ];
 

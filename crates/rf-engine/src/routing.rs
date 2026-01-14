@@ -854,6 +854,18 @@ pub struct RoutingGraph {
     block_size: usize,
     /// Sample rate for DSP
     sample_rate: f64,
+
+    // === Pre-allocated scratch buffers (AUDIO THREAD SAFETY) ===
+    // These prevent heap allocations in the audio callback
+
+    /// Scratch buffer for routing output L (avoids .to_vec() allocation)
+    scratch_out_l: Vec<Sample>,
+    /// Scratch buffer for routing output R
+    scratch_out_r: Vec<Sample>,
+    /// Scratch buffer for send processing L
+    scratch_send_l: Vec<Sample>,
+    /// Scratch buffer for send processing R
+    scratch_send_r: Vec<Sample>,
 }
 
 /// RoutingGraph with integrated command queue for real-time audio thread
@@ -964,6 +976,11 @@ impl RoutingGraph {
             dirty: AtomicBool::new(false),
             block_size,
             sample_rate,
+            // Pre-allocate scratch buffers to avoid audio thread allocations
+            scratch_out_l: vec![0.0; block_size],
+            scratch_out_r: vec![0.0; block_size],
+            scratch_send_l: vec![0.0; block_size],
+            scratch_send_r: vec![0.0; block_size],
         }
     }
 
@@ -1208,6 +1225,9 @@ impl RoutingGraph {
     }
 
     /// Process all channels in correct order
+    ///
+    /// AUDIO THREAD SAFETY: This function uses pre-allocated scratch buffers
+    /// to avoid heap allocations during real-time audio processing.
     pub fn process(&mut self) {
         // Update processing order if needed
         self.update_processing_order();
@@ -1222,13 +1242,14 @@ impl RoutingGraph {
             channel.clear_input();
         }
 
-        // Clone processing order to avoid borrow issues
-        let order = self.processing_order.clone();
-
         // Process in topological order
-        for id in order {
-            // First pass: process channel and collect routing info
-            let routing_info = {
+        // NOTE: We iterate by index to avoid cloning processing_order
+        let num_channels = self.processing_order.len();
+        for idx in 0..num_channels {
+            let id = self.processing_order[idx];
+
+            // First pass: process channel and collect routing info into scratch buffers
+            let (target_id, num_sends) = {
                 let channel = match self.channels.get_mut(&id) {
                     Some(c) => c,
                     None => continue,
@@ -1236,37 +1257,53 @@ impl RoutingGraph {
 
                 channel.process(solo_active);
 
-                // Collect output and routing info
+                // Copy output to scratch buffers (avoids .to_vec() allocation)
                 let (out_l, out_r) = channel.output();
-                let out_l = out_l.to_vec();
-                let out_r = out_r.to_vec();
+                let len = out_l.len().min(self.scratch_out_l.len());
+                self.scratch_out_l[..len].copy_from_slice(&out_l[..len]);
+                self.scratch_out_r[..len].copy_from_slice(&out_r[..len]);
 
                 let target = channel.output.target_channel();
-                let sends: Vec<(ChannelId, f64)> = channel
-                    .sends
-                    .iter()
-                    .filter(|s| s.enabled)
-                    .map(|s| (s.destination, s.gain()))
-                    .collect();
 
-                (out_l, out_r, target, sends)
+                // Count enabled sends (we'll process them in second pass)
+                let num_sends = channel.sends.iter().filter(|s| s.enabled).count();
+
+                (target, num_sends)
             };
 
-            // Second pass: route to destinations
-            let (out_l, out_r, target, sends) = routing_info;
-
-            if let Some(target_id) = target
-                && let Some(target) = self.channels.get_mut(&target_id) {
-                    target.add_to_input(&out_l, &out_r);
+            // Second pass: route to main destination
+            if let Some(tid) = target_id
+                && let Some(target) = self.channels.get_mut(&tid) {
+                    target.add_to_input(&self.scratch_out_l, &self.scratch_out_r);
                 }
 
-            // Process sends
-            for (dest_id, gain) in sends {
-                let send_l: Vec<Sample> = out_l.iter().map(|&s| s * gain).collect();
-                let send_r: Vec<Sample> = out_r.iter().map(|&s| s * gain).collect();
+            // Third pass: process sends (need to re-borrow channel for send info)
+            if num_sends > 0 {
+                // Collect send destinations and gains (small stack allocation, max ~8 sends typical)
+                let mut send_info: [(ChannelId, f64); 16] = [(ChannelId(0), 0.0); 16];
+                let mut send_count = 0;
 
-                if let Some(target) = self.channels.get_mut(&dest_id) {
-                    target.add_to_input(&send_l, &send_r);
+                if let Some(channel) = self.channels.get(&id) {
+                    for send in channel.sends.iter().filter(|s| s.enabled).take(16) {
+                        send_info[send_count] = (send.destination, send.gain());
+                        send_count += 1;
+                    }
+                }
+
+                // Apply sends using scratch buffers
+                for i in 0..send_count {
+                    let (dest_id, gain) = send_info[i];
+
+                    // Scale output into send scratch buffer (avoids .collect() allocation)
+                    let len = self.scratch_out_l.len();
+                    for j in 0..len {
+                        self.scratch_send_l[j] = self.scratch_out_l[j] * gain;
+                        self.scratch_send_r[j] = self.scratch_out_r[j] * gain;
+                    }
+
+                    if let Some(target) = self.channels.get_mut(&dest_id) {
+                        target.add_to_input(&self.scratch_send_l, &self.scratch_send_r);
+                    }
                 }
             }
         }
@@ -1298,6 +1335,11 @@ impl RoutingGraph {
         for channel in self.channels.values_mut() {
             channel.resize(block_size);
         }
+        // Resize scratch buffers
+        self.scratch_out_l.resize(block_size, 0.0);
+        self.scratch_out_r.resize(block_size, 0.0);
+        self.scratch_send_l.resize(block_size, 0.0);
+        self.scratch_send_r.resize(block_size, 0.0);
     }
 
     /// Set sample rate for all channels (updates DSP)

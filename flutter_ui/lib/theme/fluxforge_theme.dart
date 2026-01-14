@@ -78,6 +78,12 @@ class FluxForgeTheme {
   static const Color success = accentGreen;
   static const Color warning = accentOrange;
 
+  // Legacy aliases for panel compatibility
+  static const Color backgroundDeep = bgDeep;
+  static const Color backgroundMid = bgMid;
+  static const Color backgroundSurface = bgSurface;
+  static const Color backgroundElevated = bgElevated;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TEXT COLORS - WCAG AAA Contrast (7:1+)
   // ═══════════════════════════════════════════════════════════════════════════
