@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../theme/liquid_glass_theme.dart';
 import '../../providers/theme_mode_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -105,7 +106,9 @@ class UltimateMixerChannel {
   final ChannelType type;
   final Color color;
   final double volume; // 0.0 to 1.5 (+6dB)
-  final double pan; // -1.0 to 1.0
+  final double pan; // -1.0 to 1.0 (mono) or LEFT channel pan (stereo)
+  final double panRight; // RIGHT channel pan for stereo (Pro Tools style)
+  final bool isStereo; // true = dual pan (stereo), false = single pan (mono)
   final bool muted;
   final bool soloed;
   final bool armed;
@@ -130,7 +133,9 @@ class UltimateMixerChannel {
     this.type = ChannelType.audio,
     this.color = const Color(0xFF4A9EFF),
     this.volume = 1.0,
-    this.pan = 0.0,
+    this.pan = -1.0, // Pro Tools default: L hard left
+    this.panRight = 1.0, // Pro Tools default: R hard right
+    this.isStereo = true,
     this.muted = false,
     this.soloed = false,
     this.armed = false,
@@ -171,6 +176,7 @@ class UltimateMixer extends StatefulWidget {
   final ValueChanged<String>? onChannelSelect;
   final void Function(String channelId, double volume)? onVolumeChange;
   final void Function(String channelId, double pan)? onPanChange;
+  final void Function(String channelId, double pan)? onPanRightChange; // Pro Tools stereo pan
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onArmToggle;
@@ -180,6 +186,7 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, int sendIndex, String? destination)? onSendDestChange;
   final void Function(String channelId, int insertIndex)? onInsertClick;
   final void Function(String channelId, String outputBus)? onOutputChange;
+  final VoidCallback? onAddBus;
 
   const UltimateMixer({
     super.key,
@@ -195,6 +202,7 @@ class UltimateMixer extends StatefulWidget {
     this.onChannelSelect,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -204,6 +212,7 @@ class UltimateMixer extends StatefulWidget {
     this.onSendDestChange,
     this.onInsertClick,
     this.onOutputChange,
+    this.onAddBus,
   });
 
   @override
@@ -272,6 +281,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
+                        onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(ch.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(ch.id),
                         onArmToggle: () => widget.onArmToggle?.call(ch.id),
@@ -301,6 +311,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
+                        onPanRightChange: (p) => widget.onPanRightChange?.call(aux.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(aux.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(aux.id),
                       ),
@@ -323,6 +334,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         isGlassMode: isGlassMode,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
+                        onPanRightChange: (p) => widget.onPanRightChange?.call(bus.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(bus.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(bus.id),
                       ),
@@ -407,32 +419,19 @@ class _UltimateMixerState extends State<UltimateMixer> {
       ),
       child: Row(
         children: [
-          const Text('MIX CONSOLE', style: TextStyle(
-            color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
-          )),
-          const SizedBox(width: 16),
-          _ToolbarToggle(
-            label: 'INS',
-            active: widget.showInserts,
-            onTap: () {},
-          ),
-          const SizedBox(width: 4),
-          _ToolbarToggle(
-            label: 'SEND',
-            active: widget.showSends,
-            onTap: () {},
-          ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.add, size: 16),
-            color: FluxForgeTheme.textSecondary,
+            icon: Icon(
+              Icons.add,
+              size: 18,
+              color: isGlassMode
+                  ? LiquidGlassTheme.textSecondary
+                  : FluxForgeTheme.textSecondary,
+            ),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            onPressed: () {},
-            tooltip: 'Add Bus/Aux/VCA',
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: widget.onAddBus,
+            tooltip: 'Add Bus',
           ),
         ],
       ),
@@ -455,6 +454,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final bool isGlassMode;
   final ValueChanged<double>? onVolumeChange;
   final ValueChanged<double>? onPanChange;
+  final ValueChanged<double>? onPanRightChange; // Pro Tools stereo pan
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle;
@@ -477,6 +477,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.isGlassMode = false,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -513,9 +514,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onSelect,
-        child: AnimatedOpacity(
+      child: AnimatedOpacity(
           duration: const Duration(milliseconds: 150),
           opacity: isDimmed ? 0.4 : 1.0,
           child: Container(
@@ -553,12 +552,15 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             ),
             child: Column(
               children: [
-                // Track color bar
-                Container(
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: ch.color,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                // Track color bar - tappable to select channel
+                GestureDetector(
+                  onTap: widget.onSelect,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: ch.color,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                    ),
                   ),
                 ),
                 // Insert slots (always shown when enabled)
@@ -573,13 +575,12 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 Expanded(child: _buildFaderMeter()),
                 // M/S/R buttons
                 _buildButtons(),
-                // Channel name
+                // Channel name - tappable to select channel
                 _buildNameLabel(),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -635,10 +636,41 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildPanControl() {
+    final ch = widget.channel;
+
+    // Pro Tools style: stereo tracks have dual pan knobs (L and R)
+    if (ch.isStereo) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Left channel pan - Pro DAW standard: 36px knob
+            _StereoPanKnob(
+              label: 'L',
+              value: ch.pan,
+              size: widget.compact ? 28 : 36,
+              onChanged: widget.onPanChange,
+              defaultValue: -1.0,
+            ),
+            // Right channel pan - Pro DAW standard: 36px knob
+            _StereoPanKnob(
+              label: 'R',
+              value: ch.panRight,
+              size: widget.compact ? 28 : 36,
+              onChanged: widget.onPanRightChange,
+              defaultValue: 1.0,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mono: single pan knob
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: _PanKnob(
-        value: widget.channel.pan,
+        value: ch.pan,
         size: widget.compact ? 24 : 32,
         onChanged: widget.onPanChange,
       ),
@@ -695,21 +727,24 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildNameLabel() {
-    return Container(
-      height: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Center(
-        child: Text(
-          widget.channel.name,
-          style: TextStyle(
-            color: widget.channel.selected
-                ? FluxForgeTheme.textPrimary
-                : FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: widget.onSelect,
+      child: Container(
+        height: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Center(
+          child: Text(
+            widget.channel.name,
+            style: TextStyle(
+              color: widget.channel.selected
+                  ? FluxForgeTheme.textPrimary
+                  : FluxForgeTheme.textSecondary,
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
         ),
       ),
     );
@@ -985,7 +1020,7 @@ class _MeterPainter extends CustomPainter {
 // PAN KNOB
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _PanKnob extends StatelessWidget {
+class _PanKnob extends StatefulWidget {
   final double value;
   final double size;
   final ValueChanged<double>? onChanged;
@@ -997,21 +1032,62 @@ class _PanKnob extends StatelessWidget {
   });
 
   @override
+  State<_PanKnob> createState() => _PanKnobState();
+}
+
+class _PanKnobState extends State<_PanKnob> {
+  double _dragStartY = 0;
+  double _dragStartValue = 0;
+  bool _isDragging = false;
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragStartY = details.localPosition.dy;
+    _dragStartValue = widget.value;
+    setState(() => _isDragging = true);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (widget.onChanged == null) return;
+    // Up = increase value (more right), down = decrease (more left)
+    final deltaY = _dragStartY - details.localPosition.dy;
+    final sensitivity = 0.015;
+    final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
+    widget.onChanged!(newValue);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onHorizontalDragUpdate: (details) {
-        if (onChanged != null) {
-          final delta = details.delta.dx / 50;
-          final newValue = (value + delta).clamp(-1.0, 1.0);
-          onChanged!(newValue);
-        }
-      },
-      onDoubleTap: () => onChanged?.call(0.0),
-      child: SizedBox(
-        width: size,
-        height: size,
+      onVerticalDragStart: _handleDragStart,
+      onVerticalDragUpdate: _handleDragUpdate,
+      onVerticalDragEnd: _handleDragEnd,
+      onDoubleTap: () => widget.onChanged?.call(0.0),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: _isDragging
+                ? FluxForgeTheme.accentBlue
+                : Colors.transparent,
+            width: 1.5,
+          ),
+          boxShadow: _isDragging
+              ? [
+                  BoxShadow(
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                    blurRadius: 6,
+                  ),
+                ]
+              : null,
+        ),
         child: CustomPaint(
-          painter: _PanKnobPainter(value: value),
+          painter: _PanKnobPainter(value: widget.value),
         ),
       ),
     );
@@ -1026,48 +1102,52 @@ class _PanKnobPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 2;
+    final radius = size.width / 2 - 3;
 
-    // Background arc
+    // Background circle (knob body)
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = FluxForgeTheme.bgMid
+        ..style = PaintingStyle.fill,
+    );
+
+    // Background arc (270 degrees, from bottom-left to bottom-right)
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      math.pi * 0.75,
+      Rect.fromCircle(center: center, radius: radius - 3),
+      -math.pi * 0.75,
       math.pi * 1.5,
       false,
       Paint()
-        ..color = const Color(0xFF2A2A30)
+        ..color = FluxForgeTheme.textTertiary.withOpacity(0.2)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
+        ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round,
     );
 
-    // Value arc
-    final startAngle = math.pi * 1.25; // Center position
-    final sweepAngle = value * math.pi * 0.75; // Value determines direction
+    // Value arc from center (top) - bidirectional
     if (value.abs() > 0.01) {
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sweepAngle,
+        Rect.fromCircle(center: center, radius: radius - 3),
+        -math.pi / 2, // Start at top
+        value * (math.pi * 0.75), // Sweep based on value
         false,
         Paint()
           ..color = FluxForgeTheme.accentBlue
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
+          ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round,
       );
     }
 
-    // Center dot
-    canvas.drawCircle(center, 2, Paint()..color = FluxForgeTheme.textSecondary);
-
-    // L/R labels
+    // L/R/C label in center
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: value < -0.01 ? 'L' : value > 0.01 ? 'R' : 'C',
       style: const TextStyle(
         color: FluxForgeTheme.textTertiary,
-        fontSize: 7,
+        fontSize: 8,
         fontWeight: FontWeight.w500,
       ),
     );
@@ -1080,6 +1160,216 @@ class _PanKnobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PanKnobPainter oldDelegate) => value != oldDelegate.value;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STEREO PAN KNOB (Pro Tools Style)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Compact stereo pan knob with label (L or R)
+class _StereoPanKnob extends StatefulWidget {
+  final String label; // 'L' or 'R'
+  final double value;
+  final double size;
+  final ValueChanged<double>? onChanged;
+  final double defaultValue;
+
+  const _StereoPanKnob({
+    required this.label,
+    required this.value,
+    this.size = 36, // Pro DAW standard: 36px knob
+    this.onChanged,
+    this.defaultValue = 0.0,
+  });
+
+  @override
+  State<_StereoPanKnob> createState() => _StereoPanKnobState();
+}
+
+class _StereoPanKnobState extends State<_StereoPanKnob> {
+  double _dragStartX = 0;
+  double _dragStartValue = 0;
+  bool _isDragging = false;
+
+  // Double-tap detection via raw pointer events
+  DateTime? _lastPointerDown;
+  Offset? _lastPointerPosition;
+  static const _doubleTapTimeout = Duration(milliseconds: 300);
+  static const _doubleTapSlop = 18.0; // Max distance between taps
+
+  /// Format pan Pro Tools style: <100 for hard left, C for center, 100> for hard right
+  String _formatPan(double v) {
+    final percent = (v.abs() * 100).round();
+    if (percent < 2) return 'C';
+    return v < 0 ? '<$percent' : '$percent>';
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final now = DateTime.now();
+    final pos = event.localPosition;
+
+    // Check if this is a double-tap
+    if (_lastPointerDown != null &&
+        _lastPointerPosition != null &&
+        now.difference(_lastPointerDown!) < _doubleTapTimeout &&
+        (pos - _lastPointerPosition!).distance < _doubleTapSlop) {
+      // Double-tap detected! Reset to default value
+      widget.onChanged?.call(widget.defaultValue);
+      _lastPointerDown = null;
+      _lastPointerPosition = null;
+    } else {
+      // First tap - record time and position
+      _lastPointerDown = now;
+      _lastPointerPosition = pos;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rotation = widget.value * 135 * (math.pi / 180);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label - Pro DAW standard: 10px for readability
+        Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: FluxForgeTheme.accentCyan,
+          ),
+        ),
+        const SizedBox(height: 3),
+        // Listener for raw pointer events (double-tap) + GestureDetector for drag
+        Listener(
+          onPointerDown: _handlePointerDown,
+          child: GestureDetector(
+            onHorizontalDragStart: (details) {
+              _dragStartX = details.localPosition.dx;
+              _dragStartValue = widget.value;
+              setState(() => _isDragging = true);
+            },
+            onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
+            onHorizontalDragUpdate: (details) {
+              if (widget.onChanged == null) return;
+              final deltaX = details.localPosition.dx - _dragStartX;
+              final sensitivity = 0.015;
+              final newValue = (_dragStartValue + deltaX * sensitivity).clamp(-1.0, 1.0);
+              widget.onChanged!(newValue);
+            },
+            child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.3, -0.3),
+                colors: [
+                  FluxForgeTheme.bgMid.withOpacity(0.8),
+                  FluxForgeTheme.bgDeep.withOpacity(0.9),
+                ],
+              ),
+              boxShadow: _isDragging
+                  ? [
+                      BoxShadow(
+                        color: FluxForgeTheme.accentCyan.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                // Pan arc indicator
+                CustomPaint(
+                  size: Size(widget.size, widget.size),
+                  painter: _StereoPanKnobPainter(value: widget.value),
+                ),
+                // Knob pointer
+                Center(
+                  child: Transform.rotate(
+                    angle: rotation,
+                    child: Container(
+                      width: 2.5,
+                      height: widget.size * 0.38,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentCyan,
+                        borderRadius: BorderRadius.circular(1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: FluxForgeTheme.accentCyan.withOpacity(0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ), // Close Listener
+        const SizedBox(height: 3),
+        // Value - Pro DAW standard: 9px for pan values
+        Text(
+          _formatPan(widget.value),
+          style: TextStyle(
+            fontSize: 9,
+            fontFamily: 'JetBrains Mono',
+            color: FluxForgeTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Stereo pan knob arc painter - shows ONLY the value arc (no background circle)
+class _StereoPanKnobPainter extends CustomPainter {
+  final double value;
+
+  _StereoPanKnobPainter({required this.value});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 4; // Inside the knob border
+
+    // NO background arc - only show value arc
+    // This matches Pro Tools/Cubase behavior where the arc shows only the pan amount
+
+    // Value arc from center (top) - bidirectional cyan arc
+    if (value.abs() > 0.01) {
+      final valuePaint = Paint()
+        ..color = FluxForgeTheme.accentCyan
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      final startAngle = -math.pi / 2; // Top (center position)
+      final sweepAngle = value * (math.pi * 0.75); // 135 degrees max
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        valuePaint,
+      );
+    }
+
+    // Small center marker at top (0 position)
+    canvas.drawCircle(
+      Offset(center.dx, center.dy - radius),
+      1.5,
+      Paint()..color = FluxForgeTheme.textTertiary,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_StereoPanKnobPainter oldDelegate) => value != oldDelegate.value;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -21,6 +21,7 @@ class ChannelInspectorPanel extends StatefulWidget {
   final ChannelStripData? channel;
   final void Function(String channelId, double volume)? onVolumeChange;
   final void Function(String channelId, double pan)? onPanChange;
+  final void Function(String channelId, double panRight)? onPanRightChange;
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onArmToggle;
@@ -31,6 +32,9 @@ class ChannelInspectorPanel extends StatefulWidget {
   final void Function(String channelId)? onOutputClick;
   final void Function(String channelId)? onInputClick;
   final void Function(String channelId)? onEqClick;
+  final void Function(String channelId, int slotIndex, bool bypassed)? onInsertBypassToggle;
+  final void Function(String channelId, int slotIndex, double wetDry)? onInsertWetDryChange;
+  final void Function(String channelId, int oldIndex, int newIndex)? onInsertReorder;
 
   // Clip data
   final timeline.TimelineClip? selectedClip;
@@ -42,6 +46,7 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.channel,
     this.onVolumeChange,
     this.onPanChange,
+    this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -52,6 +57,9 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.onOutputClick,
     this.onInputClick,
     this.onEqClick,
+    this.onInsertBypassToggle,
+    this.onInsertWetDryChange,
+    this.onInsertReorder,
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
@@ -64,7 +72,7 @@ class ChannelInspectorPanel extends StatefulWidget {
 class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   bool _channelExpanded = true;
   bool _insertsExpanded = true;
-  bool _sendsExpanded = false;
+  bool _sendsExpanded = true; // Default expanded like inserts
   bool _routingExpanded = false;
   bool _clipExpanded = true;
   bool _clipGainExpanded = true;
@@ -304,19 +312,118 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             color: FluxForgeTheme.accentGreen,
             onChanged: (v) => widget.onVolumeChange?.call(ch.id, v),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
-          // Pan knob
-          _FaderRow(
-            label: 'Pan',
-            value: ch.pan * 100,
-            min: -100,
-            max: 100,
-            defaultValue: 0,
-            formatValue: _formatPan,
-            color: FluxForgeTheme.accentCyan,
-            onChanged: (v) => widget.onPanChange?.call(ch.id, v / 100),
-          ),
+          // Pan knob(s) - Pro Tools style dual pan for stereo
+          // Stereo: L knob routes LEFT input, R knob routes RIGHT input
+          // Default stereo: L=<100 (hard left), R=100> (hard right)
+          // Mono: single knob controls position in stereo field
+          if (ch.isStereo) ...[
+            // Stereo dual pan (Pro Tools style)
+            Row(
+              children: [
+                Tooltip(
+                  message: 'Stereo pan: L routes left input, R routes right input',
+                  child: SizedBox(
+                    width: 48,
+                    child: Text(
+                      'Pan L/R',
+                      style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Left channel pan - controls where LEFT input goes
+                      Tooltip(
+                        message: 'Left channel routing\nDefault: <100 (hard left)',
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ProToolsPanKnob(
+                              value: ch.pan,
+                              onChanged: (v) => widget.onPanChange?.call(ch.id, v),
+                              label: 'L',
+                              defaultValue: -1.0, // Hard left for L knob
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _formatPan(ch.pan * 100),
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontFamily: 'JetBrains Mono',
+                                color: FluxForgeTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Right channel pan - controls where RIGHT input goes
+                      Tooltip(
+                        message: 'Right channel routing\nDefault: 100> (hard right)',
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ProToolsPanKnob(
+                              value: ch.panRight,
+                              onChanged: (v) => widget.onPanRightChange?.call(ch.id, v),
+                              label: 'R',
+                              defaultValue: 1.0, // Hard right for R knob
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _formatPan(ch.panRight * 100),
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontFamily: 'JetBrains Mono',
+                                color: FluxForgeTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Mono single pan
+            Row(
+              children: [
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    'Pan',
+                    style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: _ProToolsPanKnob(
+                      value: ch.pan,
+                      onChanged: (v) => widget.onPanChange?.call(ch.id, v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    _formatPan(ch.pan * 100),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'JetBrains Mono',
+                      color: FluxForgeTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // M/S/R/M buttons
@@ -376,6 +483,19 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
     final ch = widget.channel!;
     final usedCount = ch.inserts.where((i) => !i.isEmpty).length;
 
+    // Dynamic slots: show used + 1 empty per section (pre/post), max 4 each
+    // Pre-fader: indices 0-3
+    // Post-fader: indices 4-7
+    final preInserts = ch.inserts.where((i) => i.isPreFader).toList();
+    final postInserts = ch.inserts.where((i) => !i.isPreFader).toList();
+
+    final preUsed = preInserts.where((i) => !i.isEmpty).length;
+    final postUsed = postInserts.where((i) => !i.isEmpty).length;
+
+    // Show used + 1 empty, min 1, max 4 per section
+    final preVisible = (preUsed + 1).clamp(1, 4);
+    final postVisible = (postUsed + 1).clamp(1, 4);
+
     return _Section(
       title: 'Inserts',
       subtitle: '$usedCount/8',
@@ -383,25 +503,31 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       onToggle: () => setState(() => _insertsExpanded = !_insertsExpanded),
       child: Column(
         children: [
-          // Pre-fader inserts (0-3)
+          // Pre-fader inserts (dynamic) with drag & drop
           _InsertGroupLabel('Pre-Fader'),
-          for (int i = 0; i < 4; i++)
-            _InsertSlotRow(
-              index: i,
-              insert: i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i),
-              onTap: () => widget.onInsertClick?.call(ch.id, i),
-            ),
+          _ReorderableInsertList(
+            inserts: List.generate(preVisible, (i) =>
+              i < preInserts.length ? preInserts[i] : InsertSlot.empty(i, isPreFader: true)),
+            baseIndex: 0,
+            onTap: (index) => widget.onInsertClick?.call(ch.id, index),
+            onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
+            onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+            onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
+          ),
 
           const SizedBox(height: 6),
 
-          // Post-fader inserts (4-7)
+          // Post-fader inserts (dynamic) with drag & drop
           _InsertGroupLabel('Post-Fader'),
-          for (int i = 4; i < 8; i++)
-            _InsertSlotRow(
-              index: i,
-              insert: i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i),
-              onTap: () => widget.onInsertClick?.call(ch.id, i),
-            ),
+          _ReorderableInsertList(
+            inserts: List.generate(postVisible, (i) =>
+              i < postInserts.length ? postInserts[i] : InsertSlot.empty(i + 4, isPreFader: false)),
+            baseIndex: 4,
+            onTap: (index) => widget.onInsertClick?.call(ch.id, index),
+            onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
+            onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+            onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex + 4, newIndex + 4),
+          ),
         ],
       ),
     );
@@ -414,14 +540,18 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   Widget _buildSendsSection() {
     final ch = widget.channel!;
 
+    // Dynamic slots: show used + 1 empty, min 1, max 8
+    final usedSends = ch.sends.where((s) => s.destination != null && s.destination!.isNotEmpty).length;
+    final visibleSends = (usedSends + 1).clamp(1, 8);
+
     return _Section(
       title: 'Sends',
-      subtitle: '4 aux',
+      subtitle: '$usedSends/8',
       expanded: _sendsExpanded,
       onToggle: () => setState(() => _sendsExpanded = !_sendsExpanded),
       child: Column(
         children: [
-          for (int i = 0; i < 4; i++)
+          for (int i = 0; i < visibleSends; i++)
             _SendSlotRow(
               index: i,
               send: i < ch.sends.length ? ch.sends[i] : null,
@@ -581,9 +711,14 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
     return '${db >= 0 ? '+' : ''}${db.toStringAsFixed(1)} dB';
   }
 
+  /// Format pan value Pro Tools style
+  /// -100 = full left, 0 = center, +100 = full right
+  /// Display: "<100" for full left, "C" for center, "100>" for full right
   String _formatPan(double v) {
-    if (v.abs() < 1) return 'C';
-    return v < 0 ? 'L${v.abs().round()}' : 'R${v.round()}';
+    final rounded = v.round();
+    if (rounded.abs() < 1) return 'C';
+    if (rounded < 0) return '<${rounded.abs()}';
+    return '$rounded>';
   }
 
   String _formatTime(double seconds) {
@@ -1227,77 +1362,234 @@ class _InsertGroupLabel extends StatelessWidget {
   }
 }
 
-class _InsertSlotRow extends StatelessWidget {
+class _InsertSlotRow extends StatefulWidget {
   final int index;
   final InsertSlot insert;
+  final bool isDraggable;
   final VoidCallback? onTap;
+  final VoidCallback? onBypassToggle;
+  final ValueChanged<double>? onWetDryChange;
 
-  const _InsertSlotRow({required this.index, required this.insert, this.onTap});
+  const _InsertSlotRow({
+    super.key,
+    required this.index,
+    required this.insert,
+    this.isDraggable = false,
+    this.onTap,
+    this.onBypassToggle,
+    this.onWetDryChange,
+  });
+
+  @override
+  State<_InsertSlotRow> createState() => _InsertSlotRowState();
+}
+
+class _InsertSlotRowState extends State<_InsertSlotRow> {
+  bool _isHovered = false;
+  bool _showWetDry = false;
 
   @override
   Widget build(BuildContext context) {
-    final hasPlugin = !insert.isEmpty;
-    final isEq = insert.name.toLowerCase().contains('eq');
+    final hasPlugin = !widget.insert.isEmpty;
+    final isEq = widget.insert.name.toLowerCase().contains('eq');
+    final accentColor = widget.insert.isPreFader
+        ? FluxForgeTheme.accentBlue
+        : FluxForgeTheme.accentOrange;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 26,
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: hasPlugin ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: hasPlugin && !insert.bypassed
-                ? (isEq ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentBlue).withValues(alpha: 0.5)
-                : FluxForgeTheme.borderSubtle,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() {
+        _isHovered = false;
+        _showWetDry = false;
+      }),
+      child: GestureDetector(
+        // Only open plugin picker on tap if empty slot or tap on name area
+        onTap: hasPlugin ? null : widget.onTap,
+        onSecondaryTap: hasPlugin ? () => setState(() => _showWetDry = !_showWetDry) : null,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: hasPlugin ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: hasPlugin && !widget.insert.bypassed
+                  ? (isEq ? FluxForgeTheme.accentCyan : accentColor).withValues(alpha: 0.5)
+                  : (_isHovered && !hasPlugin ? FluxForgeTheme.borderMedium : FluxForgeTheme.borderSubtle),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            // Status indicator
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: hasPlugin
-                    ? (insert.bypassed
-                        ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
-                        : FluxForgeTheme.accentGreen)
-                    : FluxForgeTheme.bgMid,
-                border: Border.all(
-                  color: hasPlugin
-                      ? (insert.bypassed ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)
-                      : FluxForgeTheme.borderSubtle,
-                  width: 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Main row
+              Row(
+                children: [
+                  // Drag handle (only for plugins)
+                  if (hasPlugin && widget.isDraggable) ...[
+                    MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 14,
+                        color: FluxForgeTheme.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Bypass toggle indicator - CLICK = TOGGLE BYPASS ONLY (no popup)
+                  GestureDetector(
+                    onTap: hasPlugin ? widget.onBypassToggle : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: MouseRegion(
+                      cursor: hasPlugin ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                      child: Tooltip(
+                        message: hasPlugin ? (widget.insert.bypassed ? 'Enable' : 'Bypass') : '',
+                        waitDuration: const Duration(milliseconds: 500),
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: hasPlugin
+                                ? (widget.insert.bypassed
+                                    ? FluxForgeTheme.bgDeepest
+                                    : accentColor)
+                                : FluxForgeTheme.bgMid,
+                            border: Border.all(
+                              color: hasPlugin
+                                  ? (widget.insert.bypassed
+                                      ? FluxForgeTheme.textDisabled
+                                      : accentColor)
+                                  : FluxForgeTheme.borderSubtle,
+                              width: 1.5,
+                            ),
+                            boxShadow: hasPlugin && !widget.insert.bypassed
+                                ? [
+                                    BoxShadow(
+                                      color: accentColor.withValues(alpha: 0.4),
+                                      blurRadius: 4,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: widget.insert.bypassed && hasPlugin
+                              ? Center(
+                                  child: Container(
+                                    width: 6,
+                                    height: 1.5,
+                                    color: FluxForgeTheme.textDisabled,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Name - tap to open plugin picker
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        hasPlugin ? widget.insert.name : '+ Insert ${widget.index + 1}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
+                          color: hasPlugin
+                              ? (widget.insert.bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary)
+                              : FluxForgeTheme.textTertiary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  // Wet/Dry indicator (if not 100%)
+                  if (hasPlugin && widget.insert.wetDry < 0.99) ...[
+                    Text(
+                      '${widget.insert.wetDryPercent}%',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Expand wet/dry on hover
+                  if (hasPlugin && _isHovered)
+                    GestureDetector(
+                      onTap: () => setState(() => _showWetDry = !_showWetDry),
+                      child: Icon(
+                        _showWetDry ? Icons.expand_less : Icons.expand_more,
+                        size: 14,
+                        color: FluxForgeTheme.textTertiary,
+                      ),
+                    ),
+                  // Icon for EQ
+                  if (isEq && hasPlugin)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.graphic_eq,
+                        size: 12,
+                        color: FluxForgeTheme.accentCyan,
+                      ),
+                    ),
+                ],
+              ),
+              // Wet/Dry slider (expanded)
+              if (_showWetDry && hasPlugin)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        'D',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                          color: FluxForgeTheme.textTertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: SizedBox(
+                          height: 20,
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                              activeTrackColor: FluxForgeTheme.accentCyan,
+                              inactiveTrackColor: FluxForgeTheme.bgDeepest,
+                              thumbColor: FluxForgeTheme.accentCyan,
+                              overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
+                            ),
+                            child: Slider(
+                              value: widget.insert.wetDry,
+                              min: 0.0,
+                              max: 1.0,
+                              onChanged: widget.onWetDryChange,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'W',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                          color: FluxForgeTheme.accentCyan,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Name
-            Expanded(
-              child: Text(
-                hasPlugin ? insert.name : '+ Insert ${index + 1}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
-                  color: hasPlugin
-                      ? (insert.bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary)
-                      : FluxForgeTheme.textTertiary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Icon for EQ
-            if (isEq && hasPlugin)
-              Icon(
-                Icons.graphic_eq,
-                size: 12,
-                color: FluxForgeTheme.accentCyan,
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1499,6 +1791,282 @@ class _InfoRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRO TOOLS STYLE PAN KNOB
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ProToolsPanKnob extends StatefulWidget {
+  final double value; // -1.0 to 1.0
+  final ValueChanged<double>? onChanged;
+  final String? label; // Optional label (e.g., 'L' or 'R' for stereo)
+  final double defaultValue; // Default value on double-tap reset
+
+  const _ProToolsPanKnob({
+    required this.value,
+    this.onChanged,
+    this.label,
+    this.defaultValue = 0.0, // Default: center for mono, override for stereo L/R
+  });
+
+  @override
+  State<_ProToolsPanKnob> createState() => _ProToolsPanKnobState();
+}
+
+class _ProToolsPanKnobState extends State<_ProToolsPanKnob> {
+  double _dragStartY = 0;
+  double _dragStartValue = 0;
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragStartY = details.localPosition.dy;
+    _dragStartValue = widget.value;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (widget.onChanged == null) return;
+    // Vertical drag: up = right, down = left (Pro Tools style)
+    final deltaY = _dragStartY - details.localPosition.dy;
+    final sensitivity = 0.01; // Adjust for feel
+    final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
+    widget.onChanged!(newValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Rotation: -135° to +135° (270° range)
+    final rotation = widget.value * 135 * (math.pi / 180);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label above knob (if provided)
+        if (widget.label != null)
+          Text(
+            widget.label!,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: FluxForgeTheme.accentCyan,
+            ),
+          ),
+        GestureDetector(
+          onVerticalDragStart: _handleDragStart,
+          onVerticalDragUpdate: _handleDragUpdate,
+          onDoubleTap: () => widget.onChanged?.call(widget.defaultValue), // Reset to default
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: CustomPaint(
+              painter: _PanKnobPainter(
+                value: widget.value,
+                rotation: rotation,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanKnobPainter extends CustomPainter {
+  final double value;
+  final double rotation;
+
+  _PanKnobPainter({required this.value, required this.rotation});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+
+    // Outer ring (dark)
+    final outerPaint = Paint()
+      ..color = FluxForgeTheme.bgDeepest
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, outerPaint);
+
+    // Track arc (subtle)
+    final trackPaint = Paint()
+      ..color = FluxForgeTheme.borderSubtle
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    final trackRect = Rect.fromCircle(center: center, radius: radius - 4);
+    canvas.drawArc(
+      trackRect,
+      135 * math.pi / 180, // Start at bottom-left
+      270 * math.pi / 180, // Sweep 270°
+      false,
+      trackPaint,
+    );
+
+    // Value arc (cyan)
+    if (value.abs() > 0.01) {
+      final valuePaint = Paint()
+        ..color = FluxForgeTheme.accentCyan
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      final startAngle = 270 * math.pi / 180; // Top center (12 o'clock)
+      final sweepAngle = value * 135 * math.pi / 180;
+
+      canvas.drawArc(
+        trackRect,
+        startAngle,
+        sweepAngle,
+        false,
+        valuePaint,
+      );
+    }
+
+    // Inner knob
+    final knobPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF3a3a40),
+          const Color(0xFF252528),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius - 6));
+    canvas.drawCircle(center, radius - 6, knobPaint);
+
+    // Pointer line
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+
+    final pointerPaint = Paint()
+      ..color = FluxForgeTheme.accentCyan
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      const Offset(0, -4),
+      Offset(0, -(radius - 10)),
+      pointerPaint,
+    );
+    canvas.restore();
+
+    // Center dot
+    final dotPaint = Paint()..color = FluxForgeTheme.textTertiary;
+    canvas.drawCircle(center, 2, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(_PanKnobPainter oldDelegate) =>
+      oldDelegate.value != value || oldDelegate.rotation != rotation;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REORDERABLE INSERT LIST (Drag & Drop)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ReorderableInsertList extends StatefulWidget {
+  final List<InsertSlot> inserts;
+  final int baseIndex;
+  final void Function(int index)? onTap;
+  final void Function(int index, bool bypassed)? onBypassToggle;
+  final void Function(int index, double wetDry)? onWetDryChange;
+  final void Function(int oldIndex, int newIndex)? onReorder;
+
+  const _ReorderableInsertList({
+    required this.inserts,
+    required this.baseIndex,
+    this.onTap,
+    this.onBypassToggle,
+    this.onWetDryChange,
+    this.onReorder,
+  });
+
+  @override
+  State<_ReorderableInsertList> createState() => _ReorderableInsertListState();
+}
+
+class _ReorderableInsertListState extends State<_ReorderableInsertList> {
+  @override
+  Widget build(BuildContext context) {
+    // Only enable reordering for non-empty slots
+    final hasPlugins = widget.inserts.any((i) => !i.isEmpty);
+
+    if (!hasPlugins) {
+      // No plugins - just show normal list without drag
+      return Column(
+        children: [
+          for (int i = 0; i < widget.inserts.length; i++)
+            _InsertSlotRow(
+              key: ValueKey('insert_${widget.baseIndex + i}'),
+              index: widget.baseIndex + i,
+              insert: widget.inserts[i],
+              onTap: () => widget.onTap?.call(widget.baseIndex + i),
+              onBypassToggle: () {
+                final insert = widget.inserts[i];
+                widget.onBypassToggle?.call(widget.baseIndex + i, !insert.bypassed);
+              },
+              onWetDryChange: (v) => widget.onWetDryChange?.call(widget.baseIndex + i, v),
+            ),
+        ],
+      );
+    }
+
+    // With plugins - enable drag & drop reordering
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: widget.inserts.length,
+      itemBuilder: (context, i) {
+        final insert = widget.inserts[i];
+        final hasPlugin = !insert.isEmpty;
+
+        return ReorderableDragStartListener(
+          key: ValueKey('insert_${widget.baseIndex + i}_${insert.id}'),
+          index: i,
+          enabled: hasPlugin,
+          child: _InsertSlotRow(
+            index: widget.baseIndex + i,
+            insert: insert,
+            isDraggable: hasPlugin,
+            onTap: () => widget.onTap?.call(widget.baseIndex + i),
+            onBypassToggle: () {
+              widget.onBypassToggle?.call(widget.baseIndex + i, !insert.bypassed);
+            },
+            onWetDryChange: (v) => widget.onWetDryChange?.call(widget.baseIndex + i, v),
+          ),
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        // Only reorder if both slots have plugins
+        if (widget.inserts[oldIndex].isEmpty) return;
+        if (newIndex > oldIndex) newIndex--;
+        if (oldIndex == newIndex) return;
+        widget.onReorder?.call(oldIndex, newIndex);
+      },
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final scale = 1.0 + 0.05 * animation.value;
+            return Transform.scale(
+              scale: scale,
+              child: Material(
+                color: Colors.transparent,
+                elevation: 8 * animation.value,
+                shadowColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        );
+      },
     );
   }
 }
