@@ -52,6 +52,8 @@ class ClipWidget extends StatefulWidget {
   final void Function(double fadeIn, double fadeOut)? onFadeChange;
   final void Function(double newStartTime, double newDuration, double? newOffset)?
       onResize;
+  /// Called when resize drag ends - for final FFI commit
+  final VoidCallback? onResizeEnd;
   final ValueChanged<String>? onRename;
   final ValueChanged<double>? onSlipEdit;
   final VoidCallback? onOpenFxEditor;
@@ -83,6 +85,7 @@ class ClipWidget extends StatefulWidget {
     this.onGainChange,
     this.onFadeChange,
     this.onResize,
+    this.onResizeEnd,
     this.onRename,
     this.onSlipEdit,
     this.onOpenFxEditor,
@@ -728,7 +731,10 @@ class _ClipWidgetState extends State<ClipWidget> {
                     newOffset,
                   );
                 },
-                onDragEnd: () => setState(() => _isDraggingLeftEdge = false),
+                onDragEnd: () {
+                  setState(() => _isDraggingLeftEdge = false);
+                  widget.onResizeEnd?.call();
+                },
               ),
 
               // Right edge resize handle (ON TOP - always accessible)
@@ -761,7 +767,10 @@ class _ClipWidgetState extends State<ClipWidget> {
 
                   widget.onResize?.call(clip.startTime, newDuration, null);
                 },
-                onDragEnd: () => setState(() => _isDraggingRightEdge = false),
+                onDragEnd: () {
+                  setState(() => _isDraggingRightEdge = false);
+                  widget.onResizeEnd?.call();
+                },
               ),
 
               // FX badge (bottom-right corner)

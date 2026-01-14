@@ -15,7 +15,6 @@ import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
-import '../meters/pdc_display.dart';
 import '../../providers/edit_mode_pro_provider.dart';
 import '../../providers/smart_tool_provider.dart';
 import '../../providers/keyboard_focus_provider.dart';
@@ -28,6 +27,7 @@ import '../../providers/macro_control_provider.dart';
 import '../../providers/track_versions_provider.dart';
 import '../../providers/groove_quantize_provider.dart';
 import '../../providers/scale_assistant_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIME FORMATTING
@@ -227,164 +227,180 @@ class _ControlBarState extends State<ControlBar> {
 
   @override
   Widget build(BuildContext context) {
+    // Get feature flags for current mode
+    final features = getModeLayoutConfig(widget.editorMode).features;
+
     return Container(
-        height: 48,
+        height: 52,
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeep,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF1e1e28),
+              const Color(0xFF141418),
+            ],
+          ),
           border: Border(
-              bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+            bottom: BorderSide(color: const Color(0xFF2a2a35), width: 1),
+            top: BorderSide(color: const Color(0xFF3a3a45).withValues(alpha: 0.5), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 1400;
             final isVeryCompact = constraints.maxWidth < 1100;
-            final isUltraCompact = constraints.maxWidth <= 850;
 
-            // Get feature flags for current mode
-            final features = getModeLayoutConfig(widget.editorMode).features;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  // ═══════════════════════════════════════════════════════════
+                  // LEFT SECTION - scrollable, same order as Glass
+                  // ═══════════════════════════════════════════════════════════
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Logo
+                          _Logo(),
+                          const SizedBox(width: 12),
 
-            return Row(
-              children: [
-                // Logo
-                _Logo(),
+                          // Menu Bar
+                          _MenuBar(
+                            openMenu: null,
+                            onMenuToggle: (_) {},
+                            onMenuItemClick: (_) {},
+                            menuCallbacks: widget.menuCallbacks,
+                          ),
+                          const SizedBox(width: 8),
 
-                // Menu Bar (always visible)
-                _MenuBar(
-                  openMenu: null,
-                  onMenuToggle: (_) {},
-                  onMenuItemClick: (_) {},
-                  menuCallbacks: widget.menuCallbacks,
-                ),
+                          // Mode Switcher
+                          if (widget.onEditorModeChange != null)
+                            _ModeSwitcher(
+                              mode: widget.editorMode,
+                              onChange: widget.onEditorModeChange!,
+                              compact: isCompact,
+                            ),
 
-                // Mode Switcher
-                if (widget.onEditorModeChange != null)
-                  _ModeSwitcher(
-                    mode: widget.editorMode,
-                    onChange: widget.onEditorModeChange!,
-                    compact: isCompact,
+                          _Divider(),
+
+                          // Transport Controls (just buttons, no loop/metro)
+                          if (features.showTransport)
+                            _TransportButtons(
+                              isPlaying: widget.isPlaying,
+                              isRecording: widget.isRecording,
+                              transportDisabled: widget.transportDisabled,
+                              onPlay: widget.onPlay,
+                              onStop: widget.onStop,
+                              onRecord: widget.onRecord,
+                              onRewind: widget.onRewind,
+                              onForward: widget.onForward,
+                            ),
+
+                          // Loop & Metronome (same as Glass)
+                          if (!isVeryCompact && features.showTransport) ...[
+                            _Divider(),
+                            _IconBtn(
+                              icon: Icons.repeat,
+                              isActive: widget.loopEnabled,
+                              activeColor: FluxForgeTheme.accentCyan,
+                              onTap: widget.onLoopToggle,
+                              tooltip: 'Loop',
+                            ),
+                            _IconBtn(
+                              icon: Icons.timer,
+                              isActive: widget.metronomeEnabled,
+                              activeColor: FluxForgeTheme.accentOrange,
+                              onTap: widget.onMetronomeToggle,
+                              tooltip: 'Metronome',
+                            ),
+                          ],
+
+                          _Divider(),
+
+                          // Pro Edit Modes
+                          if (!isVeryCompact && features.showTransport) _ProEditModes(),
+
+                          // Smart Tool
+                          if (!isVeryCompact && features.showTransport) _SmartToolButton(),
+
+                          // Keyboard Focus
+                          if (!isVeryCompact && features.showTransport) _KeyboardFocusButton(),
+
+                          if (!isVeryCompact && features.showTransport) _Divider(),
+
+                          // Tempo Display (same as Glass)
+                          if (!isVeryCompact && features.showTransport)
+                            _TempoDisplay(
+                              tempo: widget.tempo,
+                              onTempoChange: widget.onTempoChange,
+                            ),
+
+                          // Time Signature (same as Glass)
+                          if (!isCompact && features.showTransport)
+                            _TimeSignatureDisplay(timeSignature: widget.timeSignature),
+
+                          // Time Display
+                          if (features.showTimecode)
+                            _TimeDisplay(
+                              formattedTime: _formattedTime,
+                              modeLabel: _timeModeLabel,
+                              onTap: widget.onTimeDisplayModeChange,
+                            ),
+
+                          // Project Info (same as Glass)
+                          if (!isCompact)
+                            _ProjectInfo(
+                              name: widget.projectName,
+                              onSave: widget.onSave,
+                            ),
+
+                          // Middleware mode indicator
+                          if (!features.showTransport)
+                            _ModeStatusIndicator(mode: widget.editorMode),
+                        ],
+                      ),
+                    ),
                   ),
 
-                // Transport Controls (only in DAW mode or when features.showTransport)
-                if (features.showTransport)
-                  _TransportControls(
-                    isPlaying: widget.isPlaying,
-                    isRecording: widget.isRecording,
-                    transportDisabled: widget.transportDisabled,
-                    loopEnabled: widget.loopEnabled,
-                    metronomeEnabled: widget.metronomeEnabled,
-                    snapEnabled: widget.snapEnabled,
-                    snapValue: widget.snapValue,
-                    onPlay: widget.onPlay,
-                    onStop: widget.onStop,
-                    onRecord: widget.onRecord,
-                    onRewind: widget.onRewind,
-                    onForward: widget.onForward,
-                    onLoopToggle: widget.onLoopToggle,
-                    onMetronomeToggle: widget.onMetronomeToggle,
-                    onSnapToggle: widget.onSnapToggle,
-                    onSnapValueChange: widget.onSnapValueChange,
-                    compact: isCompact,
+                  // ═══════════════════════════════════════════════════════════
+                  // RIGHT SECTION - fixed, same as Glass
+                  // ═══════════════════════════════════════════════════════════
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Zone Toggles
+                      if (!isVeryCompact)
+                        _ZoneToggles(
+                          onToggleLeft: widget.onToggleLeftZone,
+                          onToggleLower: widget.onToggleLowerZone,
+                          onToggleRight: widget.onToggleRightZone,
+                        ),
+
+                      // Theme Toggle
+                      _ThemeModeToggle(compact: isCompact),
+
+                      // System Meters
+                      if (!isVeryCompact)
+                        _SystemMeters(
+                          cpuUsage: widget.cpuUsage,
+                          memoryUsage: widget.memoryUsage,
+                          cpuColor: _cpuColor,
+                        ),
+                    ],
                   ),
-
-                // Pro Tools Edit Modes (Shuffle/Slip/Spot/Grid) - only in DAW mode
-                if (features.showTransport && !isVeryCompact)
-                  _ProEditModes(),
-
-                // Smart Tool indicator - only in DAW mode
-                if (features.showTransport && !isVeryCompact)
-                  _SmartToolButton(),
-
-                // Keyboard Focus Mode indicator - only in DAW mode
-                if (features.showTransport && !isUltraCompact)
-                  _KeyboardFocusButton(),
-
-                // Razor Edit indicator - only in DAW mode
-                if (features.showTransport && !isVeryCompact)
-                  _RazorEditButton(),
-
-                // Arranger Track toggle
-                if (features.showTransport && !isVeryCompact)
-                  _ArrangerTrackButton(),
-
-                // Chord Track toggle
-                if (features.showTransport && !isVeryCompact)
-                  _ChordTrackButton(),
-
-                // Scale Assistant toggle
-                if (features.showTransport && !isVeryCompact)
-                  _ScaleAssistantButton(),
-
-                // Groove Quantize toggle
-                if (features.showTransport && !isUltraCompact)
-                  _GrooveQuantizeButton(),
-
-                // Track Versions toggle
-                if (features.showTransport && !isUltraCompact)
-                  _TrackVersionsButton(),
-
-                // Macro Controls toggle
-                if (features.showTransport && !isUltraCompact)
-                  _MacroControlsButton(),
-
-                // Tempo (only in DAW mode)
-                if (features.showTempo && !isVeryCompact)
-                  _TempoDisplay(tempo: widget.tempo, onTempoChange: widget.onTempoChange),
-
-                // Time Signature (only in DAW mode)
-                if (features.showTimecode && !isCompact)
-                  _TimeSignatureDisplay(timeSignature: widget.timeSignature),
-
-                // Time Display (only in DAW mode)
-                if (features.showTimecode)
-                  _TimeDisplay(
-                    formattedTime: _formattedTime,
-                    modeLabel: _timeModeLabel,
-                    onTap: widget.onTimeDisplayModeChange,
-                  ),
-
-                // Middleware mode indicator (show in non-DAW modes, hide on ultra compact)
-                if (!features.showTransport && !isUltraCompact)
-                  _ModeStatusIndicator(mode: widget.editorMode),
-
-                // Spacer
-                const Expanded(child: SizedBox()),
-
-                // Project Name & Save (hide on compact)
-                if (!isCompact)
-                  _ProjectInfo(name: widget.projectName, onSave: widget.onSave),
-
-                // Zone Toggles (hide on ultra compact)
-                if (!isUltraCompact)
-                  _ZoneToggles(
-                    onToggleLeft: widget.onToggleLeftZone,
-                    onToggleLower: widget.onToggleLowerZone,
-                    onToggleRight: widget.onToggleRightZone,
-                  ),
-
-                // PDC Indicator (only in DAW mode, auto-fetch from engine)
-                if (features.showTransport && !isVeryCompact)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: widget.pdcLatencySamples > 0
-                      ? PdcIndicator(
-                          totalLatencySamples: widget.pdcLatencySamples,
-                          totalLatencyMs: widget.pdcLatencyMs,
-                          isEnabled: widget.pdcEnabled,
-                          onTap: widget.onPdcTap,
-                        )
-                      : PdcIndicator.fromEngine(onTap: widget.onPdcTap),
-                  ),
-
-                // System Meters (hide on very compact)
-                if (!isVeryCompact)
-                  _SystemMeters(
-                    cpuUsage: widget.cpuUsage,
-                    memoryUsage: widget.memoryUsage,
-                    cpuColor: _cpuColor,
-                  ),
-
-                const SizedBox(width: 8),
-              ],
+                ],
+              ),
             );
           },
         ),
@@ -399,32 +415,39 @@ class _ControlBarState extends State<ControlBar> {
 class _Logo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentCyan]),
-              borderRadius: BorderRadius.circular(4),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentCyan],
             ),
-            child: const Center(
-              child: Text('R',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14)),
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text(
+              'F',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text('FluxForge Studio',
-              style: FluxForgeTheme.label
-                  .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -464,6 +487,8 @@ class _MenuBar extends StatelessWidget {
             null,
             _PopupItem('Import Audio Folder...', '', menuCallbacks?.onImportAudioFolder),
             _PopupItem('Import Audio Files...', '⇧⌘I', menuCallbacks?.onImportAudioFiles),
+            null,
+            _PopupItem('Export Audio...', '⌥⌘E', menuCallbacks?.onExportAudio),
           ],
         ),
         _PopupMenuBtn(
@@ -816,7 +841,7 @@ class _TransportControls extends StatelessWidget {
   }
 }
 
-class _TransportBtn extends StatelessWidget {
+class _TransportBtn extends StatefulWidget {
   final String icon;
   final VoidCallback? onPressed;
   final String tooltip;
@@ -834,29 +859,76 @@ class _TransportBtn extends StatelessWidget {
   });
 
   @override
+  State<_TransportBtn> createState() => _TransportBtnState();
+}
+
+class _TransportBtnState extends State<_TransportBtn> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = isActive
-        ? (activeColor ?? FluxForgeTheme.accentBlue)
-        : FluxForgeTheme.textSecondary;
+    final color = widget.isActive
+        ? (widget.activeColor ?? FluxForgeTheme.accentBlue)
+        : (_isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary);
 
     return Tooltip(
-      message: tooltip,
-      child: Opacity(
-        opacity: disabled ? 0.4 : 1,
-        child: InkWell(
-          onTap: disabled ? null : onPressed,
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Text(
-                icon,
-                style: TextStyle(fontSize: 14, color: color),
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Opacity(
+          opacity: widget.disabled ? 0.4 : 1,
+          child: GestureDetector(
+            onTap: widget.disabled ? null : widget.onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 30,
+              height: 30,
+              margin: const EdgeInsets.symmetric(horizontal: 1),
+              decoration: BoxDecoration(
+                gradient: widget.isActive
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          color.withValues(alpha: 0.3),
+                          color.withValues(alpha: 0.15),
+                        ],
+                      )
+                    : (_isHovered
+                        ? LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              FluxForgeTheme.bgSurface.withValues(alpha: 0.8),
+                              FluxForgeTheme.bgMid.withValues(alpha: 0.5),
+                            ],
+                          )
+                        : null),
+                color: (!widget.isActive && !_isHovered) ? Colors.transparent : null,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isActive
+                      ? color.withValues(alpha: 0.5)
+                      : (_isHovered
+                          ? FluxForgeTheme.borderSubtle
+                          : Colors.transparent),
+                ),
+                boxShadow: widget.isActive
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  widget.icon,
+                  style: TextStyle(fontSize: 13, color: color),
+                ),
               ),
             ),
           ),
@@ -871,9 +943,19 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 24,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: FluxForgeTheme.borderSubtle,
+      height: 28,
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            FluxForgeTheme.borderSubtle.withValues(alpha: 0.1),
+            FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
+            FluxForgeTheme.borderSubtle.withValues(alpha: 0.1),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -908,6 +990,324 @@ class _SnapDropdown extends StatelessWidget {
           DropdownMenuItem(value: 4.0, child: Text('Bar')),
         ],
         onChanged: (v) => onChange(v!),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TRANSPORT BUTTONS (Ultimate UI - separate from loop/metro)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _TransportButtons extends StatelessWidget {
+  final bool isPlaying;
+  final bool isRecording;
+  final bool transportDisabled;
+  final VoidCallback? onPlay;
+  final VoidCallback? onStop;
+  final VoidCallback? onRecord;
+  final VoidCallback? onRewind;
+  final VoidCallback? onForward;
+
+  const _TransportButtons({
+    required this.isPlaying,
+    required this.isRecording,
+    required this.transportDisabled,
+    this.onPlay,
+    this.onStop,
+    this.onRecord,
+    this.onRewind,
+    this.onForward,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF1a1a22),
+            const Color(0xFF0f0f14),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF2a2a35),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: const Color(0xFF3a3a45).withValues(alpha: 0.1),
+            blurRadius: 1,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _UltimateTransportBtn(
+            icon: Icons.skip_previous,
+            onPressed: onRewind,
+            tooltip: 'Rewind (,)',
+          ),
+          _UltimateTransportBtn(
+            icon: Icons.stop,
+            onPressed: onStop,
+            tooltip: 'Stop (.)',
+          ),
+          _UltimateTransportBtn(
+            icon: isPlaying ? Icons.pause : Icons.play_arrow,
+            onPressed: transportDisabled ? null : onPlay,
+            tooltip: transportDisabled ? 'Transport disabled' : 'Play/Pause (Space)',
+            isActive: isPlaying,
+            activeColor: FluxForgeTheme.accentGreen,
+            disabled: transportDisabled,
+            large: true,
+          ),
+          _UltimateTransportBtn(
+            icon: Icons.fiber_manual_record,
+            onPressed: onRecord,
+            tooltip: 'Record (R)',
+            isActive: isRecording,
+            activeColor: FluxForgeTheme.errorRed,
+          ),
+          _UltimateTransportBtn(
+            icon: Icons.skip_next,
+            onPressed: onForward,
+            tooltip: 'Forward (/)',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UltimateTransportBtn extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String tooltip;
+  final bool isActive;
+  final Color? activeColor;
+  final bool disabled;
+  final bool large;
+
+  const _UltimateTransportBtn({
+    required this.icon,
+    this.onPressed,
+    required this.tooltip,
+    this.isActive = false,
+    this.activeColor,
+    this.disabled = false,
+    this.large = false,
+  });
+
+  @override
+  State<_UltimateTransportBtn> createState() => _UltimateTransportBtnState();
+}
+
+class _UltimateTransportBtnState extends State<_UltimateTransportBtn>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isActive
+        ? (widget.activeColor ?? FluxForgeTheme.accentBlue)
+        : (_isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary);
+
+    final size = widget.large ? 36.0 : 30.0;
+    final iconSize = widget.large ? 18.0 : 14.0;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: widget.disabled ? null : widget.onPressed,
+          child: Opacity(
+            opacity: widget.disabled ? 0.4 : 1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              width: size,
+              height: size,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                gradient: widget.isActive
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          color.withValues(alpha: 0.4),
+                          color.withValues(alpha: 0.2),
+                        ],
+                      )
+                    : (_isHovered || _isPressed
+                        ? LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              const Color(0xFF2a2a35),
+                              const Color(0xFF1a1a22),
+                            ],
+                          )
+                        : null),
+                color: (!widget.isActive && !_isHovered && !_isPressed)
+                    ? Colors.transparent
+                    : null,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isActive
+                      ? color.withValues(alpha: 0.6)
+                      : (_isHovered
+                          ? FluxForgeTheme.borderSubtle.withValues(alpha: 0.6)
+                          : Colors.transparent),
+                  width: widget.isActive ? 1.5 : 1,
+                ),
+                boxShadow: widget.isActive
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.3),
+                          blurRadius: 2,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : (_isPressed
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null),
+              ),
+              child: Center(
+                child: Icon(
+                  widget.icon,
+                  size: iconSize,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ICON BUTTON (Ultimate UI - for loop/metronome)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _IconBtn extends StatefulWidget {
+  final IconData icon;
+  final bool isActive;
+  final Color activeColor;
+  final VoidCallback? onTap;
+  final String tooltip;
+
+  const _IconBtn({
+    required this.icon,
+    required this.isActive,
+    required this.activeColor,
+    this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  State<_IconBtn> createState() => _IconBtnState();
+}
+
+class _IconBtnState extends State<_IconBtn> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isActive
+        ? widget.activeColor
+        : (_isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary);
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              gradient: widget.isActive
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        widget.activeColor.withValues(alpha: 0.35),
+                        widget.activeColor.withValues(alpha: 0.15),
+                      ],
+                    )
+                  : (_isHovered
+                      ? LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            const Color(0xFF2a2a35),
+                            const Color(0xFF1a1a22),
+                          ],
+                        )
+                      : null),
+              color: (!widget.isActive && !_isHovered) ? Colors.transparent : null,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: widget.isActive
+                    ? widget.activeColor.withValues(alpha: 0.6)
+                    : (_isHovered
+                        ? FluxForgeTheme.borderSubtle
+                        : Colors.transparent),
+                width: widget.isActive ? 1.5 : 1,
+              ),
+              boxShadow: widget.isActive
+                  ? [
+                      BoxShadow(
+                        color: widget.activeColor.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Icon(
+                widget.icon,
+                size: 16,
+                color: color,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -975,7 +1375,7 @@ class _TimeSignatureDisplay extends StatelessWidget {
   }
 }
 
-class _TimeDisplay extends StatelessWidget {
+class _TimeDisplay extends StatefulWidget {
   final String formattedTime;
   final String modeLabel;
   final VoidCallback? onTap;
@@ -984,40 +1384,85 @@ class _TimeDisplay extends StatelessWidget {
       {required this.formattedTime, required this.modeLabel, this.onTap});
 
   @override
+  State<_TimeDisplay> createState() => _TimeDisplayState();
+}
+
+class _TimeDisplayState extends State<_TimeDisplay> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Tooltip(
-        message: 'Click to change display mode',
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: FluxForgeTheme.borderSubtle),
-          ),
-          child: Row(
-            children: [
-              Text(formattedTime,
-                  style: FluxForgeTheme.monoSmall.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(modeLabel,
-                    style: TextStyle(
-                        color: FluxForgeTheme.accentBlue,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600)),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Tooltip(
+          message: 'Click to change display mode',
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  FluxForgeTheme.bgDeepest,
+                  FluxForgeTheme.bgDeepest.withValues(alpha: 0.8),
+                ],
               ),
-            ],
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _isHovered
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                    : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+                if (_isHovered)
+                  BoxShadow(
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                  ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.formattedTime,
+                  style: FluxForgeTheme.monoSmall.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                    color: FluxForgeTheme.accentCyan,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    widget.modeLabel,
+                    style: TextStyle(
+                      color: FluxForgeTheme.accentBlue,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1081,23 +1526,21 @@ class _ZoneToggles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          if (onToggleLeft != null)
-            _ZoneBtn(icon: '◀', onPressed: onToggleLeft!, tooltip: 'Toggle Left Zone (Ctrl+L)'),
-          if (onToggleLower != null)
-            _ZoneBtn(icon: '▼', onPressed: onToggleLower!, tooltip: 'Toggle Lower Zone (Ctrl+B)'),
-          if (onToggleRight != null)
-            _ZoneBtn(icon: '▶', onPressed: onToggleRight!, tooltip: 'Toggle Right Zone (Ctrl+R)'),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onToggleLeft != null)
+          _ZoneBtn(icon: '◀', onPressed: onToggleLeft!, tooltip: 'Toggle Left Zone (Ctrl+L)'),
+        if (onToggleLower != null)
+          _ZoneBtn(icon: '▼', onPressed: onToggleLower!, tooltip: 'Toggle Lower Zone (Ctrl+B)'),
+        if (onToggleRight != null)
+          _ZoneBtn(icon: '▶', onPressed: onToggleRight!, tooltip: 'Toggle Right Zone (Ctrl+R)'),
+      ],
     );
   }
 }
 
-class _ZoneBtn extends StatelessWidget {
+class _ZoneBtn extends StatefulWidget {
   final String icon;
   final VoidCallback onPressed;
   final String tooltip;
@@ -1105,19 +1548,48 @@ class _ZoneBtn extends StatelessWidget {
       {required this.icon, required this.onPressed, required this.tooltip});
 
   @override
+  State<_ZoneBtn> createState() => _ZoneBtnState();
+}
+
+class _ZoneBtnState extends State<_ZoneBtn> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: Center(
-            child: Text(icon,
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 26,
+            height: 26,
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? FluxForgeTheme.bgSurface.withValues(alpha: 0.6)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: _isHovered
+                    ? FluxForgeTheme.borderSubtle
+                    : Colors.transparent,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                widget.icon,
                 style: TextStyle(
-                    fontSize: 12, color: FluxForgeTheme.textSecondary)),
+                  fontSize: 10,
+                  color: _isHovered
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1140,12 +1612,16 @@ class _SystemMeters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _MeterBar(label: 'CPU', value: cpuUsage, color: cpuColor),
-        const SizedBox(width: 8),
-        _MeterBar(label: 'MEM', value: memoryUsage, color: FluxForgeTheme.accentBlue),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _MeterBar(label: 'CPU', value: cpuUsage, color: cpuColor),
+          const SizedBox(width: 8),
+          _MeterBar(label: 'MEM', value: memoryUsage, color: FluxForgeTheme.accentBlue),
+        ],
+      ),
     );
   }
 }
@@ -1163,8 +1639,14 @@ class _MeterBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
+        Text(
+          label,
+          style: TextStyle(
+            color: FluxForgeTheme.textTertiary,
+            fontSize: 8,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(height: 2),
         Container(
           width: 40,
@@ -1172,14 +1654,30 @@ class _MeterBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgDeepest,
             borderRadius: BorderRadius.circular(3),
+            border: Border.all(
+              color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
+            ),
           ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: (value / 100).clamp(0.0, 1.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(3),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (value / 100).clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      color.withValues(alpha: 0.7),
+                      color,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.4),
+                      blurRadius: 3,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1956,6 +2454,275 @@ class _MacroControlsButton extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// THEME MODE TOGGLE (Glass/Classic)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ThemeModeToggle extends StatelessWidget {
+  final bool compact;
+
+  const _ThemeModeToggle({this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeModeProvider>(
+      builder: (context, provider, _) {
+        final isGlass = provider.isGlassMode;
+
+        return Tooltip(
+          message: isGlass ? 'Switch to Classic Theme' : 'Switch to Glass Theme',
+          child: GestureDetector(
+            onTap: provider.toggleMode,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 6 : 8,
+                vertical: 4,
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                gradient: isGlass
+                    ? LinearGradient(
+                        colors: [
+                          const Color(0xFF4a9eff).withValues(alpha: 0.3),
+                          const Color(0xFF40c8ff).withValues(alpha: 0.2),
+                        ],
+                      )
+                    : null,
+                color: isGlass ? null : FluxForgeTheme.bgMid,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isGlass
+                      ? const Color(0xFF4a9eff).withValues(alpha: 0.5)
+                      : FluxForgeTheme.borderSubtle,
+                  width: isGlass ? 1.5 : 1,
+                ),
+                boxShadow: isGlass
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF4a9eff).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isGlass ? Icons.blur_on : Icons.blur_off,
+                    size: 12,
+                    color: isGlass
+                        ? const Color(0xFF4a9eff)
+                        : FluxForgeTheme.textSecondary,
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      isGlass ? 'Glass' : 'Classic',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isGlass
+                            ? const Color(0xFF4a9eff)
+                            : FluxForgeTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MORE TOOLS MENU (Dropdown for advanced tools)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _MoreToolsMenu extends StatefulWidget {
+  final bool isCompact;
+
+  const _MoreToolsMenu({required this.isCompact});
+
+  @override
+  State<_MoreToolsMenu> createState() => _MoreToolsMenuState();
+}
+
+class _MoreToolsMenuState extends State<_MoreToolsMenu> {
+  bool _isOpen = false;
+  final _menuKey = GlobalKey();
+
+  void _toggleMenu() {
+    setState(() => _isOpen = !_isOpen);
+    if (_isOpen) {
+      _showMenu();
+    }
+  }
+
+  void _showMenu() {
+    final RenderBox button = _menuKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(Offset.zero, ancestor: overlay);
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy + button.size.height + 4,
+        position.dx + button.size.width,
+        position.dy + button.size.height + 300,
+      ),
+      color: FluxForgeTheme.bgElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: FluxForgeTheme.borderSubtle),
+      ),
+      items: [
+        // Edit tools section
+        _buildMenuItem('razor', 'Razor Edit', Icons.content_cut, context.read<RazorEditProvider>().enabled),
+        const PopupMenuDivider(),
+        // Track features section
+        _buildMenuItem('arranger', 'Arranger Track', Icons.view_week, context.read<ArrangerTrackProvider>().enabled),
+        _buildMenuItem('chord', 'Chord Track', Icons.music_note, context.read<ChordTrackProvider>().enabled),
+        _buildMenuItem('scale', 'Scale Assistant', Icons.piano, context.read<ScaleAssistantProvider>().showScaleNotes),
+        _buildMenuItem('groove', 'Groove Quantize', Icons.grid_on, context.read<GrooveQuantizeProvider>().enabled),
+        _buildMenuItem('versions', 'Track Versions', Icons.layers, context.read<TrackVersionsProvider>().showVersionLane),
+        _buildMenuItem('macro', 'Macro Controls', Icons.tune, context.read<MacroControlProvider>().enabled),
+      ],
+    ).then((value) {
+      setState(() => _isOpen = false);
+      if (value != null) {
+        _handleMenuAction(value);
+      }
+    });
+  }
+
+  PopupMenuItem<String> _buildMenuItem(String id, String label, IconData icon, bool isActive) {
+    return PopupMenuItem<String>(
+      value: id,
+      height: 36,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          if (isActive)
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentBlue,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _handleMenuAction(String action) {
+    switch (action) {
+      case 'razor':
+        final razor = context.read<RazorEditProvider>();
+        razor.setEnabled(!razor.enabled);
+        break;
+      case 'arranger':
+        context.read<ArrangerTrackProvider>().toggleEnabled();
+        break;
+      case 'chord':
+        context.read<ChordTrackProvider>().toggleEnabled();
+        break;
+      case 'scale':
+        context.read<ScaleAssistantProvider>().setShowScaleNotes(
+            !context.read<ScaleAssistantProvider>().showScaleNotes);
+        break;
+      case 'groove':
+        context.read<GrooveQuantizeProvider>().toggleEnabled();
+        break;
+      case 'versions':
+        context.read<TrackVersionsProvider>().toggleShowVersionLane();
+        break;
+      case 'macro':
+        context.read<MacroControlProvider>().toggleEnabled();
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check if any tool is active
+    final hasActive = context.watch<RazorEditProvider>().enabled ||
+        context.watch<ArrangerTrackProvider>().enabled ||
+        context.watch<ChordTrackProvider>().enabled ||
+        context.watch<ScaleAssistantProvider>().showScaleNotes ||
+        context.watch<GrooveQuantizeProvider>().enabled ||
+        context.watch<TrackVersionsProvider>().showVersionLane ||
+        context.watch<MacroControlProvider>().enabled;
+
+    return Tooltip(
+      message: 'Advanced Tools',
+      child: GestureDetector(
+        key: _menuKey,
+        onTap: _toggleMenu,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: _isOpen
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                : hasActive
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: hasActive
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
+                  : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.more_horiz,
+                size: 16,
+                color: hasActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+              ),
+              if (hasActive) ...[
+                const SizedBox(width: 4),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentBlue,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

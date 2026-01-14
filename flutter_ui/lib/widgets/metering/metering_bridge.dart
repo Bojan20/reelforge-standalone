@@ -864,7 +864,7 @@ class _LoudnessValue extends StatelessWidget {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(
           color: highlight
               ? FluxForgeTheme.accentBlue.withOpacity(0.1)
@@ -874,38 +874,43 @@ class _LoudnessValue extends StatelessWidget {
               ? Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.3))
               : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: highlight
-                    ? FluxForgeTheme.accentBlue
-                    : FluxForgeTheme.textTertiary,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: highlight
+                      ? FluxForgeTheme.accentBlue
+                      : FluxForgeTheme.textTertiary,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            Text(
-              value > -70 ? value.toStringAsFixed(1) : '-∞',
-              style: TextStyle(
-                color: highlight
-                    ? FluxForgeTheme.textPrimary
-                    : FluxForgeTheme.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              Text(
+                value > -70 ? value.toStringAsFixed(1) : '-∞',
+                style: TextStyle(
+                  color: highlight
+                      ? FluxForgeTheme.textPrimary
+                      : FluxForgeTheme.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
               ),
-            ),
-            Text(
-              unit,
-              style: const TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 7,
+              Text(
+                unit,
+                style: const TextStyle(
+                  color: FluxForgeTheme.textTertiary,
+                  fontSize: 6,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

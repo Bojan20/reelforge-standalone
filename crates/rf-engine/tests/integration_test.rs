@@ -105,8 +105,8 @@ fn test_dual_path_hybrid_mode() {
 
     // In hybrid mode without guard thread, fallback should be used
     let stats = engine.stats();
-    // Check stats are being tracked
-    assert!(stats.fallback_blocks.load(Ordering::Relaxed) >= 0);
+    // Check stats are being tracked (always true for u64, but validates stats struct works)
+    let _ = stats.fallback_blocks.load(Ordering::Relaxed);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -273,7 +273,8 @@ fn test_guard_with_processor() {
     // Check guard processed some blocks
     let stats = engine.stats();
     // Note: guard may or may not have processed depending on timing
-    assert!(stats.guard_blocks.load(Ordering::Relaxed) >= 0);
+    // Just verify stats struct is accessible (always true for u64)
+    let _ = stats.guard_blocks.load(Ordering::Relaxed);
 
     engine.stop_guard();
 }

@@ -5,13 +5,17 @@
 /// - Clips (stereo split when track is expanded)
 /// - Crossfades
 /// - Drop zone for audio
+/// - Theme-aware: Glass/Classic mode support
 
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/timeline_models.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../providers/theme_mode_provider.dart';
 import 'grid_lines.dart';
-import 'clip_widget.dart';
+import '../glass/glass_clip_widget.dart';
 import 'crossfade_overlay.dart';
 
 /// Height threshold for stereo waveform display (Logic Pro style)
@@ -45,6 +49,8 @@ class TrackLane extends StatefulWidget {
     double newDuration,
     double? newOffset,
   )? onClipResize;
+  /// Called when clip resize drag ends - for final FFI commit
+  final void Function(String clipId)? onClipResizeEnd;
   final void Function(String clipId, String newName)? onClipRename;
   final void Function(String clipId, double newSourceOffset)? onClipSlipEdit;
   final void Function(String clipId)? onClipOpenAudioEditor;
@@ -75,6 +81,7 @@ class TrackLane extends StatefulWidget {
     this.onClipGainChange,
     this.onClipFadeChange,
     this.onClipResize,
+    this.onClipResizeEnd,
     this.onClipRename,
     this.onClipSlipEdit,
     this.onClipOpenAudioEditor,
@@ -103,21 +110,43 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
     // Use track color for lane background (Logic Pro style)
     // Audio tracks: subtle blue tint, MIDI: green tint, etc.
     final trackColor = widget.track.color;
     // Show stereo split when track is tall enough and has waveform content
     final showStereoSplit = _isStereoMode && _hasWaveformContent;
 
-    return Container(
-      height: widget.trackHeight,
-      decoration: BoxDecoration(
-        // Blend track color with dark background (Logic Pro style visible tint)
+    // Build decoration based on theme mode
+    BoxDecoration decoration;
+    if (isGlassMode) {
+      // Glass mode: subtle gradient with track color tint
+      decoration = BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            trackColor.withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.04),
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+      );
+    } else {
+      // Classic mode: solid color blend
+      decoration = BoxDecoration(
         color: Color.lerp(FluxForgeTheme.bgDeep, trackColor, 0.18),
         border: Border(
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
-      ),
+      );
+    }
+
+    Widget content = Container(
+      height: widget.trackHeight,
+      decoration: decoration,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // Calculate lane heights for stereo split
@@ -223,8 +252,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                   ),
                 ])
               else
-                // Normal mode - single clip (Positioned must be direct child of Stack)
-                ...widget.clips.map((clip) => ClipWidget(
+                // Normal mode - single clip with theme-aware wrapper
+                ...widget.clips.map((clip) => ThemeAwareClipWidget(
                       key: ValueKey('${clip.id}_${clip.color?.value ?? 0}'),
                       clip: clip,
                       zoom: widget.zoom,
@@ -251,6 +280,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onResize: (newStart, newDur, newOffset) =>
                           widget.onClipResize
                               ?.call(clip.id, newStart, newDur, newOffset),
+                      onResizeEnd: () => widget.onClipResizeEnd?.call(clip.id),
                       onRename: (name) => widget.onClipRename?.call(clip.id, name),
                       onSlipEdit: (offset) =>
                           widget.onClipSlipEdit?.call(clip.id, offset),
@@ -279,6 +309,18 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
         },
       ),
     );
+
+    // Wrap with Glass blur in Glass mode
+    if (isGlassMode) {
+      content = ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: content,
+        ),
+      );
+    }
+
+    return content;
   }
 }
 

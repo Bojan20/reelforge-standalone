@@ -3,12 +3,16 @@
 /// PERFORMANCE: Isolated control bar that directly listens to EngineProvider.
 /// This prevents the entire MainLayout from rebuilding on every transport update.
 /// Only the control bar rebuilds when transport state changes.
+///
+/// Theme-aware: Automatically switches between Glass and Classic control bars.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/engine_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../models/layout_models.dart';
 import 'control_bar.dart';
+import '../glass/glass_control_bar.dart';
 
 class EngineConnectedControlBar extends StatelessWidget {
   final EditorMode editorMode;
@@ -51,6 +55,9 @@ class EngineConnectedControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Watch theme mode for Glass/Classic switching
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
     // PERFORMANCE: Use Selector to only rebuild on transport changes we care about
     return Selector<EngineProvider, _ControlBarData>(
       selector: (_, engine) => _ControlBarData(
@@ -69,30 +76,74 @@ class EngineConnectedControlBar extends StatelessWidget {
       builder: (context, data, _) {
         final engine = context.read<EngineProvider>();
 
+        // Shared callbacks
+        void onPlay() {
+          if (data.isPlaying) {
+            engine.pause();
+          } else {
+            engine.play();
+          }
+        }
+
+        void onStop() => engine.stop();
+        void onRecord() => engine.toggleRecord();
+        void onRewind() => engine.seek(0);
+        void onForward() => engine.seek(data.positionSeconds + 10);
+        void onTempoChanged(double t) => engine.setTempo(t);
+        void onLoopToggle() => engine.toggleLoop();
+
+        // Use Glass Control Bar when in Glass mode
+        if (isGlassMode) {
+          return GlassControlBar(
+            editorMode: editorMode,
+            onEditorModeChange: onEditorModeChange,
+            isPlaying: data.isPlaying,
+            isRecording: data.isRecording,
+            onPlay: onPlay,
+            onStop: onStop,
+            onRecord: onRecord,
+            onRewind: onRewind,
+            onForward: onForward,
+            tempo: data.tempo,
+            onTempoChange: onTempoChanged,
+            timeSignature: TimeSignature(data.timeSigNum, data.timeSigDenom),
+            currentTime: data.positionSeconds,
+            timeDisplayMode: timeDisplayMode,
+            onTimeDisplayModeChange: onTimeDisplayModeChange,
+            loopEnabled: data.loopEnabled,
+            onLoopToggle: onLoopToggle,
+            metronomeEnabled: metronomeEnabled,
+            onMetronomeToggle: onMetronomeToggle,
+            cpuUsage: data.cpuUsage,
+            memoryUsage: memoryUsage,
+            projectName: data.projectName,
+            onSave: onSave,
+            onToggleLeftZone: onToggleLeftZone,
+            onToggleRightZone: onToggleRightZone,
+            onToggleLowerZone: onToggleLowerZone,
+            menuCallbacks: menuCallbacks,
+          );
+        }
+
+        // Classic Control Bar
         return ControlBar(
           editorMode: editorMode,
           onEditorModeChange: onEditorModeChange,
           isPlaying: data.isPlaying,
           isRecording: data.isRecording,
-          onPlay: () {
-            if (data.isPlaying) {
-              engine.pause();
-            } else {
-              engine.play();
-            }
-          },
-          onStop: () => engine.stop(),
-          onRecord: () => engine.toggleRecord(),
-          onRewind: () => engine.seek(0),
-          onForward: () => engine.seek(data.positionSeconds + 10),
+          onPlay: onPlay,
+          onStop: onStop,
+          onRecord: onRecord,
+          onRewind: onRewind,
+          onForward: onForward,
           tempo: data.tempo,
-          onTempoChange: (t) => engine.setTempo(t),
+          onTempoChange: onTempoChanged,
           timeSignature: TimeSignature(data.timeSigNum, data.timeSigDenom),
           currentTime: data.positionSeconds,
           timeDisplayMode: timeDisplayMode,
           onTimeDisplayModeChange: onTimeDisplayModeChange,
           loopEnabled: data.loopEnabled,
-          onLoopToggle: () => engine.toggleLoop(),
+          onLoopToggle: onLoopToggle,
           snapEnabled: snapEnabled,
           snapValue: snapValue,
           onSnapToggle: onSnapToggle,

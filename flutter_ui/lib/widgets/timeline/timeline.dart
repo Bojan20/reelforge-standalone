@@ -13,12 +13,15 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
@@ -71,6 +74,8 @@ class Timeline extends StatefulWidget {
     double newDuration,
     double? newOffset,
   )? onClipResize;
+  /// Called when clip resize drag ends - for final FFI commit
+  final void Function(String clipId)? onClipResizeEnd;
   final void Function(String clipId, double newSourceOffset)? onClipSlipEdit;
   final void Function(String clipId)? onClipOpenAudioEditor;
   final ValueChanged<double>? onZoomChange;
@@ -131,6 +136,22 @@ class Timeline extends StatefulWidget {
   /// Import audio files callback (Shift+Cmd+I)
   final VoidCallback? onImportAudio;
 
+  /// Export audio callback (Alt+Cmd+E)
+  final VoidCallback? onExportAudio;
+
+  /// File operations (⌘S, ⌘⇧S, ⌘O, ⌘N)
+  final VoidCallback? onSave;
+  final VoidCallback? onSaveAs;
+  final VoidCallback? onOpen;
+  final VoidCallback? onNew;
+
+  /// Edit operations
+  final VoidCallback? onSelectAll;
+  final VoidCallback? onDeselect;
+
+  /// Add track callback (⌘T)
+  final VoidCallback? onAddTrack;
+
   /// Pool file drop callback (for drag from Audio Pool)
   /// Called when PoolAudioFile is dropped on timeline
   /// Returns (poolFile, trackId, startTime) - trackId can be null for new track
@@ -179,6 +200,7 @@ class Timeline extends StatefulWidget {
     this.onClipMoveToTrack,
     this.onClipMoveToNewTrack,
     this.onClipResize,
+    this.onClipResizeEnd,
     this.onClipSlipEdit,
     this.onClipOpenAudioEditor,
     this.onZoomChange,
@@ -220,6 +242,14 @@ class Timeline extends StatefulWidget {
     this.isPlaying = false,
     this.onFileDrop,
     this.onImportAudio,
+    this.onExportAudio,
+    this.onSave,
+    this.onSaveAs,
+    this.onOpen,
+    this.onNew,
+    this.onSelectAll,
+    this.onDeselect,
+    this.onAddTrack,
     this.onPoolFileDrop,
     this.onTrackDuplicate,
     this.onTrackDelete,
@@ -793,44 +823,191 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     // Only allow repeat for zoom, fade, and arrow keys
     if (event is KeyRepeatEvent && !isZoomKey && !isFadeKey && !isArrowKey) return KeyEventResult.ignored;
 
-    // Check for Cmd modifier - pass through Cmd shortcuts we don't handle
+    // Check for modifiers
     final isCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     final isShift = HardwareKeyboard.instance.isShiftPressed;
-
-    // Cmd+Shift+I - Import Audio Files
-    if (isCmd && isShift && event.logicalKey == LogicalKeyboardKey.keyI) {
-      debugPrint('[Timeline] Cmd+Shift+I detected, calling onImportAudio');
-      widget.onImportAudio?.call();
-      return KeyEventResult.handled;
-    }
+    final isAlt = HardwareKeyboard.instance.isAltPressed;
 
     final selectedClip = widget.clips.cast<TimelineClip?>().firstWhere(
       (c) => c?.selected == true,
       orElse: () => null,
     );
 
-    // S key - split clip at playhead
-    if (event.logicalKey == LogicalKeyboardKey.keyS) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // FILE SHORTCUTS (Cmd + key)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cmd+S - Save
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
+      debugPrint('[Timeline] Cmd+S detected, calling onSave');
+      widget.onSave?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+Shift+S - Save As
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
+      debugPrint('[Timeline] Cmd+Shift+S detected, calling onSaveAs');
+      widget.onSaveAs?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+O - Open
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyO) {
+      debugPrint('[Timeline] Cmd+O detected, calling onOpen');
+      widget.onOpen?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+N - New
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyN) {
+      debugPrint('[Timeline] Cmd+N detected, calling onNew');
+      widget.onNew?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+Shift+I - Import Audio Files
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyI) {
+      debugPrint('[Timeline] Cmd+Shift+I detected, calling onImportAudio');
+      widget.onImportAudio?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Alt+Cmd+E - Export Audio
+    if (isCmd && isAlt && !isShift && event.logicalKey == LogicalKeyboardKey.keyE) {
+      debugPrint('[Timeline] Alt+Cmd+E detected, calling onExportAudio');
+      widget.onExportAudio?.call();
+      return KeyEventResult.handled;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EDIT SHORTCUTS (Cmd + key)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cmd+Z - Undo
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      debugPrint('[Timeline] Cmd+Z detected, calling onUndo');
+      widget.onUndo?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+Shift+Z - Redo
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      debugPrint('[Timeline] Cmd+Shift+Z detected, calling onRedo');
+      widget.onRedo?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+Y - Redo (Windows style)
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyY) {
+      debugPrint('[Timeline] Cmd+Y detected, calling onRedo');
+      widget.onRedo?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+A - Select All
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyA) {
+      debugPrint('[Timeline] Cmd+A detected, calling onSelectAll');
+      widget.onSelectAll?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+C - Copy
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (selectedClip != null) {
+        debugPrint('[Timeline] Cmd+C detected, calling onClipCopy');
+        widget.onClipCopy?.call(selectedClip.id);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+V - Paste
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyV) {
+      debugPrint('[Timeline] Cmd+V detected, calling onClipPaste');
+      widget.onClipPaste?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+D - Duplicate
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyD) {
+      if (selectedClip != null) {
+        debugPrint('[Timeline] Cmd+D detected, calling onClipDuplicate');
+        widget.onClipDuplicate?.call(selectedClip.id);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TRACK SHORTCUTS (Cmd + key)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cmd+T - Add Track
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyT) {
+      debugPrint('[Timeline] Cmd+T detected, calling onAddTrack');
+      widget.onAddTrack?.call();
+      return KeyEventResult.handled;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SIMPLE KEY SHORTCUTS (no modifiers)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // SPACE - Play/Pause
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.space) {
+      debugPrint('[Timeline] Space detected, calling onPlayPause');
+      widget.onPlayPause?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Escape - Deselect
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.escape) {
+      debugPrint('[Timeline] Escape detected, calling onDeselect');
+      widget.onDeselect?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Delete/Backspace - Delete selected clip
+    if (!isCmd && (event.logicalKey == LogicalKeyboardKey.delete ||
+            event.logicalKey == LogicalKeyboardKey.backspace)) {
+      if (selectedClip != null) {
+        debugPrint('[Timeline] Delete detected, calling onClipDelete');
+        widget.onClipDelete?.call(selectedClip.id);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // S key (no modifiers) - Split clip at playhead
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
       if (selectedClip != null && widget.onClipSplit != null) {
         if (widget.playheadPosition > selectedClip.startTime &&
             widget.playheadPosition < selectedClip.endTime) {
+          debugPrint('[Timeline] S detected, calling onClipSplit');
           widget.onClipSplit!(selectedClip.id);
+          return KeyEventResult.handled;
         }
       }
     }
 
-    // Cmd+D - duplicate
-    if ((HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyD) {
-      if (selectedClip != null) {
-        widget.onClipDuplicate?.call(selectedClip.id);
+    // M key - Mute selected track
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyM) {
+      if (_selectedTrackId != null && widget.onTrackMuteToggle != null) {
+        debugPrint('[Timeline] M detected, calling onTrackMuteToggle');
+        widget.onTrackMuteToggle!(_selectedTrackId!);
+        return KeyEventResult.handled;
       }
     }
 
-    // G - zoom out centered on PLAYHEAD
-    if (event.logicalKey == LogicalKeyboardKey.keyG) {
+    // Alt+S - Solo selected track
+    if (!isCmd && !isShift && isAlt && event.logicalKey == LogicalKeyboardKey.keyS) {
+      if (_selectedTrackId != null && widget.onTrackSoloToggle != null) {
+        debugPrint('[Timeline] Alt+S detected, calling onTrackSoloToggle');
+        widget.onTrackSoloToggle!(_selectedTrackId!);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // G - Zoom out centered on PLAYHEAD
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyG) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
       final newZoom = (widget.zoom * 0.92).clamp(0.1, 5000.0);
@@ -841,8 +1018,8 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       return KeyEventResult.handled;
     }
 
-    // H - zoom in centered on PLAYHEAD
-    if (event.logicalKey == LogicalKeyboardKey.keyH) {
+    // H - Zoom in centered on PLAYHEAD
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyH) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
       final newZoom = (widget.zoom * 1.08).clamp(0.1, 5000.0);
@@ -853,8 +1030,8 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       return KeyEventResult.handled;
     }
 
-    // L - set loop region around selected clip AND toggle loop on/off
-    if (event.logicalKey == LogicalKeyboardKey.keyL) {
+    // L - Set loop region around selected clip AND toggle loop on/off
+    if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyL) {
       if (selectedClip != null) {
         // Set loop region around selected clip
         if (widget.onLoopRegionChange != null) {
@@ -871,6 +1048,10 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       }
       return KeyEventResult.handled;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ARROW KEYS
+    // ═══════════════════════════════════════════════════════════════════════
 
     // ↑/↓ Arrow keys - navigate between tracks
     if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
@@ -907,8 +1088,8 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       final beatsPerSecond = widget.tempo / 60;
 
       // Alt+Arrow = nudge selected clip
-      if (HardwareKeyboard.instance.isAltPressed && selectedClip != null && widget.onClipMove != null) {
-        final nudgeAmount = HardwareKeyboard.instance.isShiftPressed
+      if (isAlt && selectedClip != null && widget.onClipMove != null) {
+        final nudgeAmount = isShift
             ? 1 / beatsPerSecond  // 1 beat
             : 0.25 / beatsPerSecond;  // 1/4 beat
 
@@ -923,7 +1104,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       }
 
       // Arrow without Alt = move playhead (Cubase-style)
-      final playheadNudge = HardwareKeyboard.instance.isShiftPressed
+      final playheadNudge = isShift
           ? 1 / beatsPerSecond  // 1 beat with Shift
           : 0.25 / beatsPerSecond;  // 1/4 beat normal
 
@@ -938,18 +1119,19 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       return KeyEventResult.handled;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // FADE KEYS ([ and ])
+    // ═══════════════════════════════════════════════════════════════════════
+
     // [ and ] keys - fade nudge (Pro Tools style)
-    // [ = decrease fade in / increase fade out
-    // ] = increase fade in / decrease fade out
-    // Shift = fine control (10ms steps)
     if (selectedClip != null && widget.onClipFadeChange != null) {
-      final fadeNudgeAmount = HardwareKeyboard.instance.isShiftPressed
+      final fadeNudgeAmount = isShift
           ? 0.01  // 10ms fine control
           : 0.05; // 50ms normal
 
-      // [ key - decrease fade in OR increase fade out
+      // [ key - decrease fade in OR increase fade out (with Alt)
       if (event.logicalKey == LogicalKeyboardKey.bracketLeft) {
-        if (HardwareKeyboard.instance.isAltPressed) {
+        if (isAlt) {
           // Alt+[ = increase fade out
           final newFadeOut = (selectedClip.fadeOut + fadeNudgeAmount)
               .clamp(0.0, selectedClip.duration * 0.5);
@@ -960,11 +1142,12 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
               .clamp(0.0, selectedClip.duration * 0.5);
           widget.onClipFadeChange!(selectedClip.id, newFadeIn, selectedClip.fadeOut);
         }
+        return KeyEventResult.handled;
       }
 
-      // ] key - increase fade in OR decrease fade out
+      // ] key - increase fade in OR decrease fade out (with Alt)
       if (event.logicalKey == LogicalKeyboardKey.bracketRight) {
-        if (HardwareKeyboard.instance.isAltPressed) {
+        if (isAlt) {
           // Alt+] = decrease fade out
           final newFadeOut = (selectedClip.fadeOut - fadeNudgeAmount)
               .clamp(0.0, selectedClip.duration * 0.5);
@@ -975,57 +1158,12 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
               .clamp(0.0, selectedClip.duration * 0.5);
           widget.onClipFadeChange!(selectedClip.id, newFadeIn, selectedClip.fadeOut);
         }
+        return KeyEventResult.handled;
       }
     }
 
-    // Delete/Backspace
-    if ((event.logicalKey == LogicalKeyboardKey.delete ||
-            event.logicalKey == LogicalKeyboardKey.backspace) &&
-        selectedClip != null) {
-      widget.onClipDelete?.call(selectedClip.id);
-    }
-
-    // Cmd+C - copy
-    if ((HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyC &&
-        selectedClip != null) {
-      widget.onClipCopy?.call(selectedClip.id);
-    }
-
-    // Cmd+V - paste
-    if ((HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyV) {
-      widget.onClipPaste?.call();
-    }
-
-    // SPACE - play/pause
-    if (event.logicalKey == LogicalKeyboardKey.space) {
-      widget.onPlayPause?.call();
-    }
-
-    // Cmd+Z - undo, Cmd+Shift+Z - redo
-    if ((HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyZ) {
-      if (HardwareKeyboard.instance.isShiftPressed) {
-        debugPrint('[Timeline] Redo shortcut triggered');
-        widget.onRedo?.call();
-      } else {
-        debugPrint('[Timeline] Undo shortcut triggered');
-        widget.onUndo?.call();
-      }
-    }
-
-    // Cmd+Y - redo (Windows style)
-    if ((HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyY) {
-      widget.onRedo?.call();
-    }
-
-    return KeyEventResult.handled;
+    // Key not handled - let it propagate
+    return KeyEventResult.ignored;
   }
 
   /// Handle cross-track drag update
@@ -1226,6 +1364,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                     onClipGainChange: widget.onClipGainChange,
                     onClipFadeChange: widget.onClipFadeChange,
                     onClipResize: widget.onClipResize,
+                    onClipResizeEnd: widget.onClipResizeEnd,
                     onClipRename: widget.onClipRename,
                     onClipSlipEdit: widget.onClipSlipEdit,
                     onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
@@ -1358,10 +1497,22 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
           child: LayoutBuilder(
             builder: (context, constraints) {
               _containerWidth = constraints.maxWidth - _headerWidth;
+              final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
 
-              return Container(
-                // Logic Pro-style timeline background
-                color: FluxForgeTheme.bgMid,
+              Widget timelineContent = Container(
+                // Theme-aware timeline background
+                decoration: isGlassMode
+                    ? BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.02),
+                            Colors.black.withValues(alpha: 0.03),
+                          ],
+                        ),
+                      )
+                    : const BoxDecoration(color: FluxForgeTheme.bgMid),
                 child: Stack(
                   children: [
                     Column(
@@ -1374,7 +1525,18 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                         // Header spacer
                         Container(
                           width: _headerWidth,
-                          color: FluxForgeTheme.bgMid,
+                          decoration: isGlassMode
+                              ? BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.03),
+                                      Colors.black.withValues(alpha: 0.02),
+                                    ],
+                                  ),
+                                )
+                              : const BoxDecoration(color: FluxForgeTheme.bgMid),
                         ),
                         // Resize handle
                         _buildHeaderResizeHandle(),
@@ -1790,6 +1952,18 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                   ],
                 ), // Stack
               );
+
+              // Apply Glass blur wrapper
+              if (isGlassMode) {
+                timelineContent = ClipRect(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                    child: timelineContent,
+                  ),
+                );
+              }
+
+              return timelineContent;
             },
           ),
         ),

@@ -431,7 +431,7 @@ mod tests {
         let coeffs = nsgt.forward(&input);
         // NSGT may return empty for signals shorter than longest window
         // This is expected behavior - we just verify it doesn't crash
-        assert!(coeffs.len() >= 0); // Will always pass, tests that forward() works
+        let _ = coeffs.len(); // Verify forward() works without crash
     }
 
     #[test]

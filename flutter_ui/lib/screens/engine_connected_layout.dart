@@ -239,6 +239,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // Floating EQ windows - key is channel/bus ID
   final Map<String, bool> _openEqWindows = {};
 
+  // Clip resize throttle - prevent FFI spam during drag
+  Timer? _resizeThrottleTimer;
+  Map<String, dynamic>? _pendingResize;
+
   // Analysis state (Transient/Pitch detection)
   double _transientSensitivity = 0.5;
   int _transientAlgorithm = 2; // 0=Energy, 1=Spectral, 2=Enhanced, 3=Onset, 4=ML
@@ -451,6 +455,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Wire up import audio shortcut
       final shortcuts = context.read<GlobalShortcutsProvider>();
       shortcuts.actions.onImportAudioFiles = _openFilePicker;
+      shortcuts.actions.onExport = _handleExportAudio;
 
       // Wire up Advanced panel shortcuts (Shift+Cmd)
       shortcuts.actions.onShowLogicalEditor = () => _showAdvancedPanel('logical-editor');
@@ -1107,6 +1112,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (path == null) return;
     await engine.saveProject(path);
     _showSnackBar('Project saved to: $path');
+  }
+
+  /// Select All Clips (Cmd+A)
+  void _handleSelectAllClips() {
+    if (_clips.isEmpty) return;
+    setState(() {
+      _clips = _clips.map((c) => c.copyWith(selected: true)).toList();
+    });
+    debugPrint('[Timeline] Selected all ${_clips.length} clips');
+  }
+
+  /// Deselect All (Escape)
+  void _handleDeselectAll() {
+    setState(() {
+      _clips = _clips.map((c) => c.copyWith(selected: false)).toList();
+    });
+    debugPrint('[Timeline] Deselected all clips');
   }
 
   /// Import JSON routes (Middleware mode)
@@ -2511,6 +2533,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       selectedTrackId: _selectedTrackId, // Sync track selection with Timeline
       // Import audio shortcut (Shift+Cmd+I)
       onImportAudio: _openFilePicker,
+      // Export audio shortcut (Alt+Cmd+E)
+      onExportAudio: _handleExportAudio,
+      // File shortcuts (Cmd+S, Cmd+Shift+S, Cmd+O, Cmd+N)
+      onSave: () => _handleSaveProject(context.read<EngineProvider>()),
+      onSaveAs: () => _handleSaveProjectAs(context.read<EngineProvider>()),
+      onOpen: () => _handleOpenProject(context.read<EngineProvider>()),
+      onNew: () => _handleNewProject(context.read<EngineProvider>()),
+      // Edit shortcuts
+      onSelectAll: _handleSelectAllClips,
+      onDeselect: _handleDeselectAll,
+      // Track shortcuts (Cmd+T)
+      onAddTrack: _handleAddTrack,
       // Playhead callbacks
       onPlayheadChange: (time) {
         final engine = context.read<EngineProvider>();
@@ -2684,57 +2718,75 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       onClipResize: (clipId, newStartTime, newDuration, newOffset) {
         // Validate resize parameters
-        if (newDuration < 0.01) {
-          debugPrint('[ClipResize] Invalid duration: $newDuration (min 0.01s)');
-          return;
-        }
-        if (newStartTime < 0) {
-          debugPrint('[ClipResize] Invalid start time: $newStartTime (must be >= 0)');
-          return;
-        }
+        if (newDuration < 0.01 || newStartTime < 0) return;
 
-        // Find clip for additional validation
+        // Find clip for validation
         final clip = _clips.firstWhere(
           (c) => c.id == clipId,
           orElse: () => timeline.TimelineClip(
             id: '', trackId: '', name: '', startTime: 0, duration: 0,
           ),
         );
-        if (clip.id.isEmpty) {
-          debugPrint('[ClipResize] Clip not found: $clipId');
-          return;
-        }
+        if (clip.id.isEmpty) return;
 
-        // Validate source offset bounds
         final effectiveOffset = newOffset ?? clip.sourceOffset;
-        if (clip.sourceDuration != null && effectiveOffset > clip.sourceDuration!) {
-          debugPrint('[ClipResize] Source offset exceeds source duration');
-          return;
-        }
+        if (clip.sourceDuration != null && effectiveOffset > clip.sourceDuration!) return;
 
-        // Notify engine with error handling
-        try {
-          engine.resizeClip(
-            clipId: clipId,
-            startTime: newStartTime,
-            duration: newDuration,
-            sourceOffset: effectiveOffset,
-          );
-          setState(() {
-            _clips = _clips.map((c) {
-              if (c.id == clipId) {
-                return c.copyWith(
-                  startTime: newStartTime,
-                  duration: newDuration,
-                  sourceOffset: effectiveOffset,
-                );
-              }
-              return c;
-            }).toList();
-          });
-        } catch (e) {
-          debugPrint('[ClipResize] Engine error: $e');
-          _showSnackBar('Failed to resize clip');
+        // Update UI immediately for smooth visual feedback
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(
+                startTime: newStartTime,
+                duration: newDuration,
+                sourceOffset: effectiveOffset,
+              );
+            }
+            return c;
+          }).toList();
+        });
+
+        // Throttle FFI calls - only call engine every 100ms during drag
+        _pendingResize = {
+          'clipId': clipId,
+          'startTime': newStartTime,
+          'duration': newDuration,
+          'sourceOffset': effectiveOffset,
+        };
+
+        _resizeThrottleTimer ??= Timer(const Duration(milliseconds: 100), () {
+          _resizeThrottleTimer = null;
+          if (_pendingResize != null) {
+            try {
+              engine.resizeClip(
+                clipId: _pendingResize!['clipId'],
+                startTime: _pendingResize!['startTime'],
+                duration: _pendingResize!['duration'],
+                sourceOffset: _pendingResize!['sourceOffset'],
+              );
+            } catch (e) {
+              debugPrint('[ClipResize] Engine error: $e');
+            }
+            _pendingResize = null;
+          }
+        });
+      },
+      onClipResizeEnd: (clipId) {
+        // Final FFI commit when resize drag ends
+        _resizeThrottleTimer?.cancel();
+        _resizeThrottleTimer = null;
+        if (_pendingResize != null && _pendingResize!['clipId'] == clipId) {
+          try {
+            engine.resizeClip(
+              clipId: _pendingResize!['clipId'],
+              startTime: _pendingResize!['startTime'],
+              duration: _pendingResize!['duration'],
+              sourceOffset: _pendingResize!['sourceOffset'],
+            );
+          } catch (e) {
+            debugPrint('[ClipResizeEnd] Engine error: $e');
+          }
+          _pendingResize = null;
         }
       },
       onClipGainChange: (clipId, gain) {

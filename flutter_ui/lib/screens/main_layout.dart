@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../theme/fluxforge_theme.dart';
 import '../models/layout_models.dart';
 import '../models/timeline_models.dart' as timeline;
@@ -18,8 +19,14 @@ import '../widgets/layout/control_bar.dart';
 import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
 import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
+import '../widgets/layout/lower_zone_glass.dart' show LowerZoneGlass;
 import '../widgets/mixer/pro_daw_mixer.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
+import '../widgets/glass/glass_app_shell.dart';
+import '../widgets/glass/glass_control_bar.dart';
+import '../widgets/glass/glass_panels.dart';
+import '../widgets/glass/glass_left_zone.dart';
+import '../providers/theme_mode_provider.dart';
 
 class MainLayout extends StatefulWidget {
   // PERFORMANCE: Custom control bar widget that handles its own provider listening
@@ -202,8 +209,8 @@ class _MainLayoutState extends State<MainLayout>
   // Internal zone visibility state
   bool _internalLeftVisible = true;
   bool _internalRightVisible = true;
-  bool _internalLowerVisible = false;
-  double _lowerZoneHeight = 450;
+  bool _internalLowerVisible = true; // Mixer visible by default
+  double _lowerZoneHeight = 500; // Default to max height
 
   // Use external or internal state
   bool get _leftVisible => widget.leftZoneVisible ?? _internalLeftVisible;
@@ -293,165 +300,314 @@ class _MainLayoutState extends State<MainLayout>
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeModeProvider>();
+    final isGlassMode = themeMode.isGlassMode;
+
+    // Build content based on theme mode
+    Widget content = isGlassMode
+        ? _buildGlassLayout()
+        : _buildClassicLayout();
+
+    // Wrap with appropriate shell
+    // Note: Both modes need Scaffold for ScaffoldMessenger.showSnackBar to work
     return Focus(
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: Scaffold(
-        backgroundColor: FluxForgeTheme.bgDeepest,
-        body: Column(
-          children: [
-            // Control Bar - use custom if provided (for performance isolation)
-            widget.customControlBar ?? ControlBar(
-              editorMode: widget.editorMode,
-              onEditorModeChange: widget.onEditorModeChange,
-              isPlaying: widget.isPlaying,
-              isRecording: widget.isRecording,
-              onPlay: widget.onPlay,
-              onStop: widget.onStop,
-              onRecord: widget.onRecord,
-              onRewind: widget.onRewind,
-              onForward: widget.onForward,
-              tempo: widget.tempo,
-              onTempoChange: widget.onTempoChange,
-              timeSignature: widget.timeSignature,
-              currentTime: widget.currentTime,
-              timeDisplayMode: widget.timeDisplayMode,
-              onTimeDisplayModeChange: widget.onTimeDisplayModeChange,
-              loopEnabled: widget.loopEnabled,
-              onLoopToggle: widget.onLoopToggle,
-              snapEnabled: widget.snapEnabled,
-              snapValue: widget.snapValue,
-              onSnapToggle: widget.onSnapToggle,
-              onSnapValueChange: widget.onSnapValueChange,
-              metronomeEnabled: widget.metronomeEnabled,
-              onMetronomeToggle: widget.onMetronomeToggle,
-              cpuUsage: widget.cpuUsage,
-              memoryUsage: widget.memoryUsage,
-              projectName: widget.projectName,
-              onSave: widget.onSave,
-              onToggleLeftZone: _toggleLeft,
-              onToggleRightZone: _toggleRight,
-              onToggleLowerZone: _toggleLower,
-              menuCallbacks: widget.menuCallbacks != null
-                  ? MenuCallbacks(
-                      onNewProject: widget.menuCallbacks?.onNewProject,
-                      onOpenProject: widget.menuCallbacks?.onOpenProject,
-                      onSaveProject: widget.menuCallbacks?.onSaveProject,
-                      onSaveProjectAs: widget.menuCallbacks?.onSaveProjectAs,
-                      onImportJSON: widget.menuCallbacks?.onImportJSON,
-                      onExportJSON: widget.menuCallbacks?.onExportJSON,
-                      onImportAudioFolder: widget.menuCallbacks?.onImportAudioFolder,
-                      onImportAudioFiles: widget.menuCallbacks?.onImportAudioFiles,
-                      onUndo: widget.menuCallbacks?.onUndo,
-                      onRedo: widget.menuCallbacks?.onRedo,
-                      onCut: widget.menuCallbacks?.onCut,
-                      onCopy: widget.menuCallbacks?.onCopy,
-                      onPaste: widget.menuCallbacks?.onPaste,
-                      onDelete: widget.menuCallbacks?.onDelete,
-                      onSelectAll: widget.menuCallbacks?.onSelectAll,
-                      onToggleLeftPanel: _toggleLeft,
-                      onToggleRightPanel: _toggleRight,
-                      onToggleLowerPanel: _toggleLower,
-                      onResetLayout: widget.menuCallbacks?.onResetLayout,
-                      onProjectSettings: widget.menuCallbacks?.onProjectSettings,
-                      onValidateProject: widget.menuCallbacks?.onValidateProject,
-                      onBuildProject: widget.menuCallbacks?.onBuildProject,
-                    )
-                  : null,
-            ),
+        backgroundColor: Colors.transparent,
+        body: isGlassMode
+            ? GlassAppShell(child: content)
+            : Container(
+                color: FluxForgeTheme.bgDeepest,
+                child: content,
+              ),
+      ),
+    );
+  }
 
-            // Main Content Area
-            Expanded(
-              child: Row(
-                children: [
-                  // Left Zone (includes Channel + Clip inspector in DAW mode)
-                  LeftZone(
-                    editorMode: widget.editorMode,
-                    collapsed: !_leftVisible,
-                    tree: widget.projectTree,
-                    selectedId: widget.selectedProjectId,
-                    onSelect: widget.onProjectSelect,
-                    onDoubleClick: widget.onProjectDoubleClick,
-                    searchQuery: widget.projectSearchQuery,
-                    onSearchChange: widget.onProjectSearchChange,
-                    onAdd: widget.onProjectAdd,
-                    onToggleCollapse: _toggleLeft,
-                    activeTab: widget.activeLeftTab,
-                    onTabChange: widget.onLeftTabChange,
-                    channelData: widget.channelData,
-                    onChannelVolumeChange: widget.onChannelVolumeChange,
-                    onChannelPanChange: widget.onChannelPanChange,
-                    onChannelMuteToggle: widget.onChannelMuteToggle,
-                    onChannelSoloToggle: widget.onChannelSoloToggle,
-                    onChannelArmToggle: widget.onChannelArmToggle,
-                    onChannelMonitorToggle: widget.onChannelMonitorToggle,
-                    onChannelInsertClick: widget.onChannelInsertClick,
-                    onChannelSendClick: widget.onChannelSendClick,
-                    onChannelSendLevelChange: widget.onChannelSendLevelChange,
-                    onChannelEQToggle: widget.onChannelEQToggle,
-                    onChannelOutputClick: widget.onChannelOutputClick,
-                    onChannelInputClick: widget.onChannelInputClick,
-                    // Pass clip data for combined inspector
-                    selectedClip: widget.selectedClip,
-                    selectedClipTrack: widget.selectedClipTrack,
-                    onClipChanged: widget.onClipChanged,
+  /// Build Glass-themed layout with all Glass components
+  Widget _buildGlassLayout() {
+    return Column(
+      children: [
+        // Glass Control Bar
+        widget.customControlBar ?? GlassControlBar(
+          editorMode: widget.editorMode,
+          onEditorModeChange: widget.onEditorModeChange,
+          isPlaying: widget.isPlaying,
+          isRecording: widget.isRecording,
+          onPlay: widget.onPlay,
+          onStop: widget.onStop,
+          onRecord: widget.onRecord,
+          onRewind: widget.onRewind,
+          onForward: widget.onForward,
+          tempo: widget.tempo,
+          onTempoChange: widget.onTempoChange,
+          timeSignature: widget.timeSignature,
+          currentTime: widget.currentTime,
+          timeDisplayMode: widget.timeDisplayMode,
+          onTimeDisplayModeChange: widget.onTimeDisplayModeChange,
+          loopEnabled: widget.loopEnabled,
+          onLoopToggle: widget.onLoopToggle,
+          metronomeEnabled: widget.metronomeEnabled,
+          onMetronomeToggle: widget.onMetronomeToggle,
+          cpuUsage: widget.cpuUsage,
+          memoryUsage: widget.memoryUsage,
+          projectName: widget.projectName,
+          onSave: widget.onSave,
+          onToggleLeftZone: _toggleLeft,
+          onToggleRightZone: _toggleRight,
+          onToggleLowerZone: _toggleLower,
+          menuCallbacks: widget.menuCallbacks,
+        ),
+
+        // Main Content Area
+        Expanded(
+          child: Row(
+            children: [
+              // Left Zone - Glass Browser + Channel
+              if (_leftVisible)
+                GlassLeftZone(
+                  editorMode: widget.editorMode,
+                  tree: widget.projectTree,
+                  selectedId: widget.selectedProjectId,
+                  onSelect: widget.onProjectSelect,
+                  onDoubleClick: widget.onProjectDoubleClick,
+                  searchQuery: widget.projectSearchQuery,
+                  onSearchChange: widget.onProjectSearchChange,
+                  onAdd: widget.onProjectAdd,
+                  onToggleCollapse: _toggleLeft,
+                  activeTab: widget.activeLeftTab,
+                  onTabChange: widget.onLeftTabChange,
+                  channelData: widget.channelData,
+                  onChannelVolumeChange: widget.onChannelVolumeChange,
+                  onChannelPanChange: widget.onChannelPanChange,
+                  onChannelMuteToggle: widget.onChannelMuteToggle,
+                  onChannelSoloToggle: widget.onChannelSoloToggle,
+                  onChannelArmToggle: widget.onChannelArmToggle,
+                  onChannelMonitorToggle: widget.onChannelMonitorToggle,
+                  onChannelInsertClick: widget.onChannelInsertClick,
+                  onChannelSendClick: widget.onChannelSendClick,
+                  onChannelSendLevelChange: widget.onChannelSendLevelChange,
+                  onChannelEQToggle: widget.onChannelEQToggle,
+                  onChannelOutputClick: widget.onChannelOutputClick,
+                  onChannelInputClick: widget.onChannelInputClick,
+                  selectedClip: widget.selectedClip,
+                  selectedClipTrack: widget.selectedClipTrack,
+                  onClipChanged: widget.onClipChanged,
+                ),
+
+              // Center Zone + Lower Zone Container
+              Expanded(
+                child: Column(
+                  children: [
+                    // Center Zone with glass styling
+                    Expanded(
+                      child: _buildGlassCenterZone(),
+                    ),
+
+                    // Lower Zone - Glass version
+                    LowerZoneGlass(
+                      collapsed: !_lowerVisible,
+                      tabs: widget.lowerTabs,
+                      tabGroups: widget.lowerTabGroups,
+                      activeTabId: widget.activeLowerTabId,
+                      onTabChange: widget.onLowerTabChange,
+                      onToggleCollapse: _toggleLower,
+                      height: _lowerZoneHeight,
+                      onHeightChange: (h) =>
+                          setState(() => _lowerZoneHeight = h),
+                      minHeight: 300,
+                      maxHeight: 500,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Right Zone - Glass Inspector (only for non-DAW modes)
+              if (widget.editorMode != EditorMode.daw && _rightVisible)
+                SizedBox(
+                  width: 280,
+                  child: GlassInspector(
+                    title: widget.inspectorName ?? 'Inspector',
+                    sections: widget.inspectorSections.map((s) =>
+                      GlassInspectorSection(
+                        title: s.title,
+                        child: s.content,
+                      )
+                    ).toList(),
+                    onClose: _toggleRight,
                   ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-                  // Center Zone + Lower Zone Container
-                  Expanded(
-                    child: Column(
-                      children: [
-                        // Center Zone
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: FluxForgeTheme.bgDeep,
-                              border: Border(
-                                left: BorderSide(
-                                  color: FluxForgeTheme.borderSubtle,
-                                ),
-                                right: BorderSide(
-                                  color: FluxForgeTheme.borderSubtle,
-                                ),
-                              ),
+  /// Build Glass-styled center zone
+  Widget _buildGlassCenterZone() {
+    // No extra BackdropFilter here - child widgets (timeline, mixer) have their own
+    // Adding another BackdropFilter causes visual artifacts (white rays/stripes)
+    return RepaintBoundary(
+      child: widget.child,
+    );
+  }
+
+  /// Build Classic layout (original implementation)
+  Widget _buildClassicLayout() {
+    return Column(
+      children: [
+        // Control Bar - use custom if provided (for performance isolation)
+        widget.customControlBar ?? ControlBar(
+          editorMode: widget.editorMode,
+          onEditorModeChange: widget.onEditorModeChange,
+          isPlaying: widget.isPlaying,
+          isRecording: widget.isRecording,
+          onPlay: widget.onPlay,
+          onStop: widget.onStop,
+          onRecord: widget.onRecord,
+          onRewind: widget.onRewind,
+          onForward: widget.onForward,
+          tempo: widget.tempo,
+          onTempoChange: widget.onTempoChange,
+          timeSignature: widget.timeSignature,
+          currentTime: widget.currentTime,
+          timeDisplayMode: widget.timeDisplayMode,
+          onTimeDisplayModeChange: widget.onTimeDisplayModeChange,
+          loopEnabled: widget.loopEnabled,
+          onLoopToggle: widget.onLoopToggle,
+          snapEnabled: widget.snapEnabled,
+          snapValue: widget.snapValue,
+          onSnapToggle: widget.onSnapToggle,
+          onSnapValueChange: widget.onSnapValueChange,
+          metronomeEnabled: widget.metronomeEnabled,
+          onMetronomeToggle: widget.onMetronomeToggle,
+          cpuUsage: widget.cpuUsage,
+          memoryUsage: widget.memoryUsage,
+          projectName: widget.projectName,
+          onSave: widget.onSave,
+          onToggleLeftZone: _toggleLeft,
+          onToggleRightZone: _toggleRight,
+          onToggleLowerZone: _toggleLower,
+          menuCallbacks: widget.menuCallbacks != null
+              ? MenuCallbacks(
+                  onNewProject: widget.menuCallbacks?.onNewProject,
+                  onOpenProject: widget.menuCallbacks?.onOpenProject,
+                  onSaveProject: widget.menuCallbacks?.onSaveProject,
+                  onSaveProjectAs: widget.menuCallbacks?.onSaveProjectAs,
+                  onImportJSON: widget.menuCallbacks?.onImportJSON,
+                  onExportJSON: widget.menuCallbacks?.onExportJSON,
+                  onImportAudioFolder: widget.menuCallbacks?.onImportAudioFolder,
+                  onImportAudioFiles: widget.menuCallbacks?.onImportAudioFiles,
+                  onUndo: widget.menuCallbacks?.onUndo,
+                  onRedo: widget.menuCallbacks?.onRedo,
+                  onCut: widget.menuCallbacks?.onCut,
+                  onCopy: widget.menuCallbacks?.onCopy,
+                  onPaste: widget.menuCallbacks?.onPaste,
+                  onDelete: widget.menuCallbacks?.onDelete,
+                  onSelectAll: widget.menuCallbacks?.onSelectAll,
+                  onToggleLeftPanel: _toggleLeft,
+                  onToggleRightPanel: _toggleRight,
+                  onToggleLowerPanel: _toggleLower,
+                  onResetLayout: widget.menuCallbacks?.onResetLayout,
+                  onProjectSettings: widget.menuCallbacks?.onProjectSettings,
+                  onValidateProject: widget.menuCallbacks?.onValidateProject,
+                  onBuildProject: widget.menuCallbacks?.onBuildProject,
+                )
+              : null,
+        ),
+
+        // Main Content Area
+        Expanded(
+          child: Row(
+            children: [
+              // Left Zone (includes Channel + Clip inspector in DAW mode)
+              LeftZone(
+                editorMode: widget.editorMode,
+                collapsed: !_leftVisible,
+                tree: widget.projectTree,
+                selectedId: widget.selectedProjectId,
+                onSelect: widget.onProjectSelect,
+                onDoubleClick: widget.onProjectDoubleClick,
+                searchQuery: widget.projectSearchQuery,
+                onSearchChange: widget.onProjectSearchChange,
+                onAdd: widget.onProjectAdd,
+                onToggleCollapse: _toggleLeft,
+                activeTab: widget.activeLeftTab,
+                onTabChange: widget.onLeftTabChange,
+                channelData: widget.channelData,
+                onChannelVolumeChange: widget.onChannelVolumeChange,
+                onChannelPanChange: widget.onChannelPanChange,
+                onChannelMuteToggle: widget.onChannelMuteToggle,
+                onChannelSoloToggle: widget.onChannelSoloToggle,
+                onChannelArmToggle: widget.onChannelArmToggle,
+                onChannelMonitorToggle: widget.onChannelMonitorToggle,
+                onChannelInsertClick: widget.onChannelInsertClick,
+                onChannelSendClick: widget.onChannelSendClick,
+                onChannelSendLevelChange: widget.onChannelSendLevelChange,
+                onChannelEQToggle: widget.onChannelEQToggle,
+                onChannelOutputClick: widget.onChannelOutputClick,
+                onChannelInputClick: widget.onChannelInputClick,
+                // Pass clip data for combined inspector
+                selectedClip: widget.selectedClip,
+                selectedClipTrack: widget.selectedClipTrack,
+                onClipChanged: widget.onClipChanged,
+              ),
+
+              // Center Zone + Lower Zone Container
+              Expanded(
+                child: Column(
+                  children: [
+                    // Center Zone
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgDeep,
+                          border: Border(
+                            left: BorderSide(
+                              color: FluxForgeTheme.borderSubtle,
                             ),
-                            child: widget.child,
+                            right: BorderSide(
+                              color: FluxForgeTheme.borderSubtle,
+                            ),
                           ),
                         ),
-
-                        // Lower Zone
-                        LowerZone(
-                          collapsed: !_lowerVisible,
-                          tabs: widget.lowerTabs,
-                          tabGroups: widget.lowerTabGroups,
-                          activeTabId: widget.activeLowerTabId,
-                          onTabChange: widget.onLowerTabChange,
-                          onToggleCollapse: _toggleLower,
-                          height: _lowerZoneHeight,
-                          onHeightChange: (h) =>
-                              setState(() => _lowerZoneHeight = h),
-                          minHeight: 300,
-                          maxHeight: 500,
-                        ),
-                      ],
+                        child: widget.child,
+                      ),
                     ),
-                  ),
 
-                  // Right Zone - Only for Middleware/Slot modes (DAW uses left Channel tab)
-                  if (widget.editorMode != EditorMode.daw)
-                    RightZone(
-                      collapsed: !_rightVisible,
-                      objectType: widget.inspectorType,
-                      objectName: widget.inspectorName,
-                      sections: widget.inspectorSections,
-                      onToggleCollapse: _toggleRight,
+                    // Lower Zone - Classic version
+                    LowerZone(
+                      collapsed: !_lowerVisible,
+                      tabs: widget.lowerTabs,
+                      tabGroups: widget.lowerTabGroups,
+                      activeTabId: widget.activeLowerTabId,
+                      onTabChange: widget.onLowerTabChange,
+                      onToggleCollapse: _toggleLower,
+                      height: _lowerZoneHeight,
+                      onHeightChange: (h) =>
+                          setState(() => _lowerZoneHeight = h),
+                      minHeight: 300,
+                      maxHeight: 500,
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // Right Zone - Only for Middleware/Slot modes (DAW uses left Channel tab)
+              if (widget.editorMode != EditorMode.daw)
+                RightZone(
+                  collapsed: !_rightVisible,
+                  objectType: widget.inspectorType,
+                  objectName: widget.inspectorName,
+                  sections: widget.inspectorSections,
+                  onToggleCollapse: _toggleRight,
+                ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

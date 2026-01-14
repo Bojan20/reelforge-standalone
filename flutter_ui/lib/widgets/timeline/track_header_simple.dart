@@ -5,12 +5,17 @@
 /// - M/S/R buttons
 /// - Volume slider (on hover or when expanded)
 /// - Subtle color accent
+/// - Theme-aware: Glass/Classic mode support
 ///
 /// Designed for clarity over feature density.
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../theme/liquid_glass_theme.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 
 class TrackHeaderSimple extends StatefulWidget {
@@ -89,6 +94,133 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
   @override
   Widget build(BuildContext context) {
     final track = widget.track;
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    // Build the content stack
+    Widget contentStack = Stack(
+      children: [
+        // Main content
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: Track number + name + M/S/R
+              SizedBox(
+                height: 20,
+                child: Row(
+                  children: [
+                    // Track number
+                    SizedBox(
+                      width: 18,
+                      child: Text(
+                        '${widget.trackNumber}',
+                        style: TextStyle(
+                          color: isGlassMode
+                              ? LiquidGlassTheme.textTertiary
+                              : FluxForgeTheme.textTertiary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    // Name
+                    Expanded(child: _buildName()),
+                    const SizedBox(width: 4),
+                    // M/S/I/R buttons
+                    _MiniButton('M', track.muted, FluxForgeTheme.accentOrange, widget.onMuteToggle),
+                    const SizedBox(width: 2),
+                    _MiniButton('S', track.soloed, FluxForgeTheme.accentYellow, widget.onSoloToggle),
+                    const SizedBox(width: 2),
+                    _MiniButton('I', track.inputMonitor, FluxForgeTheme.accentCyan, widget.onInputMonitorToggle),
+                    const SizedBox(width: 2),
+                    _RecordButton(track.armed, widget.onArmToggle),
+                  ],
+                ),
+              ),
+              // Row 2: Volume (if shown and height allows)
+              if (_showVolume && widget.height > 44)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: _buildVolumeRow(),
+                ),
+            ],
+          ),
+        ),
+
+        // Meter bar (right edge)
+        Positioned(
+          top: 4,
+          bottom: 4,
+          right: 2,
+          width: 3,
+          child: _MeterBar(level: widget.signalLevel),
+        ),
+
+        // Resize handle
+        if (_isHovered || _isResizing)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 5,
+            child: _buildResizeHandle(),
+          ),
+      ],
+    );
+
+    // Build the container with theme-aware decoration
+    BoxDecoration decoration;
+    if (isGlassMode) {
+      // Glass mode decoration
+      decoration = BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            track.color.withValues(alpha: widget.isSelected ? 0.20 : (_isHovered ? 0.12 : 0.08)),
+            Colors.black.withValues(alpha: 0.04),
+          ],
+        ),
+        border: Border(
+          left: BorderSide(
+            color: track.color.withValues(alpha: widget.isSelected ? 0.9 : 0.6),
+            width: 3,
+          ),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      );
+    } else {
+      // Classic mode decoration
+      decoration = BoxDecoration(
+        color: widget.isSelected
+            ? track.color.withValues(alpha: 0.18)
+            : (_isHovered
+                ? track.color.withValues(alpha: 0.10)
+                : track.color.withValues(alpha: 0.06)),
+        border: Border(
+          left: BorderSide(color: track.color, width: 3),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+        ),
+      );
+    }
+
+    Widget container = Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: decoration,
+      child: contentStack,
+    );
+
+    // Wrap with Glass blur in Glass mode
+    if (isGlassMode) {
+      container = ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: container,
+        ),
+      );
+    }
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -97,91 +229,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
         onTap: widget.onClick,
         onDoubleTap: () => setState(() => _isEditingName = true),
         onSecondaryTapDown: (d) => widget.onContextMenu?.call(d.globalPosition),
-        child: Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            // Always show track color - brighter when selected, subtle when not
-            color: widget.isSelected
-                ? track.color.withValues(alpha: 0.18)
-                : (_isHovered
-                    ? track.color.withValues(alpha: 0.10)
-                    : track.color.withValues(alpha: 0.06)),
-            border: Border(
-              left: BorderSide(color: track.color, width: 3),
-              bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Main content
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row 1: Track number + name + M/S/R
-                    SizedBox(
-                      height: 20,
-                      child: Row(
-                        children: [
-                          // Track number
-                          SizedBox(
-                            width: 18,
-                            child: Text(
-                              '${widget.trackNumber}',
-                              style: TextStyle(
-                                color: FluxForgeTheme.textTertiary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          // Name
-                          Expanded(child: _buildName()),
-                          const SizedBox(width: 4),
-                          // M/S/I/R buttons
-                          _MiniButton('M', track.muted, FluxForgeTheme.accentOrange, widget.onMuteToggle),
-                          const SizedBox(width: 2),
-                          _MiniButton('S', track.soloed, FluxForgeTheme.accentYellow, widget.onSoloToggle),
-                          const SizedBox(width: 2),
-                          _MiniButton('I', track.inputMonitor, FluxForgeTheme.accentCyan, widget.onInputMonitorToggle),
-                          const SizedBox(width: 2),
-                          _RecordButton(track.armed, widget.onArmToggle),
-                        ],
-                      ),
-                    ),
-                    // Row 2: Volume (if shown and height allows)
-                    if (_showVolume && widget.height > 44)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: _buildVolumeRow(),
-                      ),
-                  ],
-                ),
-              ),
-
-              // Meter bar (right edge)
-              Positioned(
-                top: 4,
-                bottom: 4,
-                right: 2,
-                width: 3,
-                child: _MeterBar(level: widget.signalLevel),
-              ),
-
-              // Resize handle
-              if (_isHovered || _isResizing)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 5,
-                  child: _buildResizeHandle(),
-                ),
-            ],
-          ),
-        ),
+        child: container,
       ),
     );
   }

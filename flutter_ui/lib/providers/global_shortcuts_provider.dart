@@ -416,6 +416,14 @@ class GlobalShortcutsProvider extends ChangeNotifier {
       }
     }
 
+    // Alt+Cmd+E - Export Audio
+    if (key == LogicalKeyboardKey.keyE && isCmd && isAlt && !isShift) {
+      if (actions.onExport != null) {
+        actions.onExport!();
+        return KeyEventResult.handled;
+      }
+    }
+
     // ========== Advanced Panel Shortcuts (Shift+Cmd) ==========
 
     // Shift+Cmd+L - Logical Editor

@@ -7,13 +7,17 @@
 /// - VCA faders
 /// - Master section
 /// - Real-time metering
+/// - Theme-aware: Glass/Classic mode support
 
 import 'dart:math' show cos, sin, log, pow, ln10;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mixer_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../theme/liquid_glass_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PRO DAW MIXER
@@ -48,16 +52,32 @@ class _ProDawMixerState extends State<ProDawMixer> {
 
   @override
   Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
     return Consumer<MixerProvider>(
       builder: (context, mixer, child) {
         final stripWidth = widget.compact ? 60.0 : 80.0;
 
-        return Container(
-          color: FluxForgeTheme.bgDeepest,
+        // Glass mode: frosted glass gradient
+        // Classic mode: solid dark background
+        Widget mixerContent = Container(
+          decoration: isGlassMode
+              ? BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: 0.04),
+                      Colors.black.withValues(alpha: 0.15),
+                    ],
+                  ),
+                )
+              : const BoxDecoration(color: FluxForgeTheme.bgDeepest),
           child: Column(
             children: [
               // Toolbar
-              _buildToolbar(context, mixer),
+              _buildToolbar(context, mixer, isGlassMode),
 
               // Mixer strips
               Expanded(
@@ -68,9 +88,8 @@ class _ProDawMixerState extends State<ProDawMixer> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Channel strips (from timeline tracks)
-                      // NOTE: RepaintBoundary isolates meter repaints from affecting other strips
                       if (mixer.channels.isNotEmpty) ...[
-                        _buildSectionLabel('TRACKS'),
+                        _buildSectionLabel('TRACKS', isGlassMode),
                         ...mixer.channels.map((ch) => RepaintBoundary(
                           key: ValueKey('rb_${ch.id}'),
                           child: _ChannelStrip(
@@ -93,7 +112,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
 
                       // Aux returns
                       if (mixer.auxes.isNotEmpty) ...[
-                        _buildSectionLabel('AUX'),
+                        _buildSectionLabel('AUX', isGlassMode),
                         ...mixer.auxes.map((aux) => RepaintBoundary(
                           key: ValueKey('rb_${aux.id}'),
                           child: _ChannelStrip(
@@ -111,9 +130,9 @@ class _ProDawMixerState extends State<ProDawMixer> {
                         const _SectionDivider(),
                       ],
 
-                      // Bus section (only show if buses exist - user-created)
+                      // Bus section
                       if (mixer.buses.isNotEmpty) ...[
-                        _buildSectionLabel('BUSES'),
+                        _buildSectionLabel('BUSES', isGlassMode),
                         ...mixer.buses.map((bus) => RepaintBoundary(
                           key: ValueKey('rb_${bus.id}'),
                           child: _ChannelStrip(
@@ -133,7 +152,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
 
                       // VCA section
                       if (mixer.vcas.isNotEmpty) ...[
-                        _buildSectionLabel('VCA'),
+                        _buildSectionLabel('VCA', isGlassMode),
                         ...mixer.vcas.map((vca) => RepaintBoundary(
                           key: ValueKey('rb_${vca.id}'),
                           child: _VcaStrip(
@@ -149,7 +168,7 @@ class _ProDawMixerState extends State<ProDawMixer> {
                       ],
 
                       // Master section
-                      _buildSectionLabel('MASTER'),
+                      _buildSectionLabel('MASTER', isGlassMode),
                       RepaintBoundary(
                         key: const ValueKey('rb_master'),
                         child: _MasterStrip(
@@ -168,22 +187,43 @@ class _ProDawMixerState extends State<ProDawMixer> {
             ],
           ),
         );
+
+        // Apply Glass blur effect
+        if (isGlassMode) {
+          return ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: mixerContent,
+            ),
+          );
+        }
+        return mixerContent;
       },
     );
   }
 
-  Widget _buildToolbar(BuildContext context, MixerProvider mixer) {
+  Widget _buildToolbar(BuildContext context, MixerProvider mixer, bool isGlassMode) {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: const BoxDecoration(
-        color: FluxForgeTheme.bgMid,
-        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
+      decoration: BoxDecoration(
+        color: isGlassMode
+            ? Colors.black.withValues(alpha: 0.3)
+            : FluxForgeTheme.bgMid,
+        border: Border(
+          bottom: BorderSide(
+            color: isGlassMode
+                ? Colors.white.withValues(alpha: 0.08)
+                : FluxForgeTheme.borderSubtle,
+          ),
+        ),
       ),
       child: Row(
         children: [
           Text('MIXER', style: FluxForgeTheme.labelTiny.copyWith(
-            color: FluxForgeTheme.textSecondary,
+            color: isGlassMode
+                ? LiquidGlassTheme.textSecondary
+                : FluxForgeTheme.textSecondary,
             fontWeight: FontWeight.w600,
           )),
           const SizedBox(width: 16),
@@ -193,16 +233,19 @@ class _ProDawMixerState extends State<ProDawMixer> {
             icon: Icons.add,
             label: 'Bus',
             onPressed: () => _showAddBusDialog(context, mixer),
+            isGlassMode: isGlassMode,
           ),
           _ToolbarButton(
             icon: Icons.add,
             label: 'Aux',
             onPressed: () => _showAddAuxDialog(context, mixer),
+            isGlassMode: isGlassMode,
           ),
           _ToolbarButton(
             icon: Icons.add,
             label: 'VCA',
             onPressed: () => _showAddVcaDialog(context, mixer),
+            isGlassMode: isGlassMode,
           ),
 
           const Spacer(),
@@ -210,24 +253,41 @@ class _ProDawMixerState extends State<ProDawMixer> {
           // Channel count
           Text(
             '${mixer.channels.length} tracks',
-            style: FluxForgeTheme.bodySmall.copyWith(color: FluxForgeTheme.textTertiary),
+            style: FluxForgeTheme.bodySmall.copyWith(
+              color: isGlassMode
+                  ? LiquidGlassTheme.textTertiary
+                  : FluxForgeTheme.textTertiary,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionLabel(String label) {
+  Widget _buildSectionLabel(String label, bool isGlassMode) {
     return Container(
       width: 24,
-      color: FluxForgeTheme.bgMid,
+      decoration: BoxDecoration(
+        color: isGlassMode
+            ? Colors.black.withValues(alpha: 0.25)
+            : FluxForgeTheme.bgMid,
+        border: isGlassMode
+            ? Border(
+                right: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              )
+            : null,
+      ),
       child: Center(
         child: RotatedBox(
           quarterTurns: 3,
           child: Text(
             label,
             style: FluxForgeTheme.labelTiny.copyWith(
-              color: FluxForgeTheme.textTertiary,
+              color: isGlassMode
+                  ? LiquidGlassTheme.textTertiary
+                  : FluxForgeTheme.textTertiary,
               fontSize: 9,
               letterSpacing: 1,
             ),
@@ -377,25 +437,58 @@ class _ChannelStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    // Build decoration based on theme
+    BoxDecoration stripDecoration;
+    if (isGlassMode) {
+      stripDecoration = BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            channel.color.withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.04),
+          ],
+        ),
+        border: Border(
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+        ),
+      );
+    } else {
+      stripDecoration = const BoxDecoration(
         color: FluxForgeTheme.bgDeep,
-        border: const Border(
+        border: Border(
           right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),
-      ),
+      );
+    }
+
+    Widget strip = Container(
+      width: width,
+      decoration: stripDecoration,
       child: Column(
         children: [
-          // Color bar
+          // Color bar - glow effect in Glass mode
           Container(
             height: 4,
-            color: channel.color,
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    color: channel.color,
+                    boxShadow: [
+                      BoxShadow(
+                        color: channel.color.withValues(alpha: 0.5),
+                        blurRadius: 6,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  )
+                : BoxDecoration(color: channel.color),
           ),
 
           // Output routing (for tracks)
           if (channel.type == ChannelType.audio && availableBuses != null)
-            _buildOutputSelector(),
+            _buildOutputSelector(isGlassMode),
 
           // Pan knob
           if (!compact)
@@ -442,7 +535,9 @@ class _ChannelStrip extends StatelessWidget {
             child: Text(
               channel.volumeDbString,
               style: FluxForgeTheme.labelTiny.copyWith(
-                color: FluxForgeTheme.textTertiary,
+                color: isGlassMode
+                    ? LiquidGlassTheme.textTertiary
+                    : FluxForgeTheme.textTertiary,
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -481,11 +576,24 @@ class _ChannelStrip extends StatelessWidget {
           // Channel name
           Container(
             padding: const EdgeInsets.all(4),
-            color: FluxForgeTheme.bgMid,
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        channel.color.withValues(alpha: 0.15),
+                        channel.color.withValues(alpha: 0.08),
+                      ],
+                    ),
+                  )
+                : const BoxDecoration(color: FluxForgeTheme.bgMid),
             child: Text(
               channel.name,
               style: FluxForgeTheme.labelTiny.copyWith(
-                color: FluxForgeTheme.textPrimary,
+                color: isGlassMode
+                    ? LiquidGlassTheme.textPrimary
+                    : FluxForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -495,18 +603,29 @@ class _ChannelStrip extends StatelessWidget {
         ],
       ),
     );
+
+    // Note: No BackdropFilter here - LowerZoneGlass already provides blur
+    return strip;
   }
 
-  Widget _buildOutputSelector() {
+  Widget _buildOutputSelector(bool isGlassMode) {
     return PopupMenuButton<String>(
       initialValue: channel.outputBus,
       onSelected: onOutputChange,
       tooltip: 'Output routing',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: const BoxDecoration(
-          color: FluxForgeTheme.bgMid,
-          border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
+        decoration: BoxDecoration(
+          color: isGlassMode
+              ? Colors.black.withValues(alpha: 0.3)
+              : FluxForgeTheme.bgMid,
+          border: Border(
+            bottom: BorderSide(
+              color: isGlassMode
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : FluxForgeTheme.borderSubtle,
+            ),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -514,11 +633,19 @@ class _ChannelStrip extends StatelessWidget {
             Text(
               _getBusShortName(channel.outputBus),
               style: FluxForgeTheme.labelTiny.copyWith(
-                color: FluxForgeTheme.textSecondary,
+                color: isGlassMode
+                    ? LiquidGlassTheme.textSecondary
+                    : FluxForgeTheme.textSecondary,
                 fontSize: 8,
               ),
             ),
-            const Icon(Icons.arrow_drop_down, size: 12, color: FluxForgeTheme.textTertiary),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 12,
+              color: isGlassMode
+                  ? LiquidGlassTheme.textTertiary
+                  : FluxForgeTheme.textTertiary,
+            ),
           ],
         ),
       ),
@@ -582,23 +709,59 @@ class _VcaStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    Widget strip = Container(
       width: width,
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.8),
-        border: const Border(
-          right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
-        ),
-      ),
+      decoration: isGlassMode
+          ? BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  vca.color.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.06),
+                ],
+              ),
+              border: Border(
+                right: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              ),
+            )
+          : BoxDecoration(
+              color: FluxForgeTheme.bgDeep.withValues(alpha: 0.8),
+              border: const Border(
+                right: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
+              ),
+            ),
       child: Column(
         children: [
-          // Color bar
-          Container(height: 4, color: vca.color),
+          // Color bar with glow in Glass mode
+          Container(
+            height: 4,
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    color: vca.color,
+                    boxShadow: [
+                      BoxShadow(
+                        color: vca.color.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  )
+                : BoxDecoration(color: vca.color),
+          ),
 
           // VCA indicator
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: const Icon(Icons.tune, size: 16, color: FluxForgeTheme.textTertiary),
+            child: Icon(
+              Icons.tune,
+              size: 16,
+              color: isGlassMode
+                  ? LiquidGlassTheme.textTertiary
+                  : FluxForgeTheme.textTertiary,
+            ),
           ),
 
           // Fader area
@@ -628,7 +791,9 @@ class _VcaStrip extends StatelessWidget {
           Text(
             '${vca.memberIds.length} ch',
             style: FluxForgeTheme.labelTiny.copyWith(
-              color: FluxForgeTheme.textTertiary,
+              color: isGlassMode
+                  ? LiquidGlassTheme.textTertiary
+                  : FluxForgeTheme.textTertiary,
               fontSize: 8,
             ),
           ),
@@ -636,11 +801,24 @@ class _VcaStrip extends StatelessWidget {
           // Name
           Container(
             padding: const EdgeInsets.all(4),
-            color: vca.color.withValues(alpha: 0.3),
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        vca.color.withValues(alpha: 0.25),
+                        vca.color.withValues(alpha: 0.12),
+                      ],
+                    ),
+                  )
+                : BoxDecoration(color: vca.color.withValues(alpha: 0.3)),
             child: Text(
               vca.name,
               style: FluxForgeTheme.labelTiny.copyWith(
-                color: FluxForgeTheme.textPrimary,
+                color: isGlassMode
+                    ? LiquidGlassTheme.textPrimary
+                    : FluxForgeTheme.textPrimary,
                 fontSize: 10,
               ),
               overflow: TextOverflow.ellipsis,
@@ -650,6 +828,9 @@ class _VcaStrip extends StatelessWidget {
         ],
       ),
     );
+
+    // Note: No BackdropFilter here - LowerZoneGlass already provides blur
+    return strip;
   }
 }
 
@@ -672,24 +853,81 @@ class _MasterStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    Widget strip = Container(
       width: width,
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgMid,
-        border: Border.all(color: channel.color.withValues(alpha: 0.5)),
-      ),
+      decoration: isGlassMode
+          ? BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  channel.color.withValues(alpha: 0.15),
+                  Colors.black.withValues(alpha: 0.08),
+                ],
+              ),
+              border: Border.all(
+                color: channel.color.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: channel.color.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            )
+          : BoxDecoration(
+              color: FluxForgeTheme.bgMid,
+              border: Border.all(color: channel.color.withValues(alpha: 0.5)),
+            ),
       child: Column(
         children: [
-          // Header
+          // Header with glow in Glass mode
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            color: channel.color.withValues(alpha: 0.3),
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        channel.color.withValues(alpha: 0.4),
+                        channel.color.withValues(alpha: 0.2),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: channel.color.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  )
+                : BoxDecoration(color: channel.color.withValues(alpha: 0.3)),
             child: Center(
-              child: Text('MASTER', style: TextStyle(
-                color: FluxForgeTheme.textPrimary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              )),
+              child: Text(
+                'MASTER',
+                style: TextStyle(
+                  color: isGlassMode
+                      ? Colors.white.withValues(alpha: 0.95)
+                      : FluxForgeTheme.textPrimary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                  shadows: isGlassMode
+                      ? [
+                          Shadow(
+                            color: channel.color.withValues(alpha: 0.8),
+                            blurRadius: 6,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
             ),
           ),
 
@@ -731,23 +969,45 @@ class _MasterStrip extends StatelessWidget {
             ),
           ),
 
-          // dB display
+          // dB display with glow
           Container(
             padding: const EdgeInsets.all(4),
-            color: FluxForgeTheme.bgDeepest,
+            decoration: isGlassMode
+                ? BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    border: Border(
+                      top: BorderSide(
+                        color: channel.color.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  )
+                : const BoxDecoration(color: FluxForgeTheme.bgDeepest),
             child: Text(
               channel.volumeDbString,
               style: TextStyle(
-                color: FluxForgeTheme.textPrimary,
+                color: isGlassMode
+                    ? channel.color.withValues(alpha: 0.95)
+                    : FluxForgeTheme.textPrimary,
                 fontSize: 12,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
+                shadows: isGlassMode
+                    ? [
+                        Shadow(
+                          color: channel.color.withValues(alpha: 0.6),
+                          blurRadius: 4,
+                        ),
+                      ]
+                    : null,
               ),
             ),
           ),
         ],
       ),
     );
+
+    // Note: No BackdropFilter here - LowerZoneGlass already provides blur
+    return strip;
   }
 }
 
@@ -760,10 +1020,24 @@ class _SectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
     return Container(
       width: 2,
-      color: FluxForgeTheme.borderSubtle,
       margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: isGlassMode
+            ? Colors.white.withValues(alpha: 0.1)
+            : FluxForgeTheme.borderSubtle,
+        boxShadow: isGlassMode
+            ? [
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                ),
+              ]
+            : null,
+      ),
     );
   }
 }
@@ -772,20 +1046,26 @@ class _ToolbarButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+  final bool isGlassMode;
 
   const _ToolbarButton({
     required this.icon,
     required this.label,
     this.onPressed,
+    this.isGlassMode = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textColor = isGlassMode
+        ? LiquidGlassTheme.textSecondary
+        : FluxForgeTheme.textSecondary;
+
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: FluxForgeTheme.textSecondary),
+      icon: Icon(icon, size: 14, color: textColor),
       label: Text(label, style: FluxForgeTheme.labelTiny.copyWith(
-        color: FluxForgeTheme.textSecondary,
+        color: textColor,
       )),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -924,6 +1204,8 @@ class _VerticalFaderState extends State<_VerticalFader> {
 
   @override
   Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
     return Listener(
       onPointerSignal: _handleScroll,
       child: GestureDetector(
@@ -952,12 +1234,17 @@ class _VerticalFaderState extends State<_VerticalFader> {
 
             return Container(
               decoration: BoxDecoration(
-                color: FluxForgeTheme.bgDeepest,
-                borderRadius: BorderRadius.circular(2),
+                color: isGlassMode
+                    ? Colors.black.withValues(alpha: 0.3)
+                    : FluxForgeTheme.bgDeepest,
+                borderRadius: BorderRadius.circular(4),
+                border: isGlassMode
+                    ? Border.all(color: Colors.white.withValues(alpha: 0.08))
+                    : null,
               ),
               child: Stack(
                 children: [
-                  // Track
+                  // Track - enhanced Glass styling
                   Positioned(
                     left: 0,
                     right: 0,
@@ -965,10 +1252,36 @@ class _VerticalFaderState extends State<_VerticalFader> {
                     bottom: 4,
                     child: Center(
                       child: Container(
-                        width: 4,
+                        width: isGlassMode ? 6 : 4,
                         decoration: BoxDecoration(
-                          color: FluxForgeTheme.bgMid,
-                          borderRadius: BorderRadius.circular(2),
+                          gradient: isGlassMode
+                              ? LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    widget.color.withValues(alpha: 0.1),
+                                    widget.color.withValues(alpha: 0.25),
+                                    widget.color.withValues(alpha: 0.1),
+                                  ],
+                                )
+                              : null,
+                          color: isGlassMode ? null : FluxForgeTheme.bgMid,
+                          borderRadius: BorderRadius.circular(3),
+                          border: isGlassMode
+                              ? Border.all(
+                                  color: widget.color.withValues(alpha: 0.2),
+                                  width: 1,
+                                )
+                              : null,
+                          boxShadow: isGlassMode
+                              ? [
+                                  BoxShadow(
+                                    color: widget.color.withValues(alpha: 0.15),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                  ),
+                                ]
+                              : null,
                         ),
                       ),
                     ),
@@ -981,42 +1294,101 @@ class _VerticalFaderState extends State<_VerticalFader> {
                     top: (1 - _dbToNormalized(0)) * (height - 20) + 9,
                     child: Container(
                       height: 2,
-                      color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+                      decoration: BoxDecoration(
+                        color: isGlassMode
+                            ? Colors.white.withValues(alpha: 0.3)
+                            : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+                        boxShadow: isGlassMode
+                            ? [
+                                BoxShadow(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                ),
+                              ]
+                            : null,
+                      ),
                     ),
                   ),
 
-                  // Fader handle
+                  // Fader handle - enhanced Glass styling
                   Positioned(
                     left: 0,
                     right: 0,
                     top: faderPosition,
                     child: Container(
-                      height: 20,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      height: 24,
+                      margin: const EdgeInsets.symmetric(horizontal: 1),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            widget.color.withValues(alpha: 0.9),
-                            widget.color.withValues(alpha: 0.6),
-                          ],
+                          colors: isGlassMode
+                              ? [
+                                  widget.color,
+                                  widget.color.withValues(alpha: 0.7),
+                                  widget.color.withValues(alpha: 0.5),
+                                ]
+                              : [
+                                  widget.color.withValues(alpha: 0.9),
+                                  widget.color.withValues(alpha: 0.6),
+                                ],
+                          stops: isGlassMode ? const [0.0, 0.5, 1.0] : null,
                         ),
-                        borderRadius: BorderRadius.circular(3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                        borderRadius: BorderRadius.circular(6),
+                        border: isGlassMode
+                            ? Border.all(
+                                color: widget.color.withValues(alpha: 0.8),
+                                width: 1.5,
+                              )
+                            : null,
+                        boxShadow: isGlassMode
+                            ? [
+                                // Inner glow
+                                BoxShadow(
+                                  color: widget.color.withValues(alpha: 0.8),
+                                  blurRadius: 10,
+                                  spreadRadius: -2,
+                                ),
+                                // Outer glow
+                                BoxShadow(
+                                  color: widget.color.withValues(alpha: 0.5),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
+                                ),
+                                // Ambient glow
+                                BoxShadow(
+                                  color: widget.color.withValues(alpha: 0.3),
+                                  blurRadius: 24,
+                                  spreadRadius: 4,
+                                ),
+                              ]
+                            : [
+                                BoxShadow(
+                                  color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                       ),
                       child: Center(
                         child: Container(
                           width: double.infinity,
-                          height: 2,
+                          height: 3,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
-                          color: FluxForgeTheme.textPrimary.withValues(alpha: 0.5),
+                          decoration: BoxDecoration(
+                            color: isGlassMode
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : FluxForgeTheme.textPrimary.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(1.5),
+                            boxShadow: isGlassMode
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                      blurRadius: 4,
+                                    ),
+                                  ]
+                                : null,
+                          ),
                         ),
                       ),
                     ),
@@ -1046,14 +1418,21 @@ class _ChannelMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
 
         return Container(
           decoration: BoxDecoration(
-            color: FluxForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(2),
+            color: isGlassMode
+                ? Colors.black.withValues(alpha: 0.3)
+                : FluxForgeTheme.bgDeepest,
+            borderRadius: BorderRadius.circular(isGlassMode ? 4 : 2),
+            border: isGlassMode
+                ? Border.all(color: Colors.white.withValues(alpha: 0.08))
+                : null,
           ),
           child: Opacity(
             opacity: dimmed ? 0.3 : 1.0,
@@ -1063,6 +1442,7 @@ class _ChannelMeter extends StatelessWidget {
                 peakL: peakL,
                 peakR: peakR,
                 clipping: clipping,
+                isGlassMode: isGlassMode,
               ),
             ),
           ),
@@ -1076,11 +1456,13 @@ class _MeterPainter extends CustomPainter {
   final double peakL;
   final double peakR;
   final bool clipping;
+  final bool isGlassMode;
 
   _MeterPainter({
     required this.peakL,
     required this.peakR,
     required this.clipping,
+    this.isGlassMode = false,
   });
 
   @override
@@ -1095,9 +1477,13 @@ class _MeterPainter extends CustomPainter {
 
     // Clip indicator
     if (clipping) {
+      final clipPaint = Paint()..color = const Color(0xFFFF4444);
+      if (isGlassMode) {
+        clipPaint.maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 4);
+      }
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, 3),
-        Paint()..color = const Color(0xFFFF4444),
+        clipPaint,
       );
     }
   }
@@ -1110,31 +1496,67 @@ class _MeterPainter extends CustomPainter {
     final greenHeight = height * 0.6;
     final yellowHeight = height * 0.2;
 
+    // Glass mode colors with glow effect
+    final greenColor = isGlassMode ? const Color(0xFF40FF90) : const Color(0xFF40FF90);
+    final yellowColor = isGlassMode ? const Color(0xFFFFD93D) : const Color(0xFFFFD93D);
+    final redColor = isGlassMode ? const Color(0xFFFF4444) : const Color(0xFFFF4444);
+
     // Green section
     if (barHeight > 0) {
       final greenPart = barHeight.clamp(0.0, greenHeight);
+      final paint = Paint()..color = greenColor;
+      if (isGlassMode) {
+        paint.maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 2);
+      }
       canvas.drawRect(
         Rect.fromLTWH(x, height - greenPart, width, greenPart),
-        Paint()..color = const Color(0xFF40FF90),
+        paint,
       );
+      // Glow overlay for Glass mode
+      if (isGlassMode) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, height - greenPart, width, greenPart),
+          Paint()..color = greenColor.withValues(alpha: 0.3),
+        );
+      }
     }
 
     // Yellow section
     if (barHeight > greenHeight) {
       final yellowPart = (barHeight - greenHeight).clamp(0.0, yellowHeight);
+      final paint = Paint()..color = yellowColor;
+      if (isGlassMode) {
+        paint.maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 2);
+      }
       canvas.drawRect(
         Rect.fromLTWH(x, height - greenHeight - yellowPart, width, yellowPart),
-        Paint()..color = const Color(0xFFFFD93D),
+        paint,
       );
+      if (isGlassMode) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, height - greenHeight - yellowPart, width, yellowPart),
+          Paint()..color = yellowColor.withValues(alpha: 0.3),
+        );
+      }
     }
 
     // Red section
     if (barHeight > greenHeight + yellowHeight) {
       final redPart = barHeight - greenHeight - yellowHeight;
+      final paint = Paint()..color = redColor;
+      if (isGlassMode) {
+        paint.maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 3);
+      }
       canvas.drawRect(
         Rect.fromLTWH(x, y, width, redPart),
-        Paint()..color = const Color(0xFFFF4444),
+        paint,
       );
+      if (isGlassMode) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, width, redPart),
+          Paint()..color = redColor.withValues(alpha: 0.4),
+        );
+      }
     }
   }
 
@@ -1142,7 +1564,8 @@ class _MeterPainter extends CustomPainter {
   bool shouldRepaint(_MeterPainter oldDelegate) =>
       peakL != oldDelegate.peakL ||
       peakR != oldDelegate.peakR ||
-      clipping != oldDelegate.clipping;
+      clipping != oldDelegate.clipping ||
+      isGlassMode != oldDelegate.isGlassMode;
 }
 
 class _MiniButton extends StatelessWidget {
