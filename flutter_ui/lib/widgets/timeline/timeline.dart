@@ -292,9 +292,10 @@ class Timeline extends StatefulWidget {
   State<Timeline> createState() => _TimelineState();
 }
 
-class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin {
+class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   // Header width is now resizable (min 140, max 300)
-  double _headerWidth = 180;
+  // Default to max width for full visibility
+  double _headerWidth = 300;
   static const double _headerWidthMin = 140;
   static const double _headerWidthMax = 300;
   // Logic Pro style: taller tracks for better waveform visibility
@@ -312,6 +313,23 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   double _scrollVelocity = 0;
   static const double _friction = 0.92; // Deceleration factor (lower = faster stop)
   static const double _velocityThreshold = 0.5; // Stop when velocity below this
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMOOTH ZOOM ANIMATION SYSTEM (Logic Pro X / Cubase style)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Smooth animated zoom with cursor anchor point tracking.
+  // Key features:
+  // - easeOutCubic curve for natural DAW feel
+  // - Zoom anchored to cursor position (zoom-to-cursor)
+  // - 120ms animation duration (fast but noticeable smoothness)
+  // - Proper scroll offset compensation during animation
+  // ═══════════════════════════════════════════════════════════════════════════
+  late AnimationController _zoomAnimController;
+  double _animatedZoom = 50.0; // Local animated zoom value
+  double _zoomAnimStart = 50.0;
+  double _zoomAnimTarget = 50.0;
+  double _zoomAnchorTime = 0.0; // Time position to keep stable
+  double _zoomAnchorPixelX = 0.0; // Pixel X of anchor from timeline left
 
   bool _isDraggingPlayhead = false;
   bool _isDraggingLoopLeft = false;
@@ -366,6 +384,13 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     _momentumController = AnimationController.unbounded(vsync: this)
       ..addListener(_applyMomentum);
 
+    // Smooth zoom animation controller (30ms for instant response)
+    _zoomAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 30),
+    )..addListener(_onZoomAnimationTick);
+    _animatedZoom = widget.zoom;
+
     // Auto-focus after first frame to enable keyboard shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -373,7 +398,18 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   }
 
   @override
+  void didUpdateWidget(Timeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync animated zoom with widget.zoom when changed externally
+    // (e.g., from zoom slider, but NOT during our animation)
+    if (!_zoomAnimController.isAnimating && widget.zoom != oldWidget.zoom) {
+      _animatedZoom = widget.zoom;
+    }
+  }
+
+  @override
   void dispose() {
+    _zoomAnimController.dispose();
     _momentumController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -404,7 +440,14 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   void _startMomentum(double velocity) {
     _scrollVelocity = velocity;
     if (velocity.abs() > _velocityThreshold) {
-      _momentumController.repeat(); // Continuously call listener
+      // For unbounded controller, use animateTo with large target instead of repeat
+      // This avoids the "no default Duration" error with repeat()
+      _momentumController.stop();
+      _momentumController.value = 0;
+      _momentumController.animateTo(
+        1000000, // Large target - will be stopped by friction before reaching
+        duration: const Duration(seconds: 1000), // Long duration, friction stops it
+      );
     }
   }
 
@@ -413,6 +456,57 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     _momentumController.stop();
     _scrollVelocity = 0;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMOOTH ZOOM ANIMATION METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Called on each animation frame during zoom animation
+  void _onZoomAnimationTick() {
+    // Interpolate using easeOutCubic curve
+    final t = Curves.easeOutCubic.transform(_zoomAnimController.value);
+    final newZoom = _zoomAnimStart + (_zoomAnimTarget - _zoomAnimStart) * t;
+
+    // Update animated zoom locally (triggers repaint)
+    setState(() {
+      _animatedZoom = newZoom;
+    });
+
+    // Calculate new scroll offset to keep anchor point stable (zoom-to-cursor)
+    if (_zoomAnchorPixelX > 0) {
+      final newScrollOffset = _zoomAnchorTime - _zoomAnchorPixelX / newZoom;
+      // Notify scroll on each frame for smooth scrolling
+      _notifyScrollChange(newScrollOffset.clamp(0.0, double.infinity));
+    }
+
+    // Only notify parent of FINAL zoom value when animation completes
+    // This prevents feedback loop and unnecessary parent rebuilds during animation
+    if (_zoomAnimController.isCompleted) {
+      _notifyZoomChange(_zoomAnimTarget);
+    }
+  }
+
+  /// Start smooth zoom animation to target zoom level
+  /// [targetZoom] - Target zoom in pixels per second
+  /// [anchorPixelX] - Pixel X position from timeline left to keep stable (cursor position)
+  void _animateZoomTo(double targetZoom, double anchorPixelX) {
+    // Clamp to valid range
+    targetZoom = targetZoom.clamp(0.1, 5000.0);
+
+    // Store animation parameters
+    _zoomAnimStart = _animatedZoom;
+    _zoomAnimTarget = targetZoom;
+
+    // Calculate anchor time (time position at anchor pixel)
+    _zoomAnchorPixelX = anchorPixelX;
+    _zoomAnchorTime = widget.scrollOffset + anchorPixelX / _animatedZoom;
+
+    // Start animation from beginning
+    _zoomAnimController.forward(from: 0.0);
+  }
+
+  /// Get effective zoom value (animated local value during animation, widget value otherwise)
+  double get _effectiveZoom => _zoomAnimController.isAnimating ? _animatedZoom : widget.zoom;
 
   /// PERFORMANCE: Debounced zoom change notification
   /// Coalesces rapid zoom events to prevent parent rebuild storm
@@ -459,7 +553,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     }
   }
 
-  double get _playheadX => (widget.playheadPosition - widget.scrollOffset) * widget.zoom;
+  double get _playheadX => (widget.playheadPosition - widget.scrollOffset) * _effectiveZoom;
 
   /// Get visible tracks (filter out hidden)
   List<TimelineTrack> get _visibleTracks =>
@@ -486,7 +580,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   /// Check if scrolling is needed (content extends beyond visible area)
   bool get _canScroll {
     if (_containerWidth <= 0) return false;
-    final visibleDuration = _containerWidth / widget.zoom;
+    final visibleDuration = _containerWidth / _effectiveZoom;
     // Allow scroll only if content end is beyond visible area
     return _contentEndTime > visibleDuration;
   }
@@ -562,29 +656,37 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
 
     if (isZoomModifier) {
       // ════════════════════════════════════════════════════════════════
-      // ZOOM TO CURSOR (Cubase/Logic style)
+      // SMOOTH ZOOM TO CURSOR (Logic Pro X / Cubase style)
       // ════════════════════════════════════════════════════════════════
+      // Animated zoom with easeOutCubic curve for professional DAW feel.
+      // Zoom anchored to cursor position for intuitive zoom-to-cursor.
       final mouseX = event.localPosition.dx - _headerWidth;
 
-      // Simple zoom factor based on scroll direction
+      // Accumulative zoom factor - chain zoom events during animation
+      // Aggressive 35% per step for fast, responsive zooming
       final zoomIn = event.scrollDelta.dy < 0;
-      final zoomFactor = zoomIn ? 1.15 : 0.87;
+      final zoomFactor = zoomIn ? 1.35 : 0.74;
 
-      final newZoom = (widget.zoom * zoomFactor).clamp(0.1, 5000.0);
+      // If animation is running, use current animated zoom as base
+      // This allows smooth chained zooming during continuous scroll
+      final currentZoom = _zoomAnimController.isAnimating ? _zoomAnimTarget : _animatedZoom;
+      final newZoom = (currentZoom * zoomFactor).clamp(0.1, 5000.0);
 
       if (mouseX > 0 && _containerWidth > 0) {
-        // Time position under cursor before zoom
-        final mouseTime = widget.scrollOffset + mouseX / widget.zoom;
+        // SMOOTH ANIMATED ZOOM TO CURSOR
+        // Store new target and restart/continue animation
+        _zoomAnimTarget = newZoom;
 
-        // Calculate new scroll offset to keep cursor position stable
-        final newScrollOffset = mouseTime - mouseX / newZoom;
-
-        _notifyZoomChange(newZoom);
-        _notifyScrollChange(newScrollOffset.clamp(
-            0.0, (widget.totalDuration - _containerWidth / newZoom).clamp(0.0, double.infinity)));
+        if (!_zoomAnimController.isAnimating) {
+          // Start new animation
+          _animateZoomTo(newZoom, mouseX);
+        } else {
+          // Update target for running animation (chained zooming)
+          // Animation tick will interpolate to new target
+        }
       } else {
-        // Mouse over header - zoom without cursor tracking
-        _notifyZoomChange(newZoom);
+        // Mouse over header - zoom from center
+        _animateZoomTo(newZoom, _containerWidth / 2);
       }
     } else {
       // ════════════════════════════════════════════════════════════════
@@ -1032,11 +1134,11 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       }
     }
 
-    // G - Zoom out centered on PLAYHEAD
+    // G - Zoom out centered on PLAYHEAD (aggressive 30% per keypress)
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyG) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-      final newZoom = (widget.zoom * 0.92).clamp(0.1, 5000.0);
+      final newZoom = (widget.zoom * 0.70).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
       _notifyZoomChange(newZoom);
       _notifyScrollChange(newScrollOffset.clamp(0.0,
@@ -1044,11 +1146,11 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
       return KeyEventResult.handled;
     }
 
-    // H - Zoom in centered on PLAYHEAD
+    // H - Zoom in centered on PLAYHEAD (aggressive 40% per keypress)
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyH) {
       final playheadTime = widget.playheadPosition;
       final playheadX = (playheadTime - widget.scrollOffset) * widget.zoom;
-      final newZoom = (widget.zoom * 1.08).clamp(0.1, 5000.0);
+      final newZoom = (widget.zoom * 1.40).clamp(0.1, 5000.0);
       final newScrollOffset = playheadTime - playheadX / newZoom;
       _notifyZoomChange(newZoom);
       _notifyScrollChange(newScrollOffset.clamp(0.0,
@@ -1377,7 +1479,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                     trackHeight: trackHeight,
                     clips: trackClips,
                     crossfades: trackCrossfades,
-                    zoom: widget.zoom,
+                    zoom: _effectiveZoom,
                     scrollOffset: widget.scrollOffset,
                     tempo: widget.tempo,
                     timeSignatureNum: widget.timeSignatureNum,
@@ -1432,7 +1534,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   }) {
     return CompingView(
       compState: compState,
-      pixelsPerSecond: widget.zoom,
+      pixelsPerSecond: _effectiveZoom,
       scrollOffset: widget.scrollOffset,
       visibleWidth: _containerWidth,
       trackHeaderWidth: _headerWidth,
@@ -1482,7 +1584,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
           Expanded(
             child: AutomationLane(
               data: laneData,
-              zoom: widget.zoom,
+              zoom: _effectiveZoom,
               scrollOffset: widget.scrollOffset,
               width: _containerWidth,
               onDataChanged: (updatedLane) {
@@ -1608,7 +1710,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                             children: [
                               TimeRuler(
                                 width: _containerWidth,
-                                zoom: widget.zoom,
+                                zoom: _effectiveZoom,
                                 scrollOffset: widget.scrollOffset,
                                 tempo: widget.tempo,
                                 timeSignatureNum: widget.timeSignatureNum,
@@ -1729,7 +1831,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
 
                           // Markers
                           ...widget.markers.map((marker) {
-                            final x = (marker.time - widget.scrollOffset) * widget.zoom;
+                            final x = (marker.time - widget.scrollOffset) * _effectiveZoom;
                             if (x < 0 || x > _containerWidth) {
                               return const SizedBox.shrink();
                             }
@@ -1782,7 +1884,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                                 child: Opacity(
                                   opacity: 0.6,
                                   child: Container(
-                                    width: _draggingClip!.duration * widget.zoom,
+                                    width: _draggingClip!.duration * _effectiveZoom,
                                     height: _defaultTrackHeight - 4,
                                     decoration: BoxDecoration(
                                       color: (_draggingClip!.color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.7),
@@ -1838,7 +1940,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                           // Snap preview line (vertical line showing snap position)
                           if (_snapPreviewTime != null && widget.snapEnabled)
                             Positioned(
-                              left: (_snapPreviewTime! - widget.scrollOffset) * widget.zoom,
+                              left: (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom,
                               top: 0,
                               bottom: 0,
                               child: IgnorePointer(
@@ -1871,7 +1973,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '${widget.zoom.toStringAsFixed(0)}px/s',
+                          '${_effectiveZoom.toStringAsFixed(0)}px/s',
                           style: FluxForgeTheme.monoSmall,
                         ),
                       ],
@@ -2038,8 +2140,8 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
   Widget _buildLoopHandles() {
     if (widget.loopRegion == null) return const SizedBox.shrink();
 
-    final loopStartX = (widget.loopRegion!.start - widget.scrollOffset) * widget.zoom;
-    final loopEndX = (widget.loopRegion!.end - widget.scrollOffset) * widget.zoom;
+    final loopStartX = (widget.loopRegion!.start - widget.scrollOffset) * _effectiveZoom;
+    final loopEndX = (widget.loopRegion!.end - widget.scrollOffset) * _effectiveZoom;
     final loopWidth = (loopEndX - loopStartX).clamp(10.0, double.infinity);
 
     return Positioned(

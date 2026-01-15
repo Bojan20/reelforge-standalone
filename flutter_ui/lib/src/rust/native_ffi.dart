@@ -37,6 +37,26 @@ class WaveformPixelData {
   bool get isEmpty => mins.isEmpty;
 }
 
+/// Stereo pixel-exact waveform data
+/// Contains min/max/rms per pixel for BOTH left and right channels
+class StereoWaveformPixelData {
+  /// Left channel data
+  final WaveformPixelData left;
+  /// Right channel data
+  final WaveformPixelData right;
+
+  const StereoWaveformPixelData({
+    required this.left,
+    required this.right,
+  });
+
+  /// Number of pixels
+  int get length => left.length;
+
+  /// Check if empty
+  bool get isEmpty => left.isEmpty;
+}
+
 /// Tile query for batch waveform requests
 class WaveformTileQuery {
   final int clipId;
@@ -243,6 +263,10 @@ typedef EngineGetWaveformLodLevelsDart = int Function();
 // Pixel-exact waveform query (Cubase-style)
 typedef EngineQueryWaveformPixelsNative = Uint32 Function(Uint64 clipId, Uint64 startFrame, Uint64 endFrame, Uint32 numPixels, Pointer<Float> outData);
 typedef EngineQueryWaveformPixelsDart = int Function(int clipId, int startFrame, int endFrame, int numPixels, Pointer<Float> outData);
+
+// Stereo pixel-exact waveform query
+typedef EngineQueryWaveformPixelsStereoNative = Uint32 Function(Uint64 clipId, Uint64 startFrame, Uint64 endFrame, Uint32 numPixels, Pointer<Float> outData);
+typedef EngineQueryWaveformPixelsStereoDart = int Function(int clipId, int startFrame, int endFrame, int numPixels, Pointer<Float> outData);
 
 typedef EngineGetWaveformSampleRateNative = Uint32 Function(Uint64 clipId);
 typedef EngineGetWaveformSampleRateDart = int Function(int clipId);
@@ -1616,6 +1640,7 @@ class NativeFFI {
   late final EngineGetWaveformPeaksDart _getWaveformPeaks;
   late final EngineGetWaveformLodLevelsDart _getWaveformLodLevels;
   late final EngineQueryWaveformPixelsDart _queryWaveformPixels;
+  late final EngineQueryWaveformPixelsStereoDart _queryWaveformPixelsStereo;
   late final EngineGetWaveformSampleRateDart _getWaveformSampleRate;
   late final EngineGetWaveformTotalSamplesDart _getWaveformTotalSamples;
   late final EngineQueryWaveformTilesBatchDart _queryWaveformTilesBatch;
@@ -2134,6 +2159,7 @@ class NativeFFI {
     _getWaveformPeaks = _lib.lookupFunction<EngineGetWaveformPeaksNative, EngineGetWaveformPeaksDart>('engine_get_waveform_peaks');
     _getWaveformLodLevels = _lib.lookupFunction<EngineGetWaveformLodLevelsNative, EngineGetWaveformLodLevelsDart>('engine_get_waveform_lod_levels');
     _queryWaveformPixels = _lib.lookupFunction<EngineQueryWaveformPixelsNative, EngineQueryWaveformPixelsDart>('engine_query_waveform_pixels');
+    _queryWaveformPixelsStereo = _lib.lookupFunction<EngineQueryWaveformPixelsStereoNative, EngineQueryWaveformPixelsStereoDart>('engine_query_waveform_pixels_stereo');
     _getWaveformSampleRate = _lib.lookupFunction<EngineGetWaveformSampleRateNative, EngineGetWaveformSampleRateDart>('engine_get_waveform_sample_rate');
     _getWaveformTotalSamples = _lib.lookupFunction<EngineGetWaveformTotalSamplesNative, EngineGetWaveformTotalSamplesDart>('engine_get_waveform_total_samples');
     _queryWaveformTilesBatch = _lib.lookupFunction<EngineQueryWaveformTilesBatchNative, EngineQueryWaveformTilesBatchDart>('engine_query_waveform_tiles_batch');
@@ -2353,12 +2379,6 @@ class NativeFFI {
     _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
     _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
     _insertOpenEditor = _lib.lookupFunction<InsertOpenEditorNative, InsertOpenEditorDart>('insert_open_editor');
-
-    // Plugin State/Preset
-    _pluginGetState = _lib.lookupFunction<PluginGetStateNative, PluginGetStateDart>('plugin_get_state');
-    _pluginSetState = _lib.lookupFunction<PluginSetStateNative, PluginSetStateDart>('plugin_set_state');
-    _pluginSavePreset = _lib.lookupFunction<PluginSavePresetNative, PluginSavePresetDart>('plugin_save_preset');
-    _pluginLoadPreset = _lib.lookupFunction<PluginLoadPresetNative, PluginLoadPresetDart>('plugin_load_preset');
 
     // Transient Detection
     _transientDetect = _lib.lookupFunction<TransientDetectNative, TransientDetectDart>('transient_detect');
@@ -2963,6 +2983,43 @@ class NativeFFI {
       }
 
       return WaveformPixelData(mins: mins, maxs: maxs, rms: rms);
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Stereo pixel-exact waveform query
+  /// Returns StereoWaveformPixelData with min/max/rms per pixel for both L/R channels
+  StereoWaveformPixelData? queryWaveformPixelsStereo(int clipId, int startFrame, int endFrame, int numPixels) {
+    if (!_loaded || numPixels <= 0) return null;
+
+    // 6 floats per pixel: L_min, L_max, L_rms, R_min, R_max, R_rms
+    final buffer = calloc<Float>(numPixels * 6);
+    try {
+      final count = _queryWaveformPixelsStereo(clipId, startFrame, endFrame, numPixels, buffer);
+      if (count == 0) return null;
+
+      final leftMins = Float32List(count);
+      final leftMaxs = Float32List(count);
+      final leftRms = Float32List(count);
+      final rightMins = Float32List(count);
+      final rightMaxs = Float32List(count);
+      final rightRms = Float32List(count);
+
+      for (var i = 0; i < count; i++) {
+        final idx = i * 6;
+        leftMins[i] = buffer[idx];
+        leftMaxs[i] = buffer[idx + 1];
+        leftRms[i] = buffer[idx + 2];
+        rightMins[i] = buffer[idx + 3];
+        rightMaxs[i] = buffer[idx + 4];
+        rightRms[i] = buffer[idx + 5];
+      }
+
+      return StereoWaveformPixelData(
+        left: WaveformPixelData(mins: leftMins, maxs: leftMaxs, rms: leftRms),
+        right: WaveformPixelData(mins: rightMins, maxs: rightMaxs, rms: rightRms),
+      );
     } finally {
       calloc.free(buffer);
     }

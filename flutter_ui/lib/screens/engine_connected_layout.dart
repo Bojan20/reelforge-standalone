@@ -436,6 +436,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   @override
   void initState() {
     super.initState();
+
     // Set default tab based on initial mode
     _activeLowerTab = getDefaultTabForMode(_editorMode);
 

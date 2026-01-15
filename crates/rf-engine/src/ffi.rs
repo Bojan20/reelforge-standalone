@@ -1438,16 +1438,74 @@ pub extern "C" fn engine_query_waveform_pixels(
             num_pixels as usize,
         );
 
-        // Each bucket needs 3 slots (min, max, rms), so limit to num_pixels/3
-        let count = buckets.len().min((num_pixels as usize) / 3);
+        // Buffer has num_pixels * 3 floats (min, max, rms per pixel)
+        // buckets.len() == num_pixels (one bucket per requested pixel)
+        let count = buckets.len().min(num_pixels as usize);
 
         unsafe {
             for (i, b) in buckets.iter().take(count).enumerate() {
-                // SAFETY: i < count <= num_pixels/3, so i*3+2 < num_pixels
-                let idx = i.checked_mul(3).expect("overflow in bucket index");
+                // SAFETY: i < count <= num_pixels, buffer has num_pixels * 3 floats
+                let idx = i * 3;
                 *out_data.add(idx) = b.min;
                 *out_data.add(idx + 1) = b.max;
                 *out_data.add(idx + 2) = b.rms;
+            }
+        }
+
+        return count as u32;
+    }
+
+    0
+}
+
+/// Stereo pixel-exact waveform query
+///
+/// Returns min/max/rms data for each pixel column for BOTH channels.
+/// Output format: [L_min0, L_max0, L_rms0, R_min0, R_max0, R_rms0, ...]
+///
+/// Parameters:
+/// - clip_id: Clip to query
+/// - start_frame: Start frame in source audio
+/// - end_frame: End frame in source audio
+/// - num_pixels: Number of output pixels
+/// - out_data: Output buffer (must be num_pixels * 6 floats)
+///
+/// Returns: Number of pixels written, or 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_query_waveform_pixels_stereo(
+    clip_id: u64,
+    start_frame: u64,
+    end_frame: u64,
+    num_pixels: u32,
+    out_data: *mut f32,
+) -> u32 {
+    if out_data.is_null() || num_pixels == 0 {
+        return 0;
+    }
+
+    let key = format!("clip_{}", clip_id);
+
+    if let Some(waveform) = WAVEFORM_CACHE.cache.read().get(&key) {
+        let (left_buckets, right_buckets) = waveform.query_pixels(
+            start_frame as usize,
+            end_frame as usize,
+            num_pixels as usize,
+        );
+
+        let count = left_buckets.len().min(right_buckets.len()).min(num_pixels as usize);
+
+        unsafe {
+            for i in 0..count {
+                // 6 floats per pixel: L_min, L_max, L_rms, R_min, R_max, R_rms
+                let idx = i * 6;
+                let l = &left_buckets[i];
+                let r = &right_buckets[i];
+                *out_data.add(idx) = l.min;
+                *out_data.add(idx + 1) = l.max;
+                *out_data.add(idx + 2) = l.rms;
+                *out_data.add(idx + 3) = r.min;
+                *out_data.add(idx + 4) = r.max;
+                *out_data.add(idx + 5) = r.rms;
             }
         }
 

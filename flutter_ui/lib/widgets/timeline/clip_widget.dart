@@ -11,7 +11,6 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -510,13 +509,15 @@ class _ClipWidgetState extends State<ClipWidget> {
                   child: _UltimateClipWaveform(
                     clipId: clip.id,
                     waveform: clip.waveform!,
-                    waveformRight: clip.waveformRight, // Stereo support
+                    waveformRight: clip.waveformRight,
                     sourceOffset: clip.sourceOffset,
                     duration: clip.duration,
                     gain: clip.gain,
                     zoom: widget.zoom,
                     clipColor: clipColor,
                     trackHeight: widget.trackHeight,
+                    // Stereo if waveformRight exists or name suggests stereo file
+                    channels: clip.waveformRight != null ? 2 : 2, // Default to stereo for imported audio
                   ),
                 ),
 
@@ -830,6 +831,7 @@ class _UltimateClipWaveform extends StatefulWidget {
   final double zoom;
   final Color clipColor;
   final double trackHeight;
+  final int channels;
 
   const _UltimateClipWaveform({
     required this.clipId,
@@ -841,6 +843,7 @@ class _UltimateClipWaveform extends StatefulWidget {
     required this.zoom,
     required this.clipColor,
     required this.trackHeight,
+    this.channels = 2,
   });
 
   @override
@@ -852,7 +855,8 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   // 1024 gives good transient detail while staying fast
   static const int _fixedPixels = 1024;
 
-  WaveformPixelData? _cachedData;
+  // Stereo data cache (L/R channels)
+  StereoWaveformPixelData? _cachedStereoData;
   int _cachedClipId = 0;
   double _cachedSourceOffset = -1;
   double _cachedDuration = -1;
@@ -894,13 +898,13 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final startFrame = (widget.sourceOffset * sampleRate).round();
     final endFrame = ((widget.sourceOffset + widget.duration) * sampleRate).round();
 
-    // Render at FIXED resolution - GPU will scale this to any zoom level
-    final data = NativeFFI.instance.queryWaveformPixels(
+    // Render at FIXED resolution with STEREO data - GPU will scale to any zoom level
+    final stereoData = NativeFFI.instance.queryWaveformPixelsStereo(
       clipIdNum, startFrame, endFrame, _fixedPixels,
     );
 
-    if (data != null && !data.isEmpty) {
-      _cachedData = data;
+    if (stereoData != null && !stereoData.isEmpty) {
+      _cachedStereoData = stereoData;
       _cachedClipId = clipIdNum;
       _cachedSourceOffset = widget.sourceOffset;
       _cachedDuration = widget.duration;
@@ -909,24 +913,62 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.waveform.isEmpty && _cachedData == null) {
+    if (widget.waveform.isEmpty && _cachedStereoData == null) {
       return const SizedBox.shrink();
     }
 
     const waveColor = Color(0xFFFFFFFF);
 
-    // Cached path - GPU scales fixed-resolution waveform
-    if (_cachedData != null && !_cachedData!.isEmpty) {
+    // Cached stereo path - GPU scales fixed-resolution waveform
+    if (_cachedStereoData != null && !_cachedStereoData!.isEmpty) {
+      // For stereo (2 channels) AND tall track (> 80px), show split L/R display
+      // Otherwise show combined mono-style waveform (Pro Tools behavior)
+      final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 80;
+
+      if (showStereoSplit) {
+        return RepaintBoundary(
+          child: ClipRect(
+            child: Transform.scale(
+              scaleY: widget.gain,
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _StereoWaveformPainter(
+                  leftMins: _cachedStereoData!.left.mins,
+                  leftMaxs: _cachedStereoData!.left.maxs,
+                  leftRms: _cachedStereoData!.left.rms,
+                  rightMins: _cachedStereoData!.right.mins,
+                  rightMaxs: _cachedStereoData!.right.maxs,
+                  rightRms: _cachedStereoData!.right.rms,
+                  color: waveColor,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Default: Combined L+R display (mono-style, works at any height)
+      // Combine left and right channels for accurate stereo representation
+      final combinedMins = Float32List(_cachedStereoData!.left.mins.length);
+      final combinedMaxs = Float32List(_cachedStereoData!.left.maxs.length);
+      final combinedRms = Float32List(_cachedStereoData!.left.rms.length);
+      for (int i = 0; i < combinedMins.length; i++) {
+        // Take the most extreme values from both channels
+        combinedMins[i] = math.min(_cachedStereoData!.left.mins[i], _cachedStereoData!.right.mins[i]);
+        combinedMaxs[i] = math.max(_cachedStereoData!.left.maxs[i], _cachedStereoData!.right.maxs[i]);
+        combinedRms[i] = (_cachedStereoData!.left.rms[i] + _cachedStereoData!.right.rms[i]) / 2;
+      }
+
       return RepaintBoundary(
         child: ClipRect(
           child: Transform.scale(
             scaleY: widget.gain,
             child: CustomPaint(
-              size: Size.infinite, // Fill entire available space
+              size: Size.infinite,
               painter: _CubaseWaveformPainter(
-                mins: _cachedData!.mins,
-                maxs: _cachedData!.maxs,
-                rms: _cachedData!.rms,
+                mins: combinedMins,
+                maxs: combinedMaxs,
+                rms: combinedRms,
                 color: waveColor,
               ),
             ),
@@ -980,7 +1022,7 @@ class _CubaseWaveformPainter extends CustomPainter {
     if (mins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
     final centerY = size.height / 2;
-    final amplitude = centerY * 0.95;
+    final amplitude = centerY * 0.7;
     final numSamples = mins.length;
     final scaleX = size.width / numSamples;
 
@@ -1014,37 +1056,55 @@ class _CubaseWaveformPainter extends CustomPainter {
 
     wavePath.close();
 
-    // 1. Draw filled waveform with gradient
-    final gradient = ui.Gradient.linear(
-      Offset(0, centerY - amplitude),
-      Offset(0, centerY + amplitude),
-      [
-        color.withValues(alpha: 0.9),
-        color.withValues(alpha: 0.6),
-        color.withValues(alpha: 0.6),
-        color.withValues(alpha: 0.9),
-      ],
-      [0.0, 0.45, 0.55, 1.0],
-    );
+    // ══════════════════════════════════════════════════════════════════
+    // PRO TOOLS / CUBASE STYLE — SHARP TRANSIENT PEAKS
+    // ══════════════════════════════════════════════════════════════════
+    // Key: RMS is small/dark body, PEAKS are bright spikes above
+    // This makes transients "pop" visually
 
+    // 1. Draw RMS body FIRST (smaller, darker) - the "mass" of sound
+    if (rms.isNotEmpty) {
+      final rmsPath = Path();
+      // RMS is scaled down to ~45% to leave room for peak spikes
+      final rmsScale = 0.45;
+      rmsPath.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
+
+      for (int i = 1; i < numSamples; i++) {
+        rmsPath.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
+      }
+
+      for (int i = numSamples - 1; i >= 0; i--) {
+        rmsPath.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
+      }
+
+      rmsPath.close();
+
+      // RMS body - solid dark fill
+      canvas.drawPath(rmsPath, Paint()
+        ..color = color.withValues(alpha: 0.7)
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true);
+    }
+
+    // 2. Draw PEAK fill - lighter, shows transient extent above RMS
     canvas.drawPath(wavePath, Paint()
-      ..shader = gradient
+      ..color = color.withValues(alpha: 0.35)
       ..style = PaintingStyle.fill
       ..isAntiAlias = true);
 
-    // 2. Draw dark outline for peak definition (Cubase's amplitude marker)
+    // 3. Draw SHARP peak outline - bright, crisp transient spikes
     canvas.drawPath(wavePath, Paint()
-      ..color = color.withValues(alpha: 0.3)
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
       ..isAntiAlias = true);
 
-    // 3. Draw center line (zero crossing reference)
+    // 4. Center line (zero crossing) - very subtle
     canvas.drawLine(
       Offset(0, centerY),
       Offset(size.width, centerY),
       Paint()
-        ..color = color.withValues(alpha: 0.15)
+        ..color = color.withValues(alpha: 0.08)
         ..strokeWidth = 0.5,
     );
   }
@@ -1057,6 +1117,146 @@ class _CubaseWaveformPainter extends CustomPainter {
       color != oldDelegate.color;
 }
 
+// ============ Stereo Waveform Painter (L/R split) ============
+// Shows LEFT channel in top half, RIGHT channel in bottom half
+// Pro Tools / Cubase stereo display style
+
+class _StereoWaveformPainter extends CustomPainter {
+  final Float32List leftMins;
+  final Float32List leftMaxs;
+  final Float32List leftRms;
+  final Float32List rightMins;
+  final Float32List rightMaxs;
+  final Float32List rightRms;
+  final Color color;
+
+  _StereoWaveformPainter({
+    required this.leftMins,
+    required this.leftMaxs,
+    required this.leftRms,
+    required this.rightMins,
+    required this.rightMaxs,
+    required this.rightRms,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (leftMins.isEmpty || size.width <= 0 || size.height <= 0) return;
+
+    final numSamples = leftMins.length;
+
+    // Helper to map sample index to X coordinate
+    double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
+
+    // ══════════════════════════════════════════════════════════════════
+    // STEREO: Top half = LEFT, Bottom half = RIGHT
+    // Each channel gets its own centerline with amplitude expanding outward
+    // ══════════════════════════════════════════════════════════════════
+
+    final leftCenterY = size.height * 0.25;  // Center of top half
+    final rightCenterY = size.height * 0.75; // Center of bottom half
+    final channelHeight = size.height * 0.45; // Leave small gap between
+    final amplitude = channelHeight / 2;
+
+    // Draw LEFT channel (top half)
+    _drawChannel(canvas, size, sampleToX, leftCenterY, amplitude,
+        leftMins, leftMaxs, leftRms, numSamples);
+
+    // Draw RIGHT channel (bottom half)
+    _drawChannel(canvas, size, sampleToX, rightCenterY, amplitude,
+        rightMins, rightMaxs, rightRms, numSamples);
+
+    // Separator line between L/R (subtle)
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..strokeWidth = 0.5,
+    );
+  }
+
+  void _drawChannel(
+    Canvas canvas,
+    Size size,
+    double Function(int) sampleToX,
+    double centerY,
+    double amplitude,
+    Float32List mins,
+    Float32List maxs,
+    Float32List rms,
+    int numSamples,
+  ) {
+    // Build waveform envelope path
+    final wavePath = Path();
+    wavePath.moveTo(0, centerY - maxs[0] * amplitude);
+
+    // Top edge (max values)
+    for (int i = 1; i < numSamples; i++) {
+      wavePath.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
+    }
+
+    // Bottom edge (min values)
+    for (int i = numSamples - 1; i >= 0; i--) {
+      wavePath.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
+    }
+    wavePath.close();
+
+    // RMS body (smaller, darker)
+    if (rms.isNotEmpty) {
+      final rmsPath = Path();
+      const rmsScale = 0.45;
+      rmsPath.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
+
+      for (int i = 1; i < numSamples; i++) {
+        rmsPath.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
+      }
+
+      for (int i = numSamples - 1; i >= 0; i--) {
+        rmsPath.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
+      }
+      rmsPath.close();
+
+      canvas.drawPath(rmsPath, Paint()
+        ..color = color.withValues(alpha: 0.7)
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true);
+    }
+
+    // Peak fill
+    canvas.drawPath(wavePath, Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true);
+
+    // Peak outline
+    canvas.drawPath(wavePath, Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true);
+
+    // Center line
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      Paint()
+        ..color = color.withValues(alpha: 0.08)
+        ..strokeWidth = 0.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_StereoWaveformPainter oldDelegate) =>
+      leftMins != oldDelegate.leftMins ||
+      leftMaxs != oldDelegate.leftMaxs ||
+      leftRms != oldDelegate.leftRms ||
+      rightMins != oldDelegate.rightMins ||
+      rightMaxs != oldDelegate.rightMaxs ||
+      rightRms != oldDelegate.rightRms ||
+      color != oldDelegate.color;
+}
 
 // ============ Legacy Waveform Canvas (fallback) ============
 
