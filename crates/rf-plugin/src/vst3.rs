@@ -24,6 +24,15 @@ use crate::{
 /// Maximum parameter changes per audio block
 const MAX_PARAM_CHANGES: usize = 128;
 
+/// Result type for rack plugin loading
+type RackLoadResult = (
+    Option<Arc<Mutex<RackPlugin>>>,
+    Vec<ParameterInfo>,
+    usize, // input channels
+    usize, // output channels
+    usize, // latency
+);
+
 /// Lock-free parameter change queue entry
 #[derive(Debug, Clone, Copy)]
 struct ParamChange {
@@ -246,15 +255,7 @@ impl Vst3Host {
     }
 
     /// Load plugin using rack crate
-    fn load_with_rack(
-        path: &Path,
-    ) -> PluginResult<(
-        Option<Arc<Mutex<RackPlugin>>>,
-        Vec<ParameterInfo>,
-        usize,
-        usize,
-        usize,
-    )> {
+    fn load_with_rack(path: &Path) -> PluginResult<RackLoadResult> {
         use rack::prelude::*;
 
         // Create scanner
@@ -381,11 +382,10 @@ impl Vst3Host {
             }
 
             // Also update the rack plugin if available
-            if let Some(ref instance) = self.rack_plugin {
-                if let Some(mut plugin) = instance.try_lock() {
+            if let Some(ref instance) = self.rack_plugin
+                && let Some(mut plugin) = instance.try_lock() {
                     let _ = plugin.inner.set_parameter(change.id as usize, change.value as f32);
                 }
-            }
         }
     }
 
@@ -438,13 +438,12 @@ impl Vst3Host {
 
         // Copy input data to our buffers
         for ch in 0..in_channels {
-            if ch < input_bufs.len() {
-                if let Some(inp) = input.channel(ch) {
+            if ch < input_bufs.len()
+                && let Some(inp) = input.channel(ch) {
                     for (i, sample) in inp.iter().take(num_samples).enumerate() {
                         input_bufs[ch][i] = *sample;
                     }
                 }
-            }
         }
 
         // Create slices for rack API
@@ -468,15 +467,14 @@ impl Vst3Host {
 
         // Copy processed output back to AudioBuffer
         for ch in 0..out_channels {
-            if ch < output_bufs.len() {
-                if let Some(out_ch) = output.channel_mut(ch) {
+            if ch < output_bufs.len()
+                && let Some(out_ch) = output.channel_mut(ch) {
                     for (i, sample) in output_bufs[ch].iter().take(num_samples).enumerate() {
                         if i < out_ch.len() {
                             out_ch[i] = *sample;
                         }
                     }
                 }
-            }
         }
 
         Ok(())
@@ -604,13 +602,11 @@ impl PluginInstance for Vst3Host {
 
     fn get_parameter(&self, id: u32) -> Option<f64> {
         // Try to get from rack plugin first for real-time accuracy
-        if let Some(ref instance) = self.rack_plugin {
-            if let Some(plugin) = instance.try_lock() {
-                if let Ok(value) = plugin.inner.get_parameter(id as usize) {
+        if let Some(ref instance) = self.rack_plugin
+            && let Some(plugin) = instance.try_lock()
+                && let Ok(value) = plugin.inner.get_parameter(id as usize) {
                     return Some(value as f64);
                 }
-            }
-        }
         // Fallback to cached value
         self.state.read().param_values.get(id as usize).copied()
     }

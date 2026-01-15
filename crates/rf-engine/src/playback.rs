@@ -522,7 +522,7 @@ impl PlaybackPosition {
 
         // Loop within scrub window
         if new_pos >= window_size {
-            new_pos = new_pos % window_size.max(1);
+            new_pos %= window_size.max(1);
             looped = true;
         }
 
@@ -1033,6 +1033,20 @@ impl PlaybackEngine {
         match manager.try_read() {
             Some(gm) => gm.get_vca_contribution(track_id),
             None => 1.0, // Return unity gain if lock is contended
+        }
+    }
+
+    /// Check if track is muted by any VCA
+    /// Uses try_read to avoid blocking audio thread
+    fn is_vca_muted(&self, track_id: u64) -> bool {
+        let manager = match &self.group_manager {
+            Some(m) => m,
+            None => return false,
+        };
+
+        match manager.try_read() {
+            Some(gm) => gm.is_vca_muted(track_id),
+            None => false, // Return not muted if lock is contended
         }
     }
 
@@ -2015,8 +2029,9 @@ impl PlaybackEngine {
         // DashMap iter() returns references that auto-release shard locks
         for entry in self.track_manager.tracks.iter() {
             let track = entry.value();
-            // Skip muted tracks, or non-soloed tracks when solo is active
-            if track.muted || (solo_active && !track.soloed) {
+            // Skip muted tracks (including VCA mute), or non-soloed tracks when solo is active
+            let vca_muted = self.is_vca_muted(track.id.0);
+            if track.muted || vca_muted || (solo_active && !track.soloed) {
                 continue;
             }
 
@@ -2672,8 +2687,9 @@ impl PlaybackEngine {
         // DashMap iter() returns references that auto-release shard locks
         for track_entry in self.track_manager.tracks.iter() {
             let track = track_entry.value();
-            // Skip muted tracks, or non-soloed tracks when solo is active
-            if track.muted || (solo_active && !track.soloed) {
+            // Skip muted tracks (including VCA mute), or non-soloed tracks when solo is active
+            let vca_muted = self.is_vca_muted(track.id.0);
+            if track.muted || vca_muted || (solo_active && !track.soloed) {
                 continue;
             }
 
@@ -2867,8 +2883,9 @@ impl PlaybackEngine {
 
         for track_entry in self.track_manager.tracks.iter() {
             let track = track_entry.value();
-            // Skip muted tracks, or non-soloed tracks when solo is active
-            if track.muted || (solo_active && !track.soloed) {
+            // Skip muted tracks (including VCA mute), or non-soloed tracks when solo is active
+            let vca_muted = self.is_vca_muted(track.id.0);
+            if track.muted || vca_muted || (solo_active && !track.soloed) {
                 continue;
             }
 
@@ -3009,7 +3026,8 @@ impl PlaybackEngine {
             None => return,
         };
 
-        if track.muted {
+        // Check track mute AND VCA mute
+        if track.muted || self.is_vca_muted(track_id) {
             return;
         }
 

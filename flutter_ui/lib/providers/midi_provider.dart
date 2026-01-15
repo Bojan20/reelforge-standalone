@@ -12,6 +12,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -306,6 +307,8 @@ enum MidiRecordMode {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class MidiProvider extends ChangeNotifier {
+  final NativeFFI _ffi = NativeFFI.instance;
+
   // Per-track clip states
   final Map<String, List<MidiClip>> _clipsByTrack = {};
 
@@ -1049,12 +1052,24 @@ class MidiProvider extends ChangeNotifier {
 
   /// Scan for MIDI input devices
   Future<void> scanInputDevices() async {
-    // TODO: Get from FFI
     _inputDevices.clear();
-    _inputDevices.addAll([
-      const MidiInputDevice(id: 'virtual', name: 'Virtual Keyboard'),
-      // Add detected devices here
-    ]);
+
+    // Always include virtual keyboard
+    _inputDevices.add(const MidiInputDevice(id: 'virtual', name: 'Virtual Keyboard'));
+
+    // Scan real MIDI devices via FFI
+    final count = _ffi.midiScanInputDevices();
+    final deviceNames = _ffi.midiGetAllInputDevices();
+
+    for (int i = 0; i < deviceNames.length; i++) {
+      _inputDevices.add(MidiInputDevice(
+        id: 'midi_in_$i',
+        name: deviceNames[i],
+        isConnected: false,
+        isEnabled: false,
+      ));
+    }
+
     notifyListeners();
   }
 
@@ -1068,13 +1083,28 @@ class MidiProvider extends ChangeNotifier {
   void setInputDeviceEnabled(String deviceId, bool enabled) {
     final idx = _inputDevices.indexWhere((d) => d.id == deviceId);
     if (idx >= 0) {
-      _inputDevices[idx] = MidiInputDevice(
-        id: _inputDevices[idx].id,
-        name: _inputDevices[idx].name,
-        isConnected: _inputDevices[idx].isConnected,
-        isEnabled: enabled,
-      );
-      notifyListeners();
+      // Extract device index from ID (e.g., "midi_in_0" -> 0)
+      final deviceIndex = int.tryParse(deviceId.replaceFirst('midi_in_', ''));
+
+      bool success = true;
+      if (deviceId != 'virtual' && deviceIndex != null) {
+        if (enabled) {
+          success = _ffi.midiConnectInput(deviceIndex);
+        } else {
+          // Find connection index (simplified - assumes 1:1 mapping)
+          success = _ffi.midiDisconnectInput(deviceIndex);
+        }
+      }
+
+      if (success) {
+        _inputDevices[idx] = MidiInputDevice(
+          id: _inputDevices[idx].id,
+          name: _inputDevices[idx].name,
+          isConnected: enabled,
+          isEnabled: enabled,
+        );
+        notifyListeners();
+      }
     }
   }
 

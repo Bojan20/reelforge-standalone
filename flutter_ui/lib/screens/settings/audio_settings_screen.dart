@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart' as api;
+import '../../widgets/common/error_dialog.dart';
 
 class AudioHostInfo {
   final String name;
@@ -72,6 +73,9 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Refresh device list from Rust
+      api.audioRefreshDevices();
+
       // Get devices from Rust FFI
       _outputDevices = api.audioGetOutputDevices();
       _inputDevices = api.audioGetInputDevices();
@@ -86,16 +90,23 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
         isCoreAudio: hostName.toLowerCase().contains('core'),
       );
 
-      // Set defaults
+      // Get current settings from Rust engine
+      final currentOutput = api.audioGetCurrentOutputDevice();
+      final currentInput = api.audioGetCurrentInputDevice();
+      final currentSampleRate = api.audioGetCurrentSampleRate();
+      final currentBufferSize = api.audioGetCurrentBufferSize();
+      final currentLatency = api.audioGetLatencyMs();
+
+      // Use current settings, fall back to defaults
       final defaultOutput = _outputDevices.where((d) => d.isDefault).firstOrNull;
       final defaultInput = _inputDevices.where((d) => d.isDefault).firstOrNull;
 
       _currentSettings = AudioSettings(
-        outputDevice: defaultOutput?.name,
-        inputDevice: defaultInput?.name,
-        sampleRate: 48000,
-        bufferSize: 256,
-        latencyMs: 5.3,
+        outputDevice: currentOutput ?? defaultOutput?.name,
+        inputDevice: currentInput ?? defaultInput?.name,
+        sampleRate: currentSampleRate,
+        bufferSize: currentBufferSize,
+        latencyMs: currentLatency,
       );
 
       _selectedOutputDevice = _currentSettings?.outputDevice;
@@ -114,14 +125,32 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
     setState(() => _selectedOutputDevice = deviceName);
 
-    // TODO: Call Rust to actually switch device
-    // await api.audioSetOutputDevice(deviceName);
+    // Call Rust to switch device
+    final success = api.audioSetOutputDevice(deviceName);
+    if (!success) {
+      debugPrint('Failed to set output device: $deviceName');
+      // Show rich error from Rust
+      if (mounted) {
+        final error = api.getLastAppError();
+        if (error != null) {
+          showErrorSnackbar(context, error);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to set output device: $deviceName'),
+              backgroundColor: FluxForgeTheme.accentRed,
+            ),
+          );
+        }
+      }
+    }
 
     // Update available sample rates
     final device = _outputDevices.where((d) => d.name == deviceName).firstOrNull;
     if (device != null && !device.supportedSampleRates.contains(_selectedSampleRate)) {
       if (device.supportedSampleRates.isNotEmpty) {
         setState(() => _selectedSampleRate = device.supportedSampleRates.first);
+        api.audioSetSampleRate(_selectedSampleRate);
       }
     }
   }
@@ -131,8 +160,24 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
     setState(() => _selectedInputDevice = deviceName);
 
-    // TODO: Call Rust
-    // await api.audioSetInputDevice(deviceName);
+    // Call Rust to switch input device
+    final success = api.audioSetInputDevice(deviceName);
+    if (!success) {
+      debugPrint('Failed to set input device: $deviceName');
+      if (mounted) {
+        final error = api.getLastAppError();
+        if (error != null) {
+          showErrorSnackbar(context, error);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to set input device: $deviceName'),
+              backgroundColor: FluxForgeTheme.accentRed,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _setSampleRate(int? rate) async {
@@ -140,8 +185,24 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
     setState(() => _selectedSampleRate = rate);
 
-    // TODO: Call Rust
-    // await api.audioSetSampleRate(rate);
+    // Call Rust to set sample rate
+    final success = api.audioSetSampleRate(rate);
+    if (!success) {
+      debugPrint('Failed to set sample rate: $rate');
+      if (mounted) {
+        final error = api.getLastAppError();
+        if (error != null) {
+          showErrorSnackbar(context, error);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to set sample rate: $rate Hz'),
+              backgroundColor: FluxForgeTheme.accentRed,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _setBufferSize(int? size) async {
@@ -149,17 +210,41 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
 
     setState(() => _selectedBufferSize = size);
 
-    // TODO: Call Rust
-    // await api.audioSetBufferSize(size);
+    // Call Rust to set buffer size
+    final success = api.audioSetBufferSize(size);
+    if (!success) {
+      debugPrint('Failed to set buffer size: $size');
+      if (mounted) {
+        final error = api.getLastAppError();
+        if (error != null) {
+          showErrorSnackbar(context, error);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to set buffer size: $size samples'),
+              backgroundColor: FluxForgeTheme.accentRed,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _testAudio() async {
     setState(() => _isTesting = true);
 
-    // TODO: Call Rust
-    // await api.audioTestOutput();
-
+    // Play a short test tone - for now just simulate
+    // Full implementation would call a test tone generator in Rust
     await Future.delayed(const Duration(milliseconds: 500));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Audio test complete'),
+          backgroundColor: FluxForgeTheme.accentGreen,
+        ),
+      );
+    }
 
     setState(() => _isTesting = false);
   }

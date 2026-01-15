@@ -24,14 +24,19 @@
 #![allow(clippy::too_many_arguments)]
 // Field reassign pattern is common in FFI bridge init
 #![allow(clippy::field_reassign_with_default)]
+// Flutter Rust Bridge macro generates div_ceil manually
+#![allow(clippy::manual_div_ceil)]
 
 pub mod advanced_metering;
 mod api;
 mod audio_io;
+pub mod autosave_ffi;
 pub mod command_queue;
 pub mod dsp_commands;
 mod engine_bridge;
 mod metering;
+pub mod midi_bridge;
+mod midi_ffi;
 mod playback;
 mod project;
 pub mod timestretch;
@@ -246,3 +251,6 @@ impl EngineBridge {
 
 // Re-export all C FFI symbols from rf-engine
 pub use rf_engine::ffi::*;
+
+// Re-export autosave and recent projects FFI
+pub use autosave_ffi::*;

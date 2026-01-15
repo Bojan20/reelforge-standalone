@@ -15,6 +15,11 @@ rf-audio = { workspace = true }
 rf-state = { workspace = true }
 rf-file = { path = "../rf-file" }
 rf-plugin = { path = "../rf-plugin" }
+rf-video = { path = "../rf-video" }
+rf-master = { path = "../rf-master" }
+rf-restore = { path = "../rf-restore" }
+rf-ml = { path = "../rf-ml" }
+rf-script = { path = "../rf-script" }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
 crossbeam-channel = { workspace = true }

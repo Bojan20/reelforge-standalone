@@ -8,11 +8,13 @@
 //! - Parallel processing
 //! - Stem export
 
-use std::path::PathBuf;
+use std::mem::MaybeUninit;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::RwLock;
+use mp3lame_encoder::{Builder, FlushNoGap, InterleavedPcm};
 
 use crate::{AudioData, AudioFormat, BitDepth, FileError, FileResult, write_flac, write_wav};
 
@@ -699,10 +701,17 @@ impl OfflineRenderer {
                     self.config.export_format.bit_depth,
                 )?;
             }
-            AudioFormat::Mp3 | AudioFormat::Aac | AudioFormat::Ogg => {
-                // TODO: Lossy encoding
-                // Would use external encoder (lame, ffmpeg, etc.)
-                // For now, fall back to WAV
+            AudioFormat::Mp3 => {
+                // Use LAME encoder for MP3
+                write_mp3(
+                    output_path,
+                    &output_data,
+                    self.config.export_format.bitrate,
+                )?;
+            }
+            AudioFormat::Aac | AudioFormat::Ogg => {
+                // AAC/Ogg not yet implemented - fall back to WAV
+                log::warn!("AAC/Ogg encoding not implemented, falling back to WAV");
                 let wav_path = output_path.with_extension("wav");
                 write_wav(&wav_path, &output_data, self.config.export_format.bit_depth)?;
             }
@@ -816,6 +825,160 @@ impl StemExporter {
 
         Ok(exported)
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MP3 ENCODING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Quality preset for MP3 encoding
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mp3Quality {
+    /// Low quality (128 kbps VBR)
+    Low,
+    /// Medium quality (192 kbps VBR)
+    Medium,
+    /// High quality (256 kbps VBR)
+    High,
+    /// Maximum quality (320 kbps CBR)
+    #[default]
+    Maximum,
+}
+
+impl Mp3Quality {
+    /// Get VBR quality level (0 = best, 9 = worst)
+    pub fn vbr_quality(&self) -> u8 {
+        match self {
+            Mp3Quality::Low => 6,
+            Mp3Quality::Medium => 4,
+            Mp3Quality::High => 2,
+            Mp3Quality::Maximum => 0,
+        }
+    }
+
+    /// Get CBR bitrate in kbps
+    pub fn bitrate(&self) -> u32 {
+        match self {
+            Mp3Quality::Low => 128,
+            Mp3Quality::Medium => 192,
+            Mp3Quality::High => 256,
+            Mp3Quality::Maximum => 320,
+        }
+    }
+}
+
+/// Write audio data to MP3 file using LAME encoder
+pub fn write_mp3<P: AsRef<Path>>(
+    path: P,
+    data: &AudioData,
+    bitrate_kbps: u32,
+) -> FileResult<()> {
+    let path = path.as_ref();
+    let sample_rate = data.sample_rate;
+    let num_channels = data.num_channels();
+
+    // Validate parameters
+    if num_channels == 0 || num_channels > 2 {
+        return Err(FileError::WriteError(format!(
+            "MP3 only supports 1 or 2 channels, got {}",
+            num_channels
+        )));
+    }
+
+    // Build LAME encoder
+    let mut builder = Builder::new().ok_or_else(|| {
+        FileError::WriteError("Failed to create LAME encoder".to_string())
+    })?;
+
+    // Configure encoder
+    builder
+        .set_sample_rate(sample_rate)
+        .map_err(|e| FileError::WriteError(format!("Invalid sample rate: {:?}", e)))?;
+
+    builder
+        .set_num_channels(num_channels as u8)
+        .map_err(|e| FileError::WriteError(format!("Invalid channel count: {:?}", e)))?;
+
+    // Use CBR mode with specified bitrate
+    builder
+        .set_brate(mp3lame_encoder::Bitrate::Kbps320) // Start with max
+        .map_err(|e| FileError::WriteError(format!("Invalid bitrate: {:?}", e)))?;
+
+    // Select appropriate bitrate enum
+    let bitrate = match bitrate_kbps {
+        0..=96 => mp3lame_encoder::Bitrate::Kbps96,
+        97..=112 => mp3lame_encoder::Bitrate::Kbps112,
+        113..=128 => mp3lame_encoder::Bitrate::Kbps128,
+        129..=160 => mp3lame_encoder::Bitrate::Kbps160,
+        161..=192 => mp3lame_encoder::Bitrate::Kbps192,
+        193..=224 => mp3lame_encoder::Bitrate::Kbps224,
+        225..=256 => mp3lame_encoder::Bitrate::Kbps256,
+        _ => mp3lame_encoder::Bitrate::Kbps320,
+    };
+
+    builder
+        .set_brate(bitrate)
+        .map_err(|e| FileError::WriteError(format!("Failed to set bitrate: {:?}", e)))?;
+
+    // High quality encoding settings
+    builder
+        .set_quality(mp3lame_encoder::Quality::Best)
+        .map_err(|e| FileError::WriteError(format!("Failed to set quality: {:?}", e)))?;
+
+    // Build encoder
+    let mut encoder = builder
+        .build()
+        .map_err(|e| FileError::WriteError(format!("Failed to build encoder: {:?}", e)))?;
+
+    // Convert f64 samples to i16 interleaved
+    let num_samples = data.num_frames();
+    let mut interleaved = Vec::with_capacity(num_samples * num_channels);
+
+    for frame in 0..num_samples {
+        for ch in 0..num_channels {
+            let sample = data.channels[ch][frame];
+            // Clamp and convert to i16
+            let sample_i16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+            interleaved.push(sample_i16);
+        }
+    }
+
+    // Allocate output buffer (MP3 worst case: 1.25 * num_samples + 7200)
+    let max_output_size = (num_samples as f64 * 1.25) as usize + 7200;
+    let mut mp3_buffer: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); max_output_size];
+
+    // Encode
+    let input = InterleavedPcm(&interleaved);
+    let encoded_size = encoder
+        .encode(input, &mut mp3_buffer)
+        .map_err(|e| FileError::WriteError(format!("MP3 encoding failed: {:?}", e)))?;
+
+    // Flush encoder
+    let flush_size = encoder
+        .flush::<FlushNoGap>(&mut mp3_buffer[encoded_size..])
+        .map_err(|e| FileError::WriteError(format!("MP3 flush failed: {:?}", e)))?;
+
+    let total_size = encoded_size + flush_size;
+
+    // Convert MaybeUninit<u8> to u8 (safe because encoder initialized them)
+    let mp3_bytes: Vec<u8> = mp3_buffer[..total_size]
+        .iter()
+        .map(|m| unsafe { m.assume_init() })
+        .collect();
+
+    // Write to file
+    std::fs::write(path, &mp3_bytes)?;
+
+    log::info!(
+        "Wrote MP3: {} ({} kbps, {} channels, {} Hz, {} bytes)",
+        path.display(),
+        bitrate_kbps,
+        num_channels,
+        sample_rate,
+        total_size
+    );
+
+    Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

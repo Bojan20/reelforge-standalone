@@ -476,7 +476,7 @@ impl CompState {
 #[derive(Debug, Default)]
 pub struct CompingManager {
     /// Per-track comping state
-    states: HashMap<TrackId, CompState>,
+    pub states: HashMap<TrackId, CompState>,
 
     /// Next ID counters
     next_lane_id: u64,

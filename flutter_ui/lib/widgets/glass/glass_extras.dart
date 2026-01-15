@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/liquid_glass_theme.dart';
 import '../../providers/theme_mode_provider.dart';
-import '../../src/rust/native_ffi.dart';
+import '../../providers/plugin_provider.dart';
 
 // Browser imports
 import '../browser/audio_pool_panel.dart';
@@ -123,8 +123,8 @@ class ThemeAwareAudioPoolPanel extends StatelessWidget {
 // ==============================================================================
 
 class ThemeAwarePluginBrowser extends StatelessWidget {
-  final void Function(NativePluginInfo plugin)? onPluginSelected;
-  final void Function(NativePluginInfo plugin)? onPluginLoad;
+  final void Function(PluginInfo plugin)? onPluginSelected;
+  final void Function(PluginInfo plugin)? onPluginLoad;
 
   const ThemeAwarePluginBrowser({
     super.key,

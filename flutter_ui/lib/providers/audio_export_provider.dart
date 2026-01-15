@@ -15,6 +15,57 @@ import '../src/rust/engine_api.dart' as engine_api;
 
 // ============ Types ============
 
+/// Export format with FFI code mapping
+///
+/// Maps directly to Rust ExportFormat enum:
+/// - 0: Wav16 (16-bit PCM WAV)
+/// - 1: Wav24 (24-bit PCM WAV) - Default
+/// - 2: Wav32Float (32-bit Float WAV)
+/// - 3: Flac16 (FLAC 16-bit)
+/// - 4: Flac24 (FLAC 24-bit)
+/// - 5: Mp3_320 (MP3 320kbps)
+/// - 6: Mp3_256 (MP3 256kbps)
+/// - 7: Mp3_192 (MP3 192kbps)
+/// - 8: Mp3_128 (MP3 128kbps)
+enum ExportFormatType {
+  wav16(0, 'WAV 16-bit', 'wav'),
+  wav24(1, 'WAV 24-bit', 'wav'),
+  wav32float(2, 'WAV 32-bit Float', 'wav'),
+  flac16(3, 'FLAC 16-bit', 'flac'),
+  flac24(4, 'FLAC 24-bit', 'flac'),
+  mp3_320(5, 'MP3 320kbps', 'mp3'),
+  mp3_256(6, 'MP3 256kbps', 'mp3'),
+  mp3_192(7, 'MP3 192kbps', 'mp3'),
+  mp3_128(8, 'MP3 128kbps', 'mp3');
+
+  final int code;
+  final String label;
+  final String extension;
+
+  const ExportFormatType(this.code, this.label, this.extension);
+
+  /// Get format by code
+  static ExportFormatType fromCode(int code) {
+    return ExportFormatType.values.firstWhere(
+      (f) => f.code == code,
+      orElse: () => ExportFormatType.wav24,
+    );
+  }
+
+  /// Check if this is a lossless format
+  bool get isLossless => code <= 4;
+
+  /// Check if this is MP3
+  bool get isMp3 => code >= 5;
+
+  /// Check if this is FLAC
+  bool get isFlac => code == 3 || code == 4;
+
+  /// Check if this is WAV
+  bool get isWav => code <= 2;
+}
+
+// Legacy enum for backwards compatibility
 enum ExportFormat { wav, mp3 }
 
 enum ExportQuality { low, medium, high, lossless }
@@ -116,6 +167,157 @@ class AudioExportProvider extends ChangeNotifier {
 
   ExportProgress get progress => _progress;
   bool get isExporting => _isExporting;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FULL MIX EXPORT (via Rust engine)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Export full project mix to file using Rust engine
+  ///
+  /// This is the professional offline bounce that renders through
+  /// the entire engine (tracks + plugins + buses + master).
+  ///
+  /// [outputPath] - Full path to output file
+  /// [format] - See ExportFormatType for codes:
+  ///   0=WAV 16-bit, 1=WAV 24-bit, 2=WAV 32-bit float,
+  ///   3=FLAC 16-bit, 4=FLAC 24-bit,
+  ///   5=MP3 320kbps, 6=MP3 256kbps, 7=MP3 192kbps, 8=MP3 128kbps
+  /// [sampleRate] - Output sample rate (0 = use project rate)
+  /// [startTime] - Start time in seconds
+  /// [endTime] - End time in seconds
+  /// [normalize] - Normalize output to -0.1 dBFS
+  ///
+  /// Returns true on success
+  Future<bool> exportFullMix({
+    required String outputPath,
+    int format = 1, // Default to WAV 24-bit (ExportFormatType.wav24.code)
+    int sampleRate = 0, // 0 = use project rate
+    double startTime = 0.0,
+    double endTime = -1.0, // -1 = auto-detect from content
+    bool normalize = false,
+  }) async {
+    if (_isExporting) {
+      debugPrint('[AudioExport] Export already in progress');
+      return false;
+    }
+
+    _isExporting = true;
+    _aborted = false;
+    notifyListeners();
+
+    try {
+      _updateProgress(ExportStage.preparing, 0, 'Preparing full mix export...');
+
+      // Start export via FFI
+      _updateProgress(ExportStage.rendering, 0.1, 'Rendering full mix...');
+
+      // Call Rust engine for offline bounce
+      final success = engine_api.exportAudio(
+        outputPath,
+        format,
+        sampleRate,
+        startTime,
+        endTime,
+        normalize: normalize,
+      );
+
+      if (!success) {
+        throw Exception('Full mix export failed');
+      }
+
+      // Poll progress until complete
+      while (engine_api.exportIsExporting()) {
+        if (_aborted) {
+          // TODO: Add abort FFI function
+          throw Exception('Export aborted by user');
+        }
+
+        final progress = engine_api.exportGetProgress();
+        _updateProgress(
+          ExportStage.rendering,
+          0.1 + (progress / 100.0) * 0.85,
+          'Rendering... ${progress.toStringAsFixed(1)}%',
+        );
+
+        // Small delay to not spam updates
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      _updateProgress(
+        ExportStage.complete,
+        1.0,
+        'Full mix exported to $outputPath',
+      );
+
+      return true;
+    } catch (e) {
+      _updateProgress(ExportStage.error, 0, 'Full mix export failed: $e');
+      return false;
+    } finally {
+      _isExporting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Export full project mix with typed format
+  ///
+  /// Convenience wrapper for exportFullMix that uses ExportFormatType enum.
+  Future<bool> exportFullMixTyped({
+    required String outputPath,
+    ExportFormatType format = ExportFormatType.wav24,
+    int sampleRate = 0,
+    double startTime = 0.0,
+    double endTime = -1.0,
+    bool normalize = false,
+  }) {
+    return exportFullMix(
+      outputPath: outputPath,
+      format: format.code,
+      sampleRate: sampleRate,
+      startTime: startTime,
+      endTime: endTime,
+      normalize: normalize,
+    );
+  }
+
+  /// Export stems with typed format
+  ///
+  /// Convenience wrapper for exportStems that uses ExportFormatType enum.
+  Future<int> exportStemsTyped({
+    required String outputDir,
+    ExportFormatType format = ExportFormatType.wav24,
+    int sampleRate = 48000,
+    double startTime = 0,
+    double endTime = -1,
+    bool normalize = false,
+    bool includeBuses = true,
+    String prefix = '',
+  }) {
+    return exportStems(
+      outputDir: outputDir,
+      format: format.code,
+      sampleRate: sampleRate,
+      startTime: startTime,
+      endTime: endTime,
+      normalize: normalize,
+      includeBuses: includeBuses,
+      prefix: prefix,
+    );
+  }
+
+  /// Get export progress from Rust engine (0.0-100.0)
+  double getEngineExportProgress() {
+    return engine_api.exportGetProgress();
+  }
+
+  /// Check if Rust engine is currently exporting
+  bool isEngineExporting() {
+    return engine_api.exportIsExporting();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIP-BASED EXPORT (Dart implementation)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /// Export clips to WAV file
   Future<Uint8List?> exportMix({
@@ -221,7 +423,8 @@ class AudioExportProvider extends ChangeNotifier {
   /// Export stems (individual tracks) to separate files
   ///
   /// [outputDir] - Directory to export stems to
-  /// [format] - 0=WAV 16-bit, 1=WAV 24-bit, 2=WAV 32-bit float
+  /// [format] - See ExportFormatType for codes (0-8)
+  /// [sampleRate] - Output sample rate
   /// [startTime] - Start time in seconds
   /// [endTime] - End time in seconds
   /// [normalize] - Whether to normalize each stem

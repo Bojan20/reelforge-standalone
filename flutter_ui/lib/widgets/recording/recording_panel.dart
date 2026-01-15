@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/recording_provider.dart';
-// import '../../providers/track_provider.dart';  // TODO: Create TrackProvider
+import '../../providers/track_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class RecordingPanel extends StatefulWidget {
@@ -272,19 +272,58 @@ class _RecordingPanelState extends State<RecordingPanel> {
       );
     }
 
-    // TODO: Replace with actual track list from TrackProvider
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: recording.armedCount,
-      itemBuilder: (context, index) {
-        // Mock track data until TrackProvider is implemented
-        return _ArmedTrackItem(
-          trackId: index,
-          trackName: 'Track ${index + 1}',
-          trackColor: FluxForgeTheme.accentBlue,
-          isRecording: recording.isRecording,
-          recordingPath: recording.getRecordingPath(index),
-          onDisarm: () => recording.disarmTrack(index),
+    // Use TrackProvider for armed tracks list
+    return Consumer<TrackProvider>(
+      builder: (context, trackProvider, _) {
+        final armedTracks = trackProvider.armedTracks;
+
+        if (armedTracks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.mic_none,
+                  size: 64,
+                  color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No Armed Tracks',
+                  style: TextStyle(
+                    color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Arm tracks from the mixer or timeline to start recording',
+                  style: TextStyle(
+                    color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: armedTracks.length,
+          itemBuilder: (context, index) {
+            final track = armedTracks[index];
+            return _ArmedTrackItem(
+              trackId: track.id,
+              trackName: track.name,
+              trackColor: Color(track.color),
+              isRecording: track.isRecording,
+              recordingPath: track.recordingPath,
+              onDisarm: () => trackProvider.disarmTrack(track.id),
+            );
+          },
         );
       },
     );

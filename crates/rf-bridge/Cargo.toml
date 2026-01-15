@@ -23,6 +23,9 @@ rf-plugin = { path = "../rf-plugin" }
 # Audio I/O
 cpal.workspace = true
 
+# MIDI I/O
+midir.workspace = true
+
 # Flutter-Rust bridge
 flutter_rust_bridge = "2.7"
 
@@ -43,5 +46,7 @@ log.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 once_cell = "1.20"
+lazy_static = "1.5"
 rayon.workspace = true
+dirs = "5.0"
 

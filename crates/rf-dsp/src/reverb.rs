@@ -177,8 +177,8 @@ impl ConvolutionReverb {
         let fft_size = PARTITION_SIZE * 2;
 
         // Copy buffers to avoid borrow issues
-        let input_l: Vec<f64> = self.input_buffer_l.iter().map(|&s| s as f64).collect();
-        let input_r: Vec<f64> = self.input_buffer_r.iter().map(|&s| s as f64).collect();
+        let input_l: Vec<f64> = self.input_buffer_l.to_vec();
+        let input_r: Vec<f64> = self.input_buffer_r.to_vec();
 
         // FFT the input buffer (now using O(n log n) rustfft)
         let input_fft_l = self.fft_forward(&input_l);

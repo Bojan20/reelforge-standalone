@@ -10,9 +10,11 @@
 //
 // Integration with rf-video via FFI
 
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../widgets/timeline/video_track.dart';
+import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROVIDER
@@ -83,30 +85,60 @@ class VideoProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: Call FFI to load video metadata and generate thumbnails
-      // For now, create placeholder clip
-
-      // Simulate loading progress
-      for (int i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 50));
-        _loadProgress = i / 10;
-        notifyListeners();
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) {
+        throw Exception('Native library not loaded');
       }
 
-      // Create clip with metadata
-      // In real implementation, this comes from FFI
-      _videoClip = VideoClip(
-        id: 'video-${DateTime.now().millisecondsSinceEpoch}',
-        path: path,
-        name: path.split('/').last,
-        startTime: 0,
-        duration: 60, // Placeholder - get from FFI
-        sourceDuration: 60,
-        frameRate: 24, // Detect from video
-        width: 1920,
-        height: 1080,
-        thumbnailInterval: 1.0,
-      );
+      // Add video track if needed
+      int trackId = ffi.videoGetTrackCount();
+      if (trackId == 0) {
+        trackId = ffi.videoAddTrack('Video');
+      }
+      _loadProgress = 0.2;
+      notifyListeners();
+
+      // Import video file
+      final clipId = ffi.videoImport(trackId, path, 0);
+      if (clipId == 0) {
+        throw Exception('Failed to import video: $path');
+      }
+      _loadProgress = 0.5;
+      notifyListeners();
+
+      // Get video info from engine
+      final infoJson = ffi.videoGetInfoJson(clipId);
+      if (infoJson != null) {
+        final info = jsonDecode(infoJson);
+        _videoClip = VideoClip(
+          id: 'video-$clipId',
+          path: path,
+          name: path.split('/').last,
+          startTime: 0,
+          duration: (info['duration_frames'] as int) / (info['frame_rate'] as num).toDouble(),
+          sourceDuration: (info['duration_frames'] as int) / (info['frame_rate'] as num).toDouble(),
+          frameRate: (info['frame_rate'] as num).toInt(),
+          width: info['width'] as int,
+          height: info['height'] as int,
+          thumbnailInterval: 1.0,
+        );
+      } else {
+        // Fallback if no info available
+        _videoClip = VideoClip(
+          id: 'video-$clipId',
+          path: path,
+          name: path.split('/').last,
+          startTime: 0,
+          duration: 60,
+          sourceDuration: 60,
+          frameRate: 24,
+          width: 1920,
+          height: 1080,
+          thumbnailInterval: 1.0,
+        );
+      }
+      _loadProgress = 0.8;
+      notifyListeners();
 
       _isLoading = false;
       notifyListeners();
@@ -124,21 +156,40 @@ class VideoProvider extends ChangeNotifier {
   Future<void> _generateThumbnails() async {
     if (_videoClip == null) return;
 
-    // TODO: Call FFI to generate thumbnail strip
-    // For now, leave thumbnails as null (empty state)
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
 
-    // Example FFI call structure:
-    // final thumbnailData = await EngineApi.generateVideoThumbnails(
-    //   _videoClip!.path,
-    //   width: 160,
-    //   intervalMs: 1000,
-    // );
-    // _videoClip = _videoClip!.copyWith(thumbnails: thumbnailData);
-    // notifyListeners();
+      // Parse clip ID from video clip id
+      final clipIdStr = _videoClip!.id.replaceFirst('video-', '');
+      final clipId = int.tryParse(clipIdStr) ?? 0;
+      if (clipId == 0) return;
+
+      // Generate thumbnails (160px wide, 1 frame per second)
+      final count = ffi.videoGenerateThumbnails(
+        clipId,
+        160,
+        _videoClip!.frameRate, // One thumbnail per second
+      );
+
+      debugPrint('Generated $count thumbnails for video clip $clipId');
+    } catch (e) {
+      debugPrint('Failed to generate thumbnails: $e');
+    }
   }
 
   /// Remove video
   void removeVideo() {
+    // Clear engine state
+    try {
+      final ffi = NativeFFI.instance;
+      if (ffi.isLoaded) {
+        ffi.videoClearAll();
+      }
+    } catch (e) {
+      debugPrint('Failed to clear video engine: $e');
+    }
+
     _videoClip = null;
     _currentFrame = null;
     notifyListeners();
@@ -232,6 +283,20 @@ class VideoProvider extends ChangeNotifier {
   /// Set current playback time (synced from main transport)
   void setCurrentTime(double time) {
     _currentTime = time.clamp(0.0, duration);
+
+    // Sync playhead to engine
+    try {
+      final ffi = NativeFFI.instance;
+      if (ffi.isLoaded) {
+        // Convert time to samples (assuming 48kHz sample rate)
+        const sampleRate = 48000;
+        final samples = ((_currentTime + _syncOffset) * sampleRate).toInt();
+        ffi.videoSetPlayhead(samples);
+      }
+    } catch (e) {
+      debugPrint('Failed to sync video playhead: $e');
+    }
+
     notifyListeners();
 
     // Update preview frame if preview is shown
@@ -250,7 +315,31 @@ class VideoProvider extends ChangeNotifier {
   /// Seek to timecode
   void seekToTimecode(String timecode) {
     // Parse timecode based on current format and seek
-    // TODO: Implement timecode parsing
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
+
+    double frameRate;
+    switch (_timecodeFormat) {
+      case TimecodeFormat.smpte24:
+        frameRate = 24.0;
+        break;
+      case TimecodeFormat.smpte25:
+        frameRate = 25.0;
+        break;
+      case TimecodeFormat.smpte2997df:
+        frameRate = 29.97;
+        break;
+      case TimecodeFormat.smpte30:
+        frameRate = 30.0;
+        break;
+      default:
+        return; // Can't parse frames or seconds formats
+    }
+
+    final seconds = ffi.videoParseTimecode(timecode, frameRate);
+    if (seconds >= 0) {
+      setCurrentTime(seconds);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -279,13 +368,28 @@ class VideoProvider extends ChangeNotifier {
   Future<void> _updatePreviewFrame() async {
     if (_videoClip == null) return;
 
-    // TODO: Call FFI to decode frame at current time
-    // final frame = await EngineApi.decodeVideoFrame(
-    //   _videoClip!.path,
-    //   timeSeconds: _currentTime + _syncOffset,
-    // );
-    // _currentFrame = frame;
-    // notifyListeners();
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+
+      // Parse clip ID
+      final clipIdStr = _videoClip!.id.replaceFirst('video-', '');
+      final clipId = int.tryParse(clipIdStr) ?? 0;
+      if (clipId == 0) return;
+
+      // Convert time to samples (assuming 48kHz sample rate)
+      const sampleRate = 48000;
+      final timeSamples = ((_currentTime + _syncOffset) * sampleRate).toInt();
+
+      // Get frame data from engine
+      final result = ffi.videoGetFrame(clipId, timeSamples);
+      if (result.data != null) {
+        _currentFrame = result.data;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Failed to update preview frame: $e');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -312,6 +416,26 @@ class VideoProvider extends ChangeNotifier {
   String formatTimecode(double time) {
     if (time < 0) time = 0;
 
+    // Use FFI for SMPTE formats when available
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      switch (_timecodeFormat) {
+        case TimecodeFormat.smpte24:
+          return ffi.videoFormatTimecode(time, 24.0, dropFrame: false);
+        case TimecodeFormat.smpte25:
+          return ffi.videoFormatTimecode(time, 25.0, dropFrame: false);
+        case TimecodeFormat.smpte2997df:
+          return ffi.videoFormatTimecode(time, 29.97, dropFrame: true);
+        case TimecodeFormat.smpte30:
+          return ffi.videoFormatTimecode(time, 30.0, dropFrame: false);
+        case TimecodeFormat.frames:
+          return '${timeToFrame(time)} frames';
+        case TimecodeFormat.seconds:
+          return time.toStringAsFixed(3);
+      }
+    }
+
+    // Fallback to local implementation if FFI not available
     switch (_timecodeFormat) {
       case TimecodeFormat.smpte24:
         return _formatSmpte(time, 24);

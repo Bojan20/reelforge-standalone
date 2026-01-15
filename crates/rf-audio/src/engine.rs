@@ -315,7 +315,7 @@ pub struct AudioEngine {
     /// Processor
     processor: Mutex<Box<dyn AudioProcessor>>,
     /// Engine running flag
-    running: AtomicBool,
+    running: Arc<AtomicBool>,
     /// Recording flush thread handle
     recorder_thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
@@ -347,7 +347,7 @@ impl AudioEngine {
             transport: Arc::new(TransportPosition::default()),
             recorder: Arc::new(AudioRecorder::new(recorder_config)),
             processor: Mutex::new(Box::new(PassthroughProcessor)),
-            running: AtomicBool::new(false),
+            running: Arc::new(AtomicBool::new(false)),
             recorder_thread: Mutex::new(None),
         }
     }
@@ -370,7 +370,7 @@ impl AudioEngine {
             transport: Arc::new(TransportPosition::default()),
             recorder: Arc::new(AudioRecorder::new(recorder_config)),
             processor: Mutex::new(Box::new(PassthroughProcessor)),
-            running: AtomicBool::new(false),
+            running: Arc::new(AtomicBool::new(false)),
             recorder_thread: Mutex::new(None),
         }
     }
@@ -561,12 +561,12 @@ impl AudioEngine {
 
         // Start recording flush thread
         let recorder_clone = Arc::clone(&self.recorder);
-        let running_flag = self.running.load(Ordering::Acquire);
+        let running_flag = Arc::clone(&self.running);
         let recorder_handle = thread::Builder::new()
             .name("audio-recorder-flush".into())
             .spawn(move || {
                 log::debug!("Recording flush thread started");
-                while running_flag {
+                while running_flag.load(Ordering::Acquire) {
                     // Flush pending samples to disk
                     if let Err(e) = recorder_clone.flush_pending() {
                         log::error!("Recording flush error: {}", e);
@@ -716,9 +716,11 @@ impl AudioEngine {
 
     /// Set recording output directory
     pub fn set_recording_output_dir(&self, path: std::path::PathBuf) {
-        let mut config = rf_file::recording::RecordingConfig::default();
-        config.output_dir = path;
-        config.sample_rate = self.sample_rate.load(Ordering::Relaxed);
+        let config = rf_file::recording::RecordingConfig {
+            output_dir: path,
+            sample_rate: self.sample_rate.load(Ordering::Relaxed),
+            ..Default::default()
+        };
         self.recorder.set_config(config);
     }
 

@@ -17,6 +17,7 @@ dirs-next = { workspace = true }
 
 # Core utilities
 parking_lot = { workspace = true }
+lazy_static = "1.5"
 crossbeam-channel = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }

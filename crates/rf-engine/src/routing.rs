@@ -72,6 +72,12 @@ pub enum RoutingCommand {
         send_index: usize,
         enabled: bool,
     },
+    /// Set send pan
+    SetSendPan {
+        from: ChannelId,
+        send_index: usize,
+        pan: f64,
+    },
 
     // Mixer state
     /// Set volume (fader)
@@ -132,6 +138,28 @@ pub enum RoutingCommand {
     SetLimiterThreshold { id: ChannelId, db: f64 },
     /// Set stereo width
     SetWidth { id: ChannelId, width: f64 },
+
+    // Plugin insert chain
+    /// Add plugin to insert chain
+    AddInsert {
+        id: ChannelId,
+        plugin_id: String,
+        slot_index: Option<usize>,
+    },
+    /// Remove plugin from insert chain
+    RemoveInsert { id: ChannelId, slot_index: usize },
+    /// Bypass/unbypass insert slot
+    SetInsertBypass {
+        id: ChannelId,
+        slot_index: usize,
+        bypass: bool,
+    },
+    /// Set insert wet/dry mix (0.0 - 1.0)
+    SetInsertMix {
+        id: ChannelId,
+        slot_index: usize,
+        mix: f64,
+    },
 }
 
 /// Response from audio thread (for async operations)
@@ -1544,6 +1572,17 @@ impl RoutingGraphRT {
                     }
             }
 
+            RoutingCommand::SetSendPan {
+                from,
+                send_index,
+                pan,
+            } => {
+                if let Some(channel) = self.graph.get_mut(from)
+                    && let Some(send) = channel.sends.get_mut(send_index) {
+                        send.pan = pan.clamp(-1.0, 1.0);
+                    }
+            }
+
             RoutingCommand::SetVolume { id, db } => {
                 if let Some(channel) = self.graph.get_mut(id) {
                     channel.set_fader(db);
@@ -1709,6 +1748,54 @@ impl RoutingGraphRT {
                 if let Some(channel) = self.graph.get_mut(id)
                     && let Some(strip) = channel.strip_mut() {
                         strip.set_width(width);
+                    }
+            }
+
+            // Plugin insert chain commands
+            RoutingCommand::AddInsert { id, plugin_id, slot_index } => {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(chain) = channel.plugin_chain_mut() {
+                        // Load plugin from PLUGIN_HOST
+                        if let Ok(plugin) = rf_plugin::load_plugin(&plugin_id) {
+                            match slot_index {
+                                Some(idx) => {
+                                    // Insert at specific index (not supported yet, just add)
+                                    let _ = chain.add(plugin);
+                                    log::info!("Added plugin {} at slot {} (requested {})", plugin_id, chain.len() - 1, idx);
+                                }
+                                None => {
+                                    let _ = chain.add(plugin);
+                                    log::info!("Added plugin {} at slot {}", plugin_id, chain.len() - 1);
+                                }
+                            }
+                        } else {
+                            log::error!("Failed to load plugin {} for insert chain", plugin_id);
+                        }
+                    }
+            }
+
+            RoutingCommand::RemoveInsert { id, slot_index } => {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(chain) = channel.plugin_chain_mut()
+                    && chain.remove(slot_index).is_some()
+                {
+                    log::info!("Removed plugin from slot {} on channel {:?}", slot_index, id);
+                }
+            }
+
+            RoutingCommand::SetInsertBypass { id, slot_index, bypass } => {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(chain) = channel.plugin_chain_mut()
+                    && let Some(slot) = chain.get(slot_index) {
+                        slot.set_bypass(bypass);
+                    }
+            }
+
+            RoutingCommand::SetInsertMix { id, slot_index, mix } => {
+                if let Some(channel) = self.graph.get_mut(id)
+                    && let Some(chain) = channel.plugin_chain_mut()
+                    && let Some(slot) = chain.get(slot_index) {
+                        slot.set_mix(mix as f32);
                     }
             }
         }

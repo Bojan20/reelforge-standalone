@@ -76,8 +76,29 @@ export 'project_history_provider.dart';
 // Auto-save
 export 'auto_save_provider.dart';
 
+// Recent Projects
+export 'recent_projects_provider.dart';
+
 // Audio Export
 export 'audio_export_provider.dart';
 
 // Session Persistence
 export 'session_persistence_provider.dart';
+
+// Error Handling
+export 'error_provider.dart';
+
+// Plugin Browser (hide PluginInfo to avoid conflict with mixer_dsp_provider.dart)
+export 'plugin_provider.dart' hide PluginInfo;
+
+// AI Mastering
+export 'mastering_provider.dart';
+
+// Audio Restoration
+export 'restoration_provider.dart';
+
+// ML/AI Processing
+export 'ml_provider.dart';
+
+// Lua Scripting
+export 'script_provider.dart';

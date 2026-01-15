@@ -24,6 +24,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -391,8 +392,33 @@ class EditModeProProvider extends ChangeNotifier {
   void setMode(EditMode mode) {
     if (_mode != mode) {
       _mode = mode;
+
+      // Sync with Rust engine
+      _syncModeToEngine(mode);
+
       onModeChanged?.call(mode);
       notifyListeners();
+    }
+  }
+
+  /// Sync edit mode to Rust engine
+  void _syncModeToEngine(EditMode mode) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+
+      // Map Flutter mode to Rust mode index
+      // Rust: 0=Slip, 1=Grid, 2=Shuffle, 3=Spot
+      final modeIndex = switch (mode) {
+        EditMode.slip => 0,
+        EditMode.grid => 1,
+        EditMode.shuffle => 2,
+        EditMode.spot => 3,
+      };
+
+      ffi.editModeSet(modeIndex);
+    } catch (e) {
+      debugPrint('Failed to sync edit mode to engine: $e');
     }
   }
 
@@ -415,7 +441,40 @@ class EditModeProProvider extends ChangeNotifier {
   void setGridResolution(GridResolution resolution) {
     if (_gridResolution != resolution) {
       _gridResolution = resolution;
+
+      // Sync with Rust engine
+      _syncGridResolutionToEngine(resolution);
+
       notifyListeners();
+    }
+  }
+
+  /// Sync grid resolution to Rust engine
+  void _syncGridResolutionToEngine(GridResolution resolution) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+
+      // Map Flutter resolution to Rust index
+      final resIndex = switch (resolution) {
+        GridResolution.bar => 0,
+        GridResolution.halfBar => 1,
+        GridResolution.beat => 2,
+        GridResolution.halfBeat => 3,
+        GridResolution.quarterBeat => 4,
+        GridResolution.eighth => 3,
+        GridResolution.sixteenth => 4,
+        GridResolution.thirtysecond => 5,
+        GridResolution.sixtyfourth => 6,
+        GridResolution.triplet => 7,
+        GridResolution.dotted => 8,
+        GridResolution.frames => 9,
+        GridResolution.samples => 10,
+      };
+
+      ffi.editModeSetGridResolution(resIndex);
+    } catch (e) {
+      debugPrint('Failed to sync grid resolution to engine: $e');
     }
   }
 
@@ -429,6 +488,17 @@ class EditModeProProvider extends ChangeNotifier {
   void setGridEnabled(bool enabled) {
     if (_gridEnabled != enabled) {
       _gridEnabled = enabled;
+
+      // Sync with Rust engine
+      try {
+        final ffi = NativeFFI.instance;
+        if (ffi.isLoaded) {
+          ffi.editModeSetGridEnabled(enabled);
+        }
+      } catch (e) {
+        debugPrint('Failed to sync grid enabled to engine: $e');
+      }
+
       notifyListeners();
     }
   }

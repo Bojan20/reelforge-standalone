@@ -44,6 +44,8 @@ import 'providers/groove_quantize_provider.dart';
 import 'providers/audio_alignment_provider.dart';
 import 'providers/scale_assistant_provider.dart';
 import 'providers/theme_mode_provider.dart';
+import 'providers/error_provider.dart';
+import 'providers/recent_projects_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,6 +85,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Auto-save
         ChangeNotifierProvider(create: (_) => AutoSaveProvider()),
+
+        // Recent Projects
+        ChangeNotifierProvider(create: (_) => RecentProjectsProvider()),
 
         // Audio export
         ChangeNotifierProvider(create: (_) => AudioExportProvider()),
@@ -149,6 +154,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Theme Mode (Classic/Liquid Glass toggle)
         ChangeNotifierProvider(create: (_) => ThemeModeProvider()),
+
+        // Error Handling
+        ChangeNotifierProvider(create: (_) => ErrorProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

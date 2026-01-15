@@ -12,6 +12,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/comping_models.dart';
+import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROVIDER
@@ -142,6 +143,12 @@ class CompingProvider extends ChangeNotifier {
   RecordingLane createLane(String trackId, {String? name, Color? color}) {
     var state = getOrCreateCompState(trackId);
 
+    // Sync to engine
+    final engineTrackId = int.tryParse(trackId) ?? 0;
+    if (engineTrackId > 0) {
+      _syncCreateLaneToEngine(engineTrackId);
+    }
+
     final laneId = 'lane-${DateTime.now().millisecondsSinceEpoch}';
     final newLane = RecordingLane(
       id: laneId,
@@ -160,6 +167,16 @@ class CompingProvider extends ChangeNotifier {
     _compStates[trackId] = state;
     notifyListeners();
     return newLane;
+  }
+
+  void _syncCreateLaneToEngine(int trackId) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      ffi.compingCreateLane(trackId);
+    } catch (e) {
+      debugPrint('Failed to sync lane to engine: $e');
+    }
   }
 
   /// Delete a lane
@@ -200,8 +217,24 @@ class CompingProvider extends ChangeNotifier {
     final state = _compStates[trackId];
     if (state == null) return;
 
+    // Sync to engine
+    final engineTrackId = int.tryParse(trackId) ?? 0;
+    if (engineTrackId > 0) {
+      _syncSetActiveLaneToEngine(engineTrackId, index);
+    }
+
     _compStates[trackId] = state.setActiveLane(index);
     notifyListeners();
+  }
+
+  void _syncSetActiveLaneToEngine(int trackId, int index) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      ffi.compingSetActiveLane(trackId, index);
+    } catch (e) {
+      debugPrint('Failed to sync active lane to engine: $e');
+    }
   }
 
   /// Toggle lane mute
@@ -304,6 +337,12 @@ class CompingProvider extends ChangeNotifier {
       throw StateError('No lane available for take');
     }
 
+    // Sync to engine
+    final engineTrackId = int.tryParse(trackId) ?? 0;
+    if (engineTrackId > 0) {
+      _syncAddTakeToEngine(engineTrackId, sourcePath, startTime, duration);
+    }
+
     final takeId = 'take-${DateTime.now().millisecondsSinceEpoch}';
     final take = Take(
       id: takeId,
@@ -320,6 +359,16 @@ class CompingProvider extends ChangeNotifier {
     _compStates[trackId] = state.addTake(take, laneId: targetLaneId);
     notifyListeners();
     return take;
+  }
+
+  void _syncAddTakeToEngine(int trackId, String sourcePath, double startTime, double duration) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      ffi.compingAddTake(trackId, sourcePath, startTime, duration);
+    } catch (e) {
+      debugPrint('Failed to sync take to engine: $e');
+    }
   }
 
   /// Delete a take
@@ -434,6 +483,13 @@ class CompingProvider extends ChangeNotifier {
   ) {
     var state = getOrCreateCompState(trackId);
 
+    // Sync to engine
+    final engineTrackId = int.tryParse(trackId) ?? 0;
+    final engineTakeId = int.tryParse(takeId.replaceAll('take-', '')) ?? 0;
+    if (engineTrackId > 0) {
+      _syncCreateRegionToEngine(engineTrackId, engineTakeId, startTime, endTime);
+    }
+
     final regionId = 'region-${DateTime.now().millisecondsSinceEpoch}';
     final region = CompRegion(
       id: regionId,
@@ -448,6 +504,16 @@ class CompingProvider extends ChangeNotifier {
     _compStates[trackId] = state.addCompRegion(region);
     notifyListeners();
     return region;
+  }
+
+  void _syncCreateRegionToEngine(int trackId, int takeId, double startTime, double endTime) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      ffi.compingCreateRegion(trackId, takeId, startTime, endTime);
+    } catch (e) {
+      debugPrint('Failed to sync comp region to engine: $e');
+    }
   }
 
   /// Delete a comp region
@@ -528,8 +594,29 @@ class CompingProvider extends ChangeNotifier {
     final state = _compStates[trackId];
     if (state == null) return;
 
+    // Sync to engine
+    final engineTrackId = int.tryParse(trackId) ?? 0;
+    if (engineTrackId > 0) {
+      _syncCompModeToEngine(engineTrackId, mode);
+    }
+
     _compStates[trackId] = state.copyWith(mode: mode);
     notifyListeners();
+  }
+
+  void _syncCompModeToEngine(int trackId, CompMode mode) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      final modeIndex = switch (mode) {
+        CompMode.single => 0,
+        CompMode.comp => 1,
+        CompMode.auditAll => 2,
+      };
+      ffi.compingSetMode(trackId, modeIndex);
+    } catch (e) {
+      debugPrint('Failed to sync comp mode to engine: $e');
+    }
   }
 
   /// Toggle between single and comp mode

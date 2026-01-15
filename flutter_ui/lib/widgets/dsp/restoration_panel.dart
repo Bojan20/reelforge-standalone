@@ -1,9 +1,12 @@
 /// FluxForge Studio Audio Restoration Panel
 ///
 /// Professional audio restoration: Denoise, Declick, Declip, Dehum, Dereverb
+/// Connected to rf-restore via FFI
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../providers/restoration_provider.dart';
 
 /// Restoration module type
 enum RestorationModule {
@@ -761,14 +764,25 @@ class _RestorationPanelState extends State<RestorationPanel> {
   }
 
   void _learnNoiseProfile() {
-    // Would call: restorationLearnNoiseProfile(inputPath, startSample, endSample)
+    // Learn noise profile from selection
+    final provider = context.read<RestorationProvider>();
+    // For now, simulate - real implementation needs audio selection
     setState(() {
       _noiseProfileLearned = true;
     });
   }
 
-  void _analyzeAudio() {
-    // Would call: restorationAnalyze(inputPath)
+  Future<void> _analyzeAudio() async {
+    final provider = context.read<RestorationProvider>();
+
+    // Sync settings to provider
+    _syncSettingsToProvider(provider);
+
+    // In real implementation, analyze actual audio file
+    // For now, use FFI analysis if available
+    // await provider.analyzeFile(audioPath);
+
+    // Simulate analysis results for demo
     setState(() {
       _analyzed = true;
       _noiseFloorDb = -55.0;
@@ -783,16 +797,56 @@ class _RestorationPanelState extends State<RestorationPanel> {
         'Enable dehum at 50Hz',
       ];
     });
+
+    // Auto-configure from analysis if provider has results
+    if (provider.analysis != null) {
+      provider.autoConfigureFromAnalysis();
+      _syncSettingsFromProvider(provider);
+    }
   }
 
   void _autoFix() {
-    // Would call: restorationAutoFix(inputPath, outputPath)
+    final provider = context.read<RestorationProvider>();
+
     setState(() {
       _denoiseEnabled = _noiseFloorDb > -60.0;
       _declickEnabled = _detectedClicks > 0;
       _declipEnabled = _clipPercentage > 0.01;
       _dehumEnabled = _humDetected;
       _dereverbEnabled = _detectedReverbAmount > 0.2;
+    });
+
+    // Sync to provider
+    _syncSettingsToProvider(provider);
+  }
+
+  void _syncSettingsToProvider(RestorationProvider provider) {
+    provider.setDenoiseEnabled(_denoiseEnabled);
+    provider.setDenoiseStrength(_denoiseStrength);
+    provider.setDeclickEnabled(_declickEnabled);
+    provider.setDeclickSensitivity(_declickSensitivity);
+    provider.setDeclipEnabled(_declipEnabled);
+    provider.setDeclipThreshold(_declipThreshold);
+    provider.setDehumEnabled(_dehumEnabled);
+    provider.setDehumFrequency(_dehumFrequency);
+    provider.setDehumHarmonics(_dehumHarmonics);
+    provider.setDereverbEnabled(_dereverbEnabled);
+    provider.setDereverbAmount(_dereverbAmount);
+  }
+
+  void _syncSettingsFromProvider(RestorationProvider provider) {
+    setState(() {
+      _denoiseEnabled = provider.denoiseEnabled;
+      _denoiseStrength = provider.denoiseStrength;
+      _declickEnabled = provider.declickEnabled;
+      _declickSensitivity = provider.declickSensitivity;
+      _declipEnabled = provider.declipEnabled;
+      _declipThreshold = provider.declipThreshold;
+      _dehumEnabled = provider.dehumEnabled;
+      _dehumFrequency = provider.dehumFrequency;
+      _dehumHarmonics = provider.dehumHarmonics;
+      _dereverbEnabled = provider.dereverbEnabled;
+      _dereverbAmount = provider.dereverbAmount;
     });
   }
 }

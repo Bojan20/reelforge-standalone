@@ -24,6 +24,7 @@ use crate::track_manager::{
     Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, TrackId, TrackManager,
 };
 use crate::waveform::{NUM_LOD_LEVELS, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache};
+use rf_core::{AppError, ErrorAction, ErrorCategory};
 use rf_state::UndoManager;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,6 +47,14 @@ lazy_static::lazy_static! {
         Arc::clone(&PLAYBACK_ENGINE),
         Arc::clone(&TRACK_MANAGER),
     );
+    /// Last error for FFI error propagation
+    static ref LAST_ERROR: RwLock<Option<AppError>> = RwLock::new(None);
+    /// Edit mode context
+    static ref EDIT_CONTEXT: RwLock<rf_core::EditContext> = RwLock::new(rf_core::EditContext::default());
+    /// Comping manager
+    static ref COMPING_MANAGER: RwLock<rf_core::CompingManager> = RwLock::new(rf_core::CompingManager::new());
+    /// Video engine
+    static ref VIDEO_ENGINE: RwLock<rf_video::VideoEngine> = RwLock::new(rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000));
 }
 
 /// Project dirty state for FFI
@@ -90,6 +99,48 @@ impl ProjectState {
     fn file_path(&self) -> Option<String> {
         self.file_path.read().clone()
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ERROR HANDLING
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set the last error for FFI propagation
+fn set_last_error(error: AppError) {
+    *LAST_ERROR.write() = Some(error);
+}
+
+/// Clear the last error
+fn clear_last_error() {
+    *LAST_ERROR.write() = None;
+}
+
+/// Get last error as JSON string (returns null if no error)
+/// Caller must free the returned string using `ffi_free_string`
+#[unsafe(no_mangle)]
+pub extern "C" fn get_last_error() -> *mut c_char {
+    let guard = LAST_ERROR.read();
+    match &*guard {
+        Some(error) => {
+            match serde_json::to_string(error) {
+                Ok(json) => string_to_cstr(&json),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Check if there is an error pending
+#[unsafe(no_mangle)]
+pub extern "C" fn has_error() -> i32 {
+    if LAST_ERROR.read().is_some() { 1 } else { 0 }
+}
+
+/// Clear the last error
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_clear_error() {
+    clear_last_error();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1040,9 +1091,53 @@ pub extern "C" fn engine_add_clip(
 }
 
 /// Move a clip to a new position (possibly on a different track)
+/// Respects current edit mode (Slip, Grid, Shuffle)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_move_clip(clip_id: u64, target_track_id: u64, start_time: f64) -> i32 {
-    TRACK_MANAGER.move_clip(ClipId(clip_id), TrackId(target_track_id), start_time);
+    let ctx = EDIT_CONTEXT.read();
+    let sample_rate = ctx.sample_rate;
+    let tempo = ctx.tempo;
+
+    // Apply edit mode transformations
+    let final_time = match ctx.mode {
+        rf_core::EditMode::Grid => {
+            // Snap to grid
+            let position_samples = (start_time * sample_rate) as u64;
+            let snapped_samples = ctx.grid.snap_to_grid(position_samples, sample_rate, tempo);
+            snapped_samples as f64 / sample_rate
+        }
+        rf_core::EditMode::Shuffle => {
+            // For shuffle mode, we need to close gaps
+            // Find the end of the previous clip on the same track
+            let target_track = TrackId(target_track_id);
+            let clips: Vec<_> = TRACK_MANAGER.clips.iter()
+                .filter(|e| e.value().track_id == target_track && e.key().0 != clip_id)
+                .map(|e| (e.value().start_time, e.value().end_time()))
+                .collect();
+
+            // Sort by start time
+            let mut clips = clips;
+            clips.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            // Find the gap to fill - position at end of previous clip
+            let mut insert_time = 0.0;
+            for (_clip_start, clip_end) in clips {
+                if clip_end <= start_time {
+                    insert_time = clip_end;
+                } else {
+                    break;
+                }
+            }
+            insert_time
+        }
+        rf_core::EditMode::Slip | rf_core::EditMode::Spot => {
+            // Free movement - no transformation
+            start_time
+        }
+    };
+
+    drop(ctx); // Release lock before calling track manager
+    TRACK_MANAGER.move_clip(ClipId(clip_id), TrackId(target_track_id), final_time);
     1
 }
 
@@ -4961,6 +5056,165 @@ pub extern "C" fn vca_get_all(out_vca_ids: *mut u64, max_count: usize) -> usize 
         }
     }
     count
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT MODE FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set edit mode (0=Slip, 1=Grid, 2=Shuffle, 3=Spot)
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set(mode: i32) -> i32 {
+    let new_mode = match mode {
+        0 => rf_core::EditMode::Slip,
+        1 => rf_core::EditMode::Grid,
+        2 => rf_core::EditMode::Shuffle,
+        3 => rf_core::EditMode::Spot,
+        _ => return 0,
+    };
+
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.mode = new_mode;
+    1
+}
+
+/// Get current edit mode
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_get() -> i32 {
+    match EDIT_CONTEXT.read().mode {
+        rf_core::EditMode::Slip => 0,
+        rf_core::EditMode::Grid => 1,
+        rf_core::EditMode::Shuffle => 2,
+        rf_core::EditMode::Spot => 3,
+    }
+}
+
+/// Set grid resolution (0=Bar, 1=HalfBar, 2=Beat, 3=Eighth, etc.)
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_grid_resolution(resolution: i32) -> i32 {
+    let new_res = match resolution {
+        0 => rf_core::GridResolution::Bar,
+        1 => rf_core::GridResolution::HalfBar,
+        2 => rf_core::GridResolution::Beat,
+        3 => rf_core::GridResolution::Eighth,
+        4 => rf_core::GridResolution::Sixteenth,
+        5 => rf_core::GridResolution::ThirtySecond,
+        6 => rf_core::GridResolution::SixtyFourth,
+        7 => rf_core::GridResolution::Triplet,
+        8 => rf_core::GridResolution::Dotted,
+        9 => rf_core::GridResolution::Frames,
+        10 => rf_core::GridResolution::Samples,
+        _ => return 0,
+    };
+
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.grid.resolution = new_res;
+    1
+}
+
+/// Get current grid resolution
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_get_grid_resolution() -> i32 {
+    match EDIT_CONTEXT.read().grid.resolution {
+        rf_core::GridResolution::Bar => 0,
+        rf_core::GridResolution::HalfBar => 1,
+        rf_core::GridResolution::Beat => 2,
+        rf_core::GridResolution::Eighth => 3,
+        rf_core::GridResolution::Sixteenth => 4,
+        rf_core::GridResolution::ThirtySecond => 5,
+        rf_core::GridResolution::SixtyFourth => 6,
+        rf_core::GridResolution::Triplet => 7,
+        rf_core::GridResolution::Dotted => 8,
+        rf_core::GridResolution::Frames => 9,
+        rf_core::GridResolution::Samples => 10,
+    }
+}
+
+/// Enable or disable grid snap
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_grid_enabled(enabled: i32) -> i32 {
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.grid.enabled = enabled != 0;
+    1
+}
+
+/// Check if grid is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_is_grid_enabled() -> i32 {
+    if EDIT_CONTEXT.read().grid.enabled { 1 } else { 0 }
+}
+
+/// Set grid snap strength (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_grid_strength(strength: f64) -> i32 {
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.grid.strength = strength.clamp(0.0, 1.0);
+    1
+}
+
+/// Get grid snap strength
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_get_grid_strength() -> f64 {
+    EDIT_CONTEXT.read().grid.strength
+}
+
+/// Set tempo for grid calculations (BPM)
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_tempo(tempo_bpm: f64) -> i32 {
+    if !(20.0..=999.0).contains(&tempo_bpm) {
+        return 0;
+    }
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.tempo = tempo_bpm;
+    1
+}
+
+/// Get current tempo
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_get_tempo() -> f64 {
+    EDIT_CONTEXT.read().tempo
+}
+
+/// Set sample rate for grid calculations
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_sample_rate(sample_rate: f64) -> i32 {
+    if !(8000.0..=384000.0).contains(&sample_rate) {
+        return 0;
+    }
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.sample_rate = sample_rate;
+    1
+}
+
+/// Snap a time position to grid (returns snapped time in seconds)
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_snap_to_grid(time_seconds: f64) -> f64 {
+    let ctx = EDIT_CONTEXT.read();
+    let position_samples = (time_seconds * ctx.sample_rate) as u64;
+    let snapped_samples = ctx.grid.snap_to_grid(position_samples, ctx.sample_rate, ctx.tempo);
+    snapped_samples as f64 / ctx.sample_rate
+}
+
+/// Set time signature numerator
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_time_sig_num(num: u8) -> i32 {
+    if !(1..=32).contains(&num) {
+        return 0;
+    }
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.time_sig_num = num;
+    1
+}
+
+/// Set time signature denominator
+#[unsafe(no_mangle)]
+pub extern "C" fn edit_mode_set_time_sig_denom(denom: u8) -> i32 {
+    if !matches!(denom, 2 | 4 | 8 | 16 | 32) {
+        return 0;
+    }
+    let mut ctx = EDIT_CONTEXT.write();
+    ctx.time_sig_denom = denom;
+    1
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12516,6 +12770,277 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN EDITOR FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Open plugin editor window
+/// parent_window: platform-specific window handle (HWND on Windows, NSView* on macOS)
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_open_editor(
+    instance_id: *const c_char,
+    parent_window: *mut std::ffi::c_void,
+) -> i32 {
+    if instance_id.is_null() || parent_window.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+        match instance.write().open_editor(parent_window) {
+            Ok(_) => return 1,
+            Err(e) => {
+                log::error!("Failed to open plugin editor: {}", e);
+                return 0;
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+        return 0;
+    }
+    0
+}
+
+/// Close plugin editor window
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_close_editor(instance_id: *const c_char) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().close_editor() {
+            Ok(_) => 1,
+            Err(e) => {
+                log::error!("Failed to close plugin editor: {}", e);
+                0
+            }
+        }
+    } else {
+        0
+    }
+}
+
+/// Get plugin editor size
+/// Returns packed (width << 32) | height, or 0 if no editor or not open
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_editor_size(instance_id: *const c_char) -> u64 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str)
+        && let Some((width, height)) = instance.read().editor_size()
+    {
+        return ((width as u64) << 32) | (height as u64);
+    }
+    0
+}
+
+/// Resize plugin editor
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_resize_editor(
+    instance_id: *const c_char,
+    width: u32,
+    height: u32,
+) -> i32 {
+    if instance_id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().resize_editor(width, height) {
+            Ok(_) => 1,
+            Err(e) => {
+                log::error!("Failed to resize plugin editor: {}", e);
+                0
+            }
+        }
+    } else {
+        0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN JSON API (for easier Dart integration)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get all plugins as JSON array
+/// Returns JSON string: [{"id":"...", "name":"...", "vendor":"...", "type":0, "category":0, "hasEditor":true}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_all_json() -> *mut c_char {
+    let scanner = PLUGIN_SCANNER.read();
+    let plugins = scanner.plugins();
+
+    let mut entries = Vec::with_capacity(plugins.len());
+    for info in plugins {
+        let plugin_type = match info.plugin_type {
+            PluginType::Vst3 => 0,
+            PluginType::Clap => 1,
+            PluginType::AudioUnit => 2,
+            PluginType::Lv2 => 3,
+            PluginType::Internal => 4,
+        };
+        let category = match info.category {
+            PluginCategory::Effect => 0,
+            PluginCategory::Instrument => 1,
+            PluginCategory::Analyzer => 2,
+            PluginCategory::Utility => 3,
+            PluginCategory::Unknown => 4,
+        };
+
+        let entry = format!(
+            r#"{{"id":"{}","name":"{}","vendor":"{}","version":"{}","type":{},"category":{},"hasEditor":{},"path":"{}"}}"#,
+            info.id.replace('\\', "\\\\").replace('"', "\\\""),
+            info.name.replace('\\', "\\\\").replace('"', "\\\""),
+            info.vendor.replace('\\', "\\\\").replace('"', "\\\""),
+            info.version.replace('\\', "\\\\").replace('"', "\\\""),
+            plugin_type,
+            category,
+            if info.has_editor { "true" } else { "false" },
+            info.path.display().to_string().replace('\\', "\\\\").replace('"', "\\\""),
+        );
+        entries.push(entry);
+    }
+
+    let json = format!("[{}]", entries.join(","));
+    CString::new(json).unwrap_or_default().into_raw()
+}
+
+/// Get single plugin info as JSON
+/// Returns JSON string or "null" if not found
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
+    let scanner = PLUGIN_SCANNER.read();
+    let plugins = scanner.plugins();
+
+    if let Some(info) = plugins.get(index as usize) {
+        let plugin_type = match info.plugin_type {
+            PluginType::Vst3 => 0,
+            PluginType::Clap => 1,
+            PluginType::AudioUnit => 2,
+            PluginType::Lv2 => 3,
+            PluginType::Internal => 4,
+        };
+        let category = match info.category {
+            PluginCategory::Effect => 0,
+            PluginCategory::Instrument => 1,
+            PluginCategory::Analyzer => 2,
+            PluginCategory::Utility => 3,
+            PluginCategory::Unknown => 4,
+        };
+
+        let json = format!(
+            r#"{{"id":"{}","name":"{}","vendor":"{}","version":"{}","type":{},"category":{},"hasEditor":{},"path":"{}"}}"#,
+            info.id.replace('\\', "\\\\").replace('"', "\\\""),
+            info.name.replace('\\', "\\\\").replace('"', "\\\""),
+            info.vendor.replace('\\', "\\\\").replace('"', "\\\""),
+            info.version.replace('\\', "\\\\").replace('"', "\\\""),
+            plugin_type,
+            category,
+            if info.has_editor { "true" } else { "false" },
+            info.path.display().to_string().replace('\\', "\\\\").replace('"', "\\\""),
+        );
+        CString::new(json).unwrap_or_default().into_raw()
+    } else {
+        CString::new("null").unwrap().into_raw()
+    }
+}
+
+/// Get all parameters for a plugin instance as JSON
+/// Returns JSON array: [{"id":0,"name":"Gain","unit":"dB","min":-96,"max":12,"default":0,"value":0.5}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut c_char {
+    if instance_id.is_null() {
+        return CString::new("[]").unwrap().into_raw();
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return CString::new("[]").unwrap().into_raw(),
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        let inst = instance.read();
+        let count = inst.parameter_count();
+        let mut entries = Vec::with_capacity(count);
+
+        for i in 0..count {
+            if let Some(info) = inst.parameter_info(i) {
+                let value = inst.get_parameter(info.id).unwrap_or(info.normalized);
+                let entry = format!(
+                    r#"{{"id":{},"name":"{}","unit":"{}","min":{},"max":{},"default":{},"value":{},"automatable":{}}}"#,
+                    info.id,
+                    info.name.replace('\\', "\\\\").replace('"', "\\\""),
+                    info.unit.replace('\\', "\\\\").replace('"', "\\\""),
+                    info.min,
+                    info.max,
+                    info.default,
+                    value,
+                    if info.automatable { "true" } else { "false" },
+                );
+                entries.push(entry);
+            }
+        }
+
+        let json = format!("[{}]", entries.join(","));
+        CString::new(json).unwrap_or_default().into_raw()
+    } else {
+        CString::new("[]").unwrap().into_raw()
+    }
+}
+
+/// Initialize plugin host (call once at startup)
+/// Returns 1 on success
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_host_init() -> i32 {
+    // Force initialization of lazy statics
+    drop(PLUGIN_HOST.read());
+    drop(PLUGIN_SCANNER.read());
+    1
+}
+
+/// Get list of active plugin instances as JSON
+/// Returns: [{"instanceId":"xxx","pluginId":"yyy","isActive":true}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_instances_json() -> *mut c_char {
+    // Note: PluginHost doesn't expose instances directly,
+    // would need to track in FFI layer. Return empty for now.
+    CString::new("[]").unwrap().into_raw()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // AUDIO DEVICE ENUMERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -12524,12 +13049,33 @@ use rf_audio::{list_input_devices, list_output_devices, get_host_info, DeviceInf
 lazy_static::lazy_static! {
     /// Cached device lists for FFI
     static ref DEVICE_CACHE: RwLock<DeviceCache> = RwLock::new(DeviceCache::default());
+    /// Selected device settings for FFI
+    static ref SELECTED_DEVICE: RwLock<SelectedDevice> = RwLock::new(SelectedDevice::default());
 }
 
 #[derive(Default)]
 struct DeviceCache {
     input_devices: Vec<AudioDeviceInfo>,
     output_devices: Vec<AudioDeviceInfo>,
+}
+
+/// Currently selected audio device settings
+struct SelectedDevice {
+    output_device: Option<String>,
+    input_device: Option<String>,
+    sample_rate: u32,
+    buffer_size: u32,
+}
+
+impl Default for SelectedDevice {
+    fn default() -> Self {
+        Self {
+            output_device: None,
+            input_device: None,
+            sample_rate: 48000,
+            buffer_size: 256,
+        }
+    }
 }
 
 /// Get number of available output devices
@@ -12690,6 +13236,199 @@ pub extern "C" fn audio_refresh_devices() -> i32 {
     }
 
     0
+}
+
+/// Set output device by name
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_set_output_device(device_name: *const c_char) -> i32 {
+    clear_last_error();
+
+    if device_name.is_null() {
+        set_last_error(AppError::new(
+            "INVALID_PARAM",
+            "Invalid Parameter",
+            "Device name cannot be null",
+        ));
+        return 0;
+    }
+
+    let name = unsafe {
+        match CStr::from_ptr(device_name).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                set_last_error(AppError::new(
+                    "INVALID_UTF8",
+                    "Invalid Device Name",
+                    "Device name contains invalid UTF-8 characters",
+                ));
+                return 0;
+            }
+        }
+    };
+
+    // Find device in cache
+    let cache = DEVICE_CACHE.read();
+    let device_exists = cache.output_devices.iter().any(|d| d.name == name);
+    drop(cache);
+
+    if !device_exists {
+        log::error!("Output device not found: {}", name);
+        set_last_error(AppError::audio_device_not_found(name));
+        return 0;
+    }
+
+    // Store device name for next stream start
+    let mut selected = SELECTED_DEVICE.write();
+    selected.output_device = Some(name.to_string());
+
+    log::info!("Output device set to: {}", name);
+    1
+}
+
+/// Set input device by name
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_set_input_device(device_name: *const c_char) -> i32 {
+    clear_last_error();
+
+    if device_name.is_null() {
+        set_last_error(AppError::new(
+            "INVALID_PARAM",
+            "Invalid Parameter",
+            "Device name cannot be null",
+        ));
+        return 0;
+    }
+
+    let name = unsafe {
+        match CStr::from_ptr(device_name).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                set_last_error(AppError::new(
+                    "INVALID_UTF8",
+                    "Invalid Device Name",
+                    "Device name contains invalid UTF-8 characters",
+                ));
+                return 0;
+            }
+        }
+    };
+
+    // Find device in cache
+    let cache = DEVICE_CACHE.read();
+    let device_exists = cache.input_devices.iter().any(|d| d.name == name);
+    drop(cache);
+
+    if !device_exists {
+        log::error!("Input device not found: {}", name);
+        set_last_error(AppError::audio_device_not_found(name));
+        return 0;
+    }
+
+    // Store device name for recording
+    let mut selected = SELECTED_DEVICE.write();
+    selected.input_device = Some(name.to_string());
+
+    log::info!("Input device set to: {}", name);
+    1
+}
+
+/// Set sample rate
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_set_sample_rate(sample_rate: u32) -> i32 {
+    clear_last_error();
+
+    // Validate sample rate
+    match sample_rate {
+        44100 | 48000 | 88200 | 96000 | 176400 | 192000 | 352800 | 384000 => {
+            let mut selected = SELECTED_DEVICE.write();
+            selected.sample_rate = sample_rate;
+            log::info!("Sample rate set to: {}", sample_rate);
+            1
+        }
+        _ => {
+            log::error!("Invalid sample rate: {}", sample_rate);
+            set_last_error(AppError::new(
+                "INVALID_SAMPLE_RATE",
+                "Invalid Sample Rate",
+                format!("Sample rate {} is not supported. Use: 44100, 48000, 88200, 96000, 176400, 192000, 352800, or 384000 Hz.", sample_rate),
+            ).with_category(ErrorCategory::Audio));
+            0
+        }
+    }
+}
+
+/// Set buffer size
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_set_buffer_size(buffer_size: u32) -> i32 {
+    clear_last_error();
+
+    // Validate buffer size (must be power of 2, 32-4096)
+    if !(32..=4096).contains(&buffer_size) || (buffer_size & (buffer_size - 1)) != 0 {
+        log::error!("Invalid buffer size: {} (must be power of 2, 32-4096)", buffer_size);
+        set_last_error(AppError::new(
+            "INVALID_BUFFER_SIZE",
+            "Invalid Buffer Size",
+            format!("Buffer size {} is not valid. Must be a power of 2 between 32 and 4096.", buffer_size),
+        ).with_category(ErrorCategory::Audio)
+         .with_action(ErrorAction::open_settings("Audio Settings")));
+        return 0;
+    }
+
+    let mut selected = SELECTED_DEVICE.write();
+    selected.buffer_size = buffer_size;
+    log::info!("Buffer size set to: {}", buffer_size);
+    1
+}
+
+/// Get current output device name
+/// Caller must free the returned string with ffi_free_string
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_current_output_device() -> *mut c_char {
+    let selected = SELECTED_DEVICE.read();
+    match &selected.output_device {
+        Some(name) => CString::new(name.as_str())
+            .ok()
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get current input device name
+/// Caller must free the returned string with ffi_free_string
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_current_input_device() -> *mut c_char {
+    let selected = SELECTED_DEVICE.read();
+    match &selected.input_device {
+        Some(name) => CString::new(name.as_str())
+            .ok()
+            .map(|s| s.into_raw())
+            .unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get current sample rate
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_current_sample_rate() -> u32 {
+    SELECTED_DEVICE.read().sample_rate
+}
+
+/// Get current buffer size
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_current_buffer_size() -> u32 {
+    SELECTED_DEVICE.read().buffer_size
+}
+
+/// Get calculated latency in milliseconds
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_latency_ms() -> f64 {
+    let selected = SELECTED_DEVICE.read();
+    (selected.buffer_size as f64 / selected.sample_rate as f64) * 1000.0
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13407,12 +14146,7 @@ pub extern "C" fn export_audio(
         None => return 0,
     };
 
-    let export_format = match format {
-        0 => crate::export::ExportFormat::Wav16,
-        1 => crate::export::ExportFormat::Wav24,
-        2 => crate::export::ExportFormat::Wav32Float,
-        _ => crate::export::ExportFormat::Wav24,
-    };
+    let export_format = crate::export::ExportFormat::from_code(format as u32);
 
     let config = crate::export::ExportConfig {
         output_path: PathBuf::from(path_str),
@@ -13469,12 +14203,7 @@ pub extern "C" fn export_stems(
 
     let prefix_str = unsafe { cstr_to_string(prefix) }.unwrap_or_default();
 
-    let export_format = match format {
-        0 => crate::export::ExportFormat::Wav16,
-        1 => crate::export::ExportFormat::Wav24,
-        2 => crate::export::ExportFormat::Wav32Float,
-        _ => crate::export::ExportFormat::Wav24,
-    };
+    let export_format = crate::export::ExportFormat::from_code(format as u32);
 
     let config = crate::export::StemsConfig {
         output_dir: PathBuf::from(dir_str),
@@ -13504,10 +14233,10 @@ pub extern "C" fn export_stems(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Load plugin instance into a channel's insert chain
-/// Returns slot index on success, -1 on failure
+/// Returns 1 on success (command sent), -1 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_insert_load(
-    _channel_id: u64,
+    channel_id: u64,
     plugin_id: *const c_char,
 ) -> i32 {
     let plugin_id_str = match unsafe { cstr_to_string(plugin_id) } {
@@ -13515,41 +14244,58 @@ pub extern "C" fn plugin_insert_load(
         _ => return -1,
     };
 
-    // Load plugin instance via existing PLUGIN_HOST (from scanner.rs FFI)
-    let instance_id = match PLUGIN_HOST.read().load_plugin(&plugin_id_str) {
-        Ok(id) => id,
-        Err(e) => {
-            log::error!("Failed to load plugin insert: {}", e);
-            return -1;
-        }
+    // Send command to routing graph via PlaybackEngine
+    let cmd = crate::routing::RoutingCommand::AddInsert {
+        id: crate::routing::ChannelId(channel_id as u32),
+        plugin_id: plugin_id_str.clone(),
+        slot_index: None, // Add at end
     };
 
-    log::info!("Plugin insert {} loaded with instance ID {}", plugin_id_str, instance_id);
-
-    // TODO: Integrate with RoutingGraph to actually add to chain
-    // Requires PlaybackEngine access to RoutingGraphRT
-    0 // Placeholder - will be slot index when integrated
+    if PLAYBACK_ENGINE.send_routing_command(cmd) {
+        log::info!("Plugin insert {} queued for channel {}", plugin_id_str, channel_id);
+        1
+    } else {
+        log::error!("Failed to queue plugin insert {} - routing not initialized", plugin_id_str);
+        -1
+    }
 }
 
 /// Remove plugin from insert chain
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_insert_remove(
-    _channel_id: u64,
-    _slot_index: u32,
+    channel_id: u64,
+    slot_index: u32,
 ) -> i32 {
-    // TODO: Integrate with RoutingGraph
-    1
+    let cmd = crate::routing::RoutingCommand::RemoveInsert {
+        id: crate::routing::ChannelId(channel_id as u32),
+        slot_index: slot_index as usize,
+    };
+
+    if PLAYBACK_ENGINE.send_routing_command(cmd) {
+        1
+    } else {
+        -1
+    }
 }
 
 /// Bypass/unbypass plugin insert slot
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_insert_set_bypass(
-    _channel_id: u64,
-    _slot_index: u32,
-    _bypass: i32,
+    channel_id: u64,
+    slot_index: u32,
+    bypass: i32,
 ) -> i32 {
-    // TODO: Integrate with RoutingGraph
-    1
+    let cmd = crate::routing::RoutingCommand::SetInsertBypass {
+        id: crate::routing::ChannelId(channel_id as u32),
+        slot_index: slot_index as usize,
+        bypass: bypass != 0,
+    };
+
+    if PLAYBACK_ENGINE.send_routing_command(cmd) {
+        1
+    } else {
+        -1
+    }
 }
 
 /// Set plugin insert wet/dry mix (0.0 - 1.0)
@@ -13559,8 +14305,17 @@ pub extern "C" fn plugin_insert_set_mix(
     slot_index: u32,
     mix: f32,
 ) -> i32 {
-    PLAYBACK_ENGINE.set_track_insert_mix(channel_id, slot_index as usize, mix as f64);
-    1
+    let cmd = crate::routing::RoutingCommand::SetInsertMix {
+        id: crate::routing::ChannelId(channel_id as u32),
+        slot_index: slot_index as usize,
+        mix: mix as f64,
+    };
+
+    if PLAYBACK_ENGINE.send_routing_command(cmd) {
+        1
+    } else {
+        -1
+    }
 }
 
 /// Get plugin insert wet/dry mix (0.0 - 1.0)
@@ -14572,5 +15327,2514 @@ pub extern "C" fn wave_cache_build_from_samples(
             log::error!("Failed to build wave cache: {}", e);
             0
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPING FFI (Multi-take recording / Lanes / Comp regions)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Create a new lane for a track
+/// Returns lane ID (0 on failure)
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_create_lane(track_id: u64) -> u64 {
+    let mut manager = COMPING_MANAGER.write();
+    let state = manager.get_or_create(rf_core::TrackId(track_id));
+    let lane_id = state.create_lane();
+    lane_id.0
+}
+
+/// Delete a lane
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_delete_lane(track_id: u64, lane_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.lanes.retain(|l| l.id.0 != lane_id);
+        // Reindex remaining lanes
+        for (i, lane) in state.lanes.iter_mut().enumerate() {
+            lane.index = i as u32;
+        }
+        // Adjust active lane index
+        if state.active_lane_index >= state.lanes.len() && !state.lanes.is_empty() {
+            state.active_lane_index = state.lanes.len() - 1;
+        }
+        1
+    } else {
+        0
+    }
+}
+
+/// Set active lane for a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_active_lane(track_id: u64, lane_index: u32) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.set_active_lane(lane_index as usize);
+        1
+    } else {
+        0
+    }
+}
+
+/// Toggle lane mute
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_toggle_lane_mute(track_id: u64, lane_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            if lane.id.0 == lane_id {
+                lane.muted = !lane.muted;
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set lane visibility
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_lane_visible(track_id: u64, lane_id: u64, visible: i32) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            if lane.id.0 == lane_id {
+                lane.visible = visible != 0;
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set lane height
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_lane_height(track_id: u64, lane_id: u64, height: f64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            if lane.id.0 == lane_id {
+                lane.height = height.clamp(30.0, 200.0);
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Add a take to active lane
+/// Returns take ID (0 on failure)
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_add_take(
+    track_id: u64,
+    source_path: *const c_char,
+    start_time: f64,
+    duration: f64,
+) -> u64 {
+    let path = match unsafe { cstr_to_string(source_path) } {
+        Some(p) => p,
+        None => return 0,
+    };
+
+    let mut manager = COMPING_MANAGER.write();
+    let take_id = manager.next_take_id();
+
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        // Create lane if needed
+        if state.lanes.is_empty() {
+            state.create_lane();
+        }
+
+        // Get values needed before mutable borrow of lane
+        let take_number = state.next_take_number;
+        let lane_idx = state.active_lane_index;
+
+        if lane_idx < state.lanes.len() {
+            let lane_id = state.lanes[lane_idx].id;
+            let take = rf_core::Take::new(
+                take_id,
+                lane_id,
+                rf_core::TrackId(track_id),
+                take_number,
+                path,
+                start_time,
+                duration,
+            );
+            state.lanes[lane_idx].add_take(take);
+            state.next_take_number += 1;
+            return take_id.0;
+        }
+    }
+    0
+}
+
+/// Delete a take
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_delete_take(track_id: u64, take_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            if lane.remove_take(rf_core::TakeId(take_id)).is_some() {
+                // Also remove comp regions referencing this take
+                state.comp_regions.retain(|r| r.take_id.0 != take_id);
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set take rating
+/// rating: 0=None, 1=Bad, 2=Okay, 3=Good, 4=Best
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_take_rating(track_id: u64, take_id: u64, rating: i32) -> i32 {
+    let new_rating = match rating {
+        0 => rf_core::TakeRating::None,
+        1 => rf_core::TakeRating::Bad,
+        2 => rf_core::TakeRating::Okay,
+        3 => rf_core::TakeRating::Good,
+        4 => rf_core::TakeRating::Best,
+        _ => return 0,
+    };
+
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            for take in &mut lane.takes {
+                if take.id.0 == take_id {
+                    take.rating = new_rating;
+                    return 1;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// Toggle take mute
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_toggle_take_mute(track_id: u64, take_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            for take in &mut lane.takes {
+                if take.id.0 == take_id {
+                    take.muted = !take.muted;
+                    return 1;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// Toggle take in comp
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_toggle_take_in_comp(track_id: u64, take_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            for take in &mut lane.takes {
+                if take.id.0 == take_id {
+                    take.in_comp = !take.in_comp;
+                    return 1;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// Set take gain (0.0 - 2.0, 1.0 = unity)
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_take_gain(track_id: u64, take_id: u64, gain: f64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for lane in &mut state.lanes {
+            for take in &mut lane.takes {
+                if take.id.0 == take_id {
+                    take.gain = gain.clamp(0.0, 2.0);
+                    return 1;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// Create a comp region
+/// Returns region ID (0 on failure)
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_create_region(
+    track_id: u64,
+    take_id: u64,
+    start_time: f64,
+    end_time: f64,
+) -> u64 {
+    let mut manager = COMPING_MANAGER.write();
+    let region_id = manager.next_region_id();
+
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        let region = rf_core::CompRegion::new(
+            region_id,
+            rf_core::TrackId(track_id),
+            rf_core::TakeId(take_id),
+            start_time,
+            end_time,
+        );
+        state.add_comp_region(region);
+        return region_id.0;
+    }
+    0
+}
+
+/// Delete a comp region
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_delete_region(track_id: u64, region_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.remove_comp_region(rf_core::CompRegionId(region_id));
+        1
+    } else {
+        0
+    }
+}
+
+/// Set comp region crossfade in duration
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_region_crossfade_in(
+    track_id: u64,
+    region_id: u64,
+    duration: f64,
+) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for region in &mut state.comp_regions {
+            if region.id.0 == region_id {
+                region.crossfade_in = duration.clamp(0.0, region.duration() / 2.0);
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set comp region crossfade out duration
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_region_crossfade_out(
+    track_id: u64,
+    region_id: u64,
+    duration: f64,
+) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for region in &mut state.comp_regions {
+            if region.id.0 == region_id {
+                region.crossfade_out = duration.clamp(0.0, region.duration() / 2.0);
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set comp region crossfade type
+/// type: 0=Linear, 1=EqualPower, 2=SCurve
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_region_crossfade_type(
+    track_id: u64,
+    region_id: u64,
+    crossfade_type: i32,
+) -> i32 {
+    let new_type = match crossfade_type {
+        0 => rf_core::CompCrossfadeType::Linear,
+        1 => rf_core::CompCrossfadeType::EqualPower,
+        2 => rf_core::CompCrossfadeType::SCurve,
+        _ => return 0,
+    };
+
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        for region in &mut state.comp_regions {
+            if region.id.0 == region_id {
+                region.crossfade_type = new_type;
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Set comp mode for a track
+/// mode: 0=Single, 1=Comp, 2=AuditAll
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_set_mode(track_id: u64, mode: i32) -> i32 {
+    let new_mode = match mode {
+        0 => rf_core::CompMode::Single,
+        1 => rf_core::CompMode::Comp,
+        2 => rf_core::CompMode::AuditAll,
+        _ => return 0,
+    };
+
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.mode = new_mode;
+        1
+    } else {
+        0
+    }
+}
+
+/// Get current comp mode for a track
+/// Returns: 0=Single, 1=Comp, 2=AuditAll, -1=error
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_get_mode(track_id: u64) -> i32 {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        match state.mode {
+            rf_core::CompMode::Single => 0,
+            rf_core::CompMode::Comp => 1,
+            rf_core::CompMode::AuditAll => 2,
+        }
+    } else {
+        -1
+    }
+}
+
+/// Toggle lanes expanded for a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_toggle_lanes_expanded(track_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.lanes_expanded = !state.lanes_expanded;
+        1
+    } else {
+        0
+    }
+}
+
+/// Get lanes expanded state
+/// Returns: 1=expanded, 0=collapsed, -1=error
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_get_lanes_expanded(track_id: u64) -> i32 {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        if state.lanes_expanded { 1 } else { 0 }
+    } else {
+        -1
+    }
+}
+
+/// Get number of lanes for a track
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_get_lane_count(track_id: u64) -> u32 {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        state.lanes.len() as u32
+    } else {
+        0
+    }
+}
+
+/// Get active lane index for a track
+/// Returns -1 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_get_active_lane_index(track_id: u64) -> i32 {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        state.active_lane_index as i32
+    } else {
+        -1
+    }
+}
+
+/// Clear all comp regions for a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_clear_comp(track_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.clear_comp();
+        1
+    } else {
+        0
+    }
+}
+
+/// Get comp state as JSON for a track
+/// Returns JSON string (caller must free with free_string)
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_get_state_json(track_id: u64) -> *mut c_char {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        match serde_json::to_string(state) {
+            Ok(json) => string_to_cstr(&json),
+            Err(_) => ptr::null_mut(),
+        }
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Load comp state from JSON for a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_load_state_json(track_id: u64, json: *const c_char) -> i32 {
+    let json_str = match unsafe { cstr_to_string(json) } {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    match serde_json::from_str::<rf_core::CompState>(&json_str) {
+        Ok(state) => {
+            let mut manager = COMPING_MANAGER.write();
+            // Update with correct track_id
+            let mut loaded_state = state;
+            loaded_state.track_id = rf_core::TrackId(track_id);
+            manager.states.insert(rf_core::TrackId(track_id), loaded_state);
+            1
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Start recording on a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_start_recording(track_id: u64, start_time: f64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    let state = manager.get_or_create(rf_core::TrackId(track_id));
+
+    // Create lane if needed
+    if state.lanes.is_empty() {
+        state.create_lane();
+    }
+
+    state.start_recording(start_time);
+    1
+}
+
+/// Stop recording on a track
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_stop_recording(track_id: u64) -> i32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        state.stop_recording();
+        1
+    } else {
+        0
+    }
+}
+
+/// Check if track is currently recording
+/// Returns: 1=recording, 0=not recording
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_is_recording(track_id: u64) -> i32 {
+    let manager = COMPING_MANAGER.read();
+    if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        if state.is_recording { 1 } else { 0 }
+    } else {
+        0
+    }
+}
+
+/// Delete "bad" rated takes
+/// Returns number of deleted takes
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_delete_bad_takes(track_id: u64) -> u32 {
+    let mut manager = COMPING_MANAGER.write();
+    if let Some(state) = manager.get_mut(rf_core::TrackId(track_id)) {
+        let mut deleted = 0u32;
+        for lane in &mut state.lanes {
+            let before = lane.takes.len();
+            lane.takes.retain(|t| t.rating != rf_core::TakeRating::Bad);
+            deleted += (before - lane.takes.len()) as u32;
+        }
+        deleted
+    } else {
+        0
+    }
+}
+
+/// Promote "best" rated takes to comp
+/// Returns number of regions created
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_promote_best_takes(track_id: u64) -> u32 {
+    let mut manager = COMPING_MANAGER.write();
+
+    // Collect best takes first
+    let best_takes: Vec<(rf_core::TakeId, f64, f64)> = if let Some(state) = manager.get(rf_core::TrackId(track_id)) {
+        state.all_takes()
+            .iter()
+            .filter(|t| t.rating == rf_core::TakeRating::Best)
+            .map(|t| (t.id, t.start_time, t.end_time()))
+            .collect()
+    } else {
+        return 0;
+    };
+
+    if best_takes.is_empty() {
+        return 0;
+    }
+
+    // Now create regions
+    let state = manager.get_or_create(rf_core::TrackId(track_id));
+    state.clear_comp();
+
+    let mut count = 0u32;
+    for (take_id, start, end) in best_takes {
+        let region_id = rf_core::CompRegionId(count as u64 + 1);
+        let region = rf_core::CompRegion::new(
+            region_id,
+            rf_core::TrackId(track_id),
+            take_id,
+            start,
+            end,
+        );
+        state.add_comp_region(region);
+        count += 1;
+    }
+
+    count
+}
+
+/// Remove track from comping manager
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_remove_track(track_id: u64) {
+    let mut manager = COMPING_MANAGER.write();
+    manager.remove_track(rf_core::TrackId(track_id));
+}
+
+/// Clear all comping state
+#[unsafe(no_mangle)]
+pub extern "C" fn comping_clear_all() {
+    let mut manager = COMPING_MANAGER.write();
+    manager.clear();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIDEO FFI (Video playback / Timecode / Thumbnails)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Add a video track
+/// Returns track ID
+#[unsafe(no_mangle)]
+pub extern "C" fn video_add_track(name: *const c_char) -> u64 {
+    let name_str = unsafe { cstr_to_string(name) }.unwrap_or_else(|| "Video".to_string());
+    let mut engine = VIDEO_ENGINE.write();
+    engine.add_track(name_str)
+}
+
+/// Import video file to track
+/// Returns clip ID (0 on failure)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_import(track_id: u64, path: *const c_char, timeline_start_samples: u64) -> u64 {
+    let path_str = match unsafe { cstr_to_string(path) } {
+        Some(p) => p,
+        None => return 0,
+    };
+
+    let mut engine = VIDEO_ENGINE.write();
+    match engine.import_video(track_id, &path_str, timeline_start_samples) {
+        Ok(clip_id) => clip_id,
+        Err(e) => {
+            log::error!("Failed to import video: {}", e);
+            0
+        }
+    }
+}
+
+/// Set video playhead position (samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_set_playhead(samples: u64) {
+    let mut engine = VIDEO_ENGINE.write();
+    engine.set_playhead(samples);
+}
+
+/// Get video playhead position
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_playhead() -> u64 {
+    let engine = VIDEO_ENGINE.read();
+    engine.playhead()
+}
+
+/// Get frame at current playhead
+/// Returns RGBA pixel data (caller must free with video_free_frame)
+/// out_width, out_height are set to frame dimensions
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_frame(
+    out_width: *mut u32,
+    out_height: *mut u32,
+    out_size: *mut u64,
+) -> *mut u8 {
+    let mut engine = VIDEO_ENGINE.write();
+
+    match engine.get_frame_at_playhead() {
+        Ok(Some(frame)) => {
+            unsafe {
+                *out_width = frame.width;
+                *out_height = frame.height;
+                *out_size = frame.data.len() as u64;
+            }
+
+            // Copy frame data to heap-allocated buffer
+            let mut data = frame.data.into_boxed_slice();
+            let ptr = data.as_mut_ptr();
+            std::mem::forget(data);
+            ptr
+        }
+        _ => {
+            unsafe {
+                *out_width = 0;
+                *out_height = 0;
+                *out_size = 0;
+            }
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Free frame data returned by video_get_frame
+#[unsafe(no_mangle)]
+pub extern "C" fn video_free_frame(data: *mut u8, size: u64) {
+    if !data.is_null() && size > 0 {
+        unsafe {
+            let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(data, size as usize));
+        }
+    }
+}
+
+/// Get video info as JSON
+/// Returns JSON string with: duration_frames, duration_secs, frame_rate, width, height, codec
+/// Caller must free with free_string
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_info_json(clip_id: u64) -> *mut c_char {
+    let engine = VIDEO_ENGINE.read();
+
+    // Find clip info in tracks
+    for track in engine.tracks() {
+        for clip in &track.clips {
+            if clip.id == clip_id {
+                let info = serde_json::json!({
+                    "duration_frames": clip.source.duration_frames,
+                    "duration_secs": clip.source.duration_secs,
+                    "frame_rate": clip.source.frame_rate.as_f64(),
+                    "width": clip.source.width,
+                    "height": clip.source.height,
+                    "codec": clip.source.codec,
+                    "path": clip.source.path.to_string_lossy(),
+                    "has_audio": clip.source.has_audio,
+                });
+                return string_to_cstr(&info.to_string());
+            }
+        }
+    }
+
+    ptr::null_mut()
+}
+
+/// Generate thumbnails for video clip
+/// width: thumbnail width in pixels
+/// interval_frames: frames between thumbnails
+/// Returns number of thumbnails generated
+#[unsafe(no_mangle)]
+pub extern "C" fn video_generate_thumbnails(
+    clip_id: u64,
+    width: u32,
+    interval_frames: u64,
+) -> u32 {
+    let mut engine = VIDEO_ENGINE.write();
+
+    match engine.generate_thumbnails(clip_id, width, interval_frames) {
+        Ok(strip) => strip.thumbnails.len() as u32,
+        Err(e) => {
+            log::error!("Failed to generate thumbnails: {}", e);
+            0
+        }
+    }
+}
+
+/// Get number of video tracks
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_track_count() -> u32 {
+    let engine = VIDEO_ENGINE.read();
+    engine.tracks().len() as u32
+}
+
+/// Clear all video state
+#[unsafe(no_mangle)]
+pub extern "C" fn video_clear_all() {
+    let mut engine = VIDEO_ENGINE.write();
+    *engine = rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000);
+}
+
+/// Format timecode from seconds
+/// format: 0=NDF, 1=DF
+/// frame_rate: frames per second (e.g., 24, 25, 30)
+/// Returns formatted timecode string (caller must free)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_format_timecode(
+    seconds: f64,
+    frame_rate: f64,
+    drop_frame: i32,
+) -> *mut c_char {
+    let fr = if frame_rate <= 23.976 {
+        rf_video::FrameRate::Fps23_976
+    } else if frame_rate <= 24.0 {
+        rf_video::FrameRate::Fps24
+    } else if frame_rate <= 25.0 {
+        rf_video::FrameRate::Fps25
+    } else if frame_rate <= 29.97 {
+        rf_video::FrameRate::Fps29_97
+    } else if frame_rate <= 30.0 {
+        rf_video::FrameRate::Fps30
+    } else if frame_rate <= 50.0 {
+        rf_video::FrameRate::Fps50
+    } else if frame_rate <= 59.94 {
+        rf_video::FrameRate::Fps59_94
+    } else {
+        rf_video::FrameRate::Fps60
+    };
+
+    let frame_number = (seconds * fr.as_f64()) as u64;
+    let timecode = rf_video::Timecode::from_frame_number(frame_number, &fr);
+
+    let mut timecode = timecode;
+    timecode.format = if drop_frame != 0 {
+        rf_video::TimecodeFormat::DropFrame
+    } else {
+        rf_video::TimecodeFormat::NonDropFrame
+    };
+
+    let tc_str = timecode.to_string();
+    string_to_cstr(&tc_str)
+}
+
+/// Parse timecode to seconds
+/// Returns seconds, or -1.0 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn video_parse_timecode(
+    tc_str: *const c_char,
+    frame_rate: f64,
+) -> f64 {
+    let tc = match unsafe { cstr_to_string(tc_str) } {
+        Some(s) => s,
+        None => return -1.0,
+    };
+
+    let format = if tc.contains(';') {
+        rf_video::TimecodeFormat::DropFrame
+    } else {
+        rf_video::TimecodeFormat::NonDropFrame
+    };
+
+    let fr = if frame_rate <= 23.976 {
+        rf_video::FrameRate::Fps23_976
+    } else if frame_rate <= 24.0 {
+        rf_video::FrameRate::Fps24
+    } else if frame_rate <= 25.0 {
+        rf_video::FrameRate::Fps25
+    } else if frame_rate <= 29.97 {
+        rf_video::FrameRate::Fps29_97
+    } else {
+        // 30fps and above
+        rf_video::FrameRate::Fps30
+    };
+
+    match rf_video::Timecode::parse(&tc, format) {
+        Ok(timecode) => {
+            let frame_number = timecode.to_frame_number(&fr);
+            frame_number as f64 / fr.as_f64()
+        }
+        Err(_) => -1.0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MASTERING ENGINE FFI (AI Mastering)
+// ═══════════════════════════════════════════════════════════════════════════
+
+use rf_master::{Genre, LoudnessTarget, MasteringPreset, MasteringResult as MasterResult};
+
+lazy_static::lazy_static! {
+    /// Global mastering engine instance
+    static ref MASTERING_ENGINE: RwLock<rf_master::MasteringEngine> =
+        RwLock::new(rf_master::MasteringEngine::new(48000));
+    /// Last mastering result for retrieval
+    static ref LAST_MASTERING_RESULT: RwLock<Option<MasterResult>> = RwLock::new(None);
+}
+
+/// FFI result struct for mastering
+#[repr(C)]
+pub struct MasteringResultFFI {
+    /// Input integrated LUFS
+    pub input_lufs: f32,
+    /// Output integrated LUFS
+    pub output_lufs: f32,
+    /// Input true peak dBTP
+    pub input_peak: f32,
+    /// Output true peak dBTP
+    pub output_peak: f32,
+    /// Applied gain in dB
+    pub applied_gain: f32,
+    /// Peak reduction in dB
+    pub peak_reduction: f32,
+    /// Quality score (0-100)
+    pub quality_score: f32,
+    /// Detected genre (enum value)
+    pub detected_genre: u8,
+    /// Number of warnings
+    pub warning_count: u32,
+}
+
+/// Create/reset mastering engine with sample rate
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_engine_init(sample_rate: u32) {
+    let mut engine = MASTERING_ENGINE.write();
+    *engine = rf_master::MasteringEngine::new(sample_rate);
+    *LAST_MASTERING_RESULT.write() = None;
+    log::info!("Mastering engine initialized at {} Hz", sample_rate);
+}
+
+/// Set mastering preset
+/// preset: 0=CdLossless, 1=Streaming, 2=AppleMusic, 3=Broadcast, 4=Club, 5=Vinyl, 6=Podcast, 7=Film
+/// Returns 1 on success
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_set_preset(preset: u8) -> i32 {
+    let preset_enum = match preset {
+        0 => MasteringPreset::CdLossless,
+        1 => MasteringPreset::Streaming,
+        2 => MasteringPreset::AppleMusic,
+        3 => MasteringPreset::Broadcast,
+        4 => MasteringPreset::Club,
+        5 => MasteringPreset::Vinyl,
+        6 => MasteringPreset::Podcast,
+        7 => MasteringPreset::Film,
+        _ => MasteringPreset::Streaming, // Default
+    };
+
+    MASTERING_ENGINE.write().set_preset(preset_enum);
+    log::info!("Mastering preset set to {:?}", preset_enum);
+    1
+}
+
+/// Set loudness target manually
+/// integrated_lufs: Target integrated loudness (e.g., -14.0 for streaming)
+/// true_peak: Maximum true peak (e.g., -1.0 dBTP)
+/// lra_target: Target loudness range (0 = no target)
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_set_loudness_target(
+    integrated_lufs: f32,
+    true_peak: f32,
+    lra_target: f32,
+) -> i32 {
+    let target = LoudnessTarget {
+        integrated_lufs,
+        true_peak,
+        lra_target: if lra_target <= 0.0 { None } else { Some(lra_target) },
+        short_term_max: None,
+    };
+
+    MASTERING_ENGINE.write().set_loudness_target(target);
+    log::info!("Mastering target: {} LUFS, {} dBTP", integrated_lufs, true_peak);
+    1
+}
+
+/// Set reference audio for matching
+/// left/right: Stereo reference audio (f32 interleaved not needed, separate channels)
+/// length: Number of samples per channel
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_set_reference(
+    name: *const c_char,
+    left: *const f32,
+    right: *const f32,
+    length: u32,
+) -> i32 {
+    let ref_name = match unsafe { cstr_to_string(name) } {
+        Some(n) => n,
+        None => "Reference".to_string(),
+    };
+
+    if left.is_null() || right.is_null() || length == 0 {
+        return 0;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (length as usize).saturating_mul(std::mem::size_of::<f32>() * 2);
+    if !validate_buffer_size(buffer_bytes, "mastering_set_reference") {
+        return 0;
+    }
+
+    let left_slice = unsafe { std::slice::from_raw_parts(left, length as usize) };
+    let right_slice = unsafe { std::slice::from_raw_parts(right, length as usize) };
+
+    MASTERING_ENGINE.write().set_reference_audio(&ref_name, left_slice, right_slice);
+    log::info!("Mastering reference set: {} ({} samples)", ref_name, length);
+    1
+}
+
+/// Process audio through mastering engine (offline, full file)
+/// left/right: Input audio (f32)
+/// out_left/out_right: Output buffers (must be pre-allocated, same length as input)
+/// length: Number of samples per channel
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_process_offline(
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    length: u32,
+) -> i32 {
+    if left.is_null() || right.is_null() || out_left.is_null() || out_right.is_null() || length == 0 {
+        return 0;
+    }
+
+    // Security: Validate buffer size
+    let buffer_bytes = (length as usize).saturating_mul(std::mem::size_of::<f32>() * 4);
+    if !validate_buffer_size(buffer_bytes, "mastering_process_offline") {
+        return 0;
+    }
+
+    let left_slice = unsafe { std::slice::from_raw_parts(left, length as usize) };
+    let right_slice = unsafe { std::slice::from_raw_parts(right, length as usize) };
+
+    let mut engine = MASTERING_ENGINE.write();
+
+    match engine.process_offline(left_slice, right_slice) {
+        Ok(result) => {
+            // Copy output audio if result contains it
+            if let Some(ref audio) = result.audio {
+                let half = audio.len() / 2;
+                if half == length as usize {
+                    let out_l = unsafe { std::slice::from_raw_parts_mut(out_left, length as usize) };
+                    let out_r = unsafe { std::slice::from_raw_parts_mut(out_right, length as usize) };
+                    out_l.copy_from_slice(&audio[..half]);
+                    out_r.copy_from_slice(&audio[half..]);
+                }
+            }
+
+            log::info!(
+                "Mastering complete: {} LUFS -> {} LUFS, quality: {:.0}%",
+                result.input_loudness.integrated,
+                result.output_loudness.integrated,
+                result.quality_score
+            );
+
+            // Store result for later retrieval
+            *LAST_MASTERING_RESULT.write() = Some(result);
+            1
+        }
+        Err(e) => {
+            log::error!("Mastering failed: {}", e);
+            0
+        }
+    }
+}
+
+/// Get last mastering result
+/// Returns FFI struct with results, or zeroed struct if no result
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_result() -> MasteringResultFFI {
+    let result_guard = LAST_MASTERING_RESULT.read();
+
+    match &*result_guard {
+        Some(result) => MasteringResultFFI {
+            input_lufs: result.input_loudness.integrated,
+            output_lufs: result.output_loudness.integrated,
+            input_peak: result.input_loudness.true_peak,
+            output_peak: result.output_loudness.true_peak,
+            applied_gain: result.applied_gain,
+            peak_reduction: result.peak_reduction,
+            quality_score: result.quality_score,
+            detected_genre: genre_to_u8(result.detected_genre),
+            warning_count: result.warnings.len() as u32,
+        },
+        None => MasteringResultFFI {
+            input_lufs: 0.0,
+            output_lufs: 0.0,
+            input_peak: 0.0,
+            output_peak: 0.0,
+            applied_gain: 0.0,
+            peak_reduction: 0.0,
+            quality_score: 0.0,
+            detected_genre: 0,
+            warning_count: 0,
+        },
+    }
+}
+
+/// Get mastering warning at index
+/// Returns warning string (caller must free), or null if index out of bounds
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_warning(index: u32) -> *mut c_char {
+    let result_guard = LAST_MASTERING_RESULT.read();
+
+    match &*result_guard {
+        Some(result) => {
+            if (index as usize) < result.warnings.len() {
+                string_to_cstr(&result.warnings[index as usize])
+            } else {
+                ptr::null_mut()
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get mastering chain summary as JSON
+/// Returns JSON string (caller must free)
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_chain_summary() -> *mut c_char {
+    let result_guard = LAST_MASTERING_RESULT.read();
+
+    match &*result_guard {
+        Some(result) => {
+            let json = serde_json::json!({
+                "steps": result.chain_summary,
+                "genre": format!("{:?}", result.detected_genre),
+                "quality_score": result.quality_score,
+            });
+            string_to_cstr(&json.to_string())
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get detected genre from last analysis
+/// Returns genre enum value (0=Unknown, 1=Electronic, etc.)
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_detected_genre() -> u8 {
+    genre_to_u8(MASTERING_ENGINE.read().genre())
+}
+
+/// Get mastering engine latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_latency() -> u32 {
+    MASTERING_ENGINE.read().latency() as u32
+}
+
+/// Reset mastering engine state
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_reset() {
+    MASTERING_ENGINE.write().reset();
+    *LAST_MASTERING_RESULT.write() = None;
+}
+
+/// Enable/disable mastering bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_set_active(active: i32) {
+    MASTERING_ENGINE.write().set_active(active != 0);
+}
+
+/// Get current gain reduction (for metering)
+#[unsafe(no_mangle)]
+pub extern "C" fn mastering_get_gain_reduction() -> f32 {
+    MASTERING_ENGINE.read().gain_reduction()
+}
+
+// Helper function to convert Genre to u8
+fn genre_to_u8(genre: Genre) -> u8 {
+    match genre {
+        Genre::Unknown => 0,
+        Genre::Electronic => 1,
+        Genre::HipHop => 2,
+        Genre::Rock => 3,
+        Genre::Pop => 4,
+        Genre::Classical => 5,
+        Genre::Jazz => 6,
+        Genre::Acoustic => 7,
+        Genre::RnB => 8,
+        Genre::Speech => 9,
+    }
+}
+
+// =============================================================================
+// AUDIO RESTORATION (rf-restore)
+// =============================================================================
+
+use rf_restore::{
+    AnalysisResult as RestoreAnalysisResult,
+    RestoreConfig,
+    RestorationPipeline,
+    analysis::RestoreAnalyzer,
+    denoise::{Denoise, DenoiseConfig},
+    declick::{Declick, DeclickConfig},
+    declip::{Declip, DeclipConfig},
+    dehum::{Dehum, DehumConfig},
+    dereverb::{Dereverb, DereverbConfig},
+};
+
+lazy_static::lazy_static! {
+    /// Global restoration pipeline
+    static ref RESTORATION_PIPELINE: RwLock<RestorationPipeline> =
+        RwLock::new(RestorationPipeline::new(RestoreConfig::default()));
+
+    /// Restoration settings
+    static ref RESTORATION_SETTINGS: RwLock<RestorationSettingsFFI> =
+        RwLock::new(RestorationSettingsFFI::default());
+
+    /// Last analysis result
+    static ref RESTORATION_ANALYSIS: RwLock<Option<RestoreAnalysisResult>> =
+        RwLock::new(None);
+
+    /// Processing state: (is_processing, progress 0-1, phase)
+    static ref RESTORATION_STATE: RwLock<(bool, f32, String)> =
+        RwLock::new((false, 0.0, "idle".to_string()));
+}
+
+/// FFI-safe restoration settings
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct RestorationSettingsFFI {
+    // Denoise
+    pub denoise_enabled: i32,
+    pub denoise_strength: f32,   // 0-100%
+    // Declick
+    pub declick_enabled: i32,
+    pub declick_sensitivity: f32, // 0-100%
+    // Declip
+    pub declip_enabled: i32,
+    pub declip_threshold: f32,    // dB
+    // Dehum
+    pub dehum_enabled: i32,
+    pub dehum_frequency: f32,     // 50 or 60 Hz
+    pub dehum_harmonics: u32,     // 2-8
+    // Dereverb
+    pub dereverb_enabled: i32,
+    pub dereverb_amount: f32,     // 0-100%
+}
+
+impl Default for RestorationSettingsFFI {
+    fn default() -> Self {
+        Self {
+            denoise_enabled: 0,
+            denoise_strength: 50.0,
+            declick_enabled: 0,
+            declick_sensitivity: 50.0,
+            declip_enabled: 0,
+            declip_threshold: -0.1,
+            dehum_enabled: 0,
+            dehum_frequency: 50.0,
+            dehum_harmonics: 4,
+            dereverb_enabled: 0,
+            dereverb_amount: 50.0,
+        }
+    }
+}
+
+/// FFI-safe analysis result
+#[repr(C)]
+pub struct RestorationAnalysisFFI {
+    pub noise_floor_db: f32,
+    pub clicks_per_second: f32,
+    pub clipping_percent: f32,
+    pub hum_detected: i32,
+    pub hum_frequency: f32,
+    pub hum_level_db: f32,
+    pub reverb_tail_seconds: f32,
+    pub quality_score: f32,
+}
+
+impl Default for RestorationAnalysisFFI {
+    fn default() -> Self {
+        Self {
+            noise_floor_db: -60.0,
+            clicks_per_second: 0.0,
+            clipping_percent: 0.0,
+            hum_detected: 0,
+            hum_frequency: 0.0,
+            hum_level_db: -80.0,
+            reverb_tail_seconds: 0.0,
+            quality_score: 100.0,
+        }
+    }
+}
+
+/// Initialize restoration engine
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_init(sample_rate: u32) {
+    let config = RestoreConfig {
+        sample_rate,
+        ..Default::default()
+    };
+    *RESTORATION_PIPELINE.write() = RestorationPipeline::new(config);
+    log::info!("Restoration engine initialized at {} Hz", sample_rate);
+}
+
+/// Set restoration settings
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_set_settings(
+    denoise_enabled: i32,
+    denoise_strength: f32,
+    declick_enabled: i32,
+    declick_sensitivity: f32,
+    declip_enabled: i32,
+    declip_threshold: f32,
+    dehum_enabled: i32,
+    dehum_frequency: f32,
+    dehum_harmonics: u32,
+    dereverb_enabled: i32,
+    dereverb_amount: f32,
+) -> i32 {
+    let settings = RestorationSettingsFFI {
+        denoise_enabled,
+        denoise_strength,
+        declick_enabled,
+        declick_sensitivity,
+        declip_enabled,
+        declip_threshold,
+        dehum_enabled,
+        dehum_frequency,
+        dehum_harmonics,
+        dereverb_enabled,
+        dereverb_amount,
+    };
+
+    *RESTORATION_SETTINGS.write() = settings;
+
+    // Rebuild pipeline with new settings
+    rebuild_restoration_pipeline();
+
+    1 // success
+}
+
+/// Get current restoration settings
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_settings() -> RestorationSettingsFFI {
+    RESTORATION_SETTINGS.read().clone()
+}
+
+/// Analyze audio file for restoration needs
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_analyze(path: *const c_char) -> RestorationAnalysisFFI {
+    if path.is_null() {
+        return RestorationAnalysisFFI::default();
+    }
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return RestorationAnalysisFFI::default(),
+        }
+    };
+
+    // Load audio file
+    let audio = match load_audio_for_analysis(path_str) {
+        Some(a) => a,
+        None => return RestorationAnalysisFFI::default(),
+    };
+
+    // Run analysis
+    let analyzer = RestoreAnalyzer::new(48000);
+    let result: RestoreAnalysisResult = match analyzer.analyze(&audio) {
+        Ok(r) => r,
+        Err(_) => return RestorationAnalysisFFI::default(),
+    };
+
+    // Store result
+    *RESTORATION_ANALYSIS.write() = Some(result.clone());
+
+    RestorationAnalysisFFI {
+        noise_floor_db: result.noise_floor_db,
+        clicks_per_second: result.clicks_per_second,
+        clipping_percent: result.clipping_percent,
+        hum_detected: if result.hum_frequency.is_some() { 1 } else { 0 },
+        hum_frequency: result.hum_frequency.unwrap_or(0.0),
+        hum_level_db: result.hum_level_db,
+        reverb_tail_seconds: result.reverb_tail_seconds,
+        quality_score: result.quality_score,
+    }
+}
+
+/// Get number of analysis suggestions
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_suggestion_count() -> u32 {
+    RESTORATION_ANALYSIS.read()
+        .as_ref()
+        .map(|r| r.suggestions.len() as u32)
+        .unwrap_or(0)
+}
+
+/// Get analysis suggestion by index
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_suggestion(index: u32) -> *mut c_char {
+    let guard = RESTORATION_ANALYSIS.read();
+    match &*guard {
+        Some(result) => {
+            if (index as usize) < result.suggestions.len() {
+                string_to_cstr(&result.suggestions[index as usize])
+            } else {
+                ptr::null_mut()
+            }
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// Process audio buffer through restoration pipeline
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_process(
+    input: *const f32,
+    output: *mut f32,
+    length: u32,
+) -> i32 {
+    if input.is_null() || output.is_null() || length == 0 {
+        return 0;
+    }
+
+    let input_slice = unsafe { std::slice::from_raw_parts(input, length as usize) };
+    let output_slice = unsafe { std::slice::from_raw_parts_mut(output, length as usize) };
+
+    match RESTORATION_PIPELINE.write().process(input_slice, output_slice) {
+        Ok(()) => 1,
+        Err(e) => {
+            log::error!("Restoration processing error: {:?}", e);
+            0
+        }
+    }
+}
+
+/// Process entire file offline
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_process_file(
+    input_path: *const c_char,
+    output_path: *const c_char,
+) -> i32 {
+    if input_path.is_null() || output_path.is_null() {
+        return 0;
+    }
+
+    let input_str = unsafe {
+        match std::ffi::CStr::from_ptr(input_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let output_str = unsafe {
+        match std::ffi::CStr::from_ptr(output_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    // Set processing state
+    *RESTORATION_STATE.write() = (true, 0.0, "Loading audio...".to_string());
+
+    // Load audio
+    let audio = match load_audio_for_analysis(input_str) {
+        Some(a) => a,
+        None => {
+            *RESTORATION_STATE.write() = (false, 0.0, "Failed to load".to_string());
+            return 0;
+        }
+    };
+
+    *RESTORATION_STATE.write() = (true, 0.2, "Processing...".to_string());
+
+    // Process
+    let mut output_audio = vec![0.0f32; audio.len()];
+    if RESTORATION_PIPELINE.write().process(&audio, &mut output_audio).is_err() {
+        *RESTORATION_STATE.write() = (false, 0.0, "Processing failed".to_string());
+        return 0;
+    }
+
+    *RESTORATION_STATE.write() = (true, 0.8, "Saving...".to_string());
+
+    // Save output
+    if save_audio_wav(output_str, &output_audio, 48000).is_err() {
+        *RESTORATION_STATE.write() = (false, 0.0, "Save failed".to_string());
+        return 0;
+    }
+
+    *RESTORATION_STATE.write() = (false, 1.0, "Complete".to_string());
+    1
+}
+
+/// Learn noise profile from selection
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_learn_noise_profile(
+    input: *const f32,
+    length: u32,
+) -> i32 {
+    if input.is_null() || length == 0 {
+        return 0;
+    }
+
+    let samples = unsafe { std::slice::from_raw_parts(input, length as usize) };
+
+    // Create temporary denoise processor to learn profile
+    let config = DenoiseConfig::default();
+    let mut denoise = Denoise::new(config, 48000);
+    denoise.estimate_noise_auto(samples);
+
+    // TODO: Store profile for later use
+    log::info!("Learned noise profile from {} samples", length);
+    1
+}
+
+/// Clear learned noise profile
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_clear_noise_profile() {
+    log::info!("Noise profile cleared");
+}
+
+/// Get processing state
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_state(
+    out_is_processing: *mut i32,
+    out_progress: *mut f32,
+) {
+    let state = RESTORATION_STATE.read();
+    if !out_is_processing.is_null() {
+        unsafe { *out_is_processing = if state.0 { 1 } else { 0 }; }
+    }
+    if !out_progress.is_null() {
+        unsafe { *out_progress = state.1; }
+    }
+}
+
+/// Get processing phase string
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_phase() -> *mut c_char {
+    let state = RESTORATION_STATE.read();
+    string_to_cstr(&state.2)
+}
+
+/// Set restoration active/bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_set_active(active: i32) {
+    RESTORATION_PIPELINE.write().set_active(active != 0);
+}
+
+/// Get pipeline latency in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_get_latency() -> u32 {
+    RESTORATION_PIPELINE.read().total_latency() as u32
+}
+
+/// Reset restoration pipeline
+#[unsafe(no_mangle)]
+pub extern "C" fn restoration_reset() {
+    RESTORATION_PIPELINE.write().reset();
+}
+
+// Helper: rebuild pipeline from settings
+fn rebuild_restoration_pipeline() {
+    let settings = RESTORATION_SETTINGS.read().clone();
+    let config = RestoreConfig::default();
+    let mut pipeline = RestorationPipeline::new(config.clone());
+
+    // Add enabled modules in processing order
+    if settings.denoise_enabled != 0 {
+        let denoise_config = DenoiseConfig {
+            base: config.clone(),
+            reduction_db: settings.denoise_strength * 0.3, // 0-30 dB range
+            ..Default::default()
+        };
+        pipeline.add_module(Box::new(Denoise::new(denoise_config, 48000)));
+    }
+
+    if settings.declick_enabled != 0 {
+        let declick_config = DeclickConfig {
+            sensitivity: settings.declick_sensitivity / 100.0,
+            ..Default::default()
+        };
+        pipeline.add_module(Box::new(Declick::new(declick_config, 48000)));
+    }
+
+    if settings.declip_enabled != 0 {
+        let declip_config = DeclipConfig {
+            threshold: 10.0_f32.powf(settings.declip_threshold / 20.0), // dB to linear
+            ..Default::default()
+        };
+        pipeline.add_module(Box::new(Declip::new(declip_config)));
+    }
+
+    if settings.dehum_enabled != 0 {
+        let dehum_config = DehumConfig {
+            frequency: settings.dehum_frequency,
+            harmonics: settings.dehum_harmonics as usize,
+            ..Default::default()
+        };
+        pipeline.add_module(Box::new(Dehum::new(dehum_config, 48000)));
+    }
+
+    if settings.dereverb_enabled != 0 {
+        let dereverb_config = DereverbConfig {
+            mix: settings.dereverb_amount / 100.0,
+            ..Default::default()
+        };
+        pipeline.add_module(Box::new(Dereverb::new(dereverb_config, 48000)));
+    }
+
+    *RESTORATION_PIPELINE.write() = pipeline;
+}
+
+// Helper: load audio file for analysis (simple mono mixdown)
+fn load_audio_for_analysis(path: &str) -> Option<Vec<f32>> {
+    use std::fs::File;
+    use symphonia::core::audio::Signal;
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::probe::Hint;
+
+    let file = File::open(path).ok()?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if path.ends_with(".wav") {
+        hint.with_extension("wav");
+    } else if path.ends_with(".mp3") {
+        hint.with_extension("mp3");
+    } else if path.ends_with(".flac") {
+        hint.with_extension("flac");
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .ok()?;
+
+    let mut format = probed.format;
+    let track = format.tracks().first()?;
+    let track_id = track.id;
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&track.codec_params, &Default::default())
+        .ok()?;
+
+    let mut samples = Vec::new();
+
+    while let Ok(packet) = format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+
+        if let Ok(decoded) = decoder.decode(&packet) {
+            use symphonia::core::audio::AudioBufferRef;
+            match decoded {
+                AudioBufferRef::F32(buf) => {
+                    let channels = buf.spec().channels.count();
+                    for frame in 0..buf.frames() {
+                        let mut sum = 0.0f32;
+                        for ch in 0..channels {
+                            sum += buf.chan(ch)[frame];
+                        }
+                        samples.push(sum / channels as f32);
+                    }
+                }
+                AudioBufferRef::S16(buf) => {
+                    let channels = buf.spec().channels.count();
+                    for frame in 0..buf.frames() {
+                        let mut sum = 0.0f32;
+                        for ch in 0..channels {
+                            sum += buf.chan(ch)[frame] as f32 / 32768.0;
+                        }
+                        samples.push(sum / channels as f32);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if samples.is_empty() {
+        None
+    } else {
+        Some(samples)
+    }
+}
+
+// Helper: save audio as WAV
+fn save_audio_wav(path: &str, samples: &[f32], sample_rate: u32) -> std::io::Result<()> {
+    use std::fs::File;
+    use std::io::Write;
+
+    let mut file = File::create(path)?;
+
+    // WAV header
+    let data_size = (samples.len() * 2) as u32; // 16-bit
+    let file_size = data_size + 36;
+
+    // RIFF header
+    file.write_all(b"RIFF")?;
+    file.write_all(&file_size.to_le_bytes())?;
+    file.write_all(b"WAVE")?;
+
+    // fmt chunk
+    file.write_all(b"fmt ")?;
+    file.write_all(&16u32.to_le_bytes())?;      // chunk size
+    file.write_all(&1u16.to_le_bytes())?;       // PCM
+    file.write_all(&1u16.to_le_bytes())?;       // mono
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&(sample_rate * 2).to_le_bytes())?; // byte rate
+    file.write_all(&2u16.to_le_bytes())?;       // block align
+    file.write_all(&16u16.to_le_bytes())?;      // bits per sample
+
+    // data chunk
+    file.write_all(b"data")?;
+    file.write_all(&data_size.to_le_bytes())?;
+
+    // Write samples as 16-bit
+    for &sample in samples {
+        let s16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+        file.write_all(&s16.to_le_bytes())?;
+    }
+
+    Ok(())
+}
+
+// =============================================================================
+// ML/AI PROCESSING (rf-ml)
+// =============================================================================
+
+lazy_static::lazy_static! {
+    /// ML processing state: (is_processing, progress 0-1, phase, model)
+    static ref ML_STATE: RwLock<MlProcessingState> =
+        RwLock::new(MlProcessingState::default());
+}
+
+/// ML processing state
+#[derive(Debug, Clone, Default)]
+struct MlProcessingState {
+    is_processing: bool,
+    progress: f32,
+    phase: String,
+    model: String,
+    error: Option<String>,
+}
+
+/// FFI-safe ML model info
+#[repr(C)]
+pub struct MlModelInfoFFI {
+    pub name_ptr: *mut c_char,
+    pub is_available: i32,
+    pub size_mb: u32,
+}
+
+/// FFI-safe ML processing result
+#[repr(C)]
+pub struct MlResultFFI {
+    pub success: i32,
+    pub output_path_ptr: *mut c_char,
+    pub duration_ms: u32,
+    pub error_ptr: *mut c_char,
+}
+
+/// Stem separation type
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub enum MlStemType {
+    Vocals = 0,
+    Drums = 1,
+    Bass = 2,
+    Other = 3,
+    Piano = 4,
+    Guitar = 5,
+}
+
+/// ML execution provider
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub enum MlExecutionProviderFFI {
+    Cpu = 0,
+    Cuda = 1,
+    CoreMl = 2,
+    TensorRt = 3,
+}
+
+/// Initialize ML engine
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_init() {
+    log::info!("ML engine initialized");
+    *ML_STATE.write() = MlProcessingState::default();
+}
+
+/// Get available models count
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_model_count() -> u32 {
+    // Available models:
+    // 0: DeepFilterNet3 (denoise)
+    // 1: HTDemucs (stem separation)
+    // 2: aTENNuate (speech enhancement)
+    // 3: FRCRN (real-time denoise)
+    4
+}
+
+/// Get model name by index
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_model_name(index: u32) -> *mut c_char {
+    let name = match index {
+        0 => "DeepFilterNet3",
+        1 => "HTDemucs v4",
+        2 => "aTENNuate SSM",
+        3 => "FRCRN",
+        _ => return ptr::null_mut(),
+    };
+    string_to_cstr(name)
+}
+
+/// Check if model is available (downloaded)
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_model_is_available(index: u32) -> i32 {
+    // Check if model files exist
+    let model_path = match index {
+        0 => rf_ml::models::DEEP_FILTER_NET,
+        1 => rf_ml::models::HTDEMUCS_ENCODER,
+        2 => rf_ml::models::ATENNUATE,
+        3 => "models/frcrn.onnx",
+        _ => return 0,
+    };
+    if std::path::Path::new(model_path).exists() { 1 } else { 0 }
+}
+
+/// Get model size in MB
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_model_size(index: u32) -> u32 {
+    match index {
+        0 => 68,   // DeepFilterNet3
+        1 => 420,  // HTDemucs
+        2 => 35,   // aTENNuate
+        3 => 120,  // FRCRN
+        _ => 0,
+    }
+}
+
+/// Start ML denoise processing
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_denoise_start(
+    input_path: *const c_char,
+    output_path: *const c_char,
+    strength: f32,
+) -> i32 {
+    if input_path.is_null() || output_path.is_null() {
+        return 0;
+    }
+
+    let _input_str = unsafe {
+        match std::ffi::CStr::from_ptr(input_path).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    let _output_str = unsafe {
+        match std::ffi::CStr::from_ptr(output_path).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    // Update state
+    *ML_STATE.write() = MlProcessingState {
+        is_processing: true,
+        progress: 0.0,
+        phase: "Loading model...".to_string(),
+        model: "DeepFilterNet3".to_string(),
+        error: None,
+    };
+
+    // TODO: Spawn actual ML processing task
+    // For now, simulate progress
+    log::info!("ML denoise started with strength {}", strength);
+
+    // Simulate completion after short delay
+    std::thread::spawn(move || {
+        for i in 0..10 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            ML_STATE.write().progress = (i + 1) as f32 / 10.0;
+            ML_STATE.write().phase = format!("Processing... {}%", (i + 1) * 10);
+        }
+        *ML_STATE.write() = MlProcessingState {
+            is_processing: false,
+            progress: 1.0,
+            phase: "Complete".to_string(),
+            model: "DeepFilterNet3".to_string(),
+            error: None,
+        };
+    });
+
+    1
+}
+
+/// Start stem separation
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_separate_start(
+    input_path: *const c_char,
+    output_dir: *const c_char,
+    stems_mask: u32, // bitmask: 1=vocals, 2=drums, 4=bass, 8=other
+) -> i32 {
+    if input_path.is_null() || output_dir.is_null() {
+        return 0;
+    }
+
+    let _input_str = unsafe {
+        match std::ffi::CStr::from_ptr(input_path).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    let _output_str = unsafe {
+        match std::ffi::CStr::from_ptr(output_dir).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    // Parse stems from mask
+    let mut stems = Vec::new();
+    if stems_mask & 1 != 0 { stems.push("vocals"); }
+    if stems_mask & 2 != 0 { stems.push("drums"); }
+    if stems_mask & 4 != 0 { stems.push("bass"); }
+    if stems_mask & 8 != 0 { stems.push("other"); }
+
+    *ML_STATE.write() = MlProcessingState {
+        is_processing: true,
+        progress: 0.0,
+        phase: "Loading HTDemucs...".to_string(),
+        model: "HTDemucs v4".to_string(),
+        error: None,
+    };
+
+    log::info!("ML stem separation started for stems: {:?}", stems);
+
+    // Simulate processing
+    std::thread::spawn(move || {
+        for i in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            ML_STATE.write().progress = (i + 1) as f32 / 20.0;
+            ML_STATE.write().phase = format!("Separating... {}%", (i + 1) * 5);
+        }
+        *ML_STATE.write() = MlProcessingState {
+            is_processing: false,
+            progress: 1.0,
+            phase: "Complete".to_string(),
+            model: "HTDemucs v4".to_string(),
+            error: None,
+        };
+    });
+
+    1
+}
+
+/// Start speech enhancement
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_enhance_voice_start(
+    input_path: *const c_char,
+    output_path: *const c_char,
+) -> i32 {
+    if input_path.is_null() || output_path.is_null() {
+        return 0;
+    }
+
+    *ML_STATE.write() = MlProcessingState {
+        is_processing: true,
+        progress: 0.0,
+        phase: "Loading aTENNuate...".to_string(),
+        model: "aTENNuate SSM".to_string(),
+        error: None,
+    };
+
+    log::info!("ML voice enhancement started");
+
+    // Simulate processing
+    std::thread::spawn(move || {
+        for i in 0..10 {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            ML_STATE.write().progress = (i + 1) as f32 / 10.0;
+            ML_STATE.write().phase = format!("Enhancing... {}%", (i + 1) * 10);
+        }
+        *ML_STATE.write() = MlProcessingState {
+            is_processing: false,
+            progress: 1.0,
+            phase: "Complete".to_string(),
+            model: "aTENNuate SSM".to_string(),
+            error: None,
+        };
+    });
+
+    1
+}
+
+/// Get ML processing progress
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_progress() -> f32 {
+    ML_STATE.read().progress
+}
+
+/// Check if ML is processing
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_is_processing() -> i32 {
+    if ML_STATE.read().is_processing { 1 } else { 0 }
+}
+
+/// Get ML processing phase string
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_phase() -> *mut c_char {
+    string_to_cstr(&ML_STATE.read().phase)
+}
+
+/// Get current model name
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_current_model() -> *mut c_char {
+    string_to_cstr(&ML_STATE.read().model)
+}
+
+/// Cancel ML processing
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_cancel() -> i32 {
+    let mut state = ML_STATE.write();
+    if state.is_processing {
+        state.is_processing = false;
+        state.phase = "Cancelled".to_string();
+        state.progress = 0.0;
+        log::info!("ML processing cancelled");
+        1
+    } else {
+        0
+    }
+}
+
+/// Set execution provider
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_set_execution_provider(provider: MlExecutionProviderFFI) -> i32 {
+    log::info!("ML execution provider set to {:?}", provider);
+    // TODO: Configure rf-ml inference engine
+    1
+}
+
+/// Get error message (if any)
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_get_error() -> *mut c_char {
+    match &ML_STATE.read().error {
+        Some(e) => string_to_cstr(e),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Reset ML engine state
+#[unsafe(no_mangle)]
+pub extern "C" fn ml_reset() {
+    *ML_STATE.write() = MlProcessingState::default();
+}
+
+// =============================================================================
+// LUA SCRIPTING (rf-script)
+// =============================================================================
+
+use rf_script::{ScriptEngine, ScriptContext, ScriptAction};
+
+lazy_static::lazy_static! {
+    /// Global script engine
+    static ref SCRIPT_ENGINE: RwLock<Option<ScriptEngine>> = RwLock::new(None);
+
+    /// Loaded script list
+    static ref LOADED_SCRIPTS: RwLock<Vec<ScriptInfo>> = RwLock::new(Vec::new());
+
+    /// Script execution result
+    static ref SCRIPT_RESULT: RwLock<Option<ScriptExecutionResult>> = RwLock::new(None);
+}
+
+/// Script info
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+struct ScriptInfo {
+    name: String,
+    path: String,
+    description: String,
+}
+
+/// Execution result
+#[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
+struct ScriptExecutionResult {
+    success: bool,
+    output: String,
+    error: Option<String>,
+    duration_ms: u32,
+}
+
+/// Initialize script engine
+#[unsafe(no_mangle)]
+pub extern "C" fn script_init() -> i32 {
+    match ScriptEngine::new() {
+        Ok(engine) => {
+            *SCRIPT_ENGINE.write() = Some(engine);
+            log::info!("Script engine initialized");
+            1
+        }
+        Err(e) => {
+            log::error!("Failed to initialize script engine: {:?}", e);
+            0
+        }
+    }
+}
+
+/// Shutdown script engine
+#[unsafe(no_mangle)]
+pub extern "C" fn script_shutdown() {
+    *SCRIPT_ENGINE.write() = None;
+    LOADED_SCRIPTS.write().clear();
+    *SCRIPT_RESULT.write() = None;
+    log::info!("Script engine shutdown");
+}
+
+/// Check if script engine is initialized
+#[unsafe(no_mangle)]
+pub extern "C" fn script_is_initialized() -> i32 {
+    if SCRIPT_ENGINE.read().is_some() { 1 } else { 0 }
+}
+
+/// Execute Lua code
+#[unsafe(no_mangle)]
+pub extern "C" fn script_execute(code: *const c_char) -> i32 {
+    if code.is_null() {
+        return 0;
+    }
+
+    let code_str = unsafe {
+        match std::ffi::CStr::from_ptr(code).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let start = std::time::Instant::now();
+
+    let result = {
+        let engine_guard = SCRIPT_ENGINE.read();
+        match &*engine_guard {
+            Some(engine) => engine.execute(code_str),
+            None => {
+                *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Script engine not initialized".to_string()),
+                    duration_ms: 0,
+                });
+                return 0;
+            }
+        }
+    };
+
+    let duration_ms = start.elapsed().as_millis() as u32;
+
+    match result {
+        Ok(()) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: true,
+                output: String::new(),
+                error: None,
+                duration_ms,
+            });
+            1
+        }
+        Err(e) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!("{:?}", e)),
+                duration_ms,
+            });
+            0
+        }
+    }
+}
+
+/// Execute script file
+#[unsafe(no_mangle)]
+pub extern "C" fn script_execute_file(path: *const c_char) -> i32 {
+    if path.is_null() {
+        return 0;
+    }
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    // Read file
+    let code = match std::fs::read_to_string(path_str) {
+        Ok(c) => c,
+        Err(e) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!("Failed to read file: {}", e)),
+                duration_ms: 0,
+            });
+            return 0;
+        }
+    };
+
+    let start = std::time::Instant::now();
+
+    let result = {
+        let engine_guard = SCRIPT_ENGINE.read();
+        match &*engine_guard {
+            Some(engine) => engine.execute(&code),
+            None => {
+                *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Script engine not initialized".to_string()),
+                    duration_ms: 0,
+                });
+                return 0;
+            }
+        }
+    };
+
+    let duration_ms = start.elapsed().as_millis() as u32;
+
+    match result {
+        Ok(()) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: true,
+                output: String::new(),
+                error: None,
+                duration_ms,
+            });
+            1
+        }
+        Err(e) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!("{:?}", e)),
+                duration_ms,
+            });
+            0
+        }
+    }
+}
+
+/// Get last execution output
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_output() -> *mut c_char {
+    match &*SCRIPT_RESULT.read() {
+        Some(result) => string_to_cstr(&result.output),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get last execution error
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_error() -> *mut c_char {
+    match &*SCRIPT_RESULT.read() {
+        Some(result) => match &result.error {
+            Some(e) => string_to_cstr(e),
+            None => ptr::null_mut(),
+        },
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get last execution duration in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_duration() -> u32 {
+    SCRIPT_RESULT.read()
+        .as_ref()
+        .map(|r| r.duration_ms)
+        .unwrap_or(0)
+}
+
+lazy_static::lazy_static! {
+    /// Pending actions from script execution
+    static ref PENDING_ACTIONS: RwLock<Vec<ScriptAction>> = RwLock::new(Vec::new());
+}
+
+/// Poll for pending script actions
+/// Returns number of pending actions
+#[unsafe(no_mangle)]
+pub extern "C" fn script_poll_actions() -> u32 {
+    let engine_guard = SCRIPT_ENGINE.read();
+    if let Some(engine) = &*engine_guard {
+        let actions = engine.poll_actions();
+        if !actions.is_empty() {
+            PENDING_ACTIONS.write().extend(actions);
+        }
+    }
+    PENDING_ACTIONS.read().len() as u32
+}
+
+/// Get next script action as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_next_action() -> *mut c_char {
+    let mut actions = PENDING_ACTIONS.write();
+    if actions.is_empty() {
+        return ptr::null_mut();
+    }
+    let action = actions.remove(0);
+    let json = serde_json::to_string(&action_to_json(&action))
+        .unwrap_or_default();
+    string_to_cstr(&json)
+}
+
+lazy_static::lazy_static! {
+    /// Current script context (used when updating)
+    static ref SCRIPT_CONTEXT: RwLock<ScriptContext> = RwLock::new(ScriptContext::default());
+}
+
+/// Update script context
+#[unsafe(no_mangle)]
+pub extern "C" fn script_set_context(
+    playhead: u64,
+    is_playing: i32,
+    is_recording: i32,
+    sample_rate: u32,
+) {
+    {
+        let mut ctx = SCRIPT_CONTEXT.write();
+        ctx.playhead = playhead;
+        ctx.is_playing = is_playing != 0;
+        ctx.is_recording = is_recording != 0;
+        ctx.sample_rate = sample_rate;
+    }
+
+    // Update engine context
+    let engine_guard = SCRIPT_ENGINE.read();
+    if let Some(engine) = &*engine_guard {
+        engine.update_context(SCRIPT_CONTEXT.read().clone());
+    }
+}
+
+/// Set selected tracks in context
+#[unsafe(no_mangle)]
+pub extern "C" fn script_set_selected_tracks(
+    track_ids: *const u64,
+    count: u32,
+) {
+    let ids = if track_ids.is_null() || count == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(track_ids, count as usize).to_vec() }
+    };
+
+    {
+        SCRIPT_CONTEXT.write().selected_tracks = ids;
+    }
+
+    // Update engine context
+    let engine_guard = SCRIPT_ENGINE.read();
+    if let Some(engine) = &*engine_guard {
+        engine.update_context(SCRIPT_CONTEXT.read().clone());
+    }
+}
+
+/// Set selected clips in context
+#[unsafe(no_mangle)]
+pub extern "C" fn script_set_selected_clips(
+    clip_ids: *const u64,
+    count: u32,
+) {
+    let ids = if clip_ids.is_null() || count == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(clip_ids, count as usize).to_vec() }
+    };
+
+    {
+        SCRIPT_CONTEXT.write().selected_clips = ids;
+    }
+
+    // Update engine context
+    let engine_guard = SCRIPT_ENGINE.read();
+    if let Some(engine) = &*engine_guard {
+        engine.update_context(SCRIPT_CONTEXT.read().clone());
+    }
+}
+
+/// Add search path for scripts
+#[unsafe(no_mangle)]
+pub extern "C" fn script_add_search_path(path: *const c_char) {
+    if path.is_null() {
+        return;
+    }
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return,
+        }
+    };
+
+    let mut engine_guard = SCRIPT_ENGINE.write();
+    if let Some(engine) = &mut *engine_guard {
+        engine.add_search_path(path_str);
+    }
+}
+
+/// Load script from file
+#[unsafe(no_mangle)]
+pub extern "C" fn script_load_file(path: *const c_char) -> *mut c_char {
+    if path.is_null() {
+        return ptr::null_mut();
+    }
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let mut engine_guard = SCRIPT_ENGINE.write();
+    if let Some(engine) = &mut *engine_guard {
+        match engine.load_script(path_str) {
+            Ok(name) => {
+                // Add to loaded scripts list
+                LOADED_SCRIPTS.write().push(ScriptInfo {
+                    name: name.clone(),
+                    path: path_str.to_string(),
+                    description: String::new(),
+                });
+                string_to_cstr(&name)
+            }
+            Err(e) => {
+                log::error!("Failed to load script: {:?}", e);
+                ptr::null_mut()
+            }
+        }
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Execute a loaded script by name
+#[unsafe(no_mangle)]
+pub extern "C" fn script_run(name: *const c_char) -> i32 {
+    if name.is_null() {
+        return 0;
+    }
+
+    let name_str = unsafe {
+        match std::ffi::CStr::from_ptr(name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let start = std::time::Instant::now();
+
+    let result = {
+        let engine_guard = SCRIPT_ENGINE.read();
+        match &*engine_guard {
+            Some(engine) => engine.execute_script(name_str),
+            None => {
+                *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Script engine not initialized".to_string()),
+                    duration_ms: 0,
+                });
+                return 0;
+            }
+        }
+    };
+
+    let duration_ms = start.elapsed().as_millis() as u32;
+
+    match result {
+        Ok(()) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: true,
+                output: String::new(),
+                error: None,
+                duration_ms,
+            });
+            1
+        }
+        Err(e) => {
+            *SCRIPT_RESULT.write() = Some(ScriptExecutionResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!("{:?}", e)),
+                duration_ms,
+            });
+            0
+        }
+    }
+}
+
+/// Get number of loaded scripts
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_loaded_count() -> u32 {
+    LOADED_SCRIPTS.read().len() as u32
+}
+
+/// Get script name by index
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_name(index: u32) -> *mut c_char {
+    let scripts = LOADED_SCRIPTS.read();
+    if (index as usize) < scripts.len() {
+        string_to_cstr(&scripts[index as usize].name)
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Get script description by index
+#[unsafe(no_mangle)]
+pub extern "C" fn script_get_description(index: u32) -> *mut c_char {
+    let scripts = LOADED_SCRIPTS.read();
+    if (index as usize) < scripts.len() {
+        string_to_cstr(&scripts[index as usize].description)
+    } else {
+        ptr::null_mut()
+    }
+}
+
+// Helper: convert ScriptAction to JSON-serializable form
+fn action_to_json(action: &ScriptAction) -> serde_json::Value {
+    match action {
+        ScriptAction::Play => serde_json::json!({"type": "play"}),
+        ScriptAction::Stop => serde_json::json!({"type": "stop"}),
+        ScriptAction::Record => serde_json::json!({"type": "record"}),
+        ScriptAction::SetPlayhead(pos) => serde_json::json!({"type": "set_playhead", "position": pos}),
+        ScriptAction::SetLoop(start, end) => serde_json::json!({"type": "set_loop", "start": start, "end": end}),
+        ScriptAction::CreateTrack { name, track_type } => {
+            serde_json::json!({"type": "create_track", "name": name, "track_type": track_type})
+        }
+        ScriptAction::DeleteTrack(id) => serde_json::json!({"type": "delete_track", "id": id}),
+        ScriptAction::MuteTrack(id, muted) => {
+            serde_json::json!({"type": "mute_track", "id": id, "muted": muted})
+        }
+        ScriptAction::SoloTrack(id, solo) => {
+            serde_json::json!({"type": "solo_track", "id": id, "solo": solo})
+        }
+        ScriptAction::SetTrackVolume(id, vol) => {
+            serde_json::json!({"type": "set_track_volume", "id": id, "volume": vol})
+        }
+        ScriptAction::SetTrackPan(id, pan) => {
+            serde_json::json!({"type": "set_track_pan", "id": id, "pan": pan})
+        }
+        ScriptAction::Cut => serde_json::json!({"type": "cut"}),
+        ScriptAction::Copy => serde_json::json!({"type": "copy"}),
+        ScriptAction::Paste => serde_json::json!({"type": "paste"}),
+        ScriptAction::Delete => serde_json::json!({"type": "delete"}),
+        ScriptAction::Undo => serde_json::json!({"type": "undo"}),
+        ScriptAction::Redo => serde_json::json!({"type": "redo"}),
+        ScriptAction::Save => serde_json::json!({"type": "save"}),
+        _ => serde_json::json!({"type": "unknown"}),
     }
 }

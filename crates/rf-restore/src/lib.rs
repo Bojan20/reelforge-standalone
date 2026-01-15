@@ -38,7 +38,7 @@ pub mod dehum;
 pub mod denoise;
 pub mod dereverb;
 
-mod analysis;
+pub mod analysis;
 mod error;
 
 pub use error::{RestoreError, RestoreResult};

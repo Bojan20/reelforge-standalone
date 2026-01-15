@@ -119,8 +119,16 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
   // ignore: unused_field
   int? _drawingNoteStart;
 
+  // Resize state
+  bool _isResizing = false;
+  bool _resizeFromStart = false;
+  int _resizeStartTick = 0;
+
   // Selection rectangle
   Rect? _selectionRect;
+
+  // Resize handle detection constants
+  static const double resizeHandleWidth = 8.0;
 
   @override
   void initState() {
@@ -188,6 +196,41 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     return noteOffset * _pixelsPerNote - _scrollY;
   }
 
+  /// Check if position is near note edge for resize
+  /// Returns: null if not on note, 'start' if near start edge, 'end' if near end edge, 'middle' if in middle
+  String? _checkNoteResizeHandle(double x, double y) {
+    final tick = _xToTick(x);
+    final note = _yToNote(y);
+
+    // Check all notes to find if we're on a resize handle
+    for (final n in _notes) {
+      if (n.note != note) continue;
+
+      final noteStartX = _tickToXInternal(n.startTick);
+      final noteEndX = _tickToXInternal(n.startTick + n.duration);
+
+      // Check if click is within note vertical bounds
+      if (x >= noteStartX && x <= noteEndX) {
+        // Check start edge
+        if (x <= noteStartX + resizeHandleWidth) {
+          return 'start';
+        }
+        // Check end edge
+        if (x >= noteEndX - resizeHandleWidth) {
+          return 'end';
+        }
+        // Middle of note
+        return 'middle';
+      }
+    }
+    return null;
+  }
+
+  double _tickToXInternal(int tick) {
+    final beats = tick / ticksPerBeat;
+    return beats * _pixelsPerBeat - _scrollX;
+  }
+
   void _handleTap(TapDownDetails details, double gridWidth, double gridHeight) {
     final localPos = details.localPosition;
     final tick = _xToTick(localPos.dx);
@@ -240,11 +283,34 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     _isDragging = true;
     _dragStart = details.localPosition;
     _dragCurrent = details.localPosition;
+    _isResizing = false;
+    _resizeFromStart = false;
 
     if (_tool == PianoRollTool.select) {
       final tick = _xToTick(details.localPosition.dx);
       final note = _yToNote(details.localPosition.dy);
-      _dragNoteId = NativeFFI.instance.pianoRollNoteAt(widget.clipId, tick, note);
+
+      // Check if we're clicking on a resize handle
+      final handleType = _checkNoteResizeHandle(details.localPosition.dx, details.localPosition.dy);
+
+      if (handleType == 'start' || handleType == 'end') {
+        // Resize mode
+        _isResizing = true;
+        _resizeFromStart = handleType == 'start';
+        _resizeStartTick = tick;
+        // Select the note we're resizing if not already selected
+        final noteId = NativeFFI.instance.pianoRollNoteAt(widget.clipId, tick, note);
+        if (noteId != 0) {
+          final noteObj = _notes.where((n) => n.id == noteId).firstOrNull;
+          if (noteObj != null && !noteObj.selected) {
+            NativeFFI.instance.pianoRollSelect(widget.clipId, noteId, addToSelection: false);
+            _loadNotes();
+          }
+        }
+      } else {
+        // Normal selection/move
+        _dragNoteId = NativeFFI.instance.pianoRollNoteAt(widget.clipId, tick, note);
+      }
     }
   }
 
@@ -254,16 +320,34 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     setState(() {
       _dragCurrent = details.localPosition;
 
-      if (_tool == PianoRollTool.select && _dragNoteId == null) {
-        // Rectangle selection
-        _selectionRect = Rect.fromPoints(_dragStart!, _dragCurrent!);
+      if (_tool == PianoRollTool.select) {
+        if (_isResizing) {
+          // Live resize feedback - update on pan end
+        } else if (_dragNoteId == null) {
+          // Rectangle selection
+          _selectionRect = Rect.fromPoints(_dragStart!, _dragCurrent!);
+        }
       }
     });
   }
 
   void _handlePanEnd(DragEndDetails details) {
     if (_tool == PianoRollTool.select) {
-      if (_selectionRect != null) {
+      if (_isResizing && _dragStart != null && _dragCurrent != null) {
+        // Finish resize operation
+        final deltaTick = _xToTick(_dragCurrent!.dx) - _xToTick(_dragStart!.dx);
+        final snappedDelta = _snapToGrid(deltaTick);
+
+        if (snappedDelta != 0) {
+          NativeFFI.instance.pianoRollResizeSelected(
+            widget.clipId,
+            _resizeFromStart ? -snappedDelta : snappedDelta,
+            fromStart: _resizeFromStart,
+          );
+          _loadNotes();
+          widget.onNotesChanged?.call();
+        }
+      } else if (_selectionRect != null) {
         // Finish rectangle selection
         final tickStart = _xToTick(_selectionRect!.left);
         final tickEnd = _xToTick(_selectionRect!.right);
@@ -294,6 +378,8 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
       _dragCurrent = null;
       _dragNoteId = null;
       _selectionRect = null;
+      _isResizing = false;
+      _resizeFromStart = false;
     });
   }
 
@@ -356,6 +442,26 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
           break;
         case LogicalKeyboardKey.keyE:
           setState(() => _tool = PianoRollTool.erase);
+          break;
+        case LogicalKeyboardKey.keyQ:
+          // Quantize selected notes (100% strength)
+          NativeFFI.instance.pianoRollQuantize(widget.clipId, 1.0);
+          _loadNotes();
+          widget.onNotesChanged?.call();
+          break;
+        case LogicalKeyboardKey.arrowUp:
+          // Transpose up
+          final semitones = HardwareKeyboard.instance.isShiftPressed ? 12 : 1;
+          NativeFFI.instance.pianoRollTranspose(widget.clipId, semitones);
+          _loadNotes();
+          widget.onNotesChanged?.call();
+          break;
+        case LogicalKeyboardKey.arrowDown:
+          // Transpose down
+          final semitones = HardwareKeyboard.instance.isShiftPressed ? -12 : -1;
+          NativeFFI.instance.pianoRollTranspose(widget.clipId, semitones);
+          _loadNotes();
+          widget.onNotesChanged?.call();
           break;
       }
     }
@@ -626,26 +732,30 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
 
-        return GestureDetector(
-          onTapDown: (details) => _handleTap(details, width, height),
-          onPanStart: _handlePanStart,
-          onPanUpdate: _handlePanUpdate,
-          onPanEnd: _handlePanEnd,
-          child: ClipRect(
-            child: CustomPaint(
-              painter: _NoteGridPainter(
-                notes: _notes,
-                pixelsPerBeat: _pixelsPerBeat,
-                pixelsPerNote: _pixelsPerNote,
-                scrollX: _scrollX,
-                scrollY: _scrollY,
-                visibleNoteLow: _visibleNoteLow,
-                visibleNoteHigh: _visibleNoteHigh,
-                gridTicks: _getGridTicks(),
-                lengthTicks: widget.lengthBars * 4 * ticksPerBeat,
-                selectionRect: _selectionRect,
+        return MouseRegion(
+          cursor: _getCursor(),
+          onHover: (event) => _onMouseHover(event.localPosition),
+          child: GestureDetector(
+            onTapDown: (details) => _handleTap(details, width, height),
+            onPanStart: _handlePanStart,
+            onPanUpdate: _handlePanUpdate,
+            onPanEnd: _handlePanEnd,
+            child: ClipRect(
+              child: CustomPaint(
+                painter: _NoteGridPainter(
+                  notes: _notes,
+                  pixelsPerBeat: _pixelsPerBeat,
+                  pixelsPerNote: _pixelsPerNote,
+                  scrollX: _scrollX,
+                  scrollY: _scrollY,
+                  visibleNoteLow: _visibleNoteLow,
+                  visibleNoteHigh: _visibleNoteHigh,
+                  gridTicks: _getGridTicks(),
+                  lengthTicks: widget.lengthBars * 4 * ticksPerBeat,
+                  selectionRect: _selectionRect,
+                ),
+                size: Size(width, height),
               ),
-              size: Size(width, height),
             ),
           ),
         );
@@ -653,21 +763,98 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
     );
   }
 
+  String? _hoverHandle;
+
+  void _onMouseHover(Offset position) {
+    final handle = _checkNoteResizeHandle(position.dx, position.dy);
+    if (handle != _hoverHandle) {
+      setState(() {
+        _hoverHandle = handle;
+      });
+    }
+  }
+
+  MouseCursor _getCursor() {
+    if (_tool == PianoRollTool.select) {
+      if (_hoverHandle == 'start' || _hoverHandle == 'end') {
+        return SystemMouseCursors.resizeLeftRight;
+      }
+      if (_hoverHandle == 'middle') {
+        return SystemMouseCursors.move;
+      }
+    }
+    if (_tool == PianoRollTool.draw) {
+      return SystemMouseCursors.precise;
+    }
+    if (_tool == PianoRollTool.erase) {
+      return SystemMouseCursors.disappearing;
+    }
+    return SystemMouseCursors.basic;
+  }
+
   Widget _buildVelocityLane() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return CustomPaint(
-          painter: _VelocityLanePainter(
-            notes: _notes,
-            pixelsPerBeat: _pixelsPerBeat,
-            scrollX: _scrollX,
-            gridTicks: _getGridTicks(),
-            lengthTicks: widget.lengthBars * 4 * ticksPerBeat,
+        final height = constraints.maxHeight;
+        return GestureDetector(
+          onTapDown: (details) => _handleVelocityTap(details, height),
+          onVerticalDragUpdate: (details) => _handleVelocityDrag(details, height),
+          child: CustomPaint(
+            painter: _VelocityLanePainter(
+              notes: _notes,
+              pixelsPerBeat: _pixelsPerBeat,
+              scrollX: _scrollX,
+              gridTicks: _getGridTicks(),
+              lengthTicks: widget.lengthBars * 4 * ticksPerBeat,
+            ),
+            size: Size(constraints.maxWidth, height),
           ),
-          size: Size(constraints.maxWidth, constraints.maxHeight),
         );
       },
     );
+  }
+
+  void _handleVelocityTap(TapDownDetails details, double laneHeight) {
+    final tick = _xToTick(details.localPosition.dx);
+    final velocity = _yToVelocity(details.localPosition.dy, laneHeight);
+
+    // Find note at this tick
+    final note = _findNoteAtTick(tick);
+    if (note != null) {
+      // Select the note and set its velocity
+      NativeFFI.instance.pianoRollSelect(widget.clipId, note.id, addToSelection: false);
+      NativeFFI.instance.pianoRollSetVelocity(widget.clipId, velocity);
+      _loadNotes();
+      widget.onNotesChanged?.call();
+    }
+  }
+
+  void _handleVelocityDrag(DragUpdateDetails details, double laneHeight) {
+    final tick = _xToTick(details.localPosition.dx);
+    final velocity = _yToVelocity(details.localPosition.dy, laneHeight);
+
+    // Find note at this tick
+    final note = _findNoteAtTick(tick);
+    if (note != null && note.selected) {
+      NativeFFI.instance.pianoRollSetVelocity(widget.clipId, velocity);
+      _loadNotes();
+      widget.onNotesChanged?.call();
+    }
+  }
+
+  int _yToVelocity(double y, double laneHeight) {
+    // Top = 127, bottom = 0
+    final normalized = 1.0 - (y / laneHeight).clamp(0.0, 1.0);
+    return (normalized * 127).round().clamp(1, 127);
+  }
+
+  PianoRollNote? _findNoteAtTick(int tick) {
+    for (final note in _notes) {
+      if (tick >= note.startTick && tick < note.startTick + note.duration) {
+        return note;
+      }
+    }
+    return null;
   }
 }
 

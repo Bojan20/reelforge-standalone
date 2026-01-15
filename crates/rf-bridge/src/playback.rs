@@ -538,8 +538,8 @@ pub struct PlaybackEngine {
     stream: Mutex<StreamHolder>,
     /// cpal input stream handle (for recording)
     input_stream: Mutex<StreamHolder>,
-    /// Is stream running
-    running: AtomicBool,
+    /// Is stream running (Arc for sharing with threads)
+    running: Arc<AtomicBool>,
     /// rf-engine PlaybackEngine (for full DAW mode)
     engine_playback: RwLock<Option<Arc<EnginePlayback>>>,
     /// Use engine mode (vs simple mode)
@@ -591,7 +591,7 @@ impl PlaybackEngine {
             simple_clips: RwLock::new(Vec::new()),
             stream: Mutex::new(StreamHolder(None)),
             input_stream: Mutex::new(StreamHolder(None)),
-            running: AtomicBool::new(false),
+            running: Arc::new(AtomicBool::new(false)),
             engine_playback: RwLock::new(None),
             use_engine_mode: AtomicBool::new(false),
             master_volume: Arc::new(AtomicU64::new(1.0_f64.to_bits())), // Unity gain
@@ -858,7 +858,7 @@ impl PlaybackEngine {
                 // Start background thread for recording flush
                 let recorder_clone = Arc::clone(&self.recorder);
                 let consumer_for_thread = self.input_buffer_consumer.lock().take();
-                let running_clone = self.running.load(Ordering::Acquire);
+                let running_clone = Arc::clone(&self.running);
                 let state_clone = Arc::clone(&self.state);
 
                 let recorder_handle = thread::Builder::new()
@@ -870,15 +870,15 @@ impl PlaybackEngine {
                         // We need to store consumer in the thread
                         let mut consumer = consumer_for_thread;
 
-                        while running_clone {
+                        while running_clone.load(Ordering::Acquire) {
                             // Read from ring buffer
                             if let Some(ref mut cons) = consumer {
                                 let available = cons.slots();
                                 if available > 0 {
                                     let to_read = available.min(local_buffer.len());
-                                    for i in 0..to_read {
+                                    for sample_slot in local_buffer.iter_mut().take(to_read) {
                                         if let Ok(sample) = cons.pop() {
-                                            local_buffer[i] = sample;
+                                            *sample_slot = sample;
                                         }
                                     }
 

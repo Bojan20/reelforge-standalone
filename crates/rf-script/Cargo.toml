@@ -8,8 +8,8 @@ license.workspace = true
 [dependencies]
 rf-core = { workspace = true }
 
-# Lua scripting engine
-mlua = { version = "0.10", features = ["lua54", "vendored", "serialize", "async"] }
+# Lua scripting engine (send feature enables Send+Sync for thread-safe FFI)
+mlua = { version = "0.10", features = ["lua54", "vendored", "serialize", "async", "send"] }
 
 # Concurrency
 parking_lot = { workspace = true }

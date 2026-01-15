@@ -61,13 +61,7 @@ impl DbToLinearTable {
     #[inline(always)]
     fn lookup(&self, db: f64) -> f64 {
         // Clamp to valid range
-        let db_clamped = if db < DB_MIN {
-            DB_MIN
-        } else if db > DB_MAX {
-            DB_MAX
-        } else {
-            db
-        };
+        let db_clamped = db.clamp(DB_MIN, DB_MAX);
 
         // Calculate index with linear interpolation
         let normalized = (db_clamped - DB_MIN) / DB_RANGE;
@@ -131,13 +125,7 @@ impl LinearToDbTable {
         // Logarithmic indexing
         let log_val = linear.ln();
         let normalized = (log_val - self.log_linear_min) / self.log_range;
-        let normalized_clamped = if normalized < 0.0 {
-            0.0
-        } else if normalized > 1.0 {
-            1.0
-        } else {
-            normalized
-        };
+        let normalized_clamped = normalized.clamp(0.0, 1.0);
 
         let index_f = normalized_clamped * (LINEAR_TO_DB_TABLE_SIZE - 1) as f64;
         let index = index_f as usize;
@@ -459,6 +447,12 @@ pub struct Compressor {
     fet_saturation: f64,
 
     sample_rate: f64,
+
+    // Sidechain support
+    /// External sidechain enabled
+    sidechain_enabled: bool,
+    /// Current sidechain key sample (set per-sample from external source)
+    sidechain_key_sample: Sample,
 }
 
 impl Compressor {
@@ -478,6 +472,41 @@ impl Compressor {
             opto_gain_history: [1.0; 4],
             fet_saturation: 0.0,
             sample_rate,
+            sidechain_enabled: false,
+            sidechain_key_sample: 0.0,
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // SIDECHAIN API
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /// Enable/disable external sidechain input
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.sidechain_enabled = enabled;
+    }
+
+    /// Check if sidechain is enabled
+    pub fn is_sidechain_enabled(&self) -> bool {
+        self.sidechain_enabled
+    }
+
+    /// Set the current sidechain key sample (call per-sample before process_sample)
+    ///
+    /// When sidechain is enabled, this value is used for envelope detection
+    /// instead of the input signal.
+    #[inline]
+    pub fn set_sidechain_key(&mut self, key: Sample) {
+        self.sidechain_key_sample = key;
+    }
+
+    /// Get the signal to use for envelope detection
+    #[inline]
+    fn get_detection_signal(&self, input: Sample) -> Sample {
+        if self.sidechain_enabled {
+            self.sidechain_key_sample
+        } else {
+            input
         }
     }
 
@@ -547,9 +576,12 @@ impl Compressor {
 
     /// VCA-style compression (clean, transparent)
     /// Uses lookup tables for fast dB/gain conversion
+    /// Supports external sidechain: envelope follows key signal, gain applied to input
     #[inline]
     fn process_vca(&mut self, input: Sample) -> Sample {
-        let envelope = self.envelope.process(input);
+        // Use sidechain key or input for envelope detection
+        let detection = self.get_detection_signal(input);
+        let envelope = self.envelope.process(detection);
 
         if envelope < 1e-10 {
             return input;
@@ -562,18 +594,21 @@ impl Compressor {
 
         // Fast gain conversion using lookup table
         let gain = db_to_linear_fast(-gr_db);
-        input * gain
+        input * gain  // Apply gain to INPUT, not detection signal
     }
 
     /// Opto-style compression (smooth, program-dependent)
     /// Uses lookup tables for fast dB/gain conversion
+    /// Supports external sidechain: envelope follows key signal, gain applied to input
     #[inline]
     fn process_opto(&mut self, input: Sample) -> Sample {
-        let abs_input = input.abs();
+        // Use sidechain key or input for envelope detection
+        let detection = self.get_detection_signal(input);
+        let abs_detection = detection.abs();
 
         // Opto cells have program-dependent attack/release
         // Higher levels = faster response
-        let level_factor = (abs_input * 10.0).min(1.0);
+        let level_factor = (abs_detection * 10.0).min(1.0);
 
         // Attack gets faster with higher levels
         let attack_coeff = (-1.0
@@ -584,12 +619,12 @@ impl Compressor {
         let release_coeff =
             (-1.0 / ((self.release_ms * release_factor) * 0.001 * self.sample_rate)).exp();
 
-        let coeff = if abs_input > self.opto_envelope {
+        let coeff = if abs_detection > self.opto_envelope {
             attack_coeff
         } else {
             release_coeff
         };
-        self.opto_envelope = abs_input + coeff * (self.opto_envelope - abs_input);
+        self.opto_envelope = abs_detection + coeff * (self.opto_envelope - abs_detection);
 
         if self.opto_envelope < 1e-10 {
             return input;
@@ -612,9 +647,12 @@ impl Compressor {
 
     /// FET-style compression (aggressive, punchy, adds harmonics)
     /// Uses lookup tables for fast dB/gain conversion
+    /// Supports external sidechain: envelope follows key signal, gain applied to input
     #[inline]
     fn process_fet(&mut self, input: Sample) -> Sample {
-        let envelope = self.envelope.process(input);
+        // Use sidechain key or input for envelope detection
+        let detection = self.get_detection_signal(input);
+        let envelope = self.envelope.process(detection);
 
         if envelope < 1e-10 {
             return input;
@@ -659,6 +697,7 @@ impl Processor for Compressor {
         self.opto_envelope = 0.0;
         self.opto_gain_history = [1.0; 4];
         self.fet_saturation = 0.0;
+        self.sidechain_key_sample = 0.0;
     }
 }
 
@@ -696,6 +735,11 @@ pub struct StereoCompressor {
     left: Compressor,
     right: Compressor,
     link: f64, // 0.0 = independent, 1.0 = fully linked
+    /// Sidechain enabled for stereo pair
+    sidechain_enabled: bool,
+    /// Sidechain key samples (L/R or mono duplicated)
+    sidechain_key_left: Sample,
+    sidechain_key_right: Sample,
 }
 
 impl StereoCompressor {
@@ -704,6 +748,9 @@ impl StereoCompressor {
             left: Compressor::new(sample_rate),
             right: Compressor::new(sample_rate),
             link: 1.0,
+            sidechain_enabled: false,
+            sidechain_key_left: 0.0,
+            sidechain_key_right: 0.0,
         }
     }
 
@@ -734,22 +781,61 @@ impl StereoCompressor {
             self.right.gain_reduction_db(),
         )
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // SIDECHAIN API
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /// Enable/disable external sidechain input
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.sidechain_enabled = enabled;
+        self.left.set_sidechain_enabled(enabled);
+        self.right.set_sidechain_enabled(enabled);
+    }
+
+    /// Check if sidechain is enabled
+    pub fn is_sidechain_enabled(&self) -> bool {
+        self.sidechain_enabled
+    }
+
+    /// Set stereo sidechain key samples (call per-sample before process_sample)
+    #[inline]
+    pub fn set_sidechain_key_stereo(&mut self, left: Sample, right: Sample) {
+        self.sidechain_key_left = left;
+        self.sidechain_key_right = right;
+        self.left.set_sidechain_key(left);
+        self.right.set_sidechain_key(right);
+    }
+
+    /// Set mono sidechain key sample (duplicated to both channels)
+    #[inline]
+    pub fn set_sidechain_key_mono(&mut self, key: Sample) {
+        self.set_sidechain_key_stereo(key, key);
+    }
 }
 
 impl Processor for StereoCompressor {
     fn reset(&mut self) {
         self.left.reset();
         self.right.reset();
+        self.sidechain_key_left = 0.0;
+        self.sidechain_key_right = 0.0;
     }
 }
 
 impl StereoProcessor for StereoCompressor {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
         if self.link >= 0.99 {
-            // Fully linked - use max of both channels
-            let max_input = left.abs().max(right.abs());
-            let _ = self.left.envelope.process(max_input);
-            let _ = self.right.envelope.process(max_input);
+            // Fully linked - use max of both channels (or sidechain if enabled)
+            let detection = if self.sidechain_enabled {
+                // Use sidechain key signal for detection
+                self.sidechain_key_left.abs().max(self.sidechain_key_right.abs())
+            } else {
+                // Use input signal for detection
+                left.abs().max(right.abs())
+            };
+            let _ = self.left.envelope.process(detection);
+            let _ = self.right.envelope.process(detection);
 
             // Use same envelope for both with fast lookup
             let env = self.left.envelope.current();
@@ -762,6 +848,7 @@ impl StereoProcessor for StereoCompressor {
             let gain = db_to_linear_fast(-gr_db);
             let makeup = db_to_linear_fast(self.left.makeup_gain_db);
 
+            // Apply gain to INPUT signal (not sidechain)
             (left * gain * makeup, right * gain * makeup)
         } else if self.link <= 0.01 {
             // Independent
@@ -1161,6 +1248,11 @@ pub struct Gate {
     gain: f64,
     hold_counter: usize,
     sample_rate: f64,
+    // Sidechain support
+    /// External sidechain enabled
+    sidechain_enabled: bool,
+    /// Current sidechain key sample (set per-sample from external source)
+    sidechain_key_sample: Sample,
 }
 
 impl Gate {
@@ -1175,9 +1267,38 @@ impl Gate {
             gain: 0.0,
             hold_counter: 0,
             sample_rate,
+            sidechain_enabled: false,
+            sidechain_key_sample: 0.0,
         };
         gate.envelope.set_times(1.0, 50.0);
         gate
+    }
+
+    /// Enable/disable external sidechain input
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.sidechain_enabled = enabled;
+    }
+
+    /// Check if sidechain is enabled
+    pub fn is_sidechain_enabled(&self) -> bool {
+        self.sidechain_enabled
+    }
+
+    /// Set the sidechain key signal for the current sample
+    /// Call this before process_sample() when using external sidechain
+    #[inline]
+    pub fn set_sidechain_key(&mut self, key: Sample) {
+        self.sidechain_key_sample = key;
+    }
+
+    /// Get the signal to use for envelope detection
+    #[inline]
+    fn get_detection_signal(&self, input: Sample) -> Sample {
+        if self.sidechain_enabled {
+            self.sidechain_key_sample
+        } else {
+            input
+        }
     }
 
     pub fn set_threshold(&mut self, db: f64) {
@@ -1222,7 +1343,9 @@ impl Processor for Gate {
 impl MonoProcessor for Gate {
     #[inline(always)]
     fn process_sample(&mut self, input: Sample) -> Sample {
-        let envelope = self.envelope.process(input);
+        // Use sidechain key or input for envelope detection
+        let detection = self.get_detection_signal(input);
+        let envelope = self.envelope.process(detection);
         let threshold = self.threshold_linear();
         let range = self.range_linear();
 
@@ -1249,6 +1372,7 @@ impl MonoProcessor for Gate {
         };
         self.gain = target_gain + coeff * (self.gain - target_gain);
 
+        // Apply gain to INPUT signal (not detection signal)
         input * self.gain
     }
 }
@@ -1271,6 +1395,11 @@ pub struct Expander {
     release_ms: f64,
     envelope: EnvelopeFollower,
     sample_rate: f64,
+    // Sidechain support
+    /// External sidechain enabled
+    sidechain_enabled: bool,
+    /// Current sidechain key sample (set per-sample from external source)
+    sidechain_key_sample: Sample,
 }
 
 impl Expander {
@@ -1283,6 +1412,8 @@ impl Expander {
             release_ms: 100.0,
             envelope: EnvelopeFollower::new(sample_rate),
             sample_rate,
+            sidechain_enabled: false,
+            sidechain_key_sample: 0.0,
         };
         exp.envelope.set_times(5.0, 100.0);
         exp
@@ -1305,6 +1436,33 @@ impl Expander {
         self.release_ms = release_ms;
         self.envelope.set_times(attack_ms, release_ms);
     }
+
+    /// Enable/disable external sidechain input
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.sidechain_enabled = enabled;
+    }
+
+    /// Check if sidechain is enabled
+    pub fn is_sidechain_enabled(&self) -> bool {
+        self.sidechain_enabled
+    }
+
+    /// Set the sidechain key signal for the current sample
+    /// Call this before process_sample() when using external sidechain
+    #[inline]
+    pub fn set_sidechain_key(&mut self, key: Sample) {
+        self.sidechain_key_sample = key;
+    }
+
+    /// Get the signal to use for envelope detection
+    #[inline]
+    fn get_detection_signal(&self, input: Sample) -> Sample {
+        if self.sidechain_enabled {
+            self.sidechain_key_sample
+        } else {
+            input
+        }
+    }
 }
 
 impl Processor for Expander {
@@ -1316,7 +1474,9 @@ impl Processor for Expander {
 impl MonoProcessor for Expander {
     #[inline(always)]
     fn process_sample(&mut self, input: Sample) -> Sample {
-        let envelope = self.envelope.process(input);
+        // Use sidechain key or input for envelope detection
+        let detection = self.get_detection_signal(input);
+        let envelope = self.envelope.process(detection);
 
         if envelope < 1e-10 {
             return 0.0;
@@ -1341,6 +1501,7 @@ impl MonoProcessor for Expander {
 
         // Fast gain conversion using lookup table
         let gain = db_to_linear_fast(gain_db);
+        // Apply gain to INPUT signal (not detection signal)
         input * gain
     }
 }
@@ -1624,6 +1785,116 @@ mod tests {
             (gain_below - 1.0).abs() < 0.01,
             "Below threshold: expected 1.0, got {}",
             gain_below
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIDECHAIN TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_compressor_sidechain() {
+        let mut comp = Compressor::new(48000.0);
+        comp.set_threshold(-20.0);
+        comp.set_ratio(4.0);
+        comp.set_sidechain_enabled(true);
+
+        // Small input signal, loud sidechain key
+        let input = 0.05; // -26dB - below threshold normally
+        let key = 0.5;    // -6dB - above threshold
+
+        // Feed sidechain key and process
+        for _ in 0..1000 {
+            comp.set_sidechain_key(key);
+            let _ = comp.process_sample(input);
+        }
+
+        // Should compress because sidechain key is loud
+        assert!(
+            comp.gain_reduction_db() > 0.5,
+            "Sidechain should trigger compression, got {} dB GR",
+            comp.gain_reduction_db()
+        );
+    }
+
+    #[test]
+    fn test_gate_sidechain() {
+        let mut gate = Gate::new(48000.0);
+        gate.set_threshold(-20.0);
+        gate.set_range(-60.0);
+        gate.set_hold(10.0); // Short hold for faster test
+        gate.set_release(50.0); // Faster release
+        gate.set_sidechain_enabled(true);
+
+        // Loud input, quiet sidechain - gate should close
+        let input = 0.5;  // -6dB - would normally open gate
+        let key = 0.001;  // -60dB - below threshold
+
+        // First open the gate with loud key
+        for _ in 0..500 {
+            gate.set_sidechain_key(0.5);
+            let _ = gate.process_sample(input);
+        }
+        assert!(gate.gain > 0.8, "Gate should be open initially");
+
+        // Now use quiet key - gate should close even though input is loud
+        // Need enough samples to pass hold time (10ms = 480 samples) + release time
+        for _ in 0..10000 {
+            gate.set_sidechain_key(key);
+            let _ = gate.process_sample(input);
+        }
+        assert!(
+            gate.gain < 0.1,
+            "Gate should close with quiet sidechain, got gain {}",
+            gate.gain
+        );
+    }
+
+    #[test]
+    fn test_stereo_compressor_sidechain() {
+        let mut comp = StereoCompressor::new(48000.0);
+        comp.set_both(|c| {
+            c.set_threshold(-20.0);
+            c.set_ratio(4.0);
+        });
+        comp.set_link(1.0);
+        comp.set_sidechain_enabled(true);
+
+        // Small stereo input, mono sidechain key
+        for _ in 0..1000 {
+            comp.set_sidechain_key_mono(0.5); // Loud key
+            let _ = comp.process_sample(0.05, 0.05); // Quiet input
+        }
+
+        // Should compress due to sidechain
+        let (gr_l, gr_r) = comp.gain_reduction_db();
+        assert!(gr_l > 0.5, "L channel should compress via sidechain");
+        assert!(gr_r > 0.5, "R channel should compress via sidechain");
+    }
+
+    #[test]
+    fn test_expander_sidechain() {
+        let mut exp = Expander::new(48000.0);
+        exp.set_threshold(-20.0);
+        exp.set_ratio(4.0);
+        exp.set_sidechain_enabled(true);
+
+        // Loud input, quiet sidechain - should expand (reduce) the signal
+        let input = 0.5;  // -6dB - above threshold normally
+        let key = 0.01;   // -40dB - below threshold
+
+        // Process with quiet sidechain key
+        let mut last_output = 0.0;
+        for _ in 0..1000 {
+            exp.set_sidechain_key(key);
+            last_output = exp.process_sample(input);
+        }
+
+        // Output should be reduced because sidechain key is below threshold
+        assert!(
+            last_output.abs() < input.abs() * 0.5,
+            "Expander should reduce output when sidechain is quiet, got {}",
+            last_output
         );
     }
 }

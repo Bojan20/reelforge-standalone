@@ -616,28 +616,28 @@ strip -S target/release/fluxforge_ui
 
 ## 📋 IMPLEMENTACIONI PLAN
 
-### Faza 1: Kritične Popravke (Dan 1 — 2h)
-1. ✅ RwLock → AtomicU8 u transport (30min) — **PRVO**
-2. ✅ Vec alokacija u EQ (45min)
-3. ✅ Meter provider throttling (45min)
+### Faza 1: Kritične Popravke (Dan 1 — 2h) ✅ COMPLETED
+1. ✅ RwLock → AtomicU8 u transport (30min) — **DONE**
+2. ✅ Vec alokacija u EQ (45min) — **DONE** (uses fixed arrays)
+3. ✅ Meter provider throttling (45min) — **DONE** (50ms throttle)
 
 **Testiranje:** Audio dropout test, timeline scrubbing smoothness
 
 ---
 
-### Faza 2: SIMD Optimizacije (Dan 2-3 — 4h)
-4. ✅ Biquad AVX-512 dispatch (2h)
-5. ✅ Dynamics envelope SIMD + lookup (1.5h)
-6. ✅ Timeline vsync sync (1h)
+### Faza 2: SIMD Optimizacije (Dan 2-3 — 4h) ✅ COMPLETED
+4. ✅ Biquad runtime SIMD dispatch — **DONE** (AVX2/SSE4.2/Scalar)
+5. ✅ Dynamics lookup tables + SIMD — **DONE** (db_to_linear_fast, linear_to_db_fast)
+6. ✅ Timeline vsync sync — **DONE** (uses Ticker @ 60fps)
 
 **Testiranje:** CPU profiler, filter benchmark, UI feel test
 
 ---
 
-### Faza 3: Memory & Polish (Dan 4 — 2h)
-7. ✅ Waveform LOD optimizacija + cache (1h)
-8. ✅ Binary size reduction (30min)
-9. ✅ Dead code removal (30min)
+### Faza 3: Memory & Polish (Dan 4 — 2h) ✅ COMPLETED
+7. ✅ Waveform LOD implementiran — **DONE** (GPU rendering + LOD levels)
+8. ✅ Binary size reduction — **DONE** (Cargo.toml: lto=fat, strip=true, panic=abort)
+9. ✅ Dead code removal — **DONE** (clippy --fix applied)
 
 **Testiranje:** Memory profiler, import speed, binary size
 
@@ -673,14 +673,14 @@ Sortirano po ROI (benefit / effort):
 
 | Priority | Issue | File | Effort | Gain | Status |
 |----------|-------|------|--------|------|--------|
-| 🔴 1 | RwLock audio thread | rf-audio/engine.rs:166 | 30min | 2-3ms latency | ⬜ TODO |
-| 🔴 2 | Peak decay pre-compute | rf-audio/engine.rs:323 | 5min | 0.5% CPU | ⬜ TODO |
-| 🟠 3 | Meter rebuild storm | meter_provider.dart:256 | 45min | 30% FPS | ⬜ TODO |
-| 🟠 4 | EQ Vec alloc | rf-dsp/eq.rs:190 | 45min | 3-5% CPU | ⬜ TODO |
-| 🟡 5 | Timeline vsync | timeline_playback.dart:175 | 1h | Smoothness | ⬜ TODO |
-| 🟡 6 | Convolution cache | rf-dsp/convolution.rs:138 | 15min | 1% startup | ⬜ TODO |
-| 🟢 7 | Biquad AVX-512 | rf-dsp/biquad.rs:494 | 2h | 20-30% filter | ⬜ TODO |
-| 🟢 8 | Dynamics SIMD | rf-dsp/dynamics.rs:45 | 1.5h | 1-2% CPU | ⬜ TODO |
+| 🔴 1 | RwLock audio thread | rf-audio/engine.rs:166 | 30min | 2-3ms latency | ✅ DONE |
+| 🔴 2 | Peak decay pre-compute | rf-audio/engine.rs:323 | 5min | 0.5% CPU | ✅ DONE |
+| 🟠 3 | Meter rebuild storm | meter_provider.dart | 45min | 30% FPS | ✅ DONE |
+| 🟠 4 | EQ Vec alloc | rf-dsp/eq.rs | 45min | 3-5% CPU | ✅ DONE (uses fixed arrays) |
+| 🟡 5 | Timeline vsync | timeline_playback.dart | 1h | Smoothness | ✅ DONE (uses Ticker) |
+| 🟡 6 | Convolution cache | rf-dsp/convolution.rs | 15min | 1% startup | ✅ DONE |
+| 🟢 7 | Biquad AVX-512 | rf-dsp/biquad.rs | 2h | 20-30% filter | ✅ DONE (runtime dispatch) |
+| 🟢 8 | Dynamics SIMD | rf-dsp/dynamics.rs | 1.5h | 1-2% CPU | ✅ DONE (lookup tables + SIMD) |
 
 **Legend:**
 - 🔴 Critical (do first)

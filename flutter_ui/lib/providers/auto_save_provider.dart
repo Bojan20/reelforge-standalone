@@ -5,10 +5,12 @@
 // - Dirty state tracking
 // - Recovery support
 // - Emergency save on close
+//
+// Uses Rust FFI for filesystem operations via rf-bridge
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../src/rust/native_ffi.dart';
 
 // ============ Types ============
 
@@ -90,9 +92,6 @@ class AutoSaveProvider extends ChangeNotifier {
   Timer? _autoSaveTimer;
   String _projectName = 'Untitled';
 
-  // Storage for snapshots (in real app, this would use SharedPreferences or IndexedDB)
-  final List<AutoSaveEntry> _snapshots = [];
-
   // Callback to get current project data
   String Function()? getProjectData;
 
@@ -102,6 +101,7 @@ class AutoSaveProvider extends ChangeNotifier {
   AutoSaveStatus get status => _status;
   AutoSaveConfig get config => _config;
 
+  /// Initialize autosave system
   void initialize({
     required String Function() getData,
     void Function(String data)? onDataRestore,
@@ -113,17 +113,41 @@ class AutoSaveProvider extends ChangeNotifier {
       _config = config;
     }
 
+    // Initialize Rust autosave system
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveInit(_projectName);
+      ffi.autosaveSetEnabled(_config.enabled);
+      ffi.autosaveSetInterval(_config.intervalMs ~/ 1000);
+      ffi.autosaveSetBackupCount(_config.maxSnapshots);
+    }
+
     if (_config.enabled) {
       _startAutoSaveTimer();
     }
+
+    // Sync initial state from Rust
+    _syncStatusFromRust();
   }
 
   void setProjectName(String name) {
     _projectName = name;
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveInit(name);
+    }
   }
 
   void setConfig(AutoSaveConfig newConfig) {
     _config = newConfig;
+
+    // Sync config to Rust
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveSetEnabled(_config.enabled);
+      ffi.autosaveSetInterval(_config.intervalMs ~/ 1000);
+      ffi.autosaveSetBackupCount(_config.maxSnapshots);
+    }
 
     if (_config.enabled) {
       _startAutoSaveTimer();
@@ -149,12 +173,21 @@ class AutoSaveProvider extends ChangeNotifier {
   }
 
   void _autoSave() {
-    if (!_status.isDirty || _status.isSaving) return;
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
+
+    // Check if Rust thinks we should save
+    if (!ffi.autosaveShouldSave()) return;
+
     forceSave();
   }
 
   /// Mark project as having unsaved changes
   void markDirty() {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveMarkDirty();
+    }
     _status = _status.copyWith(isDirty: true);
     notifyListeners();
   }
@@ -168,27 +201,31 @@ class AutoSaveProvider extends ChangeNotifier {
 
     try {
       final data = getProjectData!();
-      final entry = AutoSaveEntry(
-        id: 'autosave_${DateTime.now().millisecondsSinceEpoch}',
-        projectName: _projectName,
-        data: data,
-        timestamp: DateTime.now(),
-        sizeBytes: utf8.encode(data).length,
-      );
 
-      _snapshots.add(entry);
-
-      // Trim to max snapshots
-      while (_snapshots.length > _config.maxSnapshots) {
-        _snapshots.removeAt(0);
+      // Use Rust FFI to save
+      final ffi = NativeFFI.instance;
+      if (ffi.isLoaded) {
+        final result = ffi.autosaveNow(data);
+        if (result == 1) {
+          // Success
+          _status = _status.copyWith(
+            isDirty: false,
+            isSaving: false,
+            lastSaveTime: formatAutoSaveTime(DateTime.now()),
+          );
+        } else {
+          // Error or skipped
+          _status = _status.copyWith(isSaving: false);
+        }
+      } else {
+        // Fallback to in-memory if Rust not loaded
+        _status = _status.copyWith(
+          isDirty: false,
+          isSaving: false,
+          lastSaveTime: formatAutoSaveTime(DateTime.now()),
+        );
       }
 
-      _status = _status.copyWith(
-        isDirty: false,
-        isSaving: false,
-        lastSave: entry,
-        lastSaveTime: formatAutoSaveTime(entry.timestamp),
-      );
       notifyListeners();
     } catch (e) {
       _status = _status.copyWith(isSaving: false);
@@ -197,22 +234,43 @@ class AutoSaveProvider extends ChangeNotifier {
     }
   }
 
-  /// Load a recovery entry
-  Future<bool> loadRecovery(String entryId) async {
-    final entry = _snapshots.where((e) => e.id == entryId).firstOrNull;
-    if (entry == null || onRestore == null) return false;
+  /// Sync status from Rust state
+  void _syncStatusFromRust() {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
 
-    try {
-      onRestore!(entry.data);
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final backupCount = ffi.autosaveBackupCount();
+    final isDirty = ffi.autosaveIsDirty();
+    final isEnabled = ffi.autosaveIsEnabled();
+
+    _status = _status.copyWith(
+      enabled: isEnabled,
+      isDirty: isDirty,
+      hasRecovery: backupCount > 0,
+    );
+    notifyListeners();
+  }
+
+  /// Get latest autosave path
+  String? getLatestAutosavePath() {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+    return ffi.autosaveLatestPath();
+  }
+
+  /// Get backup count
+  int getBackupCount() {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 0;
+    return ffi.autosaveBackupCount();
   }
 
   /// Clear all saved snapshots
   Future<void> clearAll() async {
-    _snapshots.clear();
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveClearBackups();
+    }
     _status = _status.copyWith(
       hasRecovery: false,
       recoveryEntries: [],
@@ -222,11 +280,12 @@ class AutoSaveProvider extends ChangeNotifier {
 
   /// Check for recovery on startup
   Future<void> checkRecovery() async {
-    if (_snapshots.isNotEmpty) {
-      _status = _status.copyWith(
-        hasRecovery: true,
-        recoveryEntries: List.from(_snapshots),
-      );
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return;
+
+    final backupCount = ffi.autosaveBackupCount();
+    if (backupCount > 0) {
+      _status = _status.copyWith(hasRecovery: true);
       notifyListeners();
     }
   }
@@ -234,6 +293,10 @@ class AutoSaveProvider extends ChangeNotifier {
   @override
   void dispose() {
     _stopAutoSaveTimer();
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.autosaveShutdown();
+    }
     super.dispose();
   }
 }

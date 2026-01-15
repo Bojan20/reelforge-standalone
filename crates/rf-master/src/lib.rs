@@ -41,6 +41,7 @@ pub mod stereo;
 
 mod error;
 
+pub use chain::MasteringEngine;
 pub use error::{MasterError, MasterResult};
 
 use serde::{Deserialize, Serialize};

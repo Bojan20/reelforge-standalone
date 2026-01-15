@@ -7,13 +7,16 @@
 //! - Real-time or faster-than-real-time rendering
 //! - Progress callback support
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::TrackManager;
+
+#[allow(unused_imports)]
+use rf_file::{AudioData, AudioFormat, BitDepth, write_flac, write_mp3};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT CONFIG
@@ -30,6 +33,60 @@ pub enum ExportFormat {
     Wav24,
     /// 32-bit float WAV
     Wav32Float,
+    /// FLAC lossless (16-bit)
+    Flac16,
+    /// FLAC lossless (24-bit)
+    Flac24,
+    /// MP3 320kbps
+    Mp3_320,
+    /// MP3 256kbps
+    Mp3_256,
+    /// MP3 192kbps
+    Mp3_192,
+    /// MP3 128kbps
+    Mp3_128,
+}
+
+impl ExportFormat {
+    /// Get file extension for this format
+    pub fn file_extension(&self) -> &'static str {
+        match self {
+            ExportFormat::Wav16 | ExportFormat::Wav24 | ExportFormat::Wav32Float => "wav",
+            ExportFormat::Flac16 | ExportFormat::Flac24 => "flac",
+            ExportFormat::Mp3_320 | ExportFormat::Mp3_256 | ExportFormat::Mp3_192 | ExportFormat::Mp3_128 => "mp3",
+        }
+    }
+
+    /// Get format code for FFI
+    pub fn to_code(&self) -> u32 {
+        match self {
+            ExportFormat::Wav16 => 0,
+            ExportFormat::Wav24 => 1,
+            ExportFormat::Wav32Float => 2,
+            ExportFormat::Flac16 => 3,
+            ExportFormat::Flac24 => 4,
+            ExportFormat::Mp3_320 => 5,
+            ExportFormat::Mp3_256 => 6,
+            ExportFormat::Mp3_192 => 7,
+            ExportFormat::Mp3_128 => 8,
+        }
+    }
+
+    /// Create from FFI code
+    pub fn from_code(code: u32) -> Self {
+        match code {
+            0 => ExportFormat::Wav16,
+            1 => ExportFormat::Wav24,
+            2 => ExportFormat::Wav32Float,
+            3 => ExportFormat::Flac16,
+            4 => ExportFormat::Flac24,
+            5 => ExportFormat::Mp3_320,
+            6 => ExportFormat::Mp3_256,
+            7 => ExportFormat::Mp3_192,
+            8 => ExportFormat::Mp3_128,
+            _ => ExportFormat::Wav24, // Default
+        }
+    }
 }
 
 
@@ -183,40 +240,69 @@ impl ExportEngine {
         }
 
         // Write to file based on format
-        match config.format {
-            ExportFormat::Wav16 => {
-                OfflineRenderer::write_wav_16bit(
-                    &config.output_path,
-                    &output_l,
-                    &output_r,
-                    sample_rate,
-                )
-                .map_err(|e| ExportError::IoError(e.to_string()))?;
-            }
-            ExportFormat::Wav24 => {
-                OfflineRenderer::write_wav_24bit(
-                    &config.output_path,
-                    &output_l,
-                    &output_r,
-                    sample_rate,
-                )
-                .map_err(|e| ExportError::IoError(e.to_string()))?;
-            }
-            ExportFormat::Wav32Float => {
-                OfflineRenderer::write_wav_f32(
-                    &config.output_path,
-                    &output_l,
-                    &output_r,
-                    sample_rate,
-                )
-                .map_err(|e| ExportError::IoError(e.to_string()))?;
-            }
-        }
+        self.write_output(&config.output_path, &output_l, &output_r, sample_rate, config.format)?;
 
         // Mark complete
         self.progress.store(100.0_f64.to_bits(), Ordering::Relaxed);
         self.is_exporting.store(false, Ordering::Relaxed);
 
+        Ok(())
+    }
+
+    /// Create AudioData from left/right buffers
+    fn create_audio_data(&self, left: &[f64], right: &[f64], sample_rate: u32) -> AudioData {
+        let mut audio_data = AudioData::new(2, left.len(), sample_rate);
+        audio_data.channels[0].copy_from_slice(left);
+        audio_data.channels[1].copy_from_slice(right);
+        audio_data
+    }
+
+    /// Write output in specified format
+    fn write_output(
+        &self,
+        path: &Path,
+        left: &[f64],
+        right: &[f64],
+        sample_rate: u32,
+        format: ExportFormat,
+    ) -> Result<(), ExportError> {
+        let path_buf = path.to_path_buf();
+        match format {
+            ExportFormat::Wav16 => {
+                OfflineRenderer::write_wav_16bit(&path_buf, left, right, sample_rate)
+                    .map_err(|e| ExportError::IoError(e.to_string()))?;
+            }
+            ExportFormat::Wav24 => {
+                OfflineRenderer::write_wav_24bit(&path_buf, left, right, sample_rate)
+                    .map_err(|e| ExportError::IoError(e.to_string()))?;
+            }
+            ExportFormat::Wav32Float => {
+                OfflineRenderer::write_wav_f32(&path_buf, left, right, sample_rate)
+                    .map_err(|e| ExportError::IoError(e.to_string()))?;
+            }
+            ExportFormat::Flac16 | ExportFormat::Flac24 => {
+                let bit_depth = if format == ExportFormat::Flac16 {
+                    BitDepth::Int16
+                } else {
+                    BitDepth::Int24
+                };
+                let audio_data = self.create_audio_data(left, right, sample_rate);
+                write_flac(path, &audio_data, bit_depth)
+                    .map_err(|e: rf_file::FileError| ExportError::IoError(e.to_string()))?;
+            }
+            ExportFormat::Mp3_320 | ExportFormat::Mp3_256 | ExportFormat::Mp3_192 | ExportFormat::Mp3_128 => {
+                let bitrate = match format {
+                    ExportFormat::Mp3_320 => 320,
+                    ExportFormat::Mp3_256 => 256,
+                    ExportFormat::Mp3_192 => 192,
+                    ExportFormat::Mp3_128 => 128,
+                    _ => 320,
+                };
+                let audio_data = self.create_audio_data(left, right, sample_rate);
+                write_mp3(path, &audio_data, bitrate)
+                    .map_err(|e: rf_file::FileError| ExportError::IoError(e.to_string()))?;
+            }
+        }
         Ok(())
     }
 
@@ -343,12 +429,13 @@ impl ExportEngine {
         let total_samples = (total_duration * sample_rate as f64) as usize;
 
         // Export each track
+        let extension = config.format.file_extension();
         for (idx, track) in tracks.iter().enumerate() {
             // Generate output filename
             let filename = if config.prefix.is_empty() {
-                format!("{}_{}.wav", track.id.0, sanitize_filename(&track.name))
+                format!("{}_{}.{}", track.id.0, sanitize_filename(&track.name), extension)
             } else {
-                format!("{}_{}_{}.wav", config.prefix, track.id.0, sanitize_filename(&track.name))
+                format!("{}_{}_{}.{}", config.prefix, track.id.0, sanitize_filename(&track.name), extension)
             };
             let output_path = config.output_dir.join(&filename);
 
@@ -390,17 +477,7 @@ impl ExportEngine {
             }
 
             // Write to file
-            let write_result = match config.format {
-                ExportFormat::Wav16 => {
-                    OfflineRenderer::write_wav_16bit(&output_path, &output_l, &output_r, sample_rate)
-                }
-                ExportFormat::Wav24 => {
-                    OfflineRenderer::write_wav_24bit(&output_path, &output_l, &output_r, sample_rate)
-                }
-                ExportFormat::Wav32Float => {
-                    OfflineRenderer::write_wav_f32(&output_path, &output_l, &output_r, sample_rate)
-                }
-            };
+            let write_result = self.write_output(&output_path, &output_l, &output_r, sample_rate, config.format);
 
             if let Err(e) = write_result {
                 stems.last_mut().unwrap().status = 3; // Error

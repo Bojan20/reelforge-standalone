@@ -3,6 +3,7 @@
 /// Direct FFI bindings to Rust engine C API.
 /// Uses dart:ffi for low-level native function calls.
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
@@ -893,6 +894,676 @@ typedef WaveCacheLoadedCountNative = Uint32 Function();
 typedef WaveCacheLoadedCountDart = int Function();
 
 // ═══════════════════════════════════════════════════════════════════════════
+// COMPING TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef CompingCreateLaneNative = Uint64 Function(Uint64 trackId);
+typedef CompingCreateLaneDart = int Function(int trackId);
+
+typedef CompingDeleteLaneNative = Int32 Function(Uint64 trackId, Uint64 laneId);
+typedef CompingDeleteLaneDart = int Function(int trackId, int laneId);
+
+typedef CompingSetActiveLaneNative = Int32 Function(Uint64 trackId, Uint32 laneIndex);
+typedef CompingSetActiveLaneDart = int Function(int trackId, int laneIndex);
+
+typedef CompingToggleLaneMuteNative = Int32 Function(Uint64 trackId, Uint64 laneId);
+typedef CompingToggleLaneMuteDart = int Function(int trackId, int laneId);
+
+typedef CompingSetLaneVisibleNative = Int32 Function(Uint64 trackId, Uint64 laneId, Int32 visible);
+typedef CompingSetLaneVisibleDart = int Function(int trackId, int laneId, int visible);
+
+typedef CompingSetLaneHeightNative = Int32 Function(Uint64 trackId, Uint64 laneId, Double height);
+typedef CompingSetLaneHeightDart = int Function(int trackId, int laneId, double height);
+
+typedef CompingAddTakeNative = Uint64 Function(Uint64 trackId, Pointer<Utf8> sourcePath, Double startTime, Double duration);
+typedef CompingAddTakeDart = int Function(int trackId, Pointer<Utf8> sourcePath, double startTime, double duration);
+
+typedef CompingDeleteTakeNative = Int32 Function(Uint64 trackId, Uint64 takeId);
+typedef CompingDeleteTakeDart = int Function(int trackId, int takeId);
+
+typedef CompingSetTakeRatingNative = Int32 Function(Uint64 trackId, Uint64 takeId, Int32 rating);
+typedef CompingSetTakeRatingDart = int Function(int trackId, int takeId, int rating);
+
+typedef CompingToggleTakeMuteNative = Int32 Function(Uint64 trackId, Uint64 takeId);
+typedef CompingToggleTakeMuteDart = int Function(int trackId, int takeId);
+
+typedef CompingToggleTakeInCompNative = Int32 Function(Uint64 trackId, Uint64 takeId);
+typedef CompingToggleTakeInCompDart = int Function(int trackId, int takeId);
+
+typedef CompingSetTakeGainNative = Int32 Function(Uint64 trackId, Uint64 takeId, Double gain);
+typedef CompingSetTakeGainDart = int Function(int trackId, int takeId, double gain);
+
+typedef CompingCreateRegionNative = Uint64 Function(Uint64 trackId, Uint64 takeId, Double startTime, Double endTime);
+typedef CompingCreateRegionDart = int Function(int trackId, int takeId, double startTime, double endTime);
+
+typedef CompingDeleteRegionNative = Int32 Function(Uint64 trackId, Uint64 regionId);
+typedef CompingDeleteRegionDart = int Function(int trackId, int regionId);
+
+typedef CompingSetRegionCrossfadeInNative = Int32 Function(Uint64 trackId, Uint64 regionId, Double duration);
+typedef CompingSetRegionCrossfadeInDart = int Function(int trackId, int regionId, double duration);
+
+typedef CompingSetRegionCrossfadeOutNative = Int32 Function(Uint64 trackId, Uint64 regionId, Double duration);
+typedef CompingSetRegionCrossfadeOutDart = int Function(int trackId, int regionId, double duration);
+
+typedef CompingSetRegionCrossfadeTypeNative = Int32 Function(Uint64 trackId, Uint64 regionId, Int32 crossfadeType);
+typedef CompingSetRegionCrossfadeTypeDart = int Function(int trackId, int regionId, int crossfadeType);
+
+typedef CompingSetModeNative = Int32 Function(Uint64 trackId, Int32 mode);
+typedef CompingSetModeDart = int Function(int trackId, int mode);
+
+typedef CompingGetModeNative = Int32 Function(Uint64 trackId);
+typedef CompingGetModeDart = int Function(int trackId);
+
+typedef CompingToggleLanesExpandedNative = Int32 Function(Uint64 trackId);
+typedef CompingToggleLanesExpandedDart = int Function(int trackId);
+
+typedef CompingGetLanesExpandedNative = Int32 Function(Uint64 trackId);
+typedef CompingGetLanesExpandedDart = int Function(int trackId);
+
+typedef CompingGetLaneCountNative = Uint32 Function(Uint64 trackId);
+typedef CompingGetLaneCountDart = int Function(int trackId);
+
+typedef CompingGetActiveLaneIndexNative = Int32 Function(Uint64 trackId);
+typedef CompingGetActiveLaneIndexDart = int Function(int trackId);
+
+typedef CompingClearCompNative = Int32 Function(Uint64 trackId);
+typedef CompingClearCompDart = int Function(int trackId);
+
+typedef CompingGetStateJsonNative = Pointer<Utf8> Function(Uint64 trackId);
+typedef CompingGetStateJsonDart = Pointer<Utf8> Function(int trackId);
+
+typedef CompingLoadStateJsonNative = Int32 Function(Uint64 trackId, Pointer<Utf8> json);
+typedef CompingLoadStateJsonDart = int Function(int trackId, Pointer<Utf8> json);
+
+typedef CompingStartRecordingNative = Int32 Function(Uint64 trackId, Double startTime);
+typedef CompingStartRecordingDart = int Function(int trackId, double startTime);
+
+typedef CompingStopRecordingNative = Int32 Function(Uint64 trackId);
+typedef CompingStopRecordingDart = int Function(int trackId);
+
+typedef CompingIsRecordingNative = Int32 Function(Uint64 trackId);
+typedef CompingIsRecordingDart = int Function(int trackId);
+
+typedef CompingDeleteBadTakesNative = Uint32 Function(Uint64 trackId);
+typedef CompingDeleteBadTakesDart = int Function(int trackId);
+
+typedef CompingPromoteBestTakesNative = Uint32 Function(Uint64 trackId);
+typedef CompingPromoteBestTakesDart = int Function(int trackId);
+
+typedef CompingRemoveTrackNative = Void Function(Uint64 trackId);
+typedef CompingRemoveTrackDart = void Function(int trackId);
+
+typedef CompingClearAllNative = Void Function();
+typedef CompingClearAllDart = void Function();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIDEO FFI TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef VideoAddTrackNative = Uint64 Function(Pointer<Utf8> name);
+typedef VideoAddTrackDart = int Function(Pointer<Utf8> name);
+
+typedef VideoImportNative = Uint64 Function(Uint64 trackId, Pointer<Utf8> path, Uint64 timelineStartSamples);
+typedef VideoImportDart = int Function(int trackId, Pointer<Utf8> path, int timelineStartSamples);
+
+typedef VideoSetPlayheadNative = Void Function(Uint64 samples);
+typedef VideoSetPlayheadDart = void Function(int samples);
+
+typedef VideoGetPlayheadNative = Uint64 Function();
+typedef VideoGetPlayheadDart = int Function();
+
+typedef VideoGetFrameNative = Pointer<Uint8> Function(Uint64 clipId, Uint64 frameSamples, Pointer<Uint32> width, Pointer<Uint32> height, Pointer<Uint64> dataSize);
+typedef VideoGetFrameDart = Pointer<Uint8> Function(int clipId, int frameSamples, Pointer<Uint32> width, Pointer<Uint32> height, Pointer<Uint64> dataSize);
+
+typedef VideoFreeFrameNative = Void Function(Pointer<Uint8> data, Uint64 size);
+typedef VideoFreeFrameDart = void Function(Pointer<Uint8> data, int size);
+
+typedef VideoGetInfoJsonNative = Pointer<Utf8> Function(Uint64 clipId);
+typedef VideoGetInfoJsonDart = Pointer<Utf8> Function(int clipId);
+
+typedef VideoGenerateThumbnailsNative = Uint32 Function(Uint64 clipId, Uint32 width, Uint64 intervalFrames);
+typedef VideoGenerateThumbnailsDart = int Function(int clipId, int width, int intervalFrames);
+
+typedef VideoGetTrackCountNative = Uint32 Function();
+typedef VideoGetTrackCountDart = int Function();
+
+typedef VideoClearAllNative = Void Function();
+typedef VideoClearAllDart = void Function();
+
+typedef VideoFormatTimecodeNative = Pointer<Utf8> Function(Double seconds, Double frameRate, Int32 dropFrame);
+typedef VideoFormatTimecodeDart = Pointer<Utf8> Function(double seconds, double frameRate, int dropFrame);
+
+typedef VideoParseTimecodeNative = Double Function(Pointer<Utf8> tcStr, Double frameRate);
+typedef VideoParseTimecodeDart = double Function(Pointer<Utf8> tcStr, double frameRate);
+
+// Mastering Engine FFI
+typedef MasteringEngineInitNative = Void Function(Uint32 sampleRate);
+typedef MasteringEngineInitDart = void Function(int sampleRate);
+
+typedef MasteringSetPresetNative = Int32 Function(Uint8 preset);
+typedef MasteringSetPresetDart = int Function(int preset);
+
+typedef MasteringSetLoudnessTargetNative = Int32 Function(Float integratedLufs, Float truePeak, Float lraTarget);
+typedef MasteringSetLoudnessTargetDart = int Function(double integratedLufs, double truePeak, double lraTarget);
+
+typedef MasteringSetReferenceNative = Int32 Function(Pointer<Utf8> name, Pointer<Float> left, Pointer<Float> right, Uint32 length);
+typedef MasteringSetReferenceDart = int Function(Pointer<Utf8> name, Pointer<Float> left, Pointer<Float> right, int length);
+
+typedef MasteringProcessOfflineNative = Int32 Function(Pointer<Float> left, Pointer<Float> right, Pointer<Float> outLeft, Pointer<Float> outRight, Uint32 length);
+typedef MasteringProcessOfflineDart = int Function(Pointer<Float> left, Pointer<Float> right, Pointer<Float> outLeft, Pointer<Float> outRight, int length);
+
+typedef MasteringGetResultNative = MasteringResultFFIStruct Function();
+typedef MasteringGetResultDart = MasteringResultFFIStruct Function();
+
+typedef MasteringGetWarningNative = Pointer<Utf8> Function(Uint32 index);
+typedef MasteringGetWarningDart = Pointer<Utf8> Function(int index);
+
+typedef MasteringGetChainSummaryNative = Pointer<Utf8> Function();
+typedef MasteringGetChainSummaryDart = Pointer<Utf8> Function();
+
+typedef MasteringResetNative = Void Function();
+typedef MasteringResetDart = void Function();
+
+typedef MasteringSetActiveNative = Void Function(Int32 active);
+typedef MasteringSetActiveDart = void Function(int active);
+
+typedef MasteringGetGainReductionNative = Float Function();
+typedef MasteringGetGainReductionDart = double Function();
+
+typedef MasteringGetDetectedGenreNative = Uint8 Function();
+typedef MasteringGetDetectedGenreDart = int Function();
+
+typedef MasteringGetLatencyNative = Uint32 Function();
+typedef MasteringGetLatencyDart = int Function();
+
+// Mastering result struct (matches Rust MasteringResultFFI)
+final class MasteringResultFFIStruct extends Struct {
+  @Float()
+  external double inputLufs;
+  @Float()
+  external double outputLufs;
+  @Float()
+  external double inputPeak;
+  @Float()
+  external double outputPeak;
+  @Float()
+  external double appliedGain;
+  @Float()
+  external double peakReduction;
+  @Float()
+  external double qualityScore;
+  @Uint8()
+  external int detectedGenre;
+  @Uint32()
+  external int warningCount;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO RESTORATION FFI TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef RestorationInitNative = Void Function(Uint32 sampleRate);
+typedef RestorationInitDart = void Function(int sampleRate);
+
+typedef RestorationSetSettingsNative = Int32 Function(
+  Int32 denoiseEnabled, Float denoiseStrength,
+  Int32 declickEnabled, Float declickSensitivity,
+  Int32 declipEnabled, Float declipThreshold,
+  Int32 dehumEnabled, Float dehumFrequency, Uint32 dehumHarmonics,
+  Int32 dereverbEnabled, Float dereverbAmount,
+);
+typedef RestorationSetSettingsDart = int Function(
+  int denoiseEnabled, double denoiseStrength,
+  int declickEnabled, double declickSensitivity,
+  int declipEnabled, double declipThreshold,
+  int dehumEnabled, double dehumFrequency, int dehumHarmonics,
+  int dereverbEnabled, double dereverbAmount,
+);
+
+typedef RestorationGetSettingsNative = RestorationSettingsFFIStruct Function();
+typedef RestorationGetSettingsDart = RestorationSettingsFFIStruct Function();
+
+typedef RestorationAnalyzeNative = RestorationAnalysisFFIStruct Function(Pointer<Utf8> path);
+typedef RestorationAnalyzeDart = RestorationAnalysisFFIStruct Function(Pointer<Utf8> path);
+
+typedef RestorationGetSuggestionCountNative = Uint32 Function();
+typedef RestorationGetSuggestionCountDart = int Function();
+
+typedef RestorationGetSuggestionNative = Pointer<Utf8> Function(Uint32 index);
+typedef RestorationGetSuggestionDart = Pointer<Utf8> Function(int index);
+
+typedef RestorationProcessNative = Int32 Function(Pointer<Float> input, Pointer<Float> output, Uint32 length);
+typedef RestorationProcessDart = int Function(Pointer<Float> input, Pointer<Float> output, int length);
+
+typedef RestorationProcessFileNative = Int32 Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+typedef RestorationProcessFileDart = int Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+
+typedef RestorationLearnNoiseProfileNative = Int32 Function(Pointer<Float> input, Uint32 length);
+typedef RestorationLearnNoiseProfileDart = int Function(Pointer<Float> input, int length);
+
+typedef RestorationClearNoiseProfileNative = Void Function();
+typedef RestorationClearNoiseProfileDart = void Function();
+
+typedef RestorationGetStateNative = Void Function(Pointer<Int32> outIsProcessing, Pointer<Float> outProgress);
+typedef RestorationGetStateDart = void Function(Pointer<Int32> outIsProcessing, Pointer<Float> outProgress);
+
+typedef RestorationGetPhaseNative = Pointer<Utf8> Function();
+typedef RestorationGetPhaseDart = Pointer<Utf8> Function();
+
+typedef RestorationSetActiveNative = Void Function(Int32 active);
+typedef RestorationSetActiveDart = void Function(int active);
+
+typedef RestorationGetLatencyNative = Uint32 Function();
+typedef RestorationGetLatencyDart = int Function();
+
+typedef RestorationResetNative = Void Function();
+typedef RestorationResetDart = void Function();
+
+// Restoration settings struct (matches Rust RestorationSettingsFFI)
+final class RestorationSettingsFFIStruct extends Struct {
+  @Int32()
+  external int denoiseEnabled;
+  @Float()
+  external double denoiseStrength;
+  @Int32()
+  external int declickEnabled;
+  @Float()
+  external double declickSensitivity;
+  @Int32()
+  external int declipEnabled;
+  @Float()
+  external double declipThreshold;
+  @Int32()
+  external int dehumEnabled;
+  @Float()
+  external double dehumFrequency;
+  @Uint32()
+  external int dehumHarmonics;
+  @Int32()
+  external int dereverbEnabled;
+  @Float()
+  external double dereverbAmount;
+}
+
+// Restoration analysis struct (matches Rust RestorationAnalysisFFI)
+final class RestorationAnalysisFFIStruct extends Struct {
+  @Float()
+  external double noiseFloorDb;
+  @Float()
+  external double clicksPerSecond;
+  @Float()
+  external double clippingPercent;
+  @Int32()
+  external int humDetected;
+  @Float()
+  external double humFrequency;
+  @Float()
+  external double humLevelDb;
+  @Float()
+  external double reverbTailSeconds;
+  @Float()
+  external double qualityScore;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ML/AI PROCESSING FFI TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef MlInitNative = Void Function();
+typedef MlInitDart = void Function();
+
+typedef MlGetModelCountNative = Uint32 Function();
+typedef MlGetModelCountDart = int Function();
+
+typedef MlGetModelNameNative = Pointer<Utf8> Function(Uint32 index);
+typedef MlGetModelNameDart = Pointer<Utf8> Function(int index);
+
+typedef MlModelIsAvailableNative = Int32 Function(Uint32 index);
+typedef MlModelIsAvailableDart = int Function(int index);
+
+typedef MlGetModelSizeNative = Uint32 Function(Uint32 index);
+typedef MlGetModelSizeDart = int Function(int index);
+
+typedef MlDenoiseStartNative = Int32 Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath, Float strength);
+typedef MlDenoiseStartDart = int Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath, double strength);
+
+typedef MlSeparateStartNative = Int32 Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputDir, Uint32 stemsMask);
+typedef MlSeparateStartDart = int Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputDir, int stemsMask);
+
+typedef MlEnhanceVoiceStartNative = Int32 Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+typedef MlEnhanceVoiceStartDart = int Function(Pointer<Utf8> inputPath, Pointer<Utf8> outputPath);
+
+typedef MlGetProgressNative = Float Function();
+typedef MlGetProgressDart = double Function();
+
+typedef MlIsProcessingNative = Int32 Function();
+typedef MlIsProcessingDart = int Function();
+
+typedef MlGetPhaseNative = Pointer<Utf8> Function();
+typedef MlGetPhaseDart = Pointer<Utf8> Function();
+
+typedef MlGetCurrentModelNative = Pointer<Utf8> Function();
+typedef MlGetCurrentModelDart = Pointer<Utf8> Function();
+
+typedef MlCancelNative = Int32 Function();
+typedef MlCancelDart = int Function();
+
+typedef MlSetExecutionProviderNative = Int32 Function(Int32 provider);
+typedef MlSetExecutionProviderDart = int Function(int provider);
+
+typedef MlGetErrorNative = Pointer<Utf8> Function();
+typedef MlGetErrorDart = Pointer<Utf8> Function();
+
+typedef MlResetNative = Void Function();
+typedef MlResetDart = void Function();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUA SCRIPTING FFI TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef ScriptInitNative = Int32 Function();
+typedef ScriptInitDart = int Function();
+
+typedef ScriptShutdownNative = Void Function();
+typedef ScriptShutdownDart = void Function();
+
+typedef ScriptIsInitializedNative = Int32 Function();
+typedef ScriptIsInitializedDart = int Function();
+
+typedef ScriptExecuteNative = Int32 Function(Pointer<Utf8> code);
+typedef ScriptExecuteDart = int Function(Pointer<Utf8> code);
+
+typedef ScriptExecuteFileNative = Int32 Function(Pointer<Utf8> path);
+typedef ScriptExecuteFileDart = int Function(Pointer<Utf8> path);
+
+typedef ScriptLoadFileNative = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef ScriptLoadFileDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
+typedef ScriptRunNative = Int32 Function(Pointer<Utf8> name);
+typedef ScriptRunDart = int Function(Pointer<Utf8> name);
+
+typedef ScriptGetOutputNative = Pointer<Utf8> Function();
+typedef ScriptGetOutputDart = Pointer<Utf8> Function();
+
+typedef ScriptGetErrorNative = Pointer<Utf8> Function();
+typedef ScriptGetErrorDart = Pointer<Utf8> Function();
+
+typedef ScriptGetDurationNative = Uint32 Function();
+typedef ScriptGetDurationDart = int Function();
+
+typedef ScriptPollActionsNative = Uint32 Function();
+typedef ScriptPollActionsDart = int Function();
+
+typedef ScriptGetNextActionNative = Pointer<Utf8> Function();
+typedef ScriptGetNextActionDart = Pointer<Utf8> Function();
+
+typedef ScriptSetContextNative = Void Function(Uint64 playhead, Int32 isPlaying, Int32 isRecording, Uint32 sampleRate);
+typedef ScriptSetContextDart = void Function(int playhead, int isPlaying, int isRecording, int sampleRate);
+
+typedef ScriptSetSelectedTracksNative = Void Function(Pointer<Uint64> trackIds, Uint32 count);
+typedef ScriptSetSelectedTracksDart = void Function(Pointer<Uint64> trackIds, int count);
+
+typedef ScriptSetSelectedClipsNative = Void Function(Pointer<Uint64> clipIds, Uint32 count);
+typedef ScriptSetSelectedClipsDart = void Function(Pointer<Uint64> clipIds, int count);
+
+typedef ScriptAddSearchPathNative = Void Function(Pointer<Utf8> path);
+typedef ScriptAddSearchPathDart = void Function(Pointer<Utf8> path);
+
+typedef ScriptGetLoadedCountNative = Uint32 Function();
+typedef ScriptGetLoadedCountDart = int Function();
+
+typedef ScriptGetNameNative = Pointer<Utf8> Function(Uint32 index);
+typedef ScriptGetNameDart = Pointer<Utf8> Function(int index);
+
+typedef ScriptGetDescriptionNative = Pointer<Utf8> Function(Uint32 index);
+typedef ScriptGetDescriptionDart = Pointer<Utf8> Function(int index);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN HOSTING FFI TYPEDEFS
+// ═══════════════════════════════════════════════════════════════════════════
+
+typedef PluginHostInitNative = Int32 Function();
+typedef PluginHostInitDart = int Function();
+
+typedef PluginScanAllNative = Int32 Function();
+typedef PluginScanAllDart = int Function();
+
+typedef PluginGetCountNative = Uint32 Function();
+typedef PluginGetCountDart = int Function();
+
+typedef PluginGetAllJsonNative = Pointer<Utf8> Function();
+typedef PluginGetAllJsonDart = Pointer<Utf8> Function();
+
+typedef PluginGetInfoJsonNative = Pointer<Utf8> Function(Uint32 index);
+typedef PluginGetInfoJsonDart = Pointer<Utf8> Function(int index);
+
+typedef PluginLoadNative = Int32 Function(Pointer<Utf8> pluginId, Pointer<Uint8> outInstanceId, Uint32 maxLen);
+typedef PluginLoadDart = int Function(Pointer<Utf8> pluginId, Pointer<Uint8> outInstanceId, int maxLen);
+
+typedef PluginUnloadNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginUnloadDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginActivateNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginActivateDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginDeactivateNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginDeactivateDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginGetParamCountNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginGetParamCountDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginGetParamNative = Double Function(Pointer<Utf8> instanceId, Uint32 paramId);
+typedef PluginGetParamDart = double Function(Pointer<Utf8> instanceId, int paramId);
+
+typedef PluginSetParamNative = Int32 Function(Pointer<Utf8> instanceId, Uint32 paramId, Double value);
+typedef PluginSetParamDart = int Function(Pointer<Utf8> instanceId, int paramId, double value);
+
+typedef PluginGetAllParamsJsonNative = Pointer<Utf8> Function(Pointer<Utf8> instanceId);
+typedef PluginGetAllParamsJsonDart = Pointer<Utf8> Function(Pointer<Utf8> instanceId);
+
+typedef PluginHasEditorNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginHasEditorDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginGetLatencyNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginGetLatencyDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginOpenEditorNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Void> parentWindow);
+typedef PluginOpenEditorDart = int Function(Pointer<Utf8> instanceId, Pointer<Void> parentWindow);
+
+typedef PluginCloseEditorNative = Int32 Function(Pointer<Utf8> instanceId);
+typedef PluginCloseEditorDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginEditorSizeNative = Uint64 Function(Pointer<Utf8> instanceId);
+typedef PluginEditorSizeDart = int Function(Pointer<Utf8> instanceId);
+
+typedef PluginResizeEditorNative = Int32 Function(Pointer<Utf8> instanceId, Uint32 width, Uint32 height);
+typedef PluginResizeEditorDart = int Function(Pointer<Utf8> instanceId, int width, int height);
+
+typedef PluginSearchNative = Uint32 Function(Pointer<Utf8> query, Pointer<Uint32> outIndices, Uint32 maxIndices);
+typedef PluginSearchDart = int Function(Pointer<Utf8> query, Pointer<Uint32> outIndices, int maxIndices);
+
+typedef PluginGetByTypeNative = Uint32 Function(Uint8 pluginType, Pointer<Uint32> outIndices, Uint32 maxIndices);
+typedef PluginGetByTypeDart = int Function(int pluginType, Pointer<Uint32> outIndices, int maxIndices);
+
+typedef PluginGetByCategoryNative = Uint32 Function(Uint8 category, Pointer<Uint32> outIndices, Uint32 maxIndices);
+typedef PluginGetByCategoryDart = int Function(int category, Pointer<Uint32> outIndices, int maxIndices);
+
+typedef PluginGetInstancesJsonNative = Pointer<Utf8> Function();
+typedef PluginGetInstancesJsonDart = Pointer<Utf8> Function();
+
+// Plugin Insert Chain
+typedef PluginInsertLoadNative = Int32 Function(Uint64 channelId, Pointer<Utf8> pluginId);
+typedef PluginInsertLoadDart = int Function(int channelId, Pointer<Utf8> pluginId);
+
+typedef PluginInsertRemoveNative = Int32 Function(Uint64 channelId, Uint32 slotIndex);
+typedef PluginInsertRemoveDart = int Function(int channelId, int slotIndex);
+
+typedef PluginInsertSetBypassNative = Int32 Function(Uint64 channelId, Uint32 slotIndex, Int32 bypass);
+typedef PluginInsertSetBypassDart = int Function(int channelId, int slotIndex, int bypass);
+
+typedef PluginInsertSetMixNative = Int32 Function(Uint64 channelId, Uint32 slotIndex, Float mix);
+typedef PluginInsertSetMixDart = int Function(int channelId, int slotIndex, double mix);
+
+typedef PluginInsertGetMixNative = Float Function(Uint64 channelId, Uint32 slotIndex);
+typedef PluginInsertGetMixDart = double Function(int channelId, int slotIndex);
+
+typedef PluginInsertGetLatencyNative = Int32 Function(Uint64 channelId, Uint32 slotIndex);
+typedef PluginInsertGetLatencyDart = int Function(int channelId, int slotIndex);
+
+typedef PluginInsertChainLatencyNative = Int32 Function(Uint64 channelId);
+typedef PluginInsertChainLatencyDart = int Function(int channelId);
+
+// MIDI I/O
+typedef MidiScanInputDevicesNative = Uint32 Function();
+typedef MidiScanInputDevicesDart = int Function();
+
+typedef MidiScanOutputDevicesNative = Uint32 Function();
+typedef MidiScanOutputDevicesDart = int Function();
+
+typedef MidiGetInputDeviceNameNative = Int32 Function(Uint32 index, Pointer<Utf8> outName, Uint32 maxLen);
+typedef MidiGetInputDeviceNameDart = int Function(int index, Pointer<Utf8> outName, int maxLen);
+
+typedef MidiGetOutputDeviceNameNative = Int32 Function(Uint32 index, Pointer<Utf8> outName, Uint32 maxLen);
+typedef MidiGetOutputDeviceNameDart = int Function(int index, Pointer<Utf8> outName, int maxLen);
+
+typedef MidiInputDeviceCountNative = Uint32 Function();
+typedef MidiInputDeviceCountDart = int Function();
+
+typedef MidiOutputDeviceCountNative = Uint32 Function();
+typedef MidiOutputDeviceCountDart = int Function();
+
+typedef MidiConnectInputNative = Int32 Function(Uint32 deviceIndex);
+typedef MidiConnectInputDart = int Function(int deviceIndex);
+
+typedef MidiDisconnectInputNative = Int32 Function(Uint32 connectionIndex);
+typedef MidiDisconnectInputDart = int Function(int connectionIndex);
+
+typedef MidiDisconnectAllInputsNative = Void Function();
+typedef MidiDisconnectAllInputsDart = void Function();
+
+typedef MidiActiveInputCountNative = Uint32 Function();
+typedef MidiActiveInputCountDart = int Function();
+
+typedef MidiConnectOutputNative = Int32 Function(Uint32 deviceIndex);
+typedef MidiConnectOutputDart = int Function(int deviceIndex);
+
+typedef MidiDisconnectOutputNative = Void Function();
+typedef MidiDisconnectOutputDart = void Function();
+
+typedef MidiIsOutputConnectedNative = Int32 Function();
+typedef MidiIsOutputConnectedDart = int Function();
+
+typedef MidiStartRecordingNative = Void Function(Uint64 trackId);
+typedef MidiStartRecordingDart = void Function(int trackId);
+
+typedef MidiStopRecordingNative = Void Function();
+typedef MidiStopRecordingDart = void Function();
+
+typedef MidiArmTrackNative = Void Function(Uint64 trackId);
+typedef MidiArmTrackDart = void Function(int trackId);
+
+typedef MidiIsRecordingNative = Int32 Function();
+typedef MidiIsRecordingDart = int Function();
+
+typedef MidiGetRecordingStateNative = Uint32 Function();
+typedef MidiGetRecordingStateDart = int Function();
+
+typedef MidiRecordedEventCountNative = Uint32 Function();
+typedef MidiRecordedEventCountDart = int Function();
+
+typedef MidiGetTargetTrackNative = Uint64 Function();
+typedef MidiGetTargetTrackDart = int Function();
+
+typedef MidiSetSampleRateNative = Void Function(Uint32 sampleRate);
+typedef MidiSetSampleRateDart = void Function(int sampleRate);
+
+typedef MidiSetThruNative = Void Function(Int32 enabled);
+typedef MidiSetThruDart = void Function(int enabled);
+
+typedef MidiIsThruEnabledNative = Int32 Function();
+typedef MidiIsThruEnabledDart = int Function();
+
+typedef MidiSendNoteOnNative = Int32 Function(Uint8 channel, Uint8 note, Uint8 velocity);
+typedef MidiSendNoteOnDart = int Function(int channel, int note, int velocity);
+
+typedef MidiSendNoteOffNative = Int32 Function(Uint8 channel, Uint8 note, Uint8 velocity);
+typedef MidiSendNoteOffDart = int Function(int channel, int note, int velocity);
+
+typedef MidiSendCcNative = Int32 Function(Uint8 channel, Uint8 cc, Uint8 value);
+typedef MidiSendCcDart = int Function(int channel, int cc, int value);
+
+typedef MidiSendPitchBendNative = Int32 Function(Uint8 channel, Uint16 value);
+typedef MidiSendPitchBendDart = int Function(int channel, int value);
+
+typedef MidiSendProgramChangeNative = Int32 Function(Uint8 channel, Uint8 program);
+typedef MidiSendProgramChangeDart = int Function(int channel, int program);
+
+// Autosave System
+typedef AutosaveInitNative = Int32 Function(Pointer<Utf8> projectName);
+typedef AutosaveInitDart = int Function(Pointer<Utf8> projectName);
+
+typedef AutosaveShutdownNative = Void Function();
+typedef AutosaveShutdownDart = void Function();
+
+typedef AutosaveSetEnabledNative = Void Function(Int32 enabled);
+typedef AutosaveSetEnabledDart = void Function(int enabled);
+
+typedef AutosaveIsEnabledNative = Int32 Function();
+typedef AutosaveIsEnabledDart = int Function();
+
+typedef AutosaveSetIntervalNative = Void Function(Uint32 intervalSecs);
+typedef AutosaveSetIntervalDart = void Function(int intervalSecs);
+
+typedef AutosaveGetIntervalNative = Uint32 Function();
+typedef AutosaveGetIntervalDart = int Function();
+
+typedef AutosaveSetBackupCountNative = Void Function(Uint32 count);
+typedef AutosaveSetBackupCountDart = void Function(int count);
+
+typedef AutosaveGetBackupCountNative = Uint32 Function();
+typedef AutosaveGetBackupCountDart = int Function();
+
+typedef AutosaveMarkDirtyNative = Void Function();
+typedef AutosaveMarkDirtyDart = void Function();
+
+typedef AutosaveMarkCleanNative = Void Function();
+typedef AutosaveMarkCleanDart = void Function();
+
+typedef AutosaveIsDirtyNative = Int32 Function();
+typedef AutosaveIsDirtyDart = int Function();
+
+typedef AutosaveShouldSaveNative = Int32 Function();
+typedef AutosaveShouldSaveDart = int Function();
+
+typedef AutosaveNowNative = Int32 Function(Pointer<Utf8> projectData);
+typedef AutosaveNowDart = int Function(Pointer<Utf8> projectData);
+
+typedef AutosaveBackupCountNative = Uint32 Function();
+typedef AutosaveBackupCountDart = int Function();
+
+typedef AutosaveLatestPathNative = Int32 Function(Pointer<Utf8> outPath, Uint32 maxLen);
+typedef AutosaveLatestPathDart = int Function(Pointer<Utf8> outPath, int maxLen);
+
+typedef AutosaveClearBackupsNative = Void Function();
+typedef AutosaveClearBackupsDart = void Function();
+
+// Recent Projects
+typedef RecentProjectsAddNative = Int32 Function(Pointer<Utf8> path);
+typedef RecentProjectsAddDart = int Function(Pointer<Utf8> path);
+
+typedef RecentProjectsCountNative = Uint32 Function();
+typedef RecentProjectsCountDart = int Function();
+
+typedef RecentProjectsGetNative = Int32 Function(Uint32 index, Pointer<Utf8> outPath, Uint32 maxLen);
+typedef RecentProjectsGetDart = int Function(int index, Pointer<Utf8> outPath, int maxLen);
+
+typedef RecentProjectsRemoveNative = Int32 Function(Pointer<Utf8> path);
+typedef RecentProjectsRemoveDart = int Function(Pointer<Utf8> path);
+
+typedef RecentProjectsClearNative = Void Function();
+typedef RecentProjectsClearDart = void Function();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1191,6 +1862,215 @@ class NativeFFI {
   late final WaveCacheBuildFromSamplesDart _waveCacheBuildFromSamples;
   late final WaveCacheClearAllDart _waveCacheClearAll;
   late final WaveCacheLoadedCountDart _waveCacheLoadedCount;
+
+  // Comping
+  late final CompingCreateLaneDart _compingCreateLane;
+  late final CompingDeleteLaneDart _compingDeleteLane;
+  late final CompingSetActiveLaneDart _compingSetActiveLane;
+  late final CompingToggleLaneMuteDart _compingToggleLaneMute;
+  late final CompingSetLaneVisibleDart _compingSetLaneVisible;
+  late final CompingSetLaneHeightDart _compingSetLaneHeight;
+  late final CompingAddTakeDart _compingAddTake;
+  late final CompingDeleteTakeDart _compingDeleteTake;
+  late final CompingSetTakeRatingDart _compingSetTakeRating;
+  late final CompingToggleTakeMuteDart _compingToggleTakeMute;
+  late final CompingToggleTakeInCompDart _compingToggleTakeInComp;
+  late final CompingSetTakeGainDart _compingSetTakeGain;
+  late final CompingCreateRegionDart _compingCreateRegion;
+  late final CompingDeleteRegionDart _compingDeleteRegion;
+  late final CompingSetRegionCrossfadeInDart _compingSetRegionCrossfadeIn;
+  late final CompingSetRegionCrossfadeOutDart _compingSetRegionCrossfadeOut;
+  late final CompingSetRegionCrossfadeTypeDart _compingSetRegionCrossfadeType;
+  late final CompingSetModeDart _compingSetMode;
+  late final CompingGetModeDart _compingGetMode;
+  late final CompingToggleLanesExpandedDart _compingToggleLanesExpanded;
+  late final CompingGetLanesExpandedDart _compingGetLanesExpanded;
+  late final CompingGetLaneCountDart _compingGetLaneCount;
+  late final CompingGetActiveLaneIndexDart _compingGetActiveLaneIndex;
+  late final CompingClearCompDart _compingClearComp;
+  late final CompingGetStateJsonDart _compingGetStateJson;
+  late final CompingLoadStateJsonDart _compingLoadStateJson;
+  late final CompingStartRecordingDart _compingStartRecording;
+  late final CompingStopRecordingDart _compingStopRecording;
+  late final CompingIsRecordingDart _compingIsRecording;
+  late final CompingDeleteBadTakesDart _compingDeleteBadTakes;
+  late final CompingPromoteBestTakesDart _compingPromoteBestTakes;
+  late final CompingRemoveTrackDart _compingRemoveTrack;
+  late final CompingClearAllDart _compingClearAll;
+
+  // Video FFI
+  late final VideoAddTrackDart _videoAddTrack;
+  late final VideoImportDart _videoImport;
+  late final VideoSetPlayheadDart _videoSetPlayhead;
+  late final VideoGetPlayheadDart _videoGetPlayhead;
+  late final VideoGetFrameDart _videoGetFrame;
+  late final VideoFreeFrameDart _videoFreeFrame;
+  late final VideoGetInfoJsonDart _videoGetInfoJson;
+  late final VideoGenerateThumbnailsDart _videoGenerateThumbnails;
+  late final VideoGetTrackCountDart _videoGetTrackCount;
+  late final VideoClearAllDart _videoClearAll;
+  late final VideoFormatTimecodeDart _videoFormatTimecode;
+  late final VideoParseTimecodeDart _videoParseTimecode;
+
+  // Mastering Engine
+  late final MasteringEngineInitDart _masteringEngineInit;
+  late final MasteringSetPresetDart _masteringSetPreset;
+  late final MasteringSetLoudnessTargetDart _masteringSetLoudnessTarget;
+  late final MasteringSetReferenceDart _masteringSetReference;
+  late final MasteringProcessOfflineDart _masteringProcessOffline;
+  late final MasteringGetResultDart _masteringGetResult;
+  late final MasteringGetWarningDart _masteringGetWarning;
+  late final MasteringGetChainSummaryDart _masteringGetChainSummary;
+  late final MasteringResetDart _masteringReset;
+  late final MasteringSetActiveDart _masteringSetActive;
+  late final MasteringGetGainReductionDart _masteringGetGainReduction;
+  late final MasteringGetDetectedGenreDart _masteringGetDetectedGenre;
+  late final MasteringGetLatencyDart _masteringGetLatency;
+
+  // Restoration functions
+  late final RestorationInitDart _restorationInit;
+  late final RestorationSetSettingsDart _restorationSetSettings;
+  late final RestorationGetSettingsDart _restorationGetSettings;
+  late final RestorationAnalyzeDart _restorationAnalyze;
+  late final RestorationGetSuggestionCountDart _restorationGetSuggestionCount;
+  late final RestorationGetSuggestionDart _restorationGetSuggestion;
+  late final RestorationProcessDart _restorationProcess;
+  late final RestorationProcessFileDart _restorationProcessFile;
+  late final RestorationLearnNoiseProfileDart _restorationLearnNoiseProfile;
+  late final RestorationClearNoiseProfileDart _restorationClearNoiseProfile;
+  late final RestorationGetStateDart _restorationGetState;
+  late final RestorationGetPhaseDart _restorationGetPhase;
+  late final RestorationSetActiveDart _restorationSetActive;
+  late final RestorationGetLatencyDart _restorationGetLatency;
+  late final RestorationResetDart _restorationReset;
+
+  // ML/AI functions
+  late final MlInitDart _mlInit;
+  late final MlGetModelCountDart _mlGetModelCount;
+  late final MlGetModelNameDart _mlGetModelName;
+  late final MlModelIsAvailableDart _mlModelIsAvailable;
+  late final MlGetModelSizeDart _mlGetModelSize;
+  late final MlDenoiseStartDart _mlDenoiseStart;
+  late final MlSeparateStartDart _mlSeparateStart;
+  late final MlEnhanceVoiceStartDart _mlEnhanceVoiceStart;
+  late final MlGetProgressDart _mlGetProgress;
+  late final MlIsProcessingDart _mlIsProcessing;
+  late final MlGetPhaseDart _mlGetPhase;
+  late final MlGetCurrentModelDart _mlGetCurrentModel;
+  late final MlCancelDart _mlCancel;
+  late final MlSetExecutionProviderDart _mlSetExecutionProvider;
+  late final MlGetErrorDart _mlGetError;
+  late final MlResetDart _mlReset;
+
+  // Lua Scripting functions
+  late final ScriptInitDart _scriptInit;
+  late final ScriptShutdownDart _scriptShutdown;
+  late final ScriptIsInitializedDart _scriptIsInitialized;
+  late final ScriptExecuteDart _scriptExecute;
+  late final ScriptExecuteFileDart _scriptExecuteFile;
+  late final ScriptLoadFileDart _scriptLoadFile;
+  late final ScriptRunDart _scriptRun;
+  late final ScriptGetOutputDart _scriptGetOutput;
+  late final ScriptGetErrorDart _scriptGetError;
+  late final ScriptGetDurationDart _scriptGetDuration;
+  late final ScriptPollActionsDart _scriptPollActions;
+  late final ScriptGetNextActionDart _scriptGetNextAction;
+  late final ScriptSetContextDart _scriptSetContext;
+  late final ScriptSetSelectedTracksDart _scriptSetSelectedTracks;
+  late final ScriptSetSelectedClipsDart _scriptSetSelectedClips;
+  late final ScriptAddSearchPathDart _scriptAddSearchPath;
+  late final ScriptGetLoadedCountDart _scriptGetLoadedCount;
+  late final ScriptGetNameDart _scriptGetName;
+  late final ScriptGetDescriptionDart _scriptGetDescription;
+
+  // Plugin Hosting functions
+  late final PluginHostInitDart _pluginHostInit;
+  late final PluginScanAllDart _pluginScanAll;
+  late final PluginGetCountDart _pluginGetCount;
+  late final PluginGetAllJsonDart _pluginGetAllJson;
+  late final PluginGetInfoJsonDart _pluginGetInfoJson;
+  late final PluginLoadDart _pluginLoad;
+  late final PluginUnloadDart _pluginUnload;
+  late final PluginActivateDart _pluginActivate;
+  late final PluginDeactivateDart _pluginDeactivate;
+  late final PluginGetParamCountDart _pluginGetParamCount;
+  late final PluginGetParamDart _pluginGetParam;
+  late final PluginSetParamDart _pluginSetParam;
+  late final PluginGetAllParamsJsonDart _pluginGetAllParamsJson;
+  late final PluginHasEditorDart _pluginHasEditor;
+  late final PluginGetLatencyDart _pluginGetLatency;
+  late final PluginOpenEditorDart _pluginOpenEditor;
+  late final PluginCloseEditorDart _pluginCloseEditor;
+  late final PluginEditorSizeDart _pluginEditorSize;
+  late final PluginResizeEditorDart _pluginResizeEditor;
+  late final PluginSearchDart _pluginSearch;
+  late final PluginGetByTypeDart _pluginGetByType;
+  late final PluginGetByCategoryDart _pluginGetByCategory;
+  late final PluginGetInstancesJsonDart _pluginGetInstancesJson;
+
+  // Plugin insert chain
+  late final PluginInsertLoadDart _pluginInsertLoad;
+  late final PluginInsertRemoveDart _pluginInsertRemove;
+  late final PluginInsertSetBypassDart _pluginInsertSetBypass;
+  late final PluginInsertSetMixDart _pluginInsertSetMix;
+  late final PluginInsertGetMixDart _pluginInsertGetMix;
+  late final PluginInsertGetLatencyDart _pluginInsertGetLatency;
+  late final PluginInsertChainLatencyDart _pluginInsertChainLatency;
+
+  // MIDI I/O
+  late final MidiScanInputDevicesDart _midiScanInputDevices;
+  late final MidiScanOutputDevicesDart _midiScanOutputDevices;
+  late final MidiGetInputDeviceNameDart _midiGetInputDeviceName;
+  late final MidiGetOutputDeviceNameDart _midiGetOutputDeviceName;
+  late final MidiInputDeviceCountDart _midiInputDeviceCount;
+  late final MidiOutputDeviceCountDart _midiOutputDeviceCount;
+  late final MidiConnectInputDart _midiConnectInput;
+  late final MidiDisconnectInputDart _midiDisconnectInput;
+  late final MidiDisconnectAllInputsDart _midiDisconnectAllInputs;
+  late final MidiActiveInputCountDart _midiActiveInputCount;
+  late final MidiConnectOutputDart _midiConnectOutput;
+  late final MidiDisconnectOutputDart _midiDisconnectOutput;
+  late final MidiIsOutputConnectedDart _midiIsOutputConnected;
+  late final MidiStartRecordingDart _midiStartRecording;
+  late final MidiStopRecordingDart _midiStopRecording;
+  late final MidiArmTrackDart _midiArmTrack;
+  late final MidiIsRecordingDart _midiIsRecording;
+  late final MidiGetRecordingStateDart _midiGetRecordingState;
+  late final MidiRecordedEventCountDart _midiRecordedEventCount;
+  late final MidiGetTargetTrackDart _midiGetTargetTrack;
+  late final MidiSetSampleRateDart _midiSetSampleRate;
+  late final MidiSetThruDart _midiSetThru;
+  late final MidiIsThruEnabledDart _midiIsThruEnabled;
+  late final MidiSendNoteOnDart _midiSendNoteOn;
+  late final MidiSendNoteOffDart _midiSendNoteOff;
+  late final MidiSendCcDart _midiSendCc;
+  late final MidiSendPitchBendDart _midiSendPitchBend;
+  late final MidiSendProgramChangeDart _midiSendProgramChange;
+
+  // Autosave System
+  late final AutosaveInitDart _autosaveInit;
+  late final AutosaveShutdownDart _autosaveShutdown;
+  late final AutosaveSetEnabledDart _autosaveSetEnabled;
+  late final AutosaveIsEnabledDart _autosaveIsEnabled;
+  late final AutosaveSetIntervalDart _autosaveSetInterval;
+  late final AutosaveGetIntervalDart _autosaveGetInterval;
+  late final AutosaveSetBackupCountDart _autosaveSetBackupCount;
+  late final AutosaveGetBackupCountDart _autosaveGetBackupCount;
+  late final AutosaveMarkDirtyDart _autosaveMarkDirty;
+  late final AutosaveMarkCleanDart _autosaveMarkClean;
+  late final AutosaveIsDirtyDart _autosaveIsDirty;
+  late final AutosaveShouldSaveDart _autosaveShouldSave;
+  late final AutosaveNowDart _autosaveNow;
+  late final AutosaveBackupCountDart _autosaveBackupCount;
+  late final AutosaveLatestPathDart _autosaveLatestPath;
+  late final AutosaveClearBackupsDart _autosaveClearBackups;
+
+  // Recent Projects
+  late final RecentProjectsAddDart _recentProjectsAdd;
+  late final RecentProjectsCountDart _recentProjectsCount;
+  late final RecentProjectsGetDart _recentProjectsGet;
+  late final RecentProjectsRemoveDart _recentProjectsRemove;
+  late final RecentProjectsClearDart _recentProjectsClear;
 
   NativeFFI._();
 
@@ -1499,6 +2379,219 @@ class NativeFFI {
     _waveCacheBuildFromSamples = _lib.lookupFunction<WaveCacheBuildFromSamplesNative, WaveCacheBuildFromSamplesDart>('wave_cache_build_from_samples');
     _waveCacheClearAll = _lib.lookupFunction<WaveCacheClearAllNative, WaveCacheClearAllDart>('wave_cache_clear_all');
     _waveCacheLoadedCount = _lib.lookupFunction<WaveCacheLoadedCountNative, WaveCacheLoadedCountDart>('wave_cache_loaded_count');
+
+    // Comping
+    _compingCreateLane = _lib.lookupFunction<CompingCreateLaneNative, CompingCreateLaneDart>('comping_create_lane');
+    _compingDeleteLane = _lib.lookupFunction<CompingDeleteLaneNative, CompingDeleteLaneDart>('comping_delete_lane');
+    _compingSetActiveLane = _lib.lookupFunction<CompingSetActiveLaneNative, CompingSetActiveLaneDart>('comping_set_active_lane');
+    _compingToggleLaneMute = _lib.lookupFunction<CompingToggleLaneMuteNative, CompingToggleLaneMuteDart>('comping_toggle_lane_mute');
+    _compingSetLaneVisible = _lib.lookupFunction<CompingSetLaneVisibleNative, CompingSetLaneVisibleDart>('comping_set_lane_visible');
+    _compingSetLaneHeight = _lib.lookupFunction<CompingSetLaneHeightNative, CompingSetLaneHeightDart>('comping_set_lane_height');
+    _compingAddTake = _lib.lookupFunction<CompingAddTakeNative, CompingAddTakeDart>('comping_add_take');
+    _compingDeleteTake = _lib.lookupFunction<CompingDeleteTakeNative, CompingDeleteTakeDart>('comping_delete_take');
+    _compingSetTakeRating = _lib.lookupFunction<CompingSetTakeRatingNative, CompingSetTakeRatingDart>('comping_set_take_rating');
+    _compingToggleTakeMute = _lib.lookupFunction<CompingToggleTakeMuteNative, CompingToggleTakeMuteDart>('comping_toggle_take_mute');
+    _compingToggleTakeInComp = _lib.lookupFunction<CompingToggleTakeInCompNative, CompingToggleTakeInCompDart>('comping_toggle_take_in_comp');
+    _compingSetTakeGain = _lib.lookupFunction<CompingSetTakeGainNative, CompingSetTakeGainDart>('comping_set_take_gain');
+    _compingCreateRegion = _lib.lookupFunction<CompingCreateRegionNative, CompingCreateRegionDart>('comping_create_region');
+    _compingDeleteRegion = _lib.lookupFunction<CompingDeleteRegionNative, CompingDeleteRegionDart>('comping_delete_region');
+    _compingSetRegionCrossfadeIn = _lib.lookupFunction<CompingSetRegionCrossfadeInNative, CompingSetRegionCrossfadeInDart>('comping_set_region_crossfade_in');
+    _compingSetRegionCrossfadeOut = _lib.lookupFunction<CompingSetRegionCrossfadeOutNative, CompingSetRegionCrossfadeOutDart>('comping_set_region_crossfade_out');
+    _compingSetRegionCrossfadeType = _lib.lookupFunction<CompingSetRegionCrossfadeTypeNative, CompingSetRegionCrossfadeTypeDart>('comping_set_region_crossfade_type');
+    _compingSetMode = _lib.lookupFunction<CompingSetModeNative, CompingSetModeDart>('comping_set_mode');
+    _compingGetMode = _lib.lookupFunction<CompingGetModeNative, CompingGetModeDart>('comping_get_mode');
+    _compingToggleLanesExpanded = _lib.lookupFunction<CompingToggleLanesExpandedNative, CompingToggleLanesExpandedDart>('comping_toggle_lanes_expanded');
+    _compingGetLanesExpanded = _lib.lookupFunction<CompingGetLanesExpandedNative, CompingGetLanesExpandedDart>('comping_get_lanes_expanded');
+    _compingGetLaneCount = _lib.lookupFunction<CompingGetLaneCountNative, CompingGetLaneCountDart>('comping_get_lane_count');
+    _compingGetActiveLaneIndex = _lib.lookupFunction<CompingGetActiveLaneIndexNative, CompingGetActiveLaneIndexDart>('comping_get_active_lane_index');
+    _compingClearComp = _lib.lookupFunction<CompingClearCompNative, CompingClearCompDart>('comping_clear_comp');
+    _compingGetStateJson = _lib.lookupFunction<CompingGetStateJsonNative, CompingGetStateJsonDart>('comping_get_state_json');
+    _compingLoadStateJson = _lib.lookupFunction<CompingLoadStateJsonNative, CompingLoadStateJsonDart>('comping_load_state_json');
+    _compingStartRecording = _lib.lookupFunction<CompingStartRecordingNative, CompingStartRecordingDart>('comping_start_recording');
+    _compingStopRecording = _lib.lookupFunction<CompingStopRecordingNative, CompingStopRecordingDart>('comping_stop_recording');
+    _compingIsRecording = _lib.lookupFunction<CompingIsRecordingNative, CompingIsRecordingDart>('comping_is_recording');
+    _compingDeleteBadTakes = _lib.lookupFunction<CompingDeleteBadTakesNative, CompingDeleteBadTakesDart>('comping_delete_bad_takes');
+    _compingPromoteBestTakes = _lib.lookupFunction<CompingPromoteBestTakesNative, CompingPromoteBestTakesDart>('comping_promote_best_takes');
+    _compingRemoveTrack = _lib.lookupFunction<CompingRemoveTrackNative, CompingRemoveTrackDart>('comping_remove_track');
+    _compingClearAll = _lib.lookupFunction<CompingClearAllNative, CompingClearAllDart>('comping_clear_all');
+
+    // Video FFI
+    _videoAddTrack = _lib.lookupFunction<VideoAddTrackNative, VideoAddTrackDart>('video_add_track');
+    _videoImport = _lib.lookupFunction<VideoImportNative, VideoImportDart>('video_import');
+    _videoSetPlayhead = _lib.lookupFunction<VideoSetPlayheadNative, VideoSetPlayheadDart>('video_set_playhead');
+    _videoGetPlayhead = _lib.lookupFunction<VideoGetPlayheadNative, VideoGetPlayheadDart>('video_get_playhead');
+    _videoGetFrame = _lib.lookupFunction<VideoGetFrameNative, VideoGetFrameDart>('video_get_frame');
+    _videoFreeFrame = _lib.lookupFunction<VideoFreeFrameNative, VideoFreeFrameDart>('video_free_frame');
+    _videoGetInfoJson = _lib.lookupFunction<VideoGetInfoJsonNative, VideoGetInfoJsonDart>('video_get_info_json');
+    _videoGenerateThumbnails = _lib.lookupFunction<VideoGenerateThumbnailsNative, VideoGenerateThumbnailsDart>('video_generate_thumbnails');
+    _videoGetTrackCount = _lib.lookupFunction<VideoGetTrackCountNative, VideoGetTrackCountDart>('video_get_track_count');
+    _videoClearAll = _lib.lookupFunction<VideoClearAllNative, VideoClearAllDart>('video_clear_all');
+    _videoFormatTimecode = _lib.lookupFunction<VideoFormatTimecodeNative, VideoFormatTimecodeDart>('video_format_timecode');
+    _videoParseTimecode = _lib.lookupFunction<VideoParseTimecodeNative, VideoParseTimecodeDart>('video_parse_timecode');
+
+    // Mastering Engine
+    _masteringEngineInit = _lib.lookupFunction<MasteringEngineInitNative, MasteringEngineInitDart>('mastering_engine_init');
+    _masteringSetPreset = _lib.lookupFunction<MasteringSetPresetNative, MasteringSetPresetDart>('mastering_set_preset');
+    _masteringSetLoudnessTarget = _lib.lookupFunction<MasteringSetLoudnessTargetNative, MasteringSetLoudnessTargetDart>('mastering_set_loudness_target');
+    _masteringSetReference = _lib.lookupFunction<MasteringSetReferenceNative, MasteringSetReferenceDart>('mastering_set_reference');
+    _masteringProcessOffline = _lib.lookupFunction<MasteringProcessOfflineNative, MasteringProcessOfflineDart>('mastering_process_offline');
+    _masteringGetResult = _lib.lookupFunction<MasteringGetResultNative, MasteringGetResultDart>('mastering_get_result');
+    _masteringGetWarning = _lib.lookupFunction<MasteringGetWarningNative, MasteringGetWarningDart>('mastering_get_warning');
+    _masteringGetChainSummary = _lib.lookupFunction<MasteringGetChainSummaryNative, MasteringGetChainSummaryDart>('mastering_get_chain_summary');
+    _masteringReset = _lib.lookupFunction<MasteringResetNative, MasteringResetDart>('mastering_reset');
+    _masteringSetActive = _lib.lookupFunction<MasteringSetActiveNative, MasteringSetActiveDart>('mastering_set_active');
+    _masteringGetGainReduction = _lib.lookupFunction<MasteringGetGainReductionNative, MasteringGetGainReductionDart>('mastering_get_gain_reduction');
+    _masteringGetDetectedGenre = _lib.lookupFunction<MasteringGetDetectedGenreNative, MasteringGetDetectedGenreDart>('mastering_get_detected_genre');
+    _masteringGetLatency = _lib.lookupFunction<MasteringGetLatencyNative, MasteringGetLatencyDart>('mastering_get_latency');
+
+    // Restoration bindings
+    _restorationInit = _lib.lookupFunction<RestorationInitNative, RestorationInitDart>('restoration_init');
+    _restorationSetSettings = _lib.lookupFunction<RestorationSetSettingsNative, RestorationSetSettingsDart>('restoration_set_settings');
+    _restorationGetSettings = _lib.lookupFunction<RestorationGetSettingsNative, RestorationGetSettingsDart>('restoration_get_settings');
+    _restorationAnalyze = _lib.lookupFunction<RestorationAnalyzeNative, RestorationAnalyzeDart>('restoration_analyze');
+    _restorationGetSuggestionCount = _lib.lookupFunction<RestorationGetSuggestionCountNative, RestorationGetSuggestionCountDart>('restoration_get_suggestion_count');
+    _restorationGetSuggestion = _lib.lookupFunction<RestorationGetSuggestionNative, RestorationGetSuggestionDart>('restoration_get_suggestion');
+    _restorationProcess = _lib.lookupFunction<RestorationProcessNative, RestorationProcessDart>('restoration_process');
+    _restorationProcessFile = _lib.lookupFunction<RestorationProcessFileNative, RestorationProcessFileDart>('restoration_process_file');
+    _restorationLearnNoiseProfile = _lib.lookupFunction<RestorationLearnNoiseProfileNative, RestorationLearnNoiseProfileDart>('restoration_learn_noise_profile');
+    _restorationClearNoiseProfile = _lib.lookupFunction<RestorationClearNoiseProfileNative, RestorationClearNoiseProfileDart>('restoration_clear_noise_profile');
+    _restorationGetState = _lib.lookupFunction<RestorationGetStateNative, RestorationGetStateDart>('restoration_get_state');
+    _restorationGetPhase = _lib.lookupFunction<RestorationGetPhaseNative, RestorationGetPhaseDart>('restoration_get_phase');
+    _restorationSetActive = _lib.lookupFunction<RestorationSetActiveNative, RestorationSetActiveDart>('restoration_set_active');
+    _restorationGetLatency = _lib.lookupFunction<RestorationGetLatencyNative, RestorationGetLatencyDart>('restoration_get_latency');
+    _restorationReset = _lib.lookupFunction<RestorationResetNative, RestorationResetDart>('restoration_reset');
+
+    // ML/AI bindings
+    _mlInit = _lib.lookupFunction<MlInitNative, MlInitDart>('ml_init');
+    _mlGetModelCount = _lib.lookupFunction<MlGetModelCountNative, MlGetModelCountDart>('ml_get_model_count');
+    _mlGetModelName = _lib.lookupFunction<MlGetModelNameNative, MlGetModelNameDart>('ml_get_model_name');
+    _mlModelIsAvailable = _lib.lookupFunction<MlModelIsAvailableNative, MlModelIsAvailableDart>('ml_model_is_available');
+    _mlGetModelSize = _lib.lookupFunction<MlGetModelSizeNative, MlGetModelSizeDart>('ml_get_model_size');
+    _mlDenoiseStart = _lib.lookupFunction<MlDenoiseStartNative, MlDenoiseStartDart>('ml_denoise_start');
+    _mlSeparateStart = _lib.lookupFunction<MlSeparateStartNative, MlSeparateStartDart>('ml_separate_start');
+    _mlEnhanceVoiceStart = _lib.lookupFunction<MlEnhanceVoiceStartNative, MlEnhanceVoiceStartDart>('ml_enhance_voice_start');
+    _mlGetProgress = _lib.lookupFunction<MlGetProgressNative, MlGetProgressDart>('ml_get_progress');
+    _mlIsProcessing = _lib.lookupFunction<MlIsProcessingNative, MlIsProcessingDart>('ml_is_processing');
+    _mlGetPhase = _lib.lookupFunction<MlGetPhaseNative, MlGetPhaseDart>('ml_get_phase');
+    _mlGetCurrentModel = _lib.lookupFunction<MlGetCurrentModelNative, MlGetCurrentModelDart>('ml_get_current_model');
+    _mlCancel = _lib.lookupFunction<MlCancelNative, MlCancelDart>('ml_cancel');
+    _mlSetExecutionProvider = _lib.lookupFunction<MlSetExecutionProviderNative, MlSetExecutionProviderDart>('ml_set_execution_provider');
+    _mlGetError = _lib.lookupFunction<MlGetErrorNative, MlGetErrorDart>('ml_get_error');
+    _mlReset = _lib.lookupFunction<MlResetNative, MlResetDart>('ml_reset');
+
+    // Lua Scripting bindings
+    _scriptInit = _lib.lookupFunction<ScriptInitNative, ScriptInitDart>('script_init');
+    _scriptShutdown = _lib.lookupFunction<ScriptShutdownNative, ScriptShutdownDart>('script_shutdown');
+    _scriptIsInitialized = _lib.lookupFunction<ScriptIsInitializedNative, ScriptIsInitializedDart>('script_is_initialized');
+    _scriptExecute = _lib.lookupFunction<ScriptExecuteNative, ScriptExecuteDart>('script_execute');
+    _scriptExecuteFile = _lib.lookupFunction<ScriptExecuteFileNative, ScriptExecuteFileDart>('script_execute_file');
+    _scriptLoadFile = _lib.lookupFunction<ScriptLoadFileNative, ScriptLoadFileDart>('script_load_file');
+    _scriptRun = _lib.lookupFunction<ScriptRunNative, ScriptRunDart>('script_run');
+    _scriptGetOutput = _lib.lookupFunction<ScriptGetOutputNative, ScriptGetOutputDart>('script_get_output');
+    _scriptGetError = _lib.lookupFunction<ScriptGetErrorNative, ScriptGetErrorDart>('script_get_error');
+    _scriptGetDuration = _lib.lookupFunction<ScriptGetDurationNative, ScriptGetDurationDart>('script_get_duration');
+    _scriptPollActions = _lib.lookupFunction<ScriptPollActionsNative, ScriptPollActionsDart>('script_poll_actions');
+    _scriptGetNextAction = _lib.lookupFunction<ScriptGetNextActionNative, ScriptGetNextActionDart>('script_get_next_action');
+    _scriptSetContext = _lib.lookupFunction<ScriptSetContextNative, ScriptSetContextDart>('script_set_context');
+    _scriptSetSelectedTracks = _lib.lookupFunction<ScriptSetSelectedTracksNative, ScriptSetSelectedTracksDart>('script_set_selected_tracks');
+    _scriptSetSelectedClips = _lib.lookupFunction<ScriptSetSelectedClipsNative, ScriptSetSelectedClipsDart>('script_set_selected_clips');
+    _scriptAddSearchPath = _lib.lookupFunction<ScriptAddSearchPathNative, ScriptAddSearchPathDart>('script_add_search_path');
+    _scriptGetLoadedCount = _lib.lookupFunction<ScriptGetLoadedCountNative, ScriptGetLoadedCountDart>('script_get_loaded_count');
+    _scriptGetName = _lib.lookupFunction<ScriptGetNameNative, ScriptGetNameDart>('script_get_name');
+    _scriptGetDescription = _lib.lookupFunction<ScriptGetDescriptionNative, ScriptGetDescriptionDart>('script_get_description');
+
+    // Plugin Hosting
+    _pluginHostInit = _lib.lookupFunction<PluginHostInitNative, PluginHostInitDart>('plugin_host_init');
+    _pluginScanAll = _lib.lookupFunction<PluginScanAllNative, PluginScanAllDart>('plugin_scan_all');
+    _pluginGetCount = _lib.lookupFunction<PluginGetCountNative, PluginGetCountDart>('plugin_get_count');
+    _pluginGetAllJson = _lib.lookupFunction<PluginGetAllJsonNative, PluginGetAllJsonDart>('plugin_get_all_json');
+    _pluginGetInfoJson = _lib.lookupFunction<PluginGetInfoJsonNative, PluginGetInfoJsonDart>('plugin_get_info_json');
+    _pluginLoad = _lib.lookupFunction<PluginLoadNative, PluginLoadDart>('plugin_load');
+    _pluginUnload = _lib.lookupFunction<PluginUnloadNative, PluginUnloadDart>('plugin_unload');
+    _pluginActivate = _lib.lookupFunction<PluginActivateNative, PluginActivateDart>('plugin_activate');
+    _pluginDeactivate = _lib.lookupFunction<PluginDeactivateNative, PluginDeactivateDart>('plugin_deactivate');
+    _pluginGetParamCount = _lib.lookupFunction<PluginGetParamCountNative, PluginGetParamCountDart>('plugin_get_param_count');
+    _pluginGetParam = _lib.lookupFunction<PluginGetParamNative, PluginGetParamDart>('plugin_get_param');
+    _pluginSetParam = _lib.lookupFunction<PluginSetParamNative, PluginSetParamDart>('plugin_set_param');
+    _pluginGetAllParamsJson = _lib.lookupFunction<PluginGetAllParamsJsonNative, PluginGetAllParamsJsonDart>('plugin_get_all_params_json');
+    _pluginHasEditor = _lib.lookupFunction<PluginHasEditorNative, PluginHasEditorDart>('plugin_has_editor');
+    _pluginGetLatency = _lib.lookupFunction<PluginGetLatencyNative, PluginGetLatencyDart>('plugin_get_latency');
+    _pluginOpenEditor = _lib.lookupFunction<PluginOpenEditorNative, PluginOpenEditorDart>('plugin_open_editor');
+    _pluginCloseEditor = _lib.lookupFunction<PluginCloseEditorNative, PluginCloseEditorDart>('plugin_close_editor');
+    _pluginEditorSize = _lib.lookupFunction<PluginEditorSizeNative, PluginEditorSizeDart>('plugin_editor_size');
+    _pluginResizeEditor = _lib.lookupFunction<PluginResizeEditorNative, PluginResizeEditorDart>('plugin_resize_editor');
+    _pluginGetState = _lib.lookupFunction<PluginGetStateNative, PluginGetStateDart>('plugin_get_state');
+    _pluginSetState = _lib.lookupFunction<PluginSetStateNative, PluginSetStateDart>('plugin_set_state');
+    _pluginSavePreset = _lib.lookupFunction<PluginSavePresetNative, PluginSavePresetDart>('plugin_save_preset');
+    _pluginLoadPreset = _lib.lookupFunction<PluginLoadPresetNative, PluginLoadPresetDart>('plugin_load_preset');
+    _pluginSearch = _lib.lookupFunction<PluginSearchNative, PluginSearchDart>('plugin_search');
+    _pluginGetByType = _lib.lookupFunction<PluginGetByTypeNative, PluginGetByTypeDart>('plugin_get_by_type');
+    _pluginGetByCategory = _lib.lookupFunction<PluginGetByCategoryNative, PluginGetByCategoryDart>('plugin_get_by_category');
+    _pluginGetInstancesJson = _lib.lookupFunction<PluginGetInstancesJsonNative, PluginGetInstancesJsonDart>('plugin_get_instances_json');
+
+    // Plugin insert chain
+    _pluginInsertLoad = _lib.lookupFunction<PluginInsertLoadNative, PluginInsertLoadDart>('plugin_insert_load');
+    _pluginInsertRemove = _lib.lookupFunction<PluginInsertRemoveNative, PluginInsertRemoveDart>('plugin_insert_remove');
+    _pluginInsertSetBypass = _lib.lookupFunction<PluginInsertSetBypassNative, PluginInsertSetBypassDart>('plugin_insert_set_bypass');
+    _pluginInsertSetMix = _lib.lookupFunction<PluginInsertSetMixNative, PluginInsertSetMixDart>('plugin_insert_set_mix');
+    _pluginInsertGetMix = _lib.lookupFunction<PluginInsertGetMixNative, PluginInsertGetMixDart>('plugin_insert_get_mix');
+    _pluginInsertGetLatency = _lib.lookupFunction<PluginInsertGetLatencyNative, PluginInsertGetLatencyDart>('plugin_insert_get_latency');
+    _pluginInsertChainLatency = _lib.lookupFunction<PluginInsertChainLatencyNative, PluginInsertChainLatencyDart>('plugin_insert_chain_latency');
+
+    // MIDI I/O
+    _midiScanInputDevices = _lib.lookupFunction<MidiScanInputDevicesNative, MidiScanInputDevicesDart>('midi_scan_input_devices');
+    _midiScanOutputDevices = _lib.lookupFunction<MidiScanOutputDevicesNative, MidiScanOutputDevicesDart>('midi_scan_output_devices');
+    _midiGetInputDeviceName = _lib.lookupFunction<MidiGetInputDeviceNameNative, MidiGetInputDeviceNameDart>('midi_get_input_device_name');
+    _midiGetOutputDeviceName = _lib.lookupFunction<MidiGetOutputDeviceNameNative, MidiGetOutputDeviceNameDart>('midi_get_output_device_name');
+    _midiInputDeviceCount = _lib.lookupFunction<MidiInputDeviceCountNative, MidiInputDeviceCountDart>('midi_input_device_count');
+    _midiOutputDeviceCount = _lib.lookupFunction<MidiOutputDeviceCountNative, MidiOutputDeviceCountDart>('midi_output_device_count');
+    _midiConnectInput = _lib.lookupFunction<MidiConnectInputNative, MidiConnectInputDart>('midi_connect_input');
+    _midiDisconnectInput = _lib.lookupFunction<MidiDisconnectInputNative, MidiDisconnectInputDart>('midi_disconnect_input');
+    _midiDisconnectAllInputs = _lib.lookupFunction<MidiDisconnectAllInputsNative, MidiDisconnectAllInputsDart>('midi_disconnect_all_inputs');
+    _midiActiveInputCount = _lib.lookupFunction<MidiActiveInputCountNative, MidiActiveInputCountDart>('midi_active_input_count');
+    _midiConnectOutput = _lib.lookupFunction<MidiConnectOutputNative, MidiConnectOutputDart>('midi_connect_output');
+    _midiDisconnectOutput = _lib.lookupFunction<MidiDisconnectOutputNative, MidiDisconnectOutputDart>('midi_disconnect_output');
+    _midiIsOutputConnected = _lib.lookupFunction<MidiIsOutputConnectedNative, MidiIsOutputConnectedDart>('midi_is_output_connected');
+    _midiStartRecording = _lib.lookupFunction<MidiStartRecordingNative, MidiStartRecordingDart>('midi_start_recording');
+    _midiStopRecording = _lib.lookupFunction<MidiStopRecordingNative, MidiStopRecordingDart>('midi_stop_recording');
+    _midiArmTrack = _lib.lookupFunction<MidiArmTrackNative, MidiArmTrackDart>('midi_arm_track');
+    _midiIsRecording = _lib.lookupFunction<MidiIsRecordingNative, MidiIsRecordingDart>('midi_is_recording');
+    _midiGetRecordingState = _lib.lookupFunction<MidiGetRecordingStateNative, MidiGetRecordingStateDart>('midi_get_recording_state');
+    _midiRecordedEventCount = _lib.lookupFunction<MidiRecordedEventCountNative, MidiRecordedEventCountDart>('midi_recorded_event_count');
+    _midiGetTargetTrack = _lib.lookupFunction<MidiGetTargetTrackNative, MidiGetTargetTrackDart>('midi_get_target_track');
+    _midiSetSampleRate = _lib.lookupFunction<MidiSetSampleRateNative, MidiSetSampleRateDart>('midi_set_sample_rate');
+    _midiSetThru = _lib.lookupFunction<MidiSetThruNative, MidiSetThruDart>('midi_set_thru');
+    _midiIsThruEnabled = _lib.lookupFunction<MidiIsThruEnabledNative, MidiIsThruEnabledDart>('midi_is_thru_enabled');
+    _midiSendNoteOn = _lib.lookupFunction<MidiSendNoteOnNative, MidiSendNoteOnDart>('midi_send_note_on');
+    _midiSendNoteOff = _lib.lookupFunction<MidiSendNoteOffNative, MidiSendNoteOffDart>('midi_send_note_off');
+    _midiSendCc = _lib.lookupFunction<MidiSendCcNative, MidiSendCcDart>('midi_send_cc');
+    _midiSendPitchBend = _lib.lookupFunction<MidiSendPitchBendNative, MidiSendPitchBendDart>('midi_send_pitch_bend');
+    _midiSendProgramChange = _lib.lookupFunction<MidiSendProgramChangeNative, MidiSendProgramChangeDart>('midi_send_program_change');
+
+    // Autosave System
+    _autosaveInit = _lib.lookupFunction<AutosaveInitNative, AutosaveInitDart>('autosave_init');
+    _autosaveShutdown = _lib.lookupFunction<AutosaveShutdownNative, AutosaveShutdownDart>('autosave_shutdown');
+    _autosaveSetEnabled = _lib.lookupFunction<AutosaveSetEnabledNative, AutosaveSetEnabledDart>('autosave_set_enabled');
+    _autosaveIsEnabled = _lib.lookupFunction<AutosaveIsEnabledNative, AutosaveIsEnabledDart>('autosave_is_enabled');
+    _autosaveSetInterval = _lib.lookupFunction<AutosaveSetIntervalNative, AutosaveSetIntervalDart>('autosave_set_interval');
+    _autosaveGetInterval = _lib.lookupFunction<AutosaveGetIntervalNative, AutosaveGetIntervalDart>('autosave_get_interval');
+    _autosaveSetBackupCount = _lib.lookupFunction<AutosaveSetBackupCountNative, AutosaveSetBackupCountDart>('autosave_set_backup_count');
+    _autosaveGetBackupCount = _lib.lookupFunction<AutosaveGetBackupCountNative, AutosaveGetBackupCountDart>('autosave_get_backup_count');
+    _autosaveMarkDirty = _lib.lookupFunction<AutosaveMarkDirtyNative, AutosaveMarkDirtyDart>('autosave_mark_dirty');
+    _autosaveMarkClean = _lib.lookupFunction<AutosaveMarkCleanNative, AutosaveMarkCleanDart>('autosave_mark_clean');
+    _autosaveIsDirty = _lib.lookupFunction<AutosaveIsDirtyNative, AutosaveIsDirtyDart>('autosave_is_dirty');
+    _autosaveShouldSave = _lib.lookupFunction<AutosaveShouldSaveNative, AutosaveShouldSaveDart>('autosave_should_save');
+    _autosaveNow = _lib.lookupFunction<AutosaveNowNative, AutosaveNowDart>('autosave_now');
+    _autosaveBackupCount = _lib.lookupFunction<AutosaveBackupCountNative, AutosaveBackupCountDart>('autosave_backup_count');
+    _autosaveLatestPath = _lib.lookupFunction<AutosaveLatestPathNative, AutosaveLatestPathDart>('autosave_latest_path');
+    _autosaveClearBackups = _lib.lookupFunction<AutosaveClearBackupsNative, AutosaveClearBackupsDart>('autosave_clear_backups');
+
+    // Recent Projects
+    _recentProjectsAdd = _lib.lookupFunction<RecentProjectsAddNative, RecentProjectsAddDart>('recent_projects_add');
+    _recentProjectsCount = _lib.lookupFunction<RecentProjectsCountNative, RecentProjectsCountDart>('recent_projects_count');
+    _recentProjectsGet = _lib.lookupFunction<RecentProjectsGetNative, RecentProjectsGetDart>('recent_projects_get');
+    _recentProjectsRemove = _lib.lookupFunction<RecentProjectsRemoveNative, RecentProjectsRemoveDart>('recent_projects_remove');
+    _recentProjectsClear = _lib.lookupFunction<RecentProjectsClearNative, RecentProjectsClearDart>('recent_projects_clear');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4431,6 +5524,180 @@ class NativeFFI {
   Pointer<Utf8> audioGetHostName() => _audioGetHostName();
   int audioIsAsioAvailable() => _audioIsAsioAvailable();
   int audioRefreshDevices() => _audioRefreshDevices();
+
+  // Audio device setters
+  late final _audioSetOutputDevice = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('audio_set_output_device');
+
+  late final _audioSetInputDevice = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('audio_set_input_device');
+
+  late final _audioSetSampleRate = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('audio_set_sample_rate');
+
+  late final _audioSetBufferSize = _lib.lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('audio_set_buffer_size');
+
+  late final _audioGetCurrentOutputDevice = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_get_current_output_device');
+
+  late final _audioGetCurrentInputDevice = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('audio_get_current_input_device');
+
+  late final _audioGetCurrentSampleRate = _lib.lookupFunction<
+      Uint32 Function(),
+      int Function()>('audio_get_current_sample_rate');
+
+  late final _audioGetCurrentBufferSize = _lib.lookupFunction<
+      Uint32 Function(),
+      int Function()>('audio_get_current_buffer_size');
+
+  late final _audioGetLatencyMs = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('audio_get_latency_ms');
+
+  int audioSetOutputDevice(Pointer<Utf8> name) => _audioSetOutputDevice(name);
+  int audioSetInputDevice(Pointer<Utf8> name) => _audioSetInputDevice(name);
+  int audioSetSampleRate(int rate) => _audioSetSampleRate(rate);
+  int audioSetBufferSize(int size) => _audioSetBufferSize(size);
+  Pointer<Utf8> audioGetCurrentOutputDevice() => _audioGetCurrentOutputDevice();
+  Pointer<Utf8> audioGetCurrentInputDevice() => _audioGetCurrentInputDevice();
+  int audioGetCurrentSampleRate() => _audioGetCurrentSampleRate();
+  int audioGetCurrentBufferSize() => _audioGetCurrentBufferSize();
+  double audioGetLatencyMs() => _audioGetLatencyMs();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ERROR HANDLING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _getLastError = _lib.lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('get_last_error');
+
+  late final _hasError = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('has_error');
+
+  late final _ffiClearError = _lib.lookupFunction<
+      Void Function(),
+      void Function()>('ffi_clear_error');
+
+  /// Get last error as JSON string (returns null pointer if no error)
+  Pointer<Utf8> getLastError() => _getLastError();
+
+  /// Check if there is an error pending (1 = yes, 0 = no)
+  int hasError() => _hasError();
+
+  /// Clear the last error
+  void clearError() => _ffiClearError();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EDIT MODE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _editModeSet = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('edit_mode_set');
+
+  late final _editModeGet = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('edit_mode_get');
+
+  late final _editModeSetGridResolution = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('edit_mode_set_grid_resolution');
+
+  late final _editModeGetGridResolution = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('edit_mode_get_grid_resolution');
+
+  late final _editModeSetGridEnabled = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('edit_mode_set_grid_enabled');
+
+  late final _editModeIsGridEnabled = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('edit_mode_is_grid_enabled');
+
+  late final _editModeSetGridStrength = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('edit_mode_set_grid_strength');
+
+  late final _editModeGetGridStrength = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('edit_mode_get_grid_strength');
+
+  late final _editModeSetTempo = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('edit_mode_set_tempo');
+
+  late final _editModeGetTempo = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('edit_mode_get_tempo');
+
+  late final _editModeSetSampleRate = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('edit_mode_set_sample_rate');
+
+  late final _editModeSnapToGrid = _lib.lookupFunction<
+      Double Function(Double),
+      double Function(double)>('edit_mode_snap_to_grid');
+
+  late final _editModeSetTimeSigNum = _lib.lookupFunction<
+      Int32 Function(Uint8),
+      int Function(int)>('edit_mode_set_time_sig_num');
+
+  late final _editModeSetTimeSigDenom = _lib.lookupFunction<
+      Int32 Function(Uint8),
+      int Function(int)>('edit_mode_set_time_sig_denom');
+
+  /// Set edit mode (0=Slip, 1=Grid, 2=Shuffle, 3=Spot)
+  int editModeSet(int mode) => _editModeSet(mode);
+
+  /// Get current edit mode
+  int editModeGet() => _editModeGet();
+
+  /// Set grid resolution
+  int editModeSetGridResolution(int resolution) => _editModeSetGridResolution(resolution);
+
+  /// Get current grid resolution
+  int editModeGetGridResolution() => _editModeGetGridResolution();
+
+  /// Enable/disable grid
+  int editModeSetGridEnabled(bool enabled) => _editModeSetGridEnabled(enabled ? 1 : 0);
+
+  /// Check if grid is enabled
+  bool editModeIsGridEnabled() => _editModeIsGridEnabled() != 0;
+
+  /// Set grid strength (0.0-1.0)
+  int editModeSetGridStrength(double strength) => _editModeSetGridStrength(strength);
+
+  /// Get grid strength
+  double editModeGetGridStrength() => _editModeGetGridStrength();
+
+  /// Set tempo for grid calculations
+  int editModeSetTempo(double bpm) => _editModeSetTempo(bpm);
+
+  /// Get current tempo
+  double editModeGetTempo() => _editModeGetTempo();
+
+  /// Set sample rate for grid calculations
+  int editModeSetSampleRate(double sampleRate) => _editModeSetSampleRate(sampleRate);
+
+  /// Snap time to grid
+  double editModeSnapToGrid(double timeSeconds) => _editModeSnapToGrid(timeSeconds);
+
+  /// Set time signature numerator
+  int editModeSetTimeSigNum(int num) => _editModeSetTimeSigNum(num);
+
+  /// Set time signature denominator
+  int editModeSetTimeSigDenom(int denom) => _editModeSetTimeSigDenom(denom);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RECORDING SYSTEM
@@ -8520,122 +9787,1481 @@ extension ControlRoomAPI on NativeFFI {
     // TODO: Implement actual FFI binding
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // PHASE 5.1: PLUGIN SYSTEM
-  // ═══════════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MASTERING ENGINE (AI Mastering)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Scan for all plugins
-  /// Returns number of plugins found, -1 on error
+  /// Initialize mastering engine with sample rate
+  void masteringEngineInit(int sampleRate) {
+    if (!_loaded) return;
+    _masteringEngineInit(sampleRate);
+  }
+
+  /// Set mastering preset
+  /// preset: 0=CdLossless, 1=Streaming, 2=AppleMusic, 3=Broadcast, 4=Club, 5=Vinyl, 6=Podcast, 7=Film
+  bool masteringSetPreset(int preset) {
+    if (!_loaded) return false;
+    return _masteringSetPreset(preset) != 0;
+  }
+
+  /// Set loudness target manually
+  bool masteringSetLoudnessTarget(double integratedLufs, double truePeak, double lraTarget) {
+    if (!_loaded) return false;
+    return _masteringSetLoudnessTarget(integratedLufs, truePeak, lraTarget) != 0;
+  }
+
+  /// Set reference audio for matching
+  bool masteringSetReference(String name, Float32List left, Float32List right) {
+    if (!_loaded) return false;
+    if (left.length != right.length) return false;
+
+    final namePtr = name.toNativeUtf8();
+    final leftPtr = calloc<Float>(left.length);
+    final rightPtr = calloc<Float>(right.length);
+
+    try {
+      leftPtr.asTypedList(left.length).setAll(0, left);
+      rightPtr.asTypedList(right.length).setAll(0, right);
+      return _masteringSetReference(namePtr, leftPtr, rightPtr, left.length) != 0;
+    } finally {
+      calloc.free(namePtr);
+      calloc.free(leftPtr);
+      calloc.free(rightPtr);
+    }
+  }
+
+  /// Process audio through mastering engine (offline)
+  bool masteringProcessOffline(
+    Float32List inputLeft,
+    Float32List inputRight,
+    Float32List outputLeft,
+    Float32List outputRight,
+  ) {
+    if (!_loaded) return false;
+    if (inputLeft.length != inputRight.length) return false;
+    if (inputLeft.length != outputLeft.length) return false;
+    if (inputLeft.length != outputRight.length) return false;
+
+    final length = inputLeft.length;
+    final inLeftPtr = calloc<Float>(length);
+    final inRightPtr = calloc<Float>(length);
+    final outLeftPtr = calloc<Float>(length);
+    final outRightPtr = calloc<Float>(length);
+
+    try {
+      inLeftPtr.asTypedList(length).setAll(0, inputLeft);
+      inRightPtr.asTypedList(length).setAll(0, inputRight);
+
+      final result = _masteringProcessOffline(inLeftPtr, inRightPtr, outLeftPtr, outRightPtr, length);
+
+      if (result != 0) {
+        // Copy output back
+        outputLeft.setAll(0, outLeftPtr.asTypedList(length));
+        outputRight.setAll(0, outRightPtr.asTypedList(length));
+        return true;
+      }
+      return false;
+    } finally {
+      calloc.free(inLeftPtr);
+      calloc.free(inRightPtr);
+      calloc.free(outLeftPtr);
+      calloc.free(outRightPtr);
+    }
+  }
+
+  /// Get last mastering result
+  MasteringResultFFI masteringGetResult() {
+    if (!_loaded) {
+      return MasteringResultFFI(
+        inputLufs: -23.0,
+        outputLufs: -14.0,
+        inputPeak: -3.0,
+        outputPeak: -1.0,
+        appliedGain: 0.0,
+        peakReduction: 0.0,
+        qualityScore: 0.0,
+        detectedGenre: 0,
+        warningCount: 0,
+      );
+    }
+    final result = _masteringGetResult();
+    return MasteringResultFFI(
+      inputLufs: result.inputLufs,
+      outputLufs: result.outputLufs,
+      inputPeak: result.inputPeak,
+      outputPeak: result.outputPeak,
+      appliedGain: result.appliedGain,
+      peakReduction: result.peakReduction,
+      qualityScore: result.qualityScore,
+      detectedGenre: result.detectedGenre,
+      warningCount: result.warningCount,
+    );
+  }
+
+  /// Get warning at index
+  String? masteringGetWarning(int index) {
+    if (!_loaded) return null;
+    final ptr = _masteringGetWarning(index);
+    if (ptr == nullptr) return null;
+    try {
+      return ptr.toDartString();
+    } finally {
+      // String is owned by Rust, free it
+      _freeString(ptr);
+    }
+  }
+
+  /// Get chain summary as JSON
+  String? masteringGetChainSummary() {
+    if (!_loaded) return null;
+    final ptr = _masteringGetChainSummary();
+    if (ptr == nullptr) return null;
+    try {
+      return ptr.toDartString();
+    } finally {
+      _freeString(ptr);
+    }
+  }
+
+  /// Reset mastering engine
+  void masteringReset() {
+    if (!_loaded) return;
+    _masteringReset();
+  }
+
+  /// Set bypass/active state
+  void masteringSetActive(bool active) {
+    if (!_loaded) return;
+    _masteringSetActive(active ? 1 : 0);
+  }
+
+  /// Get current gain reduction (for metering)
+  double masteringGetGainReduction() {
+    if (!_loaded) return 0.0;
+    return _masteringGetGainReduction();
+  }
+
+  /// Get detected genre
+  int masteringGetDetectedGenre() {
+    if (!_loaded) return 0;
+    return _masteringGetDetectedGenre();
+  }
+
+  /// Get latency in samples
+  int masteringGetLatency() {
+    if (!_loaded) return 0;
+    return _masteringGetLatency();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO RESTORATION API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize restoration engine
+  void restorationInit(int sampleRate) {
+    if (!_loaded) return;
+    _restorationInit(sampleRate);
+  }
+
+  /// Set restoration settings
+  bool restorationSetSettings({
+    required bool denoiseEnabled,
+    required double denoiseStrength,
+    required bool declickEnabled,
+    required double declickSensitivity,
+    required bool declipEnabled,
+    required double declipThreshold,
+    required bool dehumEnabled,
+    required double dehumFrequency,
+    required int dehumHarmonics,
+    required bool dereverbEnabled,
+    required double dereverbAmount,
+  }) {
+    if (!_loaded) return false;
+    return _restorationSetSettings(
+      denoiseEnabled ? 1 : 0, denoiseStrength,
+      declickEnabled ? 1 : 0, declickSensitivity,
+      declipEnabled ? 1 : 0, declipThreshold,
+      dehumEnabled ? 1 : 0, dehumFrequency, dehumHarmonics,
+      dereverbEnabled ? 1 : 0, dereverbAmount,
+    ) != 0;
+  }
+
+  /// Get current restoration settings
+  RestorationSettings? restorationGetSettings() {
+    if (!_loaded) return null;
+    final result = _restorationGetSettings();
+    return RestorationSettings(
+      denoiseEnabled: result.denoiseEnabled != 0,
+      denoiseStrength: result.denoiseStrength,
+      declickEnabled: result.declickEnabled != 0,
+      declickSensitivity: result.declickSensitivity,
+      declipEnabled: result.declipEnabled != 0,
+      declipThreshold: result.declipThreshold,
+      dehumEnabled: result.dehumEnabled != 0,
+      dehumFrequency: result.dehumFrequency,
+      dehumHarmonics: result.dehumHarmonics,
+      dereverbEnabled: result.dereverbEnabled != 0,
+      dereverbAmount: result.dereverbAmount,
+    );
+  }
+
+  /// Analyze audio file for restoration needs
+  RestorationAnalysis? restorationAnalyze(String path) {
+    if (!_loaded) return null;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final result = _restorationAnalyze(pathPtr);
+      return RestorationAnalysis(
+        noiseFloorDb: result.noiseFloorDb,
+        clicksPerSecond: result.clicksPerSecond,
+        clippingPercent: result.clippingPercent,
+        humDetected: result.humDetected != 0,
+        humFrequency: result.humFrequency,
+        humLevelDb: result.humLevelDb,
+        reverbTailSeconds: result.reverbTailSeconds,
+        qualityScore: result.qualityScore,
+      );
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get analysis suggestions
+  List<String> restorationGetSuggestions() {
+    if (!_loaded) return [];
+    final count = _restorationGetSuggestionCount();
+    final suggestions = <String>[];
+    for (int i = 0; i < count; i++) {
+      final ptr = _restorationGetSuggestion(i);
+      if (ptr != nullptr) {
+        suggestions.add(ptr.toDartString());
+        calloc.free(ptr);
+      }
+    }
+    return suggestions;
+  }
+
+  /// Process audio buffer through restoration pipeline
+  bool restorationProcess(Float32List input, Float32List output) {
+    if (!_loaded) return false;
+    if (input.length != output.length) return false;
+
+    final inputPtr = calloc<Float>(input.length);
+    final outputPtr = calloc<Float>(output.length);
+    try {
+      for (int i = 0; i < input.length; i++) {
+        inputPtr[i] = input[i];
+      }
+
+      final success = _restorationProcess(inputPtr, outputPtr, input.length) != 0;
+
+      if (success) {
+        for (int i = 0; i < output.length; i++) {
+          output[i] = outputPtr[i];
+        }
+      }
+
+      return success;
+    } finally {
+      calloc.free(inputPtr);
+      calloc.free(outputPtr);
+    }
+  }
+
+  /// Process file through restoration pipeline
+  bool restorationProcessFile(String inputPath, String outputPath) {
+    if (!_loaded) return false;
+    final inPtr = inputPath.toNativeUtf8();
+    final outPtr = outputPath.toNativeUtf8();
+    try {
+      return _restorationProcessFile(inPtr, outPtr) != 0;
+    } finally {
+      calloc.free(inPtr);
+      calloc.free(outPtr);
+    }
+  }
+
+  /// Learn noise profile from selection
+  bool restorationLearnNoiseProfile(Float32List samples) {
+    if (!_loaded) return false;
+    final ptr = calloc<Float>(samples.length);
+    try {
+      for (int i = 0; i < samples.length; i++) {
+        ptr[i] = samples[i];
+      }
+      return _restorationLearnNoiseProfile(ptr, samples.length) != 0;
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Clear learned noise profile
+  void restorationClearNoiseProfile() {
+    if (!_loaded) return;
+    _restorationClearNoiseProfile();
+  }
+
+  /// Get processing state
+  (bool isProcessing, double progress) restorationGetState() {
+    if (!_loaded) return (false, 0.0);
+    final isProcessingPtr = calloc<Int32>();
+    final progressPtr = calloc<Float>();
+    try {
+      _restorationGetState(isProcessingPtr, progressPtr);
+      return (isProcessingPtr.value != 0, progressPtr.value);
+    } finally {
+      calloc.free(isProcessingPtr);
+      calloc.free(progressPtr);
+    }
+  }
+
+  /// Get processing phase string
+  String restorationGetPhase() {
+    if (!_loaded) return 'idle';
+    final ptr = _restorationGetPhase();
+    if (ptr == nullptr) return 'idle';
+    final result = ptr.toDartString();
+    calloc.free(ptr);
+    return result;
+  }
+
+  /// Set restoration active/bypass
+  void restorationSetActive(bool active) {
+    if (!_loaded) return;
+    _restorationSetActive(active ? 1 : 0);
+  }
+
+  /// Get restoration latency in samples
+  int restorationGetLatency() {
+    if (!_loaded) return 0;
+    return _restorationGetLatency();
+  }
+
+  /// Reset restoration pipeline
+  void restorationReset() {
+    if (!_loaded) return;
+    _restorationReset();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ML/AI PROCESSING API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize ML engine
+  void mlInit() {
+    if (!_loaded) return;
+    _mlInit();
+  }
+
+  /// Get number of available ML models
+  int mlGetModelCount() {
+    if (!_loaded) return 0;
+    return _mlGetModelCount();
+  }
+
+  /// Get model name by index
+  String? mlGetModelName(int index) {
+    if (!_loaded) return null;
+    final ptr = _mlGetModelName(index);
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    calloc.free(ptr);
+    return result;
+  }
+
+  /// Check if model is available (downloaded)
+  bool mlModelIsAvailable(int index) {
+    if (!_loaded) return false;
+    return _mlModelIsAvailable(index) != 0;
+  }
+
+  /// Get model size in MB
+  int mlGetModelSize(int index) {
+    if (!_loaded) return 0;
+    return _mlGetModelSize(index);
+  }
+
+  /// Get all available models
+  List<MlModelInfo> mlGetAllModels() {
+    final count = mlGetModelCount();
+    final models = <MlModelInfo>[];
+    for (int i = 0; i < count; i++) {
+      final name = mlGetModelName(i);
+      if (name != null) {
+        models.add(MlModelInfo(
+          index: i,
+          name: name,
+          isAvailable: mlModelIsAvailable(i),
+          sizeMb: mlGetModelSize(i),
+        ));
+      }
+    }
+    return models;
+  }
+
+  /// Start ML denoise processing
+  bool mlDenoiseStart(String inputPath, String outputPath, double strength) {
+    if (!_loaded) return false;
+    final inPtr = inputPath.toNativeUtf8();
+    final outPtr = outputPath.toNativeUtf8();
+    try {
+      return _mlDenoiseStart(inPtr, outPtr, strength) != 0;
+    } finally {
+      calloc.free(inPtr);
+      calloc.free(outPtr);
+    }
+  }
+
+  /// Start stem separation
+  /// stemsMask: bitmask where 1=vocals, 2=drums, 4=bass, 8=other
+  bool mlSeparateStart(String inputPath, String outputDir, int stemsMask) {
+    if (!_loaded) return false;
+    final inPtr = inputPath.toNativeUtf8();
+    final outPtr = outputDir.toNativeUtf8();
+    try {
+      return _mlSeparateStart(inPtr, outPtr, stemsMask) != 0;
+    } finally {
+      calloc.free(inPtr);
+      calloc.free(outPtr);
+    }
+  }
+
+  /// Start voice enhancement
+  bool mlEnhanceVoiceStart(String inputPath, String outputPath) {
+    if (!_loaded) return false;
+    final inPtr = inputPath.toNativeUtf8();
+    final outPtr = outputPath.toNativeUtf8();
+    try {
+      return _mlEnhanceVoiceStart(inPtr, outPtr) != 0;
+    } finally {
+      calloc.free(inPtr);
+      calloc.free(outPtr);
+    }
+  }
+
+  /// Get ML processing progress (0.0-1.0)
+  double mlGetProgress() {
+    if (!_loaded) return 0.0;
+    return _mlGetProgress();
+  }
+
+  /// Check if ML is currently processing
+  bool mlIsProcessing() {
+    if (!_loaded) return false;
+    return _mlIsProcessing() != 0;
+  }
+
+  /// Get current processing phase
+  String mlGetPhase() {
+    if (!_loaded) return 'idle';
+    final ptr = _mlGetPhase();
+    if (ptr == nullptr) return 'idle';
+    final result = ptr.toDartString();
+    calloc.free(ptr);
+    return result;
+  }
+
+  /// Get current model being used
+  String mlGetCurrentModel() {
+    if (!_loaded) return '';
+    final ptr = _mlGetCurrentModel();
+    if (ptr == nullptr) return '';
+    final result = ptr.toDartString();
+    calloc.free(ptr);
+    return result;
+  }
+
+  /// Cancel ML processing
+  bool mlCancel() {
+    if (!_loaded) return false;
+    return _mlCancel() != 0;
+  }
+
+  /// Set execution provider (0=CPU, 1=CUDA, 2=CoreML, 3=TensorRT)
+  bool mlSetExecutionProvider(int provider) {
+    if (!_loaded) return false;
+    return _mlSetExecutionProvider(provider) != 0;
+  }
+
+  /// Get error message if any
+  String? mlGetError() {
+    if (!_loaded) return null;
+    final ptr = _mlGetError();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    calloc.free(ptr);
+    return result;
+  }
+
+  /// Reset ML engine
+  void mlReset() {
+    if (!_loaded) return;
+    _mlReset();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LUA SCRIPTING (rf-script)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize script engine
+  bool scriptInit() {
+    if (!_loaded) return false;
+    return _scriptInit() != 0;
+  }
+
+  /// Shutdown script engine
+  void scriptShutdown() {
+    if (!_loaded) return;
+    _scriptShutdown();
+  }
+
+  /// Check if script engine is initialized
+  bool scriptIsInitialized() {
+    if (!_loaded) return false;
+    return _scriptIsInitialized() != 0;
+  }
+
+  /// Execute Lua code directly
+  bool scriptExecute(String code) {
+    if (!_loaded) return false;
+    final codePtr = code.toNativeUtf8();
+    try {
+      return _scriptExecute(codePtr) != 0;
+    } finally {
+      calloc.free(codePtr);
+    }
+  }
+
+  /// Execute script from file
+  bool scriptExecuteFile(String path) {
+    if (!_loaded) return false;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _scriptExecuteFile(pathPtr) != 0;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Load script from file (returns script name)
+  String? scriptLoadFile(String path) {
+    if (!_loaded) return null;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final result = _scriptLoadFile(pathPtr);
+      if (result == nullptr) return null;
+      final name = result.toDartString();
+      calloc.free(result);
+      return name;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Run a previously loaded script by name
+  bool scriptRun(String name) {
+    if (!_loaded) return false;
+    final namePtr = name.toNativeUtf8();
+    try {
+      return _scriptRun(namePtr) != 0;
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Get last execution output
+  String? scriptGetOutput() {
+    if (!_loaded) return null;
+    final result = _scriptGetOutput();
+    if (result == nullptr) return null;
+    final output = result.toDartString();
+    calloc.free(result);
+    return output;
+  }
+
+  /// Get last execution error
+  String? scriptGetError() {
+    if (!_loaded) return null;
+    final result = _scriptGetError();
+    if (result == nullptr) return null;
+    final error = result.toDartString();
+    calloc.free(result);
+    return error;
+  }
+
+  /// Get last execution duration in milliseconds
+  int scriptGetDuration() {
+    if (!_loaded) return 0;
+    return _scriptGetDuration();
+  }
+
+  /// Poll for pending script actions
+  int scriptPollActions() {
+    if (!_loaded) return 0;
+    return _scriptPollActions();
+  }
+
+  /// Get next script action as JSON
+  String? scriptGetNextAction() {
+    if (!_loaded) return null;
+    final result = _scriptGetNextAction();
+    if (result == nullptr) return null;
+    final json = result.toDartString();
+    calloc.free(result);
+    return json;
+  }
+
+  /// Update script context
+  void scriptSetContext({
+    required int playhead,
+    required bool isPlaying,
+    required bool isRecording,
+    required int sampleRate,
+  }) {
+    if (!_loaded) return;
+    _scriptSetContext(playhead, isPlaying ? 1 : 0, isRecording ? 1 : 0, sampleRate);
+  }
+
+  /// Set selected tracks in context
+  void scriptSetSelectedTracks(List<int> trackIds) {
+    if (!_loaded) return;
+    if (trackIds.isEmpty) {
+      _scriptSetSelectedTracks(nullptr, 0);
+      return;
+    }
+    final ptr = calloc<Uint64>(trackIds.length);
+    for (int i = 0; i < trackIds.length; i++) {
+      ptr[i] = trackIds[i];
+    }
+    try {
+      _scriptSetSelectedTracks(ptr, trackIds.length);
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Set selected clips in context
+  void scriptSetSelectedClips(List<int> clipIds) {
+    if (!_loaded) return;
+    if (clipIds.isEmpty) {
+      _scriptSetSelectedClips(nullptr, 0);
+      return;
+    }
+    final ptr = calloc<Uint64>(clipIds.length);
+    for (int i = 0; i < clipIds.length; i++) {
+      ptr[i] = clipIds[i];
+    }
+    try {
+      _scriptSetSelectedClips(ptr, clipIds.length);
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Add search path for scripts
+  void scriptAddSearchPath(String path) {
+    if (!_loaded) return;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      _scriptAddSearchPath(pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get number of loaded scripts
+  int scriptGetLoadedCount() {
+    if (!_loaded) return 0;
+    return _scriptGetLoadedCount();
+  }
+
+  /// Get script name by index
+  String? scriptGetName(int index) {
+    if (!_loaded) return null;
+    final result = _scriptGetName(index);
+    if (result == nullptr) return null;
+    final name = result.toDartString();
+    calloc.free(result);
+    return name;
+  }
+
+  /// Get script description by index
+  String? scriptGetDescription(int index) {
+    if (!_loaded) return null;
+    final result = _scriptGetDescription(index);
+    if (result == nullptr) return null;
+    final desc = result.toDartString();
+    calloc.free(result);
+    return desc;
+  }
+
+  /// Get all loaded scripts
+  List<ScriptInfo> scriptGetAllScripts() {
+    if (!_loaded) return [];
+    final scripts = <ScriptInfo>[];
+    final count = scriptGetLoadedCount();
+    for (int i = 0; i < count; i++) {
+      final name = scriptGetName(i);
+      final description = scriptGetDescription(i);
+      if (name != null) {
+        scripts.add(ScriptInfo(
+          name: name,
+          description: description ?? '',
+        ));
+      }
+    }
+    return scripts;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLUGIN HOSTING API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize plugin host (call once at startup)
+  bool pluginHostInit() {
+    if (!_loaded) return false;
+    return _pluginHostInit() != 0;
+  }
+
+  /// Scan for all plugins in system locations
+  /// Returns number of plugins found, or -1 on error
   int pluginScanAll() {
-    // TODO: Implement actual FFI binding
-    return 0;
+    if (!_loaded) return -1;
+    return _pluginScanAll();
   }
 
   /// Get number of discovered plugins
   int pluginGetCount() {
-    // TODO: Implement actual FFI binding
-    return 0;
+    if (!_loaded) return 0;
+    return _pluginGetCount();
   }
 
-  /// Get plugin info by index
-  /// Returns null if index out of range
-  NativePluginInfo? pluginGetInfoByIndex(int index) {
-    // TODO: Implement actual FFI binding
-    return null;
-  }
-
-  /// Get all plugins
+  /// Get all plugins as list
   List<NativePluginInfo> pluginGetAll() {
-    final count = pluginGetCount();
-    final plugins = <NativePluginInfo>[];
-    for (int i = 0; i < count; i++) {
-      final info = pluginGetInfoByIndex(i);
-      if (info != null) {
-        plugins.add(info);
-      }
+    if (!_loaded) return [];
+    final jsonPtr = _pluginGetAllJson();
+    if (jsonPtr == nullptr) return [];
+
+    try {
+      final jsonStr = jsonPtr.toDartString();
+      if (jsonStr.isEmpty || jsonStr == '[]') return [];
+
+      final List<dynamic> list = const JsonDecoder().convert(jsonStr) as List<dynamic>;
+      return list
+          .map((e) => NativePluginInfo.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
     }
-    return plugins;
   }
 
-  /// Get plugins by type
-  /// type: 0=VST3, 1=CLAP, 2=AU, 3=LV2, 4=Internal
-  List<int> pluginGetByType(int pluginType) {
-    // TODO: Implement actual FFI binding
-    return [];
-  }
+  /// Get single plugin info by index
+  NativePluginInfo? pluginGetInfo(int index) {
+    if (!_loaded) return null;
+    final jsonPtr = _pluginGetInfoJson(index);
+    if (jsonPtr == nullptr) return null;
 
-  /// Get plugins by category
-  /// category: 0=Effect, 1=Instrument, 2=Analyzer, 3=Utility
-  List<int> pluginGetByCategory(int category) {
-    // TODO: Implement actual FFI binding
-    return [];
-  }
+    try {
+      final jsonStr = jsonPtr.toDartString();
+      if (jsonStr.isEmpty || jsonStr == 'null') return null;
 
-  /// Search plugins by name
-  List<int> pluginSearch(String query) {
-    // TODO: Implement actual FFI binding
-    return [];
+      final map = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
+      return NativePluginInfo.fromJson(map);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Load a plugin instance
-  /// Returns instance ID on success, null on failure
+  /// Returns instance ID string, or null on failure
   String? pluginLoad(String pluginId) {
-    // TODO: Implement actual FFI binding
-    return null;
+    if (!_loaded) return null;
+    final idPtr = pluginId.toNativeUtf8();
+    final outBuffer = calloc<Uint8>(256);
+
+    try {
+      final len = _pluginLoad(idPtr, outBuffer, 256);
+      if (len <= 0) return null;
+
+      return String.fromCharCodes(outBuffer.asTypedList(len));
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(outBuffer);
+    }
   }
 
   /// Unload a plugin instance
   bool pluginUnload(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
-
-  /// Get plugin parameter count
-  int pluginGetParamCount(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return 0;
-  }
-
-  /// Get plugin parameter value (normalized 0-1)
-  double pluginGetParam(String instanceId, int paramId) {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
-
-  /// Set plugin parameter value (normalized 0-1)
-  bool pluginSetParam(String instanceId, int paramId, double value) {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
-
-  /// Get plugin parameter info
-  PluginParamInfo? pluginGetParamInfo(String instanceId, int paramIndex) {
-    // TODO: Implement actual FFI binding
-    return null;
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginUnload(idPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   /// Activate plugin for processing
   bool pluginActivate(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return false;
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginActivate(idPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   /// Deactivate plugin
   bool pluginDeactivate(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return false;
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginDeactivate(idPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
-  /// Check if plugin has editor
+  /// Get plugin parameter count
+  int pluginGetParamCount(String instanceId) {
+    if (!_loaded) return -1;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginGetParamCount(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get plugin parameter value (normalized 0-1)
+  double pluginGetParam(String instanceId, int paramId) {
+    if (!_loaded) return 0.0;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginGetParam(idPtr, paramId);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Set plugin parameter value (normalized 0-1)
+  bool pluginSetParam(String instanceId, int paramId, double value) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginSetParam(idPtr, paramId, value) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get all plugin parameters
+  List<NativePluginParamInfo> pluginGetAllParams(String instanceId) {
+    if (!_loaded) return [];
+    final idPtr = instanceId.toNativeUtf8();
+
+    try {
+      final jsonPtr = _pluginGetAllParamsJson(idPtr);
+      if (jsonPtr == nullptr) return [];
+
+      final jsonStr = jsonPtr.toDartString();
+      if (jsonStr.isEmpty || jsonStr == '[]') return [];
+
+      final List<dynamic> list = const JsonDecoder().convert(jsonStr) as List<dynamic>;
+      return list
+          .map((e) => NativePluginParamInfo.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Check if plugin has GUI editor
   bool pluginHasEditor(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return false;
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginHasEditor(idPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   /// Get plugin latency in samples
   int pluginGetLatency(String instanceId) {
-    // TODO: Implement actual FFI binding
-    return 0;
+    if (!_loaded) return 0;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginGetLatency(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Open plugin editor window
+  /// parentWindow: platform window handle (pass from Flutter platform view)
+  bool pluginOpenEditor(String instanceId, int parentWindow) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginOpenEditor(idPtr, Pointer.fromAddress(parentWindow)) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Close plugin editor window
+  bool pluginCloseEditor(String instanceId) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginCloseEditor(idPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get plugin editor size (width, height)
+  (int, int)? pluginEditorSize(String instanceId) {
+    if (!_loaded) return null;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      final packed = _pluginEditorSize(idPtr);
+      if (packed == 0) return null;
+      final width = (packed >> 32) & 0xFFFFFFFF;
+      final height = packed & 0xFFFFFFFF;
+      return (width, height);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Resize plugin editor
+  bool pluginResizeEditor(String instanceId, int width, int height) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginResizeEditor(idPtr, width, height) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Save plugin preset to file
+  bool pluginSavePreset(String instanceId, String path, String presetName) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    final pathPtr = path.toNativeUtf8();
+    final namePtr = presetName.toNativeUtf8();
+    try {
+      return _pluginSavePreset(idPtr, pathPtr, namePtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Load plugin preset from file
+  bool pluginLoadPreset(String instanceId, String path) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _pluginLoadPreset(idPtr, pathPtr) != 0;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Search plugins by name
+  List<int> pluginSearch(String query, {int maxResults = 100}) {
+    if (!_loaded) return [];
+    final queryPtr = query.toNativeUtf8();
+    final outIndices = calloc<Uint32>(maxResults);
+
+    try {
+      final count = _pluginSearch(queryPtr, outIndices, maxResults);
+      if (count == 0) return [];
+      return List.generate(count, (i) => outIndices[i]);
+    } finally {
+      calloc.free(queryPtr);
+      calloc.free(outIndices);
+    }
+  }
+
+  /// Get plugins by type
+  List<int> pluginGetByType(NativePluginType type, {int maxResults = 500}) {
+    if (!_loaded) return [];
+    final outIndices = calloc<Uint32>(maxResults);
+
+    try {
+      final count = _pluginGetByType(type.code, outIndices, maxResults);
+      if (count == 0) return [];
+      return List.generate(count, (i) => outIndices[i]);
+    } finally {
+      calloc.free(outIndices);
+    }
+  }
+
+  /// Get plugins by category
+  List<int> pluginGetByCategory(NativePluginCategory category, {int maxResults = 500}) {
+    if (!_loaded) return [];
+    final outIndices = calloc<Uint32>(maxResults);
+
+    try {
+      final count = _pluginGetByCategory(category.code, outIndices, maxResults);
+      if (count == 0) return [];
+      return List.generate(count, (i) => outIndices[i]);
+    } finally {
+      calloc.free(outIndices);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLUGIN INSERT CHAIN
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Load plugin into channel insert chain
+  /// Returns: 1 = success (queued), -1 = error
+  int pluginInsertLoad(int channelId, String pluginId) {
+    if (!_loaded) return -1;
+    final pluginIdPtr = pluginId.toNativeUtf8();
+    try {
+      return _pluginInsertLoad(channelId, pluginIdPtr);
+    } finally {
+      calloc.free(pluginIdPtr);
+    }
+  }
+
+  /// Remove plugin from insert chain at slot index
+  /// Returns: 1 = success (queued), -1 = error
+  int pluginInsertRemove(int channelId, int slotIndex) {
+    if (!_loaded) return -1;
+    return _pluginInsertRemove(channelId, slotIndex);
+  }
+
+  /// Set bypass state for insert slot
+  /// Returns: 1 = success (queued), -1 = error
+  int pluginInsertSetBypass(int channelId, int slotIndex, bool bypass) {
+    if (!_loaded) return -1;
+    return _pluginInsertSetBypass(channelId, slotIndex, bypass ? 1 : 0);
+  }
+
+  /// Set wet/dry mix for insert slot (0.0 = dry, 1.0 = wet)
+  /// Returns: 1 = success (queued), -1 = error
+  int pluginInsertSetMix(int channelId, int slotIndex, double mix) {
+    if (!_loaded) return -1;
+    return _pluginInsertSetMix(channelId, slotIndex, mix);
+  }
+
+  /// Get wet/dry mix for insert slot
+  double pluginInsertGetMix(int channelId, int slotIndex) {
+    if (!_loaded) return 1.0;
+    return _pluginInsertGetMix(channelId, slotIndex);
+  }
+
+  /// Get latency in samples for a specific insert slot
+  int pluginInsertGetLatency(int channelId, int slotIndex) {
+    if (!_loaded) return 0;
+    return _pluginInsertGetLatency(channelId, slotIndex);
+  }
+
+  /// Get total latency in samples for entire insert chain
+  int pluginInsertChainLatency(int channelId) {
+    if (!_loaded) return 0;
+    return _pluginInsertChainLatency(channelId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MIDI I/O
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Scan for MIDI input devices
+  /// Returns number of devices found
+  int midiScanInputDevices() {
+    if (!_loaded) return 0;
+    return _midiScanInputDevices();
+  }
+
+  /// Scan for MIDI output devices
+  int midiScanOutputDevices() {
+    if (!_loaded) return 0;
+    return _midiScanOutputDevices();
+  }
+
+  /// Get MIDI input device name by index
+  String? midiGetInputDeviceName(int index) {
+    if (!_loaded) return null;
+    final buffer = calloc<Uint8>(256);
+    try {
+      final len = _midiGetInputDeviceName(index, buffer.cast<Utf8>(), 256);
+      if (len < 0) return null;
+      return buffer.cast<Utf8>().toDartString();
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Get MIDI output device name by index
+  String? midiGetOutputDeviceName(int index) {
+    if (!_loaded) return null;
+    final buffer = calloc<Uint8>(256);
+    try {
+      final len = _midiGetOutputDeviceName(index, buffer.cast<Utf8>(), 256);
+      if (len < 0) return null;
+      return buffer.cast<Utf8>().toDartString();
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Get all MIDI input device names
+  List<String> midiGetAllInputDevices() {
+    if (!_loaded) return [];
+    final count = _midiInputDeviceCount();
+    final devices = <String>[];
+    for (int i = 0; i < count; i++) {
+      final name = midiGetInputDeviceName(i);
+      if (name != null) devices.add(name);
+    }
+    return devices;
+  }
+
+  /// Get all MIDI output device names
+  List<String> midiGetAllOutputDevices() {
+    if (!_loaded) return [];
+    final count = _midiOutputDeviceCount();
+    final devices = <String>[];
+    for (int i = 0; i < count; i++) {
+      final name = midiGetOutputDeviceName(i);
+      if (name != null) devices.add(name);
+    }
+    return devices;
+  }
+
+  /// Connect to MIDI input device by index
+  bool midiConnectInput(int deviceIndex) {
+    if (!_loaded) return false;
+    return _midiConnectInput(deviceIndex) == 1;
+  }
+
+  /// Disconnect from MIDI input by connection index
+  bool midiDisconnectInput(int connectionIndex) {
+    if (!_loaded) return false;
+    return _midiDisconnectInput(connectionIndex) == 1;
+  }
+
+  /// Disconnect all MIDI inputs
+  void midiDisconnectAllInputs() {
+    if (!_loaded) return;
+    _midiDisconnectAllInputs();
+  }
+
+  /// Get number of active MIDI input connections
+  int midiActiveInputCount() {
+    if (!_loaded) return 0;
+    return _midiActiveInputCount();
+  }
+
+  /// Connect to MIDI output device
+  bool midiConnectOutput(int deviceIndex) {
+    if (!_loaded) return false;
+    return _midiConnectOutput(deviceIndex) == 1;
+  }
+
+  /// Disconnect MIDI output
+  void midiDisconnectOutput() {
+    if (!_loaded) return;
+    _midiDisconnectOutput();
+  }
+
+  /// Check if MIDI output is connected
+  bool midiIsOutputConnected() {
+    if (!_loaded) return false;
+    return _midiIsOutputConnected() != 0;
+  }
+
+  /// Start MIDI recording for a track
+  void midiStartRecording(int trackId) {
+    if (!_loaded) return;
+    _midiStartRecording(trackId);
+  }
+
+  /// Stop MIDI recording
+  void midiStopRecording() {
+    if (!_loaded) return;
+    _midiStopRecording();
+  }
+
+  /// Arm track for MIDI recording
+  void midiArmTrack(int trackId) {
+    if (!_loaded) return;
+    _midiArmTrack(trackId);
+  }
+
+  /// Check if MIDI recording is active
+  bool midiIsRecording() {
+    if (!_loaded) return false;
+    return _midiIsRecording() != 0;
+  }
+
+  /// Get MIDI recording state
+  /// Returns: 0=Stopped, 1=Armed, 2=Recording, 3=Paused
+  int midiGetRecordingState() {
+    if (!_loaded) return 0;
+    return _midiGetRecordingState();
+  }
+
+  /// Get number of recorded MIDI events
+  int midiRecordedEventCount() {
+    if (!_loaded) return 0;
+    return _midiRecordedEventCount();
+  }
+
+  /// Get target track for recording
+  int midiGetTargetTrack() {
+    if (!_loaded) return 0;
+    return _midiGetTargetTrack();
+  }
+
+  /// Set sample rate for MIDI timestamp conversion
+  void midiSetSampleRate(int sampleRate) {
+    if (!_loaded) return;
+    _midiSetSampleRate(sampleRate);
+  }
+
+  /// Enable/disable MIDI thru
+  void midiSetThru(bool enabled) {
+    if (!_loaded) return;
+    _midiSetThru(enabled ? 1 : 0);
+  }
+
+  /// Check if MIDI thru is enabled
+  bool midiIsThruEnabled() {
+    if (!_loaded) return false;
+    return _midiIsThruEnabled() != 0;
+  }
+
+  /// Send MIDI note on
+  bool midiSendNoteOn(int channel, int note, int velocity) {
+    if (!_loaded) return false;
+    return _midiSendNoteOn(channel, note, velocity) == 1;
+  }
+
+  /// Send MIDI note off
+  bool midiSendNoteOff(int channel, int note, int velocity) {
+    if (!_loaded) return false;
+    return _midiSendNoteOff(channel, note, velocity) == 1;
+  }
+
+  /// Send MIDI CC
+  bool midiSendCc(int channel, int cc, int value) {
+    if (!_loaded) return false;
+    return _midiSendCc(channel, cc, value) == 1;
+  }
+
+  /// Send MIDI pitch bend (14-bit value, center = 8192)
+  bool midiSendPitchBend(int channel, int value) {
+    if (!_loaded) return false;
+    return _midiSendPitchBend(channel, value) == 1;
+  }
+
+  /// Send MIDI program change
+  bool midiSendProgramChange(int channel, int program) {
+    if (!_loaded) return false;
+    return _midiSendProgramChange(channel, program) == 1;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTOSAVE SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize autosave system with project name
+  bool autosaveInit(String projectName) {
+    if (!_loaded) return false;
+    final namePtr = projectName.toNativeUtf8();
+    try {
+      return _autosaveInit(namePtr) == 1;
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Shutdown autosave system
+  void autosaveShutdown() {
+    if (!_loaded) return;
+    _autosaveShutdown();
+  }
+
+  /// Set autosave enabled state
+  void autosaveSetEnabled(bool enabled) {
+    if (!_loaded) return;
+    _autosaveSetEnabled(enabled ? 1 : 0);
+  }
+
+  /// Check if autosave is enabled
+  bool autosaveIsEnabled() {
+    if (!_loaded) return false;
+    return _autosaveIsEnabled() != 0;
+  }
+
+  /// Set autosave interval in seconds
+  void autosaveSetInterval(int intervalSecs) {
+    if (!_loaded) return;
+    _autosaveSetInterval(intervalSecs);
+  }
+
+  /// Get autosave interval in seconds
+  int autosaveGetInterval() {
+    if (!_loaded) return 60;
+    return _autosaveGetInterval();
+  }
+
+  /// Set backup count (how many autosaves to keep)
+  void autosaveSetBackupCount(int count) {
+    if (!_loaded) return;
+    _autosaveSetBackupCount(count);
+  }
+
+  /// Get backup count
+  int autosaveGetBackupCount() {
+    if (!_loaded) return 5;
+    return _autosaveGetBackupCount();
+  }
+
+  /// Mark project as having unsaved changes
+  void autosaveMarkDirty() {
+    if (!_loaded) return;
+    _autosaveMarkDirty();
+  }
+
+  /// Mark project as saved (clean)
+  void autosaveMarkClean() {
+    if (!_loaded) return;
+    _autosaveMarkClean();
+  }
+
+  /// Check if project has unsaved changes
+  bool autosaveIsDirty() {
+    if (!_loaded) return false;
+    return _autosaveIsDirty() != 0;
+  }
+
+  /// Check if autosave should run now
+  bool autosaveShouldSave() {
+    if (!_loaded) return false;
+    return _autosaveShouldSave() != 0;
+  }
+
+  /// Perform autosave with project data
+  /// Returns: 1 = success, 0 = skipped (no changes), -1 = error
+  int autosaveNow(String projectData) {
+    if (!_loaded) return -1;
+    final dataPtr = projectData.toNativeUtf8();
+    try {
+      return _autosaveNow(dataPtr);
+    } finally {
+      calloc.free(dataPtr);
+    }
+  }
+
+  /// Get count of available autosave backups
+  int autosaveBackupCount() {
+    if (!_loaded) return 0;
+    return _autosaveBackupCount();
+  }
+
+  /// Get path to latest autosave backup
+  String? autosaveLatestPath() {
+    if (!_loaded) return null;
+    final buffer = calloc<Uint8>(1024);
+    try {
+      final len = _autosaveLatestPath(buffer.cast<Utf8>(), 1024);
+      if (len > 0) {
+        return buffer.cast<Utf8>().toDartString();
+      }
+      return null;
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Clear all autosave backups for current project
+  void autosaveClearBackups() {
+    if (!_loaded) return;
+    _autosaveClearBackups();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RECENT PROJECTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add project to recent list
+  bool recentProjectsAdd(String path) {
+    if (!_loaded) return false;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _recentProjectsAdd(pathPtr) == 1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Get recent project count
+  int recentProjectsCount() {
+    if (!_loaded) return 0;
+    return _recentProjectsCount();
+  }
+
+  /// Get recent project path by index
+  String? recentProjectsGet(int index) {
+    if (!_loaded) return null;
+    final buffer = calloc<Uint8>(1024);
+    try {
+      final len = _recentProjectsGet(index, buffer.cast<Utf8>(), 1024);
+      if (len > 0) {
+        return buffer.cast<Utf8>().toDartString();
+      }
+      return null;
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Get all recent projects
+  List<String> recentProjectsGetAll() {
+    final count = recentProjectsCount();
+    final result = <String>[];
+    for (var i = 0; i < count; i++) {
+      final path = recentProjectsGet(i);
+      if (path != null) {
+        result.add(path);
+      }
+    }
+    return result;
+  }
+
+  /// Remove project from recent list
+  bool recentProjectsRemove(String path) {
+    if (!_loaded) return false;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _recentProjectsRemove(pathPtr) == 1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Clear all recent projects
+  void recentProjectsClear() {
+    if (!_loaded) return;
+    _recentProjectsClear();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -8778,6 +11404,386 @@ extension ControlRoomAPI on NativeFFI {
     if (!_loaded) return 0;
     return _waveCacheLoadedCount();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPING API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new lane for a track
+  /// Returns lane ID (0 on failure)
+  int compingCreateLane(int trackId) {
+    if (!_loaded) return 0;
+    return _compingCreateLane(trackId);
+  }
+
+  /// Delete a lane
+  bool compingDeleteLane(int trackId, int laneId) {
+    if (!_loaded) return false;
+    return _compingDeleteLane(trackId, laneId) == 1;
+  }
+
+  /// Set active lane for a track
+  bool compingSetActiveLane(int trackId, int laneIndex) {
+    if (!_loaded) return false;
+    return _compingSetActiveLane(trackId, laneIndex) == 1;
+  }
+
+  /// Toggle lane mute
+  bool compingToggleLaneMute(int trackId, int laneId) {
+    if (!_loaded) return false;
+    return _compingToggleLaneMute(trackId, laneId) == 1;
+  }
+
+  /// Set lane visibility
+  bool compingSetLaneVisible(int trackId, int laneId, bool visible) {
+    if (!_loaded) return false;
+    return _compingSetLaneVisible(trackId, laneId, visible ? 1 : 0) == 1;
+  }
+
+  /// Set lane height
+  bool compingSetLaneHeight(int trackId, int laneId, double height) {
+    if (!_loaded) return false;
+    return _compingSetLaneHeight(trackId, laneId, height) == 1;
+  }
+
+  /// Add a take to active lane
+  /// Returns take ID (0 on failure)
+  int compingAddTake(int trackId, String sourcePath, double startTime, double duration) {
+    if (!_loaded) return 0;
+    final pathPtr = sourcePath.toNativeUtf8();
+    try {
+      return _compingAddTake(trackId, pathPtr, startTime, duration);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Delete a take
+  bool compingDeleteTake(int trackId, int takeId) {
+    if (!_loaded) return false;
+    return _compingDeleteTake(trackId, takeId) == 1;
+  }
+
+  /// Set take rating (0=None, 1=Bad, 2=Okay, 3=Good, 4=Best)
+  bool compingSetTakeRating(int trackId, int takeId, int rating) {
+    if (!_loaded) return false;
+    return _compingSetTakeRating(trackId, takeId, rating) == 1;
+  }
+
+  /// Toggle take mute
+  bool compingToggleTakeMute(int trackId, int takeId) {
+    if (!_loaded) return false;
+    return _compingToggleTakeMute(trackId, takeId) == 1;
+  }
+
+  /// Toggle take in comp
+  bool compingToggleTakeInComp(int trackId, int takeId) {
+    if (!_loaded) return false;
+    return _compingToggleTakeInComp(trackId, takeId) == 1;
+  }
+
+  /// Set take gain (0.0-2.0, 1.0 = unity)
+  bool compingSetTakeGain(int trackId, int takeId, double gain) {
+    if (!_loaded) return false;
+    return _compingSetTakeGain(trackId, takeId, gain) == 1;
+  }
+
+  /// Create a comp region
+  /// Returns region ID (0 on failure)
+  int compingCreateRegion(int trackId, int takeId, double startTime, double endTime) {
+    if (!_loaded) return 0;
+    return _compingCreateRegion(trackId, takeId, startTime, endTime);
+  }
+
+  /// Delete a comp region
+  bool compingDeleteRegion(int trackId, int regionId) {
+    if (!_loaded) return false;
+    return _compingDeleteRegion(trackId, regionId) == 1;
+  }
+
+  /// Set region crossfade in duration
+  bool compingSetRegionCrossfadeIn(int trackId, int regionId, double duration) {
+    if (!_loaded) return false;
+    return _compingSetRegionCrossfadeIn(trackId, regionId, duration) == 1;
+  }
+
+  /// Set region crossfade out duration
+  bool compingSetRegionCrossfadeOut(int trackId, int regionId, double duration) {
+    if (!_loaded) return false;
+    return _compingSetRegionCrossfadeOut(trackId, regionId, duration) == 1;
+  }
+
+  /// Set region crossfade type (0=Linear, 1=EqualPower, 2=SCurve)
+  bool compingSetRegionCrossfadeType(int trackId, int regionId, int crossfadeType) {
+    if (!_loaded) return false;
+    return _compingSetRegionCrossfadeType(trackId, regionId, crossfadeType) == 1;
+  }
+
+  /// Set comp mode (0=Single, 1=Comp, 2=AuditAll)
+  bool compingSetMode(int trackId, int mode) {
+    if (!_loaded) return false;
+    return _compingSetMode(trackId, mode) == 1;
+  }
+
+  /// Get comp mode (0=Single, 1=Comp, 2=AuditAll, -1=error)
+  int compingGetMode(int trackId) {
+    if (!_loaded) return -1;
+    return _compingGetMode(trackId);
+  }
+
+  /// Toggle lanes expanded for a track
+  bool compingToggleLanesExpanded(int trackId) {
+    if (!_loaded) return false;
+    return _compingToggleLanesExpanded(trackId) == 1;
+  }
+
+  /// Get lanes expanded state
+  bool? compingGetLanesExpanded(int trackId) {
+    if (!_loaded) return null;
+    final result = _compingGetLanesExpanded(trackId);
+    if (result == -1) return null;
+    return result == 1;
+  }
+
+  /// Get number of lanes for a track
+  int compingGetLaneCount(int trackId) {
+    if (!_loaded) return 0;
+    return _compingGetLaneCount(trackId);
+  }
+
+  /// Get active lane index
+  int compingGetActiveLaneIndex(int trackId) {
+    if (!_loaded) return -1;
+    return _compingGetActiveLaneIndex(trackId);
+  }
+
+  /// Clear all comp regions for a track
+  bool compingClearComp(int trackId) {
+    if (!_loaded) return false;
+    return _compingClearComp(trackId) == 1;
+  }
+
+  /// Get comp state as JSON
+  String? compingGetStateJson(int trackId) {
+    if (!_loaded) return null;
+    final ptr = _compingGetStateJson(trackId);
+    if (ptr == nullptr) return null;
+    try {
+      return ptr.toDartString();
+    } finally {
+      _freeString(ptr);
+    }
+  }
+
+  /// Load comp state from JSON
+  bool compingLoadStateJson(int trackId, String json) {
+    if (!_loaded) return false;
+    final jsonPtr = json.toNativeUtf8();
+    try {
+      return _compingLoadStateJson(trackId, jsonPtr) == 1;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Start recording on a track
+  bool compingStartRecording(int trackId, double startTime) {
+    if (!_loaded) return false;
+    return _compingStartRecording(trackId, startTime) == 1;
+  }
+
+  /// Stop recording on a track
+  bool compingStopRecording(int trackId) {
+    if (!_loaded) return false;
+    return _compingStopRecording(trackId) == 1;
+  }
+
+  /// Check if track is recording
+  bool compingIsRecording(int trackId) {
+    if (!_loaded) return false;
+    return _compingIsRecording(trackId) == 1;
+  }
+
+  /// Delete all "bad" rated takes
+  /// Returns number of deleted takes
+  int compingDeleteBadTakes(int trackId) {
+    if (!_loaded) return 0;
+    return _compingDeleteBadTakes(trackId);
+  }
+
+  /// Promote "best" rated takes to comp
+  /// Returns number of regions created
+  int compingPromoteBestTakes(int trackId) {
+    if (!_loaded) return 0;
+    return _compingPromoteBestTakes(trackId);
+  }
+
+  /// Remove track from comping manager
+  void compingRemoveTrack(int trackId) {
+    if (!_loaded) return;
+    _compingRemoveTrack(trackId);
+  }
+
+  /// Clear all comping state
+  void compingClearAll() {
+    if (!_loaded) return;
+    _compingClearAll();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VIDEO FFI PUBLIC API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add a video track
+  /// Returns track ID, or 0 on failure
+  int videoAddTrack(String name) {
+    if (!_loaded) return 0;
+    final namePtr = name.toNativeUtf8();
+    try {
+      return _videoAddTrack(namePtr);
+    } finally {
+      malloc.free(namePtr);
+    }
+  }
+
+  /// Import video file to track
+  /// Returns clip ID, or 0 on failure
+  int videoImport(int trackId, String path, int timelineStartSamples) {
+    if (!_loaded) return 0;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _videoImport(trackId, pathPtr, timelineStartSamples);
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
+  /// Set video playhead position (in samples)
+  void videoSetPlayhead(int samples) {
+    if (!_loaded) return;
+    _videoSetPlayhead(samples);
+  }
+
+  /// Get video playhead position (in samples)
+  int videoGetPlayhead() {
+    if (!_loaded) return 0;
+    return _videoGetPlayhead();
+  }
+
+  /// Get video frame at given sample position
+  /// Returns RGBA pixel data as Uint8List, or null on failure
+  /// width/height are output parameters
+  ({Uint8List? data, int width, int height}) videoGetFrame(int clipId, int frameSamples) {
+    if (!_loaded) return (data: null, width: 0, height: 0);
+
+    final widthPtr = malloc<Uint32>();
+    final heightPtr = malloc<Uint32>();
+    final sizePtr = malloc<Uint64>();
+
+    try {
+      final dataPtr = _videoGetFrame(clipId, frameSamples, widthPtr, heightPtr, sizePtr);
+      if (dataPtr == nullptr) {
+        return (data: null, width: 0, height: 0);
+      }
+
+      final width = widthPtr.value;
+      final height = heightPtr.value;
+      final size = sizePtr.value;
+
+      // Copy data to Dart-managed memory
+      final data = Uint8List.fromList(dataPtr.asTypedList(size));
+
+      // Free Rust-allocated memory
+      _videoFreeFrame(dataPtr, size);
+
+      return (data: data, width: width, height: height);
+    } finally {
+      malloc.free(widthPtr);
+      malloc.free(heightPtr);
+      malloc.free(sizePtr);
+    }
+  }
+
+  /// Get video info as JSON
+  String? videoGetInfoJson(int clipId) {
+    if (!_loaded) return null;
+    final ptr = _videoGetInfoJson(clipId);
+    if (ptr == nullptr) return null;
+    try {
+      return ptr.toDartString();
+    } finally {
+      malloc.free(ptr);
+    }
+  }
+
+  /// Generate thumbnails for video clip
+  /// Returns number of thumbnails generated
+  int videoGenerateThumbnails(int clipId, int width, int intervalFrames) {
+    if (!_loaded) return 0;
+    return _videoGenerateThumbnails(clipId, width, intervalFrames);
+  }
+
+  /// Get number of video tracks
+  int videoGetTrackCount() {
+    if (!_loaded) return 0;
+    return _videoGetTrackCount();
+  }
+
+  /// Clear all video state
+  void videoClearAll() {
+    if (!_loaded) return;
+    _videoClearAll();
+  }
+
+  /// Format timecode from seconds
+  /// dropFrame: 0=NDF, 1=DF
+  String videoFormatTimecode(double seconds, double frameRate, {bool dropFrame = false}) {
+    if (!_loaded) return '00:00:00:00';
+    final ptr = _videoFormatTimecode(seconds, frameRate, dropFrame ? 1 : 0);
+    if (ptr == nullptr) return '00:00:00:00';
+    try {
+      return ptr.toDartString();
+    } finally {
+      malloc.free(ptr);
+    }
+  }
+
+  /// Parse timecode string to seconds
+  /// Returns -1.0 on error
+  double videoParseTimecode(String timecode, double frameRate) {
+    if (!_loaded) return -1.0;
+    final tcPtr = timecode.toNativeUtf8();
+    try {
+      return _videoParseTimecode(tcPtr, frameRate);
+    } finally {
+      malloc.free(tcPtr);
+    }
+  }
+}
+
+/// Mastering result from FFI
+class MasteringResultFFI {
+  final double inputLufs;
+  final double outputLufs;
+  final double inputPeak;
+  final double outputPeak;
+  final double appliedGain;
+  final double peakReduction;
+  final double qualityScore;
+  final int detectedGenre;
+  final int warningCount;
+
+  const MasteringResultFFI({
+    required this.inputLufs,
+    required this.outputLufs,
+    required this.inputPeak,
+    required this.outputPeak,
+    required this.appliedGain,
+    required this.peakReduction,
+    required this.qualityScore,
+    required this.detectedGenre,
+    required this.warningCount,
+  });
 }
 
 /// Result from wave cache tile query
@@ -8810,20 +11816,40 @@ class WaveCacheTileResult {
 
 /// Native plugin type enum (from Rust FFI)
 enum NativePluginType {
-  vst3,
-  clap,
-  audioUnit,
-  lv2,
-  internal,
+  vst3(0),
+  clap(1),
+  audioUnit(2),
+  lv2(3),
+  internal(4);
+
+  final int code;
+  const NativePluginType(this.code);
+
+  static NativePluginType fromCode(int code) {
+    return NativePluginType.values.firstWhere(
+      (e) => e.code == code,
+      orElse: () => NativePluginType.internal,
+    );
+  }
 }
 
 /// Native plugin category enum (from Rust FFI)
 enum NativePluginCategory {
-  effect,
-  instrument,
-  analyzer,
-  utility,
-  unknown,
+  effect(0),
+  instrument(1),
+  analyzer(2),
+  utility(3),
+  unknown(4);
+
+  final int code;
+  const NativePluginCategory(this.code);
+
+  static NativePluginCategory fromCode(int code) {
+    return NativePluginCategory.values.firstWhere(
+      (e) => e.code == code,
+      orElse: () => NativePluginCategory.unknown,
+    );
+  }
 }
 
 /// Native plugin information (from Rust FFI)
@@ -8832,17 +11858,21 @@ class NativePluginInfo {
   final String id;
   final String name;
   final String vendor;
+  final String version;
   final NativePluginType type;
   final NativePluginCategory category;
   final bool hasEditor;
+  final String path;
 
   const NativePluginInfo({
     required this.id,
     required this.name,
     required this.vendor,
+    this.version = '',
     required this.type,
     required this.category,
     required this.hasEditor,
+    this.path = '',
   });
 
   /// Create from FFI data
@@ -8858,9 +11888,23 @@ class NativePluginInfo {
       id: id,
       name: name,
       vendor: vendor,
-      type: NativePluginType.values[typeCode.clamp(0, 4)],
-      category: NativePluginCategory.values[categoryCode.clamp(0, 4)],
+      type: NativePluginType.fromCode(typeCode),
+      category: NativePluginCategory.fromCode(categoryCode),
       hasEditor: hasEditor,
+    );
+  }
+
+  /// Create from JSON (Rust FFI JSON response)
+  factory NativePluginInfo.fromJson(Map<String, dynamic> json) {
+    return NativePluginInfo(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Unknown',
+      vendor: json['vendor'] as String? ?? '',
+      version: json['version'] as String? ?? '',
+      type: NativePluginType.fromCode(json['type'] as int? ?? 4),
+      category: NativePluginCategory.fromCode(json['category'] as int? ?? 4),
+      hasEditor: json['hasEditor'] as bool? ?? json['has_editor'] as bool? ?? false,
+      path: json['path'] as String? ?? '',
     );
   }
 
@@ -8897,20 +11941,305 @@ class NativePluginInfo {
   }
 }
 
-/// Plugin parameter information
-class PluginParamInfo {
+/// Native plugin parameter information
+class NativePluginParamInfo {
   final int id;
   final String name;
+  final String unit;
   final double min;
   final double max;
   final double defaultValue;
+  final double value;
+  final bool automatable;
 
-  const PluginParamInfo({
+  const NativePluginParamInfo({
     required this.id,
     required this.name,
-    required this.min,
-    required this.max,
-    required this.defaultValue,
+    this.unit = '',
+    this.min = 0.0,
+    this.max = 1.0,
+    this.defaultValue = 0.0,
+    this.value = 0.0,
+    this.automatable = true,
+  });
+
+  /// Create from JSON (Rust FFI JSON response)
+  factory NativePluginParamInfo.fromJson(Map<String, dynamic> json) {
+    return NativePluginParamInfo(
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? 'Param',
+      unit: json['unit'] as String? ?? '',
+      min: (json['min'] as num?)?.toDouble() ?? 0.0,
+      max: (json['max'] as num?)?.toDouble() ?? 1.0,
+      defaultValue: (json['default'] as num?)?.toDouble() ?? 0.0,
+      value: (json['value'] as num?)?.toDouble() ?? 0.0,
+      automatable: json['automatable'] as bool? ?? true,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO RESTORATION TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Restoration module settings
+class RestorationSettings {
+  final bool denoiseEnabled;
+  final double denoiseStrength;
+  final bool declickEnabled;
+  final double declickSensitivity;
+  final bool declipEnabled;
+  final double declipThreshold;
+  final bool dehumEnabled;
+  final double dehumFrequency;
+  final int dehumHarmonics;
+  final bool dereverbEnabled;
+  final double dereverbAmount;
+
+  const RestorationSettings({
+    required this.denoiseEnabled,
+    required this.denoiseStrength,
+    required this.declickEnabled,
+    required this.declickSensitivity,
+    required this.declipEnabled,
+    required this.declipThreshold,
+    required this.dehumEnabled,
+    required this.dehumFrequency,
+    required this.dehumHarmonics,
+    required this.dereverbEnabled,
+    required this.dereverbAmount,
+  });
+
+  /// Default settings (all disabled)
+  factory RestorationSettings.defaults() => const RestorationSettings(
+    denoiseEnabled: false,
+    denoiseStrength: 50.0,
+    declickEnabled: false,
+    declickSensitivity: 50.0,
+    declipEnabled: false,
+    declipThreshold: -0.1,
+    dehumEnabled: false,
+    dehumFrequency: 50.0,
+    dehumHarmonics: 4,
+    dereverbEnabled: false,
+    dereverbAmount: 50.0,
+  );
+
+  /// Create copy with modifications
+  RestorationSettings copyWith({
+    bool? denoiseEnabled,
+    double? denoiseStrength,
+    bool? declickEnabled,
+    double? declickSensitivity,
+    bool? declipEnabled,
+    double? declipThreshold,
+    bool? dehumEnabled,
+    double? dehumFrequency,
+    int? dehumHarmonics,
+    bool? dereverbEnabled,
+    double? dereverbAmount,
+  }) {
+    return RestorationSettings(
+      denoiseEnabled: denoiseEnabled ?? this.denoiseEnabled,
+      denoiseStrength: denoiseStrength ?? this.denoiseStrength,
+      declickEnabled: declickEnabled ?? this.declickEnabled,
+      declickSensitivity: declickSensitivity ?? this.declickSensitivity,
+      declipEnabled: declipEnabled ?? this.declipEnabled,
+      declipThreshold: declipThreshold ?? this.declipThreshold,
+      dehumEnabled: dehumEnabled ?? this.dehumEnabled,
+      dehumFrequency: dehumFrequency ?? this.dehumFrequency,
+      dehumHarmonics: dehumHarmonics ?? this.dehumHarmonics,
+      dereverbEnabled: dereverbEnabled ?? this.dereverbEnabled,
+      dereverbAmount: dereverbAmount ?? this.dereverbAmount,
+    );
+  }
+}
+
+/// Restoration analysis result
+class RestorationAnalysis {
+  final double noiseFloorDb;
+  final double clicksPerSecond;
+  final double clippingPercent;
+  final bool humDetected;
+  final double humFrequency;
+  final double humLevelDb;
+  final double reverbTailSeconds;
+  final double qualityScore;
+
+  const RestorationAnalysis({
+    required this.noiseFloorDb,
+    required this.clicksPerSecond,
+    required this.clippingPercent,
+    required this.humDetected,
+    required this.humFrequency,
+    required this.humLevelDb,
+    required this.reverbTailSeconds,
+    required this.qualityScore,
+  });
+
+  /// Check if denoise is recommended
+  bool get needsDenoise => noiseFloorDb > -50.0;
+
+  /// Check if declick is recommended
+  bool get needsDeclick => clicksPerSecond > 5.0;
+
+  /// Check if declip is recommended
+  bool get needsDeclip => clippingPercent > 0.1;
+
+  /// Check if dehum is recommended
+  bool get needsDehum => humDetected && humLevelDb > -50.0;
+
+  /// Check if dereverb is recommended
+  bool get needsDereverb => reverbTailSeconds > 1.0;
+
+  /// Get quality grade
+  String get qualityGrade {
+    if (qualityScore >= 90) return 'Excellent';
+    if (qualityScore >= 75) return 'Good';
+    if (qualityScore >= 50) return 'Fair';
+    if (qualityScore >= 25) return 'Poor';
+    return 'Bad';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ML/AI PROCESSING TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// ML model information
+class MlModelInfo {
+  final int index;
+  final String name;
+  final bool isAvailable;
+  final int sizeMb;
+
+  const MlModelInfo({
+    required this.index,
+    required this.name,
+    required this.isAvailable,
+    required this.sizeMb,
+  });
+
+  /// Human-readable size
+  String get sizeString {
+    if (sizeMb >= 1000) {
+      return '${(sizeMb / 1000).toStringAsFixed(1)} GB';
+    }
+    return '$sizeMb MB';
+  }
+}
+
+/// ML stem types for separation
+enum MlStemType {
+  vocals(1),
+  drums(2),
+  bass(4),
+  other(8);
+
+  final int mask;
+  const MlStemType(this.mask);
+
+  /// Combine multiple stems into mask
+  static int combineMask(List<MlStemType> stems) {
+    return stems.fold(0, (mask, stem) => mask | stem.mask);
+  }
+}
+
+/// ML execution provider
+enum MlExecutionProvider {
+  cpu(0),
+  cuda(1),
+  coreMl(2),
+  tensorRt(3);
+
+  final int code;
+  const MlExecutionProvider(this.code);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUA SCRIPTING TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Script info returned from FFI
+class ScriptInfo {
+  final String name;
+  final String description;
+
+  const ScriptInfo({
+    required this.name,
+    this.description = '',
   });
 }
 
+/// Script action types from Lua execution
+enum ScriptActionType {
+  play,
+  stop,
+  record,
+  setPlayhead,
+  setLoop,
+  createTrack,
+  deleteTrack,
+  muteTrack,
+  soloTrack,
+  setTrackVolume,
+  setTrackPan,
+  cut,
+  copy,
+  paste,
+  delete,
+  undo,
+  redo,
+  save,
+  unknown,
+}
+
+/// Parsed script action from JSON
+class ScriptAction {
+  final ScriptActionType type;
+  final Map<String, dynamic> data;
+
+  const ScriptAction({
+    required this.type,
+    this.data = const {},
+  });
+
+  /// Parse from JSON string
+  factory ScriptAction.fromJson(String json) {
+    try {
+      final map = Map<String, dynamic>.from(
+        // ignore: avoid_dynamic_calls
+        (const JsonDecoder()).convert(json) as Map,
+      );
+      final typeStr = map['type'] as String? ?? 'unknown';
+      final type = _parseActionType(typeStr);
+      return ScriptAction(type: type, data: map);
+    } catch (e) {
+      return const ScriptAction(type: ScriptActionType.unknown);
+    }
+  }
+
+  static ScriptActionType _parseActionType(String type) {
+    switch (type) {
+      case 'play': return ScriptActionType.play;
+      case 'stop': return ScriptActionType.stop;
+      case 'record': return ScriptActionType.record;
+      case 'set_playhead': return ScriptActionType.setPlayhead;
+      case 'set_loop': return ScriptActionType.setLoop;
+      case 'create_track': return ScriptActionType.createTrack;
+      case 'delete_track': return ScriptActionType.deleteTrack;
+      case 'mute_track': return ScriptActionType.muteTrack;
+      case 'solo_track': return ScriptActionType.soloTrack;
+      case 'set_track_volume': return ScriptActionType.setTrackVolume;
+      case 'set_track_pan': return ScriptActionType.setTrackPan;
+      case 'cut': return ScriptActionType.cut;
+      case 'copy': return ScriptActionType.copy;
+      case 'paste': return ScriptActionType.paste;
+      case 'delete': return ScriptActionType.delete;
+      case 'undo': return ScriptActionType.undo;
+      case 'redo': return ScriptActionType.redo;
+      case 'save': return ScriptActionType.save;
+      default: return ScriptActionType.unknown;
+    }
+  }
+}

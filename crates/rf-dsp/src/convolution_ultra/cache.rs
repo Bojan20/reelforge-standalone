@@ -215,10 +215,10 @@ impl IrCache {
     /// Compute hash from raw samples
     pub fn compute_samples_hash(samples: &[f64], sample_rate: f64, channels: u8) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&sample_rate.to_le_bytes());
-        hasher.update(&[channels]);
+        hasher.update(sample_rate.to_le_bytes());
+        hasher.update([channels]);
         for s in samples {
-            hasher.update(&s.to_le_bytes());
+            hasher.update(s.to_le_bytes());
         }
         let result = hasher.finalize();
         let mut hash = [0u8; 32];
@@ -254,8 +254,8 @@ impl IrCache {
         // Try disk cache
         if self.disk_cache_enabled {
             let cache_path = self.cache_path(ir_path);
-            if cache_path.exists() {
-                if let Ok(spectrum) = CachedSpectrum::read_from_file(&cache_path) {
+            if cache_path.exists()
+                && let Ok(spectrum) = CachedSpectrum::read_from_file(&cache_path) {
                     // Validate hash matches
                     if spectrum.source_hash == hash {
                         let spectrum = Arc::new(spectrum);
@@ -269,7 +269,6 @@ impl IrCache {
                         let _ = fs::remove_file(&cache_path);
                     }
                 }
-            }
         }
 
         None
@@ -335,15 +334,14 @@ impl IrCache {
     pub fn clear(&self) {
         self.memory_cache.write().clear();
 
-        if let Some(ref cache_dir) = self.cache_dir {
-            if let Ok(entries) = fs::read_dir(cache_dir) {
+        if let Some(ref cache_dir) = self.cache_dir
+            && let Ok(entries) = fs::read_dir(cache_dir) {
                 for entry in entries.flatten() {
-                    if entry.path().extension().map_or(false, |e| e == "irspec") {
+                    if entry.path().extension().is_some_and(|e| e == "irspec") {
                         let _ = fs::remove_file(entry.path());
                     }
                 }
             }
-        }
     }
 
     /// Get cache statistics
@@ -364,16 +362,15 @@ impl IrCache {
         let mut disk_entries = 0;
         let mut disk_bytes = 0u64;
 
-        if let Some(ref cache_dir) = self.cache_dir {
-            if let Ok(entries) = fs::read_dir(cache_dir) {
+        if let Some(ref cache_dir) = self.cache_dir
+            && let Ok(entries) = fs::read_dir(cache_dir) {
                 for entry in entries.flatten() {
-                    if entry.path().extension().map_or(false, |e| e == "irspec") {
+                    if entry.path().extension().is_some_and(|e| e == "irspec") {
                         disk_entries += 1;
                         disk_bytes += entry.metadata().map(|m| m.len()).unwrap_or(0);
                     }
                 }
             }
-        }
 
         CacheStats {
             memory_entries,

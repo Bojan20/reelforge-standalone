@@ -3,12 +3,14 @@
 /// Professional welcome/start screen with:
 /// - New Project creation
 /// - Open existing project
-/// - Recent projects list
+/// - Recent projects list (from Rust FFI)
 /// - Quick start templates
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
 import '../theme/fluxforge_theme.dart';
+import '../providers/recent_projects_provider.dart';
 
 class WelcomeScreen extends StatefulWidget {
   final void Function(String name) onNewProject;
@@ -34,25 +36,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   final _projectNameController = TextEditingController(text: 'Untitled Project');
   bool _showNewProjectDialog = false;
 
-  // Mock recent projects - TODO: Load from storage
-  final List<_RecentProject> _recentProjects = [
-    _RecentProject(
-      name: 'Game Audio Master',
-      path: '/Projects/GameAudio/master.rfp',
-      lastOpened: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    _RecentProject(
-      name: 'Podcast Episode 12',
-      path: '/Projects/Podcast/ep12.rfp',
-      lastOpened: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    _RecentProject(
-      name: 'Sound Effects Pack',
-      path: '/Projects/SFX/pack.rfp',
-      lastOpened: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -65,6 +48,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+
+    // Initialize recent projects from Rust FFI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<RecentProjectsProvider>().initialize();
+    });
   }
 
   @override
@@ -97,7 +85,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     }
   }
 
-  void _handleOpenRecent(_RecentProject project) {
+  void _handleOpenRecent(RecentProject project) {
     widget.onOpenProject(project.path);
   }
 
@@ -262,34 +250,40 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 ),
                 const SizedBox(height: 16),
 
-                if (_recentProjects.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.bgElevated.withAlpha(128),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: FluxForgeTheme.borderSubtle,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'No recent projects',
-                        style: TextStyle(
-                          color: FluxForgeTheme.textSecondary,
-                          fontSize: 13,
+                Consumer<RecentProjectsProvider>(
+                  builder: (context, recentProvider, _) {
+                    if (recentProvider.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgElevated.withAlpha(128),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: FluxForgeTheme.borderSubtle,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'No recent projects',
+                            style: TextStyle(
+                              color: FluxForgeTheme.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return Column(
+                      children: List.generate(
+                        recentProvider.projects.length.clamp(0, 5),
+                        (i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildRecentProjectItem(recentProvider.projects[i]),
                         ),
                       ),
-                    ),
-                  )
-                else
-                  ...List.generate(
-                    _recentProjects.length,
-                    (i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _buildRecentProjectItem(_recentProjects[i]),
-                    ),
-                  ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -452,8 +446,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
   }
 
-  Widget _buildRecentProjectItem(_RecentProject project) {
-    final timeAgo = _formatTimeAgo(project.lastOpened);
+  Widget _buildRecentProjectItem(RecentProject project) {
+    final timeAgo = project.lastOpened != null
+        ? _formatTimeAgo(project.lastOpened!)
+        : 'Unknown';
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -644,16 +640,4 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-}
-
-class _RecentProject {
-  final String name;
-  final String path;
-  final DateTime lastOpened;
-
-  _RecentProject({
-    required this.name,
-    required this.path,
-    required this.lastOpened,
-  });
 }

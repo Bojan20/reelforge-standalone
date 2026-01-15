@@ -15,7 +15,9 @@ enum SidechainSource {
   internal(0, 'Internal'),
   track(1, 'Track'),
   bus(2, 'Bus'),
-  external(3, 'External');
+  external(3, 'External'),
+  mid(4, 'Mid'),     // M/S mid component
+  side(5, 'Side');   // M/S side component
 
   final int value;
   final String label;

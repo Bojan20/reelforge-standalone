@@ -82,6 +82,34 @@ pub use ultimate_scanner::{
 /// Type alias for plugin instance map
 pub type PluginInstanceMap = HashMap<String, Arc<RwLock<Box<dyn PluginInstance>>>>;
 
+// Global plugin host for convenience functions
+lazy_static::lazy_static! {
+    /// Global plugin host instance
+    pub static ref GLOBAL_HOST: parking_lot::RwLock<PluginHost> =
+        parking_lot::RwLock::new(PluginHost::new());
+}
+
+/// Load plugin instance for insert chain (convenience function)
+/// Returns Box<dyn PluginInstance> directly without registering
+pub fn load_plugin(plugin_id: &str) -> PluginResult<Box<dyn PluginInstance>> {
+    GLOBAL_HOST.read().create_plugin_instance(plugin_id)
+}
+
+/// Initialize global plugin scanner
+pub fn init_scanner() {
+    // PluginHost::new() already initializes scanner
+    // Just access the lazy_static to force initialization
+    drop(GLOBAL_HOST.read());
+}
+
+/// Scan for all plugins
+pub fn scan_plugins() -> usize {
+    match GLOBAL_HOST.write().scanner.scan_all() {
+        Ok(plugins) => plugins.len(),
+        Err(_) => 0,
+    }
+}
+
 /// Plugin hosting errors
 #[derive(Debug, Error)]
 pub enum PluginError {
@@ -416,6 +444,50 @@ impl PluginHost {
     /// Get plugin instance
     pub fn get_instance(&self, instance_id: &str) -> Option<Arc<RwLock<Box<dyn PluginInstance>>>> {
         self.instances.read().get(instance_id).cloned()
+    }
+
+    /// Create plugin instance without registering (for insert chains)
+    /// Returns the plugin directly without storing in instances map
+    pub fn create_plugin_instance(&self, plugin_id: &str) -> PluginResult<Box<dyn PluginInstance>> {
+        let info = self
+            .scanner
+            .find_plugin(plugin_id)
+            .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
+
+        let instance: Box<dyn PluginInstance> = match info.plugin_type {
+            PluginType::Vst3 => {
+                let host = Vst3Host::load(&info.path)?;
+                Box::new(host)
+            }
+            PluginType::Clap => {
+                let instance = clap::ClapPluginInstance::load(&info.path)?;
+                Box::new(instance)
+            }
+            PluginType::AudioUnit => {
+                let instance = audio_unit::AudioUnitHost::load_from_path(&info.path)?;
+                Box::new(instance)
+            }
+            PluginType::Lv2 => {
+                let descriptor = lv2::Lv2Descriptor {
+                    uri: format!("file://{}", info.path.display()),
+                    name: info.name.clone(),
+                    author: info.vendor.clone(),
+                    license: String::new(),
+                    plugin_class: lv2::Lv2Class::Plugin,
+                    required_features: Vec::new(),
+                    optional_features: Vec::new(),
+                    bundle_path: info.path.clone(),
+                };
+                let instance = lv2::Lv2PluginInstance::new(descriptor)?;
+                Box::new(instance)
+            }
+            PluginType::Internal => {
+                let host = internal::InternalPlugin::load(&info.path)?;
+                Box::new(host)
+            }
+        };
+
+        Ok(instance)
     }
 
     /// Unload plugin instance

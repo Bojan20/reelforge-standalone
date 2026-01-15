@@ -4,6 +4,7 @@
 /// Uses mock data when native library is not available.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
@@ -1572,6 +1573,16 @@ class EngineApi {
       if (nativeTrackId != null) {
         // TapPoint: 0=PreFader, 1=PostFader, 2=PostPan
         _ffi.sendSetTapPoint(nativeTrackId, sendIndex, preFader ? 0 : 1);
+      }
+    }
+  }
+
+  /// Set send pan (-1.0 left, 0.0 center, 1.0 right)
+  void setSendPan(String trackId, int sendIndex, double pan) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        _ffi.sendSetPan(nativeTrackId, sendIndex, pan.clamp(-1.0, 1.0));
       }
     }
   }
@@ -3165,6 +3176,311 @@ void audioRefreshDevices() {
     }
   } catch (e) {
     // FFI not available
+  }
+}
+
+/// Set output device by name
+/// Returns true on success
+bool audioSetOutputDevice(String deviceName) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+
+    final namePtr = deviceName.toNativeUtf8();
+    final result = ffi.audioSetOutputDevice(namePtr);
+    calloc.free(namePtr);
+    return result != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Set input device by name
+/// Returns true on success
+bool audioSetInputDevice(String deviceName) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+
+    final namePtr = deviceName.toNativeUtf8();
+    final result = ffi.audioSetInputDevice(namePtr);
+    calloc.free(namePtr);
+    return result != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Set sample rate
+/// Returns true on success
+bool audioSetSampleRate(int sampleRate) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.audioSetSampleRate(sampleRate) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Set buffer size
+/// Returns true on success
+bool audioSetBufferSize(int bufferSize) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.audioSetBufferSize(bufferSize) != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Get current output device name
+String? audioGetCurrentOutputDevice() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final namePtr = ffi.audioGetCurrentOutputDevice();
+    if (namePtr == nullptr) return null;
+
+    final name = namePtr.cast<Utf8>().toDartString();
+    calloc.free(namePtr);
+    return name;
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Get current input device name
+String? audioGetCurrentInputDevice() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final namePtr = ffi.audioGetCurrentInputDevice();
+    if (namePtr == nullptr) return null;
+
+    final name = namePtr.cast<Utf8>().toDartString();
+    calloc.free(namePtr);
+    return name;
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Get current sample rate
+int audioGetCurrentSampleRate() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 48000;
+    return ffi.audioGetCurrentSampleRate();
+  } catch (e) {
+    return 48000;
+  }
+}
+
+/// Get current buffer size
+int audioGetCurrentBufferSize() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 256;
+    return ffi.audioGetCurrentBufferSize();
+  } catch (e) {
+    return 256;
+  }
+}
+
+/// Get current latency in milliseconds
+double audioGetLatencyMs() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return 5.3;
+    return ffi.audioGetLatencyMs();
+  } catch (e) {
+    return 5.3;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ERROR HANDLING
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get last error from Rust engine as JSON
+/// Returns null if no error
+String? getLastError() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final jsonPtr = ffi.getLastError();
+    if (jsonPtr == nullptr) return null;
+
+    final json = jsonPtr.cast<Utf8>().toDartString();
+    calloc.free(jsonPtr);
+    return json;
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Check if there is an error pending
+bool hasError() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.hasError() != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Clear the last error
+void clearError() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.clearError();
+    }
+  } catch (e) {
+    // FFI not available
+  }
+}
+
+/// Get last error as AppError object
+/// Returns null if no error or parse failed
+AppError? getLastAppError() {
+  final json = getLastError();
+  if (json == null) return null;
+  return AppError.fromJson(json);
+}
+
+/// AppError class matching Rust AppError structure
+class AppError {
+  final String code;
+  final String title;
+  final String message;
+  final String? details;
+  final ErrorSeverity severity;
+  final ErrorCategory category;
+  final List<ErrorAction> actions;
+  final bool recoverable;
+  final int timestamp;
+
+  AppError({
+    required this.code,
+    required this.title,
+    required this.message,
+    this.details,
+    required this.severity,
+    required this.category,
+    required this.actions,
+    required this.recoverable,
+    required this.timestamp,
+  });
+
+  factory AppError.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return AppError(
+      code: json['code'] as String,
+      title: json['title'] as String,
+      message: json['message'] as String,
+      details: json['details'] as String?,
+      severity: ErrorSeverity.fromString(json['severity'] as String),
+      category: ErrorCategory.fromString(json['category'] as String),
+      actions: (json['actions'] as List<dynamic>)
+          .map((a) => ErrorAction.fromJson(a as Map<String, dynamic>))
+          .toList(),
+      recoverable: json['recoverable'] as bool,
+      timestamp: json['timestamp'] as int,
+    );
+  }
+}
+
+/// Error severity levels
+enum ErrorSeverity {
+  info,
+  warning,
+  error,
+  critical,
+  fatal;
+
+  static ErrorSeverity fromString(String s) {
+    switch (s.toLowerCase()) {
+      case 'info': return ErrorSeverity.info;
+      case 'warning': return ErrorSeverity.warning;
+      case 'error': return ErrorSeverity.error;
+      case 'critical': return ErrorSeverity.critical;
+      case 'fatal': return ErrorSeverity.fatal;
+      default: return ErrorSeverity.error;
+    }
+  }
+}
+
+/// Error categories
+enum ErrorCategory {
+  audio,
+  file,
+  project,
+  plugin,
+  hardware,
+  network,
+  user,
+  system;
+
+  static ErrorCategory fromString(String s) {
+    switch (s.toLowerCase()) {
+      case 'audio': return ErrorCategory.audio;
+      case 'file': return ErrorCategory.file;
+      case 'project': return ErrorCategory.project;
+      case 'plugin': return ErrorCategory.plugin;
+      case 'hardware': return ErrorCategory.hardware;
+      case 'network': return ErrorCategory.network;
+      case 'user': return ErrorCategory.user;
+      case 'system': return ErrorCategory.system;
+      default: return ErrorCategory.system;
+    }
+  }
+}
+
+/// Error action for UI dialogs
+class ErrorAction {
+  final String id;
+  final String label;
+  final ErrorActionType actionType;
+
+  ErrorAction({
+    required this.id,
+    required this.label,
+    required this.actionType,
+  });
+
+  factory ErrorAction.fromJson(Map<String, dynamic> json) {
+    return ErrorAction(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      actionType: ErrorActionType.fromString(json['action_type'] as String),
+    );
+  }
+}
+
+/// Error action types
+enum ErrorActionType {
+  retry,
+  dismiss,
+  openSettings,
+  browse,
+  custom;
+
+  static ErrorActionType fromString(String s) {
+    switch (s.toLowerCase()) {
+      case 'retry': return ErrorActionType.retry;
+      case 'dismiss': return ErrorActionType.dismiss;
+      case 'opensettings': return ErrorActionType.openSettings;
+      case 'browse': return ErrorActionType.browse;
+      case 'custom': return ErrorActionType.custom;
+      default: return ErrorActionType.custom;
+    }
   }
 }
 
