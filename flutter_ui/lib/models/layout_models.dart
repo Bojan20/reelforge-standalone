@@ -109,6 +109,8 @@ class InsertSlot {
   final String name;
   final String type; // 'eq', 'comp', 'reverb', 'delay', 'filter', 'fx', 'utility', 'custom', 'empty'
   final bool bypassed;
+  final bool isPreFader;
+  final double wetDry; // 0.0 to 1.0
   final Map<String, dynamic>? params;
 
   const InsertSlot({
@@ -116,14 +118,20 @@ class InsertSlot {
     required this.name,
     required this.type,
     this.bypassed = false,
+    this.isPreFader = false,
+    this.wetDry = 1.0,
     this.params,
   });
 
+  /// Wet/dry as percentage (0-100)
+  int get wetDryPercent => (wetDry * 100).round();
+
   /// Create an empty insert slot
-  factory InsertSlot.empty(int index) => InsertSlot(
+  factory InsertSlot.empty(int index, {bool isPreFader = false}) => InsertSlot(
     id: 'empty_$index',
     name: '',
     type: 'empty',
+    isPreFader: isPreFader,
   );
 
   bool get isEmpty => type == 'empty' || name.isEmpty;
@@ -133,6 +141,8 @@ class InsertSlot {
     String? name,
     String? type,
     bool? bypassed,
+    bool? isPreFader,
+    double? wetDry,
     Map<String, dynamic>? params,
   }) {
     return InsertSlot(
@@ -140,6 +150,8 @@ class InsertSlot {
       name: name ?? this.name,
       type: type ?? this.type,
       bypassed: bypassed ?? this.bypassed,
+      isPreFader: isPreFader ?? this.isPreFader,
+      wetDry: wetDry ?? this.wetDry,
       params: params ?? this.params,
     );
   }
@@ -206,7 +218,9 @@ class ChannelStripData {
   final String type; // 'audio', 'instrument', 'bus', 'master'
   final Color color;
   final double volume; // dB
-  final double pan; // -1 to 1
+  final double pan; // -1 to 1 (left pan for stereo)
+  final double panRight; // -1 to 1 (right pan for stereo, same as pan for mono)
+  final bool isStereo; // true for stereo pan (L/R independent)
   final bool mute;
   final bool solo;
   final bool armed;
@@ -229,6 +243,8 @@ class ChannelStripData {
     required this.color,
     this.volume = 0,
     this.pan = 0,
+    this.panRight = 0,
+    this.isStereo = false,
     this.mute = false,
     this.solo = false,
     this.armed = false,
@@ -252,6 +268,8 @@ class ChannelStripData {
     Color? color,
     double? volume,
     double? pan,
+    double? panRight,
+    bool? isStereo,
     bool? mute,
     bool? solo,
     bool? armed,
@@ -274,6 +292,8 @@ class ChannelStripData {
       color: color ?? this.color,
       volume: volume ?? this.volume,
       pan: pan ?? this.pan,
+      panRight: panRight ?? this.panRight,
+      isStereo: isStereo ?? this.isStereo,
       mute: mute ?? this.mute,
       solo: solo ?? this.solo,
       armed: armed ?? this.armed,

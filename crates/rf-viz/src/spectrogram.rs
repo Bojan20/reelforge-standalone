@@ -603,9 +603,9 @@ mod tests {
     fn test_color_map_sample() {
         let map = ColorMap::Viridis;
         let [r, g, b, a] = map.sample(0.5);
-        assert!(r >= 0.0 && r <= 1.0);
-        assert!(g >= 0.0 && g <= 1.0);
-        assert!(b >= 0.0 && b <= 1.0);
+        assert!((0.0..=1.0).contains(&r));
+        assert!((0.0..=1.0).contains(&g));
+        assert!((0.0..=1.0).contains(&b));
         assert_eq!(a, 1.0);
     }
 

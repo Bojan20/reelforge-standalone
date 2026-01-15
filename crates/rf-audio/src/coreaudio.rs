@@ -16,7 +16,6 @@
 //! | 128 samples | 2.67ms  | 1.33ms  |
 //! | 256 samples | 5.33ms  | 2.67ms  |
 
-#![cfg(target_os = "macos")]
 #![allow(dead_code)]
 
 use std::ffi::c_void;
@@ -1011,7 +1010,7 @@ fn get_device_uid(device_id: AudioDeviceID) -> Option<String> {
     }
 
     // Convert CFStringRef to Rust String
-    cfstring_to_string(uid_ref as *const c_void)
+    cfstring_to_string(uid_ref)
 }
 
 /// Convert CFStringRef to Rust String (simplified version)

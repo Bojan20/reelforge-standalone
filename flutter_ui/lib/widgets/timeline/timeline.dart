@@ -23,12 +23,14 @@ import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
+import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
 import 'time_ruler.dart';
 import 'track_header_simple.dart';
 // import 'track_header_fluxforge.dart'; // Alternative: richer track headers
 import 'track_lane.dart';
 import 'automation_lane.dart';
+import 'comping_lane.dart';
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -177,6 +179,22 @@ class Timeline extends StatefulWidget {
   /// Track height change callback (for resizable tracks)
   final void Function(String trackId, double height)? onTrackHeightChange;
 
+  // Comping callbacks
+  /// Toggle comping lanes visibility for a track
+  final ValueChanged<String>? onTrackCompingToggle;
+  /// Set active comp lane
+  final void Function(String trackId, int laneIndex)? onCompingLaneActivate;
+  /// Toggle comp lane mute
+  final void Function(String trackId, String laneId)? onCompingLaneMuteToggle;
+  /// Delete comp lane
+  final void Function(String trackId, String laneId)? onCompingLaneDelete;
+  /// Take tap (select take)
+  final void Function(String trackId, Take take)? onCompingTakeTap;
+  /// Take double tap (edit take)
+  final void Function(String trackId, Take take)? onCompingTakeDoubleTap;
+  /// Create comp region from selection
+  final void Function(String trackId, String takeId, double start, double end)? onCompRegionCreate;
+
   const Timeline({
     super.key,
     required this.tracks,
@@ -260,6 +278,14 @@ class Timeline extends StatefulWidget {
     this.onAddAutomationLane,
     this.onRemoveAutomationLane,
     this.onTrackHeightChange,
+    // Comping callbacks
+    this.onTrackCompingToggle,
+    this.onCompingLaneActivate,
+    this.onCompingLaneMuteToggle,
+    this.onCompingLaneDelete,
+    this.onCompingTakeTap,
+    this.onCompingTakeDoubleTap,
+    this.onCompRegionCreate,
   });
 
   @override
@@ -1281,7 +1307,7 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     });
   }
 
-  /// Build track row with optional automation lanes
+  /// Build track row with optional automation and comping lanes
   Widget _buildTrackWithAutomation({
     required TimelineTrack track,
     required List<TimelineClip> trackClips,
@@ -1296,7 +1322,14 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
     // Calculate total height including automation lanes
     final automationHeight = visibleAutomationLanes.fold<double>(
       0.0, (sum, lane) => sum + lane.height);
-    final totalHeight = trackHeight + automationHeight;
+
+    // Calculate comping lanes height
+    final compState = track.compState;
+    final compingHeight = (compState != null && compState.lanesExpanded)
+        ? compState.expandedHeight
+        : 0.0;
+
+    final totalHeight = trackHeight + automationHeight + compingHeight;
 
     // Key includes track ID and color to force rebuild when color changes
     return SizedBox(
@@ -1384,8 +1417,37 @@ class _TimelineState extends State<Timeline> with SingleTickerProviderStateMixin
             track: track,
             laneData: laneData,
           )),
+          // Comping lanes
+          if (compState != null && compState.lanesExpanded)
+            _buildCompingView(track: track, compState: compState),
         ],
       ),
+    );
+  }
+
+  /// Build comping view with all lanes
+  Widget _buildCompingView({
+    required TimelineTrack track,
+    required CompState compState,
+  }) {
+    return CompingView(
+      compState: compState,
+      pixelsPerSecond: widget.zoom,
+      scrollOffset: widget.scrollOffset,
+      visibleWidth: _containerWidth,
+      trackHeaderWidth: _headerWidth,
+      onActiveLaneChanged: (index) =>
+          widget.onCompingLaneActivate?.call(track.id, index),
+      onLaneMuteToggle: (laneId) =>
+          widget.onCompingLaneMuteToggle?.call(track.id, laneId),
+      onLaneDelete: (laneId) =>
+          widget.onCompingLaneDelete?.call(track.id, laneId),
+      onTakeTap: (take) =>
+          widget.onCompingTakeTap?.call(track.id, take),
+      onTakeDoubleTap: (take) =>
+          widget.onCompingTakeDoubleTap?.call(track.id, take),
+      onCompRegionCreated: (takeId, start, end) =>
+          widget.onCompRegionCreate?.call(track.id, takeId, start, end),
     );
   }
 

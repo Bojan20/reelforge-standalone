@@ -430,9 +430,8 @@ impl UltimateScanner {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_dir() && path.extension().is_some_and(|e| e == extension) {
-                    files.push((path, plugin_type));
-                } else if path.is_file() && path.extension().is_some_and(|e| e == extension) {
+                // Both dirs and files with matching extension are plugin bundles
+                if path.extension().is_some_and(|e| e == extension) {
                     files.push((path, plugin_type));
                 }
             }

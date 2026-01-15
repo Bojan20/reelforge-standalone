@@ -495,7 +495,7 @@ mod tests {
         let mut detector = MqaDetector::new();
 
         // Feed some samples
-        let samples: Vec<i32> = (0..4096).map(|i| (i * 1000) as i32).collect();
+        let samples: Vec<i32> = (0..4096).map(|i| i * 1000).collect();
         detector.feed(&samples);
 
         // Should not detect MQA in random data

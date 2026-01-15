@@ -1187,7 +1187,7 @@ class _StereoPanKnob extends StatefulWidget {
 }
 
 class _StereoPanKnobState extends State<_StereoPanKnob> {
-  double _dragStartX = 0;
+  double _dragStartY = 0;
   double _dragStartValue = 0;
   bool _isDragging = false;
 
@@ -1242,20 +1242,22 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
         ),
         const SizedBox(height: 3),
         // Listener for raw pointer events (double-tap) + GestureDetector for drag
+        // Vertical drag: up = right (+1), down = left (-1) - Pro Tools style
         Listener(
           onPointerDown: _handlePointerDown,
           child: GestureDetector(
-            onHorizontalDragStart: (details) {
-              _dragStartX = details.localPosition.dx;
+            onVerticalDragStart: (details) {
+              _dragStartY = details.localPosition.dy;
               _dragStartValue = widget.value;
               setState(() => _isDragging = true);
             },
-            onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
-            onHorizontalDragUpdate: (details) {
+            onVerticalDragEnd: (_) => setState(() => _isDragging = false),
+            onVerticalDragUpdate: (details) {
               if (widget.onChanged == null) return;
-              final deltaX = details.localPosition.dx - _dragStartX;
+              // Negative because drag up (negative deltaY) should increase value
+              final deltaY = _dragStartY - details.localPosition.dy;
               final sensitivity = 0.015;
-              final newValue = (_dragStartValue + deltaX * sensitivity).clamp(-1.0, 1.0);
+              final newValue = (_dragStartValue + deltaY * sensitivity).clamp(-1.0, 1.0);
               widget.onChanged!(newValue);
             },
             child: Container(

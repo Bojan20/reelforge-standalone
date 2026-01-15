@@ -177,6 +177,8 @@ class TimelineTrack {
   final bool isExpanded;
   /// Comping state (multi-take recording lanes)
   final CompState? compState;
+  /// Number of audio channels (1 = mono, 2 = stereo)
+  final int channels;
 
   const TimelineTrack({
     required this.id,
@@ -202,7 +204,11 @@ class TimelineTrack {
     this.hidden = false,
     this.isExpanded = false,
     this.compState,
+    this.channels = 2,
   });
+
+  /// Whether track is stereo (2+ channels)
+  bool get isStereo => channels >= 2;
 
   /// Whether this is a folder track
   bool get isFolder => trackType == TrackType.folder;
@@ -257,6 +263,7 @@ class TimelineTrack {
     bool? hidden,
     bool? isExpanded,
     CompState? compState,
+    int? channels,
   }) {
     return TimelineTrack(
       id: id ?? this.id,
@@ -282,6 +289,7 @@ class TimelineTrack {
       hidden: hidden ?? this.hidden,
       isExpanded: isExpanded ?? this.isExpanded,
       compState: compState ?? this.compState,
+      channels: channels ?? this.channels,
     );
   }
 }

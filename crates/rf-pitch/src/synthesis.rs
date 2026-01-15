@@ -291,9 +291,7 @@ impl AdditiveSynthesizer {
 
         let dt = 1.0 / self.sample_rate as f32;
 
-        for i in start..end {
-            let offset = i - start;
-
+        for (offset, out) in output[start..end].iter_mut().enumerate() {
             // Get frequency at this point
             let freq = note.frequency_at(offset);
 
@@ -320,7 +318,7 @@ impl AdditiveSynthesizer {
                 }
             }
 
-            output[i] += sample * amp_env;
+            *out += sample * amp_env;
         }
     }
 

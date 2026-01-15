@@ -547,41 +547,70 @@ impl BiquadSimd4 {
         output
     }
 
-    /// Process a mono block using SIMD (4 samples at a time)
+    /// Process a mono block using scalar TDF-II (SIMD not applicable for serial IIR)
+    ///
+    /// NOTE: IIR biquad filters have feedback dependencies (y[n] depends on y[n-1])
+    /// so they cannot be parallelized with SIMD for mono processing.
+    /// This method uses optimized scalar processing with loop unrolling.
+    /// Use process_simd() only for parallel channel processing (e.g., 4 channels).
     pub fn process_block(&mut self, buffer: &mut [Sample]) {
+        // Use lane 0 for mono processing
+        let b0 = self.b0[0];
+        let b1 = self.b1[0];
+        let b2 = self.b2[0];
+        let a1 = self.a1[0];
+        let a2 = self.a2[0];
+        let mut z1 = self.z1[0];
+        let mut z2 = self.z2[0];
+
+        // Process all samples sequentially (IIR requires serial processing)
+        // Loop unrolling for better performance
         let len = buffer.len();
-        let simd_len = len - (len % 4);
+        let unroll_len = len - (len % 4);
 
-        // Process 4 samples at a time using SIMD
-        for i in (0..simd_len).step_by(4) {
-            let input = f64x4::from_slice(&buffer[i..]);
-            let output = self.process_simd(input);
-            buffer[i..i + 4].copy_from_slice(&output.to_array());
+        // Unrolled loop (4 samples per iteration)
+        for i in (0..unroll_len).step_by(4) {
+            // Sample 0
+            let in0 = buffer[i];
+            let out0 = b0 * in0 + z1;
+            z1 = b1 * in0 - a1 * out0 + z2;
+            z2 = b2 * in0 - a2 * out0;
+            buffer[i] = out0;
+
+            // Sample 1
+            let in1 = buffer[i + 1];
+            let out1 = b0 * in1 + z1;
+            z1 = b1 * in1 - a1 * out1 + z2;
+            z2 = b2 * in1 - a2 * out1;
+            buffer[i + 1] = out1;
+
+            // Sample 2
+            let in2 = buffer[i + 2];
+            let out2 = b0 * in2 + z1;
+            z1 = b1 * in2 - a1 * out2 + z2;
+            z2 = b2 * in2 - a2 * out2;
+            buffer[i + 2] = out2;
+
+            // Sample 3
+            let in3 = buffer[i + 3];
+            let out3 = b0 * in3 + z1;
+            z1 = b1 * in3 - a1 * out3 + z2;
+            z2 = b2 * in3 - a2 * out3;
+            buffer[i + 3] = out3;
         }
 
-        // Handle remaining samples with scalar processing (0-3 samples)
-        // Use lane 0 coefficients and state for scalar remainder
-        if simd_len < len {
-            let b0 = self.b0[0];
-            let b1 = self.b1[0];
-            let b2 = self.b2[0];
-            let a1 = self.a1[0];
-            let a2 = self.a2[0];
-            let mut z1 = self.z1[0];
-            let mut z2 = self.z2[0];
-
-            for i in simd_len..len {
-                let input = buffer[i];
-                let output = b0 * input + z1;
-                z1 = b1 * input - a1 * output + z2;
-                z2 = b2 * input - a2 * output;
-                buffer[i] = output;
-            }
-
-            // Update SIMD state from scalar state
-            self.z1 = f64x4::from_array([z1, self.z1[1], self.z1[2], self.z1[3]]);
-            self.z2 = f64x4::from_array([z2, self.z2[1], self.z2[2], self.z2[3]]);
+        // Handle remainder (0-3 samples)
+        for i in unroll_len..len {
+            let input = buffer[i];
+            let output = b0 * input + z1;
+            z1 = b1 * input - a1 * output + z2;
+            z2 = b2 * input - a2 * output;
+            buffer[i] = output;
         }
+
+        // Save state back (only lane 0 is used for mono)
+        self.z1 = f64x4::from_array([z1, self.z1[1], self.z1[2], self.z1[3]]);
+        self.z2 = f64x4::from_array([z2, self.z2[1], self.z2[2], self.z2[3]]);
     }
 
     pub fn reset(&mut self) {
@@ -688,43 +717,51 @@ impl BiquadSimd8 {
         output
     }
 
-    /// Process 8 parallel mono blocks (interleaved: [ch0[0], ch1[0], ..., ch7[0], ch0[1], ...])
+    /// Process 8 parallel channel blocks (8-channel interleaved format)
     ///
-    /// IMPORTANT: Buffer must be 8-channel interleaved format.
-    /// For mono processing, use BiquadTDF2 or BiquadSimd4 instead.
+    /// Buffer format: [ch0[0], ch1[0], ..., ch7[0], ch0[1], ch1[1], ..., ch7[1], ...]
+    /// Each SIMD vector processes 8 channels simultaneously for one time step.
+    ///
+    /// IMPORTANT: For mono processing, use BiquadTDF2 or BiquadSimd4::process_block() instead.
+    /// This is for 8-channel surround or 8 parallel filter banks.
     pub fn process_block(&mut self, buffer: &mut [Sample]) {
         let len = buffer.len();
         let simd_len = len - (len % 8);
 
-        // Process 8 samples at a time using SIMD
+        // Process 8 channels at a time using SIMD (one time step per iteration)
         for i in (0..simd_len).step_by(8) {
             let input = f64x8::from_slice(&buffer[i..]);
             let output = self.process_simd(input);
             buffer[i..i + 8].copy_from_slice(&output.to_array());
         }
 
-        // Handle remaining samples with scalar processing (0-7 samples)
-        // Use lane 0 coefficients and state for scalar remainder
+        // Handle remaining samples (0-7 samples) - these are partial channel frames
+        // Each remaining sample corresponds to a specific channel, so we must process
+        // each channel individually using its lane's state
         if simd_len < len {
-            let b0 = self.b0[0];
-            let b1 = self.b1[0];
-            let b2 = self.b2[0];
-            let a1 = self.a1[0];
-            let a2 = self.a2[0];
-            let mut z1 = self.z1[0];
-            let mut z2 = self.z2[0];
+            let remainder = len - simd_len;
+            let z1_arr = self.z1.to_array();
+            let z2_arr = self.z2.to_array();
+            let b0_arr = self.b0.to_array();
+            let b1_arr = self.b1.to_array();
+            let b2_arr = self.b2.to_array();
+            let a1_arr = self.a1.to_array();
+            let a2_arr = self.a2.to_array();
 
-            for i in simd_len..len {
-                let input = buffer[i];
-                let output = b0 * input + z1;
-                z1 = b1 * input - a1 * output + z2;
-                z2 = b2 * input - a2 * output;
-                buffer[i] = output;
+            let mut z1_new = z1_arr;
+            let mut z2_new = z2_arr;
+
+            for ch in 0..remainder {
+                let input = buffer[simd_len + ch];
+                let output = b0_arr[ch] * input + z1_arr[ch];
+                z1_new[ch] = b1_arr[ch] * input - a1_arr[ch] * output + z2_arr[ch];
+                z2_new[ch] = b2_arr[ch] * input - a2_arr[ch] * output;
+                buffer[simd_len + ch] = output;
             }
 
-            // Update SIMD state from scalar state
-            self.z1 = f64x8::from_array([z1, self.z1[1], self.z1[2], self.z1[3], self.z1[4], self.z1[5], self.z1[6], self.z1[7]]);
-            self.z2 = f64x8::from_array([z2, self.z2[1], self.z2[2], self.z2[3], self.z2[4], self.z2[5], self.z2[6], self.z2[7]]);
+            // Update SIMD state from per-channel state
+            self.z1 = f64x8::from_array(z1_new);
+            self.z2 = f64x8::from_array(z2_new);
         }
     }
 

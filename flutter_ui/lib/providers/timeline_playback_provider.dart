@@ -79,39 +79,48 @@ enum CrossfadeCurveType { linear, equalPower, sCurve }
 class TimelinePlaybackState {
   final bool isPlaying;
   final bool isPaused;
+  final bool isScrubbing;
   final double currentTime;
   final double duration;
   final bool loopEnabled;
   final double loopStart;
   final double loopEnd;
+  /// Scrub speed multiplier (-2.0 to 2.0, negative = reverse)
+  final double scrubSpeed;
 
   const TimelinePlaybackState({
     this.isPlaying = false,
     this.isPaused = false,
+    this.isScrubbing = false,
     this.currentTime = 0,
     this.duration = 60,
     this.loopEnabled = false,
     this.loopStart = 0,
     this.loopEnd = 60,
+    this.scrubSpeed = 0,
   });
 
   TimelinePlaybackState copyWith({
     bool? isPlaying,
     bool? isPaused,
+    bool? isScrubbing,
     double? currentTime,
     double? duration,
     bool? loopEnabled,
     double? loopStart,
     double? loopEnd,
+    double? scrubSpeed,
   }) {
     return TimelinePlaybackState(
       isPlaying: isPlaying ?? this.isPlaying,
       isPaused: isPaused ?? this.isPaused,
+      isScrubbing: isScrubbing ?? this.isScrubbing,
       currentTime: currentTime ?? this.currentTime,
       duration: duration ?? this.duration,
       loopEnabled: loopEnabled ?? this.loopEnabled,
       loopStart: loopStart ?? this.loopStart,
       loopEnd: loopEnd ?? this.loopEnd,
+      scrubSpeed: scrubSpeed ?? this.scrubSpeed,
     );
   }
 }
@@ -126,10 +135,16 @@ class TimelinePlaybackProvider extends ChangeNotifier {
 
   Ticker? _ticker;
 
-  // INSTANT RESPONSE: No throttling for scrub - smooth playhead drag
-  // Audio engine handles its own throttling via lock-free atomics
+  // Scrubbing throttling - limit seek calls to 50ms intervals for performance
+  DateTime _lastScrubTime = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _scrubThrottleDuration = Duration(milliseconds: 50);
+
+  // Scrub velocity tracking
+  double _scrubStartTime = 0;
+  double _scrubStartPosition = 0;
+
+  // UI notify throttling - 8ms = 120fps for ultra-smooth playhead movement
   DateTime _lastNotifyTime = DateTime.now();
-  // 8ms = 120fps for ultra-smooth playhead movement
   static const Duration _notifyThrottleDuration = Duration(milliseconds: 8);
 
   // Callbacks
@@ -139,11 +154,13 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   TimelinePlaybackState get state => _state;
   bool get isPlaying => _state.isPlaying;
   bool get isPaused => _state.isPaused;
+  bool get isScrubbing => _state.isScrubbing;
   double get currentTime => _state.currentTime;
   double get duration => _state.duration;
   bool get loopEnabled => _state.loopEnabled;
   double get loopStart => _state.loopStart;
   double get loopEnd => _state.loopEnd;
+  double get scrubSpeed => _state.scrubSpeed;
 
   void setClips(List<TimelineClipData> clips) {
     _clips = clips;
@@ -204,11 +221,100 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   void seek(double time, {bool isScrubbing = false}) {
     final clampedTime = time.clamp(0.0, _state.duration);
 
-    // INSTANT: Always seek immediately - Rust engine is lock-free
+    if (isScrubbing) {
+      // Throttle scrub seeks to prevent overwhelming the audio engine
+      final now = DateTime.now();
+      if (now.difference(_lastScrubTime) < _scrubThrottleDuration) {
+        // Update UI immediately but don't send seek command
+        _state = _state.copyWith(currentTime: clampedTime);
+        notifyListeners();
+        return;
+      }
+      _lastScrubTime = now;
+    }
+
+    // Send seek command to Rust audio engine
     api.seek(clampedTime);
 
     _state = _state.copyWith(currentTime: clampedTime);
     notifyListeners();
+  }
+
+  /// Start scrubbing - call when drag begins
+  void startScrubbing(double startTime) {
+    _scrubStartTime = startTime.clamp(0.0, _state.duration);
+    _scrubStartPosition = _scrubStartTime;
+    _state = _state.copyWith(
+      isScrubbing: true,
+      scrubSpeed: 0,
+    );
+
+    // Start audio scrubbing in Rust engine
+    api.EngineApi.instance.startScrub(_scrubStartTime);
+
+    notifyListeners();
+  }
+
+  /// Update scrub position with velocity tracking
+  /// [deltaPixels] - horizontal drag delta in pixels
+  /// [pixelsPerSecond] - timeline zoom scale
+  void updateScrub(double deltaPixels, double pixelsPerSecond) {
+    if (!_state.isScrubbing) return;
+
+    // Convert pixel delta to time delta
+    final timeDelta = deltaPixels / pixelsPerSecond;
+
+    // Calculate new position
+    final newTime = (_scrubStartPosition + timeDelta).clamp(0.0, _state.duration);
+
+    // Calculate scrub speed (for velocity-based audio preview)
+    // Speed is normalized: 1.0 = normal speed, 0.5 = half speed, etc.
+    final now = DateTime.now();
+    final elapsed = now.difference(_lastScrubTime).inMilliseconds;
+    double speed = 0;
+    if (elapsed > 0) {
+      // Time moved per second of real time
+      speed = (newTime - _state.currentTime) / (elapsed / 1000.0);
+      // Clamp speed to reasonable range
+      speed = speed.clamp(-4.0, 4.0);
+    }
+
+    _state = _state.copyWith(scrubSpeed: speed);
+
+    // Update scrub in Rust engine with velocity for audio preview
+    api.EngineApi.instance.updateScrub(newTime, speed);
+
+    seek(newTime, isScrubbing: true);
+    _scrubStartPosition = newTime;
+  }
+
+  /// End scrubbing - call when drag ends
+  void endScrubbing() {
+    _state = _state.copyWith(
+      isScrubbing: false,
+      scrubSpeed: 0,
+    );
+
+    // Stop audio scrubbing in Rust engine
+    api.EngineApi.instance.stopScrub();
+
+    notifyListeners();
+  }
+
+  /// Jog wheel / scroll scrub - fine-grained position adjustment
+  /// [scrollDelta] - scroll amount (positive = forward, negative = backward)
+  /// [sensitivity] - seconds per scroll unit (default 0.1 = 100ms per unit)
+  void jogScrub(double scrollDelta, {double sensitivity = 0.1}) {
+    final timeDelta = scrollDelta * sensitivity;
+    final newTime = (_state.currentTime + timeDelta).clamp(0.0, _state.duration);
+
+    // For jog scrub, use momentary scrub - start, update, and immediately schedule stop
+    if (!_state.isScrubbing) {
+      api.EngineApi.instance.startScrub(newTime);
+    }
+    api.EngineApi.instance.updateScrub(newTime, scrollDelta.sign * 0.5); // Half speed for jog
+
+    seek(newTime, isScrubbing: true);
   }
 
   void toggleLoop() {

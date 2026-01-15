@@ -11,6 +11,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import '../src/rust/engine_api.dart' as engine_api;
 
 // ============ Types ============
 
@@ -215,6 +216,73 @@ class AudioExportProvider extends ChangeNotifier {
   /// Abort current export
   void abort() {
     _aborted = true;
+  }
+
+  /// Export stems (individual tracks) to separate files
+  ///
+  /// [outputDir] - Directory to export stems to
+  /// [format] - 0=WAV 16-bit, 1=WAV 24-bit, 2=WAV 32-bit float
+  /// [startTime] - Start time in seconds
+  /// [endTime] - End time in seconds
+  /// [normalize] - Whether to normalize each stem
+  /// [includeBuses] - Whether to include bus outputs
+  /// [prefix] - Optional filename prefix
+  ///
+  /// Returns number of exported stems, or -1 on error
+  Future<int> exportStems({
+    required String outputDir,
+    int format = 1, // Default to 24-bit
+    int sampleRate = 48000,
+    double startTime = 0,
+    double endTime = -1, // -1 means auto-detect from content
+    bool normalize = false,
+    bool includeBuses = true,
+    String prefix = '',
+  }) async {
+    if (_isExporting) {
+      debugPrint('[AudioExport] Export already in progress');
+      return -1;
+    }
+
+    _isExporting = true;
+    _aborted = false;
+    notifyListeners();
+
+    try {
+      _updateProgress(ExportStage.preparing, 0, 'Preparing stems export...');
+
+      _updateProgress(ExportStage.rendering, 0.1, 'Exporting stems...');
+
+      // Call Rust backend for stems export directly
+      final result = engine_api.exportStems(
+        outputDir,
+        format,
+        sampleRate,
+        startTime,
+        endTime,
+        normalize: normalize,
+        includeBuses: includeBuses,
+        prefix: prefix,
+      );
+
+      if (result < 0) {
+        throw Exception('Stems export failed');
+      }
+
+      _updateProgress(
+        ExportStage.complete,
+        1.0,
+        'Exported $result stems to $outputDir',
+      );
+
+      return result;
+    } catch (e) {
+      _updateProgress(ExportStage.error, 0, 'Stems export failed: $e');
+      return -1;
+    } finally {
+      _isExporting = false;
+      notifyListeners();
+    }
   }
 
   void _updateProgress(ExportStage stage, double progress, String message) {

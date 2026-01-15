@@ -420,7 +420,7 @@ mod tests {
         let mut solver = LevinsonDurbin::new(10);
 
         // Simple autocorrelation (exponentially decaying)
-        let autocorr: Vec<f64> = (0..11).map(|i| 0.9_f64.powi(i as i32)).collect();
+        let autocorr: Vec<f64> = (0..11).map(|i| 0.9_f64.powi(i)).collect();
 
         let coeffs = solver.solve(&autocorr, 4);
         assert_eq!(coeffs.len(), 5);

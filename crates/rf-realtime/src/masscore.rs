@@ -64,7 +64,7 @@ impl MassCoreConfig {
     pub fn optimal_audio_cores() -> usize {
         let available = num_cpus::get();
         // Reserve at least 2 cores for system + UI
-        (available.saturating_sub(2)).max(1).min(8)
+        available.saturating_sub(2).clamp(1, 8)
     }
 }
 

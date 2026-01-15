@@ -138,26 +138,14 @@ impl TrueHdHandler {
         }
 
         // TrueHD major sync format (simplified)
-        let mut sync = TrueHdMajorSync::default();
-
-        // Read sync word (already verified)
-        sync.format_sync = TRUEHD_SYNC_WORD;
-
-        // Format info at offset +4
-        sync.format_info = self.buffer[pos + 4];
-
-        // Sample rate code at offset +8
-        sync.sample_rate_code = (self.buffer[pos + 8] >> 4) & 0x0F;
-
-        // Channel assignment at offset +11-12
-        sync.channel_assignment =
-            ((self.buffer[pos + 11] as u16) << 8) | (self.buffer[pos + 12] as u16);
-
-        // Peak bitrate at offset +14-15
-        sync.peak_bitrate = ((self.buffer[pos + 14] as u16) << 8) | (self.buffer[pos + 15] as u16);
-
-        // Substream info at offset +18
-        sync.substream_info = self.buffer[pos + 18];
+        let sync = TrueHdMajorSync {
+            format_sync: TRUEHD_SYNC_WORD,
+            format_info: self.buffer[pos + 4],
+            sample_rate_code: (self.buffer[pos + 8] >> 4) & 0x0F,
+            channel_assignment: ((self.buffer[pos + 11] as u16) << 8) | (self.buffer[pos + 12] as u16),
+            peak_bitrate: ((self.buffer[pos + 14] as u16) << 8) | (self.buffer[pos + 15] as u16),
+            substream_info: self.buffer[pos + 18],
+        };
 
         Some(sync)
     }

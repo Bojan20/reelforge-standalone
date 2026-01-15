@@ -294,7 +294,7 @@ impl NonUniformConvolver {
 
             // Calculate how many FDL segments needed based on position in IR
             // Later partitions need more FDL segments due to larger delays
-            let fdl_segments = ((ir_offset + size) / size).max(1).min(16);
+            let fdl_segments = ((ir_offset + size) / size).clamp(1, 16);
 
             partitions.push(Partition::new(
                 &ir_segment,

@@ -79,6 +79,9 @@ pub use ultimate_scanner::{
     PluginCache, ScanStats, ScannerConfig, UltimateScanner, ValidationStatus,
 };
 
+/// Type alias for plugin instance map
+pub type PluginInstanceMap = HashMap<String, Arc<RwLock<Box<dyn PluginInstance>>>>;
+
 /// Plugin hosting errors
 #[derive(Debug, Error)]
 pub enum PluginError {
@@ -157,6 +160,42 @@ impl AudioBuffer {
     pub fn clear(&mut self) {
         for channel in &mut self.data {
             channel.fill(0.0);
+        }
+    }
+
+    /// Copy data from another buffer (zero-allocation)
+    /// Copies in-place without creating new Vec
+    #[inline]
+    pub fn copy_from(&mut self, other: &AudioBuffer) {
+        for (dst_ch, src_ch) in self.data.iter_mut().zip(other.data.iter()) {
+            let len = dst_ch.len().min(src_ch.len());
+            dst_ch[..len].copy_from_slice(&src_ch[..len]);
+        }
+    }
+
+    /// Copy data from another buffer by index in pool (for BufferPool usage)
+    /// Returns false if channel count mismatches
+    #[inline]
+    pub fn copy_from_slice_channels(&mut self, channels: &[&[f32]]) -> bool {
+        if channels.len() != self.data.len() {
+            return false;
+        }
+        for (dst_ch, src_ch) in self.data.iter_mut().zip(channels.iter()) {
+            let len = dst_ch.len().min(src_ch.len());
+            dst_ch[..len].copy_from_slice(&src_ch[..len]);
+        }
+        true
+    }
+
+    /// Apply wet/dry mix from dry buffer (zero-allocation)
+    /// wet_amount: 0.0 = all dry, 1.0 = all wet
+    #[inline]
+    pub fn apply_mix(&mut self, dry: &AudioBuffer, wet_amount: f32) {
+        let dry_amount = 1.0 - wet_amount;
+        for (wet_ch, dry_ch) in self.data.iter_mut().zip(dry.data.iter()) {
+            for (w, d) in wet_ch.iter_mut().zip(dry_ch.iter()) {
+                *w = *w * wet_amount + *d * dry_amount;
+            }
         }
     }
 }
@@ -300,7 +339,7 @@ pub struct PluginHost {
     /// Plugin scanner
     scanner: PluginScanner,
     /// Active plugin instances
-    instances: RwLock<HashMap<String, Arc<RwLock<Box<dyn PluginInstance>>>>>,
+    instances: RwLock<PluginInstanceMap>,
     /// Processing context
     context: RwLock<ProcessContext>,
 }

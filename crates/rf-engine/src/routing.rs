@@ -299,6 +299,23 @@ impl ChannelKind {
     }
 }
 
+/// Pan mode for stereo channels
+/// Determines how panning is applied in the routing channel
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PanMode {
+    /// Standard single-knob pan (mono or balance-style)
+    /// Routing channel applies pan normally
+    #[default]
+    Standard,
+    /// External dual-pan (Pro Tools style)
+    /// Pan is applied externally before routing (e.g., in playback engine)
+    /// Routing channel bypasses pan, only applies fader gain
+    ExternalDualPan,
+    /// Stereo balance mode
+    /// Attenuates opposite side instead of repositioning
+    Balance,
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CHANNEL IDENTIFIER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -444,6 +461,8 @@ pub struct Channel {
     fader_db: f64,
     /// Pan (-1.0 to 1.0)
     pan: f64,
+    /// Pan mode (determines how pan is applied)
+    pan_mode: PanMode,
     /// Mute state
     muted: AtomicBool,
     /// Solo state
@@ -509,6 +528,7 @@ impl Channel {
             sends: Vec::new(),
             fader_db: 0.0,
             pan: 0.0,
+            pan_mode: PanMode::Standard,
             muted: AtomicBool::new(false),
             soloed: AtomicBool::new(false),
             armed: AtomicBool::new(false),
@@ -565,6 +585,16 @@ impl Channel {
     /// Get pan
     pub fn pan(&self) -> f64 {
         self.pan
+    }
+
+    /// Set pan mode
+    pub fn set_pan_mode(&mut self, mode: PanMode) {
+        self.pan_mode = mode;
+    }
+
+    /// Get pan mode
+    pub fn pan_mode(&self) -> PanMode {
+        self.pan_mode
     }
 
     /// Set mute (lock-free)
@@ -702,10 +732,26 @@ impl Channel {
 
         let gain = self.fader_gain();
 
-        // Constant power pan
-        let pan_angle = (self.pan + 1.0) * 0.25 * std::f64::consts::PI;
-        let left_gain = gain * pan_angle.cos();
-        let right_gain = gain * pan_angle.sin();
+        // Calculate pan gains based on pan mode
+        let (left_gain, right_gain) = match self.pan_mode {
+            PanMode::ExternalDualPan => {
+                // Pan already applied externally (Pro Tools dual-pan)
+                // Only apply fader gain, no additional pan
+                (gain, gain)
+            }
+            PanMode::Balance => {
+                // Balance mode: attenuate opposite side
+                // pan -1.0 = full left (R muted), pan +1.0 = full right (L muted)
+                let left_atten = if self.pan > 0.0 { 1.0 - self.pan } else { 1.0 };
+                let right_atten = if self.pan < 0.0 { 1.0 + self.pan } else { 1.0 };
+                (gain * left_atten, gain * right_atten)
+            }
+            PanMode::Standard => {
+                // Standard constant power pan
+                let pan_angle = (self.pan + 1.0) * 0.25 * std::f64::consts::PI;
+                (gain * pan_angle.cos(), gain * pan_angle.sin())
+            }
+        };
 
         // Track peak and RMS for metering
         let mut peak_l = 0.0_f64;
@@ -1859,7 +1905,7 @@ mod tests {
 
         // Acquire buffers
         let buf1 = pool.acquire().unwrap();
-        let buf2 = pool.acquire().unwrap();
+        let _buf2 = pool.acquire().unwrap();
         assert_eq!(pool.available_count(), 2);
 
         // Write to buffer

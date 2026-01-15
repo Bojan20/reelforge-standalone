@@ -87,6 +87,10 @@ env_logger = "0.11"
 thiserror = "2.0"
 anyhow = "1.0"
 
+# Cryptographic hashing (for IR cache)
+sha2 = "0.10"
+hex = "0.4"
+
 # Testing
 criterion = "0.5"
 
@@ -116,6 +120,15 @@ incremental = true
 inherits = "release"
 debug = true
 strip = false
+
+# Profile for minimum binary size
+[profile.min-size]
+inherits = "release"
+opt-level = "z"          # Optimize for size over speed
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
 
 [workspace.lints.clippy]
 derivable_impls = "allow"

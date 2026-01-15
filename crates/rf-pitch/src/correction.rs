@@ -420,13 +420,13 @@ impl FormantPreserver {
         let target_ratio = 2.0f32.powf(self.formant_shift / 12.0);
         let final_ratio = formant_ratio * target_ratio;
 
-        for i in 1..num_bins {
+        for (i, env) in envelope.iter_mut().enumerate().skip(1) {
             let source_bin = (i as f32 * final_ratio) as usize;
-            if source_bin < num_bins {
-                envelope[i] = 1.0; // Would interpolate from source spectrum
+            *env = if source_bin < num_bins {
+                1.0 // Would interpolate from source spectrum
             } else {
-                envelope[i] = 0.0; // Bin outside range
-            }
+                0.0 // Bin outside range
+            };
         }
 
         envelope

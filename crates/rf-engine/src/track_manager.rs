@@ -115,7 +115,15 @@ pub struct Track {
     pub height: f64, // UI height in pixels
     pub output_bus: OutputBus,
     pub volume: f64, // 0.0 to 1.5 (linear, +6dB headroom)
-    pub pan: f64,    // -1.0 to +1.0
+    pub pan: f64,    // -1.0 to +1.0 (left channel for stereo dual-pan)
+    /// Right channel pan for stereo dual-pan (Pro Tools style)
+    /// For mono tracks, this is ignored
+    /// For stereo: pan controls L channel, pan_right controls R channel
+    #[serde(default)]
+    pub pan_right: f64, // -1.0 to +1.0 (right channel for stereo dual-pan)
+    /// Number of audio channels (1 = mono, 2 = stereo)
+    #[serde(default = "default_channels")]
+    pub channels: u32,
     pub muted: bool,
     pub soloed: bool,
     pub armed: bool,
@@ -134,8 +142,29 @@ pub struct Track {
     pub monitor_mode: MonitorMode,
 }
 
+/// Default channel count for serde
+fn default_channels() -> u32 {
+    2 // Default to stereo
+}
+
 impl Track {
     pub fn new(name: &str, color: u32, output_bus: OutputBus) -> Self {
+        // Default to stereo with Pro Tools-style dual pan (L=-1, R=+1)
+        Self::new_with_channels(name, color, output_bus, 2)
+    }
+
+    /// Create track with specific channel count
+    /// For stereo: pan defaults to -1.0 (hard left), pan_right to +1.0 (hard right)
+    /// For mono: pan defaults to 0.0 (center)
+    pub fn new_with_channels(name: &str, color: u32, output_bus: OutputBus, channels: u32) -> Self {
+        let (default_pan, default_pan_right) = if channels >= 2 {
+            // Stereo: Pro Tools dual-pan style
+            (-1.0, 1.0)
+        } else {
+            // Mono: center
+            (0.0, 0.0)
+        };
+
         Self {
             id: TrackId(next_id()),
             name: name.to_string(),
@@ -143,7 +172,9 @@ impl Track {
             height: 80.0,
             output_bus,
             volume: 1.0,
-            pan: 0.0,
+            pan: default_pan,
+            pan_right: default_pan_right,
+            channels,
             muted: false,
             soloed: false,
             armed: false,
@@ -155,6 +186,12 @@ impl Track {
             input_bus: None,
             monitor_mode: MonitorMode::Auto,
         }
+    }
+
+    /// Check if track is stereo
+    #[inline]
+    pub fn is_stereo(&self) -> bool {
+        self.channels >= 2
     }
 
     /// Set send level
@@ -187,6 +224,18 @@ impl Track {
 
     /// Create track from template
     pub fn from_template(template: &TrackTemplate) -> Self {
+        // Determine pan values based on template's channel config
+        let (pan, pan_right) = if template.channels >= 2 {
+            // Stereo: Pro Tools dual-pan style if template has default pan (0.0)
+            if template.pan == 0.0 && template.pan_right == 0.0 {
+                (-1.0, 1.0) // Default stereo
+            } else {
+                (template.pan, template.pan_right)
+            }
+        } else {
+            (template.pan, 0.0) // Mono: use template pan, ignore pan_right
+        };
+
         Self {
             id: TrackId(next_id()),
             name: template.name.clone(),
@@ -194,7 +243,9 @@ impl Track {
             height: template.height,
             output_bus: template.output_bus,
             volume: template.volume,
-            pan: template.pan,
+            pan,
+            pan_right,
+            channels: template.channels,
             muted: false,
             soloed: false,
             armed: false,
@@ -234,9 +285,20 @@ pub struct TrackTemplate {
     pub output_bus: OutputBus,
     pub volume: f64,
     pub pan: f64,
+    /// Right channel pan for stereo dual-pan
+    #[serde(default)]
+    pub pan_right: f64,
+    /// Number of channels (1 = mono, 2 = stereo)
+    #[serde(default = "default_template_channels")]
+    pub channels: u32,
 
     /// Tags for filtering
     pub tags: Vec<String>,
+}
+
+/// Default channel count for template serde
+fn default_template_channels() -> u32 {
+    2 // Default to stereo
 }
 
 impl TrackTemplate {
@@ -260,11 +322,13 @@ impl TrackTemplate {
             output_bus: track.output_bus,
             volume: track.volume,
             pan: track.pan,
+            pan_right: track.pan_right,
+            channels: track.channels,
             tags: Vec::new(),
         }
     }
 
-    /// Create a default template
+    /// Create a default template (stereo)
     pub fn default_audio() -> Self {
         Self {
             id: "default_audio".to_string(),
@@ -277,7 +341,9 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Master,
             volume: 1.0,
-            pan: 0.0,
+            pan: -1.0,        // Stereo: L hard left
+            pan_right: 1.0,   // Stereo: R hard right
+            channels: 2,
             tags: vec!["audio".to_string()],
         }
     }
@@ -294,7 +360,9 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Voice,
             volume: 1.0,
-            pan: 0.0,
+            pan: 0.0,         // Mono: center
+            pan_right: 0.0,
+            channels: 1,      // Vocals typically mono
             tags: vec!["vocal".to_string(), "voice".to_string()],
         }
     }
@@ -311,7 +379,9 @@ impl TrackTemplate {
             height: 100.0,
             output_bus: OutputBus::Sfx,
             volume: 1.0,
-            pan: 0.0,
+            pan: -1.0,        // Stereo: L hard left
+            pan_right: 1.0,   // Stereo: R hard right
+            channels: 2,      // Drums typically stereo
             tags: vec!["drums".to_string(), "percussion".to_string()],
         }
     }
@@ -328,7 +398,9 @@ impl TrackTemplate {
             height: 80.0,
             output_bus: OutputBus::Music,
             volume: 1.0,
-            pan: 0.0,
+            pan: 0.0,         // Mono: center
+            pan_right: 0.0,
+            channels: 1,      // Bass typically mono
             tags: vec!["bass".to_string(), "music".to_string()],
         }
     }
@@ -2269,7 +2341,7 @@ mod tests {
             // At start (t=0), fade-in should be 0
             let val_start = curve.evaluate(0.0);
             assert!(
-                val_start >= 0.0 && val_start <= 0.01,
+                (0.0..=0.01).contains(&val_start),
                 "{:?} start: {}",
                 curve,
                 val_start
@@ -2278,7 +2350,7 @@ mod tests {
             // At end (t=1), fade-in should be 1
             let val_end = curve.evaluate(1.0);
             assert!(
-                val_end >= 0.99 && val_end <= 1.0,
+                (0.99..=1.0).contains(&val_end),
                 "{:?} end: {}",
                 curve,
                 val_end

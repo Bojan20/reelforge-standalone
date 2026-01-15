@@ -13,6 +13,16 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use crate::scanner::PluginInfo;
 use crate::{AudioBuffer, PluginError, PluginInstance, PluginResult, ProcessContext};
 
+/// Slot processing info tuple: (index, output_buffer, bypassed, enabled, mix, plugin)
+type SlotProcessInfo = (
+    usize,
+    usize,
+    bool,
+    bool,
+    f32,
+    Arc<RwLock<Box<dyn PluginInstance>>>,
+);
+
 /// Pre-allocated buffer pool for zero-copy processing
 pub struct BufferPool {
     /// Pool of pre-allocated buffers
@@ -68,6 +78,18 @@ impl BufferPool {
         for buffer in &mut self.buffers {
             buffer.clear();
         }
+    }
+
+    /// Get buffer size
+    #[inline]
+    pub fn buffer_size(&self) -> usize {
+        self.buffer_size
+    }
+
+    /// Get channel count
+    #[inline]
+    pub fn channels(&self) -> usize {
+        self.channels
     }
 }
 
@@ -272,6 +294,10 @@ pub struct ZeroCopyChain {
     processing: AtomicBool,
     /// Chain bypass
     bypass: AtomicBool,
+    /// Pre-allocated temp buffer for input staging (separate from pool for borrow safety)
+    input_staging: AudioBuffer,
+    /// Pre-allocated temp buffer for dry signal (wet/dry mixing)
+    dry_buffer: AudioBuffer,
 }
 
 impl std::fmt::Debug for ZeroCopyChain {
@@ -296,6 +322,9 @@ impl ZeroCopyChain {
             context: ProcessContext::default(),
             processing: AtomicBool::new(false),
             bypass: AtomicBool::new(false),
+            // Pre-allocated temp buffers (separate from pool for independent borrowing)
+            input_staging: AudioBuffer::new(channels, buffer_size),
+            dry_buffer: AudioBuffer::new(channels, buffer_size),
         }
     }
 
@@ -373,144 +402,94 @@ impl ZeroCopyChain {
         self.context = context;
     }
 
-    /// Process audio through the chain
+    /// Process audio through the chain (ZERO ALLOCATION)
+    ///
+    /// # Audio Thread Safety
+    /// This method performs NO heap allocations. All buffers are pre-allocated
+    /// during construction. Temp buffers (input_staging, dry_buffer) are stored
+    /// separately from buffer_pool to allow independent borrowing.
     pub fn process(&mut self, input: &AudioBuffer, output: &mut AudioBuffer) -> PluginResult<()> {
         if self.is_bypassed() || self.slots.is_empty() {
-            // Direct copy
-            for (i, out_ch) in output.data.iter_mut().enumerate() {
-                if let Some(in_ch) = input.data.get(i) {
-                    out_ch.copy_from_slice(in_ch);
-                }
-            }
+            // Direct copy - zero allocation
+            output.copy_from(input);
             return Ok(());
         }
 
         self.processing.store(true, Ordering::Release);
 
-        // Collect slot info first to avoid borrow issues
-        let slot_info: Vec<(
-            usize,
-            usize,
-            bool,
-            bool,
-            f32,
-            Arc<RwLock<Box<dyn PluginInstance>>>,
-        )> = self
-            .slots
-            .iter()
-            .enumerate()
-            .filter(|(_, slot)| slot.is_enabled())
-            .map(|(i, slot)| {
-                (
-                    i,
-                    slot.output_buffer,
-                    slot.is_bypassed(),
-                    slot.is_enabled(),
-                    slot.mix(),
-                    Arc::clone(&slot.plugin),
-                )
-            })
-            .collect();
+        // Stage 1: Copy input to input_staging buffer
+        // input_staging is separate from buffer_pool, so no borrow conflict
+        self.input_staging.copy_from(input);
 
-        // Copy input to first buffer for initial processing
-        let first_input_idx = if let Some((_, out_idx, _, _, _, _)) = slot_info.first() {
-            // Copy external input to a temp buffer
-            if let Some(buf) = self.buffer_pool.get_mut(*out_idx) {
-                for (j, out_ch) in buf.data.iter_mut().enumerate() {
-                    if let Some(in_ch) = input.data.get(j) {
-                        out_ch.copy_from_slice(in_ch);
-                    }
-                }
+        // Stage 2: Process through enabled slots
+        let mut prev_output_idx: Option<usize> = None;
+
+        for (slot_i, slot) in self.slots.iter().enumerate() {
+            if !slot.is_enabled() {
+                continue;
             }
-            Some(*out_idx)
-        } else {
-            None
-        };
 
-        // Process through chain using indices
-        let mut prev_output_idx = first_input_idx;
+            let out_idx = slot.output_buffer;
+            let bypassed = slot.is_bypassed();
+            let mix = slot.mix();
+            let plugin = Arc::clone(&slot.plugin);
 
-        for (i, (slot_i, out_idx, bypassed, _enabled, mix, plugin)) in slot_info.iter().enumerate()
-        {
-            // Determine input: first slot uses external input, others use previous output
-            let use_external_input = i == 0;
-
-            if *bypassed {
-                // Get data to copy BEFORE borrowing output buffer mutably
-                let data_to_copy: Option<Vec<Vec<f32>>> = if use_external_input {
-                    Some(input.data.clone())
-                } else {
-                    prev_output_idx
-                        .and_then(|prev_idx| self.buffer_pool.get(prev_idx).map(|b| b.data.clone()))
-                };
-
-                // Now copy to output buffer
-                if let Some(out_buf) = self.buffer_pool.get_mut(*out_idx)
-                    && let Some(src_data) = data_to_copy {
-                        for (j, out_ch) in out_buf.data.iter_mut().enumerate() {
-                            if let Some(in_ch) = src_data.get(j) {
-                                out_ch.copy_from_slice(in_ch);
-                            }
-                        }
-                    }
+            if bypassed {
+                // Bypass: copy current input to output buffer
+                // First, update input_staging if we have previous output
+                if let Some(prev_idx) = prev_output_idx
+                    && let Some(prev_buf) = self.buffer_pool.get(prev_idx)
+                {
+                    self.input_staging.copy_from(prev_buf);
+                }
+                // Now copy from input_staging to output (input_staging already has original input if no prev)
+                if let Some(out_buf) = self.buffer_pool.get_mut(out_idx) {
+                    out_buf.copy_from(&self.input_staging);
+                }
             } else {
-                // Create temporary input buffer
-                let input_data: Vec<Vec<f32>> = if use_external_input {
-                    input.data.clone()
-                } else if let Some(prev_idx) = prev_output_idx {
-                    self.buffer_pool
-                        .get(prev_idx)
-                        .map(|b| b.data.clone())
-                        .unwrap_or_default()
-                } else {
-                    vec![vec![0.0f32; input.samples]; input.channels]
-                };
+                // Active processing
+                // Step 1: Prepare input_staging with current input
+                if let Some(prev_idx) = prev_output_idx
+                    && let Some(prev_buf) = self.buffer_pool.get(prev_idx)
+                {
+                    self.input_staging.copy_from(prev_buf);
+                }
+                // If prev_output_idx is None, input_staging already has the original input
 
-                let temp_input = AudioBuffer::from_data(input_data.clone());
+                // Step 2: Save dry signal if wet/dry mix needed
+                let needs_mix = mix < 1.0;
+                if needs_mix {
+                    self.dry_buffer.copy_from(&self.input_staging);
+                }
 
-                // Process through plugin
-                if let Some(out_buf) = self.buffer_pool.get_mut(*out_idx) {
+                // Step 3: Process through plugin
+                if let Some(out_buf) = self.buffer_pool.get_mut(out_idx) {
                     let mut plugin_lock = plugin.write();
-                    plugin_lock.process(&temp_input, out_buf, &self.context)?;
+                    plugin_lock.process(&self.input_staging, out_buf, &self.context)?;
 
-                    // Apply wet/dry mix
-                    if *mix < 1.0 {
-                        let dry = 1.0 - mix;
-                        for (j, out_ch) in out_buf.data.iter_mut().enumerate() {
-                            if let Some(in_ch) = input_data.get(j) {
-                                for (k, sample) in out_ch.iter_mut().enumerate() {
-                                    *sample = *sample * mix + in_ch[k] * dry;
-                                }
-                            }
-                        }
+                    // Step 4: Apply wet/dry mix if needed
+                    if needs_mix {
+                        out_buf.apply_mix(&self.dry_buffer, mix);
                     }
                 }
             }
 
-            // Apply PDC
-            if let Some(out_buf) = self.buffer_pool.get_mut(*out_idx) {
-                self.pdc.process(*slot_i, out_buf);
+            // Apply PDC for this slot
+            if let Some(out_buf) = self.buffer_pool.get_mut(out_idx) {
+                self.pdc.process(slot_i, out_buf);
             }
 
-            prev_output_idx = Some(*out_idx);
+            prev_output_idx = Some(out_idx);
         }
 
-        // Copy final output
+        // Stage 3: Copy final output
         if let Some(final_idx) = prev_output_idx {
             if let Some(final_buf) = self.buffer_pool.get(final_idx) {
-                for (i, out_ch) in output.data.iter_mut().enumerate() {
-                    if let Some(in_ch) = final_buf.data.get(i) {
-                        out_ch.copy_from_slice(in_ch);
-                    }
-                }
+                output.copy_from(final_buf);
             }
         } else {
-            // No processing - copy input to output
-            for (i, out_ch) in output.data.iter_mut().enumerate() {
-                if let Some(in_ch) = input.data.get(i) {
-                    out_ch.copy_from_slice(in_ch);
-                }
-            }
+            // No processing happened - copy input to output
+            output.copy_from(input);
         }
 
         self.processing.store(false, Ordering::Release);

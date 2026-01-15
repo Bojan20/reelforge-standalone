@@ -1,7 +1,7 @@
 //! Insert Effect Chain
 //!
 //! Provides per-channel effect insert slots with:
-//! - 10 insert slots per channel (Pro Tools style: 5 pre + 5 post fader)
+//! - 8 insert slots per channel (4 pre + 4 post fader)
 //! - Pre/post fader positioning
 //! - Bypass per slot
 //! - Latency compensation
@@ -11,6 +11,14 @@ use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+// ============ Bypass Fade Configuration ============
+
+/// Bypass fade time in milliseconds (click-free transitions)
+const BYPASS_FADE_MS: f64 = 5.0;
+
+/// Default sample rate for coefficient calculation
+const DEFAULT_SAMPLE_RATE: f64 = 48000.0;
+
 // ============ Lock-Free Parameter Change ============
 
 /// Lock-free parameter change message for insert processors.
@@ -19,7 +27,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 pub struct InsertParamChange {
     /// Target track ID (0 = master bus)
     pub track_id: u64,
-    /// Insert slot index (0-9)
+    /// Insert slot index (0-7)
     pub slot_index: u8,
     /// Parameter index within processor
     pub param_index: u16,
@@ -40,8 +48,8 @@ impl InsertParamChange {
 
 // ============ Insert Slot ============
 
-/// Maximum insert slots per channel (Pro Tools style: 5 pre-fader + 5 post-fader)
-pub const MAX_INSERT_SLOTS: usize = 10;
+/// Maximum insert slots per channel (4 pre-fader + 4 post-fader)
+pub const MAX_INSERT_SLOTS: usize = 8;
 
 /// Insert slot position
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -60,7 +68,7 @@ const MAX_BLEND_BUFFER_SIZE: usize = 8192;
 pub struct InsertSlot {
     /// The effect processor (trait object)
     processor: Option<Box<dyn InsertProcessor>>,
-    /// Bypass state
+    /// Bypass state (target, set from UI)
     bypassed: AtomicBool,
     /// Position (pre/post fader)
     position: InsertPosition,
@@ -76,9 +84,28 @@ pub struct InsertSlot {
     dry_buffer_l: Box<[Sample; MAX_BLEND_BUFFER_SIZE]>,
     /// Pre-allocated buffer for wet/dry blending (right channel)
     dry_buffer_r: Box<[Sample; MAX_BLEND_BUFFER_SIZE]>,
+    // ═══ Bypass Fade (Click-Free Transitions) ═══
+    /// Current bypass gain (0.0 = bypassed, 1.0 = active)
+    /// Smoothly transitions between states
+    bypass_gain: f64,
+    /// Exponential smoothing coefficient for bypass fade
+    bypass_coeff: f64,
+    /// Sample rate for coefficient calculation
+    sample_rate: f64,
 }
 
 impl InsertSlot {
+    /// Calculate exponential smoothing coefficient from fade time
+    #[inline]
+    fn calculate_bypass_coeff(sample_rate: f64) -> f64 {
+        let time_constant_samples = (BYPASS_FADE_MS / 1000.0) * sample_rate;
+        if time_constant_samples <= 0.0 {
+            1.0
+        } else {
+            1.0 - (-1.0 / time_constant_samples).exp()
+        }
+    }
+
     pub fn new(index: usize) -> Self {
         Self {
             processor: None,
@@ -90,6 +117,10 @@ impl InsertSlot {
             // Pre-allocate buffers to avoid audio thread allocation
             dry_buffer_l: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
             dry_buffer_r: Box::new([0.0; MAX_BLEND_BUFFER_SIZE]),
+            // Bypass fade: start active (gain = 1.0)
+            bypass_gain: 1.0,
+            bypass_coeff: Self::calculate_bypass_coeff(DEFAULT_SAMPLE_RATE),
+            sample_rate: DEFAULT_SAMPLE_RATE,
         }
     }
 
@@ -146,44 +177,62 @@ impl InsertSlot {
         if self.is_bypassed() { 0 } else { self.latency }
     }
 
+    /// Check if bypass fade is still in transition
+    #[inline]
+    #[allow(dead_code)]
+    fn is_fading(&self) -> bool {
+        let target = if self.is_bypassed() { 0.0 } else { 1.0 };
+        (self.bypass_gain - target).abs() > 1e-6
+    }
+
     /// Process audio through this slot
     ///
     /// # Audio Thread Safety
     /// This method uses pre-allocated buffers for wet/dry blending,
     /// avoiding heap allocations in the audio thread.
+    ///
+    /// # Click-Free Bypass
+    /// Uses exponential smoothing for bypass transitions (~5ms fade)
     #[inline]
     pub fn process(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        if self.is_bypassed() {
+        // Determine target bypass gain (0.0 = bypassed, 1.0 = active)
+        let target_bypass_gain = if self.is_bypassed() { 0.0 } else { 1.0 };
+
+        // Fast path: fully bypassed and not fading - skip entirely
+        if self.bypass_gain < 1e-6 && target_bypass_gain < 1e-6 {
             return;
         }
 
         // Get mix before borrowing processor
         let mix = self.mix();
+        let len = left.len().min(right.len()).min(MAX_BLEND_BUFFER_SIZE);
 
         if let Some(ref mut processor) = self.processor {
-            if mix >= 0.999 {
-                // Full wet - no need to blend
-                processor.process_stereo(left, right);
-            } else if mix <= 0.001 {
-                // Full dry - skip processing
-            } else {
-                // Wet/dry blend using pre-allocated buffers (no audio thread allocation!)
-                let dry_gain = 1.0 - mix;
-                let wet_gain = mix;
+            // Store dry signal in pre-allocated buffers (always needed for fade)
+            self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
+            self.dry_buffer_r[..len].copy_from_slice(&right[..len]);
 
-                // Store dry signal in pre-allocated buffers
-                let len = left.len().min(right.len()).min(MAX_BLEND_BUFFER_SIZE);
-                self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
-                self.dry_buffer_r[..len].copy_from_slice(&right[..len]);
+            // Process wet signal
+            processor.process_stereo(&mut left[..len], &mut right[..len]);
 
-                // Process wet
-                processor.process_stereo(left, right);
+            // Apply bypass fade with wet/dry mix per sample
+            let coeff = self.bypass_coeff;
+            for i in 0..len {
+                // Update bypass gain (exponential smoothing)
+                self.bypass_gain += coeff * (target_bypass_gain - self.bypass_gain);
 
-                // Blend using pre-allocated dry buffers
-                for i in 0..len {
-                    left[i] = self.dry_buffer_l[i] * dry_gain + left[i] * wet_gain;
-                    right[i] = self.dry_buffer_r[i] * dry_gain + right[i] * wet_gain;
-                }
+                // Calculate effective wet amount (bypass_gain * mix)
+                let effective_wet = self.bypass_gain * mix;
+                let effective_dry = 1.0 - effective_wet;
+
+                // Blend dry and wet
+                left[i] = self.dry_buffer_l[i] * effective_dry + left[i] * effective_wet;
+                right[i] = self.dry_buffer_r[i] * effective_dry + right[i] * effective_wet;
+            }
+
+            // Snap to target when close enough (avoid denormals)
+            if (self.bypass_gain - target_bypass_gain).abs() < 1e-6 {
+                self.bypass_gain = target_bypass_gain;
             }
         }
     }
@@ -197,6 +246,8 @@ impl InsertSlot {
 
     /// Set sample rate
     pub fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.bypass_coeff = Self::calculate_bypass_coeff(sample_rate);
         if let Some(ref mut processor) = self.processor {
             processor.set_sample_rate(sample_rate);
             self.latency = processor.latency();
@@ -523,14 +574,50 @@ mod tests {
         let mut slot = InsertSlot::new(0);
         slot.load(Box::new(TestProcessor::new(0.5)));
 
+        // Bypass uses exponential fade - need ~5x time constant for 99% convergence
+        // 5ms @ 48kHz = 240 samples, need ~1200 samples for full convergence
         slot.set_bypass(true);
 
+        // Process multiple blocks to complete fade (2048 samples total)
+        for _ in 0..32 {
+            let mut left = vec![1.0; 64];
+            let mut right = vec![1.0; 64];
+            slot.process(&mut left, &mut right);
+        }
+
+        // After fade completes, signal should pass through unchanged
         let mut left = vec![1.0; 4];
         let mut right = vec![1.0; 4];
         slot.process(&mut left, &mut right);
 
-        // Should be unchanged when bypassed
-        assert!((left[0] - 1.0).abs() < 1e-10);
+        // Should be unchanged when fully bypassed (bypass_gain ≈ 0)
+        assert!((left[0] - 1.0).abs() < 0.01, "Expected ~1.0, got {}", left[0]);
+    }
+
+    #[test]
+    fn test_bypass_fade_no_click() {
+        let mut slot = InsertSlot::new(0);
+        slot.load(Box::new(TestProcessor::new(0.0))); // Zeroes the signal
+
+        // Start active, then bypass - should fade smoothly
+        let mut left = vec![1.0; 256];
+        let mut right = vec![1.0; 256];
+        slot.process(&mut left, &mut right);
+
+        // Signal should be 0 (wet = 0.0)
+        assert!(left[255].abs() < 0.01);
+
+        // Now bypass
+        slot.set_bypass(true);
+
+        // During fade, output should smoothly transition toward 1.0 (dry)
+        let mut left2 = vec![1.0; 256];
+        let mut right2 = vec![1.0; 256];
+        slot.process(&mut left2, &mut right2);
+
+        // Values should increase (fading toward dry signal)
+        assert!(left2[0] > 0.0, "Fade should start immediately");
+        assert!(left2[255] > left2[0], "Signal should increase during fade");
     }
 
     #[test]
@@ -539,11 +626,18 @@ mod tests {
         slot.load(Box::new(TestProcessor::new(0.0))); // Zeroes the signal
         slot.set_mix(0.5); // 50% wet
 
+        // Process enough samples for bypass_gain to settle at 1.0
+        for _ in 0..5 {
+            let mut left = vec![1.0; 128];
+            let mut right = vec![1.0; 128];
+            slot.process(&mut left, &mut right);
+        }
+
         let mut left = vec![1.0; 4];
         let mut right = vec![1.0; 4];
         slot.process(&mut left, &mut right);
 
         // 50% of 1.0 (dry) + 50% of 0.0 (wet) = 0.5
-        assert!((left[0] - 0.5).abs() < 1e-10);
+        assert!((left[3] - 0.5).abs() < 0.01, "Expected ~0.5, got {}", left[3]);
     }
 }

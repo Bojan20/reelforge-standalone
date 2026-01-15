@@ -256,7 +256,7 @@ impl SuggestionGenerator {
     }
 
     /// Generate suggestions from loudness analysis
-    pub fn from_loudness(
+    pub fn suggest_from_loudness(
         &self,
         integrated_lufs: f32,
         true_peak_db: f32,
@@ -358,7 +358,7 @@ impl SuggestionGenerator {
     }
 
     /// Generate suggestions from spectral analysis
-    pub fn from_spectral(
+    pub fn suggest_from_spectral(
         &self,
         low_ratio: f32,
         _mid_ratio: f32,
@@ -423,7 +423,7 @@ impl SuggestionGenerator {
     }
 
     /// Generate suggestions from stereo analysis
-    pub fn from_stereo(&self, width: f32, correlation: f32, balance: f32) -> Vec<Suggestion> {
+    pub fn suggest_from_stereo(&self, width: f32, correlation: f32, balance: f32) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
 
         // Check correlation (phase issues)
@@ -520,7 +520,7 @@ mod tests {
         let gen = SuggestionGenerator::new();
 
         // Too loud
-        let suggestions = gen.from_loudness(-10.0, -0.5, 8.0);
+        let suggestions = gen.suggest_from_loudness(-10.0, -0.5, 8.0);
         assert!(!suggestions.is_empty());
         assert!(suggestions
             .iter()
@@ -530,7 +530,7 @@ mod tests {
             .any(|s| s.suggestion_type == SuggestionType::Limiting));
 
         // On target
-        let suggestions = gen.from_loudness(-14.0, -1.5, 8.0);
+        let suggestions = gen.suggest_from_loudness(-14.0, -1.5, 8.0);
         assert!(
             suggestions.is_empty()
                 || suggestions
@@ -544,7 +544,7 @@ mod tests {
         let gen = SuggestionGenerator::new();
 
         // Phase issues
-        let suggestions = gen.from_stereo(0.5, -0.2, 0.0);
+        let suggestions = gen.suggest_from_stereo(0.5, -0.2, 0.0);
         assert!(suggestions
             .iter()
             .any(|s| s.priority == SuggestionPriority::Critical));

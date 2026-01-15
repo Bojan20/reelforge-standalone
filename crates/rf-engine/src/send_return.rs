@@ -237,8 +237,8 @@ impl SendBank {
 
             // Advance smoothing for next block
             for _ in 0..block_size {
-                send.level.next();
-                send.pan.next();
+                send.level.next_value();
+                send.pan.next_value();
             }
         }
     }
@@ -353,7 +353,7 @@ impl ReturnBus {
         // Apply level and pan
         let len = self.output_left.len();
         for i in 0..len {
-            let level = self.level.next();
+            let level = self.level.next_value();
             let pan = self.pan.current();
 
             // Constant power pan

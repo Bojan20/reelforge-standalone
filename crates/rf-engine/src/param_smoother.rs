@@ -96,7 +96,7 @@ impl ParamSmoother {
 
     /// Get next smoothed sample
     #[inline]
-    pub fn next(&mut self) -> f64 {
+    pub fn next_value(&mut self) -> f64 {
         if self.is_smoothing {
             self.current += self.coeff * (self.target - self.current);
 
@@ -118,7 +118,7 @@ impl ParamSmoother {
         }
 
         for sample in output.iter_mut() {
-            *sample = self.next();
+            *sample = self.next_value();
         }
     }
 
@@ -279,7 +279,7 @@ impl ParamSmootherManager {
     pub fn advance_track(&self, track_id: u64) -> (f64, f64) {
         let mut smoothers = self.track_smoothers.write();
         if let Some(smoother) = smoothers.get_mut(&track_id) {
-            (smoother.volume.next(), smoother.pan.next())
+            (smoother.volume.next_value(), smoother.pan.next_value())
         } else {
             (1.0, 0.0)
         }
@@ -360,7 +360,7 @@ mod tests {
 
         // Advance a few samples
         for _ in 0..100 {
-            let _ = smoother.next();
+            let _ = smoother.next_value();
         }
 
         // Should be approaching target but not there yet
@@ -378,7 +378,7 @@ mod tests {
         // Exponential smoothing converges ~99.3% after 5 time constants
         // 1.5ms * 48kHz = 72 samples per time constant, * 10 = 720 for good convergence
         for _ in 0..1000 {
-            let _ = smoother.next();
+            let _ = smoother.next_value();
         }
 
         // Should have converged (within threshold)
@@ -403,8 +403,8 @@ mod tests {
 
         // Advance
         for _ in 0..500 {
-            let _ = track_smoother.volume.next();
-            let _ = track_smoother.pan.next();
+            let _ = track_smoother.volume.next_value();
+            let _ = track_smoother.pan.next_value();
         }
 
         assert!((track_smoother.volume.current() - 0.5).abs() < 0.001);

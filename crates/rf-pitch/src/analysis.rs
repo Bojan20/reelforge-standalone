@@ -573,7 +573,7 @@ mod tests {
 
         // Should detect multiple voices
         assert!(
-            result.notes.len() >= 1,
+            !result.notes.is_empty(),
             "Should detect at least one note in chord"
         );
     }
@@ -587,15 +587,23 @@ mod tests {
         let mut samples = vec![0.0; sample_rate as usize * 2];
 
         // First note at 0.5s
-        for i in (0.5 * sample_rate as f32) as usize..(1.0 * sample_rate as f32) as usize {
-            let t = i as f32 / sample_rate as f32;
-            samples[i] = (2.0 * std::f32::consts::PI * 440.0 * t).sin();
+        let start1 = (0.5 * sample_rate as f32) as usize;
+        for (offset, sample) in samples[start1..(1.0 * sample_rate as f32) as usize]
+            .iter_mut()
+            .enumerate()
+        {
+            let t = (start1 + offset) as f32 / sample_rate as f32;
+            *sample = (2.0 * std::f32::consts::PI * 440.0 * t).sin();
         }
 
         // Second note at 1.2s (different pitch)
-        for i in (1.2 * sample_rate as f32) as usize..(1.7 * sample_rate as f32) as usize {
-            let t = i as f32 / sample_rate as f32;
-            samples[i] = (2.0 * std::f32::consts::PI * 880.0 * t).sin();
+        let start2 = (1.2 * sample_rate as f32) as usize;
+        for (offset, sample) in samples[start2..(1.7 * sample_rate as f32) as usize]
+            .iter_mut()
+            .enumerate()
+        {
+            let t = (start2 + offset) as f32 / sample_rate as f32;
+            *sample = (2.0 * std::f32::consts::PI * 880.0 * t).sin();
         }
 
         let onsets = detector.detect(&samples);

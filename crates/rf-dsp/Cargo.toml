@@ -11,9 +11,13 @@ realfft = { workspace = true }
 rustfft = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
+parking_lot = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+tempfile = "3.15"
 
 [[bench]]
 name = "biquad"

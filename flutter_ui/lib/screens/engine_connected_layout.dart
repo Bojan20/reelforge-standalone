@@ -17,6 +17,7 @@ import '../providers/engine_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/mixer_provider.dart';
+import '../providers/recording_provider.dart';
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
@@ -526,8 +527,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
 
     // Create corresponding mixer channel (Cubase-style auto-fader)
+    // Empty tracks default to stereo
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(trackId, trackName, color);
+    mixerProvider.createChannelFromTrack(trackId, trackName, color, channels: 2);
 
     setState(() {
       _tracks = [
@@ -537,6 +539,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           name: trackName,
           color: color,
           outputBus: timeline.OutputBus.master,
+          channels: 2, // Empty tracks default to stereo
         ),
       ];
     });
@@ -579,9 +582,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _clips = [..._clips, ...newClips];
     });
 
-    // Create mixer channel for the duplicated track
+    // Create mixer channel for the duplicated track (same channel count as original)
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(newTrackId, newTrack.name, track.color);
+    mixerProvider.createChannelFromTrack(newTrackId, newTrack.name, track.color, channels: track.channels);
 
     _showSnackBar('Track duplicated');
   }
@@ -856,6 +859,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       name: trackName,
       color: color,
       outputBus: clipBus,
+      channels: poolFile.channels,
     );
 
     // Import audio to native engine (this loads into playback cache)
@@ -910,10 +914,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
 
     // Create mixer channel for the new track (Cubase-style: track = fader)
+    // Use channels from clipInfo if available, fallback to poolFile
+    final channelCount = clipInfo?.channels ?? poolFile.channels;
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color);
+    mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color, channels: channelCount);
 
-    debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime');
+    debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime (channels: $channelCount)');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
     _updateActiveBuses();
 
@@ -2258,6 +2264,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.setChannelPan(channelId, pan);
             },
+            onChannelPanRightChange: (channelId, pan) {
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.setChannelPanRight(channelId, pan);
+            },
             onChannelMuteToggle: (channelId) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.toggleMute(channelId);
@@ -2341,6 +2351,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             },
             onChannelSendClick: (channelId, sendIndex) {
               _onSendClick(channelId, sendIndex);
+            },
+            onChannelInsertBypassToggle: (channelId, slotIndex, bypassed) {
+              // Extract track ID from channel ID (format: "ch_1", "ch_2", etc.)
+              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
+              // Update local state
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.updateInsertBypass(channelId, slotIndex, bypassed);
+            },
+            onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
+              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              NativeFFI.instance.insertSetMix(trackId, slotIndex, wetDry);
+              // Update local state
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.updateInsertWetDry(channelId, slotIndex, wetDry);
+            },
+            onChannelInsertRemove: (channelId, slotIndex) {
+              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
+              // Update local state
+              final mixerProvider = context.read<MixerProvider>();
+              mixerProvider.removeInsert(channelId, slotIndex);
+            },
+            onChannelInsertOpenEditor: (channelId, slotIndex) {
+              final trackId = int.tryParse(channelId.replaceFirst('ch_', '')) ?? 0;
+              // Open plugin editor window via FFI
+              NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
             },
 
             // Center zone - uses Selector internally for playhead
@@ -2562,7 +2599,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       onPlayheadScrub: (time) {
         final engine = context.read<EngineProvider>();
-        engine.seek(time);
+        engine.scrubSeek(time); // Use throttled scrub seek
       },
       // Zoom/scroll callbacks
       onZoomChange: (zoom) => setState(() => _timelineZoom = zoom),
@@ -2667,6 +2704,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final color = _defaultTrackColor;
         debugPrint('[UI] onClipMoveToNewTrack: clipId=$clipId, newTrackIndex=$trackIndex, color=$color');
 
+        // Get channel count from original clip's track
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        final originalTrack = _tracks.firstWhere(
+          (t) => t.id == clip.trackId,
+          orElse: () => _tracks.first,
+        );
+        final channels = originalTrack.channels;
+
         // Create track in native engine - GET THE REAL ID
         final newTrackId = engine.createTrack(
           name: trackName,
@@ -2676,7 +2721,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
         // Create mixer channel for the new track (must use real engine ID)
         final mixerProvider = context.read<MixerProvider>();
-        mixerProvider.createChannelFromTrack(newTrackId, trackName, color);
+        mixerProvider.createChannelFromTrack(newTrackId, trackName, color, channels: channels);
 
         // Move clip to new track in engine
         engine.moveClip(
@@ -2694,6 +2739,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               name: trackName,
               color: color,
               outputBus: timeline.OutputBus.master,
+              channels: channels, // Preserve channel count from original
             ),
           ];
 
@@ -2920,10 +2966,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onTrackMuteToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
         final newMuted = !track.muted;
-        engine.updateTrack(trackId, muted: newMuted);
-        // Sync with MixerProvider
-        final mixerProv = context.read<MixerProvider>();
-        mixerProv.setMuted('ch_$trackId', newMuted);
+        // INSTANT UI feedback first
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -2932,14 +2975,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return t;
           }).toList();
         });
+        // Then sync with engine and MixerProvider
+        engine.updateTrack(trackId, muted: newMuted);
+        context.read<MixerProvider>().setMuted('ch_$trackId', newMuted);
       },
       onTrackSoloToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
         final newSoloed = !track.soloed;
-        engine.updateTrack(trackId, soloed: newSoloed);
-        // Sync with MixerProvider
-        final mixerProv = context.read<MixerProvider>();
-        mixerProv.setSoloed('ch_$trackId', newSoloed);
+        // INSTANT UI feedback first
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -2948,14 +2991,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return t;
           }).toList();
         });
+        // Then sync with engine and MixerProvider
+        engine.updateTrack(trackId, soloed: newSoloed);
+        context.read<MixerProvider>().setSoloed('ch_$trackId', newSoloed);
       },
       onTrackArmToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
         final newArmed = !track.armed;
-        engine.updateTrack(trackId, armed: newArmed);
-        // Sync with MixerProvider
-        final mixerProv = context.read<MixerProvider>();
-        mixerProv.setArmed('ch_$trackId', newArmed);
+        // INSTANT UI feedback first
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -2964,6 +3007,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return t;
           }).toList();
         });
+        // Then sync with engine, MixerProvider, and RecordingProvider
+        engine.updateTrack(trackId, armed: newArmed);
+        context.read<MixerProvider>().setArmed('ch_$trackId', newArmed);
+        // Sync with RecordingProvider for recording panel
+        final trackIdInt = int.tryParse(trackId) ?? 0;
+        final recordingProvider = context.read<RecordingProvider>();
+        if (newArmed) {
+          recordingProvider.armTrack(trackIdInt, numChannels: track.isStereo ? 2 : 1);
+        } else {
+          recordingProvider.disarmTrack(trackIdInt);
+        }
       },
       onTrackVolumeChange: (trackId, volume) {
         engine.updateTrack(trackId, volume: volume);
@@ -3055,9 +3109,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onTrackMonitorToggle: (trackId) {
         final track = _tracks.firstWhere((t) => t.id == trackId);
         final newMonitor = !track.inputMonitor;
-        // Sync with MixerProvider
-        final mixerProv = context.read<MixerProvider>();
-        mixerProv.setInputMonitor('ch_$trackId', newMonitor);
+        // INSTANT UI feedback first
         setState(() {
           _tracks = _tracks.map((t) {
             if (t.id == trackId) {
@@ -3066,6 +3118,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             return t;
           }).toList();
         });
+        // Then sync with MixerProvider
+        context.read<MixerProvider>().setInputMonitor('ch_$trackId', newMonitor);
       },
       // Marker callback
       onMarkerClick: (markerId) {
@@ -4293,8 +4347,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
     if (track == null) return null;
 
-    // Get mixer channel data
-    final mixerProvider = context.read<MixerProvider>();
+    // Get mixer channel data - use watch to rebuild when pan changes
+    final mixerProvider = context.watch<MixerProvider>();
     final channelId = 'ch_${track.id}';
     final channel = mixerProvider.getChannel(channelId);
 
@@ -4347,7 +4401,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       type: 'audio',
       color: track.color,
       volume: volumeDb,
-      pan: channel?.pan ?? 0.0,
+      pan: channel?.pan ?? -1.0, // Pro Tools: L defaults to hard left
+      panRight: channel?.panRight ?? 1.0, // Pro Tools: R defaults to hard right
+      // Stereo tracks get dual pan knobs (Pro Tools style), mono gets single pan
+      isStereo: track.isStereo,
       mute: channel?.muted ?? false,
       solo: channel?.soloed ?? false,
       armed: channel?.armed ?? false,
@@ -4528,6 +4585,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         color: ch.color,
         volume: ch.volume,
         pan: ch.pan,
+        panRight: ch.panRight,
+        isStereo: ch.isStereo,
         muted: ch.muted,
         soloed: ch.soloed,
         inserts: inserts,
@@ -4589,6 +4648,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onPanChange: (id, pan) {
         if (id != 'master') {
           mixerProvider.setChannelPan(id, pan);
+        }
+      },
+      onPanRightChange: (id, pan) {
+        if (id != 'master') {
+          mixerProvider.setChannelPanRight(id, pan);
         }
       },
       onMuteToggle: (id) {
@@ -5309,7 +5373,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Find which insert slot contains an EQ for given channel
-  /// Returns slot index (0-9) or -1 if not found
+  /// Returns slot index (0-7) or -1 if not found
   int _findEqSlotForChannel(String channelId) {
     final chain = _busInserts[channelId];
     if (chain == null) return -1;

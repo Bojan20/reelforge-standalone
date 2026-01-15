@@ -32,6 +32,7 @@ use crate::control_room::{ControlRoom, SoloMode};
 use crate::groups::{GroupManager, VcaId};
 use crate::input_bus::{InputBusManager, MonitorMode};
 use crate::insert_chain::{InsertChain, InsertParamChange};
+use crate::recording_manager::RecordingManager;
 use crate::routing::ChannelId;
 #[cfg(feature = "unified_routing")]
 use crate::routing::{ChannelKind, OutputDestination, RoutingCommandSender, RoutingGraphRT};
@@ -308,6 +309,8 @@ pub enum PlaybackState {
     Stopped = 0,
     Playing = 1,
     Paused = 2,
+    Recording = 3,
+    Scrubbing = 4,
 }
 
 impl From<u8> for PlaybackState {
@@ -315,6 +318,8 @@ impl From<u8> for PlaybackState {
         match value {
             1 => Self::Playing,
             2 => Self::Paused,
+            3 => Self::Recording,
+            4 => Self::Scrubbing,
             _ => Self::Stopped,
         }
     }
@@ -334,10 +339,20 @@ pub struct PlaybackPosition {
     loop_start: AtomicU64,
     /// Loop end (samples)
     loop_end: AtomicU64,
+    /// Scrub velocity (-4.0 to 4.0, 0 = stationary)
+    scrub_velocity: AtomicU64,
+    /// Scrub window size in samples (audio preview length)
+    scrub_window_samples: AtomicU64,
+    /// Scrub playhead within window (0 to window_size)
+    scrub_window_pos: AtomicU64,
 }
 
 impl PlaybackPosition {
+    /// Default scrub window: 50ms at 48kHz = 2400 samples
+    const DEFAULT_SCRUB_WINDOW_MS: u64 = 50;
+
     pub fn new(sample_rate: u32) -> Self {
+        let scrub_window = (sample_rate as u64 * Self::DEFAULT_SCRUB_WINDOW_MS) / 1000;
         Self {
             sample_position: AtomicU64::new(0),
             sample_rate: AtomicU64::new(sample_rate as u64),
@@ -345,6 +360,9 @@ impl PlaybackPosition {
             loop_enabled: AtomicBool::new(false),
             loop_start: AtomicU64::new(0),
             loop_end: AtomicU64::new(0),
+            scrub_velocity: AtomicU64::new(0.0_f64.to_bits()),
+            scrub_window_samples: AtomicU64::new(scrub_window),
+            scrub_window_pos: AtomicU64::new(0),
         }
     }
 
@@ -393,6 +411,14 @@ impl PlaybackPosition {
         new_pos
     }
 
+    /// Advance position by given samples with varispeed rate, handling loop
+    /// Returns actual frames advanced (may differ due to varispeed)
+    #[inline]
+    pub fn advance_with_rate(&self, frames: u64, rate: f64) -> u64 {
+        let effective_frames = (frames as f64 * rate) as u64;
+        self.advance(effective_frames)
+    }
+
     #[inline]
     pub fn state(&self) -> PlaybackState {
         PlaybackState::from(self.state.load(Ordering::Relaxed))
@@ -405,7 +431,18 @@ impl PlaybackPosition {
 
     #[inline]
     pub fn is_playing(&self) -> bool {
-        self.state() == PlaybackState::Playing
+        matches!(self.state(), PlaybackState::Playing | PlaybackState::Recording | PlaybackState::Scrubbing)
+    }
+
+    /// Check if transport should advance position (excludes scrubbing where position is manually controlled)
+    #[inline]
+    pub fn should_advance(&self) -> bool {
+        matches!(self.state(), PlaybackState::Playing | PlaybackState::Recording)
+    }
+
+    #[inline]
+    pub fn is_recording(&self) -> bool {
+        self.state() == PlaybackState::Recording
     }
 
     pub fn set_loop(&self, start_secs: f64, end_secs: f64, enabled: bool) {
@@ -419,6 +456,84 @@ impl PlaybackPosition {
 
     pub fn sample_rate(&self) -> u32 {
         self.sample_rate.load(Ordering::Relaxed) as u32
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCRUBBING (Pro Tools / Cubase style audio preview on drag)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Check if currently scrubbing
+    #[inline]
+    pub fn is_scrubbing(&self) -> bool {
+        self.state() == PlaybackState::Scrubbing
+    }
+
+    /// Get current scrub velocity (-4.0 to 4.0)
+    #[inline]
+    pub fn scrub_velocity(&self) -> f64 {
+        f64::from_bits(self.scrub_velocity.load(Ordering::Relaxed))
+    }
+
+    /// Set scrub velocity (controls playback direction and speed)
+    /// Positive = forward, Negative = backward, 0 = stationary (loop current window)
+    #[inline]
+    pub fn set_scrub_velocity(&self, velocity: f64) {
+        let clamped = velocity.clamp(-4.0, 4.0);
+        self.scrub_velocity.store(clamped.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Get scrub window size in samples
+    #[inline]
+    pub fn scrub_window_samples(&self) -> u64 {
+        self.scrub_window_samples.load(Ordering::Relaxed)
+    }
+
+    /// Set scrub window size in milliseconds (10-200ms, default 50ms)
+    pub fn set_scrub_window_ms(&self, ms: u64) {
+        let clamped = ms.clamp(10, 200);
+        let rate = self.sample_rate.load(Ordering::Relaxed);
+        let samples = (rate * clamped) / 1000;
+        self.scrub_window_samples.store(samples, Ordering::Relaxed);
+    }
+
+    /// Get current position within scrub window
+    #[inline]
+    pub fn scrub_window_pos(&self) -> u64 {
+        self.scrub_window_pos.load(Ordering::Relaxed)
+    }
+
+    /// Advance scrub position within window, returns (window_sample_offset, should_loop)
+    /// Called from audio thread during scrub playback
+    #[inline]
+    pub fn advance_scrub(&self, frames: u64) -> (u64, bool) {
+        let window_size = self.scrub_window_samples.load(Ordering::Relaxed);
+        let velocity = self.scrub_velocity();
+
+        // Calculate actual frames to advance based on velocity
+        let actual_frames = if velocity.abs() < 0.001 {
+            frames // Play at normal speed when nearly stationary
+        } else {
+            (frames as f64 * velocity.abs()) as u64
+        };
+
+        let current = self.scrub_window_pos.load(Ordering::Relaxed);
+        let mut new_pos = current + actual_frames;
+        let mut looped = false;
+
+        // Loop within scrub window
+        if new_pos >= window_size {
+            new_pos = new_pos % window_size.max(1);
+            looped = true;
+        }
+
+        self.scrub_window_pos.store(new_pos, Ordering::Relaxed);
+        (new_pos, looped)
+    }
+
+    /// Reset scrub window position (call when seeking during scrub)
+    #[inline]
+    pub fn reset_scrub_window(&self) {
+        self.scrub_window_pos.store(0, Ordering::Relaxed);
     }
 }
 
@@ -683,6 +798,11 @@ pub struct PlaybackEngine {
     group_manager: Option<Arc<RwLock<GroupManager>>>,
     /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
     elastic_params: RwLock<HashMap<u32, (f64, f64)>>,
+    /// Varispeed playback rate (0.25 to 4.0, 1.0 = normal)
+    /// Affects global playback speed WITH pitch change (like tape speed)
+    varispeed_rate: AtomicU64,
+    /// Varispeed enabled flag
+    varispeed_enabled: AtomicBool,
     /// Track VCA assignments (track_id -> Vec<VcaId>)
     vca_assignments: RwLock<HashMap<u32, Vec<VcaId>>>,
     /// Insert chains per track (track_id -> InsertChain)
@@ -734,6 +854,8 @@ pub struct PlaybackEngine {
     input_bus_manager: Arc<InputBusManager>,
     /// Pre-allocated input buffer (hardware input interleaved)
     input_buffer: RwLock<Vec<f32>>,
+    /// Recording manager (Phase 12 - Multi-track Recording)
+    recording_manager: Arc<RecordingManager>,
 }
 
 impl PlaybackEngine {
@@ -767,6 +889,8 @@ impl PlaybackEngine {
             param_smoother: Arc::new(crate::param_smoother::ParamSmootherManager::new(sample_rate as f64)),
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
+            varispeed_rate: AtomicU64::new(1.0_f64.to_bits()),
+            varispeed_enabled: AtomicBool::new(false),
             vca_assignments: RwLock::new(HashMap::new()),
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
@@ -793,6 +917,8 @@ impl PlaybackEngine {
             input_bus_manager: Arc::new(InputBusManager::new(256)),
             // Pre-allocated input buffer (stereo interleaved)
             input_buffer: RwLock::new(vec![0.0f32; 16384]),
+            // Recording manager for multi-track recording
+            recording_manager: Arc::new(RecordingManager::new(sample_rate)),
         }
     }
 
@@ -804,6 +930,11 @@ impl PlaybackEngine {
     /// Get input bus manager reference
     pub fn input_bus_manager(&self) -> &Arc<InputBusManager> {
         &self.input_bus_manager
+    }
+
+    /// Get recording manager reference
+    pub fn recording_manager(&self) -> &Arc<RecordingManager> {
+        &self.recording_manager
     }
 
     /// Initialize unified routing and return the RoutingGraphRT for audio thread
@@ -972,6 +1103,67 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // VARISPEED CONTROL
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Enable/disable varispeed mode
+    /// When enabled, playback speed affects pitch (like tape speed)
+    pub fn set_varispeed_enabled(&self, enabled: bool) {
+        self.varispeed_enabled.store(enabled, Ordering::Relaxed);
+        log::info!("Varispeed {}", if enabled { "enabled" } else { "disabled" });
+    }
+
+    /// Check if varispeed is enabled
+    pub fn is_varispeed_enabled(&self) -> bool {
+        self.varispeed_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Set varispeed rate (0.25 to 4.0, 1.0 = normal speed)
+    /// This affects both playback speed AND pitch (tape-style)
+    pub fn set_varispeed_rate(&self, rate: f64) {
+        let clamped = rate.clamp(0.25, 4.0);
+        self.varispeed_rate.store(clamped.to_bits(), Ordering::Relaxed);
+        log::debug!("Varispeed rate set to {:.2}x", clamped);
+    }
+
+    /// Get current varispeed rate
+    pub fn varispeed_rate(&self) -> f64 {
+        f64::from_bits(self.varispeed_rate.load(Ordering::Relaxed))
+    }
+
+    /// Get effective playback rate (1.0 if varispeed disabled)
+    pub fn effective_playback_rate(&self) -> f64 {
+        if self.varispeed_enabled.load(Ordering::Relaxed) {
+            f64::from_bits(self.varispeed_rate.load(Ordering::Relaxed))
+        } else {
+            1.0
+        }
+    }
+
+    /// Convert semitones to varispeed rate
+    /// +12 semitones = 2.0x, -12 semitones = 0.5x
+    pub fn semitones_to_varispeed(semitones: f64) -> f64 {
+        2.0_f64.powf(semitones / 12.0)
+    }
+
+    /// Convert varispeed rate to semitones
+    /// 2.0x = +12 semitones, 0.5x = -12 semitones
+    pub fn varispeed_to_semitones(rate: f64) -> f64 {
+        12.0 * rate.log2()
+    }
+
+    /// Set varispeed by semitone offset (convenience method)
+    pub fn set_varispeed_semitones(&self, semitones: f64) {
+        let rate = Self::semitones_to_varispeed(semitones);
+        self.set_varispeed_rate(rate);
+    }
+
+    /// Get varispeed rate in semitones
+    pub fn varispeed_semitones(&self) -> f64 {
+        Self::varispeed_to_semitones(self.varispeed_rate())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // INSERT CHAIN MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1035,6 +1227,23 @@ impl PlaybackEngine {
             && let Some(slot) = chain.slot(slot_index) {
                 slot.set_bypass(bypass);
             }
+    }
+
+    /// Set track insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+    pub fn set_track_insert_mix(&self, track_id: u64, slot_index: usize, mix: f64) {
+        if let Some(chain) = self.insert_chains.read().get(&track_id)
+            && let Some(slot) = chain.slot(slot_index) {
+                slot.set_mix(mix);
+            }
+    }
+
+    /// Get track insert slot wet/dry mix
+    pub fn get_track_insert_mix(&self, track_id: u64, slot_index: usize) -> f64 {
+        if let Some(chain) = self.insert_chains.read().get(&track_id)
+            && let Some(slot) = chain.slot(slot_index) {
+                return slot.mix();
+            }
+        1.0 // Default to full wet
     }
 
     /// Get master insert chain
@@ -1138,14 +1347,6 @@ impl PlaybackEngine {
     ) {
         let mut dc = self.delay_comp.write();
         dc.process(track_id as u32, left, right);
-    }
-
-    /// Set mix for track insert slot
-    pub fn set_track_insert_mix(&self, track_id: u64, slot_index: usize, mix: f64) {
-        if let Some(chain) = self.insert_chains.read().get(&track_id)
-            && let Some(slot) = chain.slot(slot_index) {
-                slot.set_mix(mix);
-            }
     }
 
     /// Set parameter on track insert processor (LOCK-FREE via ring buffer)
@@ -1488,8 +1689,78 @@ impl PlaybackEngine {
     }
 
     pub fn stop(&self) {
+        // Stop any active recordings first
+        let recordings = self.recording_manager.stop_all();
+        for (track_id, path) in recordings {
+            log::info!("Recording stopped for track {:?}: {:?}", track_id, path);
+        }
         self.position.set_state(PlaybackState::Stopped);
         self.position.set_samples(0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RECORDING CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Start recording on all armed tracks
+    /// Returns list of (track_id, file_path) for started recordings
+    pub fn record(&self) -> Vec<(TrackId, std::path::PathBuf)> {
+        // Start all armed track recorders
+        let started = self.recording_manager.start_all();
+        // Set state to Recording (which also plays)
+        self.position.set_state(PlaybackState::Recording);
+        started
+    }
+
+    /// Stop recording (but keep playing)
+    pub fn stop_recording(&self) -> Vec<(TrackId, std::path::PathBuf)> {
+        let stopped = self.recording_manager.stop_all();
+        // Switch to playing state (keep playhead moving)
+        if self.position.is_playing() {
+            self.position.set_state(PlaybackState::Playing);
+        }
+        stopped
+    }
+
+    /// Arm track for recording
+    pub fn arm_track(&self, track_id: TrackId, num_channels: u16, track_name: &str) -> bool {
+        self.recording_manager.arm_track(track_id, num_channels, track_name)
+    }
+
+    /// Disarm track
+    pub fn disarm_track(&self, track_id: TrackId) -> bool {
+        self.recording_manager.disarm_track(track_id)
+    }
+
+    /// Check if track is armed
+    pub fn is_track_armed(&self, track_id: TrackId) -> bool {
+        self.recording_manager.is_armed(track_id)
+    }
+
+    /// Check if currently recording
+    pub fn is_recording(&self) -> bool {
+        self.position.is_recording()
+    }
+
+    /// Set recording output directory
+    pub fn set_recording_dir(&self, path: std::path::PathBuf) {
+        self.recording_manager.set_output_dir(path);
+    }
+
+    /// Set punch in/out points
+    pub fn set_punch(&self, punch_in_secs: f64, punch_out_secs: f64) {
+        self.recording_manager.set_punch_times(punch_in_secs, punch_out_secs);
+    }
+
+    /// Set punch mode
+    pub fn set_punch_mode(&self, mode: crate::recording_manager::PunchMode) {
+        self.recording_manager.set_punch_mode(mode);
+    }
+
+    /// Enable/disable pre-roll
+    pub fn set_pre_roll(&self, enabled: bool, bars: u64) {
+        self.recording_manager.set_pre_roll_enabled(enabled);
+        self.recording_manager.set_pre_roll_bars(bars);
     }
 
     pub fn seek(&self, seconds: f64) {
@@ -1498,6 +1769,45 @@ impl PlaybackEngine {
 
     pub fn seek_samples(&self, samples: u64) {
         self.position.set_samples(samples);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCRUBBING (Pro Tools / Cubase style audio preview)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Start scrubbing at given position
+    /// Enables audio preview while dragging in timeline
+    pub fn start_scrub(&self, seconds: f64) {
+        self.position.set_seconds(seconds.max(0.0));
+        self.position.reset_scrub_window();
+        self.position.set_scrub_velocity(0.0);
+        self.position.set_state(PlaybackState::Scrubbing);
+    }
+
+    /// Update scrub position with velocity
+    /// velocity: -4.0 to 4.0, positive = forward, negative = backward
+    pub fn update_scrub(&self, seconds: f64, velocity: f64) {
+        self.position.set_seconds(seconds.max(0.0));
+        self.position.set_scrub_velocity(velocity);
+        self.position.reset_scrub_window();
+    }
+
+    /// Stop scrubbing
+    pub fn stop_scrub(&self) {
+        self.position.set_scrub_velocity(0.0);
+        self.position.set_state(PlaybackState::Stopped);
+    }
+
+    /// Check if currently scrubbing
+    pub fn is_scrubbing(&self) -> bool {
+        self.position.is_scrubbing()
+    }
+
+    /// Set scrub window size in milliseconds (10-200ms)
+    /// Smaller = more responsive but choppier
+    /// Larger = smoother but less precise
+    pub fn set_scrub_window_ms(&self, ms: u64) {
+        self.position.set_scrub_window_ms(ms);
     }
 
     pub fn set_master_volume(&self, volume: f64) {
@@ -1740,8 +2050,44 @@ impl PlaybackEngine {
                                 }
                             }
 
-                            // TODO: Send to RecordingManager if armed
-                            // This will be added in next step once RecordingManager integration is complete
+                            // Send to RecordingManager if track is armed and recording
+                            if track.armed && self.position.is_recording() {
+                                // Check punch in/out
+                                if self.recording_manager.check_punch(start_sample) {
+                                    // Prepare interleaved samples for recording
+                                    // Use stack-allocated buffer for small blocks, heap for larger
+                                    let num_samples = frames_to_copy * 2; // stereo interleaved
+                                    if num_samples <= 2048 {
+                                        // Stack allocation for typical block sizes
+                                        let mut rec_buffer = [0.0f32; 2048];
+                                        for i in 0..frames_to_copy {
+                                            rec_buffer[i * 2] = left[i];
+                                            rec_buffer[i * 2 + 1] = right.as_ref()
+                                                .map(|r| r[i])
+                                                .unwrap_or(left[i]);
+                                        }
+                                        self.recording_manager.write_samples(
+                                            TrackId(track.id.0),
+                                            &rec_buffer[..num_samples],
+                                            start_sample,
+                                        );
+                                    } else {
+                                        // Heap allocation for large blocks (rare)
+                                        let mut rec_buffer = vec![0.0f32; num_samples];
+                                        for i in 0..frames_to_copy {
+                                            rec_buffer[i * 2] = left[i];
+                                            rec_buffer[i * 2 + 1] = right.as_ref()
+                                                .map(|r| r[i])
+                                                .unwrap_or(left[i]);
+                                        }
+                                        self.recording_manager.write_samples(
+                                            TrackId(track.id.0),
+                                            &rec_buffer,
+                                            start_sample,
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1846,33 +2192,78 @@ impl PlaybackEngine {
 
             if self.param_smoother.is_track_smoothing(track.id.0) {
                 // Per-sample processing when smoothing is active
-                for i in 0..frames {
-                    let (volume, pan) = self.param_smoother.advance_track(track.id.0);
-                    let final_volume = volume * vca_gain;
-                    let pan = pan.clamp(-1.0, 1.0);
+                // For stereo tracks, use dual-pan (Pro Tools style)
+                if track.is_stereo() {
+                    // Stereo dual-pan: L channel has own pan, R channel has own pan
+                    let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_l_l = pan_l_angle.cos();
+                    let pan_l_r = pan_l_angle.sin();
 
-                    // Constant power pan
-                    let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
-                    let pan_l = pan_angle.cos();
-                    let pan_r = pan_angle.sin();
+                    let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_r_l = pan_r_angle.cos();
+                    let pan_r_r = pan_r_angle.sin();
 
-                    track_l[i] *= final_volume * pan_l;
-                    track_r[i] *= final_volume * pan_r;
+                    for i in 0..frames {
+                        let (volume, _pan) = self.param_smoother.advance_track(track.id.0);
+                        let final_volume = volume * vca_gain;
+
+                        let l_sample = track_l[i];
+                        let r_sample = track_r[i];
+                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
+                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+                    }
+                } else {
+                    // Mono: single pan knob
+                    for i in 0..frames {
+                        let (volume, pan) = self.param_smoother.advance_track(track.id.0);
+                        let final_volume = volume * vca_gain;
+                        let pan = pan.clamp(-1.0, 1.0);
+
+                        let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                        let pan_l = pan_angle.cos();
+                        let pan_r = pan_angle.sin();
+
+                        track_l[i] *= final_volume * pan_l;
+                        track_r[i] *= final_volume * pan_r;
+                    }
                 }
             } else {
                 // Block processing when no smoothing (fast path)
                 let track_volume = self.get_track_volume_with_automation(track);
                 let final_volume = track_volume * vca_gain;
 
-                let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
-                // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
-                let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4; // 0 to PI/2
-                let pan_l = pan_angle.cos();  // 1 at left, 0.707 at center, 0 at right
-                let pan_r = pan_angle.sin();  // 0 at left, 0.707 at center, 1 at right
+                if track.is_stereo() {
+                    // Stereo dual-pan: L channel has own pan, R channel has own pan
+                    // Pro Tools style: each channel panned independently
+                    let pan_l = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
+                    let pan_r = track.pan_right.clamp(-1.0, 1.0);
 
-                for i in 0..frames {
-                    track_l[i] *= final_volume * pan_l;
-                    track_r[i] *= final_volume * pan_r;
+                    let pan_l_angle = (pan_l + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_l_l = pan_l_angle.cos(); // L input to L output
+                    let pan_l_r = pan_l_angle.sin(); // L input to R output
+
+                    let pan_r_angle = (pan_r + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_r_l = pan_r_angle.cos(); // R input to L output
+                    let pan_r_r = pan_r_angle.sin(); // R input to R output
+
+                    for i in 0..frames {
+                        let l_sample = track_l[i];
+                        let r_sample = track_r[i];
+                        // Mix: L out = L*pan_l_l + R*pan_r_l, R out = L*pan_l_r + R*pan_r_r
+                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
+                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+                    }
+                } else {
+                    // Mono: single pan knob - constant power pan
+                    let pan = self.get_track_pan_with_automation(track).clamp(-1.0, 1.0);
+                    let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_l = pan_angle.cos();
+                    let pan_r = pan_angle.sin();
+
+                    for i in 0..frames {
+                        track_l[i] *= final_volume * pan_l;
+                        track_r[i] *= final_volume * pan_r;
+                    }
                 }
             }
 
@@ -2147,8 +2538,14 @@ impl PlaybackEngine {
             cue.update_peaks();
         }
 
-        // Advance position
-        self.position.advance(frames as u64);
+        // Advance position (only if not scrubbing - scrub position is controlled externally)
+        if self.position.should_advance() {
+            let varispeed_rate = self.effective_playback_rate();
+            self.position.advance_with_rate(frames as u64, varispeed_rate);
+        } else if self.position.is_scrubbing() {
+            // During scrubbing, advance within the scrub window (loops automatically)
+            self.position.advance_scrub(frames as u64);
+        }
 
         // Sync automation position
         if let Some(automation) = &self.automation {
@@ -2311,10 +2708,41 @@ impl PlaybackEngine {
                 );
             }
 
+            // Apply dual-pan for stereo tracks BEFORE feeding to routing graph
+            // Pro Tools style: L channel has own pan, R channel has own pan
+            if track.is_stereo() {
+                // Constant power panning for each channel independently
+                let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_l_l = pan_l_angle.cos(); // L input to L output
+                let pan_l_r = pan_l_angle.sin(); // L input to R output
+
+                let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_r_l = pan_r_angle.cos(); // R input to L output
+                let pan_r_r = pan_r_angle.sin(); // R input to R output
+
+                for i in 0..frames {
+                    let l_sample = track_l[i];
+                    let r_sample = track_r[i];
+                    // Mix both inputs to both outputs based on their pan positions
+                    track_l[i] = l_sample * pan_l_l + r_sample * pan_r_l;
+                    track_r[i] = l_sample * pan_l_r + r_sample * pan_r_r;
+                }
+            }
+            // Note: Mono tracks use routing graph's pan (single pan knob)
+
             // Feed track audio to its routing graph channel
             // Channel ID maps to track ID (will be created on demand)
             let channel_id = ChannelId(track.id.0 as u32);
             if let Some(channel) = routing.graph.get_mut(channel_id) {
+                // Set pan mode based on track type
+                // Stereo tracks use external dual-pan (applied above), so routing bypasses pan
+                // Mono tracks use routing's standard pan
+                use crate::routing::PanMode;
+                if track.is_stereo() {
+                    channel.set_pan_mode(PanMode::ExternalDualPan);
+                } else {
+                    channel.set_pan_mode(PanMode::Standard);
+                }
                 channel.add_to_input(track_l, track_r);
             }
         }
@@ -2333,8 +2761,14 @@ impl PlaybackEngine {
         // Process control room monitoring
         self.control_room.process_monitor_output(output_l, output_r);
 
-        // Advance position
-        self.position.advance(frames as u64);
+        // Advance position (only if not scrubbing - scrub position is controlled externally)
+        if self.position.should_advance() {
+            let varispeed_rate = self.effective_playback_rate();
+            self.position.advance_with_rate(frames as u64, varispeed_rate);
+        } else if self.position.is_scrubbing() {
+            // During scrubbing, advance within the scrub window (loops automatically)
+            self.position.advance_scrub(frames as u64);
+        }
 
         // Sync automation position
         if let Some(automation) = &self.automation {
@@ -2483,15 +2917,45 @@ impl PlaybackEngine {
             let track_volume = self.get_track_volume_with_automation(track);
             let vca_gain = self.get_vca_gain(track.id.0);
             let final_volume = track_volume * vca_gain;
-            let pan = track.pan;
-            // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
-            let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
-            let pan_l = pan_angle.cos();
-            let pan_r = pan_angle.sin();
 
-            for i in 0..frames {
-                track_l[i] *= final_volume * pan_l;
-                track_r[i] *= final_volume * pan_r;
+            // Pro Tools dual-pan for stereo, single pan for mono
+            // Debug: Log pan values periodically
+            static DEBUG_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let count = DEBUG_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if count.is_multiple_of(48000) {
+                eprintln!("[PLAYBACK] Track {} channels={}, is_stereo={}, pan={:.2}, pan_right={:.2}",
+                    track.id.0, track.channels, track.is_stereo(), track.pan, track.pan_right);
+            }
+
+            if track.is_stereo() {
+                // Dual pan: L channel controlled by pan, R channel by pan_right
+                // Constant power pan for each channel independently
+                let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_l_l = pan_l_angle.cos(); // L channel to L output
+                let pan_l_r = pan_l_angle.sin(); // L channel to R output
+
+                let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_r_l = pan_r_angle.cos(); // R channel to L output
+                let pan_r_r = pan_r_angle.sin(); // R channel to R output
+
+                for i in 0..frames {
+                    let l_sample = track_l[i];
+                    let r_sample = track_r[i];
+                    // Mix: L output = L*pan_l_l + R*pan_r_l, R output = L*pan_l_r + R*pan_r_r
+                    track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
+                    track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+                }
+            } else {
+                // Mono: single pan knob, standard constant power pan
+                let pan = track.pan;
+                let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_l = pan_angle.cos();
+                let pan_r = pan_angle.sin();
+
+                for i in 0..frames {
+                    track_l[i] *= final_volume * pan_l;
+                    track_r[i] *= final_volume * pan_r;
+                }
             }
 
             // Route to bus
@@ -2520,6 +2984,122 @@ impl PlaybackEngine {
         }
 
         master_insert.process_post_fader(output_l, output_r);
+    }
+
+    /// Process a single track offline (for stems export)
+    ///
+    /// Renders a single track with all its clips, fades, volume, pan, and insert chain.
+    /// Does NOT include master bus processing or routing to buses.
+    pub fn process_track_offline(
+        &self,
+        track_id: u64,
+        start_sample: usize,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+    ) {
+        let frames = output_l.len();
+
+        // Clear output buffers
+        output_l.fill(0.0);
+        output_r.fill(0.0);
+
+        // Get track
+        let track = match self.track_manager.tracks.get(&TrackId(track_id)) {
+            Some(t) => t,
+            None => return,
+        };
+
+        if track.muted {
+            return;
+        }
+
+        let sample_rate = self.position.sample_rate() as f64;
+        let start_time = start_sample as f64 / sample_rate;
+        let end_time = (start_sample + frames) as f64 / sample_rate;
+
+        // Collect crossfades for this track
+        let crossfades_snapshot: Vec<Crossfade> = self.track_manager.crossfades
+            .iter()
+            .filter(|entry| {
+                let xf = entry.value();
+                xf.track_id == TrackId(track_id) && xf.start_time < end_time && xf.end_time() > start_time
+            })
+            .map(|entry| entry.value().clone())
+            .collect();
+
+        let track_crossfades: Vec<&Crossfade> = crossfades_snapshot.iter().collect();
+
+        // Process clips
+        for clip_entry in self.track_manager.clips.iter() {
+            let clip = clip_entry.value();
+            if clip.track_id != track.id || clip.muted {
+                continue;
+            }
+
+            if !clip.overlaps(start_time, end_time) {
+                continue;
+            }
+
+            // Get cached audio
+            let audio = match self.cache.get(&clip.source_file) {
+                Some(a) => a,
+                None => continue,
+            };
+
+            let active_xf = track_crossfades
+                .iter()
+                .find(|xf| xf.clip_a_id == clip.id || xf.clip_b_id == clip.id)
+                .copied();
+
+            self.process_clip_with_crossfade(
+                clip,
+                &track,
+                &audio,
+                active_xf,
+                start_sample as u64,
+                sample_rate,
+                output_l,
+                output_r,
+            );
+        }
+
+        // Apply track volume and pan
+        let track_volume = self.get_track_volume_with_automation(&track);
+        let vca_gain = self.get_vca_gain(track.id.0);
+        let final_volume = track_volume * vca_gain;
+
+        if track.is_stereo() {
+            let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_l_l = pan_l_angle.cos();
+            let pan_l_r = pan_l_angle.sin();
+
+            let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_r_l = pan_r_angle.cos();
+            let pan_r_r = pan_r_angle.sin();
+
+            for i in 0..frames {
+                let l_sample = output_l[i];
+                let r_sample = output_r[i];
+                output_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
+                output_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+            }
+        } else {
+            let pan_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+            let pan_l = pan_angle.cos();
+            let pan_r = pan_angle.sin();
+
+            for i in 0..frames {
+                output_l[i] *= final_volume * pan_l;
+                output_r[i] *= final_volume * pan_r;
+            }
+        }
+
+        // Apply track insert chain
+        let mut insert_chains = self.insert_chains.write();
+        if let Some(chain) = insert_chains.get_mut(&track_id) {
+            chain.process_pre_fader(output_l, output_r);
+            chain.process_post_fader(output_l, output_r);
+        }
     }
 
     /// Process a single clip into output buffers (without crossfade)
@@ -2901,7 +3481,7 @@ mod tests {
 
         // Should wrap to somewhere in loop region
         let time = pos.seconds();
-        assert!(time >= 1.0 && time < 2.0);
+        assert!((1.0..2.0).contains(&time));
     }
 
     #[test]

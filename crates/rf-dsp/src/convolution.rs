@@ -686,7 +686,7 @@ mod tests {
         let scheme = PartitionScheme::non_uniform(10000, 64);
         assert_eq!(scheme.min_size(), 64);
         // Should have small partitions first, then larger
-        assert!(scheme.sizes.len() > 0);
+        assert!(!scheme.sizes.is_empty());
     }
 
     #[test]

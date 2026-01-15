@@ -225,6 +225,11 @@ impl AutomationLane {
         }
     }
 
+    /// Get mutable access to all points
+    pub fn points_mut(&mut self) -> &mut Vec<AutomationPoint> {
+        &mut self.points
+    }
+
     /// Get all points within sample range (for sample-accurate automation)
     pub fn points_in_range(&self, start_sample: u64, end_sample: u64) -> impl Iterator<Item = &AutomationPoint> {
         self.points
@@ -489,6 +494,18 @@ impl AutomationEngine {
         F: FnOnce(&mut AutomationLane) -> R,
     {
         self.lanes.write().get_mut(param_id).map(f)
+    }
+
+    /// Modify lane, creating it if it doesn't exist
+    pub fn with_lane_or_create<F, R>(&self, param_id: &ParamId, name: &str, f: F) -> R
+    where
+        F: FnOnce(&mut AutomationLane) -> R,
+    {
+        let mut lanes = self.lanes.write();
+        let lane = lanes.entry(param_id.clone()).or_insert_with(|| {
+            AutomationLane::new(param_id.clone(), name)
+        });
+        f(lane)
     }
 
     /// Add point to lane
@@ -1013,6 +1030,52 @@ impl AutomationBlock {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SAMPLE-ACCURATE AUTOMATION (Phase 4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl AutomationEngine {
+    /// Get all automation changes within a block (for sample-accurate processing)
+    /// Returns changes sorted by sample_offset
+    /// Lock-free — uses try_read() to avoid blocking audio thread
+    pub fn get_block_changes(
+        &self,
+        start_sample: u64,
+        block_size: usize,
+    ) -> Vec<AutomationChange> {
+        // Try to read lanes without blocking
+        let lanes = match self.lanes.try_read() {
+            Some(l) => l,
+            None => {
+                // Lock contention - skip automation this block
+                return Vec::new();
+            }
+        };
+
+        let end_sample = start_sample + block_size as u64;
+        let mut changes = Vec::new();
+
+        // Collect all automation points in this block
+        for (param_id, lane) in lanes.iter() {
+            if !lane.enabled {
+                continue;
+            }
+
+            for point in lane.points_in_range(start_sample, end_sample) {
+                changes.push(AutomationChange {
+                    sample_offset: (point.time_samples - start_sample) as usize,
+                    param_id: param_id.clone(),
+                    value: point.value,
+                });
+            }
+        }
+
+        // Sort by sample offset for sequential application
+        changes.sort_by_key(|c| c.sample_offset);
+        changes
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1111,51 +1174,5 @@ mod tests {
         let mid_value = lane.value_at(24000);
         // With S-shaped bezier, midpoint should be around 0.5
         assert!(mid_value > 0.4 && mid_value < 0.6);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SAMPLE-ACCURATE AUTOMATION (Phase 4)
-// ═══════════════════════════════════════════════════════════════════════════
-
-impl AutomationEngine {
-    /// Get all automation changes within a block (for sample-accurate processing)
-    /// Returns changes sorted by sample_offset
-    /// Lock-free — uses try_read() to avoid blocking audio thread
-    pub fn get_block_changes(
-        &self,
-        start_sample: u64,
-        block_size: usize,
-    ) -> Vec<AutomationChange> {
-        // Try to read lanes without blocking
-        let lanes = match self.lanes.try_read() {
-            Some(l) => l,
-            None => {
-                // Lock contention - skip automation this block
-                return Vec::new();
-            }
-        };
-
-        let end_sample = start_sample + block_size as u64;
-        let mut changes = Vec::new();
-
-        // Collect all automation points in this block
-        for (param_id, lane) in lanes.iter() {
-            if !lane.enabled {
-                continue;
-            }
-
-            for point in lane.points_in_range(start_sample, end_sample) {
-                changes.push(AutomationChange {
-                    sample_offset: (point.time_samples - start_sample) as usize,
-                    param_id: param_id.clone(),
-                    value: point.value,
-                });
-            }
-        }
-
-        // Sort by sample offset for sequential application
-        changes.sort_by_key(|c| c.sample_offset);
-        changes
     }
 }

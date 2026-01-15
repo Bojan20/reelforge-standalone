@@ -40,6 +40,7 @@ class LeftZone extends StatefulWidget {
   final ChannelStripData? channelData;
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
+  final void Function(String channelId, double pan)? onChannelPanRightChange;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
@@ -50,6 +51,10 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
   final void Function(String channelId)? onChannelInputClick;
+  final void Function(String channelId, int slotIndex, bool bypassed)? onChannelInsertBypassToggle;
+  final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryChange;
+  final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
+  final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
 
   // Clip inspector (combined with Channel)
   final timeline.TimelineClip? selectedClip;
@@ -73,6 +78,7 @@ class LeftZone extends StatefulWidget {
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
+    this.onChannelPanRightChange,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelInsertClick,
@@ -83,6 +89,10 @@ class LeftZone extends StatefulWidget {
     this.onChannelEQToggle,
     this.onChannelOutputClick,
     this.onChannelInputClick,
+    this.onChannelInsertBypassToggle,
+    this.onChannelInsertWetDryChange,
+    this.onChannelInsertRemove,
+    this.onChannelInsertOpenEditor,
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
@@ -263,6 +273,7 @@ class _LeftZoneState extends State<LeftZone> {
       channel: widget.channelData,
       onVolumeChange: widget.onChannelVolumeChange,
       onPanChange: widget.onChannelPanChange,
+      onPanRightChange: widget.onChannelPanRightChange,
       onMuteToggle: widget.onChannelMuteToggle,
       onSoloToggle: widget.onChannelSoloToggle,
       onArmToggle: widget.onChannelArmToggle,
@@ -273,6 +284,10 @@ class _LeftZoneState extends State<LeftZone> {
       onEqClick: widget.onChannelEQToggle,
       onOutputClick: widget.onChannelOutputClick,
       onInputClick: widget.onChannelInputClick,
+      onInsertBypassToggle: widget.onChannelInsertBypassToggle,
+      onInsertWetDryChange: widget.onChannelInsertWetDryChange,
+      onInsertRemove: widget.onChannelInsertRemove,
+      onInsertOpenEditor: widget.onChannelInsertOpenEditor,
       selectedClip: widget.selectedClip,
       selectedClipTrack: widget.selectedClipTrack,
       onClipChanged: widget.onClipChanged,

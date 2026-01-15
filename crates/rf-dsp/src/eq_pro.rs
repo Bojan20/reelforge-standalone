@@ -187,6 +187,8 @@ impl SvfCore {
     }
 
     /// Process with precomputed coefficients
+    /// Note: 7 coefficients are standard for SVF implementation (a1, a2, a3, m0, m1, m2)
+    #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     pub fn process(
         &mut self,

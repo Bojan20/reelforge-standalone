@@ -327,6 +327,6 @@ mod tests {
 
         let corr = wsola.cross_correlation(&signal, 0, &signal);
         // Just verify it returns a valid normalized correlation [-1, 1]
-        assert!(corr >= -1.0 && corr <= 1.0, "correlation was {}", corr);
+        assert!((-1.0..=1.0).contains(&corr), "correlation was {}", corr);
     }
 }

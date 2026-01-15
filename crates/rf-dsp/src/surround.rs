@@ -678,7 +678,7 @@ mod tests {
         let mut encoder = AmbisonicsEncoder::new();
         encoder.set_position(0.0, 0.0); // Front center
 
-        let [w, x, y, z] = encoder.encode_foa(1.0);
+        let [_w, x, y, z] = encoder.encode_foa(1.0);
 
         // Front center should have positive X, zero Y
         assert!(x > 0.9);

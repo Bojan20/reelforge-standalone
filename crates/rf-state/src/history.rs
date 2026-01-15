@@ -136,6 +136,9 @@ fn current_timestamp() -> u64 {
 
 // ============ History Browser ============
 
+/// Callback type for history changes
+pub type HistoryChangeCallback = Box<dyn Fn(&HistoryEntry) + Send + Sync>;
+
 /// Maximum history entries
 pub const MAX_HISTORY_ENTRIES: usize = 1000;
 
@@ -157,7 +160,7 @@ pub struct HistoryBrowser {
     /// Last auto-snapshot time
     last_auto_snapshot: u64,
     /// History modified callback
-    on_change: Option<Box<dyn Fn(&HistoryEntry) + Send + Sync>>,
+    on_change: Option<HistoryChangeCallback>,
 }
 
 impl HistoryBrowser {

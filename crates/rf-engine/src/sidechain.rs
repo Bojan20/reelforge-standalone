@@ -236,7 +236,7 @@ impl SidechainInput {
                 SidechainSource::Internal => (internal_left[i], internal_right[i]),
                 SidechainSource::External(_) => {
                     // Mix internal and external based on mix parameter
-                    let mix = self.mix.next();
+                    let mix = self.mix.next_value();
                     let int_left = internal_left[i];
                     let int_right = internal_right[i];
                     let ext_left = self.external_left.get(i).copied().unwrap_or(0.0);
@@ -260,7 +260,7 @@ impl SidechainInput {
             };
 
             // Apply gain
-            let gain = self.gain.next();
+            let gain = self.gain.next_value();
             let gained_left = base_left * gain;
             let gained_right = base_right * gain;
 
@@ -287,8 +287,8 @@ impl SidechainInput {
             };
 
             // Advance smoothing
-            self.filter_freq.next();
-            self.filter_q.next();
+            self.filter_freq.next_value();
+            self.filter_q.next_value();
 
             output_left[i] = filtered_left;
             output_right[i] = filtered_right;

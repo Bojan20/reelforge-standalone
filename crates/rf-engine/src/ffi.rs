@@ -565,10 +565,41 @@ pub extern "C" fn engine_set_track_volume(track_id: u64, volume: f64) -> i32 {
 }
 
 /// Set track pan (-1.0 to 1.0)
+/// For stereo tracks with dual-pan, this controls the left channel
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_pan(track_id: u64, pan: f64) -> i32 {
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
         track.pan = pan.clamp(-1.0, 1.0);
+    });
+    1
+}
+
+/// Set track right channel pan (-1.0 to 1.0)
+/// For stereo tracks with dual-pan (Pro Tools style), this controls the right channel
+/// For mono tracks, this is ignored
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_track_pan_right(track_id: u64, pan: f64) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.pan_right = pan.clamp(-1.0, 1.0);
+    });
+    1
+}
+
+/// Get track channel count (1 = mono, 2 = stereo)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_channels(track_id: u64) -> u32 {
+    TRACK_MANAGER
+        .tracks
+        .get(&TrackId(track_id))
+        .map(|t| t.channels)
+        .unwrap_or(2) // Default to stereo
+}
+
+/// Set track channel count (affects pan behavior)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_track_channels(track_id: u64, channels: u32) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.channels = channels.clamp(1, 8); // 1-8 channels
     });
     1
 }
@@ -898,6 +929,23 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
 
     let duration = imported.duration_secs;
     let name = imported.name.clone();
+    let channels = imported.channels;
+
+    // Update track channel count based on imported audio
+    // This ensures dual-pan works correctly for stereo files
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.channels = channels as u32;
+        // Set Pro Tools dual-pan defaults based on channel count
+        if channels >= 2 {
+            // Stereo: L hard left, R hard right
+            track.pan = -1.0;
+            track.pan_right = 1.0;
+        } else {
+            // Mono: center
+            track.pan = 0.0;
+            track.pan_right = 0.0;
+        }
+    });
 
     eprintln!("[FFI Import] STEP 6: Creating clip for track {}", track_id);
 
@@ -1635,6 +1683,41 @@ pub extern "C" fn engine_seek_samples(samples: u64) {
     PLAYBACK_ENGINE.seek_samples(samples);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCRUBBING (Pro Tools / Cubase style audio preview on drag)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Start scrubbing at given position (enables audio preview while dragging)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_start_scrub(seconds: f64) {
+    PLAYBACK_ENGINE.start_scrub(seconds);
+}
+
+/// Update scrub position with velocity
+/// velocity: -4.0 to 4.0, positive = forward, negative = backward
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_update_scrub(seconds: f64, velocity: f64) {
+    PLAYBACK_ENGINE.update_scrub(seconds, velocity);
+}
+
+/// Stop scrubbing
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_stop_scrub() {
+    PLAYBACK_ENGINE.stop_scrub();
+}
+
+/// Check if currently scrubbing
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_is_scrubbing() -> i32 {
+    if PLAYBACK_ENGINE.is_scrubbing() { 1 } else { 0 }
+}
+
+/// Set scrub window size in milliseconds (10-200ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_scrub_window_ms(ms: u32) {
+    PLAYBACK_ENGINE.set_scrub_window_ms(ms as u64);
+}
+
 /// Get current playback position in seconds
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_position() -> f64 {
@@ -1669,6 +1752,52 @@ pub extern "C" fn engine_set_master_volume(volume: f64) {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_master_volume() -> f64 {
     PLAYBACK_ENGINE.master_volume()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VARISPEED CONTROL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Enable/disable varispeed mode (tape-style speed with pitch change)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_varispeed_enabled(enabled: i32) {
+    PLAYBACK_ENGINE.set_varispeed_enabled(enabled != 0);
+}
+
+/// Check if varispeed is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_is_varispeed_enabled() -> i32 {
+    if PLAYBACK_ENGINE.is_varispeed_enabled() { 1 } else { 0 }
+}
+
+/// Set varispeed rate (0.25 to 4.0, 1.0 = normal)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_varispeed_rate(rate: f64) {
+    PLAYBACK_ENGINE.set_varispeed_rate(rate);
+}
+
+/// Get current varispeed rate
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_varispeed_rate() -> f64 {
+    PLAYBACK_ENGINE.varispeed_rate()
+}
+
+/// Set varispeed by semitone offset (+12 = 2x, -12 = 0.5x)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_varispeed_semitones(semitones: f64) {
+    PLAYBACK_ENGINE.set_varispeed_semitones(semitones);
+}
+
+/// Get varispeed rate in semitones
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_varispeed_semitones() -> f64 {
+    PLAYBACK_ENGINE.varispeed_semitones()
+}
+
+/// Get effective playback rate (1.0 if varispeed disabled, actual rate if enabled)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_effective_playback_rate() -> f64 {
+    PLAYBACK_ENGINE.effective_playback_rate()
 }
 
 /// Get current playback position in seconds (sample-accurate)
@@ -2743,6 +2872,88 @@ pub extern "C" fn automation_add_point(
     AUTOMATION_ENGINE.add_point(&param_id, point);
 }
 
+/// Add automation point with bezier control points
+/// curve_type: 0=Linear, 1=Bezier, 2=Exponential, 3=Logarithmic, 4=Step, 5=SCurve
+/// cp1_x, cp1_y: First control point (normalized 0-1)
+/// cp2_x, cp2_y: Second control point (normalized 0-1)
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_add_point_bezier(
+    track_id: u64,
+    param_name: *const c_char,
+    time_samples: u64,
+    value: f64,
+    cp1_x: f64,
+    cp1_y: f64,
+    cp2_x: f64,
+    cp2_y: f64,
+) {
+    use crate::automation::{AutomationPoint, ParamId, TargetType};
+    let name = if param_name.is_null() {
+        "volume".to_string()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(param_name) }
+            .to_string_lossy()
+            .into_owned()
+    };
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Track,
+        param_name: name.clone(),
+        slot: None,
+    };
+
+    // Ensure lane exists
+    AUTOMATION_ENGINE.get_or_create_lane(param_id.clone(), &name);
+
+    let point = AutomationPoint::new(time_samples, value)
+        .with_bezier((cp1_x, cp1_y), (cp2_x, cp2_y));
+    AUTOMATION_ENGINE.add_point(&param_id, point);
+}
+
+/// Set curve type for existing automation point
+/// Returns 1 on success, 0 if point not found
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_set_point_curve(
+    track_id: u64,
+    param_name: *const c_char,
+    time_samples: u64,
+    curve_type: u8,
+) -> i32 {
+    use crate::automation::{CurveType, ParamId, TargetType};
+    let name = if param_name.is_null() {
+        "volume".to_string()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(param_name) }
+            .to_string_lossy()
+            .into_owned()
+    };
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Track,
+        param_name: name,
+        slot: None,
+    };
+
+    let curve = match curve_type {
+        0 => CurveType::Linear,
+        1 => CurveType::Bezier,
+        2 => CurveType::Exponential,
+        3 => CurveType::Logarithmic,
+        4 => CurveType::Step,
+        5 => CurveType::SCurve,
+        _ => CurveType::Linear,
+    };
+
+    AUTOMATION_ENGINE.with_lane(&param_id, |lane| {
+        if let Some(point) = lane.points_mut().iter_mut().find(|p| p.time_samples == time_samples) {
+            point.curve = curve;
+            1
+        } else {
+            0
+        }
+    }).unwrap_or(0)
+}
+
 /// Get automation value at position
 #[unsafe(no_mangle)]
 pub extern "C" fn automation_get_value(
@@ -2793,68 +3004,126 @@ pub extern "C" fn automation_clear_lane(track_id: u64, param_name: *const c_char
     AUTOMATION_ENGINE.with_lane(&param_id, |lane| lane.clear());
 }
 
+/// Add automation point for plugin parameter
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_add_plugin_point(
+    track_id: u64,
+    slot: u32,
+    param_index: u32,
+    time_samples: u64,
+    value: f64,
+    curve_type: u8,
+) -> i32 {
+    use crate::automation::{AutomationPoint, CurveType, ParamId, TargetType};
+
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Plugin,
+        param_name: format!("param_{}", param_index),
+        slot: Some(slot),
+    };
+
+    let curve = match curve_type {
+        0 => CurveType::Linear,
+        1 => CurveType::Bezier,
+        2 => CurveType::Exponential,
+        3 => CurveType::Logarithmic,
+        4 => CurveType::Step,
+        5 => CurveType::SCurve,
+        _ => CurveType::Linear,
+    };
+
+    let point = AutomationPoint::new(time_samples, value).with_curve(curve);
+
+    AUTOMATION_ENGINE.with_lane_or_create(&param_id, &format!("Plugin {} Param {}", slot, param_index), |lane| {
+        lane.add_point(point);
+    });
+
+    1
+}
+
+/// Get automated plugin parameter value at sample position
+/// Returns the interpolated value (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_get_plugin_value(
+    track_id: u64,
+    slot: u32,
+    param_index: u32,
+    time_samples: u64,
+) -> f64 {
+    use crate::automation::{ParamId, TargetType};
+
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Plugin,
+        param_name: format!("param_{}", param_index),
+        slot: Some(slot),
+    };
+
+    let mut value = -1.0;
+    AUTOMATION_ENGINE.with_lane(&param_id, |lane| {
+        value = lane.value_at(time_samples);
+    });
+    value
+}
+
+/// Clear automation lane for plugin parameter
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_clear_plugin_lane(track_id: u64, slot: u32, param_index: u32) {
+    use crate::automation::{ParamId, TargetType};
+
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Plugin,
+        param_name: format!("param_{}", param_index),
+        slot: Some(slot),
+    };
+
+    AUTOMATION_ENGINE.with_lane(&param_id, |lane| lane.clear());
+}
+
+/// Touch plugin parameter (start automation recording)
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_touch_plugin(track_id: u64, slot: u32, param_index: u32, value: f64) {
+    use crate::automation::{ParamId, TargetType};
+
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Plugin,
+        param_name: format!("param_{}", param_index),
+        slot: Some(slot),
+    };
+
+    AUTOMATION_ENGINE.touch_param(param_id, value);
+}
+
+/// Release plugin parameter (stop automation recording for this param)
+#[unsafe(no_mangle)]
+pub extern "C" fn automation_release_plugin(track_id: u64, slot: u32, param_index: u32) {
+    use crate::automation::{ParamId, TargetType};
+
+    let param_id = ParamId {
+        target_id: track_id,
+        target_type: TargetType::Plugin,
+        param_name: format!("param_{}", param_index),
+        slot: Some(slot),
+    };
+
+    AUTOMATION_ENGINE.release_param(&param_id);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // INSERT EFFECTS FFI
 // ═══════════════════════════════════════════════════════════════════════════
-
-lazy_static::lazy_static! {
-    static ref INSERT_CHAINS: parking_lot::RwLock<std::collections::HashMap<u64, crate::insert_chain::InsertChain>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
-
-/// Create insert chain for a track
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_create_chain(track_id: u64) {
-    let mut chains = INSERT_CHAINS.write();
-    chains.entry(track_id).or_insert_with(|| crate::insert_chain::InsertChain::new(48000.0));
-}
-
-/// Remove insert chain
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_remove_chain(track_id: u64) {
-    let mut chains = INSERT_CHAINS.write();
-    chains.remove(&track_id);
-}
-
-/// Set insert slot bypass
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_set_bypass(track_id: u64, slot: u32, bypass: i32) {
-    let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id)
-        && let Some(slot_ref) = chain.slot(slot as usize) {
-            slot_ref.set_bypass(bypass != 0);
-        }
-}
-
-/// Set insert slot wet/dry mix
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_set_mix(track_id: u64, slot: u32, mix: f64) {
-    let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id)
-        && let Some(slot_ref) = chain.slot(slot as usize) {
-            slot_ref.set_mix(mix);
-        }
-}
-
-/// Bypass all inserts on track
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_bypass_all(track_id: u64, bypass: i32) {
-    let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id) {
-        chain.bypass_all(bypass != 0);
-    }
-}
-
-/// Get total latency of insert chain (samples)
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_get_total_latency(track_id: u64) -> u32 {
-    let chains = INSERT_CHAINS.read();
-    if let Some(chain) = chains.get(&track_id) {
-        chain.total_latency() as u32
-    } else {
-        0
-    }
-}
+// NOTE: Insert chain FFI functions are defined in rf-bridge/src/api.rs
+// They use PlaybackEngine methods for proper integration with the audio graph.
+// The functions exported are:
+//   - insert_create_chain, insert_remove_chain
+//   - ffi_insert_set_bypass, ffi_insert_set_mix
+//   - ffi_insert_bypass_all, ffi_insert_get_total_latency
+//   - insert_load_processor, insert_unload_processor
+// ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRANSIENT DETECTION FFI
@@ -3538,17 +3807,17 @@ pub extern "C" fn eq_set_bypass(track_id: u32, bypass: i32) -> i32 {
 /// Compressor insert slot index
 const COMP_SLOT_INDEX: usize = 1;
 
-/// Compressor parameter indices:
-/// - 0 = threshold (dB)
-/// - 1 = ratio
-/// - 2 = attack (ms)
-/// - 3 = release (ms)
-/// - 4 = makeup (dB)
-/// - 5 = mix (0.0-1.0)
-/// - 6 = link (0.0-1.0)
-/// - 7 = type (0=VCA, 1=Opto, 2=FET)
+// Compressor parameter indices:
+// - 0 = threshold (dB)
+// - 1 = ratio
+// - 2 = attack (ms)
+// - 3 = release (ms)
+// - 4 = makeup (dB)
+// - 5 = mix (0.0-1.0)
+// - 6 = link (0.0-1.0)
+// - 7 = type (0=VCA, 1=Opto, 2=FET)
 
-/// Ensure Compressor is loaded into track's insert chain
+// Ensure Compressor is loaded into track's insert chain
 fn ensure_compressor_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, COMP_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -3655,13 +3924,13 @@ pub extern "C" fn comp_set_bypass(track_id: u32, bypass: i32) -> i32 {
 /// Limiter insert slot index
 const LIMITER_SLOT_INDEX: usize = 2;
 
-/// Limiter parameter indices:
-/// - 0 = threshold (dB)
-/// - 1 = ceiling (dB)
-/// - 2 = release (ms)
-/// - 3 = oversampling (0=1x, 1=2x, 2=4x)
+// Limiter parameter indices:
+// - 0 = threshold (dB)
+// - 1 = ceiling (dB)
+// - 2 = release (ms)
+// - 3 = oversampling (0=1x, 1=2x, 2=4x)
 
-/// Ensure Limiter is loaded into track's insert chain
+// Ensure Limiter is loaded into track's insert chain
 fn ensure_limiter_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, LIMITER_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -3728,14 +3997,14 @@ pub extern "C" fn track_limiter_set_bypass(track_id: u32, bypass: i32) -> i32 {
 /// Gate insert slot index
 const GATE_SLOT_INDEX: usize = 3;
 
-/// Gate parameter indices:
-/// - 0 = threshold (dB)
-/// - 1 = range (dB)
-/// - 2 = attack (ms)
-/// - 3 = hold (ms)
-/// - 4 = release (ms)
+// Gate parameter indices:
+// - 0 = threshold (dB)
+// - 1 = range (dB)
+// - 2 = attack (ms)
+// - 3 = hold (ms)
+// - 4 = release (ms)
 
-/// Ensure Gate is loaded into track's insert chain
+// Ensure Gate is loaded into track's insert chain
 fn ensure_gate_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, GATE_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -3812,12 +4081,12 @@ pub extern "C" fn track_gate_set_bypass(track_id: u32, bypass: i32) -> i32 {
 /// Expander insert slot index (post-fader)
 const EXPANDER_SLOT_INDEX: usize = 4;
 
-/// Expander parameter indices:
-/// - 0 = threshold (dB)
-/// - 1 = ratio
-/// - 2 = knee (dB)
+// Expander parameter indices:
+// - 0 = threshold (dB)
+// - 1 = ratio
+// - 2 = knee (dB)
 
-/// Ensure Expander is loaded into track's insert chain
+// Ensure Expander is loaded into track's insert chain
 fn ensure_expander_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, EXPANDER_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -4030,6 +4299,42 @@ pub extern "C" fn insert_is_loaded(track_id: u32, slot_index: u32) -> i32 {
     })
 }
 
+/// Open plugin editor window for insert slot
+/// Returns 0 on success, -1 if slot is empty or doesn't support editor
+/// track_id=0 means master bus, others are audio track IDs
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_open_editor(track_id: u32, slot_index: u32) -> i32 {
+    ffi_panic_guard!(-1, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return -1,
+        };
+
+        // Check if slot is loaded
+        let has_insert = if track_id == 0 {
+            PLAYBACK_ENGINE.has_master_insert(slot_index)
+        } else {
+            PLAYBACK_ENGINE.has_track_insert(track_id as u64, slot_index)
+        };
+
+        if !has_insert {
+            log::warn!("insert_open_editor: No processor in track {} slot {}", track_id, slot_index);
+            return -1;
+        }
+
+        // TODO: For now, just log the request. Plugin editor GUI requires
+        // platform-specific window handling which will be implemented
+        // in rf-plugin crate with nih-plug editor support
+        log::info!(
+            "insert_open_editor: Opening editor for track {} slot {} (stub - editor GUI pending)",
+            track_id, slot_index
+        );
+
+        // Return success - editor opening will be async in future implementation
+        0
+    })
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PULTEC EQ FFI - Vintage tube EQ
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4042,7 +4347,6 @@ const PULTEC_SLOT_INDEX: usize = 5;
 /// - 1 = low atten (dB)
 /// - 2 = high boost (dB)
 /// - 3 = high atten (dB)
-
 fn ensure_pultec_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, PULTEC_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -4103,7 +4407,6 @@ const API550_SLOT_INDEX: usize = 6;
 /// - 0 = low gain (dB)
 /// - 1 = mid gain (dB)
 /// - 2 = high gain (dB)
-
 fn ensure_api550_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, API550_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -4156,7 +4459,6 @@ const NEVE1073_SLOT_INDEX: usize = 7;
 /// - 0 = HP enabled (0.0 or 1.0)
 /// - 1 = low gain (dB)
 /// - 2 = high gain (dB)
-
 fn ensure_neve1073_loaded(track_id: u64) {
     if !PLAYBACK_ENGINE.has_track_insert(track_id, NEVE1073_SLOT_INDEX) {
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
@@ -10478,9 +10780,11 @@ pub extern "C" fn ambisonics_encoder_set_gain(track_id: u32, gain: f64) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::ffi::CString;
 
     #[test]
+    #[serial]
     fn test_track_creation_ffi() {
         engine_clear_all();
 
@@ -10492,6 +10796,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_clip_operations_ffi() {
         engine_clear_all();
 
@@ -10512,6 +10817,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_loop_region_ffi() {
         engine_clear_all();
 
@@ -10715,11 +11021,19 @@ pub extern "C" fn pdc_get_slot_latency(track_id: u64, slot_index: u32) -> u32 {
     }
 }
 
+/// Global PDC enabled state
+static PDC_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
 /// Check if PDC is enabled
 #[unsafe(no_mangle)]
 pub extern "C" fn pdc_is_enabled() -> i32 {
-    // PDC is always enabled in our architecture
-    1
+    if PDC_ENABLED.load(std::sync::atomic::Ordering::Relaxed) { 1 } else { 0 }
+}
+
+/// Set PDC enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn pdc_set_enabled(enabled: i32) {
+    PDC_ENABLED.store(enabled != 0, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Get master bus total latency
@@ -11965,6 +12279,243 @@ pub extern "C" fn plugin_get_latency(instance_id: *const c_char) -> i32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN STATE / PRESET FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get plugin state (for saving presets)
+/// Returns size of state data written to out_data, or -1 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_get_state(
+    instance_id: *const c_char,
+    out_data: *mut u8,
+    max_len: u32,
+) -> i32 {
+    if instance_id.is_null() {
+        return -1;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.read().get_state() {
+            Ok(state) => {
+                if out_data.is_null() {
+                    // Just return size if no buffer provided
+                    return state.len() as i32;
+                }
+                let copy_len = state.len().min(max_len as usize);
+                unsafe {
+                    std::ptr::copy_nonoverlapping(state.as_ptr(), out_data, copy_len);
+                }
+                copy_len as i32
+            }
+            Err(e) => {
+                log::error!("Failed to get plugin state: {}", e);
+                -1
+            }
+        }
+    } else {
+        -1
+    }
+}
+
+/// Set plugin state (for loading presets)
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_set_state(
+    instance_id: *const c_char,
+    data: *const u8,
+    len: u32,
+) -> i32 {
+    if instance_id.is_null() || data.is_null() || len == 0 {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let state = unsafe { std::slice::from_raw_parts(data, len as usize) };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().set_state(state) {
+            Ok(_) => 1,
+            Err(e) => {
+                log::error!("Failed to set plugin state: {}", e);
+                0
+            }
+        }
+    } else {
+        0
+    }
+}
+
+/// Save plugin preset to file
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_save_preset(
+    instance_id: *const c_char,
+    path: *const c_char,
+    preset_name: *const c_char,
+) -> i32 {
+    if instance_id.is_null() || path.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let name = if preset_name.is_null() {
+        "Preset".to_string()
+    } else {
+        unsafe {
+            std::ffi::CStr::from_ptr(preset_name)
+                .to_string_lossy()
+                .into_owned()
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.read().get_state() {
+            Ok(state) => {
+                // Create preset JSON
+                let preset = serde_json::json!({
+                    "meta": {
+                        "name": name,
+                        "plugin_id": id_str,
+                        "version": 1,
+                    },
+                    "state": hex_encode(&state),
+                });
+
+                if let Ok(json) = serde_json::to_string_pretty(&preset) {
+                    if let Err(e) = std::fs::write(path_str, json) {
+                        log::error!("Failed to save preset: {}", e);
+                        return 0;
+                    }
+                    return 1;
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to get plugin state: {}", e);
+            }
+        }
+    }
+    0
+}
+
+/// Load plugin preset from file
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_load_preset(
+    instance_id: *const c_char,
+    path: *const c_char,
+) -> i32 {
+    if instance_id.is_null() || path.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let path_str = unsafe {
+        match std::ffi::CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    // Read and parse preset file
+    let json = match std::fs::read_to_string(path_str) {
+        Ok(j) => j,
+        Err(e) => {
+            log::error!("Failed to read preset file: {}", e);
+            return 0;
+        }
+    };
+
+    let preset: serde_json::Value = match serde_json::from_str(&json) {
+        Ok(p) => p,
+        Err(e) => {
+            log::error!("Failed to parse preset: {}", e);
+            return 0;
+        }
+    };
+
+    // Decode state
+    let state_b64 = match preset["state"].as_str() {
+        Some(s) => s,
+        None => {
+            log::error!("Preset missing state");
+            return 0;
+        }
+    };
+
+    let state = match hex_decode(state_b64) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Failed to decode preset state: {}", e);
+            return 0;
+        }
+    };
+
+    // Apply state to plugin
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().set_state(&state) {
+            Ok(_) => 1,
+            Err(e) => {
+                log::error!("Failed to set plugin state: {}", e);
+                0
+            }
+        }
+    } else {
+        0
+    }
+}
+
+/// Simple hex encode for preset state
+fn hex_encode(data: &[u8]) -> String {
+    data.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+/// Simple hex decode for preset state
+fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
+    if !s.len().is_multiple_of(2) {
+        return Err("Invalid hex string length".to_string());
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&s[i..i + 2], 16)
+                .map_err(|e| format!("Hex decode error: {}", e))
+        })
+        .collect()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // AUDIO DEVICE ENUMERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -12501,6 +13052,159 @@ pub extern "C" fn recording_clear_all() {
     RECORDING_MANAGER.clear();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PUNCH IN/OUT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Set punch mode
+/// mode: 0=Off, 1=PunchIn, 2=PunchOut, 3=PunchInOut
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_punch_mode(mode: u8) {
+    use crate::recording_manager::PunchMode;
+    let punch_mode = match mode {
+        0 => PunchMode::Off,
+        1 => PunchMode::PunchIn,
+        2 => PunchMode::PunchOut,
+        3 => PunchMode::PunchInOut,
+        _ => PunchMode::Off,
+    };
+    RECORDING_MANAGER.set_punch_mode(punch_mode);
+}
+
+/// Get punch mode (0=Off, 1=PunchIn, 2=PunchOut, 3=PunchInOut)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_punch_mode() -> u8 {
+    use crate::recording_manager::PunchMode;
+    match RECORDING_MANAGER.punch_mode() {
+        PunchMode::Off => 0,
+        PunchMode::PunchIn => 1,
+        PunchMode::PunchOut => 2,
+        PunchMode::PunchInOut => 3,
+    }
+}
+
+/// Set punch in point (in samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_punch_in(sample: u64) {
+    RECORDING_MANAGER.set_punch_in(sample);
+}
+
+/// Get punch in point (in samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_punch_in() -> u64 {
+    RECORDING_MANAGER.punch_in()
+}
+
+/// Set punch out point (in samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_punch_out(sample: u64) {
+    RECORDING_MANAGER.set_punch_out(sample);
+}
+
+/// Get punch out point (in samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_punch_out() -> u64 {
+    RECORDING_MANAGER.punch_out()
+}
+
+/// Set punch in/out points from time in seconds
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_punch_times(punch_in_secs: f64, punch_out_secs: f64) {
+    RECORDING_MANAGER.set_punch_times(punch_in_secs, punch_out_secs);
+}
+
+/// Check if currently punched in (recording)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_is_punched_in() -> i32 {
+    if RECORDING_MANAGER.is_punched_in() { 1 } else { 0 }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRE-ROLL
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Enable/disable pre-roll
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_pre_roll_enabled(enabled: i32) {
+    RECORDING_MANAGER.set_pre_roll_enabled(enabled != 0);
+}
+
+/// Check if pre-roll is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_is_pre_roll_enabled() -> i32 {
+    if RECORDING_MANAGER.pre_roll_enabled() { 1 } else { 0 }
+}
+
+/// Set pre-roll duration in seconds
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_pre_roll_seconds(seconds: f64) {
+    RECORDING_MANAGER.set_pre_roll_seconds(seconds);
+}
+
+/// Get pre-roll duration in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_pre_roll_samples() -> u64 {
+    RECORDING_MANAGER.pre_roll_samples()
+}
+
+/// Set pre-roll in bars
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_pre_roll_bars(bars: u64) {
+    RECORDING_MANAGER.set_pre_roll_bars(bars);
+}
+
+/// Get pre-roll in bars
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_pre_roll_bars() -> u64 {
+    RECORDING_MANAGER.pre_roll_bars()
+}
+
+/// Calculate pre-roll start position
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_pre_roll_start(record_start: u64, tempo: f64) -> u64 {
+    RECORDING_MANAGER.pre_roll_start(record_start, tempo)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-ARM
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Enable/disable auto-arm
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_auto_arm_enabled(enabled: i32) {
+    RECORDING_MANAGER.set_auto_arm_enabled(enabled != 0);
+}
+
+/// Check if auto-arm is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_is_auto_arm_enabled() -> i32 {
+    if RECORDING_MANAGER.auto_arm_enabled() { 1 } else { 0 }
+}
+
+/// Set auto-arm threshold in dB
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_set_auto_arm_threshold_db(db: f64) {
+    RECORDING_MANAGER.set_auto_arm_threshold_db(db);
+}
+
+/// Get auto-arm threshold (linear)
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_get_auto_arm_threshold() -> f64 {
+    RECORDING_MANAGER.auto_arm_threshold()
+}
+
+/// Add track to pending auto-arm list
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_add_pending_auto_arm(track_id: u64) {
+    RECORDING_MANAGER.add_pending_auto_arm(TrackId(track_id));
+}
+
+/// Remove track from pending auto-arm list
+#[unsafe(no_mangle)]
+pub extern "C" fn recording_remove_pending_auto_arm(track_id: u64) {
+    RECORDING_MANAGER.remove_pending_auto_arm(TrackId(track_id));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUT BUS MANAGEMENT (Phase 11)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12743,6 +13447,58 @@ pub extern "C" fn export_is_exporting() -> i32 {
     if EXPORT_ENGINE.is_exporting() { 1 } else { 0 }
 }
 
+/// Export stems (individual tracks) to WAV files
+/// output_dir: Directory to save stems
+/// format: 0=Wav16, 1=Wav24, 2=Wav32Float
+/// Returns number of exported stems, or -1 on error
+#[unsafe(no_mangle)]
+pub extern "C" fn export_stems(
+    output_dir: *const c_char,
+    format: i32,
+    sample_rate: u32,
+    start_time: f64,
+    end_time: f64,
+    normalize: i32,
+    include_buses: i32,
+    prefix: *const c_char,
+) -> i32 {
+    let dir_str = match unsafe { cstr_to_string(output_dir) } {
+        Some(s) => s,
+        None => return -1,
+    };
+
+    let prefix_str = unsafe { cstr_to_string(prefix) }.unwrap_or_default();
+
+    let export_format = match format {
+        0 => crate::export::ExportFormat::Wav16,
+        1 => crate::export::ExportFormat::Wav24,
+        2 => crate::export::ExportFormat::Wav32Float,
+        _ => crate::export::ExportFormat::Wav24,
+    };
+
+    let config = crate::export::StemsConfig {
+        output_dir: PathBuf::from(dir_str),
+        format: export_format,
+        sample_rate,
+        start_time,
+        end_time,
+        include_tail: true,
+        tail_seconds: 3.0,
+        normalize: normalize != 0,
+        block_size: 512,
+        include_buses: include_buses != 0,
+        prefix: prefix_str,
+    };
+
+    match EXPORT_ENGINE.export_stems(config) {
+        Ok(stems) => stems.len() as i32,
+        Err(e) => {
+            log::error!("Stems export failed: {}", e);
+            -1
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGIN INSERT CHAIN FFI (Phase 2: Channel Insert FX)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12799,12 +13555,21 @@ pub extern "C" fn plugin_insert_set_bypass(
 /// Set plugin insert wet/dry mix (0.0 - 1.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_insert_set_mix(
-    _channel_id: u64,
-    _slot_index: u32,
-    _mix: f32,
+    channel_id: u64,
+    slot_index: u32,
+    mix: f32,
 ) -> i32 {
-    // TODO: Integrate with RoutingGraph
+    PLAYBACK_ENGINE.set_track_insert_mix(channel_id, slot_index as usize, mix as f64);
     1
+}
+
+/// Get plugin insert wet/dry mix (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_insert_get_mix(
+    channel_id: u64,
+    slot_index: u32,
+) -> f32 {
+    PLAYBACK_ENGINE.get_track_insert_mix(channel_id, slot_index as usize) as f32
 }
 
 /// Get plugin insert slot latency in samples

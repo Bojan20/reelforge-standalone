@@ -67,11 +67,9 @@ impl LRFilter {
             let q = match crossover_type {
                 CrossoverType::Butterworth12 => std::f64::consts::FRAC_1_SQRT_2,
                 CrossoverType::LinkwitzRiley24 => {
-                    if i == 0 {
-                        std::f64::consts::FRAC_1_SQRT_2
-                    } else {
-                        std::f64::consts::FRAC_1_SQRT_2
-                    }
+                    // LR24 uses cascaded Butterworth - same Q for all stages
+                    let _ = i; // Suppress unused variable (Q is same for all stages)
+                    std::f64::consts::FRAC_1_SQRT_2
                 }
                 CrossoverType::LinkwitzRiley48 => {
                     // LR48 uses 4 cascaded Butterworth 2nd order
@@ -656,9 +654,11 @@ mod tests {
 
     #[test]
     fn test_band_compression() {
-        let mut band = BandCompressor::default();
-        band.threshold_db = -20.0;
-        band.ratio = 4.0;
+        let mut band = BandCompressor {
+            threshold_db: -20.0,
+            ratio: 4.0,
+            ..Default::default()
+        };
         band.update_coefficients(48000.0);
 
         // Process loud signal

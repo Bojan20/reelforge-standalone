@@ -79,6 +79,7 @@ class MainLayout extends StatefulWidget {
   final ChannelStripData? channelData;
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
+  final void Function(String channelId, double pan)? onChannelPanRightChange;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId)? onChannelArmToggle;
@@ -90,6 +91,10 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
   final void Function(String channelId)? onChannelInputClick;
+  final void Function(String channelId, int slotIndex, bool bypassed)? onChannelInsertBypassToggle;
+  final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryChange;
+  final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
+  final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
 
   // Center zone (main content)
   final Widget child;
@@ -165,6 +170,7 @@ class MainLayout extends StatefulWidget {
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
+    this.onChannelPanRightChange,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelArmToggle,
@@ -175,6 +181,10 @@ class MainLayout extends StatefulWidget {
     this.onChannelEQToggle,
     this.onChannelOutputClick,
     this.onChannelInputClick,
+    this.onChannelInsertBypassToggle,
+    this.onChannelInsertWetDryChange,
+    this.onChannelInsertRemove,
+    this.onChannelInsertOpenEditor,
     // Center zone
     required this.child,
     // Right zone (Middleware)
@@ -381,6 +391,7 @@ class _MainLayoutState extends State<MainLayout>
                   channelData: widget.channelData,
                   onChannelVolumeChange: widget.onChannelVolumeChange,
                   onChannelPanChange: widget.onChannelPanChange,
+                  onChannelPanRightChange: widget.onChannelPanRightChange,
                   onChannelMuteToggle: widget.onChannelMuteToggle,
                   onChannelSoloToggle: widget.onChannelSoloToggle,
                   onChannelArmToggle: widget.onChannelArmToggle,
@@ -391,6 +402,10 @@ class _MainLayoutState extends State<MainLayout>
                   onChannelEQToggle: widget.onChannelEQToggle,
                   onChannelOutputClick: widget.onChannelOutputClick,
                   onChannelInputClick: widget.onChannelInputClick,
+                  onChannelInsertBypassToggle: widget.onChannelInsertBypassToggle,
+                  onChannelInsertWetDryChange: widget.onChannelInsertWetDryChange,
+                  onChannelInsertRemove: widget.onChannelInsertRemove,
+                  onChannelInsertOpenEditor: widget.onChannelInsertOpenEditor,
                   selectedClip: widget.selectedClip,
                   selectedClipTrack: widget.selectedClipTrack,
                   onClipChanged: widget.onClipChanged,
@@ -539,6 +554,7 @@ class _MainLayoutState extends State<MainLayout>
                 channelData: widget.channelData,
                 onChannelVolumeChange: widget.onChannelVolumeChange,
                 onChannelPanChange: widget.onChannelPanChange,
+                onChannelPanRightChange: widget.onChannelPanRightChange,
                 onChannelMuteToggle: widget.onChannelMuteToggle,
                 onChannelSoloToggle: widget.onChannelSoloToggle,
                 onChannelArmToggle: widget.onChannelArmToggle,
@@ -549,6 +565,10 @@ class _MainLayoutState extends State<MainLayout>
                 onChannelEQToggle: widget.onChannelEQToggle,
                 onChannelOutputClick: widget.onChannelOutputClick,
                 onChannelInputClick: widget.onChannelInputClick,
+                onChannelInsertBypassToggle: widget.onChannelInsertBypassToggle,
+                onChannelInsertWetDryChange: widget.onChannelInsertWetDryChange,
+                onChannelInsertRemove: widget.onChannelInsertRemove,
+                onChannelInsertOpenEditor: widget.onChannelInsertOpenEditor,
                 // Pass clip data for combined inspector
                 selectedClip: widget.selectedClip,
                 selectedClipTrack: widget.selectedClipTrack,

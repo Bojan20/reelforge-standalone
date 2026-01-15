@@ -71,6 +71,9 @@ pub enum SandboxError {
 
 pub type SandboxResult<T> = Result<T, SandboxError>;
 
+/// Type alias for crash callback
+pub type CrashCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 // ============ IPC Messages ============
 
 /// Messages sent to sandbox process
@@ -635,7 +638,7 @@ pub struct SandboxManager {
     /// Health check interval
     health_check_interval: Duration,
     /// Crash callback
-    crash_callback: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    crash_callback: Option<CrashCallback>,
 }
 
 impl SandboxManager {

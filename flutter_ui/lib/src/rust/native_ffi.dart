@@ -158,6 +158,15 @@ typedef EngineSetTrackVolumeDart = int Function(int trackId, double volume);
 typedef EngineSetTrackPanNative = Int32 Function(Uint64 trackId, Double pan);
 typedef EngineSetTrackPanDart = int Function(int trackId, double pan);
 
+typedef EngineSetTrackPanRightNative = Int32 Function(Uint64 trackId, Double pan);
+typedef EngineSetTrackPanRightDart = int Function(int trackId, double pan);
+
+typedef EngineGetTrackChannelsNative = Uint32 Function(Uint64 trackId);
+typedef EngineGetTrackChannelsDart = int Function(int trackId);
+
+typedef EngineSetTrackChannelsNative = Int32 Function(Uint64 trackId, Uint32 channels);
+typedef EngineSetTrackChannelsDart = int Function(int trackId, int channels);
+
 typedef EngineSetTrackBusNative = Int32 Function(Uint64 trackId, Uint32 busId);
 typedef EngineSetTrackBusDart = int Function(int trackId, int busId);
 
@@ -299,6 +308,22 @@ typedef EngineStopDart = void Function();
 typedef EngineSeekNative = Void Function(Double seconds);
 typedef EngineSeekDart = void Function(double seconds);
 
+// Scrubbing
+typedef EngineStartScrubNative = Void Function(Double seconds);
+typedef EngineStartScrubDart = void Function(double seconds);
+
+typedef EngineUpdateScrubNative = Void Function(Double seconds, Double velocity);
+typedef EngineUpdateScrubDart = void Function(double seconds, double velocity);
+
+typedef EngineStopScrubNative = Void Function();
+typedef EngineStopScrubDart = void Function();
+
+typedef EngineIsScrubbingNative = Int32 Function();
+typedef EngineIsScrubbingDart = int Function();
+
+typedef EngineSetScrubWindowMsNative = Void Function(Uint32 ms);
+typedef EngineSetScrubWindowMsDart = void Function(int ms);
+
 typedef EngineGetPositionNative = Double Function();
 typedef EngineGetPositionDart = double Function();
 
@@ -313,6 +338,28 @@ typedef EngineSetMasterVolumeDart = void Function(double volume);
 
 typedef EngineGetMasterVolumeNative = Double Function();
 typedef EngineGetMasterVolumeDart = double Function();
+
+// Varispeed
+typedef EngineSetVarispeedEnabledNative = Void Function(Int32 enabled);
+typedef EngineSetVarispeedEnabledDart = void Function(int enabled);
+
+typedef EngineIsVarispeedEnabledNative = Int32 Function();
+typedef EngineIsVarispeedEnabledDart = int Function();
+
+typedef EngineSetVarispeedRateNative = Void Function(Double rate);
+typedef EngineSetVarispeedRateDart = void Function(double rate);
+
+typedef EngineGetVarispeedRateNative = Double Function();
+typedef EngineGetVarispeedRateDart = double Function();
+
+typedef EngineSetVarispeedSemitonesNative = Void Function(Double semitones);
+typedef EngineSetVarispeedSemitonesDart = void Function(double semitones);
+
+typedef EngineGetVarispeedSemitonesNative = Double Function();
+typedef EngineGetVarispeedSemitonesDart = double Function();
+
+typedef EngineGetEffectivePlaybackRateNative = Double Function();
+typedef EngineGetEffectivePlaybackRateDart = double Function();
 
 typedef EngineGetPlaybackPositionSecondsNative = Double Function();
 typedef EngineGetPlaybackPositionSecondsDart = double Function();
@@ -684,6 +731,22 @@ typedef AutomationGetValueDart = double Function(int trackId, Pointer<Utf8> para
 typedef AutomationClearLaneNative = Void Function(Uint64 trackId, Pointer<Utf8> paramName);
 typedef AutomationClearLaneDart = void Function(int trackId, Pointer<Utf8> paramName);
 
+// Plugin Automation
+typedef AutomationAddPluginPointNative = Int32 Function(Uint64 trackId, Uint32 slot, Uint32 paramIndex, Uint64 timeSamples, Double value, Uint8 curveType);
+typedef AutomationAddPluginPointDart = int Function(int trackId, int slot, int paramIndex, int timeSamples, double value, int curveType);
+
+typedef AutomationGetPluginValueNative = Double Function(Uint64 trackId, Uint32 slot, Uint32 paramIndex, Uint64 timeSamples);
+typedef AutomationGetPluginValueDart = double Function(int trackId, int slot, int paramIndex, int timeSamples);
+
+typedef AutomationClearPluginLaneNative = Void Function(Uint64 trackId, Uint32 slot, Uint32 paramIndex);
+typedef AutomationClearPluginLaneDart = void Function(int trackId, int slot, int paramIndex);
+
+typedef AutomationTouchPluginNative = Void Function(Uint64 trackId, Uint32 slot, Uint32 paramIndex, Double value);
+typedef AutomationTouchPluginDart = void Function(int trackId, int slot, int paramIndex, double value);
+
+typedef AutomationReleasePluginNative = Void Function(Uint64 trackId, Uint32 slot, Uint32 paramIndex);
+typedef AutomationReleasePluginDart = void Function(int trackId, int slot, int paramIndex);
+
 // Insert Effects
 typedef InsertCreateChainNative = Void Function(Uint64 trackId);
 typedef InsertCreateChainDart = void Function(int trackId);
@@ -696,6 +759,9 @@ typedef InsertSetBypassDart = void Function(int trackId, int slot, int bypass);
 
 typedef InsertSetMixNative = Void Function(Uint64 trackId, Uint32 slot, Double mix);
 typedef InsertSetMixDart = void Function(int trackId, int slot, double mix);
+
+typedef InsertGetMixNative = Double Function(Uint64 trackId, Uint32 slot);
+typedef InsertGetMixDart = double Function(int trackId, int slot);
 
 typedef InsertBypassAllNative = Void Function(Uint64 trackId, Int32 bypass);
 typedef InsertBypassAllDart = void Function(int trackId, int bypass);
@@ -717,6 +783,22 @@ typedef InsertGetParamDart = double Function(int trackId, int slotIndex, int par
 
 typedef InsertIsLoadedNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
 typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
+
+typedef InsertOpenEditorNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
+typedef InsertOpenEditorDart = int Function(int trackId, int slotIndex);
+
+// Plugin State/Preset
+typedef PluginGetStateNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Uint8> outData, Uint32 maxLen);
+typedef PluginGetStateDart = int Function(Pointer<Utf8> instanceId, Pointer<Uint8> outData, int maxLen);
+
+typedef PluginSetStateNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Uint8> data, Uint32 len);
+typedef PluginSetStateDart = int Function(Pointer<Utf8> instanceId, Pointer<Uint8> data, int len);
+
+typedef PluginSavePresetNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Utf8> path, Pointer<Utf8> presetName);
+typedef PluginSavePresetDart = int Function(Pointer<Utf8> instanceId, Pointer<Utf8> path, Pointer<Utf8> presetName);
+
+typedef PluginLoadPresetNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Utf8> path);
+typedef PluginLoadPresetDart = int Function(Pointer<Utf8> instanceId, Pointer<Utf8> path);
 
 // Transient Detection
 typedef TransientDetectNative = Uint32 Function(Pointer<Double> samples, Uint32 length, Double sampleRate, Double sensitivity, Uint8 algorithm, Pointer<Uint64> outPositions, Uint32 outMaxCount);
@@ -833,6 +915,9 @@ class NativeFFI {
   late final EngineSetTrackArmedDart _setTrackArmed;
   late final EngineSetTrackVolumeDart _setTrackVolume;
   late final EngineSetTrackPanDart _setTrackPan;
+  late final EngineSetTrackPanRightDart _setTrackPanRight;
+  late final EngineGetTrackChannelsDart _getTrackChannels;
+  late final EngineSetTrackChannelsDart _setTrackChannels;
   late final EngineSetTrackBusDart _setTrackBus;
   late final EngineGetTrackCountDart _getTrackCount;
   late final EngineGetTrackPeakDart _getTrackPeak;
@@ -887,11 +972,26 @@ class NativeFFI {
   late final EnginePauseDart _pause;
   late final EngineStopDart _stop;
   late final EngineSeekDart _seek;
+  late final EngineStartScrubDart _startScrub;
+  late final EngineUpdateScrubDart _updateScrub;
+  late final EngineStopScrubDart _stopScrub;
+  late final EngineIsScrubbingDart _isScrubbing;
+  late final EngineSetScrubWindowMsDart _setScrubWindowMs;
   late final EngineGetPositionDart _getPosition;
   late final EngineGetPlaybackStateDart _getPlaybackState;
   late final EngineIsPlayingDart _isPlaying;
   late final EngineSetMasterVolumeDart _setMasterVolume;
   late final EngineGetMasterVolumeDart _getMasterVolume;
+
+  // Varispeed
+  late final EngineSetVarispeedEnabledDart _setVarispeedEnabled;
+  late final EngineIsVarispeedEnabledDart _isVarispeedEnabled;
+  late final EngineSetVarispeedRateDart _setVarispeedRate;
+  late final EngineGetVarispeedRateDart _getVarispeedRate;
+  late final EngineSetVarispeedSemitonesDart _setVarispeedSemitones;
+  late final EngineGetVarispeedSemitonesDart _getVarispeedSemitones;
+  late final EngineGetEffectivePlaybackRateDart _getEffectivePlaybackRate;
+
   late final EngineGetPlaybackPositionSecondsDart _getPlaybackPositionSeconds;
   late final EngineGetPlaybackPositionSamplesDart _getPlaybackPositionSamples;
   late final EnginePreloadAllDart _preloadAll;
@@ -1044,11 +1144,19 @@ class NativeFFI {
   late final AutomationGetValueDart _automationGetValue;
   late final AutomationClearLaneDart _automationClearLane;
 
+  // Plugin Automation
+  late final AutomationAddPluginPointDart _automationAddPluginPoint;
+  late final AutomationGetPluginValueDart _automationGetPluginValue;
+  late final AutomationClearPluginLaneDart _automationClearPluginLane;
+  late final AutomationTouchPluginDart _automationTouchPlugin;
+  late final AutomationReleasePluginDart _automationReleasePlugin;
+
   // Insert Effects
   late final InsertCreateChainDart _insertCreateChain;
   late final InsertRemoveChainDart _insertRemoveChain;
   late final InsertSetBypassDart _insertSetBypass;
   late final InsertSetMixDart _insertSetMix;
+  late final InsertGetMixDart _insertGetMix;
   late final InsertBypassAllDart _insertBypassAll;
   late final InsertGetTotalLatencyDart _insertGetTotalLatency;
   late final InsertLoadProcessorDart _insertLoadProcessor;
@@ -1056,6 +1164,13 @@ class NativeFFI {
   late final InsertSetParamDart _insertSetParam;
   late final InsertGetParamDart _insertGetParam;
   late final InsertIsLoadedDart _insertIsLoaded;
+  late final InsertOpenEditorDart _insertOpenEditor;
+
+  // Plugin State/Preset
+  late final PluginGetStateDart _pluginGetState;
+  late final PluginSetStateDart _pluginSetState;
+  late final PluginSavePresetDart _pluginSavePreset;
+  late final PluginLoadPresetDart _pluginLoadPreset;
 
   // Transient Detection
   late final TransientDetectDart _transientDetect;
@@ -1109,6 +1224,9 @@ class NativeFFI {
     _setTrackArmed = _lib.lookupFunction<EngineSetTrackArmedNative, EngineSetTrackArmedDart>('engine_set_track_armed');
     _setTrackVolume = _lib.lookupFunction<EngineSetTrackVolumeNative, EngineSetTrackVolumeDart>('engine_set_track_volume');
     _setTrackPan = _lib.lookupFunction<EngineSetTrackPanNative, EngineSetTrackPanDart>('engine_set_track_pan');
+    _setTrackPanRight = _lib.lookupFunction<EngineSetTrackPanRightNative, EngineSetTrackPanRightDart>('engine_set_track_pan_right');
+    _getTrackChannels = _lib.lookupFunction<EngineGetTrackChannelsNative, EngineGetTrackChannelsDart>('engine_get_track_channels');
+    _setTrackChannels = _lib.lookupFunction<EngineSetTrackChannelsNative, EngineSetTrackChannelsDart>('engine_set_track_channels');
     _setTrackBus = _lib.lookupFunction<EngineSetTrackBusNative, EngineSetTrackBusDart>('engine_set_track_bus');
     _getTrackCount = _lib.lookupFunction<EngineGetTrackCountNative, EngineGetTrackCountDart>('engine_get_track_count');
     _getTrackPeak = _lib.lookupFunction<EngineGetTrackPeakNative, EngineGetTrackPeakDart>('engine_get_track_peak');
@@ -1162,11 +1280,26 @@ class NativeFFI {
     _pause = _lib.lookupFunction<EnginePauseNative, EnginePauseDart>('engine_pause');
     _stop = _lib.lookupFunction<EngineStopNative, EngineStopDart>('engine_stop');
     _seek = _lib.lookupFunction<EngineSeekNative, EngineSeekDart>('engine_seek');
+    _startScrub = _lib.lookupFunction<EngineStartScrubNative, EngineStartScrubDart>('engine_start_scrub');
+    _updateScrub = _lib.lookupFunction<EngineUpdateScrubNative, EngineUpdateScrubDart>('engine_update_scrub');
+    _stopScrub = _lib.lookupFunction<EngineStopScrubNative, EngineStopScrubDart>('engine_stop_scrub');
+    _isScrubbing = _lib.lookupFunction<EngineIsScrubbingNative, EngineIsScrubbingDart>('engine_is_scrubbing');
+    _setScrubWindowMs = _lib.lookupFunction<EngineSetScrubWindowMsNative, EngineSetScrubWindowMsDart>('engine_set_scrub_window_ms');
     _getPosition = _lib.lookupFunction<EngineGetPositionNative, EngineGetPositionDart>('engine_get_position');
     _getPlaybackState = _lib.lookupFunction<EngineGetPlaybackStateNative, EngineGetPlaybackStateDart>('engine_get_playback_state');
     _isPlaying = _lib.lookupFunction<EngineIsPlayingNative, EngineIsPlayingDart>('engine_is_playing');
     _setMasterVolume = _lib.lookupFunction<EngineSetMasterVolumeNative, EngineSetMasterVolumeDart>('engine_set_master_volume');
     _getMasterVolume = _lib.lookupFunction<EngineGetMasterVolumeNative, EngineGetMasterVolumeDart>('engine_get_master_volume');
+
+    // Varispeed
+    _setVarispeedEnabled = _lib.lookupFunction<EngineSetVarispeedEnabledNative, EngineSetVarispeedEnabledDart>('engine_set_varispeed_enabled');
+    _isVarispeedEnabled = _lib.lookupFunction<EngineIsVarispeedEnabledNative, EngineIsVarispeedEnabledDart>('engine_is_varispeed_enabled');
+    _setVarispeedRate = _lib.lookupFunction<EngineSetVarispeedRateNative, EngineSetVarispeedRateDart>('engine_set_varispeed_rate');
+    _getVarispeedRate = _lib.lookupFunction<EngineGetVarispeedRateNative, EngineGetVarispeedRateDart>('engine_get_varispeed_rate');
+    _setVarispeedSemitones = _lib.lookupFunction<EngineSetVarispeedSemitonesNative, EngineSetVarispeedSemitonesDart>('engine_set_varispeed_semitones');
+    _getVarispeedSemitones = _lib.lookupFunction<EngineGetVarispeedSemitonesNative, EngineGetVarispeedSemitonesDart>('engine_get_varispeed_semitones');
+    _getEffectivePlaybackRate = _lib.lookupFunction<EngineGetEffectivePlaybackRateNative, EngineGetEffectivePlaybackRateDart>('engine_get_effective_playback_rate');
+
     _getPlaybackPositionSeconds = _lib.lookupFunction<EngineGetPlaybackPositionSecondsNative, EngineGetPlaybackPositionSecondsDart>('engine_get_playback_position_seconds');
     _getPlaybackPositionSamples = _lib.lookupFunction<EngineGetPlaybackPositionSamplesNative, EngineGetPlaybackPositionSamplesDart>('engine_get_playback_position_samples');
     _preloadAll = _lib.lookupFunction<EnginePreloadAllNative, EnginePreloadAllDart>('engine_preload_all');
@@ -1319,18 +1452,33 @@ class NativeFFI {
     _automationGetValue = _lib.lookupFunction<AutomationGetValueNative, AutomationGetValueDart>('automation_get_value');
     _automationClearLane = _lib.lookupFunction<AutomationClearLaneNative, AutomationClearLaneDart>('automation_clear_lane');
 
+    // Plugin Automation
+    _automationAddPluginPoint = _lib.lookupFunction<AutomationAddPluginPointNative, AutomationAddPluginPointDart>('automation_add_plugin_point');
+    _automationGetPluginValue = _lib.lookupFunction<AutomationGetPluginValueNative, AutomationGetPluginValueDart>('automation_get_plugin_value');
+    _automationClearPluginLane = _lib.lookupFunction<AutomationClearPluginLaneNative, AutomationClearPluginLaneDart>('automation_clear_plugin_lane');
+    _automationTouchPlugin = _lib.lookupFunction<AutomationTouchPluginNative, AutomationTouchPluginDart>('automation_touch_plugin');
+    _automationReleasePlugin = _lib.lookupFunction<AutomationReleasePluginNative, AutomationReleasePluginDart>('automation_release_plugin');
+
     // Insert Effects
     _insertCreateChain = _lib.lookupFunction<InsertCreateChainNative, InsertCreateChainDart>('insert_create_chain');
     _insertRemoveChain = _lib.lookupFunction<InsertRemoveChainNative, InsertRemoveChainDart>('insert_remove_chain');
-    _insertSetBypass = _lib.lookupFunction<InsertSetBypassNative, InsertSetBypassDart>('insert_set_bypass');
-    _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('insert_set_mix');
-    _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('insert_bypass_all');
-    _insertGetTotalLatency = _lib.lookupFunction<InsertGetTotalLatencyNative, InsertGetTotalLatencyDart>('insert_get_total_latency');
+    _insertSetBypass = _lib.lookupFunction<InsertSetBypassNative, InsertSetBypassDart>('ffi_insert_set_bypass');
+    _insertSetMix = _lib.lookupFunction<InsertSetMixNative, InsertSetMixDart>('ffi_insert_set_mix');
+    _insertGetMix = _lib.lookupFunction<InsertGetMixNative, InsertGetMixDart>('ffi_insert_get_mix');
+    _insertBypassAll = _lib.lookupFunction<InsertBypassAllNative, InsertBypassAllDart>('ffi_insert_bypass_all');
+    _insertGetTotalLatency = _lib.lookupFunction<InsertGetTotalLatencyNative, InsertGetTotalLatencyDart>('ffi_insert_get_total_latency');
     _insertLoadProcessor = _lib.lookupFunction<InsertLoadProcessorNative, InsertLoadProcessorDart>('insert_load_processor');
     _insertUnloadSlot = _lib.lookupFunction<InsertUnloadSlotNative, InsertUnloadSlotDart>('insert_unload_slot');
     _insertSetParam = _lib.lookupFunction<InsertSetParamNative, InsertSetParamDart>('insert_set_param');
     _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
     _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
+    _insertOpenEditor = _lib.lookupFunction<InsertOpenEditorNative, InsertOpenEditorDart>('insert_open_editor');
+
+    // Plugin State/Preset
+    _pluginGetState = _lib.lookupFunction<PluginGetStateNative, PluginGetStateDart>('plugin_get_state');
+    _pluginSetState = _lib.lookupFunction<PluginSetStateNative, PluginSetStateDart>('plugin_set_state');
+    _pluginSavePreset = _lib.lookupFunction<PluginSavePresetNative, PluginSavePresetDart>('plugin_save_preset');
+    _pluginLoadPreset = _lib.lookupFunction<PluginLoadPresetNative, PluginLoadPresetDart>('plugin_load_preset');
 
     // Transient Detection
     _transientDetect = _lib.lookupFunction<TransientDetectNative, TransientDetectDart>('transient_detect');
@@ -1423,9 +1571,29 @@ class NativeFFI {
   }
 
   /// Set track pan (-1.0 to 1.0)
+  /// For stereo tracks with dual-pan, this controls the left channel
   bool setTrackPan(int trackId, double pan) {
     if (!_loaded) return false;
     return _setTrackPan(trackId, pan) != 0;
+  }
+
+  /// Set track right channel pan (-1.0 to 1.0)
+  /// For stereo tracks with dual-pan (Pro Tools style), this controls the right channel
+  bool setTrackPanRight(int trackId, double pan) {
+    if (!_loaded) return false;
+    return _setTrackPanRight(trackId, pan) != 0;
+  }
+
+  /// Get track channel count (1 = mono, 2 = stereo)
+  int getTrackChannels(int trackId) {
+    if (!_loaded) return 2;
+    return _getTrackChannels(trackId);
+  }
+
+  /// Set track channel count
+  bool setTrackChannels(int trackId, int channels) {
+    if (!_loaded) return false;
+    return _setTrackChannels(trackId, channels) != 0;
   }
 
   /// Set track output bus (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux)
@@ -1894,6 +2062,40 @@ class NativeFFI {
     _seek(seconds);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCRUBBING (Pro Tools / Cubase style audio preview on drag)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start scrubbing at given position
+  void playbackStartScrub(double seconds) {
+    if (!_loaded) return;
+    _startScrub(seconds);
+  }
+
+  /// Update scrub position with velocity
+  void playbackUpdateScrub(double seconds, double velocity) {
+    if (!_loaded) return;
+    _updateScrub(seconds, velocity);
+  }
+
+  /// Stop scrubbing
+  void playbackStopScrub() {
+    if (!_loaded) return;
+    _stopScrub();
+  }
+
+  /// Check if currently scrubbing
+  bool playbackIsScrubbing() {
+    if (!_loaded) return false;
+    return _isScrubbing() != 0;
+  }
+
+  /// Set scrub window size in milliseconds
+  void playbackSetScrubWindowMs(int ms) {
+    if (!_loaded) return;
+    _setScrubWindowMs(ms);
+  }
+
   /// Get current playback position in seconds
   double getPosition() {
     if (!_loaded) return 0.0;
@@ -1922,6 +2124,52 @@ class NativeFFI {
   double getMasterVolume() {
     if (!_loaded) return 1.0;
     return _getMasterVolume();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VARISPEED CONTROL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable/disable varispeed mode (tape-style speed with pitch change)
+  void setVarispeedEnabled(bool enabled) {
+    if (!_loaded) return;
+    _setVarispeedEnabled(enabled ? 1 : 0);
+  }
+
+  /// Check if varispeed is enabled
+  bool isVarispeedEnabled() {
+    if (!_loaded) return false;
+    return _isVarispeedEnabled() != 0;
+  }
+
+  /// Set varispeed rate (0.25 to 4.0, 1.0 = normal speed)
+  void setVarispeedRate(double rate) {
+    if (!_loaded) return;
+    _setVarispeedRate(rate);
+  }
+
+  /// Get current varispeed rate
+  double getVarispeedRate() {
+    if (!_loaded) return 1.0;
+    return _getVarispeedRate();
+  }
+
+  /// Set varispeed by semitone offset (+12 = 2x speed, -12 = 0.5x speed)
+  void setVarispeedSemitones(double semitones) {
+    if (!_loaded) return;
+    _setVarispeedSemitones(semitones);
+  }
+
+  /// Get varispeed rate in semitones
+  double getVarispeedSemitones() {
+    if (!_loaded) return 0.0;
+    return _getVarispeedSemitones();
+  }
+
+  /// Get effective playback rate (1.0 if varispeed disabled, actual rate if enabled)
+  double getEffectivePlaybackRate() {
+    if (!_loaded) return 1.0;
+    return _getEffectivePlaybackRate();
   }
 
   /// Get current playback position in seconds (sample-accurate)
@@ -2835,6 +3083,77 @@ class NativeFFI {
     }
   }
 
+  // Bezier automation binding
+  late final _automationAddPointBezier = _lib.lookupFunction<
+      Void Function(Uint64, Pointer<Utf8>, Uint64, Double, Double, Double, Double, Double),
+      void Function(int, Pointer<Utf8>, int, double, double, double, double, double)>('automation_add_point_bezier');
+
+  late final _automationSetPointCurve = _lib.lookupFunction<
+      Int32 Function(Uint64, Pointer<Utf8>, Uint64, Uint8),
+      int Function(int, Pointer<Utf8>, int, int)>('automation_set_point_curve');
+
+  /// Add automation point with bezier control points
+  /// cp1: First control point (normalized 0-1)
+  /// cp2: Second control point (normalized 0-1)
+  void automationAddPointBezier(int trackId, String paramName, int timeSamples, double value,
+      double cp1X, double cp1Y, double cp2X, double cp2Y) {
+    if (!_loaded) return;
+    final namePtr = paramName.toNativeUtf8();
+    try {
+      _automationAddPointBezier(trackId, namePtr, timeSamples, value, cp1X, cp1Y, cp2X, cp2Y);
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Set curve type for existing automation point
+  /// curveType: 0=Linear, 1=Bezier, 2=Exponential, 3=Logarithmic, 4=Step, 5=SCurve
+  /// Returns true if point found and updated
+  bool automationSetPointCurve(int trackId, String paramName, int timeSamples, int curveType) {
+    if (!_loaded) return false;
+    final namePtr = paramName.toNativeUtf8();
+    try {
+      return _automationSetPointCurve(trackId, namePtr, timeSamples, curveType) == 1;
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLUGIN AUTOMATION API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add automation point for plugin parameter
+  /// Returns 1 on success, 0 on failure
+  int automationAddPluginPoint(int trackId, int slot, int paramIndex, int timeSamples, double value, int curveType) {
+    if (!_loaded) return 0;
+    return _automationAddPluginPoint(trackId, slot, paramIndex, timeSamples, value, curveType);
+  }
+
+  /// Get automated plugin parameter value at sample position
+  double automationGetPluginValue(int trackId, int slot, int paramIndex, int timeSamples) {
+    if (!_loaded) return -1.0;
+    return _automationGetPluginValue(trackId, slot, paramIndex, timeSamples);
+  }
+
+  /// Clear automation lane for plugin parameter
+  void automationClearPluginLane(int trackId, int slot, int paramIndex) {
+    if (!_loaded) return;
+    _automationClearPluginLane(trackId, slot, paramIndex);
+  }
+
+  /// Touch plugin parameter (start automation recording)
+  void automationTouchPlugin(int trackId, int slot, int paramIndex, double value) {
+    if (!_loaded) return;
+    _automationTouchPlugin(trackId, slot, paramIndex, value);
+  }
+
+  /// Release plugin parameter (stop automation recording)
+  void automationReleasePlugin(int trackId, int slot, int paramIndex) {
+    if (!_loaded) return;
+    _automationReleasePlugin(trackId, slot, paramIndex);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // INSERT EFFECTS API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2861,6 +3180,12 @@ class NativeFFI {
   void insertSetMix(int trackId, int slot, double mix) {
     if (!_loaded) return;
     _insertSetMix(trackId, slot, mix);
+  }
+
+  /// Get insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+  double insertGetMix(int trackId, int slot) {
+    if (!_loaded) return 1.0;
+    return _insertGetMix(trackId, slot);
   }
 
   /// Bypass all inserts on track
@@ -2913,6 +3238,88 @@ class NativeFFI {
   bool insertIsLoaded(int trackId, int slotIndex) {
     if (!_loaded) return false;
     return _insertIsLoaded(trackId, slotIndex) != 0;
+  }
+
+  /// Open plugin editor for insert slot
+  /// Returns 0 on success, negative on error
+  int insertOpenEditor(int trackId, int slotIndex) {
+    if (!_loaded) return -1;
+    return _insertOpenEditor(trackId, slotIndex);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLUGIN STATE/PRESET API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get plugin state (for saving presets)
+  /// Returns null if failed
+  Uint8List? pluginGetState(String instanceId) {
+    if (!_loaded) return null;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      // First get size
+      final size = _pluginGetState(idPtr, nullptr, 0);
+      if (size <= 0) return null;
+
+      // Allocate buffer and get state
+      final bufferPtr = calloc<Uint8>(size);
+      try {
+        final written = _pluginGetState(idPtr, bufferPtr, size);
+        if (written <= 0) return null;
+        return Uint8List.fromList(bufferPtr.asTypedList(written));
+      } finally {
+        calloc.free(bufferPtr);
+      }
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Set plugin state (for loading presets)
+  /// Returns true on success
+  bool pluginSetState(String instanceId, Uint8List state) {
+    if (!_loaded || state.isEmpty) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    final statePtr = calloc<Uint8>(state.length);
+    try {
+      for (int i = 0; i < state.length; i++) {
+        statePtr[i] = state[i];
+      }
+      return _pluginSetState(idPtr, statePtr, state.length) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(statePtr);
+    }
+  }
+
+  /// Save plugin preset to file
+  /// Returns true on success
+  bool pluginSavePreset(String instanceId, String path, String presetName) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    final pathPtr = path.toNativeUtf8();
+    final namePtr = presetName.toNativeUtf8();
+    try {
+      return _pluginSavePreset(idPtr, pathPtr, namePtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Load plugin preset from file
+  /// Returns true on success
+  bool pluginLoadPreset(String instanceId, String path) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _pluginLoadPreset(idPtr, pathPtr) == 1;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4095,6 +4502,87 @@ class NativeFFI {
   int recordingRecordingCount() => _recordingRecordingCount();
   void recordingClearAll() => _recordingClearAll();
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PUNCH IN/OUT
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  late final _recordingSetPunchMode = _lib.lookupFunction<
+      Void Function(Uint8), void Function(int)>('recording_set_punch_mode');
+  late final _recordingGetPunchMode = _lib.lookupFunction<
+      Uint8 Function(), int Function()>('recording_get_punch_mode');
+  late final _recordingSetPunchIn = _lib.lookupFunction<
+      Void Function(Uint64), void Function(int)>('recording_set_punch_in');
+  late final _recordingGetPunchIn = _lib.lookupFunction<
+      Uint64 Function(), int Function()>('recording_get_punch_in');
+  late final _recordingSetPunchOut = _lib.lookupFunction<
+      Void Function(Uint64), void Function(int)>('recording_set_punch_out');
+  late final _recordingGetPunchOut = _lib.lookupFunction<
+      Uint64 Function(), int Function()>('recording_get_punch_out');
+  late final _recordingSetPunchTimes = _lib.lookupFunction<
+      Void Function(Double, Double), void Function(double, double)>('recording_set_punch_times');
+  late final _recordingIsPunchedIn = _lib.lookupFunction<
+      Int32 Function(), int Function()>('recording_is_punched_in');
+
+  void recordingSetPunchMode(int mode) => _recordingSetPunchMode(mode);
+  int recordingGetPunchMode() => _recordingGetPunchMode();
+  void recordingSetPunchIn(int sample) => _recordingSetPunchIn(sample);
+  int recordingGetPunchIn() => _recordingGetPunchIn();
+  void recordingSetPunchOut(int sample) => _recordingSetPunchOut(sample);
+  int recordingGetPunchOut() => _recordingGetPunchOut();
+  void recordingSetPunchTimes(double punchIn, double punchOut) => _recordingSetPunchTimes(punchIn, punchOut);
+  bool recordingIsPunchedIn() => _recordingIsPunchedIn() == 1;
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRE-ROLL
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  late final _recordingSetPreRollEnabled = _lib.lookupFunction<
+      Void Function(Int32), void Function(int)>('recording_set_pre_roll_enabled');
+  late final _recordingIsPreRollEnabled = _lib.lookupFunction<
+      Int32 Function(), int Function()>('recording_is_pre_roll_enabled');
+  late final _recordingSetPreRollSeconds = _lib.lookupFunction<
+      Void Function(Double), void Function(double)>('recording_set_pre_roll_seconds');
+  late final _recordingGetPreRollSamples = _lib.lookupFunction<
+      Uint64 Function(), int Function()>('recording_get_pre_roll_samples');
+  late final _recordingSetPreRollBars = _lib.lookupFunction<
+      Void Function(Uint64), void Function(int)>('recording_set_pre_roll_bars');
+  late final _recordingGetPreRollBars = _lib.lookupFunction<
+      Uint64 Function(), int Function()>('recording_get_pre_roll_bars');
+  late final _recordingPreRollStart = _lib.lookupFunction<
+      Uint64 Function(Uint64, Double), int Function(int, double)>('recording_pre_roll_start');
+
+  void recordingSetPreRollEnabled(bool enabled) => _recordingSetPreRollEnabled(enabled ? 1 : 0);
+  bool recordingIsPreRollEnabled() => _recordingIsPreRollEnabled() == 1;
+  void recordingSetPreRollSeconds(double seconds) => _recordingSetPreRollSeconds(seconds);
+  int recordingGetPreRollSamples() => _recordingGetPreRollSamples();
+  void recordingSetPreRollBars(int bars) => _recordingSetPreRollBars(bars);
+  int recordingGetPreRollBars() => _recordingGetPreRollBars();
+  int recordingPreRollStart(int recordStart, double tempo) => _recordingPreRollStart(recordStart, tempo);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AUTO-ARM
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  late final _recordingSetAutoArmEnabled = _lib.lookupFunction<
+      Void Function(Int32), void Function(int)>('recording_set_auto_arm_enabled');
+  late final _recordingIsAutoArmEnabled = _lib.lookupFunction<
+      Int32 Function(), int Function()>('recording_is_auto_arm_enabled');
+  late final _recordingSetAutoArmThresholdDb = _lib.lookupFunction<
+      Void Function(Double), void Function(double)>('recording_set_auto_arm_threshold_db');
+  late final _recordingGetAutoArmThreshold = _lib.lookupFunction<
+      Double Function(), double Function()>('recording_get_auto_arm_threshold');
+  late final _recordingAddPendingAutoArm = _lib.lookupFunction<
+      Void Function(Uint64), void Function(int)>('recording_add_pending_auto_arm');
+  late final _recordingRemovePendingAutoArm = _lib.lookupFunction<
+      Void Function(Uint64), void Function(int)>('recording_remove_pending_auto_arm');
+
+  void recordingSetAutoArmEnabled(bool enabled) => _recordingSetAutoArmEnabled(enabled ? 1 : 0);
+  bool recordingIsAutoArmEnabled() => _recordingIsAutoArmEnabled() == 1;
+  void recordingSetAutoArmThresholdDb(double db) => _recordingSetAutoArmThresholdDb(db);
+  double recordingGetAutoArmThreshold() => _recordingGetAutoArmThreshold();
+  void recordingAddPendingAutoArm(int trackId) => _recordingAddPendingAutoArm(trackId);
+  void recordingRemovePendingAutoArm(int trackId) => _recordingRemovePendingAutoArm(trackId);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Unified Routing System
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4456,6 +4944,24 @@ class NativeFFI {
 
   double exportGetProgress() => _exportGetProgress();
   int exportIsExporting() => _exportIsExporting();
+
+  // Stems export
+  late final _exportStems = _lib.lookupFunction<
+      Int32 Function(Pointer<Utf8>, Int32, Uint32, Double, Double, Int32, Int32, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, int, int, double, double, int, int, Pointer<Utf8>)>('export_stems');
+
+  /// Export stems (individual tracks) to WAV files
+  /// Returns number of exported stems, or -1 on error
+  int exportStems(String outputDir, int format, int sampleRate,
+      double startTime, double endTime, bool normalize, bool includeBuses, String prefix) {
+    final dirPtr = outputDir.toNativeUtf8();
+    final prefixPtr = prefix.toNativeUtf8();
+    final result = _exportStems(dirPtr, format, sampleRate, startTime, endTime,
+        normalize ? 1 : 0, includeBuses ? 1 : 0, prefixPtr);
+    calloc.free(dirPtr);
+    calloc.free(prefixPtr);
+    return result;
+  }
 }
 
 /// Piano roll note data
@@ -6878,6 +7384,8 @@ extension SaturationAPI on NativeFFI {
       Uint32 Function(Uint64, Uint32), int Function(int, int)>('pdc_get_slot_latency');
   static final _pdcIsEnabled = _loadNativeLibrary().lookupFunction<
       Int32 Function(), int Function()>('pdc_is_enabled');
+  static final _pdcSetEnabled = _loadNativeLibrary().lookupFunction<
+      Void Function(Int32), void Function(int)>('pdc_set_enabled');
   static final _pdcGetMasterLatency = _loadNativeLibrary().lookupFunction<
       Uint32 Function(), int Function()>('pdc_get_master_latency');
 
@@ -6895,6 +7403,9 @@ extension SaturationAPI on NativeFFI {
 
   /// Check if PDC is enabled
   bool pdcIsEnabled() => _pdcIsEnabled() == 1;
+
+  /// Set PDC enabled state
+  void pdcSetEnabled(bool enabled) => _pdcSetEnabled(enabled ? 1 : 0);
 
   /// Get master bus total latency in samples
   int pdcGetMasterLatency() => _pdcGetMasterLatency();

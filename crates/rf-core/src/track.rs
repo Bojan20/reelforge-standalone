@@ -592,7 +592,7 @@ mod tests {
         let mut mgr = TrackManager::with_master();
 
         let audio = mgr.add_track(Track::audio(TrackId::new(0), "Audio 1"));
-        let midi = mgr.add_track(Track::midi(TrackId::new(0), "MIDI 1"));
+        let _midi = mgr.add_track(Track::midi(TrackId::new(0), "MIDI 1"));
 
         assert_eq!(mgr.count(), 3); // Master + 2 tracks
 

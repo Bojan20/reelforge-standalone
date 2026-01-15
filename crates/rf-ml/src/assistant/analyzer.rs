@@ -422,14 +422,14 @@ impl AudioAnalyzer {
         let mut suggestions = Vec::new();
 
         // Loudness suggestions
-        suggestions.extend(self.suggestion_gen.from_loudness(
+        suggestions.extend(self.suggestion_gen.suggest_from_loudness(
             loudness.integrated_lufs,
             loudness.true_peak_db,
             loudness.loudness_range,
         ));
 
         // Spectral suggestions
-        suggestions.extend(self.suggestion_gen.from_spectral(
+        suggestions.extend(self.suggestion_gen.suggest_from_spectral(
             spectral.low_ratio,
             spectral.mid_ratio,
             spectral.high_ratio,
@@ -437,7 +437,7 @@ impl AudioAnalyzer {
         ));
 
         // Stereo suggestions
-        suggestions.extend(self.suggestion_gen.from_stereo(
+        suggestions.extend(self.suggestion_gen.suggest_from_stereo(
             stereo.width,
             stereo.correlation,
             stereo.balance,

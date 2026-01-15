@@ -6,6 +6,7 @@
 //! - Program-dependent attack/release
 //! - Soft-knee compression
 //! - SIMD-optimized envelope following (AVX2/AVX-512)
+//! - Lookup tables for fast dB/gain conversions
 
 use rf_core::Sample;
 
@@ -15,6 +16,240 @@ use std::simd::{f64x4, f64x8};
 use std::simd::prelude::SimdFloat;
 
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LOOKUP TABLES FOR FAST dB/GAIN CONVERSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Lookup table size for dB to linear conversion
+const DB_TO_LINEAR_TABLE_SIZE: usize = 2048;
+/// dB range: -120dB to +24dB
+const DB_MIN: f64 = -120.0;
+const DB_MAX: f64 = 24.0;
+const DB_RANGE: f64 = DB_MAX - DB_MIN;
+
+/// Const-friendly LN_10 (for use in const fn)
+const CONST_LN_10: f64 = std::f64::consts::LN_10;
+/// Const-friendly LN_2 (for use in const fn)
+const CONST_LN_2: f64 = std::f64::consts::LN_2;
+
+/// Lookup table size for linear to dB conversion
+const LINEAR_TO_DB_TABLE_SIZE: usize = 4096;
+/// Linear range: 1e-6 to 10.0 (covers -120dB to +20dB)
+const LINEAR_MIN: f64 = 1e-6;
+const LINEAR_MAX: f64 = 10.0;
+
+/// Pre-computed dB to linear lookup table
+struct DbToLinearTable {
+    table: [f64; DB_TO_LINEAR_TABLE_SIZE],
+}
+
+impl DbToLinearTable {
+    const fn new() -> Self {
+        let mut table = [0.0; DB_TO_LINEAR_TABLE_SIZE];
+        let mut i = 0;
+        while i < DB_TO_LINEAR_TABLE_SIZE {
+            let db = DB_MIN + (i as f64 / (DB_TO_LINEAR_TABLE_SIZE - 1) as f64) * DB_RANGE;
+            // 10^(db/20) = e^(db * ln(10) / 20)
+            let ln10_div_20 = 0.11512925464970228; // ln(10) / 20
+            table[i] = const_exp(db * ln10_div_20);
+            i += 1;
+        }
+        Self { table }
+    }
+
+    #[inline(always)]
+    fn lookup(&self, db: f64) -> f64 {
+        // Clamp to valid range
+        let db_clamped = if db < DB_MIN {
+            DB_MIN
+        } else if db > DB_MAX {
+            DB_MAX
+        } else {
+            db
+        };
+
+        // Calculate index with linear interpolation
+        let normalized = (db_clamped - DB_MIN) / DB_RANGE;
+        let index_f = normalized * (DB_TO_LINEAR_TABLE_SIZE - 1) as f64;
+        let index = index_f as usize;
+        let frac = index_f - index as f64;
+
+        // Linear interpolation
+        let v0 = self.table[index];
+        let v1 = if index + 1 < DB_TO_LINEAR_TABLE_SIZE {
+            self.table[index + 1]
+        } else {
+            self.table[index]
+        };
+
+        v0 + frac * (v1 - v0)
+    }
+}
+
+/// Pre-computed linear to dB lookup table
+struct LinearToDbTable {
+    table: [f64; LINEAR_TO_DB_TABLE_SIZE],
+    log_linear_min: f64,
+    log_range: f64,
+}
+
+impl LinearToDbTable {
+    const fn new() -> Self {
+        // Use logarithmic indexing for better resolution at low levels
+        let log_linear_min = const_ln(LINEAR_MIN);
+        let log_linear_max = const_ln(LINEAR_MAX);
+        let log_range = log_linear_max - log_linear_min;
+
+        let mut table = [0.0; LINEAR_TO_DB_TABLE_SIZE];
+        let mut i = 0;
+        while i < LINEAR_TO_DB_TABLE_SIZE {
+            let log_val = log_linear_min + (i as f64 / (LINEAR_TO_DB_TABLE_SIZE - 1) as f64) * log_range;
+            let linear = const_exp(log_val);
+            // 20 * log10(x) = 20 * ln(x) / ln(10)
+            table[i] = 20.0 * const_ln(linear) / CONST_LN_10;
+            i += 1;
+        }
+
+        Self {
+            table,
+            log_linear_min,
+            log_range,
+        }
+    }
+
+    #[inline(always)]
+    fn lookup(&self, linear: f64) -> f64 {
+        if linear < 1e-10 {
+            return -120.0;
+        }
+        if linear > LINEAR_MAX {
+            // Fallback to computation for very high values
+            return 20.0 * linear.log10();
+        }
+
+        // Logarithmic indexing
+        let log_val = linear.ln();
+        let normalized = (log_val - self.log_linear_min) / self.log_range;
+        let normalized_clamped = if normalized < 0.0 {
+            0.0
+        } else if normalized > 1.0 {
+            1.0
+        } else {
+            normalized
+        };
+
+        let index_f = normalized_clamped * (LINEAR_TO_DB_TABLE_SIZE - 1) as f64;
+        let index = index_f as usize;
+        let frac = index_f - index as f64;
+
+        let v0 = self.table[index];
+        let v1 = if index + 1 < LINEAR_TO_DB_TABLE_SIZE {
+            self.table[index + 1]
+        } else {
+            self.table[index]
+        };
+
+        v0 + frac * (v1 - v0)
+    }
+}
+
+/// Const-compatible exp function using Taylor series
+const fn const_exp(x: f64) -> f64 {
+    // For large negative values, return small number
+    if x < -30.0 {
+        return 1e-13;
+    }
+    // For large positive values, cap it
+    if x > 30.0 {
+        return 1e13;
+    }
+
+    // Taylor series: e^x = 1 + x + x²/2! + x³/3! + ...
+    let mut result = 1.0;
+    let mut term = 1.0;
+    let mut i = 1;
+    while i < 30 {
+        term *= x / i as f64;
+        result += term;
+        if term.abs() < 1e-15 {
+            break;
+        }
+        i += 1;
+    }
+    result
+}
+
+/// Const-compatible natural log using series expansion
+const fn const_ln(x: f64) -> f64 {
+    if x <= 0.0 {
+        return -1e10;
+    }
+
+    // Normalize to [0.5, 1.5] range for better convergence
+    let mut y = x;
+    let mut adjustment = 0.0;
+
+    // Scale down
+    while y > 2.0 {
+        y /= 2.0;
+        adjustment += CONST_LN_2;
+    }
+    // Scale up
+    while y < 0.5 {
+        y *= 2.0;
+        adjustment -= CONST_LN_2;
+    }
+
+    // ln(1+u) series where u = y-1
+    let u = y - 1.0;
+    let mut result = 0.0;
+    let mut term = u;
+    let mut i = 1;
+    while i < 50 {
+        if i % 2 == 1 {
+            result += term / i as f64;
+        } else {
+            result -= term / i as f64;
+        }
+        term *= u;
+        if term.abs() < 1e-15 {
+            break;
+        }
+        i += 1;
+    }
+
+    result + adjustment
+}
+
+// Global lookup tables (computed at compile time)
+static DB_TO_LINEAR: DbToLinearTable = DbToLinearTable::new();
+static LINEAR_TO_DB: LinearToDbTable = LinearToDbTable::new();
+
+/// Fast dB to linear conversion using lookup table
+#[inline(always)]
+pub fn db_to_linear_fast(db: f64) -> f64 {
+    DB_TO_LINEAR.lookup(db)
+}
+
+/// Fast linear to dB conversion using lookup table
+#[inline(always)]
+pub fn linear_to_db_fast(linear: f64) -> f64 {
+    LINEAR_TO_DB.lookup(linear)
+}
+
+/// Fast gain calculation for compression
+/// Given input_db, threshold_db, and ratio, returns the gain multiplier
+#[inline(always)]
+pub fn calculate_compressor_gain_fast(input_db: f64, threshold_db: f64, ratio: f64) -> f64 {
+    if input_db <= threshold_db {
+        return 1.0;
+    }
+
+    let over_db = input_db - threshold_db;
+    let gr_db = over_db * (1.0 - 1.0 / ratio);
+    db_to_linear_fast(-gr_db)
+}
 
 /// Envelope follower for dynamics processing
 #[derive(Debug, Clone)]
@@ -59,78 +294,96 @@ impl EnvelopeFollower {
         self.envelope
     }
 
-    /// Process block with SIMD optimization (4 samples at once)
+    /// Process block with optimized loop unrolling
+    ///
+    /// NOTE: Envelope following is an IIR process where each sample depends on
+    /// the previous envelope state (env[n] depends on env[n-1]).
+    /// True SIMD parallelization is not possible for serial envelope detection.
+    /// This version uses loop unrolling for better branch prediction.
     #[cfg(target_arch = "x86_64")]
     pub fn process_block_simd4(&mut self, input: &[Sample], output: &mut [f64]) {
         assert_eq!(input.len(), output.len());
 
         let len = input.len();
-        let simd_len = len - (len % 4);
+        let unroll_len = len - (len % 4);
 
-        let attack_simd = f64x4::splat(self.attack_coeff);
-        let release_simd = f64x4::splat(self.release_coeff);
-        let mut envelope_simd = f64x4::splat(self.envelope);
+        let attack = self.attack_coeff;
+        let release = self.release_coeff;
+        let mut envelope = self.envelope;
 
-        // Process 4 samples at a time
-        for i in (0..simd_len).step_by(4) {
-            let input_simd = f64x4::from_slice(&input[i..]);
-            let abs_input = input_simd.abs();
+        // Process 4 samples per iteration (loop unrolling, NOT SIMD parallel)
+        for i in (0..unroll_len).step_by(4) {
+            // Sample 0
+            let abs0 = input[i].abs();
+            let coeff0 = if abs0 > envelope { attack } else { release };
+            envelope = abs0 + coeff0 * (envelope - abs0);
+            output[i] = envelope;
 
-            // Select attack or release coefficient per lane
-            let mask = abs_input.simd_gt(envelope_simd);
-            let coeff = mask.select(attack_simd, release_simd);
+            // Sample 1
+            let abs1 = input[i + 1].abs();
+            let coeff1 = if abs1 > envelope { attack } else { release };
+            envelope = abs1 + coeff1 * (envelope - abs1);
+            output[i + 1] = envelope;
 
-            // Envelope smoothing: env = abs + coeff * (env - abs)
-            envelope_simd = abs_input + coeff * (envelope_simd - abs_input);
+            // Sample 2
+            let abs2 = input[i + 2].abs();
+            let coeff2 = if abs2 > envelope { attack } else { release };
+            envelope = abs2 + coeff2 * (envelope - abs2);
+            output[i + 2] = envelope;
 
-            // Store result
-            output[i..i + 4].copy_from_slice(&envelope_simd.to_array());
+            // Sample 3
+            let abs3 = input[i + 3].abs();
+            let coeff3 = if abs3 > envelope { attack } else { release };
+            envelope = abs3 + coeff3 * (envelope - abs3);
+            output[i + 3] = envelope;
         }
 
-        // Update scalar state from last SIMD lane
-        self.envelope = envelope_simd[3];
-
-        // Process remaining samples (0-3) with scalar
-        for i in simd_len..len {
-            output[i] = self.process(input[i]);
+        // Process remaining samples (0-3)
+        for i in unroll_len..len {
+            let abs_input = input[i].abs();
+            let coeff = if abs_input > envelope { attack } else { release };
+            envelope = abs_input + coeff * (envelope - abs_input);
+            output[i] = envelope;
         }
+
+        self.envelope = envelope;
     }
 
-    /// Process block with AVX-512 SIMD optimization (8 samples at once)
+    /// Process block with AVX-512 optimization (8-sample loop unrolling)
+    ///
+    /// NOTE: Like SIMD4, this uses loop unrolling not SIMD parallelization,
+    /// because envelope following requires serial state dependencies.
     #[cfg(target_arch = "x86_64")]
     pub fn process_block_simd8(&mut self, input: &[Sample], output: &mut [f64]) {
         assert_eq!(input.len(), output.len());
 
         let len = input.len();
-        let simd_len = len - (len % 8);
+        let unroll_len = len - (len % 8);
 
-        let attack_simd = f64x8::splat(self.attack_coeff);
-        let release_simd = f64x8::splat(self.release_coeff);
-        let mut envelope_simd = f64x8::splat(self.envelope);
+        let attack = self.attack_coeff;
+        let release = self.release_coeff;
+        let mut envelope = self.envelope;
 
-        // Process 8 samples at a time
-        for i in (0..simd_len).step_by(8) {
-            let input_simd = f64x8::from_slice(&input[i..]);
-            let abs_input = input_simd.abs();
-
-            // Select attack or release coefficient per lane
-            let mask = abs_input.simd_gt(envelope_simd);
-            let coeff = mask.select(attack_simd, release_simd);
-
-            // Envelope smoothing: env = abs + coeff * (env - abs)
-            envelope_simd = abs_input + coeff * (envelope_simd - abs_input);
-
-            // Store result
-            output[i..i + 8].copy_from_slice(&envelope_simd.to_array());
+        // Process 8 samples per iteration (loop unrolling)
+        for i in (0..unroll_len).step_by(8) {
+            // Unrolled: process 8 samples sequentially
+            for j in 0..8 {
+                let abs_input = input[i + j].abs();
+                let coeff = if abs_input > envelope { attack } else { release };
+                envelope = abs_input + coeff * (envelope - abs_input);
+                output[i + j] = envelope;
+            }
         }
 
-        // Update scalar state from last SIMD lane
-        self.envelope = envelope_simd[7];
-
-        // Process remaining samples (0-7) with scalar
-        for i in simd_len..len {
-            output[i] = self.process(input[i]);
+        // Process remaining samples (0-7)
+        for i in unroll_len..len {
+            let abs_input = input[i].abs();
+            let coeff = if abs_input > envelope { attack } else { release };
+            envelope = abs_input + coeff * (envelope - abs_input);
+            output[i] = envelope;
         }
+
+        self.envelope = envelope;
     }
 
     /// Process block with runtime SIMD dispatch
@@ -293,6 +546,7 @@ impl Compressor {
     }
 
     /// VCA-style compression (clean, transparent)
+    /// Uses lookup tables for fast dB/gain conversion
     #[inline]
     fn process_vca(&mut self, input: Sample) -> Sample {
         let envelope = self.envelope.process(input);
@@ -301,15 +555,18 @@ impl Compressor {
             return input;
         }
 
-        let env_db = 20.0 * envelope.log10();
+        // Fast dB conversion using lookup table
+        let env_db = linear_to_db_fast(envelope);
         let gr_db = self.calculate_gain_reduction(env_db);
         self.gain_reduction = gr_db;
 
-        let gain = 10.0_f64.powf(-gr_db / 20.0);
+        // Fast gain conversion using lookup table
+        let gain = db_to_linear_fast(-gr_db);
         input * gain
     }
 
     /// Opto-style compression (smooth, program-dependent)
+    /// Uses lookup tables for fast dB/gain conversion
     #[inline]
     fn process_opto(&mut self, input: Sample) -> Sample {
         let abs_input = input.abs();
@@ -338,7 +595,8 @@ impl Compressor {
             return input;
         }
 
-        let env_db = 20.0 * self.opto_envelope.log10();
+        // Fast dB conversion using lookup table
+        let env_db = linear_to_db_fast(self.opto_envelope);
         let gr_db = self.calculate_gain_reduction(env_db);
 
         // Smooth the gain reduction (opto inertia)
@@ -347,11 +605,13 @@ impl Compressor {
         let smoothed_gr: f64 = self.opto_gain_history.iter().sum::<f64>() / 4.0;
         self.gain_reduction = smoothed_gr;
 
-        let gain = 10.0_f64.powf(-smoothed_gr / 20.0);
+        // Fast gain conversion using lookup table
+        let gain = db_to_linear_fast(-smoothed_gr);
         input * gain
     }
 
     /// FET-style compression (aggressive, punchy, adds harmonics)
+    /// Uses lookup tables for fast dB/gain conversion
     #[inline]
     fn process_fet(&mut self, input: Sample) -> Sample {
         let envelope = self.envelope.process(input);
@@ -360,7 +620,8 @@ impl Compressor {
             return input;
         }
 
-        let env_db = 20.0 * envelope.log10();
+        // Fast dB conversion using lookup table
+        let env_db = linear_to_db_fast(envelope);
 
         // FET has more aggressive knee and can go into negative ratio territory
         let gr_db = if env_db > self.threshold_db {
@@ -373,7 +634,8 @@ impl Compressor {
         };
 
         self.gain_reduction = gr_db;
-        let gain = 10.0_f64.powf(-gr_db / 20.0);
+        // Fast gain conversion using lookup table
+        let gain = db_to_linear_fast(-gr_db);
 
         // Add subtle FET saturation
         let saturated = input * gain;
@@ -489,19 +751,16 @@ impl StereoProcessor for StereoCompressor {
             let _ = self.left.envelope.process(max_input);
             let _ = self.right.envelope.process(max_input);
 
-            // Use same envelope for both
+            // Use same envelope for both with fast lookup
             let env = self.left.envelope.current();
-            let env_db = if env > 1e-10 {
-                20.0 * env.log10()
-            } else {
-                -120.0
-            };
+            let env_db = linear_to_db_fast(env);
             let gr_db = self.left.calculate_gain_reduction(env_db);
             self.left.gain_reduction = gr_db;
             self.right.gain_reduction = gr_db;
 
-            let gain = 10.0_f64.powf(-gr_db / 20.0);
-            let makeup = 10.0_f64.powf(self.left.makeup_gain_db / 20.0);
+            // Fast gain conversion
+            let gain = db_to_linear_fast(-gr_db);
+            let makeup = db_to_linear_fast(self.left.makeup_gain_db);
 
             (left * gain * makeup, right * gain * makeup)
         } else if self.link <= 0.01 {
@@ -515,10 +774,10 @@ impl StereoProcessor for StereoCompressor {
             let out_l = self.left.process_sample(left);
             let out_r = self.right.process_sample(right);
 
-            // Blend between linked and independent
+            // Blend between linked and independent with fast lookup
             let max_gr = self.left.gain_reduction.max(self.right.gain_reduction);
-            let linked_gain = 10.0_f64.powf(-max_gr / 20.0);
-            let makeup = 10.0_f64.powf(self.left.makeup_gain_db / 20.0);
+            let linked_gain = db_to_linear_fast(-max_gr);
+            let makeup = db_to_linear_fast(self.left.makeup_gain_db);
 
             let linked_l = left * linked_gain * makeup;
             let linked_r = right * linked_gain * makeup;
@@ -671,16 +930,12 @@ impl TruePeakLimiter {
 
     /// Get current true peak level in dBTP
     pub fn true_peak_db(&self) -> f64 {
-        if self.true_peak > 1e-10 {
-            20.0 * self.true_peak.log10()
-        } else {
-            -120.0
-        }
+        linear_to_db_fast(self.true_peak)
     }
 
     /// Get current gain reduction in dB
     pub fn gain_reduction_db(&self) -> f64 {
-        -20.0 * self.gain.log10()
+        -linear_to_db_fast(self.gain)
     }
 
     /// Upsample a sample (zero-stuffing + filtering)
@@ -772,9 +1027,9 @@ impl StereoProcessor for TruePeakLimiter {
         let true_peak = self.find_true_peak(left, right);
         self.true_peak = self.true_peak.max(true_peak);
 
-        // Calculate target gain
-        let threshold_linear = 10.0_f64.powf(self.threshold_db / 20.0);
-        let ceiling_linear = 10.0_f64.powf(self.ceiling_db / 20.0);
+        // Calculate target gain with fast lookup
+        let threshold_linear = db_to_linear_fast(self.threshold_db);
+        let ceiling_linear = db_to_linear_fast(self.ceiling_db);
 
         let target_gain = if true_peak > threshold_linear {
             (ceiling_linear / true_peak).min(1.0)
@@ -843,7 +1098,7 @@ impl Limiter {
     }
 
     fn threshold_linear(&self) -> f64 {
-        10.0_f64.powf(self.threshold_db / 20.0)
+        db_to_linear_fast(self.threshold_db)
     }
 }
 
@@ -948,11 +1203,11 @@ impl Gate {
     }
 
     fn threshold_linear(&self) -> f64 {
-        10.0_f64.powf(self.threshold_db / 20.0)
+        db_to_linear_fast(self.threshold_db)
     }
 
     fn range_linear(&self) -> f64 {
-        10.0_f64.powf(self.range_db / 20.0)
+        db_to_linear_fast(self.range_db)
     }
 }
 
@@ -1067,7 +1322,8 @@ impl MonoProcessor for Expander {
             return 0.0;
         }
 
-        let env_db = 20.0 * envelope.log10();
+        // Fast dB conversion using lookup table
+        let env_db = linear_to_db_fast(envelope);
 
         // Expansion below threshold
         let gain_db = if env_db < self.threshold_db - self.knee_db / 2.0 {
@@ -1083,7 +1339,8 @@ impl MonoProcessor for Expander {
             -(slope * (self.knee_db - x) * (self.knee_db - x)) / (2.0 * self.knee_db)
         };
 
-        let gain = 10.0_f64.powf(gain_db / 20.0);
+        // Fast gain conversion using lookup table
+        let gain = db_to_linear_fast(gain_db);
         input * gain
     }
 }
@@ -1260,5 +1517,113 @@ mod tests {
         envelope.process_block_simd8(&input, &mut output);
 
         assert!(output.iter().all(|&x| x.is_finite()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOOKUP TABLE TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_db_to_linear_lookup() {
+        // Test known values
+        let test_cases = [
+            (0.0, 1.0),
+            (-6.0, 0.501187), // -6dB ≈ 0.5
+            (-20.0, 0.1),
+            (-40.0, 0.01),
+            (-60.0, 0.001),
+            (6.0, 1.9952),  // +6dB ≈ 2.0
+            (20.0, 10.0),
+        ];
+
+        for (db, expected) in test_cases {
+            let result = db_to_linear_fast(db);
+            let error = (result - expected).abs() / expected;
+            assert!(
+                error < 0.01,
+                "db_to_linear_fast({}) = {}, expected {} (error: {:.2}%)",
+                db,
+                result,
+                expected,
+                error * 100.0
+            );
+        }
+    }
+
+    #[test]
+    fn test_linear_to_db_lookup() {
+        // Test known values
+        let test_cases = [
+            (1.0, 0.0),
+            (0.5, -6.0206),  // -6dB
+            (0.1, -20.0),
+            (0.01, -40.0),
+            (2.0, 6.0206),   // +6dB
+            (10.0, 20.0),
+        ];
+
+        for (linear, expected) in test_cases {
+            let result = linear_to_db_fast(linear);
+            let error = (result - expected).abs();
+            assert!(
+                error < 0.5,
+                "linear_to_db_fast({}) = {}, expected {} (error: {:.2}dB)",
+                linear,
+                result,
+                expected,
+                error
+            );
+        }
+    }
+
+    #[test]
+    fn test_lookup_vs_precise() {
+        // Compare lookup tables against precise computation
+        for i in 0..100 {
+            let db = -60.0 + i as f64 * 0.84; // Test range -60 to +24
+            let precise = 10.0_f64.powf(db / 20.0);
+            let fast = db_to_linear_fast(db);
+            let error = (fast - precise).abs() / precise;
+            assert!(
+                error < 0.01,
+                "db_to_linear error at {} dB: {:.4}%",
+                db,
+                error * 100.0
+            );
+        }
+
+        for i in 1..100 {
+            let linear = 0.001 + i as f64 * 0.1;
+            let precise = 20.0 * linear.log10();
+            let fast = linear_to_db_fast(linear);
+            let error = (fast - precise).abs();
+            assert!(
+                error < 0.5,
+                "linear_to_db error at {}: {:.4} dB",
+                linear,
+                error
+            );
+        }
+    }
+
+    #[test]
+    fn test_compressor_gain_fast() {
+        // Test compressor gain calculation
+        let gain = calculate_compressor_gain_fast(-10.0, -20.0, 4.0);
+        // Above threshold by 10dB, 4:1 ratio = 7.5dB reduction
+        // gain = 10^(-7.5/20) ≈ 0.42
+        assert!(
+            (gain - 0.42).abs() < 0.05,
+            "Compressor gain: expected ~0.42, got {}",
+            gain
+        );
+
+        // Below threshold - no reduction
+        let gain_below = calculate_compressor_gain_fast(-25.0, -20.0, 4.0);
+        assert!(
+            (gain_below - 1.0).abs() < 0.01,
+            "Below threshold: expected 1.0, got {}",
+            gain_below
+        );
     }
 }

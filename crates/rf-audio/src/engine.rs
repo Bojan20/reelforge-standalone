@@ -8,12 +8,15 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
+use std::thread;
+use std::time::Duration;
 
 use parking_lot::{Mutex, RwLock};
 
 use rf_core::{BufferSize, Sample, SampleRate};
 use rf_dsp::eq::{ParametricEq, EqFilterType}; // For EQ processing
 use rf_dsp::StereoProcessor; // Trait for process_sample()
+use rf_file::recording::{AudioRecorder, RecordingConfig, RecordingState};
 
 use crate::{
     AudioConfig, AudioResult, AudioStream, get_default_input_device,
@@ -307,10 +310,14 @@ pub struct AudioEngine {
     pub meters: Arc<MeterData>,
     /// Transport position (lock-free)
     pub transport: Arc<TransportPosition>,
+    /// Audio recorder (shared with audio callback)
+    pub recorder: Arc<AudioRecorder>,
     /// Processor
     processor: Mutex<Box<dyn AudioProcessor>>,
     /// Engine running flag
     running: AtomicBool,
+    /// Recording flush thread handle
+    recorder_thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
 /// Device configuration (UI thread only)
@@ -324,6 +331,10 @@ impl AudioEngine {
     /// Create new audio engine with default settings
     pub fn new() -> Self {
         let default = EngineSettings::default();
+        let recorder_config = RecordingConfig {
+            sample_rate: default.sample_rate.as_u32(),
+            ..Default::default()
+        };
         Self {
             device_config: RwLock::new(DeviceConfig {
                 output_device: default.output_device,
@@ -334,13 +345,19 @@ impl AudioEngine {
             stream: Mutex::new(None),
             meters: Arc::new(MeterData::default()),
             transport: Arc::new(TransportPosition::default()),
+            recorder: Arc::new(AudioRecorder::new(recorder_config)),
             processor: Mutex::new(Box::new(PassthroughProcessor)),
             running: AtomicBool::new(false),
+            recorder_thread: Mutex::new(None),
         }
     }
 
     /// Create audio engine with custom settings
     pub fn with_settings(settings: EngineSettings) -> Self {
+        let recorder_config = RecordingConfig {
+            sample_rate: settings.sample_rate.as_u32(),
+            ..Default::default()
+        };
         Self {
             device_config: RwLock::new(DeviceConfig {
                 output_device: settings.output_device.clone(),
@@ -351,8 +368,10 @@ impl AudioEngine {
             stream: Mutex::new(None),
             meters: Arc::new(MeterData::default()),
             transport: Arc::new(TransportPosition::default()),
+            recorder: Arc::new(AudioRecorder::new(recorder_config)),
             processor: Mutex::new(Box::new(PassthroughProcessor)),
             running: AtomicBool::new(false),
+            recorder_thread: Mutex::new(None),
         }
     }
 
@@ -401,11 +420,14 @@ impl AudioEngine {
         // Clone Arcs for callback
         let meters = Arc::clone(&self.meters);
         let transport = Arc::clone(&self.transport);
+        let recorder = Arc::clone(&self.recorder);
 
         // Create pre-allocated buffers
         let buffer_size_usize = buffer_size.as_usize();
         let mut left_buf = vec![0.0f64; buffer_size_usize];
         let mut right_buf = vec![0.0f64; buffer_size_usize];
+        // Pre-allocated interleaved f32 buffer for recording
+        let mut record_buf = vec![0.0f32; buffer_size_usize * 2];
 
         // Peak decay coefficient (for smooth metering)
         let decay = 0.9995_f64.powf(buffer_size_usize as f64);
@@ -432,10 +454,20 @@ impl AudioEngine {
                 }
             }
 
-            // TODO: Send input audio to recording
-            // This will be handled by the playback engine callback
-            // Input audio is available in left_buf/right_buf if has_input is true
-            // For now, input is just passed through for monitoring
+            // Send input audio to recording system
+            // Recorder expects interleaved f32 samples: [L0, R0, L1, R1, ...]
+            if has_input {
+                let rec_state = recorder.state();
+                if rec_state == RecordingState::Armed || rec_state == RecordingState::Recording {
+                    // Convert to interleaved f32
+                    for i in 0..frames {
+                        record_buf[i * 2] = left_buf[i] as f32;
+                        record_buf[i * 2 + 1] = right_buf[i] as f32;
+                    }
+                    let position = transport.samples();
+                    recorder.process(&record_buf[..frames * 2], position);
+                }
+            }
 
             // Check if playing
             let state = transport.state();
@@ -527,6 +559,26 @@ impl AudioEngine {
         *self.stream.lock() = Some(stream);
         self.running.store(true, Ordering::Release);
 
+        // Start recording flush thread
+        let recorder_clone = Arc::clone(&self.recorder);
+        let running_flag = self.running.load(Ordering::Acquire);
+        let recorder_handle = thread::Builder::new()
+            .name("audio-recorder-flush".into())
+            .spawn(move || {
+                log::debug!("Recording flush thread started");
+                while running_flag {
+                    // Flush pending samples to disk
+                    if let Err(e) = recorder_clone.flush_pending() {
+                        log::error!("Recording flush error: {}", e);
+                    }
+                    // Sleep briefly to avoid busy-waiting
+                    thread::sleep(Duration::from_millis(10));
+                }
+                log::debug!("Recording flush thread stopped");
+            })
+            .ok();
+        *self.recorder_thread.lock() = recorder_handle;
+
         log::info!("Audio engine started");
         Ok(())
     }
@@ -537,12 +589,22 @@ impl AudioEngine {
             return Ok(());
         }
 
+        // Stop recording if active
+        if self.recorder.state() == RecordingState::Recording {
+            let _ = self.recorder.stop();
+        }
+
         if let Some(stream) = self.stream.lock().take() {
             stream.stop()?;
         }
 
         self.running.store(false, Ordering::Release);
         self.transport.set_state(TransportState::Stopped);
+
+        // Wait for recorder thread to finish
+        if let Some(handle) = self.recorder_thread.lock().take() {
+            let _ = handle.join();
+        }
 
         log::info!("Audio engine stopped");
         Ok(())
@@ -598,6 +660,71 @@ impl AudioEngine {
     /// Get current transport state
     pub fn transport_state(&self) -> TransportState {
         self.transport.state()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RECORDING CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Arm recording
+    pub fn record_arm(&self) -> Result<(), rf_file::FileError> {
+        self.recorder.arm()
+    }
+
+    /// Disarm recording
+    pub fn record_disarm(&self) {
+        self.recorder.disarm();
+    }
+
+    /// Start recording (arms first if not armed)
+    pub fn record_start(&self) -> Result<std::path::PathBuf, rf_file::FileError> {
+        if self.recorder.state() == RecordingState::Stopped {
+            self.recorder.arm()?;
+        }
+        self.transport.set_state(TransportState::Recording);
+        self.recorder.start()
+    }
+
+    /// Stop recording
+    pub fn record_stop(&self) -> Result<Option<std::path::PathBuf>, rf_file::FileError> {
+        let result = self.recorder.stop();
+        if self.transport.state() == TransportState::Recording {
+            self.transport.set_state(TransportState::Playing);
+        }
+        result
+    }
+
+    /// Pause recording
+    pub fn record_pause(&self) -> Result<(), rf_file::FileError> {
+        self.recorder.pause()
+    }
+
+    /// Resume recording
+    pub fn record_resume(&self) -> Result<(), rf_file::FileError> {
+        self.recorder.resume()
+    }
+
+    /// Get recording state
+    pub fn recording_state(&self) -> RecordingState {
+        self.recorder.state()
+    }
+
+    /// Get recording stats
+    pub fn recording_stats(&self) -> rf_file::recording::RecordingStats {
+        self.recorder.stats()
+    }
+
+    /// Set recording output directory
+    pub fn set_recording_output_dir(&self, path: std::path::PathBuf) {
+        let mut config = rf_file::recording::RecordingConfig::default();
+        config.output_dir = path;
+        config.sample_rate = self.sample_rate.load(Ordering::Relaxed);
+        self.recorder.set_config(config);
+    }
+
+    /// Get recorder reference (for advanced configuration)
+    pub fn recorder(&self) -> &Arc<AudioRecorder> {
+        &self.recorder
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

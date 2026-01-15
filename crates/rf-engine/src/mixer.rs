@@ -664,7 +664,7 @@ mod tests {
 
     #[test]
     fn test_mixer_channel_routing() {
-        let (mut mixer, _cmd_tx, meters) = Mixer::new(48000.0, 256);
+        let (mut mixer, _cmd_tx, _meters) = Mixer::new(48000.0, 256);
 
         // Add signal to UI channel
         let input = vec![0.5; 256];

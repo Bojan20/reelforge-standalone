@@ -12,10 +12,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/timeline_models.dart';
+import '../../providers/midi_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../providers/theme_mode_provider.dart';
 import 'grid_lines.dart';
 import '../glass/glass_clip_widget.dart';
+import '../midi/midi_clip_widget.dart';
 import 'crossfade_overlay.dart';
 
 /// Height threshold for stereo waveform display (Logic Pro style)
@@ -60,6 +62,15 @@ class TrackLane extends StatefulWidget {
   final bool snapEnabled;
   final double snapValue;
   final List<TimelineClip> allClips;
+  /// MIDI clips for MIDI/Instrument tracks
+  final List<MidiClip> midiClips;
+  /// Selected MIDI clip ID
+  final String? selectedMidiClipId;
+  /// MIDI clip callbacks
+  final ValueChanged<String>? onMidiClipSelect;
+  final void Function(String clipId)? onMidiClipDoubleTap;
+  final void Function(String clipId, double newStartTime)? onMidiClipMove;
+  final void Function(String clipId, double newStartTime, double newDuration)? onMidiClipResize;
 
   const TrackLane({
     super.key,
@@ -91,6 +102,12 @@ class TrackLane extends StatefulWidget {
     this.snapEnabled = false,
     this.snapValue = 1,
     this.allClips = const [],
+    this.midiClips = const [],
+    this.selectedMidiClipId,
+    this.onMidiClipSelect,
+    this.onMidiClipDoubleTap,
+    this.onMidiClipMove,
+    this.onMidiClipResize,
   });
 
   @override
@@ -303,6 +320,21 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                     onUpdate: (duration) =>
                         widget.onCrossfadeUpdate?.call(xfade.id, duration),
                     onDelete: () => widget.onCrossfadeDelete?.call(xfade.id),
+                  )),
+
+              // MIDI clips (for MIDI/Instrument tracks)
+              ...widget.midiClips.map((midiClip) => MidiClipWidget(
+                    key: ValueKey('midi_${midiClip.id}'),
+                    clip: midiClip,
+                    zoom: widget.zoom,
+                    scrollOffset: widget.scrollOffset,
+                    trackHeight: widget.trackHeight,
+                    isSelected: midiClip.id == widget.selectedMidiClipId,
+                    onTap: () => widget.onMidiClipSelect?.call(midiClip.id),
+                    onDoubleTap: () => widget.onMidiClipDoubleTap?.call(midiClip.id),
+                    onMove: (newStart) => widget.onMidiClipMove?.call(midiClip.id, newStart),
+                    onResize: (newStart, newDur) =>
+                        widget.onMidiClipResize?.call(midiClip.id, newStart, newDur),
                   )),
             ],
           );

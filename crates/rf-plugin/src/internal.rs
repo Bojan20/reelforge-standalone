@@ -694,7 +694,7 @@ impl PluginInstance for InternalPlugin {
                     }
                 }
             }
-            InternalProcessorType::PassThrough | _ => {
+            _ => {
                 // Pass-through
                 for ch in 0..output.channels.min(input.channels) {
                     if let (Some(inp), Some(out)) = (input.channel(ch), output.channel_mut(ch)) {

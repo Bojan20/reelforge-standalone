@@ -28,6 +28,8 @@ use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::thread;
+use std::time::Duration;
 
 use crate::command_queue::audio_command_handle;
 use crate::dsp_commands::DspCommand;
@@ -532,8 +534,10 @@ pub struct PlaybackEngine {
     pub meters: Arc<PlaybackMeters>,
     /// Simple clips (for testing without full engine)
     simple_clips: RwLock<Vec<PlaybackClip>>,
-    /// cpal stream handle
+    /// cpal output stream handle
     stream: Mutex<StreamHolder>,
+    /// cpal input stream handle (for recording)
+    input_stream: Mutex<StreamHolder>,
     /// Is stream running
     running: AtomicBool,
     /// rf-engine PlaybackEngine (for full DAW mode)
@@ -555,6 +559,12 @@ pub struct PlaybackEngine {
     requested_buffer_size: AtomicU64,
     /// Current output device name
     current_device: RwLock<Option<String>>,
+    /// Input ring buffer producer (input thread writes here)
+    input_buffer_producer: Mutex<Option<rtrb::Producer<f32>>>,
+    /// Input ring buffer consumer (recording thread reads here)
+    input_buffer_consumer: Mutex<Option<rtrb::Consumer<f32>>>,
+    /// Recording flush thread handle
+    recorder_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl PlaybackEngine {
@@ -580,6 +590,7 @@ impl PlaybackEngine {
             meters: Arc::new(PlaybackMeters::new()),
             simple_clips: RwLock::new(Vec::new()),
             stream: Mutex::new(StreamHolder(None)),
+            input_stream: Mutex::new(StreamHolder(None)),
             running: AtomicBool::new(false),
             engine_playback: RwLock::new(None),
             use_engine_mode: AtomicBool::new(false),
@@ -591,6 +602,9 @@ impl PlaybackEngine {
             requested_sample_rate: AtomicU64::new(0), // 0 = device default
             requested_buffer_size: AtomicU64::new(0), // 0 = device default
             current_device: RwLock::new(None),
+            input_buffer_producer: Mutex::new(None),
+            input_buffer_consumer: Mutex::new(None),
+            recorder_thread: Mutex::new(None),
         }
     }
 
@@ -766,6 +780,143 @@ impl PlaybackEngine {
             .map_err(|e| format!("Failed to start stream: {}", e))?;
 
         self.stream.lock().0 = Some(stream);
+
+        // Try to start input stream for recording
+        if let Some(input_device) = host.default_input_device() {
+            if let Ok(input_config) = input_device.default_input_config() {
+                log::info!(
+                    "Starting input stream for recording: {} Hz, {} channels",
+                    input_config.sample_rate().0,
+                    input_config.channels()
+                );
+
+                // Create lock-free ring buffer for input audio
+                // Buffer size: 1 second of stereo audio at max sample rate
+                let buffer_samples = 192000 * 2;
+                let (producer, consumer) = rtrb::RingBuffer::<f32>::new(buffer_samples);
+                *self.input_buffer_producer.lock() = Some(producer);
+                *self.input_buffer_consumer.lock() = Some(consumer);
+
+                // Clone for input callback
+                let input_peak_l = Arc::new(AtomicU64::new(0));
+                let input_peak_r = Arc::new(AtomicU64::new(0));
+                let input_peak_l_clone = Arc::clone(&input_peak_l);
+                let input_peak_r_clone = Arc::clone(&input_peak_r);
+
+                // Get producer for callback (need to take ownership)
+                let mut producer_for_callback = self.input_buffer_producer.lock().take();
+
+                let input_channels = input_config.channels() as usize;
+
+                let input_stream = input_device
+                    .build_input_stream(
+                        &input_config.into(),
+                        move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                            // Calculate input levels
+                            let frames = data.len() / input_channels.max(1);
+                            let mut peak_l = 0.0f32;
+                            let mut peak_r = 0.0f32;
+
+                            for i in 0..frames {
+                                let idx = i * input_channels;
+                                if input_channels >= 1 {
+                                    peak_l = peak_l.max(data[idx].abs());
+                                }
+                                if input_channels >= 2 {
+                                    peak_r = peak_r.max(data[idx + 1].abs());
+                                }
+                            }
+
+                            // Store peaks atomically
+                            input_peak_l_clone.store((peak_l as f64).to_bits(), Ordering::Relaxed);
+                            input_peak_r_clone.store((peak_r as f64).to_bits(), Ordering::Relaxed);
+
+                            // Write to ring buffer (non-blocking)
+                            if let Some(ref mut producer) = producer_for_callback {
+                                for sample in data.iter() {
+                                    let _ = producer.push(*sample);
+                                }
+                            }
+                        },
+                        |err| log::error!("Input stream error: {}", err),
+                        None,
+                    )
+                    .map_err(|e| format!("Failed to build input stream: {}", e))?;
+
+                input_stream
+                    .play()
+                    .map_err(|e| format!("Failed to start input stream: {}", e))?;
+
+                self.input_stream.lock().0 = Some(input_stream);
+
+                // Store input peak atomics for later reading
+                self.input_peak_l
+                    .store(input_peak_l.load(Ordering::Relaxed), Ordering::Relaxed);
+                self.input_peak_r
+                    .store(input_peak_r.load(Ordering::Relaxed), Ordering::Relaxed);
+
+                // Start background thread for recording flush
+                let recorder_clone = Arc::clone(&self.recorder);
+                let consumer_for_thread = self.input_buffer_consumer.lock().take();
+                let running_clone = self.running.load(Ordering::Acquire);
+                let state_clone = Arc::clone(&self.state);
+
+                let recorder_handle = thread::Builder::new()
+                    .name("recording-flush".into())
+                    .spawn(move || {
+                        log::debug!("Recording flush thread started");
+                        let mut local_buffer = vec![0.0f32; 4096]; // Pre-allocated
+
+                        // We need to store consumer in the thread
+                        let mut consumer = consumer_for_thread;
+
+                        while running_clone {
+                            // Read from ring buffer
+                            if let Some(ref mut cons) = consumer {
+                                let available = cons.slots();
+                                if available > 0 {
+                                    let to_read = available.min(local_buffer.len());
+                                    for i in 0..to_read {
+                                        if let Ok(sample) = cons.pop() {
+                                            local_buffer[i] = sample;
+                                        }
+                                    }
+
+                                    // Send to recorder if armed/recording
+                                    let rec_state = recorder_clone.state();
+                                    if rec_state == RecordingState::Armed
+                                        || rec_state == RecordingState::Recording
+                                    {
+                                        let position =
+                                            state_clone.position_samples.load(Ordering::Relaxed);
+                                        recorder_clone.process(&local_buffer[..to_read], position);
+                                    }
+                                }
+                            }
+
+                            // Flush pending samples to disk
+                            if let Err(e) = recorder_clone.flush_pending() {
+                                log::error!("Recording flush error: {}", e);
+                            }
+
+                            // Don't busy-wait
+                            thread::sleep(Duration::from_millis(5));
+                        }
+
+                        log::debug!("Recording flush thread stopped");
+                    })
+                    .ok();
+
+                *self.recorder_thread.lock() = recorder_handle;
+
+                log::info!("Input stream started for recording");
+            } else {
+                log::warn!("Could not get input device config");
+            }
+        } else {
+            log::warn!("No input device available for recording");
+        }
+
         self.running.store(true, Ordering::Release);
 
         Ok(())
@@ -777,9 +928,21 @@ impl PlaybackEngine {
             return Ok(());
         }
 
+        // Stop recording if active
+        if self.recorder.state() == RecordingState::Recording {
+            let _ = self.recorder.stop();
+        }
+
+        // Stop streams
+        self.input_stream.lock().0.take();
         self.stream.lock().0.take();
         self.running.store(false, Ordering::Release);
         self.state.playing.store(false, Ordering::Relaxed);
+
+        // Wait for recorder thread
+        if let Some(handle) = self.recorder_thread.lock().take() {
+            let _ = handle.join();
+        }
 
         Ok(())
     }
@@ -835,6 +998,106 @@ impl PlaybackEngine {
 
         if let Some(ref engine) = *self.engine_playback.read() {
             engine.position.set_loop(start_sec, end_sec, enabled);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCRUBBING (Pro Tools / Cubase style audio preview)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Start scrubbing at given position
+    pub fn start_scrub(&self, seconds: f64) {
+        self.state.set_position_seconds(seconds);
+
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.start_scrub(seconds);
+        }
+    }
+
+    /// Update scrub position with velocity
+    pub fn update_scrub(&self, seconds: f64, velocity: f64) {
+        self.state.set_position_seconds(seconds);
+
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.update_scrub(seconds, velocity);
+        }
+    }
+
+    /// Stop scrubbing
+    pub fn stop_scrub(&self) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.stop_scrub();
+        }
+    }
+
+    /// Check if currently scrubbing
+    pub fn is_scrubbing(&self) -> bool {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.is_scrubbing()
+        } else {
+            false
+        }
+    }
+
+    /// Set scrub window size in milliseconds
+    pub fn set_scrub_window_ms(&self, ms: u64) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.set_scrub_window_ms(ms);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // OFFLINE RENDERING (for export)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Process audio offline at specific position (for export)
+    /// Fills output_l and output_r with rendered audio starting at sample_position
+    pub fn process_offline(&self, sample_position: u64, output_l: &mut [f64], output_r: &mut [f64]) {
+        let frames = output_l.len().min(output_r.len());
+
+        // Try to use rf-engine first for full DAW processing
+        if let Some(ref engine) = *self.engine_playback.read() {
+            // Process through full engine (tracks, buses, effects)
+            engine.process_offline(sample_position as usize, output_l, output_r);
+            return;
+        }
+
+        // Fallback: Simple clips mode - render clips directly
+        if let Some(clips_guard) = self.simple_clips.try_read() {
+            let _sample_rate = self.state.sample_rate();
+
+            // Clear output
+            output_l.fill(0.0);
+            output_r.fill(0.0);
+
+            for i in 0..frames {
+                let current_pos = sample_position + i as u64;
+
+                for clip in clips_guard.iter() {
+                    if clip.muted {
+                        continue;
+                    }
+
+                    if current_pos >= clip.start_sample {
+                        let clip_pos = (current_pos - clip.start_sample) as usize;
+                        if clip_pos < clip.samples_l.len() {
+                            output_l[i] += clip.samples_l[clip_pos] as f64 * clip.gain as f64;
+                            output_r[i] += clip.samples_r[clip_pos] as f64 * clip.gain as f64;
+                        }
+                    }
+                }
+            }
+
+            // Apply master volume
+            let master_vol = f64::from_bits(self.master_volume.load(Ordering::Relaxed));
+            for i in 0..frames {
+                output_l[i] *= master_vol;
+                output_r[i] *= master_vol;
+            }
+        } else {
+            // No clips, output silence
+            output_l.fill(0.0);
+            output_r.fill(0.0);
         }
     }
 

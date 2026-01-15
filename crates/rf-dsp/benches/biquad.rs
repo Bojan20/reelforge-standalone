@@ -1,7 +1,6 @@
 //! Biquad filter benchmarks
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use rf_dsp::MonoProcessor;
 use rf_dsp::biquad::{BiquadCoeffs, BiquadSimd4, BiquadTDF2};
 
 fn bench_biquad_scalar(c: &mut Criterion) {

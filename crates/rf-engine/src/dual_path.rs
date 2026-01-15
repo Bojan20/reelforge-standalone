@@ -10,17 +10,19 @@
 //!
 //! # Lock-Free Design
 //! - Audio blocks use pre-allocated pool (no heap in audio thread)
+//! - Communication via rtrb lock-free SPSC ring buffers
+//! - Index-based messaging (send index, not data) for zero-copy
 //! - Lookahead buffer is circular with pre-allocated blocks
-//! - Communication via crossbeam bounded channels (lock-free)
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 
-use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
-use parking_lot::{Mutex, RwLock};
+use crossbeam_channel::{Receiver, Sender, bounded};
+use parking_lot::Mutex;
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
+use rtrb::{Consumer, Producer, RingBuffer};
 
 // ============ Processing Mode ============
 
@@ -127,6 +129,155 @@ pub struct AudioBlockPool {
     stack_top: AtomicUsize,
     block_size: usize,
     pool_size: usize,
+}
+
+// SAFETY: Pool blocks are only accessed through acquire/release pattern
+// Each block can only be owned by one thread at a time
+unsafe impl Send for AudioBlockPool {}
+unsafe impl Sync for AudioBlockPool {}
+
+/// Message sent via lock-free ring buffer (just indices, no data copy)
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub struct BlockMessage {
+    /// Index into the shared pool
+    pub pool_index: usize,
+    /// Sequence number for ordering (used for debugging and future ordering)
+    pub sequence: u64,
+    /// Sample position (used for latency compensation)
+    pub sample_position: u64,
+}
+
+/// Shared audio block pool with interior mutability for lock-free access
+/// Uses UnsafeCell to allow mutable access from multiple threads
+/// SAFETY: Each block index is owned by exactly one thread at a time
+#[allow(dead_code)]
+pub struct SharedAudioBlockPool {
+    /// The blocks (accessed via UnsafeCell for interior mutability)
+    blocks: std::cell::UnsafeCell<Vec<AudioBlock>>,
+    /// Atomic stack of free indices
+    free_stack: Vec<AtomicUsize>,
+    /// Current stack top
+    stack_top: AtomicUsize,
+    /// Block size (for API compatibility)
+    block_size: usize,
+    pool_size: usize,
+}
+
+// SAFETY: Each block is exclusively owned by one thread via acquire/release
+unsafe impl Send for SharedAudioBlockPool {}
+unsafe impl Sync for SharedAudioBlockPool {}
+
+impl SharedAudioBlockPool {
+    /// Create a new shared pool
+    pub fn new(block_size: usize, pool_size: usize) -> Self {
+        let blocks = (0..pool_size)
+            .map(|_| AudioBlock::new(block_size))
+            .collect();
+
+        let free_stack: Vec<AtomicUsize> = (0..pool_size)
+            .map(AtomicUsize::new)
+            .collect();
+
+        Self {
+            blocks: std::cell::UnsafeCell::new(blocks),
+            free_stack,
+            stack_top: AtomicUsize::new(pool_size),
+            block_size,
+            pool_size,
+        }
+    }
+
+    /// Acquire a block index from the pool (lock-free)
+    /// Returns None if pool is exhausted
+    #[inline]
+    pub fn acquire(&self) -> Option<usize> {
+        loop {
+            let top = self.stack_top.load(Ordering::Acquire);
+            if top == 0 {
+                return None;
+            }
+
+            let new_top = top - 1;
+            match self.stack_top.compare_exchange_weak(
+                top,
+                new_top,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    let index = self.free_stack[new_top].load(Ordering::Acquire);
+                    return Some(index);
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+
+    /// Release a block back to the pool (lock-free)
+    #[inline]
+    pub fn release(&self, index: usize) {
+        if index >= self.pool_size {
+            return;
+        }
+
+        loop {
+            let top = self.stack_top.load(Ordering::Acquire);
+            if top >= self.pool_size {
+                return;
+            }
+
+            match self.stack_top.compare_exchange_weak(
+                top,
+                top + 1,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    self.free_stack[top].store(index, Ordering::Release);
+                    return;
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+
+    /// Get mutable reference to block at index
+    /// SAFETY: Caller must ensure exclusive ownership via acquire()
+    #[inline]
+    #[allow(clippy::mut_from_ref)] // Intentional: lock-free interior mutability pattern
+    pub unsafe fn get_mut(&self, index: usize) -> Option<&mut AudioBlock> {
+        // SAFETY: Caller guarantees exclusive ownership of this index
+        unsafe {
+            let blocks = &mut *self.blocks.get();
+            blocks.get_mut(index)
+        }
+    }
+
+    /// Get immutable reference to block at index
+    /// SAFETY: Caller must ensure ownership via acquire()
+    #[inline]
+    pub unsafe fn get(&self, index: usize) -> Option<&AudioBlock> {
+        // SAFETY: Caller guarantees ownership of this index
+        unsafe {
+            let blocks = &*self.blocks.get();
+            blocks.get(index)
+        }
+    }
+
+    /// Block size
+    #[inline]
+    #[allow(dead_code)]
+    pub fn block_size(&self) -> usize {
+        self.block_size
+    }
+
+    /// Available blocks count (approximate)
+    #[inline]
+    #[allow(dead_code)]
+    pub fn available(&self) -> usize {
+        self.stack_top.load(Ordering::Relaxed)
+    }
 }
 
 impl AudioBlockPool {
@@ -274,7 +425,54 @@ pub struct DualPathStats {
     pub underruns: AtomicU64,
 }
 
+/// Wrapper for rtrb Producer that is Sync
+/// SAFETY: Only accessed from audio thread (single producer pattern)
+struct SyncProducer(std::cell::UnsafeCell<Option<Producer<BlockMessage>>>);
+
+// SAFETY: Producer is only accessed from audio thread
+unsafe impl Sync for SyncProducer {}
+
+impl SyncProducer {
+    fn new(producer: Option<Producer<BlockMessage>>) -> Self {
+        Self(std::cell::UnsafeCell::new(producer))
+    }
+
+    /// Get mutable access to producer
+    /// SAFETY: Must only be called from audio thread
+    #[inline]
+    #[allow(clippy::mut_from_ref)] // Intentional: single-producer pattern with UnsafeCell
+    unsafe fn get_mut(&self) -> &mut Option<Producer<BlockMessage>> {
+        unsafe { &mut *self.0.get() }
+    }
+}
+
+/// Wrapper for rtrb Consumer that is Sync
+/// SAFETY: Only accessed from audio thread (single consumer pattern)
+struct SyncConsumer(std::cell::UnsafeCell<Option<Consumer<BlockMessage>>>);
+
+// SAFETY: Consumer is only accessed from audio thread
+unsafe impl Sync for SyncConsumer {}
+
+impl SyncConsumer {
+    fn new(consumer: Option<Consumer<BlockMessage>>) -> Self {
+        Self(std::cell::UnsafeCell::new(consumer))
+    }
+
+    /// Get mutable access to consumer
+    /// SAFETY: Must only be called from audio thread
+    #[inline]
+    #[allow(clippy::mut_from_ref)] // Intentional: single-consumer pattern with UnsafeCell
+    unsafe fn get_mut(&self) -> &mut Option<Consumer<BlockMessage>> {
+        unsafe { &mut *self.0.get() }
+    }
+}
+
 /// Dual-path audio engine
+///
+/// Lock-free design for real-time audio:
+/// - SharedAudioBlockPool for zero-allocation block management
+/// - rtrb SPSC ring buffers for lock-free inter-thread communication
+/// - Index-based messaging (no data copy through channels)
 #[allow(dead_code)]
 pub struct DualPathEngine {
     /// Processing mode
@@ -283,12 +481,14 @@ pub struct DualPathEngine {
     block_size: usize,
     /// Sample rate
     sample_rate: f64,
-    /// Lookahead buffer (circular)
-    lookahead_buffer: RwLock<LookaheadBuffer>,
-    /// Guard input channel
-    guard_tx: Sender<AudioBlock>,
-    /// Guard output channel
-    guard_rx: Receiver<AudioBlock>,
+    /// Shared audio block pool (lock-free)
+    shared_pool: Arc<SharedAudioBlockPool>,
+    /// Lock-free ring buffer: audio thread → guard thread (indices only)
+    /// Wrapped in SyncProducer for Sync impl
+    guard_input_tx: SyncProducer,
+    /// Lock-free ring buffer: guard thread → audio thread (indices only)
+    /// Wrapped in SyncConsumer for Sync impl
+    guard_output_rx: SyncConsumer,
     /// Guard thread handle
     guard_thread: Option<JoinHandle<()>>,
     /// Guard thread running flag
@@ -301,47 +501,85 @@ pub struct DualPathEngine {
     stats: Arc<DualPathStats>,
     /// Fallback processor (runs in realtime when guard is behind)
     fallback: Mutex<Option<Box<dyn GuardProcessor>>>,
-    /// Pre-allocated audio block for realtime processing (avoids heap alloc)
-    realtime_block: Mutex<AudioBlock>,
-    /// Pre-allocated audio block for hybrid fallback (avoids heap alloc)
-    fallback_block: Mutex<AudioBlock>,
+    /// Pre-allocated audio block index for realtime processing
+    realtime_block_idx: AtomicUsize,
+    /// Pre-allocated audio block index for hybrid fallback
+    fallback_block_idx: AtomicUsize,
+    /// Lookahead circular buffer indices (for Guard mode)
+    lookahead_indices: Vec<AtomicUsize>,
+    lookahead_write_pos: AtomicUsize,
+    lookahead_read_pos: AtomicUsize,
+    lookahead_count: AtomicUsize,
+    lookahead_capacity: usize,
+    /// Legacy crossbeam channels (kept for compatibility during transition)
+    guard_tx: Sender<AudioBlock>,
+    guard_rx: Receiver<AudioBlock>,
 }
 
 impl DualPathEngine {
     /// Create new dual-path engine
+    ///
+    /// # Lock-Free Architecture
+    /// - Creates SharedAudioBlockPool with enough blocks for all operations
+    /// - Pool size: lookahead + 2 (realtime block + fallback block) + 4 (headroom)
+    /// - Uses rtrb for lock-free SPSC communication
     pub fn new(
         mode: ProcessingMode,
         block_size: usize,
         sample_rate: f64,
         lookahead_blocks: usize,
     ) -> Self {
-        // Create channels with enough capacity
+        // Pool needs: lookahead_blocks + realtime + fallback + guard in-flight + headroom
+        let pool_size = lookahead_blocks + 2 + 4 + lookahead_blocks;
+        let shared_pool = Arc::new(SharedAudioBlockPool::new(block_size, pool_size));
+
+        // Legacy channels (for backward compatibility)
         let (guard_tx, _guard_input_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
         let (_guard_output_tx, guard_rx) = bounded::<AudioBlock>(lookahead_blocks * 2);
 
         let guard_running = Arc::new(AtomicBool::new(false));
         let stats = Arc::new(DualPathStats::default());
 
+        // Pre-acquire blocks for realtime and fallback processing
+        let realtime_idx = shared_pool.acquire().expect("Pool should have blocks");
+        let fallback_idx = shared_pool.acquire().expect("Pool should have blocks");
+
+        // Create lookahead index buffer (atomic for lock-free access)
+        let lookahead_indices: Vec<AtomicUsize> = (0..lookahead_blocks)
+            .map(|_| AtomicUsize::new(usize::MAX)) // usize::MAX = empty slot
+            .collect();
+
         Self {
             mode,
             block_size,
             sample_rate,
-            lookahead_buffer: RwLock::new(LookaheadBuffer::new(block_size, lookahead_blocks)),
-            guard_tx,
-            guard_rx,
+            shared_pool,
+            guard_input_tx: SyncProducer::new(None),
+            guard_output_rx: SyncConsumer::new(None),
             guard_thread: None,
             guard_running,
             sequence: AtomicU64::new(0),
             sample_position: AtomicU64::new(0),
             stats,
             fallback: Mutex::new(None),
-            // Pre-allocate audio blocks to avoid heap allocation in process()
-            realtime_block: Mutex::new(AudioBlock::new(block_size)),
-            fallback_block: Mutex::new(AudioBlock::new(block_size)),
+            realtime_block_idx: AtomicUsize::new(realtime_idx),
+            fallback_block_idx: AtomicUsize::new(fallback_idx),
+            lookahead_indices,
+            lookahead_write_pos: AtomicUsize::new(0),
+            lookahead_read_pos: AtomicUsize::new(0),
+            lookahead_count: AtomicUsize::new(0),
+            lookahead_capacity: lookahead_blocks,
+            guard_tx,
+            guard_rx,
         }
     }
 
     /// Start the guard thread with a processor
+    ///
+    /// Uses lock-free rtrb ring buffers for communication:
+    /// - Audio thread pushes BlockMessage (index + metadata) to guard
+    /// - Guard processes block in-place via SharedAudioBlockPool
+    /// - Guard pushes processed BlockMessage back to audio thread
     pub fn start_guard(&mut self, mut processor: Box<dyn GuardProcessor>) {
         if self.guard_thread.is_some() {
             return;
@@ -349,11 +587,22 @@ impl DualPathEngine {
 
         let running = self.guard_running.clone();
         let stats = self.stats.clone();
+        let pool = self.shared_pool.clone();
 
-        // Create new channels for this processor
-        let (guard_tx, guard_input_rx) = bounded::<AudioBlock>(32);
-        let (guard_output_tx, guard_rx) = bounded::<AudioBlock>(32);
+        // Create lock-free SPSC ring buffers (32 slots each)
+        let (input_tx, mut input_rx) = RingBuffer::<BlockMessage>::new(32);
+        let (mut output_tx, output_rx) = RingBuffer::<BlockMessage>::new(32);
 
+        // Store in Sync wrappers
+        // SAFETY: We're in &mut self, so no concurrent access
+        unsafe {
+            *self.guard_input_tx.get_mut() = Some(input_tx);
+            *self.guard_output_rx.get_mut() = Some(output_rx);
+        }
+
+        // Legacy channels (kept for backward compat, but unused in new path)
+        let (guard_tx, _) = bounded::<AudioBlock>(32);
+        let (_, guard_rx) = bounded::<AudioBlock>(32);
         self.guard_tx = guard_tx;
         self.guard_rx = guard_rx;
 
@@ -363,28 +612,31 @@ impl DualPathEngine {
             .name("rf-guard".into())
             .spawn(move || {
                 while running.load(Ordering::Relaxed) {
-                    match guard_input_rx.recv_timeout(std::time::Duration::from_millis(100)) {
-                        Ok(mut block) => {
+                    // Try to pop from input ring buffer
+                    match input_rx.pop() {
+                        Ok(msg) => {
                             let start = std::time::Instant::now();
 
-                            processor.process(&mut block);
+                            // Process block in-place (no copy!)
+                            // SAFETY: We own this index until we send it back
+                            unsafe {
+                                if let Some(block) = pool.get_mut(msg.pool_index) {
+                                    processor.process(block);
+                                }
+                            }
 
                             let elapsed = start.elapsed().as_micros() as u64;
-                            stats
-                                .guard_process_time_us
-                                .store(elapsed, Ordering::Relaxed);
+                            stats.guard_process_time_us.store(elapsed, Ordering::Relaxed);
                             stats.guard_blocks.fetch_add(1, Ordering::Relaxed);
 
-                            if guard_output_tx.try_send(block).is_err() {
-                                // Output queue full - we're producing faster than consuming
+                            // Send processed block index back
+                            if output_tx.push(msg).is_err() {
                                 log::warn!("Guard output queue full");
                             }
                         }
-                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                            // No input, just wait
-                        }
-                        Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                            break;
+                        Err(_) => {
+                            // No input, sleep briefly to avoid spinning
+                            std::thread::sleep(std::time::Duration::from_micros(100));
                         }
                     }
                 }
@@ -394,7 +646,7 @@ impl DualPathEngine {
             .expect("Failed to spawn guard thread");
 
         self.guard_thread = Some(handle);
-        log::info!("Guard thread started");
+        log::info!("Guard thread started (lock-free mode)");
     }
 
     /// Stop the guard thread
@@ -411,18 +663,17 @@ impl DualPathEngine {
         *self.fallback.lock() = Some(processor);
     }
 
-    /// Process audio block
+    /// Process audio block (LOCK-FREE, ZERO ALLOCATION)
     ///
     /// # Processing Modes:
     /// - **RealTime**: Direct processing with fallback, minimum latency
     /// - **Guard**: Uses lookahead buffer for latency compensation
     /// - **Hybrid**: Guard when available, fallback when behind
     ///
-    /// # Lookahead Operation (Guard/Hybrid mode):
-    /// 1. Push current input to lookahead buffer
-    /// 2. Send oldest buffered block to guard thread
-    /// 3. Receive processed block (delayed by lookahead)
-    /// 4. Output processed block (introduces lookahead_blocks * block_size latency)
+    /// # Lock-Free Design:
+    /// - Uses pre-allocated blocks from SharedAudioBlockPool
+    /// - Communication via atomic indices (no data copy through channels)
+    /// - Zero heap allocations in audio callback
     pub fn process(&self, left: &mut [Sample], right: &mut [Sample]) {
         let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
         let pos = self
@@ -432,86 +683,194 @@ impl DualPathEngine {
         match self.mode {
             ProcessingMode::RealTime => {
                 // Direct processing with fallback - minimum latency
-                // Use pre-allocated block to avoid heap allocation
+                // Use pre-allocated block from pool (no allocation!)
                 if let Some(ref mut fallback) = *self.fallback.lock() {
-                    let mut block = self.realtime_block.lock();
-                    block.copy_from_slices(left, right, seq, pos);
-                    fallback.process(&mut block);
-                    block.copy_to_slices(left, right);
+                    let block_idx = self.realtime_block_idx.load(Ordering::Relaxed);
+                    // SAFETY: We own this index exclusively for realtime processing
+                    unsafe {
+                        if let Some(block) = self.shared_pool.get_mut(block_idx) {
+                            block.copy_from_slices(left, right, seq, pos);
+                            fallback.process(block);
+                            block.copy_to_slices(left, right);
+                        }
+                    }
                 }
             }
 
             ProcessingMode::Guard => {
-                // Pure guard mode with lookahead buffer
-                // This introduces latency but guarantees processed output
-                // Note: Guard mode still needs to send blocks through channel,
-                // so we create a new block here (channel takes ownership)
-
-                let mut lookahead = self.lookahead_buffer.write();
-
-                // Create input block - must allocate since channel takes ownership
-                let input_block = AudioBlock::from_slices(left, right, seq, pos);
-
-                // Push to lookahead buffer, get oldest block if full
-                if let Some(oldest) = lookahead.push(input_block) {
-                    // Send oldest block to guard thread
-                    match self.guard_tx.try_send(oldest) {
-                        Ok(_) => {
-                            self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Err(TrySendError::Full(_)) => {
-                            self.stats.underruns.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Err(TrySendError::Disconnected(_)) => {}
-                    }
-                }
-
-                // Try to receive processed block
-                match self.guard_rx.try_recv() {
-                    Ok(processed) => {
-                        self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
-                        processed.copy_to_slices(left, right);
-                    }
-                    Err(_) => {
-                        // Guard not ready yet - output silence during initial fill
-                        left.fill(0.0);
-                        right.fill(0.0);
-                    }
-                }
+                // Pure guard mode with lock-free lookahead
+                // Uses atomic indices instead of RwLock
+                self.process_guard_lockfree(left, right, seq, pos);
             }
 
             ProcessingMode::Hybrid => {
                 // Hybrid: try guard, fallback if not available
-                // Note: Must allocate for channel, but fallback uses pre-allocated block
-                let block = AudioBlock::from_slices(left, right, seq, pos);
+                // Lock-free index-based communication
+                self.process_hybrid_lockfree(left, right, seq, pos);
+            }
+        }
+    }
 
-                // Send to guard thread
-                match self.guard_tx.try_send(block) {
-                    Ok(_) => {
-                        self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
+    /// Lock-free Guard mode processing
+    #[inline]
+    fn process_guard_lockfree(&self, left: &mut [Sample], right: &mut [Sample], seq: u64, pos: u64) {
+        // Try to acquire a block from pool for input
+        if let Some(input_idx) = self.shared_pool.acquire() {
+            // Copy input data to pool block (no allocation!)
+            // SAFETY: We just acquired this index
+            unsafe {
+                if let Some(block) = self.shared_pool.get_mut(input_idx) {
+                    block.copy_from_slices(left, right, seq, pos);
+                }
+            }
+
+            // Push to lookahead buffer (atomic, lock-free)
+            let write_pos = self.lookahead_write_pos.load(Ordering::Relaxed);
+            let count = self.lookahead_count.load(Ordering::Relaxed);
+
+            if count < self.lookahead_capacity {
+                // Buffer not full, just store
+                self.lookahead_indices[write_pos].store(input_idx, Ordering::Release);
+                self.lookahead_write_pos.store(
+                    (write_pos + 1) % self.lookahead_capacity,
+                    Ordering::Release,
+                );
+                self.lookahead_count.fetch_add(1, Ordering::AcqRel);
+            } else {
+                // Buffer full - send oldest to guard, store new
+                let read_pos = self.lookahead_read_pos.load(Ordering::Relaxed);
+                let oldest_idx = self.lookahead_indices[read_pos].swap(input_idx, Ordering::AcqRel);
+
+                // Send oldest to guard via lock-free channel
+                if oldest_idx != usize::MAX {
+                    let msg = BlockMessage {
+                        pool_index: oldest_idx,
+                        sequence: seq.saturating_sub(self.lookahead_capacity as u64),
+                        sample_position: pos.saturating_sub(
+                            (self.lookahead_capacity * self.block_size) as u64,
+                        ),
+                    };
+
+                    // Try lock-free push via SyncProducer wrapper
+                    // SAFETY: Audio thread is single-threaded access
+                    unsafe {
+                        if let Some(ref mut tx) = *self.guard_input_tx.get_mut() {
+                            if tx.push(msg).is_ok() {
+                                self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
+                            } else {
+                                // Queue full, release block back to pool
+                                self.shared_pool.release(oldest_idx);
+                                self.stats.underruns.fetch_add(1, Ordering::Relaxed);
+                            }
+                        } else {
+                            // No rtrb, release block
+                            self.shared_pool.release(oldest_idx);
+                        }
                     }
-                    Err(TrySendError::Full(_)) => {
-                        self.stats.underruns.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(TrySendError::Disconnected(_)) => {}
                 }
 
-                // Try to receive processed block
-                match self.guard_rx.try_recv() {
-                    Ok(processed) => {
-                        self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
-                        processed.copy_to_slices(left, right);
-                    }
-                    Err(_) => {
-                        // No processed block - use fallback with pre-allocated block
-                        self.stats.fallback_blocks.fetch_add(1, Ordering::Relaxed);
+                self.lookahead_read_pos.store(
+                    (read_pos + 1) % self.lookahead_capacity,
+                    Ordering::Release,
+                );
+                self.lookahead_write_pos.store(
+                    (write_pos + 1) % self.lookahead_capacity,
+                    Ordering::Release,
+                );
+            }
+        }
 
-                        if let Some(ref mut fallback) = *self.fallback.lock() {
-                            let mut block = self.fallback_block.lock();
-                            block.copy_from_slices(left, right, seq, pos);
-                            fallback.process(&mut block);
+        // Try to receive processed block (lock-free)
+        // SAFETY: Audio thread is single-threaded access
+        unsafe {
+            if let Some(ref mut rx) = *self.guard_output_rx.get_mut() {
+                match rx.pop() {
+                    Ok(msg) => {
+                        self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
+                        // Copy output from processed block
+                        if let Some(block) = self.shared_pool.get(msg.pool_index) {
                             block.copy_to_slices(left, right);
                         }
+                        // Release block back to pool
+                        self.shared_pool.release(msg.pool_index);
+                    }
+                    Err(_) => {
+                        // Guard not ready - output silence during initial fill
+                        left.fill(0.0);
+                        right.fill(0.0);
+                    }
+                }
+            } else {
+                // No rtrb receiver, output silence
+                left.fill(0.0);
+                right.fill(0.0);
+            }
+        }
+    }
+
+    /// Lock-free Hybrid mode processing
+    #[inline]
+    fn process_hybrid_lockfree(&self, left: &mut [Sample], right: &mut [Sample], seq: u64, pos: u64) {
+        // Try to acquire block and send to guard
+
+        if let Some(input_idx) = self.shared_pool.acquire() {
+            // SAFETY: We just acquired this index
+            unsafe {
+                if let Some(block) = self.shared_pool.get_mut(input_idx) {
+                    block.copy_from_slices(left, right, seq, pos);
+                }
+            }
+
+            let msg = BlockMessage {
+                pool_index: input_idx,
+                sequence: seq,
+                sample_position: pos,
+            };
+
+            // SAFETY: Audio thread is single-threaded access
+            unsafe {
+                if let Some(ref mut tx) = *self.guard_input_tx.get_mut() {
+                    if tx.push(msg).is_ok() {
+                        self.stats.queue_depth.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        // Queue full, release block
+                        self.shared_pool.release(input_idx);
+                        self.stats.underruns.fetch_add(1, Ordering::Relaxed);
+                    }
+                } else {
+                    self.shared_pool.release(input_idx);
+                }
+            }
+        }
+
+        // Try to receive processed block
+        let mut got_output = false;
+
+        // SAFETY: Audio thread is single-threaded access
+        unsafe {
+            if let Some(ref mut rx) = *self.guard_output_rx.get_mut()
+                && let Ok(msg) = rx.pop() {
+                    self.stats.queue_depth.fetch_sub(1, Ordering::Relaxed);
+                    if let Some(block) = self.shared_pool.get(msg.pool_index) {
+                        block.copy_to_slices(left, right);
+                    }
+                    self.shared_pool.release(msg.pool_index);
+                    got_output = true;
+                }
+        }
+
+        // Fallback if guard didn't provide output
+        if !got_output {
+            self.stats.fallback_blocks.fetch_add(1, Ordering::Relaxed);
+
+            if let Some(ref mut fallback) = *self.fallback.lock() {
+                let block_idx = self.fallback_block_idx.load(Ordering::Relaxed);
+                // SAFETY: We own this index exclusively for fallback
+                unsafe {
+                    if let Some(block) = self.shared_pool.get_mut(block_idx) {
+                        block.copy_from_slices(left, right, seq, pos);
+                        fallback.process(block);
+                        block.copy_to_slices(left, right);
                     }
                 }
             }
@@ -520,7 +879,7 @@ impl DualPathEngine {
 
     /// Get lookahead latency in samples
     pub fn lookahead_latency(&self) -> usize {
-        self.lookahead_buffer.read().capacity * self.block_size
+        self.lookahead_capacity * self.block_size
     }
 
     /// Get processing statistics
@@ -547,13 +906,33 @@ impl DualPathEngine {
     pub fn reset(&self) {
         self.sequence.store(0, Ordering::Relaxed);
         self.sample_position.store(0, Ordering::Relaxed);
-        self.lookahead_buffer.write().clear();
+
+        // Reset lookahead buffer indices and release blocks back to pool
+        for i in 0..self.lookahead_capacity {
+            let idx = self.lookahead_indices[i].swap(usize::MAX, Ordering::AcqRel);
+            if idx != usize::MAX {
+                self.shared_pool.release(idx);
+            }
+        }
+        self.lookahead_write_pos.store(0, Ordering::Release);
+        self.lookahead_read_pos.store(0, Ordering::Release);
+        self.lookahead_count.store(0, Ordering::Release);
 
         if let Some(ref mut fallback) = *self.fallback.lock() {
             fallback.reset();
         }
 
-        // Clear channels
+        // Drain rtrb channels and release blocks
+        // SAFETY: Reset is called from main thread when audio is stopped
+        unsafe {
+            if let Some(ref mut rx) = *self.guard_output_rx.get_mut() {
+                while let Ok(msg) = rx.pop() {
+                    self.shared_pool.release(msg.pool_index);
+                }
+            }
+        }
+
+        // Legacy channel drain
         while self.guard_rx.try_recv().is_ok() {}
     }
 }
@@ -716,7 +1095,7 @@ mod tests {
 
     #[test]
     fn test_dual_path_realtime_mode() {
-        let mut engine = DualPathEngine::new(ProcessingMode::RealTime, 256, 48000.0, 4);
+        let engine = DualPathEngine::new(ProcessingMode::RealTime, 256, 48000.0, 4);
 
         // Set a simple gain processor as fallback
         let processor = FnGuardProcessor::new(

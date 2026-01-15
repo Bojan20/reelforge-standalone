@@ -418,7 +418,7 @@ mod tests {
         let signal: Vec<f32> = (0..2048)
             .map(|i| {
                 let sine = (i as f32 * 0.1).sin() * 0.5;
-                let noise = (i as f32 * 12345.6789).sin() * 0.1;
+                let noise = (i as f32 * 12345.678).sin() * 0.1;
                 sine + noise
             })
             .collect();

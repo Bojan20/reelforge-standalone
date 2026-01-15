@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_non_dop_detection() {
-        let decoder = DopDecoder::new();
+        let _decoder = DopDecoder::new();
 
         // Random PCM data (not DoP)
         let pcm: Vec<i32> = (0..64).map(|i| i * 12345).collect();

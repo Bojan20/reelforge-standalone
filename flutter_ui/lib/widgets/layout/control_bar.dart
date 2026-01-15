@@ -387,6 +387,14 @@ class _ControlBarState extends State<ControlBar> {
                           onToggleRight: widget.onToggleRightZone,
                         ),
 
+                      // PDC Indicator (always show - 0ms when no plugins)
+                      if (!isVeryCompact)
+                        _PdcButton(
+                          latencyMs: widget.pdcLatencyMs,
+                          enabled: widget.pdcEnabled,
+                          onTap: widget.onPdcTap,
+                        ),
+
                       // Theme Toggle
                       _ThemeModeToggle(compact: isCompact),
 
@@ -938,6 +946,73 @@ class _TransportBtnState extends State<_TransportBtn> {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// PDC BUTTON
+// ════════════════════════════════════════════════════════════════════════════
+
+class _PdcButton extends StatelessWidget {
+  final double latencyMs;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _PdcButton({
+    required this.latencyMs,
+    required this.enabled,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasHighLatency = latencyMs > 10; // >10ms is noticeable
+    final color = !enabled
+        ? FluxForgeTheme.textTertiary
+        : hasHighLatency
+            ? FluxForgeTheme.warningOrange
+            : FluxForgeTheme.accentGreen;
+
+    return Tooltip(
+      message: 'Plugin Delay Compensation\n'
+          '${latencyMs.toStringAsFixed(2)}ms\n'
+          '${enabled ? "Enabled" : "Disabled"} - Click to toggle',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'PDC',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${latencyMs.toStringAsFixed(1)}ms',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                  fontFamily: 'JetBrains Mono',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1118,6 +1193,43 @@ class _UltimateTransportBtnState extends State<_UltimateTransportBtn>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
+  late AnimationController _blinkController;
+  late Animation<double> _blinkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _blinkAnimation = Tween<double>(begin: 1.0, end: 0.4).animate(
+      CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut),
+    );
+    _updateBlinking();
+  }
+
+  @override
+  void didUpdateWidget(_UltimateTransportBtn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateBlinking();
+  }
+
+  void _updateBlinking() {
+    // Only blink for record button when active
+    if (widget.isActive && widget.icon == Icons.fiber_manual_record) {
+      _blinkController.repeat(reverse: true);
+    } else {
+      _blinkController.stop();
+      _blinkController.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1201,10 +1313,19 @@ class _UltimateTransportBtnState extends State<_UltimateTransportBtn>
                         : null),
               ),
               child: Center(
-                child: Icon(
-                  widget.icon,
-                  size: iconSize,
-                  color: color,
+                child: AnimatedBuilder(
+                  animation: _blinkAnimation,
+                  builder: (context, child) {
+                    final isBlinking = widget.isActive && widget.icon == Icons.fiber_manual_record;
+                    return Opacity(
+                      opacity: isBlinking ? _blinkAnimation.value : 1.0,
+                      child: Icon(
+                        widget.icon,
+                        size: iconSize,
+                        color: color,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

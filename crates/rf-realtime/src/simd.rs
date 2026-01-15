@@ -588,7 +588,7 @@ mod tests {
     fn test_aligned_buffer() {
         let mut buffer = AlignedBuffer::new(100);
         // Standard Rust allocator provides at least 8-byte alignment for f64
-        assert!(buffer.as_ptr() as usize % 8 == 0);
+        assert!((buffer.as_ptr() as usize).is_multiple_of(8));
 
         buffer.fill(1.5);
         assert_eq!(buffer.as_slice()[50], 1.5);

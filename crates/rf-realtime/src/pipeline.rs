@@ -421,7 +421,7 @@ mod tests {
     fn test_zero_latency_pipeline() {
         let mut pipeline = ZeroLatencyPipeline::new(48000.0, 512);
 
-        let direct = pipeline.create_direct_path("Direct");
+        let _direct = pipeline.create_direct_path("Direct");
         assert_eq!(pipeline.total_latency(), 0);
 
         let lookahead = pipeline.create_lookahead_path("Lookahead");

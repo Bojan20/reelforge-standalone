@@ -12,6 +12,7 @@ rf-dsp = { workspace = true }
 
 # Plugin hosting
 vst3 = { workspace = true }
+rack = "0.4"
 dirs-next = { workspace = true }
 
 # Core utilities

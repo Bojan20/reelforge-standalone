@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 rf-core = { workspace = true }
 rf-dsp = { workspace = true }
+rf-file = { workspace = true }
 cpal = { workspace = true }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }

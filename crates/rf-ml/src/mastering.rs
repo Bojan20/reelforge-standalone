@@ -395,19 +395,18 @@ impl ReferenceMatch {
 
     /// Generate processing to match reference
     pub fn generate_processing(&self) -> MasteringRecommendations {
-        let mut rec = MasteringRecommendations::default();
-
-        rec.gain_adjustment = self.loudness_diff;
-        rec.limiter_ceiling = -1.0;
-        rec.limiter_threshold = -1.0 - self.loudness_diff.max(0.0);
-
-        // Width adjustment
-        if self.width_diff.abs() > 0.1 {
-            rec.stereo_width_mult = 1.0 + (self.width_diff * 0.5);
+        MasteringRecommendations {
+            gain_adjustment: self.loudness_diff,
+            limiter_ceiling: -1.0,
+            limiter_threshold: -1.0 - self.loudness_diff.max(0.0),
+            stereo_width_mult: if self.width_diff.abs() > 0.1 {
+                1.0 + (self.width_diff * 0.5)
+            } else {
+                0.0 // Default from Default::default()
+            },
+            confidence: self.match_score,
+            ..Default::default()
         }
-
-        rec.confidence = self.match_score;
-        rec
     }
 }
 

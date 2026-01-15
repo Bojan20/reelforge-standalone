@@ -644,11 +644,17 @@ mod tests {
 
     #[test]
     fn test_transformation() {
-        let mut transform = AraPlaybackTransformation::default();
+        let transform = AraPlaybackTransformation::default();
         assert_eq!(transform.time_stretch_factor, 1.0);
         assert_eq!(transform.pitch_shift_semitones, 0.0);
 
-        transform.pitch_shift_semitones = 2.0; // Up a whole step
-        transform.time_stretch_factor = 0.5; // Half speed
+        // Test mutable transformation
+        let transform2 = AraPlaybackTransformation {
+            pitch_shift_semitones: 2.0, // Up a whole step
+            time_stretch_factor: 0.5,   // Half speed
+            ..Default::default()
+        };
+        assert_eq!(transform2.pitch_shift_semitones, 2.0);
+        assert_eq!(transform2.time_stretch_factor, 0.5);
     }
 }

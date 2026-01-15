@@ -324,8 +324,10 @@ impl PhaseGradientHeap {
 
             // Accumulate phase
             self.phase_accum[bin] += expected_increment + grad;
-            phase[bin] = self.phase_accum[bin];
         }
+
+        // Copy accumulated phases
+        phase.copy_from_slice(&self.phase_accum[..num_bins]);
 
         self.prev_phase = phase.clone();
         phase

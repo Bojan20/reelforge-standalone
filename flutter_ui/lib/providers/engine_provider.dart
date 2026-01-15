@@ -171,9 +171,53 @@ class EngineProvider extends ChangeNotifier {
     engine.toggleRecord();
   }
 
-  void seek(double seconds) {
+  // Scrubbing state
+  bool _isScrubbing = false;
+  DateTime _lastScrubTime = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _scrubThrottleDuration = Duration(milliseconds: 50);
+
+  bool get isScrubbing => _isScrubbing;
+
+  void seek(double seconds, {bool isScrubbing = false}) {
     if (!isRunning) return;
+
+    if (isScrubbing) {
+      // Throttle scrub seeks to prevent overwhelming the audio engine
+      final now = DateTime.now();
+      if (now.difference(_lastScrubTime) < _scrubThrottleDuration) {
+        return; // Skip this seek, too soon after last one
+      }
+      _lastScrubTime = now;
+    }
+
     engine.setPosition(seconds);
+  }
+
+  /// Start scrubbing mode
+  void startScrubbing() {
+    _isScrubbing = true;
+    notifyListeners();
+  }
+
+  /// End scrubbing mode
+  void endScrubbing() {
+    _isScrubbing = false;
+    notifyListeners();
+  }
+
+  /// Scrub seek with throttling
+  void scrubSeek(double seconds) {
+    seek(seconds, isScrubbing: true);
+  }
+
+  /// Jog wheel / fine adjustment
+  /// [delta] - scroll delta (positive = forward, negative = backward)
+  /// [sensitivity] - seconds per scroll unit
+  void jogSeek(double delta, {double sensitivity = 0.1}) {
+    if (!isRunning) return;
+    final currentPos = _transport.positionSeconds;
+    final newPos = (currentPos + delta * sensitivity).clamp(0.0, double.infinity);
+    seek(newPos, isScrubbing: true);
   }
 
   void setTempo(double bpm) {

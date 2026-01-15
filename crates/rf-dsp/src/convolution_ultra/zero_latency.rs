@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_stereo_zero_latency() {
-        let samples = vec![1.0; 256];
+        let _samples = vec![1.0; 256];
         let mut all_samples = Vec::new();
         for _ in 0..128 {
             all_samples.push(1.0);

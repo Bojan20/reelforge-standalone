@@ -175,7 +175,7 @@ impl SmoothedParam {
 
     /// Process one sample of smoothing
     #[inline]
-    pub fn next(&mut self) -> f64 {
+    pub fn next_value(&mut self) -> f64 {
         let target = self.target();
 
         match self.smoothing_type {
@@ -249,14 +249,14 @@ impl SmoothedParam {
     /// Fill buffer with smoothed values
     pub fn fill_buffer(&mut self, buffer: &mut [Sample]) {
         for sample in buffer.iter_mut() {
-            *sample = self.next();
+            *sample = self.next_value();
         }
     }
 
     /// Process block, applying smoothed gain to audio
     pub fn apply_gain(&mut self, buffer: &mut [Sample]) {
         for sample in buffer.iter_mut() {
-            *sample *= self.next();
+            *sample *= self.next_value();
         }
     }
 
@@ -313,8 +313,8 @@ impl SmoothedStereoParam {
     /// Apply smoothed pan to stereo buffer
     pub fn apply(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         for (l, r) in left.iter_mut().zip(right.iter_mut()) {
-            *l *= self.left.next();
-            *r *= self.right.next();
+            *l *= self.left.next_value();
+            *r *= self.right.next_value();
         }
     }
 
@@ -401,7 +401,7 @@ impl ParameterBank {
 
     /// Process one sample for all parameters
     pub fn next_all(&mut self) -> Vec<f64> {
-        self.params.iter_mut().map(|p| p.next()).collect()
+        self.params.iter_mut().map(|p| p.next_value()).collect()
     }
 
     /// Set sample rate for all parameters
@@ -443,7 +443,7 @@ mod tests {
 
         // After many samples, should approach target
         for _ in 0..10000 {
-            param.next();
+            param.next_value();
         }
 
         assert!((param.current() - 1.0).abs() < 0.01);
@@ -457,7 +457,7 @@ mod tests {
 
         // Should reach target in exactly smoothing_samples
         for _ in 0..10 {
-            param.next();
+            param.next_value();
         }
 
         assert!((param.current() - 1.0).abs() < 0.01);
@@ -468,7 +468,7 @@ mod tests {
         let mut param = SmoothedParam::new(0.0, 10.0, 48000.0, SmoothingType::None);
         param.set_target(1.0);
 
-        let value = param.next();
+        let value = param.next_value();
         assert!((value - 1.0).abs() < 1e-10);
     }
 

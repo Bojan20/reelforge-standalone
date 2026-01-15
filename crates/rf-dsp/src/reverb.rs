@@ -5,7 +5,8 @@
 //! - Algorithmic reverb (plate, hall, room)
 
 use rf_core::Sample;
-use std::f64::consts::PI;
+use rustfft::{num_complex::Complex, FftPlanner};
+use std::sync::Arc;
 
 use crate::{Processor, ProcessorConfig, StereoProcessor};
 
@@ -16,19 +17,18 @@ const PARTITION_SIZE: usize = 256;
 ///
 /// Uses overlap-save method with FFT for efficient convolution
 /// of long impulse responses.
-#[derive(Debug, Clone)]
 pub struct ConvolutionReverb {
     // Impulse response partitions (frequency domain)
-    ir_partitions_l: Vec<Vec<(f64, f64)>>, // Real, Imag pairs
-    ir_partitions_r: Vec<Vec<(f64, f64)>>,
+    ir_partitions_l: Vec<Vec<Complex<f64>>>,
+    ir_partitions_r: Vec<Vec<Complex<f64>>>,
 
     // Input buffer history
     input_buffer_l: Vec<Sample>,
     input_buffer_r: Vec<Sample>,
 
     // Frequency domain accumulators
-    accum_l: Vec<(f64, f64)>,
-    accum_r: Vec<(f64, f64)>,
+    accum_l: Vec<Complex<f64>>,
+    accum_r: Vec<Complex<f64>>,
 
     // Output overlap buffer
     overlap_l: Vec<Sample>,
@@ -47,19 +47,31 @@ pub struct ConvolutionReverb {
 
     sample_rate: f64,
     ir_loaded: bool,
+
+    // FFT processors (rustfft for O(n log n) performance)
+    fft: Arc<dyn rustfft::Fft<f64>>,
+    ifft: Arc<dyn rustfft::Fft<f64>>,
+    // Scratch buffer for FFT (avoid allocations in audio thread)
+    fft_scratch: Vec<Complex<f64>>,
 }
 
 impl ConvolutionReverb {
     pub fn new(sample_rate: f64) -> Self {
         let fft_size = PARTITION_SIZE * 2;
 
+        // Create FFT planner (O(n log n) instead of naive O(n²))
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(fft_size);
+        let ifft = planner.plan_fft_inverse(fft_size);
+        let scratch_len = fft.get_inplace_scratch_len().max(ifft.get_inplace_scratch_len());
+
         Self {
             ir_partitions_l: Vec::new(),
             ir_partitions_r: Vec::new(),
             input_buffer_l: vec![0.0; fft_size],
             input_buffer_r: vec![0.0; fft_size],
-            accum_l: vec![(0.0, 0.0); fft_size],
-            accum_r: vec![(0.0, 0.0); fft_size],
+            accum_l: vec![Complex::new(0.0, 0.0); fft_size],
+            accum_r: vec![Complex::new(0.0, 0.0); fft_size],
             overlap_l: vec![0.0; PARTITION_SIZE],
             overlap_r: vec![0.0; PARTITION_SIZE],
             buffer_pos: 0,
@@ -71,6 +83,9 @@ impl ConvolutionReverb {
             predelay_pos: 0,
             sample_rate,
             ir_loaded: false,
+            fft,
+            ifft,
+            fft_scratch: vec![Complex::new(0.0, 0.0); scratch_len],
         }
     }
 
@@ -93,14 +108,16 @@ impl ConvolutionReverb {
             for (j, sample) in left.iter().skip(start).take(end - start).enumerate() {
                 partition_l[j] = *sample;
             }
-            self.ir_partitions_l.push(self.fft(&partition_l));
+            let fft_l = self.fft_forward(&partition_l);
+            self.ir_partitions_l.push(fft_l);
 
             // Right channel partition
             let mut partition_r = vec![0.0; fft_size];
             for (j, sample) in right.iter().skip(start).take(end - start).enumerate() {
                 partition_r[j] = *sample;
             }
-            self.ir_partitions_r.push(self.fft(&partition_r));
+            let fft_r = self.fft_forward(&partition_r);
+            self.ir_partitions_r.push(fft_r);
         }
 
         self.ir_loaded = !self.ir_partitions_l.is_empty();
@@ -123,51 +140,32 @@ impl ConvolutionReverb {
         self.predelay_samples = samples.min(self.predelay_buffer_l.len() - 1);
     }
 
-    /// Simple DFT (for partition processing)
-    /// In production, use rustfft for proper FFT
-    fn fft(&self, input: &[f64]) -> Vec<(f64, f64)> {
+    /// Forward FFT using rustfft (O(n log n) instead of naive O(n²))
+    fn fft_forward(&mut self, input: &[f64]) -> Vec<Complex<f64>> {
         let n = input.len();
-        let mut output = Vec::with_capacity(n);
+        let mut buffer: Vec<Complex<f64>> = input.iter().map(|&x| Complex::new(x, 0.0)).collect();
+        buffer.resize(n, Complex::new(0.0, 0.0));
 
-        for k in 0..n {
-            let mut real = 0.0;
-            let mut imag = 0.0;
-
-            for (t, &sample) in input.iter().enumerate() {
-                let angle = -2.0 * PI * (k as f64) * (t as f64) / (n as f64);
-                real += sample * angle.cos();
-                imag += sample * angle.sin();
-            }
-
-            output.push((real, imag));
-        }
-
-        output
+        self.fft.process_with_scratch(&mut buffer, &mut self.fft_scratch);
+        buffer
     }
 
-    /// Simple inverse DFT
-    fn ifft(&self, input: &[(f64, f64)]) -> Vec<f64> {
+    /// Inverse FFT using rustfft (O(n log n))
+    fn ifft_inverse(&mut self, input: &[Complex<f64>]) -> Vec<f64> {
         let n = input.len();
-        let mut output = Vec::with_capacity(n);
+        let mut buffer = input.to_vec();
 
-        for t in 0..n {
-            let mut real = 0.0;
+        self.ifft.process_with_scratch(&mut buffer, &mut self.fft_scratch);
 
-            for (k, &(re, im)) in input.iter().enumerate() {
-                let angle = 2.0 * PI * (k as f64) * (t as f64) / (n as f64);
-                real += re * angle.cos() - im * angle.sin();
-            }
-
-            output.push(real / n as f64);
-        }
-
-        output
+        // rustfft doesn't normalize, so divide by n
+        let scale = 1.0 / n as f64;
+        buffer.iter().map(|c| c.re * scale).collect()
     }
 
     /// Complex multiplication
     #[inline]
-    fn complex_mul(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
-        (a.0 * b.0 - a.1 * b.1, a.0 * b.1 + a.1 * b.0)
+    fn complex_mul(a: Complex<f64>, b: Complex<f64>) -> Complex<f64> {
+        a * b
     }
 
     /// Process one partition of convolution
@@ -178,14 +176,18 @@ impl ConvolutionReverb {
 
         let fft_size = PARTITION_SIZE * 2;
 
-        // FFT the input buffer
-        let input_fft_l = self.fft(&self.input_buffer_l);
-        let input_fft_r = self.fft(&self.input_buffer_r);
+        // Copy buffers to avoid borrow issues
+        let input_l: Vec<f64> = self.input_buffer_l.iter().map(|&s| s as f64).collect();
+        let input_r: Vec<f64> = self.input_buffer_r.iter().map(|&s| s as f64).collect();
+
+        // FFT the input buffer (now using O(n log n) rustfft)
+        let input_fft_l = self.fft_forward(&input_l);
+        let input_fft_r = self.fft_forward(&input_r);
 
         // Accumulate frequency domain multiplication with all partitions
         for i in 0..fft_size {
-            self.accum_l[i] = (0.0, 0.0);
-            self.accum_r[i] = (0.0, 0.0);
+            self.accum_l[i] = Complex::new(0.0, 0.0);
+            self.accum_r[i] = Complex::new(0.0, 0.0);
         }
 
         let num_partitions = self.ir_partitions_l.len();
@@ -199,17 +201,19 @@ impl ConvolutionReverb {
                     let mul_r =
                         Self::complex_mul(input_fft_r[i], self.ir_partitions_r[partition_idx][i]);
 
-                    self.accum_l[i].0 += mul_l.0;
-                    self.accum_l[i].1 += mul_l.1;
-                    self.accum_r[i].0 += mul_r.0;
-                    self.accum_r[i].1 += mul_r.1;
+                    self.accum_l[i] += mul_l;
+                    self.accum_r[i] += mul_r;
                 }
             }
         }
 
-        // IFFT back to time domain
-        let output_l = self.ifft(&self.accum_l);
-        let output_r = self.ifft(&self.accum_r);
+        // Copy accumulators to avoid borrow issues
+        let accum_l_copy = self.accum_l.clone();
+        let accum_r_copy = self.accum_r.clone();
+
+        // IFFT back to time domain (now using O(n log n) rustfft)
+        let output_l = self.ifft_inverse(&accum_l_copy);
+        let output_r = self.ifft_inverse(&accum_r_copy);
 
         // Overlap-add
         for i in 0..PARTITION_SIZE {
@@ -225,14 +229,60 @@ impl ConvolutionReverb {
     }
 }
 
+impl Clone for ConvolutionReverb {
+    fn clone(&self) -> Self {
+        // Clone with fresh FFT planners (Arc handles reference counting)
+        let fft_size = PARTITION_SIZE * 2;
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(fft_size);
+        let ifft = planner.plan_fft_inverse(fft_size);
+        let scratch_len = fft.get_inplace_scratch_len().max(ifft.get_inplace_scratch_len());
+
+        Self {
+            ir_partitions_l: self.ir_partitions_l.clone(),
+            ir_partitions_r: self.ir_partitions_r.clone(),
+            input_buffer_l: self.input_buffer_l.clone(),
+            input_buffer_r: self.input_buffer_r.clone(),
+            accum_l: self.accum_l.clone(),
+            accum_r: self.accum_r.clone(),
+            overlap_l: self.overlap_l.clone(),
+            overlap_r: self.overlap_r.clone(),
+            buffer_pos: self.buffer_pos,
+            partition_index: self.partition_index,
+            dry_wet: self.dry_wet,
+            predelay_samples: self.predelay_samples,
+            predelay_buffer_l: self.predelay_buffer_l.clone(),
+            predelay_buffer_r: self.predelay_buffer_r.clone(),
+            predelay_pos: self.predelay_pos,
+            sample_rate: self.sample_rate,
+            ir_loaded: self.ir_loaded,
+            fft,
+            ifft,
+            fft_scratch: vec![Complex::new(0.0, 0.0); scratch_len],
+        }
+    }
+}
+
+impl std::fmt::Debug for ConvolutionReverb {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConvolutionReverb")
+            .field("sample_rate", &self.sample_rate)
+            .field("ir_loaded", &self.ir_loaded)
+            .field("dry_wet", &self.dry_wet)
+            .field("predelay_samples", &self.predelay_samples)
+            .field("partition_count", &self.ir_partitions_l.len())
+            .finish()
+    }
+}
+
 impl Processor for ConvolutionReverb {
     fn reset(&mut self) {
         let fft_size = PARTITION_SIZE * 2;
 
         self.input_buffer_l.fill(0.0);
         self.input_buffer_r.fill(0.0);
-        self.accum_l = vec![(0.0, 0.0); fft_size];
-        self.accum_r = vec![(0.0, 0.0); fft_size];
+        self.accum_l = vec![Complex::new(0.0, 0.0); fft_size];
+        self.accum_r = vec![Complex::new(0.0, 0.0); fft_size];
         self.overlap_l.fill(0.0);
         self.overlap_r.fill(0.0);
         self.predelay_buffer_l.fill(0.0);

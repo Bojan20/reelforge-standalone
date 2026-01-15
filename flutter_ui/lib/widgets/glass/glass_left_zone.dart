@@ -60,6 +60,7 @@ class GlassLeftZone extends StatefulWidget {
   /// Channel callbacks
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
+  final void Function(String channelId, double pan)? onChannelPanRightChange;
   final void Function(String channelId)? onChannelMuteToggle;
   final void Function(String channelId)? onChannelSoloToggle;
   final void Function(String channelId)? onChannelArmToggle;
@@ -70,6 +71,10 @@ class GlassLeftZone extends StatefulWidget {
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
   final void Function(String channelId)? onChannelInputClick;
+  final void Function(String channelId, int slotIndex, bool bypassed)? onChannelInsertBypassToggle;
+  final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryChange;
+  final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
+  final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
 
   /// Clip inspector data
   final timeline.TimelineClip? selectedClip;
@@ -93,6 +98,7 @@ class GlassLeftZone extends StatefulWidget {
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
+    this.onChannelPanRightChange,
     this.onChannelMuteToggle,
     this.onChannelSoloToggle,
     this.onChannelArmToggle,
@@ -103,6 +109,10 @@ class GlassLeftZone extends StatefulWidget {
     this.onChannelEQToggle,
     this.onChannelOutputClick,
     this.onChannelInputClick,
+    this.onChannelInsertBypassToggle,
+    this.onChannelInsertWetDryChange,
+    this.onChannelInsertRemove,
+    this.onChannelInsertOpenEditor,
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
@@ -755,17 +765,43 @@ class _GlassLeftZoneState extends State<GlassLeftZone> {
             onChanged: (v) => widget.onChannelVolumeChange?.call(ch.id, v),
           ),
           const SizedBox(height: 10),
-          // Pan
-          _GlassFaderRow(
-            label: 'Pan',
-            value: ch.pan * 100,
-            min: -100,
-            max: 100,
-            defaultValue: 0,
-            formatValue: _formatPan,
-            color: LiquidGlassTheme.accentCyan,
-            onChanged: (v) => widget.onChannelPanChange?.call(ch.id, v / 100),
-          ),
+          // Pan - stereo has dual pan (L/R), mono has single
+          if (ch.isStereo) ...[
+            // Stereo dual pan (Pro Tools style)
+            _GlassFaderRow(
+              label: 'Pan L',
+              value: ch.pan * 100,
+              min: -100,
+              max: 100,
+              defaultValue: -100, // Pro Tools: L defaults hard left
+              formatValue: _formatPan,
+              color: LiquidGlassTheme.accentCyan,
+              onChanged: (v) => widget.onChannelPanChange?.call(ch.id, v / 100),
+            ),
+            const SizedBox(height: 6),
+            _GlassFaderRow(
+              label: 'Pan R',
+              value: ch.panRight * 100,
+              min: -100,
+              max: 100,
+              defaultValue: 100, // Pro Tools: R defaults hard right
+              formatValue: _formatPan,
+              color: LiquidGlassTheme.accentCyan,
+              onChanged: (v) => widget.onChannelPanRightChange?.call(ch.id, v / 100),
+            ),
+          ] else ...[
+            // Mono single pan
+            _GlassFaderRow(
+              label: 'Pan',
+              value: ch.pan * 100,
+              min: -100,
+              max: 100,
+              defaultValue: 0,
+              formatValue: _formatPan,
+              color: LiquidGlassTheme.accentCyan,
+              onChanged: (v) => widget.onChannelPanChange?.call(ch.id, v / 100),
+            ),
+          ],
           const SizedBox(height: 12),
           // M/S/R/I buttons
           Row(
@@ -833,6 +869,13 @@ class _GlassLeftZoneState extends State<GlassLeftZone> {
               index: i,
               insert: i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i),
               onTap: () => widget.onChannelInsertClick?.call(ch.id, i),
+              onBypassToggle: () {
+                final insert = i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i);
+                widget.onChannelInsertBypassToggle?.call(ch.id, i, !insert.bypassed);
+              },
+              onWetDryChange: (v) => widget.onChannelInsertWetDryChange?.call(ch.id, i, v),
+              onRemove: () => widget.onChannelInsertRemove?.call(ch.id, i),
+              onOpenEditor: () => widget.onChannelInsertOpenEditor?.call(ch.id, i),
             ),
           const SizedBox(height: 6),
           _GlassGroupLabel('Post-Fader'),
@@ -841,6 +884,13 @@ class _GlassLeftZoneState extends State<GlassLeftZone> {
               index: i,
               insert: i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i),
               onTap: () => widget.onChannelInsertClick?.call(ch.id, i),
+              onBypassToggle: () {
+                final insert = i < ch.inserts.length ? ch.inserts[i] : InsertSlot.empty(i);
+                widget.onChannelInsertBypassToggle?.call(ch.id, i, !insert.bypassed);
+              },
+              onWetDryChange: (v) => widget.onChannelInsertWetDryChange?.call(ch.id, i, v),
+              onRemove: () => widget.onChannelInsertRemove?.call(ch.id, i),
+              onOpenEditor: () => widget.onChannelInsertOpenEditor?.call(ch.id, i),
             ),
         ],
       ),
@@ -1489,90 +1539,198 @@ class _GlassGroupLabel extends StatelessWidget {
   }
 }
 
-class _GlassInsertSlot extends StatelessWidget {
+class _GlassInsertSlot extends StatefulWidget {
   final int index;
   final InsertSlot insert;
   final VoidCallback? onTap;
+  final VoidCallback? onBypassToggle;
+  final ValueChanged<double>? onWetDryChange;
+  final VoidCallback? onRemove;
+  final VoidCallback? onOpenEditor;
 
   const _GlassInsertSlot({
     required this.index,
     required this.insert,
     this.onTap,
+    this.onBypassToggle,
+    this.onWetDryChange,
+    this.onRemove,
+    this.onOpenEditor,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final hasPlugin = !insert.isEmpty;
-    final isEq = insert.name.toLowerCase().contains('eq');
+  State<_GlassInsertSlot> createState() => _GlassInsertSlotState();
+}
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 26,
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: hasPlugin
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: hasPlugin && !insert.bypassed
-                ? (isEq
-                        ? LiquidGlassTheme.accentCyan
-                        : LiquidGlassTheme.accentBlue)
-                    .withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.08),
+class _GlassInsertSlotState extends State<_GlassInsertSlot> {
+  bool _isHovered = false;
+  bool _showWetDry = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPlugin = !widget.insert.isEmpty;
+    final isEq = widget.insert.name.toLowerCase().contains('eq');
+    final accentColor = widget.index < 4 ? LiquidGlassTheme.accentBlue : LiquidGlassTheme.accentOrange;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() {
+        _isHovered = false;
+        _showWetDry = false;
+      }),
+      child: GestureDetector(
+        onTap: hasPlugin ? null : widget.onTap,
+        onSecondaryTap: hasPlugin ? () => setState(() => _showWetDry = !_showWetDry) : null,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: hasPlugin
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: hasPlugin && !widget.insert.bypassed
+                  ? (isEq ? LiquidGlassTheme.accentCyan : accentColor).withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.08),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            // Status indicator
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: hasPlugin
-                    ? (insert.bypassed
-                        ? LiquidGlassTheme.accentOrange.withValues(alpha: 0.5)
-                        : LiquidGlassTheme.accentGreen)
-                    : Colors.white.withValues(alpha: 0.1),
-                border: Border.all(
-                  color: hasPlugin
-                      ? (insert.bypassed
-                          ? LiquidGlassTheme.accentOrange
-                          : LiquidGlassTheme.accentGreen)
-                      : Colors.white.withValues(alpha: 0.2),
-                  width: 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  // Bypass toggle
+                  GestureDetector(
+                    onTap: hasPlugin ? widget.onBypassToggle : null,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: hasPlugin
+                            ? (widget.insert.bypassed ? Colors.transparent : accentColor)
+                            : Colors.white.withValues(alpha: 0.1),
+                        border: Border.all(
+                          color: hasPlugin
+                              ? (widget.insert.bypassed ? LiquidGlassTheme.textDisabled : accentColor)
+                              : Colors.white.withValues(alpha: 0.2),
+                          width: 1.5,
+                        ),
+                        boxShadow: hasPlugin && !widget.insert.bypassed
+                            ? [BoxShadow(color: accentColor.withValues(alpha: 0.4), blurRadius: 4)]
+                            : null,
+                      ),
+                      child: widget.insert.bypassed && hasPlugin
+                          ? Center(child: Container(width: 5, height: 1.5, color: LiquidGlassTheme.textDisabled))
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Name - tap to open plugin picker
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        hasPlugin ? widget.insert.name : '+ Insert ${widget.index + 1}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
+                          color: hasPlugin
+                              ? (widget.insert.bypassed ? LiquidGlassTheme.textTertiary : LiquidGlassTheme.textPrimary)
+                              : LiquidGlassTheme.textTertiary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  // Wet/Dry indicator
+                  if (hasPlugin && widget.insert.wetDry < 0.99)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text(
+                        '${widget.insert.wetDryPercent}%',
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: LiquidGlassTheme.accentCyan.withValues(alpha: 0.8)),
+                      ),
+                    ),
+                  // Expand wet/dry on hover
+                  if (hasPlugin && _isHovered)
+                    GestureDetector(
+                      onTap: () => setState(() => _showWetDry = !_showWetDry),
+                      child: Icon(_showWetDry ? Icons.expand_less : Icons.expand_more, size: 14, color: LiquidGlassTheme.textTertiary),
+                    ),
+                  // Icon for EQ
+                  if (isEq && hasPlugin)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(Icons.graphic_eq, size: 12, color: LiquidGlassTheme.accentCyan),
+                    ),
+                  // Open Editor button
+                  if (hasPlugin && _isHovered)
+                    GestureDetector(
+                      onTap: widget.onOpenEditor,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Tooltip(
+                          message: 'Open Editor',
+                          waitDuration: const Duration(milliseconds: 500),
+                          child: Icon(Icons.open_in_new, size: 14, color: LiquidGlassTheme.textTertiary),
+                        ),
+                      ),
+                    ),
+                  // Remove button
+                  if (hasPlugin && _isHovered)
+                    GestureDetector(
+                      onTap: widget.onRemove,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Tooltip(
+                          message: 'Remove',
+                          waitDuration: const Duration(milliseconds: 500),
+                          child: Icon(Icons.close, size: 14, color: LiquidGlassTheme.textTertiary),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Wet/Dry slider
+              if (_showWetDry && hasPlugin)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Text('D', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: LiquidGlassTheme.textTertiary)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: SizedBox(
+                          height: 20,
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                              activeTrackColor: LiquidGlassTheme.accentCyan,
+                              inactiveTrackColor: Colors.black.withValues(alpha: 0.3),
+                              thumbColor: LiquidGlassTheme.accentCyan,
+                              overlayColor: LiquidGlassTheme.accentCyan.withValues(alpha: 0.2),
+                            ),
+                            child: Slider(
+                              value: widget.insert.wetDry,
+                              min: 0.0,
+                              max: 1.0,
+                              onChanged: widget.onWetDryChange,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text('W', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: LiquidGlassTheme.accentCyan)),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Name
-            Expanded(
-              child: Text(
-                hasPlugin ? insert.name : '+ Insert ${index + 1}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
-                  color: hasPlugin
-                      ? (insert.bypassed
-                          ? LiquidGlassTheme.textTertiary
-                          : LiquidGlassTheme.textPrimary)
-                      : LiquidGlassTheme.textTertiary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Icon for EQ
-            if (isEq && hasPlugin)
-              Icon(
-                Icons.graphic_eq,
-                size: 12,
-                color: LiquidGlassTheme.accentCyan,
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

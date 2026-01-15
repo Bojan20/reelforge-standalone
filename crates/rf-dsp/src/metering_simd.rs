@@ -590,6 +590,68 @@ impl CrestFactorMeter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// FALLBACK FOR NON-X86
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn find_peak_simd(samples: &[Sample]) -> f64 {
+    samples.iter().map(|s| s.abs()).fold(0.0, f64::max)
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn find_peak_stereo_simd(left: &[Sample], right: &[Sample]) -> (f64, f64) {
+    (find_peak_simd(left), find_peak_simd(right))
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn calculate_rms_simd(samples: &[Sample]) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum: f64 = samples.iter().map(|s| s * s).sum();
+    (sum / samples.len() as f64).sqrt()
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn calculate_rms_dbfs_simd(samples: &[Sample]) -> f64 {
+    20.0 * calculate_rms_simd(samples).max(1e-10).log10()
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn calculate_correlation_simd(left: &[Sample], right: &[Sample]) -> f64 {
+    let len = left.len().min(right.len());
+    if len == 0 {
+        return 0.0;
+    }
+
+    let mut lr = 0.0;
+    let mut ll = 0.0;
+    let mut rr = 0.0;
+
+    for i in 0..len {
+        lr += left[i] * right[i];
+        ll += left[i] * left[i];
+        rr += right[i] * right[i];
+    }
+
+    let denom = (ll * rr).sqrt();
+    if denom > 1e-10 {
+        (lr / denom).clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+pub fn calculate_mean_square_simd(samples: &[Sample]) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum: f64 = samples.iter().map(|s| s * s).sum();
+    sum / samples.len() as f64
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -661,66 +723,4 @@ mod tests {
         let cf = meter.crest_factor_db();
         assert!(cf > 2.5 && cf < 3.5, "Crest factor: {}", cf);
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// FALLBACK FOR NON-X86
-// ═══════════════════════════════════════════════════════════════════════════════
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn find_peak_simd(samples: &[Sample]) -> f64 {
-    samples.iter().map(|s| s.abs()).fold(0.0, f64::max)
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn find_peak_stereo_simd(left: &[Sample], right: &[Sample]) -> (f64, f64) {
-    (find_peak_simd(left), find_peak_simd(right))
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_rms_simd(samples: &[Sample]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = samples.iter().map(|s| s * s).sum();
-    (sum / samples.len() as f64).sqrt()
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_rms_dbfs_simd(samples: &[Sample]) -> f64 {
-    20.0 * calculate_rms_simd(samples).max(1e-10).log10()
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_correlation_simd(left: &[Sample], right: &[Sample]) -> f64 {
-    let len = left.len().min(right.len());
-    if len == 0 {
-        return 0.0;
-    }
-
-    let mut lr = 0.0;
-    let mut ll = 0.0;
-    let mut rr = 0.0;
-
-    for i in 0..len {
-        lr += left[i] * right[i];
-        ll += left[i] * left[i];
-        rr += right[i] * right[i];
-    }
-
-    let denom = (ll * rr).sqrt();
-    if denom > 1e-10 {
-        (lr / denom).clamp(-1.0, 1.0)
-    } else {
-        0.0
-    }
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_mean_square_simd(samples: &[Sample]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = samples.iter().map(|s| s * s).sum();
-    sum / samples.len() as f64
 }

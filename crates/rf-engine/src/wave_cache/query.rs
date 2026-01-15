@@ -337,7 +337,7 @@ mod tests {
         // Fill with test data
         for level_idx in 0..NUM_MIP_LEVELS {
             let samples_per_tile = MIP_TILE_SAMPLES[level_idx];
-            let num_tiles = (48000 + samples_per_tile - 1) / samples_per_tile;
+            let num_tiles = 48000_usize.div_ceil(samples_per_tile);
 
             for ch in 0..2 {
                 wfc.mip_levels[level_idx].tiles[ch] = (0..num_tiles)

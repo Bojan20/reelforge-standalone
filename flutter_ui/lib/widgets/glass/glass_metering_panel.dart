@@ -272,40 +272,35 @@ class _GlassMeteringPanelState extends State<GlassMeteringPanel> {
             padding: const EdgeInsets.only(right: 4),
             child: GestureDetector(
               onTap: () => setState(() => _selectedMeterMode = mode),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                  child: AnimatedContainer(
-                    duration: LiquidGlassTheme.animFast,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? LinearGradient(
-                              colors: [
-                                LiquidGlassTheme.accentBlue.withValues(alpha: 0.6),
-                                LiquidGlassTheme.accentBlue.withValues(alpha: 0.4),
-                              ],
-                            )
-                          : null,
-                      color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected
-                            ? LiquidGlassTheme.accentBlue
-                            : Colors.white.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Text(
-                      mode.name.toUpperCase(),
-                      style: TextStyle(
-                        color: isSelected
-                            ? LiquidGlassTheme.textPrimary
-                            : LiquidGlassTheme.textSecondary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              // OPTIMIZED: Removed nested BackdropFilter - parent provides blur
+              child: AnimatedContainer(
+                duration: LiquidGlassTheme.animFast,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? LinearGradient(
+                          colors: [
+                            LiquidGlassTheme.accentBlue.withValues(alpha: 0.6),
+                            LiquidGlassTheme.accentBlue.withValues(alpha: 0.4),
+                          ],
+                        )
+                      : null,
+                  color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isSelected
+                        ? LiquidGlassTheme.accentBlue
+                        : Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Text(
+                  mode.name.toUpperCase(),
+                  style: TextStyle(
+                    color: isSelected
+                        ? LiquidGlassTheme.textPrimary
+                        : LiquidGlassTheme.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -419,37 +414,32 @@ class _GlassMeteringPanelState extends State<GlassMeteringPanel> {
         _buildGlassLufsRow('Integrated', m.masterLufsI, LiquidGlassTheme.accentOrange),
         const SizedBox(height: 16),
         // Glass target comparison
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        // OPTIMIZED: Removed nested BackdropFilter - parent provides blur
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.flag, size: 14, color: LiquidGlassTheme.textTertiary),
+              const SizedBox(width: 8),
+              Text(
+                'Target: -14 LUFS',
+                style: TextStyle(color: LiquidGlassTheme.textSecondary, fontSize: 11),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.flag, size: 14, color: LiquidGlassTheme.textTertiary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Target: -14 LUFS',
-                    style: TextStyle(color: LiquidGlassTheme.textSecondary, fontSize: 11),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _getTargetDiff(m.masterLufsI, -14),
-                    style: TextStyle(
-                      color: _getTargetColor(m.masterLufsI, -14),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              const Spacer(),
+              Text(
+                _getTargetDiff(m.masterLufsI, -14),
+                style: TextStyle(
+                  color: _getTargetColor(m.masterLufsI, -14),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ],
@@ -503,93 +493,88 @@ class _GlassMeteringPanelState extends State<GlassMeteringPanel> {
     final tp = m.masterTruePeak.isFinite ? m.masterTruePeak : -60.0;
     final isOver = tp > -1.0;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: isOver
-                ? LinearGradient(
-                    colors: [
-                      LiquidGlassTheme.accentRed.withValues(alpha: 0.3),
-                      LiquidGlassTheme.accentRed.withValues(alpha: 0.15),
-                    ],
-                  )
-                : null,
-            color: isOver ? null : Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: isOver
-                  ? LiquidGlassTheme.accentRed
-                  : Colors.white.withValues(alpha: 0.15),
-            ),
-            boxShadow: isOver
-                ? [
-                    BoxShadow(
-                      color: LiquidGlassTheme.accentRed.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      spreadRadius: -2,
-                    ),
-                  ]
-                : null,
+    // OPTIMIZED: Removed nested BackdropFilter - parent provides blur
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: isOver
+            ? LinearGradient(
+                colors: [
+                  LiquidGlassTheme.accentRed.withValues(alpha: 0.3),
+                  LiquidGlassTheme.accentRed.withValues(alpha: 0.15),
+                ],
+              )
+            : null,
+        color: isOver ? null : Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isOver
+              ? LiquidGlassTheme.accentRed
+              : Colors.white.withValues(alpha: 0.15),
+        ),
+        boxShadow: isOver
+            ? [
+                BoxShadow(
+                  color: LiquidGlassTheme.accentRed.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  spreadRadius: -2,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOver ? Icons.warning : Icons.show_chart,
+            color: isOver ? LiquidGlassTheme.accentRed : LiquidGlassTheme.textTertiary,
+            size: 20,
           ),
-          child: Row(
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                isOver ? Icons.warning : Icons.show_chart,
-                color: isOver ? LiquidGlassTheme.accentRed : LiquidGlassTheme.textTertiary,
-                size: 20,
+              Text(
+                'TRUE PEAK',
+                style: TextStyle(
+                  color: LiquidGlassTheme.textTertiary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TRUE PEAK',
-                    style: TextStyle(
-                      color: LiquidGlassTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '${tp.toStringAsFixed(1)} dBTP',
-                    style: TextStyle(
-                      color: isOver ? LiquidGlassTheme.accentRed : LiquidGlassTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Text(
+                '${tp.toStringAsFixed(1)} dBTP',
+                style: TextStyle(
+                  color: isOver ? LiquidGlassTheme.accentRed : LiquidGlassTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          if (isOver)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: LiquidGlassTheme.accentRed,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: LiquidGlassTheme.accentRed.withValues(alpha: 0.5),
+                    blurRadius: 8,
                   ),
                 ],
               ),
-              const Spacer(),
-              if (isOver)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: LiquidGlassTheme.accentRed,
-                    borderRadius: BorderRadius.circular(4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: LiquidGlassTheme.accentRed.withValues(alpha: 0.5),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'OVER',
-                    style: TextStyle(
-                      color: LiquidGlassTheme.textPrimary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              child: Text(
+                'OVER',
+                style: TextStyle(
+                  color: LiquidGlassTheme.textPrimary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -645,26 +630,21 @@ class GlassDynamicRangeMeter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                ),
-                child: CustomPaint(
-                  size: Size(width, height),
-                  painter: _GlassDynamicRangePainter(
-                    peakDb: peakDb,
-                    rmsDb: rmsDb,
-                    dynamicRange: dynamicRange,
-                  ),
-                ),
+          // OPTIMIZED: Removed nested BackdropFilter - parent provides blur
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _GlassDynamicRangePainter(
+                peakDb: peakDb,
+                rmsDb: rmsDb,
+                dynamicRange: dynamicRange,
               ),
             ),
           ),
@@ -825,23 +805,18 @@ class GlassStereoBalanceMeter extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                ),
-                child: CustomPaint(
-                  size: Size(width, height),
-                  painter: _GlassBalancePainter(balance: balance),
-                ),
-              ),
+          // OPTIMIZED: Removed nested BackdropFilter - parent provides blur
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _GlassBalancePainter(balance: balance),
             ),
           ),
           const SizedBox(height: 2),
@@ -993,51 +968,40 @@ class GlassKSystemMeter extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  'K-$headroom',
-                  style: TextStyle(
-                    color: LiquidGlassTheme.textPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+          // OPTIMIZED: Removed nested BackdropFilters - parent provides blur
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Text(
+              'K-$headroom',
+              style: TextStyle(
+                color: LiquidGlassTheme.textPrimary,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                ),
-                child: CustomPaint(
-                  size: Size(width, height),
-                  painter: _GlassKMeterPainter(
-                    peakLeft: peakLeft,
-                    peakRight: peakRight,
-                    rmsLeft: rmsLeft,
-                    rmsRight: rmsRight,
-                    headroom: headroom,
-                  ),
-                ),
+          Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _GlassKMeterPainter(
+                peakLeft: peakLeft,
+                peakRight: peakRight,
+                rmsLeft: rmsLeft,
+                rmsRight: rmsRight,
+                headroom: headroom,
               ),
             ),
           ),
@@ -1491,6 +1455,9 @@ class ThemeAwarePdcDetailPanel extends StatelessWidget {
 // GLASS METER WRAPPER (for visualization meters)
 // ==============================================================================
 
+/// OPTIMIZED: Single BackdropFilter wrapper for meter widgets
+/// This is the ONLY place where blur should be applied for meters
+/// All nested child meters should NOT have their own BackdropFilter
 class _GlassMeterWrapper extends StatelessWidget {
   final Widget child;
 

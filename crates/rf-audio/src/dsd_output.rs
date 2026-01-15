@@ -534,7 +534,7 @@ mod tests {
         let dop_samples: Vec<i32> = (0..16)
             .map(|i| {
                 let marker = if i % 2 == 0 { 0x05 } else { 0xFA };
-                (marker as i32) << 24
+                marker << 24
             })
             .collect();
 

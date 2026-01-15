@@ -167,6 +167,55 @@ class EngineApi {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VARISPEED CONTROL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable/disable varispeed mode (tape-style speed with pitch change)
+  void setVarispeedEnabled(bool enabled) {
+    if (!_useMock) {
+      _ffi.setVarispeedEnabled(enabled);
+    }
+  }
+
+  /// Check if varispeed is enabled
+  bool isVarispeedEnabled() {
+    if (_useMock) return false;
+    return _ffi.isVarispeedEnabled();
+  }
+
+  /// Set varispeed rate (0.25 to 4.0, 1.0 = normal speed)
+  void setVarispeedRate(double rate) {
+    if (!_useMock) {
+      _ffi.setVarispeedRate(rate);
+    }
+  }
+
+  /// Get current varispeed rate
+  double getVarispeedRate() {
+    if (_useMock) return 1.0;
+    return _ffi.getVarispeedRate();
+  }
+
+  /// Set varispeed by semitone offset (+12 = 2x speed, -12 = 0.5x speed)
+  void setVarispeedSemitones(double semitones) {
+    if (!_useMock) {
+      _ffi.setVarispeedSemitones(semitones);
+    }
+  }
+
+  /// Get varispeed rate in semitones
+  double getVarispeedSemitones() {
+    if (_useMock) return 0.0;
+    return _ffi.getVarispeedSemitones();
+  }
+
+  /// Get effective playback rate (1.0 if varispeed disabled)
+  double getEffectivePlaybackRate() {
+    if (_useMock) return 1.0;
+    return _ffi.getEffectivePlaybackRate();
+  }
+
   /// Set track volume (0.0 - 1.5, where 1.0 = 0dB)
   void setTrackVolume(int trackId, double volume) {
     _mockTrackVolumes[trackId] = volume.clamp(0.0, 1.5);
@@ -176,11 +225,27 @@ class EngineApi {
   }
 
   /// Set track pan (-1.0 to 1.0, where 0.0 = center)
+  /// For stereo tracks with dual-pan, this controls the left channel
   void setTrackPan(int trackId, double pan) {
     final clampedPan = pan.clamp(-1.0, 1.0);
     if (!_useMock) {
       _ffi.setTrackPan(trackId, clampedPan);
     }
+  }
+
+  /// Set track right channel pan (-1.0 to 1.0)
+  /// For stereo tracks with dual-pan (Pro Tools style), this controls the right channel
+  void setTrackPanRight(int trackId, double pan) {
+    final clampedPan = pan.clamp(-1.0, 1.0);
+    if (!_useMock) {
+      _ffi.setTrackPanRight(trackId, clampedPan);
+    }
+  }
+
+  /// Get track channel count (1 = mono, 2 = stereo)
+  int getTrackChannels(int trackId) {
+    if (_useMock) return 2;
+    return _ffi.getTrackChannels(trackId);
   }
 
   /// Set bus volume (0.0 - 1.5, where 1.0 = 0dB)
@@ -309,6 +374,62 @@ class EngineApi {
       loopEnd: _transport.loopEnd,
     );
     _transportController.add(_transport);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCRUBBING (Pro Tools / Cubase style audio preview on drag)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _isScrubbing = false;
+
+  /// Check if currently scrubbing
+  bool get isScrubbing => _isScrubbing;
+
+  /// Start scrubbing at given position (enables audio preview while dragging)
+  void startScrub(double seconds) {
+    _isScrubbing = true;
+    if (!_useMock) {
+      _ffi.playbackStartScrub(seconds);
+    }
+  }
+
+  /// Update scrub position with velocity
+  /// velocity: -4.0 to 4.0, positive = forward, negative = backward
+  void updateScrub(double seconds, double velocity) {
+    if (!_useMock) {
+      _ffi.playbackUpdateScrub(seconds, velocity);
+    }
+    // Update transport position for UI
+    final sampleRate = _project.sampleRate;
+    _transport = TransportState(
+      isPlaying: false,
+      isRecording: false,
+      positionSamples: (seconds * sampleRate).toInt(),
+      positionSeconds: seconds,
+      tempo: _transport.tempo,
+      timeSigNum: _transport.timeSigNum,
+      timeSigDenom: _transport.timeSigDenom,
+      loopEnabled: _transport.loopEnabled,
+      loopStart: _transport.loopStart,
+      loopEnd: _transport.loopEnd,
+    );
+    _transportController.add(_transport);
+  }
+
+  /// Stop scrubbing
+  void stopScrub() {
+    _isScrubbing = false;
+    if (!_useMock) {
+      _ffi.playbackStopScrub();
+    }
+  }
+
+  /// Set scrub window size in milliseconds (10-200ms, default 50ms)
+  /// Smaller = more responsive but choppier, Larger = smoother but less precise
+  void setScrubWindowMs(int ms) {
+    if (!_useMock) {
+      _ffi.playbackSetScrubWindowMs(ms);
+    }
   }
 
   /// Set tempo
@@ -1525,6 +1646,17 @@ class EngineApi {
     }
   }
 
+  /// Get insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+  double insertGetMix(String trackId, int slotIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.insertGetMix(nativeTrackId, slotIndex);
+      }
+    }
+    return 1.0; // Default full wet
+  }
+
   /// Bypass all inserts on a track
   void insertBypassAll(String trackId, bool bypass) {
     if (!_useMock) {
@@ -1930,6 +2062,166 @@ class EngineApi {
       }
     }
     return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PDC (PLUGIN DELAY COMPENSATION)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get total system latency in samples
+  int pdcGetTotalLatencySamples() {
+    if (!_useMock) {
+      return _ffi.pdcGetTotalLatencySamples();
+    }
+    return 0;
+  }
+
+  /// Get total system latency in milliseconds
+  double pdcGetTotalLatencyMs() {
+    if (!_useMock) {
+      return _ffi.pdcGetTotalLatencyMs();
+    }
+    return 0.0;
+  }
+
+  /// Get track latency in samples
+  int pdcGetTrackLatency(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.pdcGetTrackLatency(nativeTrackId);
+      }
+    }
+    return 0;
+  }
+
+  /// Get insert slot latency in samples
+  int pdcGetSlotLatency(String trackId, int slotIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.pdcGetSlotLatency(nativeTrackId, slotIndex);
+      }
+    }
+    return 0;
+  }
+
+  /// Get master latency in samples
+  int pdcGetMasterLatency() {
+    if (!_useMock) {
+      return _ffi.pdcGetMasterLatency();
+    }
+    return 0;
+  }
+
+  /// Check if PDC is enabled
+  bool pdcIsEnabled() {
+    if (!_useMock) {
+      return _ffi.pdcIsEnabled();
+    }
+    return true;
+  }
+
+  /// Enable/disable PDC
+  void pdcSetEnabled(bool enabled) {
+    print('[Engine] PDC enabled: $enabled');
+    if (!_useMock) {
+      _ffi.pdcSetEnabled(enabled);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SIDECHAIN ROUTING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add a sidechain route from source to destination processor
+  /// Returns route ID (>0) or 0 on failure
+  int sidechainAddRoute(int sourceId, int destProcessorId, {bool preFader = false}) {
+    if (!_useMock) {
+      return _ffi.sidechainAddRoute(sourceId, destProcessorId, preFader: preFader);
+    }
+    return 1; // Mock returns valid ID
+  }
+
+  /// Remove a sidechain route
+  bool sidechainRemoveRoute(int routeId) {
+    if (!_useMock) {
+      return _ffi.sidechainRemoveRoute(routeId);
+    }
+    return true;
+  }
+
+  /// Create sidechain input for a processor
+  void sidechainCreateInput(int processorId) {
+    if (!_useMock) {
+      _ffi.sidechainCreateInput(processorId);
+    }
+  }
+
+  /// Remove sidechain input for a processor
+  void sidechainRemoveInput(int processorId) {
+    if (!_useMock) {
+      _ffi.sidechainRemoveInput(processorId);
+    }
+  }
+
+  /// Set sidechain source type
+  /// sourceType: 0=Internal, 1=External, 2=Mid, 3=Side
+  void sidechainSetSource(int processorId, int sourceType, {int externalId = 0}) {
+    if (!_useMock) {
+      _ffi.sidechainSetSource(processorId, sourceType, externalId: externalId);
+    }
+  }
+
+  /// Set sidechain filter mode
+  /// mode: 0=Off, 1=HighPass, 2=LowPass, 3=BandPass
+  void sidechainSetFilterMode(int processorId, int mode) {
+    if (!_useMock) {
+      _ffi.sidechainSetFilterMode(processorId, mode);
+    }
+  }
+
+  /// Set sidechain filter frequency (20-20000 Hz)
+  void sidechainSetFilterFreq(int processorId, double freq) {
+    if (!_useMock) {
+      _ffi.sidechainSetFilterFreq(processorId, freq);
+    }
+  }
+
+  /// Set sidechain filter Q (0.1-10.0)
+  void sidechainSetFilterQ(int processorId, double q) {
+    if (!_useMock) {
+      _ffi.sidechainSetFilterQ(processorId, q);
+    }
+  }
+
+  /// Set sidechain mix (0.0=internal, 1.0=external)
+  void sidechainSetMix(int processorId, double mix) {
+    if (!_useMock) {
+      _ffi.sidechainSetMix(processorId, mix);
+    }
+  }
+
+  /// Set sidechain gain in dB
+  void sidechainSetGainDb(int processorId, double db) {
+    if (!_useMock) {
+      _ffi.sidechainSetGainDb(processorId, db);
+    }
+  }
+
+  /// Enable/disable sidechain monitor
+  void sidechainSetMonitor(int processorId, bool monitor) {
+    if (!_useMock) {
+      _ffi.sidechainSetMonitor(processorId, monitor);
+    }
+  }
+
+  /// Check if sidechain is monitoring
+  bool sidechainIsMonitoring(int processorId) {
+    if (!_useMock) {
+      return _ffi.sidechainIsMonitoring(processorId);
+    }
+    return false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3847,6 +4139,29 @@ bool exportIsExporting() {
     return ffi.exportIsExporting() != 0;
   } catch (e) {
     return false;
+  }
+}
+
+/// Export stems (individual tracks) to WAV files
+/// format: 0=Wav16, 1=Wav24, 2=Wav32Float
+/// Returns number of exported stems, or -1 on error
+int exportStems(
+  String outputDir,
+  int format,
+  int sampleRate,
+  double startTime,
+  double endTime, {
+  bool normalize = false,
+  bool includeBuses = true,
+  String prefix = '',
+}) {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return -1;
+    return ffi.exportStems(outputDir, format, sampleRate, startTime, endTime,
+        normalize, includeBuses, prefix);
+  } catch (e) {
+    return -1;
   }
 }
 

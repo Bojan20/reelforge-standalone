@@ -14,6 +14,7 @@ import 'dart:math' show pow, log, ln10;
 import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/engine_api.dart';
+import '../models/layout_models.dart' show InsertSlot;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MIXER CHANNEL TYPES
@@ -49,7 +50,9 @@ class MixerChannel {
 
   // Levels
   double volume;      // 0.0 - 1.5 (0dB = 1.0)
-  double pan;         // -1.0 to 1.0
+  double pan;         // -1.0 to 1.0 (left channel for stereo)
+  double panRight;    // -1.0 to 1.0 (right channel for stereo, Pro Tools dual-pan)
+  bool isStereo;      // true = dual pan (stereo), false = single pan (mono)
   bool muted;
   bool soloed;
   bool armed;         // Record arm
@@ -61,6 +64,9 @@ class MixerChannel {
   List<AuxSend> sends;
   String? vcaId;      // Assigned VCA
   String? groupId;    // Assigned group
+
+  // Inserts (8 slots: 0-3 pre-fader, 4-7 post-fader)
+  List<InsertSlot> inserts;
 
   // Metering (updated from MeterProvider)
   double peakL;
@@ -79,6 +85,8 @@ class MixerChannel {
     this.color = const Color(0xFF4A9EFF),
     this.volume = 1.0,
     this.pan = 0.0,
+    this.panRight = 0.0,
+    this.isStereo = true,
     this.muted = false,
     this.soloed = false,
     this.armed = false,
@@ -88,13 +96,26 @@ class MixerChannel {
     this.sends = const [],
     this.vcaId,
     this.groupId,
+    List<InsertSlot>? inserts,
     this.peakL = 0.0,
     this.peakR = 0.0,
     this.rmsL = 0.0,
     this.rmsR = 0.0,
     this.clipping = false,
     this.trackIndex,
-  });
+  }) : inserts = inserts ?? _defaultInserts();
+
+  /// Default empty insert slots (8 total: 4 pre-fader, 4 post-fader)
+  static List<InsertSlot> _defaultInserts() => [
+    InsertSlot.empty(0, isPreFader: true),
+    InsertSlot.empty(1, isPreFader: true),
+    InsertSlot.empty(2, isPreFader: true),
+    InsertSlot.empty(3, isPreFader: true),
+    InsertSlot.empty(4, isPreFader: false),
+    InsertSlot.empty(5, isPreFader: false),
+    InsertSlot.empty(6, isPreFader: false),
+    InsertSlot.empty(7, isPreFader: false),
+  ];
 
   MixerChannel copyWith({
     String? id,
@@ -103,6 +124,8 @@ class MixerChannel {
     Color? color,
     double? volume,
     double? pan,
+    double? panRight,
+    bool? isStereo,
     bool? muted,
     bool? soloed,
     bool? armed,
@@ -112,6 +135,7 @@ class MixerChannel {
     List<AuxSend>? sends,
     String? vcaId,
     String? groupId,
+    List<InsertSlot>? inserts,
     double? peakL,
     double? peakR,
     double? rmsL,
@@ -126,6 +150,8 @@ class MixerChannel {
       color: color ?? this.color,
       volume: volume ?? this.volume,
       pan: pan ?? this.pan,
+      panRight: panRight ?? this.panRight,
+      isStereo: isStereo ?? this.isStereo,
       muted: muted ?? this.muted,
       soloed: soloed ?? this.soloed,
       armed: armed ?? this.armed,
@@ -135,6 +161,7 @@ class MixerChannel {
       sends: sends ?? this.sends,
       vcaId: vcaId ?? this.vcaId,
       groupId: groupId ?? this.groupId,
+      inserts: inserts ?? this.inserts,
       peakL: peakL ?? this.peakL,
       peakR: peakR ?? this.peakR,
       rmsL: rmsL ?? this.rmsL,
@@ -462,8 +489,14 @@ class MixerProvider extends ChangeNotifier {
 
   /// Create channel from timeline track creation
   /// trackId is the engine track ID (as string, but may be numeric for native tracks)
+  /// channels: 1 = mono, 2 = stereo (affects default pan values)
   /// Cubase-style: track = mixer channel, direct to master
-  MixerChannel createChannelFromTrack(String trackId, String trackName, Color trackColor) {
+  MixerChannel createChannelFromTrack(
+    String trackId,
+    String trackName,
+    Color trackColor, {
+    int channels = 2,
+  }) {
     // Check if channel already exists for this track
     final existing = _channels.values.where((c) => c.id == 'ch_$trackId').firstOrNull;
     if (existing != null) return existing;
@@ -474,12 +507,21 @@ class MixerProvider extends ChangeNotifier {
     // Native engine returns numeric IDs, mock returns 'track-123...' strings
     final nativeTrackId = int.tryParse(trackId);
 
+    // Pro Tools dual-pan defaults: stereo = L hard left, R hard right
+    // Mono = center
+    final bool isStereo = channels >= 2;
+    final defaultPan = isStereo ? -1.0 : 0.0;
+    final defaultPanRight = isStereo ? 1.0 : 0.0;
+
     // Cubase-style: channels route directly to master (no intermediate buses)
     final channel = MixerChannel(
       id: id,
       name: trackName,
       type: ChannelType.audio,
       color: trackColor,
+      pan: defaultPan,
+      panRight: defaultPanRight,
+      isStereo: isStereo,
       outputBus: 'master', // Direct to master, not to bus
       trackIndex: nativeTrackId, // Store native engine track ID for FFI
     );
@@ -808,6 +850,27 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setChannelPanRight(String id, double panRight) {
+    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    if (channel == null) return;
+
+    final clampedPan = panRight.clamp(-1.0, 1.0);
+
+    if (_channels.containsKey(id)) {
+      _channels[id] = channel.copyWith(panRight: clampedPan);
+      // Send to engine for stereo dual-pan processing
+      if (channel.trackIndex != null) {
+        engine.setTrackPanRight(channel.trackIndex!, clampedPan);
+      }
+    } else if (_buses.containsKey(id)) {
+      _buses[id] = channel.copyWith(panRight: clampedPan);
+    } else if (_auxes.containsKey(id)) {
+      _auxes[id] = channel.copyWith(panRight: clampedPan);
+    }
+
+    notifyListeners();
+  }
+
   void toggleChannelMute(String id) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
@@ -1027,6 +1090,90 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[channelId] = channel.copyWith(sends: sends);
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INSERT MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update insert bypass state
+  void updateInsertBypass(String channelId, int slotIndex, bool bypassed) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    inserts[slotIndex] = inserts[slotIndex].copyWith(bypassed: bypassed);
+    _channels[channelId] = channel.copyWith(inserts: inserts);
+    notifyListeners();
+  }
+
+  /// Update insert wet/dry mix
+  void updateInsertWetDry(String channelId, int slotIndex, double wetDry) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    inserts[slotIndex] = inserts[slotIndex].copyWith(wetDry: wetDry.clamp(0.0, 1.0));
+    _channels[channelId] = channel.copyWith(inserts: inserts);
+    notifyListeners();
+  }
+
+  /// Remove insert (replace with empty slot)
+  void removeInsert(String channelId, int slotIndex) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    final isPreFader = slotIndex < 4;
+    inserts[slotIndex] = InsertSlot.empty(slotIndex, isPreFader: isPreFader);
+    _channels[channelId] = channel.copyWith(inserts: inserts);
+    notifyListeners();
+  }
+
+  /// Load plugin into insert slot
+  void loadInsert(String channelId, int slotIndex, String pluginId, String pluginName, String pluginType) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    final isPreFader = slotIndex < 4;
+    inserts[slotIndex] = InsertSlot(
+      id: pluginId,
+      name: pluginName,
+      type: pluginType,
+      isPreFader: isPreFader,
+      bypassed: false,
+      wetDry: 1.0,
+    );
+    _channels[channelId] = channel.copyWith(inserts: inserts);
+    notifyListeners();
+  }
+
+  /// Reorder inserts within same section (pre or post fader)
+  void reorderInserts(String channelId, int oldIndex, int newIndex) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    // Ensure both indices are in same section (0-3 pre, 4-7 post)
+    final oldSection = oldIndex < 4 ? 0 : 1;
+    final newSection = newIndex < 4 ? 0 : 1;
+    if (oldSection != newSection) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    final item = inserts.removeAt(oldIndex);
+    inserts.insert(newIndex, item);
+    _channels[channelId] = channel.copyWith(inserts: inserts);
+    notifyListeners();
+  }
+
+  /// Get inserts for a channel
+  List<InsertSlot> getInserts(String channelId) {
+    final channel = _channels[channelId];
+    return channel?.inserts ?? [];
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

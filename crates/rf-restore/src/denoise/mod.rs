@@ -504,7 +504,7 @@ mod tests {
 
         // Add some frames
         for _ in 0..20 {
-            let mags: Vec<f32> = (0..1025).map(|i| (i as f32 * 0.001)).collect();
+            let mags: Vec<f32> = (0..1025).map(|i| i as f32 * 0.001).collect();
             profile.add_frame(&mags);
         }
 

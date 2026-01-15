@@ -39,25 +39,35 @@ impl RestoreAnalyzer {
 
     /// Analyze audio for restoration needs
     pub fn analyze(&self, audio: &[f32]) -> RestoreResult<AnalysisResult> {
-        let mut result = AnalysisResult::default();
-
         // Clipping detection
-        result.clipping_percent = self.detect_clipping(audio);
+        let clipping_percent = self.detect_clipping(audio);
 
         // Click detection
-        result.clicks_per_second = self.detect_clicks(audio);
+        let clicks_per_second = self.detect_clicks(audio);
 
         // Hum detection
-        if let Some((freq, level)) = self.detect_hum(audio) {
-            result.hum_frequency = Some(freq);
-            result.hum_level_db = level;
-        }
+        let (hum_frequency, hum_level_db) = if let Some((freq, level)) = self.detect_hum(audio) {
+            (Some(freq), level)
+        } else {
+            (None, 0.0)
+        };
 
         // Noise floor estimation
-        result.noise_floor_db = self.estimate_noise_floor(audio);
+        let noise_floor_db = self.estimate_noise_floor(audio);
 
         // Reverb estimation
-        result.reverb_tail_seconds = self.estimate_reverb_tail(audio);
+        let reverb_tail_seconds = self.estimate_reverb_tail(audio);
+
+        // Build initial result
+        let mut result = AnalysisResult {
+            clipping_percent,
+            clicks_per_second,
+            hum_frequency,
+            hum_level_db,
+            noise_floor_db,
+            reverb_tail_seconds,
+            ..Default::default()
+        };
 
         // Calculate quality score
         result.quality_score = self.calculate_quality_score(&result);

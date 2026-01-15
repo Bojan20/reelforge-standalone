@@ -1004,7 +1004,7 @@ mod tests {
     fn test_undo_redo() {
         let mut state = PianoRollState::new(1);
 
-        let id = state.add_note(60, 0, 480, 100);
+        let _id = state.add_note(60, 0, 480, 100);
         assert_eq!(state.notes.len(), 1);
 
         state.undo();

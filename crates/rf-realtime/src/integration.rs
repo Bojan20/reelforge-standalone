@@ -543,7 +543,7 @@ mod tests {
         chain.add(ModuleType::MasterLimiter);
 
         assert_eq!(chain.len(), 2);
-        assert_eq!(chain.total_latency(), 0 + 64);
+        assert_eq!(chain.total_latency(), 64);
 
         let input = [0.5, 0.6, 0.7, 0.8];
         let mut output = [0.0; 4];

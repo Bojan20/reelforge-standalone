@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../providers/engine_provider.dart';
 import '../../providers/theme_mode_provider.dart';
 import '../../models/layout_models.dart';
+import '../../src/rust/native_ffi.dart';
 import 'control_bar.dart';
 import '../glass/glass_control_bar.dart';
 
@@ -60,19 +61,30 @@ class EngineConnectedControlBar extends StatelessWidget {
 
     // PERFORMANCE: Use Selector to only rebuild on transport changes we care about
     return Selector<EngineProvider, _ControlBarData>(
-      selector: (_, engine) => _ControlBarData(
-        isPlaying: engine.transport.isPlaying,
-        isRecording: engine.transport.isRecording,
-        tempo: engine.transport.tempo,
-        positionSeconds: engine.transport.positionSeconds,
-        timeSigNum: engine.transport.timeSigNum,
-        timeSigDenom: engine.transport.timeSigDenom,
-        loopEnabled: engine.transport.loopEnabled,
-        cpuUsage: engine.metering.cpuUsage,
-        projectName: engine.project.name,
-        canUndo: engine.canUndo,
-        canRedo: engine.canRedo,
-      ),
+      selector: (_, engine) {
+        // Get PDC data from FFI
+        final ffi = NativeFFI.instance;
+        final pdcSamples = ffi.isLoaded ? ffi.pdcGetTotalLatencySamples() : 0;
+        final pdcMs = ffi.isLoaded ? ffi.pdcGetTotalLatencyMs() : 0.0;
+        final pdcEnabled = ffi.isLoaded ? ffi.pdcIsEnabled() : true;
+
+        return _ControlBarData(
+          isPlaying: engine.transport.isPlaying,
+          isRecording: engine.transport.isRecording,
+          tempo: engine.transport.tempo,
+          positionSeconds: engine.transport.positionSeconds,
+          timeSigNum: engine.transport.timeSigNum,
+          timeSigDenom: engine.transport.timeSigDenom,
+          loopEnabled: engine.transport.loopEnabled,
+          cpuUsage: engine.metering.cpuUsage,
+          projectName: engine.project.name,
+          canUndo: engine.canUndo,
+          canRedo: engine.canRedo,
+          pdcLatencySamples: pdcSamples,
+          pdcLatencyMs: pdcMs,
+          pdcEnabled: pdcEnabled,
+        );
+      },
       builder: (context, data, _) {
         final engine = context.read<EngineProvider>();
 
@@ -125,6 +137,14 @@ class EngineConnectedControlBar extends StatelessWidget {
           );
         }
 
+        // PDC toggle callback
+        void onPdcToggle() {
+          final ffi = NativeFFI.instance;
+          if (ffi.isLoaded) {
+            ffi.pdcSetEnabled(!data.pdcEnabled);
+          }
+        }
+
         // Classic Control Bar
         return ControlBar(
           editorMode: editorMode,
@@ -158,6 +178,10 @@ class EngineConnectedControlBar extends StatelessWidget {
           onToggleRightZone: onToggleRightZone,
           onToggleLowerZone: onToggleLowerZone,
           menuCallbacks: menuCallbacks,
+          pdcLatencySamples: data.pdcLatencySamples,
+          pdcLatencyMs: data.pdcLatencyMs,
+          pdcEnabled: data.pdcEnabled,
+          onPdcTap: onPdcToggle,
         );
       },
     );
@@ -177,6 +201,10 @@ class _ControlBarData {
   final String projectName;
   final bool canUndo;
   final bool canRedo;
+  // PDC
+  final int pdcLatencySamples;
+  final double pdcLatencyMs;
+  final bool pdcEnabled;
 
   const _ControlBarData({
     required this.isPlaying,
@@ -190,6 +218,9 @@ class _ControlBarData {
     required this.projectName,
     required this.canUndo,
     required this.canRedo,
+    required this.pdcLatencySamples,
+    required this.pdcLatencyMs,
+    required this.pdcEnabled,
   });
 
   @override
@@ -206,7 +237,10 @@ class _ControlBarData {
         other.cpuUsage == cpuUsage &&
         other.projectName == projectName &&
         other.canUndo == canUndo &&
-        other.canRedo == canRedo;
+        other.canRedo == canRedo &&
+        other.pdcLatencySamples == pdcLatencySamples &&
+        other.pdcLatencyMs == pdcLatencyMs &&
+        other.pdcEnabled == pdcEnabled;
   }
 
   @override
@@ -222,5 +256,8 @@ class _ControlBarData {
         projectName,
         canUndo,
         canRedo,
+        pdcLatencySamples,
+        pdcLatencyMs,
+        pdcEnabled,
       );
 }

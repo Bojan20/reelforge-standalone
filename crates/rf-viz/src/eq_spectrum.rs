@@ -647,8 +647,10 @@ mod tests {
 
     #[test]
     fn test_spectrum_mesh_generation() {
-        let mut data = EqSpectrumData::default();
-        data.spectrum = vec![0.5; 256];
+        let data = EqSpectrumData {
+            spectrum: vec![0.5; 256],
+            ..Default::default()
+        };
 
         let config = EqSpectrumConfig::default();
         let (vertices, indices) = generate_spectrum_mesh(&data, &config, 800.0, 400.0);

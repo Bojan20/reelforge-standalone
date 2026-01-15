@@ -5,11 +5,20 @@
 /// - Recording status
 /// - Output directory
 /// - Recording file paths
+/// - Punch in/out
+/// - Pre-roll
+/// - Auto-arm
 
 import 'package:flutter/foundation.dart';
 import '../src/rust/engine_api.dart' as api;
+import '../src/rust/native_ffi.dart';
+
+/// Punch recording mode
+enum PunchMode { off, punchIn, punchOut, punchInOut }
 
 class RecordingProvider extends ChangeNotifier {
+  final NativeFFI _ffi = NativeFFI.instance;
+
   // Recording state
   bool _isRecording = false;
   String _outputDir = '';
@@ -18,6 +27,20 @@ class RecordingProvider extends ChangeNotifier {
   final Map<int, bool> _armedTracks = {};
   final Map<int, String> _recordingPaths = {};
 
+  // Punch state
+  PunchMode _punchMode = PunchMode.off;
+  double _punchInTime = 0.0;
+  double _punchOutTime = 10.0;
+
+  // Pre-roll state
+  bool _preRollEnabled = false;
+  double _preRollSeconds = 2.0;
+  int _preRollBars = 1;
+
+  // Auto-arm state
+  bool _autoArmEnabled = false;
+  double _autoArmThresholdDb = -40.0;
+
   // Getters
   bool get isRecording => _isRecording;
   String get outputDir => _outputDir;
@@ -25,6 +48,21 @@ class RecordingProvider extends ChangeNotifier {
   int get recordingCount => _recordingCount;
   bool isTrackArmed(int trackId) => _armedTracks[trackId] ?? false;
   String? getRecordingPath(int trackId) => _recordingPaths[trackId];
+
+  // Punch getters
+  PunchMode get punchMode => _punchMode;
+  double get punchInTime => _punchInTime;
+  double get punchOutTime => _punchOutTime;
+  bool get isPunchedIn => _ffi.isLoaded ? _ffi.recordingIsPunchedIn() : false;
+
+  // Pre-roll getters
+  bool get preRollEnabled => _preRollEnabled;
+  double get preRollSeconds => _preRollSeconds;
+  int get preRollBars => _preRollBars;
+
+  // Auto-arm getters
+  bool get autoArmEnabled => _autoArmEnabled;
+  double get autoArmThresholdDb => _autoArmThresholdDb;
 
   /// Initialize recording system
   Future<void> initialize() async {
@@ -149,5 +187,121 @@ class RecordingProvider extends ChangeNotifier {
       _isRecording = false;
     }
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PUNCH IN/OUT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set punch mode
+  void setPunchMode(PunchMode mode) {
+    _punchMode = mode;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetPunchMode(mode.index);
+    }
+    notifyListeners();
+  }
+
+  /// Set punch in time (seconds)
+  void setPunchInTime(double seconds) {
+    _punchInTime = seconds;
+    if (_ffi.isLoaded) {
+      final samples = (seconds * 48000).round(); // TODO: use actual sample rate
+      _ffi.recordingSetPunchIn(samples);
+    }
+    notifyListeners();
+  }
+
+  /// Set punch out time (seconds)
+  void setPunchOutTime(double seconds) {
+    _punchOutTime = seconds;
+    if (_ffi.isLoaded) {
+      final samples = (seconds * 48000).round();
+      _ffi.recordingSetPunchOut(samples);
+    }
+    notifyListeners();
+  }
+
+  /// Set both punch times
+  void setPunchTimes(double punchIn, double punchOut) {
+    _punchInTime = punchIn;
+    _punchOutTime = punchOut;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetPunchTimes(punchIn, punchOut);
+    }
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRE-ROLL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable/disable pre-roll
+  void setPreRollEnabled(bool enabled) {
+    _preRollEnabled = enabled;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetPreRollEnabled(enabled);
+    }
+    notifyListeners();
+  }
+
+  /// Set pre-roll duration in seconds
+  void setPreRollSeconds(double seconds) {
+    _preRollSeconds = seconds;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetPreRollSeconds(seconds);
+    }
+    notifyListeners();
+  }
+
+  /// Set pre-roll in bars
+  void setPreRollBars(int bars) {
+    _preRollBars = bars;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetPreRollBars(bars);
+    }
+    notifyListeners();
+  }
+
+  /// Calculate pre-roll start position
+  int getPreRollStart(int recordStart, double tempo) {
+    if (!_ffi.isLoaded) return recordStart;
+    return _ffi.recordingPreRollStart(recordStart, tempo);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-ARM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable/disable auto-arm
+  void setAutoArmEnabled(bool enabled) {
+    _autoArmEnabled = enabled;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetAutoArmEnabled(enabled);
+    }
+    notifyListeners();
+  }
+
+  /// Set auto-arm threshold in dB
+  void setAutoArmThresholdDb(double db) {
+    _autoArmThresholdDb = db;
+    if (_ffi.isLoaded) {
+      _ffi.recordingSetAutoArmThresholdDb(db);
+    }
+    notifyListeners();
+  }
+
+  /// Add track to pending auto-arm list
+  void addPendingAutoArm(int trackId) {
+    if (_ffi.isLoaded) {
+      _ffi.recordingAddPendingAutoArm(trackId);
+    }
+  }
+
+  /// Remove track from pending auto-arm list
+  void removePendingAutoArm(int trackId) {
+    if (_ffi.isLoaded) {
+      _ffi.recordingRemovePendingAutoArm(trackId);
+    }
   }
 }

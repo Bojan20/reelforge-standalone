@@ -6,13 +6,16 @@
 //! - Zero-latency mode (direct + partitioned)
 //! - IR Morphing (spectral crossfade)
 //! - IR Deconvolution (sweep → IR extraction)
+//! - IR Spectrum Cache (10-50x faster loading)
 
+pub mod cache;
 pub mod deconvolve;
 pub mod morph;
 pub mod non_uniform;
 pub mod true_stereo;
 pub mod zero_latency;
 
+pub use cache::*;
 pub use deconvolve::*;
 pub use morph::*;
 pub use non_uniform::*;
@@ -66,6 +69,11 @@ impl ImpulseResponse {
     /// Length in samples (per channel)
     pub fn len(&self) -> usize {
         self.samples.len() / self.channels as usize
+    }
+
+    /// Check if impulse response is empty
+    pub fn is_empty(&self) -> bool {
+        self.samples.is_empty()
     }
 
     /// Duration in seconds

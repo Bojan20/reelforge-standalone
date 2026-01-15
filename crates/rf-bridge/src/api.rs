@@ -1291,6 +1291,42 @@ pub fn playback_seek(seconds: f64) {
     crate::PLAYBACK.seek(seconds);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SCRUBBING (audio preview on drag)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Start scrubbing at given position (enables audio preview while dragging)
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_start_scrub(seconds: f64) {
+    crate::PLAYBACK.start_scrub(seconds);
+}
+
+/// Update scrub position with velocity
+/// velocity: -4.0 to 4.0, positive = forward, negative = backward
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_update_scrub(seconds: f64, velocity: f64) {
+    crate::PLAYBACK.update_scrub(seconds, velocity);
+}
+
+/// Stop scrubbing
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_stop_scrub() {
+    crate::PLAYBACK.stop_scrub();
+}
+
+/// Check if currently scrubbing
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_is_scrubbing() -> bool {
+    crate::PLAYBACK.is_scrubbing()
+}
+
+/// Set scrub window size in milliseconds (10-200ms, default 50ms)
+/// Smaller = more responsive but choppier, Larger = smoother but less precise
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_set_scrub_window_ms(ms: u32) {
+    crate::PLAYBACK.set_scrub_window_ms(ms as u64);
+}
+
 /// Set loop range
 #[flutter_rust_bridge::frb(sync)]
 pub fn playback_set_loop(enabled: bool, start_sec: f64, end_sec: f64) {
@@ -2414,7 +2450,7 @@ pub fn export_build(
 
     // Render audio offline
     let block_size = 4096;
-    let num_blocks = (total_samples as usize + block_size - 1) / block_size;
+    let num_blocks = (total_samples as usize).div_ceil(block_size);
     let mut left_samples = Vec::with_capacity(total_samples as usize);
     let mut right_samples = Vec::with_capacity(total_samples as usize);
 
@@ -3089,19 +3125,81 @@ pub fn export_start(config: ExportConfig) -> bool {
             progress.eta_secs = bounce_progress.eta_secs as f64;
         });
 
-        // For now, create empty audio data since we don't have direct access to processed audio
-        // In a real implementation, this would render from the engine's processing chain
+        // Calculate duration
         let duration_samples = if end_samples < u64::MAX {
             (end_samples - start_samples) as usize
         } else {
+            // Default to 60 seconds if no end specified
             (60.0 * source_sample_rate as f64) as usize
         };
 
-        let audio_data = rf_file::AudioData::new(2, duration_samples, source_sample_rate);
+        // Allocate output buffers
+        let mut output_l = vec![0.0f64; duration_samples];
+        let mut output_r = vec![0.0f64; duration_samples];
 
-        // Get audio from playback engine if available
-        // For now, render silence (or test tone) as placeholder
-        // Real implementation would process through the engine
+        // Render audio from playback engine offline
+        // Process in blocks to avoid memory issues and allow progress updates
+        let block_size = 1024;
+        let total_blocks = (duration_samples + block_size - 1) / block_size;
+
+        {
+            let mut progress = EXPORT_PROGRESS.lock();
+            progress.total_time_sec = duration_samples as f64 / source_sample_rate as f64;
+        }
+
+        for block_idx in 0..total_blocks {
+            // Check for cancellation
+            if EXPORT_CANCELLED.load(Ordering::SeqCst) {
+                let mut progress = EXPORT_PROGRESS.lock();
+                progress.is_exporting = false;
+                progress.phase = String::from("Cancelled");
+                EXPORT_IN_PROGRESS.store(false, Ordering::SeqCst);
+                return;
+            }
+
+            let block_start = block_idx * block_size;
+            let block_end = (block_start + block_size).min(duration_samples);
+
+            // Get samples from start position
+            let sample_position = start_samples + block_start as u64;
+
+            // Render this block from playback engine
+            PLAYBACK.process_offline(
+                sample_position,
+                &mut output_l[block_start..block_end],
+                &mut output_r[block_start..block_end],
+            );
+
+            // Update progress
+            {
+                let mut progress = EXPORT_PROGRESS.lock();
+                progress.progress = (block_end as f32) / (duration_samples as f32);
+                progress.current_time_sec = block_end as f64 / source_sample_rate as f64;
+                let elapsed = progress.current_time_sec;
+                let remaining = progress.total_time_sec - elapsed;
+                let speed = if progress.progress > 0.0 {
+                    elapsed / progress.progress as f64
+                } else {
+                    1.0
+                };
+                progress.eta_secs = remaining / speed.max(0.01);
+            }
+        }
+
+        // Create AudioData from rendered buffers
+        // AudioData stores channels as Vec<Vec<f64>>
+        let audio_data = rf_file::AudioData {
+            channels: vec![output_l, output_r],
+            sample_rate: source_sample_rate,
+            bit_depth: rf_file::BitDepth::Float64,
+            format: rf_file::AudioFormat::Unknown,
+        };
+
+        // Update phase
+        {
+            let mut progress = EXPORT_PROGRESS.lock();
+            progress.phase = String::from("Writing file");
+        }
 
         let mut processor = PassthroughProcessor;
 
@@ -6160,3 +6258,83 @@ pub fn spatial_export_atmos(
 pub fn spatial_get_latency_samples() -> u32 {
     256 // Default
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INSERT CHAIN FFI (C-compatible exports for native_ffi.dart)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// C FFI: Create insert chain for track (currently no-op as chains auto-create)
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_create_chain(_track_id: u64) {
+    // Insert chains are created automatically when first processor is loaded
+    // This is a no-op for compatibility
+}
+
+/// C FFI: Remove insert chain from track
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_remove_chain(track_id: u64) {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        // Unload all slots for this track
+        for slot in 0..8 {
+            let _ = e.playback_engine().unload_track_insert(track_id, slot);
+        }
+    }
+}
+
+/// C FFI: Set insert slot bypass (wraps flutter_rust_bridge version)
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_insert_set_bypass(track_id: u64, slot: u32, bypass: i32) {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.playback_engine()
+            .set_track_insert_bypass(track_id, slot as usize, bypass != 0);
+    }
+}
+
+/// C FFI: Set insert slot wet/dry mix (wraps flutter_rust_bridge version)
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_insert_set_mix(track_id: u64, slot: u32, mix: f64) {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.playback_engine()
+            .set_track_insert_mix(track_id, slot as usize, mix);
+    }
+}
+
+/// C FFI: Get insert slot wet/dry mix (0.0 = dry, 1.0 = wet)
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_insert_get_mix(track_id: u64, slot: u32) -> f64 {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.playback_engine()
+            .get_track_insert_mix(track_id, slot as usize)
+    } else {
+        1.0 // Default full wet
+    }
+}
+
+/// C FFI: Bypass all inserts on track (wraps flutter_rust_bridge version)
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_insert_bypass_all(track_id: u64, bypass: i32) {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.playback_engine()
+            .bypass_all_track_inserts(track_id, bypass != 0);
+    }
+}
+
+/// C FFI: Get total latency of insert chain (samples)
+#[unsafe(no_mangle)]
+pub extern "C" fn ffi_insert_get_total_latency(track_id: u64) -> u32 {
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        e.playback_engine().get_track_insert_latency(track_id) as u32
+    } else {
+        0
+    }
+}
+
+// NOTE: insert_load_processor, insert_unload_slot, insert_set_param,
+// insert_get_param, and insert_is_loaded are defined in rf-engine/src/ffi.rs
+// They support both master bus (track_id=0) and audio tracks, so we use those.

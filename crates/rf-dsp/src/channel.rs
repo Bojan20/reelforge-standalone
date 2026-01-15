@@ -610,7 +610,6 @@ impl ProcessorConfig for ChannelStrip {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MonoProcessor;
 
     #[test]
     fn test_channel_strip_passthrough() {

@@ -700,18 +700,51 @@ impl AudioRecorder {
     }
 
     /// Generate unique file path
+    ///
+    /// # File Naming Format
+    /// Deterministic naming: `{prefix}_{YYYYMMDD}_{HHMMSS}_{take:03}.wav`
+    /// Example: `Guitar_20250115_143022_001.wav`
+    ///
+    /// This format ensures:
+    /// - Alphabetical sorting = chronological sorting
+    /// - Human-readable timestamps
+    /// - No collisions (take counter)
+    /// - DAW-friendly (no spaces, standard chars)
     fn generate_file_path(&self, config: &RecordingConfig) -> FileResult<PathBuf> {
-        let timestamp = SystemTime::now()
+        let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
+        // Convert to date/time components (UTC)
+        let secs_per_day = 86400u64;
+        let secs_per_hour = 3600u64;
+        let secs_per_minute = 60u64;
+
+        // Days since Unix epoch
+        let days = now / secs_per_day;
+        let time_of_day = now % secs_per_day;
+
+        // Calculate year, month, day (simplified - not accounting for leap seconds)
+        let (year, month, day) = days_to_ymd(days);
+
+        let hours = time_of_day / secs_per_hour;
+        let minutes = (time_of_day % secs_per_hour) / secs_per_minute;
+        let seconds = time_of_day % secs_per_minute;
+
         let take = self.take_counter.load(Ordering::SeqCst);
 
+        // Format: {prefix}_{YYYYMMDD}_{HHMMSS}_{take:03}.wav
         let filename = if config.auto_increment {
-            format!("{}_{:03}_{}.wav", config.file_prefix, take, timestamp)
+            format!(
+                "{}_{}{}{}_{:02}{:02}{:02}_{:03}.wav",
+                config.file_prefix, year, month, day, hours, minutes, seconds, take
+            )
         } else {
-            format!("{}_{}.wav", config.file_prefix, timestamp)
+            format!(
+                "{}_{}{}{}_{:02}{:02}{:02}.wav",
+                config.file_prefix, year, month, day, hours, minutes, seconds
+            )
         };
 
         let path = config.output_dir.join(filename);
@@ -854,6 +887,49 @@ impl Default for TakeManager {
 // ═══════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/// Convert days since Unix epoch to (year, month, day) strings
+/// Returns formatted strings: ("2025", "01", "15")
+fn days_to_ymd(days: u64) -> (String, String, String) {
+    // Start from 1970-01-01
+    let mut year = 1970u32;
+    let mut remaining_days = days as u32;
+
+    // Skip years
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if remaining_days < days_in_year {
+            break;
+        }
+        remaining_days -= days_in_year;
+        year += 1;
+    }
+
+    // Days per month (0-indexed)
+    let days_in_month: [u32; 12] = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+
+    let mut month = 1u32;
+    for days_in_m in days_in_month.iter() {
+        if remaining_days < *days_in_m {
+            break;
+        }
+        remaining_days -= *days_in_m;
+        month += 1;
+    }
+
+    let day = remaining_days + 1; // 1-indexed
+
+    (format!("{:04}", year), format!("{:02}", month), format!("{:02}", day))
+}
+
+/// Check if year is a leap year
+fn is_leap_year(year: u32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
 
 /// Get available disk space for path
 /// Returns u64::MAX if unable to determine (allowing recording to proceed)

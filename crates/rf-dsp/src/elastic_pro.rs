@@ -516,8 +516,10 @@ impl PhaseVocoder {
 
             // Phase propagation with peak locking
             let mut new_phases = vec![0.0; self.fft_size];
+            let num_bins = self.fft_size / 2 + 1;
 
-            for bin in 0..self.fft_size / 2 + 1 {
+            // Compute phase accumulation
+            for bin in 0..num_bins {
                 // Compute phase deviation
                 let phase_diff = phases[bin] - self.prev_phase[bin] - self.omega[bin];
                 let phase_diff_wrapped = Self::wrap_phase(phase_diff);
@@ -528,9 +530,10 @@ impl PhaseVocoder {
                 // Accumulate phase with stretch ratio
                 let phase_inc = (self.omega[bin] + 2.0 * PI * freq_dev) * stretch_ratio;
                 self.phase_acc[bin] += phase_inc;
-
-                new_phases[bin] = self.phase_acc[bin];
             }
+
+            // Copy accumulated phases to new_phases
+            new_phases[..num_bins].copy_from_slice(&self.phase_acc[..num_bins]);
 
             // Peak locking: propagate peak phases to surrounding bins
             for &peak in &self.peak_bins {

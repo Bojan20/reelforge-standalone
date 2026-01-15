@@ -320,10 +320,10 @@ mod tests {
 
     #[test]
     fn test_spectral_flux() {
-        let detector = TransientDetector::new(44100.0);
+        let _detector = TransientDetector::new(44100.0);
 
-        let prev = vec![1.0, 2.0, 3.0, 4.0];
-        let curr = vec![2.0, 2.0, 5.0, 3.0];
+        let _prev = [1.0, 2.0, 3.0, 4.0];
+        let _curr = [2.0, 2.0, 5.0, 3.0];
 
         // Manual flux: (2-1) + (2-2) + (5-3) + (3-4)max0 = 1 + 0 + 2 + 0 = 3
         // But detector uses internal prev_magnitude, so we can't test directly

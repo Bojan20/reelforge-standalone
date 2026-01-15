@@ -507,7 +507,7 @@ mod tests {
     fn test_marker_track() {
         let mut track = MarkerTrack::new();
 
-        let m1 = track.add(Marker::position("Start", 0));
+        let _m1 = track.add(Marker::position("Start", 0));
         let m2 = track.add(Marker::position("Verse", 48000));
         let _m3 = track.add(Marker::position("Chorus", 96000));
 

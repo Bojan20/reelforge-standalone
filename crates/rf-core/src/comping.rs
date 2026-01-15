@@ -552,8 +552,8 @@ mod tests {
         let mut state = CompState::new(track_id);
 
         // Create lanes
-        let lane1_id = state.create_lane();
-        let lane2_id = state.create_lane();
+        let _lane1_id = state.create_lane();
+        let _lane2_id = state.create_lane();
 
         assert_eq!(state.lanes.len(), 2);
         assert_eq!(state.active_lane_index, 0);
