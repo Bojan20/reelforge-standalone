@@ -289,24 +289,31 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Unregister a state group
+  ///
+  /// Note: Rust FFI currently doesn't support unregister - group remains
+  /// in engine but is removed from UI tracking. IDs are never reused.
   void unregisterStateGroup(int groupId) {
     _stateGroups.remove(groupId);
-    // TODO: Notify Rust to unregister
     notifyListeners();
   }
 
   /// Unregister a switch group
+  ///
+  /// Note: Rust FFI currently doesn't support unregister - group remains
+  /// in engine but is removed from UI tracking. IDs are never reused.
   void unregisterSwitchGroup(int groupId) {
     _switchGroups.remove(groupId);
     // Remove from all objects
     for (final objectSwitches in _objectSwitches.values) {
       objectSwitches.remove(groupId);
     }
-    // TODO: Notify Rust to unregister
     notifyListeners();
   }
 
   /// Unregister an RTPC
+  ///
+  /// Note: Rust FFI currently doesn't support unregister - RTPC remains
+  /// in engine but is removed from UI tracking. IDs are never reused.
   void unregisterRtpc(int rtpcId) {
     _rtpcDefs.remove(rtpcId);
     // Remove from all objects
@@ -315,7 +322,6 @@ class MiddlewareProvider extends ChangeNotifier {
     }
     // Remove bindings that use this RTPC
     _rtpcBindings.removeWhere((_, binding) => binding.rtpcId == rtpcId);
-    // TODO: Notify Rust to unregister
     notifyListeners();
   }
 
@@ -1894,5 +1900,421 @@ class MiddlewareProvider extends ChangeNotifier {
     _clearAll();
     _initializeDefaults();
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT MANAGEMENT (CRUD + FFI SYNC)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Registered middleware events
+  final Map<String, MiddlewareEvent> _events = {};
+
+  /// Event name to numeric ID mapping for FFI
+  final Map<String, int> _eventNameToId = {};
+
+  /// Asset name to numeric ID mapping for FFI
+  final Map<String, int> _assetNameToId = {};
+
+  /// Bus name to numeric ID mapping
+  static const Map<String, int> _busNameToId = {
+    'Master': 0,
+    'Music': 1,
+    'SFX': 2,
+    'Voice': 3,
+    'UI': 4,
+    'Ambience': 5,
+    'Reels': 2, // Maps to SFX bus
+    'Wins': 2,  // Maps to SFX bus
+    'VO': 3,    // Maps to Voice bus
+  };
+
+  /// Next event numeric ID
+  int _nextEventNumericId = 1000;
+
+  /// Next asset numeric ID
+  int _nextAssetNumericId = 2000;
+
+  /// Get all registered events
+  List<MiddlewareEvent> get events => _events.values.toList();
+
+  /// Get event by ID
+  MiddlewareEvent? getEvent(String id) => _events[id];
+
+  /// Get event by name
+  MiddlewareEvent? getEventByName(String name) {
+    return _events.values.where((e) => e.name == name).firstOrNull;
+  }
+
+  /// Register a new event
+  void registerEvent(MiddlewareEvent event) {
+    _events[event.id] = event;
+
+    // Assign numeric ID for FFI
+    final numericId = _nextEventNumericId++;
+    _eventNameToId[event.name] = numericId;
+
+    // Sync to Rust engine
+    _syncEventToEngine(event, numericId);
+
+    notifyListeners();
+  }
+
+  /// Update an existing event
+  void updateEvent(MiddlewareEvent event) {
+    if (!_events.containsKey(event.id)) return;
+
+    _events[event.id] = event;
+
+    // Re-sync to engine (need to re-register)
+    final numericId = _eventNameToId[event.name];
+    if (numericId != null) {
+      _syncEventToEngine(event, numericId);
+    }
+
+    notifyListeners();
+  }
+
+  /// Delete an event
+  void deleteEvent(String eventId) {
+    final event = _events.remove(eventId);
+    if (event != null) {
+      _eventNameToId.remove(event.name);
+      // Note: Rust side doesn't have unregister, but IDs won't be reused
+    }
+    notifyListeners();
+  }
+
+  /// Add action to an event
+  void addActionToEvent(String eventId, MiddlewareAction action) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    final updatedActions = [...event.actions, action];
+    _events[eventId] = event.copyWith(actions: updatedActions);
+
+    // Re-sync entire event
+    final numericId = _eventNameToId[event.name];
+    if (numericId != null) {
+      _syncEventToEngine(_events[eventId]!, numericId);
+    }
+
+    notifyListeners();
+  }
+
+  /// Update action in an event
+  void updateActionInEvent(String eventId, MiddlewareAction action) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    final updatedActions = event.actions.map((a) {
+      return a.id == action.id ? action : a;
+    }).toList();
+
+    _events[eventId] = event.copyWith(actions: updatedActions);
+
+    // Re-sync entire event
+    final numericId = _eventNameToId[event.name];
+    if (numericId != null) {
+      _syncEventToEngine(_events[eventId]!, numericId);
+    }
+
+    notifyListeners();
+  }
+
+  /// Remove action from an event
+  void removeActionFromEvent(String eventId, String actionId) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    final updatedActions = event.actions.where((a) => a.id != actionId).toList();
+    _events[eventId] = event.copyWith(actions: updatedActions);
+
+    // Re-sync entire event
+    final numericId = _eventNameToId[event.name];
+    if (numericId != null) {
+      _syncEventToEngine(_events[eventId]!, numericId);
+    }
+
+    notifyListeners();
+  }
+
+  /// Reorder actions in an event
+  void reorderActionsInEvent(String eventId, int oldIndex, int newIndex) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    final actions = List<MiddlewareAction>.from(event.actions);
+    if (oldIndex < 0 || oldIndex >= actions.length) return;
+    if (newIndex < 0 || newIndex > actions.length) return;
+
+    final action = actions.removeAt(oldIndex);
+    final insertIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    actions.insert(insertIndex, action);
+
+    _events[eventId] = event.copyWith(actions: actions);
+
+    // Re-sync entire event
+    final numericId = _eventNameToId[event.name];
+    if (numericId != null) {
+      _syncEventToEngine(_events[eventId]!, numericId);
+    }
+
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FFI SYNC - Event to Rust Engine
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sync event to Rust engine via FFI
+  void _syncEventToEngine(MiddlewareEvent event, int numericId) {
+    // Register event
+    _ffi.middlewareRegisterEvent(
+      numericId,
+      event.name,
+      event.category,
+      maxInstances: 8,
+    );
+
+    // Add all actions
+    for (final action in event.actions) {
+      _addActionToEngine(numericId, action);
+    }
+  }
+
+  /// Add action to engine
+  void _addActionToEngine(int eventId, MiddlewareAction action) {
+    _ffi.middlewareAddAction(
+      eventId,
+      _mapActionType(action.type),
+      assetId: _getOrCreateAssetId(action.assetId),
+      busId: _busNameToId[action.bus] ?? 0,
+      scope: _mapActionScope(action.scope),
+      priority: _mapActionPriority(action.priority),
+      fadeCurve: _mapFadeCurve(action.fadeCurve),
+      fadeTimeMs: (action.fadeTime * 1000).round(),
+      delayMs: (action.delay * 1000).round(),
+    );
+  }
+
+  /// Map Dart ActionType to FFI MiddlewareActionType
+  MiddlewareActionType _mapActionType(ActionType type) {
+    return switch (type) {
+      ActionType.play => MiddlewareActionType.play,
+      ActionType.playAndContinue => MiddlewareActionType.playAndContinue,
+      ActionType.stop => MiddlewareActionType.stop,
+      ActionType.stopAll => MiddlewareActionType.stopAll,
+      ActionType.pause => MiddlewareActionType.pause,
+      ActionType.pauseAll => MiddlewareActionType.pauseAll,
+      ActionType.resume => MiddlewareActionType.resume,
+      ActionType.resumeAll => MiddlewareActionType.resumeAll,
+      ActionType.break_ => MiddlewareActionType.breakLoop,
+      ActionType.mute => MiddlewareActionType.mute,
+      ActionType.unmute => MiddlewareActionType.unmute,
+      ActionType.setVolume => MiddlewareActionType.setVolume,
+      ActionType.setPitch => MiddlewareActionType.setPitch,
+      ActionType.setLPF => MiddlewareActionType.setLPF,
+      ActionType.setHPF => MiddlewareActionType.setHPF,
+      ActionType.setBusVolume => MiddlewareActionType.setBusVolume,
+      ActionType.setState => MiddlewareActionType.setState,
+      ActionType.setSwitch => MiddlewareActionType.setSwitch,
+      ActionType.setRTPC => MiddlewareActionType.setRTPC,
+      ActionType.resetRTPC => MiddlewareActionType.resetRTPC,
+      ActionType.seek => MiddlewareActionType.seek,
+      ActionType.trigger => MiddlewareActionType.trigger,
+      ActionType.postEvent => MiddlewareActionType.postEvent,
+    };
+  }
+
+  /// Map Dart ActionScope to FFI MiddlewareActionScope
+  MiddlewareActionScope _mapActionScope(ActionScope scope) {
+    return switch (scope) {
+      ActionScope.global => MiddlewareActionScope.global,
+      ActionScope.gameObject => MiddlewareActionScope.gameObject,
+      ActionScope.emitter => MiddlewareActionScope.emitter,
+      ActionScope.all => MiddlewareActionScope.all,
+      ActionScope.firstOnly => MiddlewareActionScope.firstOnly,
+      ActionScope.random => MiddlewareActionScope.random,
+    };
+  }
+
+  /// Map Dart ActionPriority to FFI MiddlewareActionPriority
+  MiddlewareActionPriority _mapActionPriority(ActionPriority priority) {
+    return switch (priority) {
+      ActionPriority.lowest => MiddlewareActionPriority.lowest,
+      ActionPriority.low => MiddlewareActionPriority.low,
+      ActionPriority.belowNormal => MiddlewareActionPriority.belowNormal,
+      ActionPriority.normal => MiddlewareActionPriority.normal,
+      ActionPriority.aboveNormal => MiddlewareActionPriority.aboveNormal,
+      ActionPriority.high => MiddlewareActionPriority.high,
+      ActionPriority.highest => MiddlewareActionPriority.highest,
+    };
+  }
+
+  /// Map Dart FadeCurve to FFI MiddlewareFadeCurve
+  MiddlewareFadeCurve _mapFadeCurve(FadeCurve curve) {
+    return switch (curve) {
+      FadeCurve.linear => MiddlewareFadeCurve.linear,
+      FadeCurve.log3 => MiddlewareFadeCurve.log3,
+      FadeCurve.sine => MiddlewareFadeCurve.sine,
+      FadeCurve.log1 => MiddlewareFadeCurve.log1,
+      FadeCurve.invSCurve => MiddlewareFadeCurve.invSCurve,
+      FadeCurve.sCurve => MiddlewareFadeCurve.sCurve,
+      FadeCurve.exp1 => MiddlewareFadeCurve.exp1,
+      FadeCurve.exp3 => MiddlewareFadeCurve.exp3,
+    };
+  }
+
+  /// Get or create numeric asset ID
+  int _getOrCreateAssetId(String assetName) {
+    if (assetName.isEmpty || assetName == '—') return 0;
+
+    var id = _assetNameToId[assetName];
+    if (id == null) {
+      id = _nextAssetNumericId++;
+      _assetNameToId[assetName] = id;
+    }
+    return id;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT PLAYBACK - Post/Stop Events
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Currently playing event instances: playingId -> eventId
+  final Map<int, String> _playingInstances = {};
+
+  /// Get active playing instances
+  Map<int, String> get playingInstances => Map.unmodifiable(_playingInstances);
+
+  /// Post (trigger) an event
+  ///
+  /// Returns playing ID (0 if failed)
+  int postEvent(String eventId, {int gameObjectId = 0}) {
+    final event = _events[eventId];
+    if (event == null) return 0;
+
+    final numericId = _eventNameToId[event.name];
+    if (numericId == null) return 0;
+
+    final playingId = _ffi.middlewarePostEvent(numericId, gameObjectId: gameObjectId);
+
+    if (playingId > 0) {
+      _playingInstances[playingId] = eventId;
+      notifyListeners();
+    }
+
+    return playingId;
+  }
+
+  /// Post event by name
+  int postEventByName(String eventName, {int gameObjectId = 0}) {
+    final event = getEventByName(eventName);
+    if (event == null) return 0;
+    return postEvent(event.id, gameObjectId: gameObjectId);
+  }
+
+  /// Stop a playing instance
+  void stopPlayingId(int playingId, {int fadeMs = 100}) {
+    _ffi.middlewareStopPlayingId(playingId, fadeMs: fadeMs);
+    _playingInstances.remove(playingId);
+    notifyListeners();
+  }
+
+  /// Stop all instances of an event
+  void stopEvent(String eventId, {int fadeMs = 100, int gameObjectId = 0}) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    final numericId = _eventNameToId[event.name];
+    if (numericId == null) return;
+
+    _ffi.middlewareStopEvent(numericId, gameObjectId: gameObjectId, fadeMs: fadeMs);
+
+    // Remove from playing instances
+    _playingInstances.removeWhere((_, v) => v == eventId);
+    notifyListeners();
+  }
+
+  /// Stop all playing events
+  void stopAllEvents({int fadeMs = 100}) {
+    _ffi.middlewareStopAll(fadeMs: fadeMs);
+    _playingInstances.clear();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LIVE PREVIEW / TESTING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Test event with specific scope
+  ///
+  /// Plays the event once for preview in the editor.
+  int testEvent(String eventId, {int gameObjectId = 0}) {
+    return postEvent(eventId, gameObjectId: gameObjectId);
+  }
+
+  /// Test single action (creates temporary event)
+  int testAction(MiddlewareAction action, {int gameObjectId = 0}) {
+    // Create temporary event with single action
+    final tempEventId = '_test_${DateTime.now().millisecondsSinceEpoch}';
+    final tempEvent = MiddlewareEvent(
+      id: tempEventId,
+      name: tempEventId,
+      category: 'Test',
+      actions: [action],
+    );
+
+    // Register temporarily
+    final numericId = _nextEventNumericId++;
+    _eventNameToId[tempEventId] = numericId;
+    _syncEventToEngine(tempEvent, numericId);
+
+    // Post event
+    final playingId = _ffi.middlewarePostEvent(numericId, gameObjectId: gameObjectId);
+
+    // Note: Temporary event stays registered (Rust has no unregister)
+    // This is acceptable for testing purposes
+
+    return playingId;
+  }
+
+  /// Get active instance count from engine
+  int getActiveInstanceCount() {
+    return _ffi.middlewareGetActiveInstanceCount();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IMPORT/EXPORT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Export all events to JSON
+  Map<String, dynamic> exportEventsToJson() {
+    return {
+      'version': '1.0',
+      'exported_at': DateTime.now().toIso8601String(),
+      'events': _events.values.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  /// Import events from JSON
+  void importEventsFromJson(Map<String, dynamic> json) {
+    final eventsList = json['events'] as List<dynamic>?;
+    if (eventsList == null) return;
+
+    for (final eventJson in eventsList) {
+      final event = MiddlewareEvent.fromJson(eventJson as Map<String, dynamic>);
+      registerEvent(event);
+    }
+  }
+
+  /// Sync all events to engine (useful after load)
+  void syncAllEventsToEngine() {
+    for (final event in _events.values) {
+      final numericId = _eventNameToId[event.name];
+      if (numericId != null) {
+        _syncEventToEngine(event, numericId);
+      }
+    }
   }
 }

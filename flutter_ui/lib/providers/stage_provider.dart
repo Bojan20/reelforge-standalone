@@ -723,6 +723,7 @@ class EngineConnectionProvider extends ChangeNotifier {
   EngineConnectionState get connectionState => _stageProvider.connectionState;
   bool get isConnected => _stageProvider.isConnected;
   List<StageEvent> get liveEvents => _stageProvider.liveEvents;
+  TimingProfile get timingProfile => _stageProvider.timingProfile;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FORM SETTERS

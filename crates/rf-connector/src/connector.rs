@@ -166,7 +166,7 @@ impl EngineConnector {
             let json = serde_json::to_string(&auth_frame)
                 .map_err(|e| ConnectorError::Protocol(e.to_string()))?;
             write
-                .send(Message::Text(json.into()))
+                .send(Message::Text(json))
                 .await
                 .map_err(|e| ConnectorError::ConnectionFailed(e.to_string()))?;
         }
@@ -212,7 +212,7 @@ impl EngineConnector {
                                 serde_json::to_value(&cmd).unwrap_or_default(),
                             );
                             if let Ok(json) = serde_json::to_string(&frame) {
-                                if write.send(Message::Text(json.into())).await.is_err() {
+                                if write.send(Message::Text(json)).await.is_err() {
                                     break;
                                 }
                             }

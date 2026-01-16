@@ -48,6 +48,7 @@ import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart' as clip_editor;
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
+import 'slot_lab_screen.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
 import '../widgets/dsp/reverb_panel.dart';
@@ -2750,7 +2751,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           child: Focus(
             autofocus: true,
             canRequestFocus: true,
-            child: Stack(
+            // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
+            child: _editorMode == EditorMode.slot
+                ? SlotLabScreen(
+                    onClose: () => setState(() => _editorMode = EditorMode.daw),
+                  )
+                : Stack(
         children: [
           MainLayout(
             // PERFORMANCE: Use custom control bar that handles its own provider listening

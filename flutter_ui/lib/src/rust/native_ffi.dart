@@ -1676,6 +1676,19 @@ typedef MiddlewareGetRtpcCountDart = int Function();
 typedef MiddlewareGetActiveInstanceCountNative = Uint32 Function();
 typedef MiddlewareGetActiveInstanceCountDart = int Function();
 
+// Middleware Asset Registry
+typedef MiddlewareRegisterAssetNative = Uint32 Function(Pointer<Utf8> name, Pointer<Float> samplesL, Pointer<Float> samplesR, Uint64 numSamples, Uint32 sampleRate);
+typedef MiddlewareRegisterAssetDart = int Function(Pointer<Utf8> name, Pointer<Float> samplesL, Pointer<Float> samplesR, int numSamples, int sampleRate);
+
+typedef MiddlewareRegisterAssetFromClipNative = Uint32 Function(Pointer<Utf8> name, Uint64 clipId);
+typedef MiddlewareRegisterAssetFromClipDart = int Function(Pointer<Utf8> name, int clipId);
+
+typedef MiddlewareUnregisterAssetNative = Void Function(Uint32 assetId);
+typedef MiddlewareUnregisterAssetDart = void Function(int assetId);
+
+typedef MiddlewareGetAssetInfoNative = Pointer<Utf8> Function(Uint32 assetId);
+typedef MiddlewareGetAssetInfoDart = Pointer<Utf8> Function(int assetId);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STAGE SYSTEM TYPEDEFS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2271,6 +2284,12 @@ class NativeFFI {
   late final MiddlewareGetRtpcCountDart _middlewareGetRtpcCount;
   late final MiddlewareGetActiveInstanceCountDart _middlewareGetActiveInstanceCount;
 
+  // Middleware Asset Registry
+  late final MiddlewareRegisterAssetDart _middlewareRegisterAsset;
+  late final MiddlewareRegisterAssetFromClipDart _middlewareRegisterAssetFromClip;
+  late final MiddlewareUnregisterAssetDart _middlewareUnregisterAsset;
+  late final MiddlewareGetAssetInfoDart _middlewareGetAssetInfo;
+
   // Stage System
   late final StageParseJsonDart _stageParseJson;
   late final StageGetTraceJsonDart _stageGetTraceJson;
@@ -2839,6 +2858,12 @@ class NativeFFI {
     _middlewareGetSwitchGroupCount = _lib.lookupFunction<MiddlewareGetSwitchGroupCountNative, MiddlewareGetSwitchGroupCountDart>('middleware_get_switch_group_count');
     _middlewareGetRtpcCount = _lib.lookupFunction<MiddlewareGetRtpcCountNative, MiddlewareGetRtpcCountDart>('middleware_get_rtpc_count');
     _middlewareGetActiveInstanceCount = _lib.lookupFunction<MiddlewareGetActiveInstanceCountNative, MiddlewareGetActiveInstanceCountDart>('middleware_get_active_instance_count');
+
+    // Middleware Asset Registry bindings
+    _middlewareRegisterAsset = _lib.lookupFunction<MiddlewareRegisterAssetNative, MiddlewareRegisterAssetDart>('engine_middleware_register_asset');
+    _middlewareRegisterAssetFromClip = _lib.lookupFunction<MiddlewareRegisterAssetFromClipNative, MiddlewareRegisterAssetFromClipDart>('engine_middleware_register_asset_from_clip');
+    _middlewareUnregisterAsset = _lib.lookupFunction<MiddlewareUnregisterAssetNative, MiddlewareUnregisterAssetDart>('engine_middleware_unregister_asset');
+    _middlewareGetAssetInfo = _lib.lookupFunction<MiddlewareGetAssetInfoNative, MiddlewareGetAssetInfoDart>('engine_middleware_get_asset_info');
 
     // Stage System bindings
     _stageParseJson = _lib.lookupFunction<StageParseJsonNative, StageParseJsonDart>('stage_parse_json');
@@ -12614,6 +12639,68 @@ extension ControlRoomAPI on NativeFFI {
   int middlewareGetActiveInstanceCount() {
     if (!_loaded) return 0;
     return _middlewareGetActiveInstanceCount();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MIDDLEWARE ASSET REGISTRY API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register an audio asset from raw samples
+  /// Returns asset ID on success, 0 on failure
+  int middlewareRegisterAsset(String name, Float32List samplesL, Float32List? samplesR, int sampleRate) {
+    if (!_loaded) return 0;
+    final namePtr = name.toNativeUtf8();
+
+    // Allocate native memory for samples
+    final samplesLPtr = malloc<Float>(samplesL.length);
+    for (var i = 0; i < samplesL.length; i++) {
+      samplesLPtr[i] = samplesL[i];
+    }
+
+    Pointer<Float> samplesRPtr = nullptr;
+    if (samplesR != null && samplesR.isNotEmpty) {
+      samplesRPtr = malloc<Float>(samplesR.length);
+      for (var i = 0; i < samplesR.length; i++) {
+        samplesRPtr[i] = samplesR[i];
+      }
+    }
+
+    try {
+      return _middlewareRegisterAsset(namePtr, samplesLPtr, samplesRPtr, samplesL.length, sampleRate);
+    } finally {
+      malloc.free(namePtr);
+      malloc.free(samplesLPtr);
+      if (samplesRPtr != nullptr) {
+        malloc.free(samplesRPtr);
+      }
+    }
+  }
+
+  /// Register an audio asset from an already-imported clip
+  /// Returns asset ID on success, 0 on failure
+  int middlewareRegisterAssetFromClip(String name, int clipId) {
+    if (!_loaded) return 0;
+    final namePtr = name.toNativeUtf8();
+    try {
+      return _middlewareRegisterAssetFromClip(namePtr, clipId);
+    } finally {
+      malloc.free(namePtr);
+    }
+  }
+
+  /// Unregister an audio asset
+  void middlewareUnregisterAsset(int assetId) {
+    if (!_loaded) return;
+    _middlewareUnregisterAsset(assetId);
+  }
+
+  /// Get asset info as JSON
+  String? middlewareGetAssetInfo(int assetId) {
+    if (!_loaded) return null;
+    final ptr = _middlewareGetAssetInfo(assetId);
+    if (ptr == nullptr) return null;
+    final str = ptr.toDartString();
+    return str.isEmpty ? null : str;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

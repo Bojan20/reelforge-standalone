@@ -65,7 +65,8 @@ impl Default for StageCue {
 pub struct StageAudioEngine {
     /// Reference to main playback engine
     playback: Arc<PlaybackEngine>,
-    /// Track manager for creating audio clips
+    /// Track manager for creating audio clips (reserved for cue-to-clip conversion)
+    #[allow(dead_code)]
     track_manager: Arc<TrackManager>,
     /// Registered stage cues (stage_type -> cues)
     cues: RwLock<HashMap<String, Vec<StageCue>>>,
@@ -168,13 +169,11 @@ impl StageAudioEngine {
 
         if let Some(matching_cues) = cues.get(stage_type) {
             for cue in matching_cues.iter().filter(|c| c.enabled) {
-                // Check index match if specified
-                if let Some(required_idx) = cue.stage_index {
-                    if let Some(event_idx) = self.get_stage_index(event) {
-                        if event_idx != required_idx {
-                            continue;
-                        }
-                    }
+                // Check index match if specified - skip if mismatch
+                if cue.stage_index.is_some_and(|required_idx| {
+                    self.get_stage_index(event).is_some_and(|idx| idx != required_idx)
+                }) {
+                    continue;
                 }
 
                 // Trigger the audio cue

@@ -641,7 +641,7 @@ class _EngineControls extends StatelessWidget {
                         padding: const EdgeInsets.only(right: 8),
                         child: _TimingChip(
                           profile: profile,
-                          isSelected: false, // TODO: Get from state
+                          isSelected: connection.timingProfile == profile,
                           onTap: () => connection.sendCommand(
                             EngineCommand.setTimingProfile(profile),
                           ),

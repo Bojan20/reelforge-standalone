@@ -81,6 +81,9 @@ pub mod wave_cache;
 // Phase 15: Stage Audio Integration
 pub mod stage_audio;
 
+// Phase 16: Middleware Integration
+pub mod middleware_integration;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;
@@ -223,6 +226,11 @@ pub use wave_cache::{
 
 // Re-exports: Phase 15 - Stage Audio
 pub use stage_audio::{StageAudioEngine, StageCue};
+
+// Re-exports: Phase 16 - Middleware Integration
+pub use middleware_integration::{
+    ActionExecutor, AssetRegistry, AudioAsset, MiddlewareAudioEngine,
+};
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;

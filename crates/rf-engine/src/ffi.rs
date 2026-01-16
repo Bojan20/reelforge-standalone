@@ -60,6 +60,9 @@ lazy_static::lazy_static! {
         let (handle, processor) = rf_event::create_event_manager(48000);
         (handle, parking_lot::Mutex::new(Some(processor)))
     };
+    /// Asset registry for middleware audio (sound bank storage)
+    static ref ASSET_REGISTRY: Arc<crate::middleware_integration::AssetRegistry> =
+        Arc::new(crate::middleware_integration::AssetRegistry::new());
 }
 
 /// Get the event manager handle (thread-safe, for UI commands)
@@ -3935,6 +3938,27 @@ pub extern "C" fn engine_start_playback() -> i32 {
         let mut output_l = vec![0.0f64; 4096];
         let mut output_r = vec![0.0f64; 4096];
 
+        // Middleware voice playback state
+        // Using inline voice manager to avoid complex global state
+        use crate::middleware_integration::AudioAsset;
+        use rf_event::manager::ExecutedAction;
+
+        struct PlayingVoice {
+            playing_id: u64,
+            asset: AudioAsset,
+            position: u64,
+            gain: f32,
+            target_gain: f32,
+            fade_increment: f32,
+            looping: bool,
+            stopping: bool,
+            finished: bool,
+        }
+
+        let mut middleware_voices: Vec<PlayingVoice> = Vec::with_capacity(64);
+        let mut middleware_output_l = vec![0.0f64; 4096];
+        let mut middleware_output_r = vec![0.0f64; 4096];
+
         let stream = match device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _| {
@@ -3945,18 +3969,143 @@ pub extern "C" fn engine_start_playback() -> i32 {
                     output_l.resize(frames, 0.0);
                     output_r.resize(frames, 0.0);
                 }
+                if middleware_output_l.len() < frames {
+                    middleware_output_l.resize(frames, 0.0);
+                    middleware_output_r.resize(frames, 0.0);
+                }
 
-                // Process audio from engine
+                // Process audio from engine (DAW mode)
                 PLAYBACK_ENGINE.process(&mut output_l[..frames], &mut output_r[..frames]);
 
                 // Process middleware events (Wwise/FMOD-style)
                 // Note: try_lock() is lock-free attempt - if locked, skip this frame
                 if let Some(mut processor_guard) = EVENT_MANAGER_PARTS.1.try_lock()
                     && let Some(ref mut processor) = *processor_guard {
-                        let _actions = processor.process(frames as u64);
-                        // TODO: Handle ExecutedAction results (Play, Stop, SetVolume, etc.)
-                        // This will connect to track/bus control when sound objects are implemented
+                        let actions = processor.process(frames as u64);
+
+                        // Execute actions
+                        for action in actions {
+                            match action {
+                                ExecutedAction::Play {
+                                    playing_id,
+                                    asset_id,
+                                    bus_id: _,
+                                    gain,
+                                    loop_playback,
+                                    fade_in_frames,
+                                    priority: _,
+                                } => {
+                                    // Get asset from registry
+                                    if let Some(asset) = ASSET_REGISTRY.get(asset_id) {
+                                        let (current_gain, fade_inc) = if fade_in_frames > 0 {
+                                            (0.0, gain / fade_in_frames as f32)
+                                        } else {
+                                            (gain, 0.0)
+                                        };
+
+                                        // Voice limit check
+                                        if middleware_voices.len() < 64 {
+                                            middleware_voices.push(PlayingVoice {
+                                                playing_id,
+                                                asset,
+                                                position: 0,
+                                                gain: current_gain,
+                                                target_gain: gain,
+                                                fade_increment: fade_inc,
+                                                looping: loop_playback,
+                                                stopping: false,
+                                                finished: false,
+                                            });
+                                        }
+                                    }
+                                }
+                                ExecutedAction::Stop { playing_id, asset_id: _, fade_out_frames } => {
+                                    if let Some(voice) = middleware_voices.iter_mut().find(|v| v.playing_id == playing_id) {
+                                        voice.stopping = true;
+                                        voice.target_gain = 0.0;
+                                        voice.fade_increment = if fade_out_frames > 0 {
+                                            -voice.gain / fade_out_frames as f32
+                                        } else {
+                                            -1.0
+                                        };
+                                    }
+                                }
+                                ExecutedAction::StopAll { game_object: _, fade_out_frames } => {
+                                    for voice in &mut middleware_voices {
+                                        voice.stopping = true;
+                                        voice.target_gain = 0.0;
+                                        voice.fade_increment = if fade_out_frames > 0 {
+                                            -voice.gain / fade_out_frames as f32
+                                        } else {
+                                            -1.0
+                                        };
+                                    }
+                                }
+                                _ => {} // Other actions handled elsewhere
+                            }
+                        }
                     }
+
+                // Clear middleware buffers
+                middleware_output_l[..frames].fill(0.0);
+                middleware_output_r[..frames].fill(0.0);
+
+                // Process middleware voices
+                for voice in &mut middleware_voices {
+                    if voice.finished {
+                        continue;
+                    }
+
+                    let samples_l = &voice.asset.samples_l;
+                    let samples_r = &voice.asset.samples_r;
+                    let len = samples_l.len() as u64;
+
+                    for i in 0..frames {
+                        // Update gain (fade in/out)
+                        if voice.fade_increment != 0.0 {
+                            voice.gain += voice.fade_increment;
+                            if voice.fade_increment > 0.0 && voice.gain >= voice.target_gain {
+                                voice.gain = voice.target_gain;
+                                voice.fade_increment = 0.0;
+                            } else if voice.fade_increment < 0.0 && voice.gain <= 0.0 {
+                                voice.gain = 0.0;
+                                voice.fade_increment = 0.0;
+                                if voice.stopping {
+                                    voice.finished = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Get sample
+                        if voice.position < len {
+                            let sample_l = samples_l[voice.position as usize] * voice.gain as f64;
+                            let sample_r = if voice.position < samples_r.len() as u64 {
+                                samples_r[voice.position as usize] * voice.gain as f64
+                            } else {
+                                sample_l
+                            };
+
+                            middleware_output_l[i] += sample_l;
+                            middleware_output_r[i] += sample_r;
+                            voice.position += 1;
+                        } else if voice.looping {
+                            voice.position = 0;
+                        } else {
+                            voice.finished = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Remove finished voices
+                middleware_voices.retain(|v| !v.finished);
+
+                // Mix middleware output into main output
+                for i in 0..frames {
+                    output_l[i] += middleware_output_l[i];
+                    output_r[i] += middleware_output_r[i];
+                }
 
                 // Convert to f32 output
                 for i in 0..frames {
@@ -4226,6 +4375,128 @@ pub extern "C" fn engine_middleware_is_playing(_event_id: u32, _game_object_id: 
     // Note: is_event_playing is only available on processor (audio thread)
     // For now, return based on active count
     if event_handle().active_instance_count() > 0 { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIDDLEWARE ASSET REGISTRY FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Register an audio asset for middleware playback
+/// samples_l and samples_r are interleaved f32 arrays
+/// Returns asset ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_register_asset(
+    name: *const c_char,
+    samples_l: *const f32,
+    samples_r: *const f32,
+    num_samples: u64,
+    sample_rate: u32,
+) -> u32 {
+    let name_str = match unsafe { cstr_to_string(name) } {
+        Some(n) => n,
+        None => return 0,
+    };
+
+    if samples_l.is_null() || num_samples == 0 {
+        return 0;
+    }
+
+    // Convert f32 to f64 samples
+    let samples_l_vec: Vec<f64> = unsafe {
+        std::slice::from_raw_parts(samples_l, num_samples as usize)
+            .iter()
+            .map(|&s| s as f64)
+            .collect()
+    };
+
+    let samples_r_vec: Vec<f64> = if samples_r.is_null() {
+        samples_l_vec.clone() // Mono: duplicate left to right
+    } else {
+        unsafe {
+            std::slice::from_raw_parts(samples_r, num_samples as usize)
+                .iter()
+                .map(|&s| s as f64)
+                .collect()
+        }
+    };
+
+    let asset_id = ASSET_REGISTRY.register(&name_str, samples_l_vec, samples_r_vec, sample_rate);
+    log::info!("[Middleware] Registered asset '{}' (id: {}, {} samples)", name_str, asset_id, num_samples);
+    asset_id
+}
+
+/// Register an audio asset from an imported audio clip
+/// Returns asset ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_register_asset_from_clip(
+    name: *const c_char,
+    clip_id: u64,
+) -> u32 {
+    let name_str = match unsafe { cstr_to_string(name) } {
+        Some(n) => n,
+        None => return 0,
+    };
+
+    // Get imported audio from cache
+    let imported_guard = IMPORTED_AUDIO.read();
+    let imported = match imported_guard.get(&ClipId(clip_id)) {
+        Some(i) => i.clone(),
+        None => {
+            log::warn!("[Middleware] Clip {} not found in imported audio cache", clip_id);
+            return 0;
+        }
+    };
+    drop(imported_guard);
+
+    // Deinterleave samples: imported.samples is interleaved [L0, R0, L1, R1, ...]
+    let (samples_l, samples_r): (Vec<f64>, Vec<f64>) = if imported.channels > 1 {
+        // Stereo: deinterleave
+        let mut left = Vec::with_capacity(imported.sample_count);
+        let mut right = Vec::with_capacity(imported.sample_count);
+        for chunk in imported.samples.chunks(2) {
+            if chunk.len() >= 2 {
+                left.push(chunk[0] as f64);
+                right.push(chunk[1] as f64);
+            } else if !chunk.is_empty() {
+                left.push(chunk[0] as f64);
+                right.push(chunk[0] as f64);
+            }
+        }
+        (left, right)
+    } else {
+        // Mono: duplicate to both channels
+        let mono: Vec<f64> = imported.samples.iter().map(|&s| s as f64).collect();
+        (mono.clone(), mono)
+    };
+
+    let asset_id = ASSET_REGISTRY.register(&name_str, samples_l, samples_r, imported.sample_rate);
+    log::info!("[Middleware] Registered asset '{}' from clip {} (id: {})", name_str, clip_id, asset_id);
+    asset_id
+}
+
+/// Unregister an audio asset
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_unregister_asset(asset_id: u32) {
+    ASSET_REGISTRY.unregister(asset_id);
+    log::debug!("[Middleware] Unregistered asset {}", asset_id);
+}
+
+/// Get asset registry info as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_get_asset_info(asset_id: u32) -> *mut c_char {
+    match ASSET_REGISTRY.get(asset_id) {
+        Some(asset) => {
+            let json = serde_json::json!({
+                "id": asset.id,
+                "name": asset.name,
+                "sample_rate": asset.sample_rate,
+                "duration_samples": asset.duration_samples,
+                "duration_secs": asset.duration_samples as f64 / asset.sample_rate as f64,
+            });
+            string_to_cstr(&json.to_string())
+        }
+        None => ptr::null_mut(),
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

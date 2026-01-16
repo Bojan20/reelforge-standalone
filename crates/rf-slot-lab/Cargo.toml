@@ -1,0 +1,21 @@
+[package]
+name = "rf-slot-lab"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Synthetic Slot Engine for audio-first slot game development"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+rf-core = { workspace = true }
+rf-stage = { path = "../rf-stage" }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+rand = "0.8"

@@ -601,11 +601,8 @@ class _GlassModeSwitcher extends StatelessWidget {
             onTap: () => onChange(EditorMode.middleware),
             compact: compact,
           ),
-          _GlassModeButton(
-            label: 'SLOT',
-            icon: Icons.dashboard,
+          _GlassSlotLabButton(
             isActive: mode == EditorMode.slot,
-            color: LiquidGlassTheme.accentGreen,
             onTap: () => onChange(EditorMode.slot),
             compact: compact,
           ),
@@ -676,6 +673,94 @@ class _GlassModeButton extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==============================================================================
+// SLOT LAB BUTTON - Premium casino-style button
+// ==============================================================================
+
+class _GlassSlotLabButton extends StatelessWidget {
+  final bool isActive;
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _GlassSlotLabButton({
+    required this.isActive,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Premium gold/amber gradient for slot lab
+    const goldLight = Color(0xFFFFD700);
+    const goldDark = Color(0xFFFF8C00);
+    const amberGlow = Color(0xFFFFAA00);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: LiquidGlassTheme.animFast,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 14,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [goldDark, goldLight],
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                )
+              : null,
+          color: isActive ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive
+                ? goldLight.withValues(alpha: 0.8)
+                : amberGlow.withValues(alpha: 0.3),
+            width: isActive ? 1.5 : 1,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: amberGlow.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: goldLight.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    spreadRadius: 0,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Slot machine icon
+            Icon(
+              Icons.casino,
+              size: compact ? 14 : 16,
+              color: isActive ? Colors.black87 : amberGlow,
+            ),
+            const SizedBox(width: 6),
+            // FLUXFORGE SLOT LAB text
+            Text(
+              compact ? 'SLOT LAB' : 'FLUXFORGE SLOT LAB',
+              style: TextStyle(
+                color: isActive ? Colors.black87 : amberGlow,
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
           ],
         ),
       ),
