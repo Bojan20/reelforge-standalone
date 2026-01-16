@@ -153,17 +153,17 @@ const EditorModeLayoutConfig dawModeConfig = EditorModeLayoutConfig(
 /// Middleware Mode - Game audio middleware layout
 ///
 /// Lower Zone tabs (left to right):
-/// - Slot (Spin cycle, win tiers, reel sequencer, studio)
-/// - Features (Audio features, pro tools)
-/// - DSP (Processing tools)
-/// - Tools (Validation, console, debug)
+/// - Middleware (States, Switches, RTPC, Ducking, Blend, Random, Sequence, Music, Curves)
+/// - Mix (Mixer, Recording - NO control room)
+/// - Analyze (Meters, Loudness, Spectrum)
+/// - Process (EQ, Dynamics, etc)
 const EditorModeLayoutConfig middlewareModeConfig = EditorModeLayoutConfig(
   mode: EditorMode.middleware,
   lowerZone: LowerZoneConfig(
-    defaultTab: 'slot-studio',
-    visibleGroups: ['slot', 'features', 'dsp', 'tools'],
-    hiddenTabs: ['timeline', 'mixer', 'layers', 'audio-browser', 'audio-pool'],
-    groupOrder: ['slot', 'features', 'dsp', 'tools'],
+    defaultTab: 'middleware',
+    visibleGroups: ['middleware', 'mix', 'analyze', 'process'],
+    hiddenTabs: ['timeline', 'control-room', 'layers', 'audio-browser', 'audio-pool', 'clip-editor', 'crossfade', 'automation', 'piano-roll'],
+    groupOrder: ['middleware', 'mix', 'analyze', 'process'],
   ),
   leftZone: LeftZoneConfig(
     defaultExpanded: ['events'],

@@ -78,6 +78,9 @@ pub mod streaming;
 // Phase 14: Wave Cache (Multi-Resolution Waveform Caching)
 pub mod wave_cache;
 
+// Phase 15: Stage Audio Integration
+pub mod stage_audio;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;
@@ -217,6 +220,9 @@ pub use wave_cache::{
     build_from_samples, tiles_to_flat_array,
     WFC_MAGIC, WFC_VERSION, NUM_MIP_LEVELS, BASE_TILE_SAMPLES,
 };
+
+// Re-exports: Phase 15 - Stage Audio
+pub use stage_audio::{StageAudioEngine, StageCue};
 
 // Re-exports: Freeze additions
 pub use freeze::OfflineRenderer;

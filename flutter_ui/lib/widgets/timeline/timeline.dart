@@ -110,6 +110,11 @@ class Timeline extends StatefulWidget {
   final VoidCallback? onClipPaste;
   final ValueChanged<String>? onMarkerClick;
 
+  /// Stage markers from game engine (shown on ruler)
+  final List<StageMarker> stageMarkers;
+  /// Called when user clicks a stage marker
+  final ValueChanged<StageMarker>? onStageMarkerClick;
+
   /// Transport controls
   final VoidCallback? onPlayPause;
   final VoidCallback? onStop;
@@ -250,6 +255,8 @@ class Timeline extends StatefulWidget {
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
+    this.stageMarkers = const [],
+    this.onStageMarkerClick,
     this.onPlayPause,
     this.onStop,
     this.onUndo,
@@ -1734,6 +1741,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 onTimeClick: widget.onPlayheadChange,
                                 onTimeScrub: widget.onPlayheadScrub ?? widget.onPlayheadChange,
                                 onLoopToggle: widget.onLoopToggle,
+                                stageMarkers: widget.stageMarkers,
+                                onStageMarkerClick: widget.onStageMarkerClick,
                               ),
                               // Loop region handles
                               if (widget.loopRegion != null)

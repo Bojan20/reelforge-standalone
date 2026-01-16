@@ -19,6 +19,7 @@ rf-state = { path = "../rf-state" }
 rf-audio = { path = "../rf-audio" }
 rf-file = { path = "../rf-file" }
 rf-plugin = { path = "../rf-plugin" }
+rf-event = { path = "../rf-event" }
 
 # Audio I/O
 cpal.workspace = true

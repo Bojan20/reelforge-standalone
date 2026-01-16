@@ -48,6 +48,9 @@ import 'providers/error_provider.dart';
 import 'providers/recent_projects_provider.dart';
 import 'providers/plugin_provider.dart';
 import 'providers/control_room_provider.dart';
+import 'providers/middleware_provider.dart';
+import 'providers/stage_provider.dart';
+import 'src/rust/native_ffi.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -165,6 +168,12 @@ class FluxForgeApp extends StatelessWidget {
 
         // Control Room (Studio Monitoring)
         ChangeNotifierProvider(create: (_) => ControlRoomProvider()),
+
+        // Middleware (States, Switches, RTPC, Ducking, Containers, Music System)
+        ChangeNotifierProvider(create: (_) => MiddlewareProvider(NativeFFI.instance)),
+
+        // Stage Ingest System (Universal game engine integration)
+        ChangeNotifierProvider(create: (_) => StageProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

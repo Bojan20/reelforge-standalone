@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FluxForge Event-Centric UI Mockup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0c;
+      color: #e0e0e8;
+      min-height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: #121216;
+      border-bottom: 1px solid #2a2a35;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: #4a9eff;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .timing-dropdown {
+      background: #1a1a20;
+      border: 1px solid #2a2a35;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #e0e0e8;
+      font-size: 13px;
+    }
+
+    .play-btn {
+      background: #4a9eff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 20px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Content */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: #121216;
+      border-right: 1px solid #2a2a35;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid #2a2a35;
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #808090;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .sidebar-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-item:hover {
+      background: #1a1a20;
+    }
+
+    .sidebar-item.active {
+      background: #4a9eff20;
+      color: #4a9eff;
+    }
+
+    .sidebar-item .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4a9eff;
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Event Tabs */
+    .event-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 16px 20px;
+      background: #0e0e12;
+      border-bottom: 1px solid #2a2a35;
+    }
+
+    .event-tab {
+      padding: 10px 20px;
+      border-radius: 8px 8px 0 0;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #1a1a20;
+      color: #808090;
+      border: 1px solid #2a2a35;
+      border-bottom: none;
+      position: relative;
+    }
+
+    .event-tab.active {
+      background: #1a1a20;
+      color: #4a9eff;
+      border-color: #4a9eff;
+    }
+
+    .event-tab.active::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4a9eff;
+    }
+
+    .event-tab.active {
+      padding-left: 24px;
+    }
+
+    .add-event-tab {
+      padding: 10px 16px;
+      font-size: 18px;
+      color: #606070;
+    }
+
+    /* Timeline Container */
+    .timeline-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0e0e12;
+      overflow: hidden;
+    }
+
+    /* Stage Ruler */
+    .stage-ruler {
+      height: 60px;
+      background: #1a1a20;
+      border-bottom: 1px solid #2a2a35;
+      display: flex;
+      flex-direction: column;
+      padding: 8px 20px;
+    }
+
+    .ruler-label {
+      font-size: 10px;
+      color: #606070;
+      margin-bottom: 8px;
+    }
+
+    .stages {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      position: relative;
+    }
+
+    .stage-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .stage-marker .line {
+      width: 2px;
+      height: 20px;
+      background: #4a9eff;
+      border-radius: 1px;
+    }
+
+    .stage-marker .label {
+      font-size: 10px;
+      color: #a0a0b0;
+      margin-top: 4px;
+      white-space: nowrap;
+    }
+
+    .stage-marker.highlight .line {
+      background: #ff9040;
+    }
+
+    .stage-marker.highlight .label {
+      color: #ff9040;
+    }
+
+    .stage-region {
+      flex: 1;
+      height: 12px;
+      background: #2a2a35;
+      border-radius: 2px;
+      margin: 0 4px;
+      position: relative;
+    }
+
+    .stage-region.spinning {
+      background: linear-gradient(90deg, #4a9eff40, #4a9eff20, #4a9eff40);
+      background-size: 200% 100%;
+    }
+
+    /* Time markers */
+    .time-ruler {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 20px;
+      font-size: 10px;
+      color: #505060;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    /* Audio Lanes */
+    .audio-lanes {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 0;
+    }
+
+    .audio-lane {
+      margin: 0 20px 12px;
+      background: #121216;
+      border-radius: 8px;
+      border: 1px solid #2a2a35;
+      overflow: hidden;
+    }
+
+    .lane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #1a1a20;
+      border-bottom: 1px solid #2a2a35;
+    }
+
+    .lane-name {
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lane-name .icon {
+      color: #4a9eff;
+    }
+
+    .lane-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .lane-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid #2a2a35;
+      background: transparent;
+      color: #606070;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .lane-btn:hover {
+      background: #2a2a35;
+      color: #a0a0b0;
+    }
+
+    .lane-content {
+      height: 60px;
+      padding: 8px 16px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Audio Clips */
+    .audio-clip {
+      position: absolute;
+      height: 44px;
+      background: linear-gradient(135deg, #4a9eff40, #4a9eff20);
+      border: 1px solid #4a9eff60;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    .audio-clip:hover {
+      border-color: #4a9eff;
+      background: linear-gradient(135deg, #4a9eff50, #4a9eff30);
+    }
+
+    .audio-clip.loop {
+      background: repeating-linear-gradient(
+        90deg,
+        #4a9eff30,
+        #4a9eff30 10px,
+        #4a9eff20 10px,
+        #4a9eff20 20px
+      );
+    }
+
+    .audio-clip .name {
+      font-size: 11px;
+      font-weight: 500;
+      color: #e0e0e8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .audio-clip .binding {
+      font-size: 9px;
+      color: #4a9eff;
+      margin-top: 2px;
+    }
+
+    .audio-clip.win-clip {
+      background: linear-gradient(135deg, #40ff9040, #40ff9020);
+      border-color: #40ff9060;
+    }
+
+    .audio-clip.win-clip:hover {
+      border-color: #40ff90;
+    }
+
+    .audio-clip.win-clip .binding {
+      color: #40ff90;
+    }
+
+    .audio-clip.stop-clip {
+      background: linear-gradient(135deg, #ff904040, #ff904020);
+      border-color: #ff904060;
+    }
+
+    .audio-clip.stop-clip:hover {
+      border-color: #ff9040;
+    }
+
+    .audio-clip.stop-clip .binding {
+      color: #ff9040;
+    }
+
+    /* Transport Bar */
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 12px 20px;
+      background: #121216;
+      border-top: 1px solid #2a2a35;
+    }
+
+    .transport-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .transport-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      border: 1px solid #2a2a35;
+      background: #1a1a20;
+      color: #a0a0b0;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .transport-btn:hover {
+      background: #2a2a35;
+      color: white;
+    }
+
+    .transport-btn.play {
+      background: #4a9eff;
+      border-color: #4a9eff;
+      color: white;
+    }
+
+    .time-display {
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
+      color: #e0e0e8;
+    }
+
+    .time-display .separator {
+      color: #606070;
+      margin: 0 4px;
+    }
+
+    .time-display .total {
+      color: #808090;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: #2a2a35;
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .progress-bar .fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 35%;
+      background: #4a9eff;
+      border-radius: 3px;
+    }
+
+    .progress-bar .handle {
+      position: absolute;
+      left: 35%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .volume {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #808090;
+    }
+
+    .volume-bar {
+      width: 80px;
+      height: 4px;
+      background: #2a2a35;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .volume-bar .fill {
+      height: 100%;
+      width: 70%;
+      background: #40ff90;
+    }
+
+    .volume-label {
+      font-size: 11px;
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    /* Annotations */
+    .annotation {
+      position: absolute;
+      font-size: 9px;
+      color: #ff9040;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .annotation::before {
+      content: '↑';
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">FluxForge Studio</div>
+      <div class="header-controls">
+        <select class="timing-dropdown">
+          <option>Normal</option>
+          <option>Turbo</option>
+          <option>Mobile</option>
+        </select>
+        <button class="play-btn">▶ Play</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-title">Events</div>
+          <div class="sidebar-item active">
+            <span class="dot"></span>
+            spin_complete
+          </div>
+          <div class="sidebar-item">bonus_enter</div>
+          <div class="sidebar-item">free_spins</div>
+          <div class="sidebar-item">jackpot_trigger</div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-title">Audio Library</div>
+          <div class="sidebar-item">📁 reels/</div>
+          <div class="sidebar-item">📁 wins/</div>
+          <div class="sidebar-item">📁 bonus/</div>
+          <div class="sidebar-item">📁 ui/</div>
+        </div>
+      </aside>
+
+      <!-- Content -->
+      <div class="content">
+        <!-- Event Tabs -->
+        <div class="event-tabs">
+          <div class="event-tab active">spin_complete</div>
+          <div class="event-tab">bonus_enter</div>
+          <div class="event-tab">free_spins</div>
+          <div class="event-tab">jackpot_trigger</div>
+          <div class="event-tab add-event-tab">+</div>
+        </div>
+
+        <!-- Timeline Container -->
+        <div class="timeline-container">
+          <!-- Stage Ruler -->
+          <div class="stage-ruler">
+            <div class="ruler-label">STAGES (spin_complete)</div>
+            <div class="stages">
+              <div class="stage-marker">
+                <div class="line"></div>
+                <div class="label">SpinStart</div>
+              </div>
+              <div class="stage-region spinning"></div>
+              <div class="stage-marker">
+                <div class="line"></div>
+                <div class="label">ReelSpin</div>
+              </div>
+              <div class="stage-region"></div>
+              <div class="stage-marker highlight">
+                <div class="line"></div>
+                <div class="label">Stops</div>
+              </div>
+              <div class="stage-region"></div>
+              <div class="stage-marker">
+                <div class="line"></div>
+                <div class="label">WinPresent</div>
+              </div>
+              <div class="stage-region"></div>
+              <div class="stage-marker">
+                <div class="line"></div>
+                <div class="label">SpinEnd</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Time Ruler -->
+          <div class="time-ruler">
+            <span>0ms</span>
+            <span>500ms</span>
+            <span>1000ms</span>
+            <span>1500ms</span>
+            <span>2000ms</span>
+            <span>2500ms</span>
+            <span>3000ms</span>
+            <span>3500ms</span>
+          </div>
+
+          <!-- Audio Lanes -->
+          <div class="audio-lanes">
+            <!-- Lane 1: Reels -->
+            <div class="audio-lane">
+              <div class="lane-header">
+                <div class="lane-name">
+                  <span class="icon">🎰</span>
+                  Layer: Reels
+                </div>
+                <div class="lane-controls">
+                  <button class="lane-btn">M</button>
+                  <button class="lane-btn">S</button>
+                </div>
+              </div>
+              <div class="lane-content">
+                <div class="audio-clip" style="left: 16px; width: 80px;">
+                  <div class="name">reel_start.wav</div>
+                  <div class="binding">→ SpinStart</div>
+                </div>
+                <div class="audio-clip loop" style="left: 110px; width: 200px;">
+                  <div class="name">reel_loop.wav</div>
+                  <div class="binding">→ ReelSpinning (loop)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lane 2: Stops -->
+            <div class="audio-lane">
+              <div class="lane-header">
+                <div class="lane-name">
+                  <span class="icon">🛑</span>
+                  Layer: Stops
+                </div>
+                <div class="lane-controls">
+                  <button class="lane-btn">M</button>
+                  <button class="lane-btn">S</button>
+                </div>
+              </div>
+              <div class="lane-content">
+                <div class="audio-clip stop-clip" style="left: 320px; width: 60px;">
+                  <div class="name">thud_01.wav</div>
+                  <div class="binding">→ ReelStop[0]</div>
+                </div>
+                <div class="audio-clip stop-clip" style="left: 390px; width: 60px;">
+                  <div class="name">thud_02.wav</div>
+                  <div class="binding">→ ReelStop[1]</div>
+                </div>
+                <div class="audio-clip stop-clip" style="left: 460px; width: 60px;">
+                  <div class="name">thud_03.wav</div>
+                  <div class="binding">→ ReelStop[2]</div>
+                </div>
+                <div class="audio-clip stop-clip" style="left: 530px; width: 60px;">
+                  <div class="name">thud_04.wav</div>
+                  <div class="binding">→ ReelStop[3]</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lane 3: Wins -->
+            <div class="audio-lane">
+              <div class="lane-header">
+                <div class="lane-name">
+                  <span class="icon">🏆</span>
+                  Layer: Wins
+                </div>
+                <div class="lane-controls">
+                  <button class="lane-btn">M</button>
+                  <button class="lane-btn">S</button>
+                </div>
+              </div>
+              <div class="lane-content">
+                <div class="audio-clip win-clip" style="left: 600px; width: 180px;">
+                  <div class="name">win_fanfare.wav</div>
+                  <div class="binding">→ WinPresent</div>
+                </div>
+                <div class="audio-clip win-clip" style="left: 650px; width: 120px; top: 38px; height: 20px;">
+                  <div class="name" style="font-size: 9px;">coins.wav</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lane 4: Ambience -->
+            <div class="audio-lane">
+              <div class="lane-header">
+                <div class="lane-name">
+                  <span class="icon">🎵</span>
+                  Layer: Ambience
+                </div>
+                <div class="lane-controls">
+                  <button class="lane-btn">M</button>
+                  <button class="lane-btn">S</button>
+                </div>
+              </div>
+              <div class="lane-content">
+                <div class="audio-clip loop" style="left: 16px; width: calc(100% - 32px);">
+                  <div class="name">ambient_casino.wav (spans entire event)</div>
+                  <div class="binding">→ SpinStart to SpinEnd</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transport Bar -->
+        <div class="transport">
+          <div class="transport-controls">
+            <button class="transport-btn">⏮</button>
+            <button class="transport-btn play">▶</button>
+            <button class="transport-btn">⏭</button>
+          </div>
+          <div class="time-display">
+            <span>00:01.234</span>
+            <span class="separator">/</span>
+            <span class="total">00:03.500</span>
+          </div>
+          <div class="progress-bar">
+            <div class="fill"></div>
+            <div class="handle"></div>
+          </div>
+          <div class="volume">
+            <span>🔊</span>
+            <div class="volume-bar">
+              <div class="fill"></div>
+            </div>
+            <span class="volume-label">-6dB</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

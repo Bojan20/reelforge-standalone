@@ -55,6 +55,16 @@ lazy_static::lazy_static! {
     static ref COMPING_MANAGER: RwLock<rf_core::CompingManager> = RwLock::new(rf_core::CompingManager::new());
     /// Video engine
     static ref VIDEO_ENGINE: RwLock<rf_video::VideoEngine> = RwLock::new(rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000));
+    /// Middleware event manager handle for Wwise/FMOD-style game audio (thread-safe)
+    static ref EVENT_MANAGER_PARTS: (rf_event::EventManagerHandle, parking_lot::Mutex<Option<rf_event::EventManagerProcessor>>) = {
+        let (handle, processor) = rf_event::create_event_manager(48000);
+        (handle, parking_lot::Mutex::new(Some(processor)))
+    };
+}
+
+/// Get the event manager handle (thread-safe, for UI commands)
+fn event_handle() -> &'static rf_event::EventManagerHandle {
+    &EVENT_MANAGER_PARTS.0
 }
 
 /// Project dirty state for FFI
@@ -197,6 +207,11 @@ fn string_to_cstr(s: &str) -> *mut c_char {
     CString::new(s)
         .map(|cs| cs.into_raw())
         .unwrap_or(ptr::null_mut())
+}
+
+/// Safe wrapper for cstr_to_string
+fn cstr_to_string_safe(ptr: *const c_char) -> Option<String> {
+    unsafe { cstr_to_string(ptr) }
 }
 
 /// Validate FFI buffer size for audio processing
@@ -3934,6 +3949,15 @@ pub extern "C" fn engine_start_playback() -> i32 {
                 // Process audio from engine
                 PLAYBACK_ENGINE.process(&mut output_l[..frames], &mut output_r[..frames]);
 
+                // Process middleware events (Wwise/FMOD-style)
+                // Note: try_lock() is lock-free attempt - if locked, skip this frame
+                if let Some(mut processor_guard) = EVENT_MANAGER_PARTS.1.try_lock()
+                    && let Some(ref mut processor) = *processor_guard {
+                        let _actions = processor.process(frames as u64);
+                        // TODO: Handle ExecutedAction results (Play, Stop, SetVolume, etc.)
+                        // This will connect to track/bus control when sound objects are implemented
+                    }
+
                 // Convert to f32 output
                 for i in 0..frames {
                     let idx = i * channels;
@@ -4011,6 +4035,197 @@ pub extern "C" fn engine_is_playback_running() -> i32 {
     } else {
         0
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIDDLEWARE EVENT SYSTEM FFI (Wwise/FMOD-style)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Register a middleware event
+/// Returns event ID on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_register_event(
+    event_id: u32,
+    name: *const c_char,
+    category: *const c_char,
+) -> u32 {
+    let name_str = if name.is_null() {
+        return 0;
+    } else {
+        match unsafe { CStr::from_ptr(name) }.to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    let category_str = if category.is_null() {
+        "General".to_string()
+    } else {
+        unsafe { CStr::from_ptr(category) }
+            .to_str()
+            .unwrap_or("General")
+            .to_string()
+    };
+
+    let event = rf_event::MiddlewareEvent::new(event_id, name_str).with_category(category_str);
+    event_handle().register_event(event);
+    event_id
+}
+
+/// Add action to a registered event
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_add_action(
+    event_id: u32,
+    action_type: u8,
+    target_id: u32,
+    bus_id: u32,
+    gain: f32,
+    delay_secs: f32,
+    fade_secs: f32,
+    fade_curve: u8,
+) -> i32 {
+    let action_type_enum = rf_event::ActionType::from_index(action_type);
+
+    let fade_curve_enum = match fade_curve {
+        0 => rf_event::FadeCurve::Linear,
+        1 => rf_event::FadeCurve::Log3,
+        2 => rf_event::FadeCurve::Sine,
+        3 => rf_event::FadeCurve::Log1,
+        4 => rf_event::FadeCurve::InvSCurve,
+        5 => rf_event::FadeCurve::SCurve,
+        6 => rf_event::FadeCurve::Exp1,
+        7 => rf_event::FadeCurve::Exp3,
+        _ => rf_event::FadeCurve::Linear,
+    };
+
+    let action = rf_event::MiddlewareAction {
+        id: 0, // Auto-assigned
+        action_type: action_type_enum,
+        asset_id: if target_id > 0 { Some(target_id) } else { None },
+        bus_id,
+        scope: rf_event::ActionScope::GameObject,
+        priority: rf_event::ActionPriority::Normal,
+        fade_curve: fade_curve_enum,
+        fade_time_secs: fade_secs,
+        gain,
+        delay_secs,
+        loop_playback: false,
+        group_id: None,
+        value_id: None,
+        rtpc_id: None,
+        rtpc_value: None,
+        rtpc_interpolation_secs: None,
+        seek_position_secs: None,
+        seek_to_percent: false,
+        target_event_id: None,
+        pitch_semitones: None,
+        filter_freq_hz: None,
+        // State/Switch/RTPC conditions (default: no conditions)
+        require_state_group: None,
+        require_state_id: None,
+        require_state_inverted: false,
+        require_switch_group: None,
+        require_switch_id: None,
+        require_rtpc_id: None,
+        require_rtpc_min: None,
+        require_rtpc_max: None,
+    };
+
+    if let Some(mut event) = event_handle().get_event(event_id) {
+        event.add_action(action);
+        event_handle().register_event(event); // Re-register with new action
+        0
+    } else {
+        -1
+    }
+}
+
+/// Post (trigger) an event
+/// Returns playing ID (>0) on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_post_event(event_id: u32, game_object_id: u64) -> u64 {
+    event_handle().post_event(event_id, game_object_id)
+}
+
+/// Post event by name
+/// Returns playing ID (>0) on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_post_event_by_name(
+    name: *const c_char,
+    game_object_id: u64,
+) -> u64 {
+    if name.is_null() {
+        return 0;
+    }
+
+    let name_str = match unsafe { CStr::from_ptr(name) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    event_handle().post_event_by_name(name_str, game_object_id)
+}
+
+/// Stop a playing event
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_stop_event(playing_id: u64, fade_ms: u32) {
+    event_handle().stop_playing_id(playing_id, fade_ms);
+}
+
+/// Stop all events on a game object
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_stop_all(game_object_id: u64, fade_ms: u32) {
+    if game_object_id == 0 {
+        event_handle().stop_all(fade_ms);
+    } else {
+        // Stop by iterating over all events - use stop_event with game_object filter
+        // For now, just stop all
+        event_handle().stop_all(fade_ms);
+    }
+}
+
+/// Set global state
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_set_state(group_id: u32, state_id: u32) {
+    event_handle().set_state(group_id, state_id);
+}
+
+/// Set switch on game object
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_set_switch(group_id: u32, switch_id: u32, game_object_id: u64) {
+    event_handle().set_switch(game_object_id, group_id, switch_id);
+}
+
+/// Set RTPC value
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_set_rtpc(rtpc_id: u32, value: f32, interpolation_ms: u32) {
+    event_handle().set_rtpc(rtpc_id, value, interpolation_ms);
+}
+
+/// Set RTPC value on specific game object
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_set_rtpc_on_object(
+    game_object_id: u64,
+    rtpc_id: u32,
+    value: f32,
+    interpolation_ms: u32,
+) {
+    event_handle().set_rtpc_on_object(game_object_id, rtpc_id, value, interpolation_ms);
+}
+
+/// Get active instance count
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_instance_count() -> u32 {
+    event_handle().active_instance_count() as u32
+}
+
+/// Check if event is playing (by checking instances)
+/// Note: Returns approximate value as processor state is on audio thread
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_middleware_is_playing(_event_id: u32, _game_object_id: u64) -> i32 {
+    // Note: is_event_playing is only available on processor (audio thread)
+    // For now, return based on active count
+    if event_handle().active_instance_count() > 0 { 1 } else { 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -18233,5 +18448,389 @@ fn action_to_json(action: &ScriptAction) -> serde_json::Value {
         ScriptAction::Redo => serde_json::json!({"type": "redo"}),
         ScriptAction::Save => serde_json::json!({"type": "save"}),
         _ => serde_json::json!({"type": "unknown"}),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STAGE INGEST SYSTEM FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+use rf_ingest::wizard::{AdapterWizard, WizardResult};
+use rf_ingest::{AdapterConfig, AdapterRegistry};
+use rf_stage::timing::{TimedStageTrace, TimingProfile, TimingResolver};
+use rf_stage::trace::StageTrace;
+
+lazy_static::lazy_static! {
+    /// Adapter registry for all loaded adapters
+    static ref ADAPTER_REGISTRY: RwLock<AdapterRegistry> = RwLock::new(AdapterRegistry::new());
+    /// Timing resolver for stage timing
+    static ref TIMING_RESOLVER: RwLock<TimingResolver> = RwLock::new(TimingResolver::new());
+    /// Current loaded trace
+    static ref CURRENT_TRACE: RwLock<Option<StageTrace>> = RwLock::new(None);
+    /// Current timed trace
+    static ref CURRENT_TIMED_TRACE: RwLock<Option<TimedStageTrace>> = RwLock::new(None);
+    /// Wizard result cache
+    static ref WIZARD_RESULT: RwLock<Option<WizardResult>> = RwLock::new(None);
+}
+
+/// Parse JSON file and create stage trace using adapter
+/// Returns JSON string with trace ID or error
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_parse_json(
+    adapter_id: *const c_char,
+    json_content: *const c_char,
+) -> *mut c_char {
+    let adapter_id = match cstr_to_string_safe(adapter_id) {
+        Some(s) => s,
+        None => return string_to_cstr(r#"{"error":"Invalid adapter_id"}"#),
+    };
+
+    let json_content = match cstr_to_string_safe(json_content) {
+        Some(s) => s,
+        None => return string_to_cstr(r#"{"error":"Invalid json_content"}"#),
+    };
+
+    // Parse JSON
+    let json: serde_json::Value = match serde_json::from_str(&json_content) {
+        Ok(v) => v,
+        Err(e) => return string_to_cstr(&format!(r#"{{"error":"JSON parse error: {}"}}"#, e)),
+    };
+
+    // Get adapter from registry
+    let registry = ADAPTER_REGISTRY.read();
+    let adapter = match registry.get(&adapter_id) {
+        Some(a) => a,
+        None => {
+            // Try using generic adapter
+            drop(registry);
+            // Parse with generic direct event layer
+            let trace = match rf_ingest::layer_event::parse_with_config(
+                &json,
+                &AdapterConfig::default(),
+            ) {
+                Ok(t) => t,
+                Err(e) => return string_to_cstr(&format!(r#"{{"error":"Parse error: {}"}}"#, e)),
+            };
+
+            // Store trace
+            *CURRENT_TRACE.write() = Some(trace.clone());
+
+            return string_to_cstr(&format!(
+                r#"{{"trace_id":"{}","event_count":{}}}"#,
+                trace.trace_id,
+                trace.events.len()
+            ));
+        }
+    };
+
+    // Parse with adapter
+    let trace = match adapter.parse_json(&json) {
+        Ok(t) => t,
+        Err(e) => return string_to_cstr(&format!(r#"{{"error":"Adapter parse error: {}"}}"#, e)),
+    };
+
+    // Store trace
+    *CURRENT_TRACE.write() = Some(trace.clone());
+
+    string_to_cstr(&format!(
+        r#"{{"trace_id":"{}","event_count":{}}}"#,
+        trace.trace_id,
+        trace.events.len()
+    ))
+}
+
+/// Get current trace as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_trace_json() -> *mut c_char {
+    let trace = CURRENT_TRACE.read();
+    match &*trace {
+        Some(t) => {
+            let json = serde_json::to_string(t).unwrap_or_else(|_| "{}".to_string());
+            string_to_cstr(&json)
+        }
+        None => string_to_cstr(r#"{"error":"No trace loaded"}"#),
+    }
+}
+
+/// Get event count in current trace
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_event_count() -> u32 {
+    let trace = CURRENT_TRACE.read();
+    match &*trace {
+        Some(t) => t.events.len() as u32,
+        None => 0,
+    }
+}
+
+/// Get event at index as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_event_json(index: u32) -> *mut c_char {
+    let trace = CURRENT_TRACE.read();
+    match &*trace {
+        Some(t) => {
+            if let Some(event) = t.events.get(index as usize) {
+                let json = serde_json::to_string(event).unwrap_or_else(|_| "{}".to_string());
+                string_to_cstr(&json)
+            } else {
+                string_to_cstr(r#"{"error":"Event index out of range"}"#)
+            }
+        }
+        None => string_to_cstr(r#"{"error":"No trace loaded"}"#),
+    }
+}
+
+/// Resolve timing for current trace
+/// profile: 0=Normal, 1=Turbo, 2=Mobile, 3=Studio, 4=Instant
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_resolve_timing(profile: u8) -> i32 {
+    let timing_profile = match profile {
+        0 => TimingProfile::Normal,
+        1 => TimingProfile::Turbo,
+        2 => TimingProfile::Mobile,
+        3 => TimingProfile::Studio,
+        4 => TimingProfile::Instant,
+        _ => TimingProfile::Normal,
+    };
+
+    let trace = CURRENT_TRACE.read();
+    match &*trace {
+        Some(t) => {
+            let resolver = TIMING_RESOLVER.read();
+            let timed = resolver.resolve(t, timing_profile);
+            *CURRENT_TIMED_TRACE.write() = Some(timed);
+            1
+        }
+        None => 0,
+    }
+}
+
+/// Get timed trace as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_timed_trace_json() -> *mut c_char {
+    let timed = CURRENT_TIMED_TRACE.read();
+    match &*timed {
+        Some(t) => {
+            let json = serde_json::to_string(t).unwrap_or_else(|_| "{}".to_string());
+            string_to_cstr(&json)
+        }
+        None => string_to_cstr(r#"{"error":"No timed trace"}"#),
+    }
+}
+
+/// Get total duration of timed trace in milliseconds
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_duration_ms() -> f64 {
+    let timed = CURRENT_TIMED_TRACE.read();
+    match &*timed {
+        Some(t) => t.total_duration_ms,
+        None => 0.0,
+    }
+}
+
+/// Get stage events active at a given time
+/// Returns JSON array of events
+#[unsafe(no_mangle)]
+pub extern "C" fn stage_get_events_at_time(time_ms: f64) -> *mut c_char {
+    let timed = CURRENT_TIMED_TRACE.read();
+    match &*timed {
+        Some(t) => {
+            let events = t.events_at(time_ms);
+            let json = serde_json::to_string(&events).unwrap_or_else(|_| "[]".to_string());
+            string_to_cstr(&json)
+        }
+        None => string_to_cstr("[]"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADAPTER WIZARD FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Run adapter wizard on sample JSON
+/// Returns wizard result as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_analyze_json(json_samples: *const c_char) -> *mut c_char {
+    let json_str = match cstr_to_string_safe(json_samples) {
+        Some(s) => s,
+        None => return string_to_cstr(r#"{"error":"Invalid JSON input"}"#),
+    };
+
+    // Parse samples array
+    let samples: Vec<serde_json::Value> = match serde_json::from_str(&json_str) {
+        Ok(serde_json::Value::Array(arr)) => arr,
+        Ok(single) => vec![single],
+        Err(e) => return string_to_cstr(&format!(r#"{{"error":"JSON parse error: {}"}}"#, e)),
+    };
+
+    // Run wizard
+    let mut wizard = AdapterWizard::new();
+    wizard.add_samples(samples);
+
+    match wizard.analyze() {
+        Ok(result) => {
+            // Store result
+            *WIZARD_RESULT.write() = Some(result.clone());
+
+            // Return JSON
+            let json = serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string());
+            string_to_cstr(&json)
+        }
+        Err(e) => string_to_cstr(&format!(r#"{{"error":"Wizard error: {}"}}"#, e)),
+    }
+}
+
+/// Get wizard confidence score (0.0 - 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_confidence() -> f64 {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => r.confidence,
+        None => 0.0,
+    }
+}
+
+/// Get wizard recommended layer (0=DirectEvent, 1=SnapshotDiff, 2=RuleBased)
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_recommended_layer() -> u8 {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => match r.recommended_layer {
+            rf_ingest::IngestLayer::DirectEvent => 0,
+            rf_ingest::IngestLayer::SnapshotDiff => 1,
+            rf_ingest::IngestLayer::RuleBased => 2,
+        },
+        None => 0,
+    }
+}
+
+/// Get wizard detected company name
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_detected_company() -> *mut c_char {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => match &r.detected_company {
+            Some(company) => string_to_cstr(company),
+            None => ptr::null_mut(),
+        },
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get wizard detected engine name
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_detected_engine() -> *mut c_char {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => match &r.detected_engine {
+            Some(engine) => string_to_cstr(engine),
+            None => ptr::null_mut(),
+        },
+        None => ptr::null_mut(),
+    }
+}
+
+/// Get wizard generated config as TOML
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_config_toml() -> *mut c_char {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => match r.config.to_toml() {
+            Ok(toml) => string_to_cstr(&toml),
+            Err(_) => string_to_cstr(""),
+        },
+        None => string_to_cstr(""),
+    }
+}
+
+/// Get detected event count
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_detected_event_count() -> u32 {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => r.detected_events.len() as u32,
+        None => 0,
+    }
+}
+
+/// Get detected event at index as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn wizard_get_detected_event_json(index: u32) -> *mut c_char {
+    let result = WIZARD_RESULT.read();
+    match &*result {
+        Some(r) => {
+            if let Some(event) = r.detected_events.get(index as usize) {
+                let json = serde_json::to_string(event).unwrap_or_else(|_| "{}".to_string());
+                string_to_cstr(&json)
+            } else {
+                string_to_cstr("{}")
+            }
+        }
+        None => string_to_cstr("{}"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADAPTER REGISTRY FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load adapter config from TOML
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn adapter_load_config(toml_content: *const c_char) -> i32 {
+    let toml_str = match cstr_to_string_safe(toml_content) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    match AdapterConfig::from_toml(&toml_str) {
+        Ok(config) => {
+            let mut registry = ADAPTER_REGISTRY.write();
+            registry.register_config(config);
+            1
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Get loaded adapter count
+#[unsafe(no_mangle)]
+pub extern "C" fn adapter_get_count() -> u32 {
+    let registry = ADAPTER_REGISTRY.read();
+    registry.count() as u32
+}
+
+/// Get adapter ID at index
+#[unsafe(no_mangle)]
+pub extern "C" fn adapter_get_id_at(index: u32) -> *mut c_char {
+    let registry = ADAPTER_REGISTRY.read();
+    if let Some(id) = registry.adapter_ids().get(index as usize) {
+        string_to_cstr(id)
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Get adapter info as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn adapter_get_info_json(adapter_id: *const c_char) -> *mut c_char {
+    let adapter_id = match cstr_to_string_safe(adapter_id) {
+        Some(s) => s,
+        None => return string_to_cstr(r#"{"error":"Invalid adapter_id"}"#),
+    };
+
+    let registry = ADAPTER_REGISTRY.read();
+    match registry.get(&adapter_id) {
+        Some(adapter) => {
+            let info = serde_json::json!({
+                "adapter_id": adapter.adapter_id(),
+                "company_name": adapter.company_name(),
+                "engine_name": adapter.engine_name(),
+                "supported_layers": adapter.supported_layers().iter()
+                    .map(|l| format!("{:?}", l))
+                    .collect::<Vec<_>>()
+            });
+            string_to_cstr(&serde_json::to_string(&info).unwrap_or_default())
+        }
+        None => string_to_cstr(r#"{"error":"Adapter not found"}"#),
     }
 }

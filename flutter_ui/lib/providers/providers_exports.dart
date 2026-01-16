@@ -102,3 +102,6 @@ export 'ml_provider.dart';
 
 // Lua Scripting
 export 'script_provider.dart';
+
+// Middleware (Wwise/FMOD-style State/Switch/RTPC)
+export 'middleware_provider.dart';

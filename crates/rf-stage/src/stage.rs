@@ -1,0 +1,557 @@
+//! Stage — The core enum defining all canonical game phases
+//!
+//! A Stage is NOT an animation, NOT an engine event.
+//! A Stage is the SEMANTIC MEANING of a moment in the game flow.
+
+use serde::{Deserialize, Serialize};
+
+use crate::taxonomy::{BigWinTier, BonusChoiceType, FeatureType, GambleResult, JackpotTier};
+
+/// Canonical game stage — the universal language of slot game flow
+///
+/// Every slot game, regardless of engine, maps to these stages.
+/// FluxForge audio responds to stages, never to raw engine events.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Stage {
+    // ═══════════════════════════════════════════════════════════════════════
+    // SPIN LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Spin button pressed, spin initiated
+    SpinStart,
+
+    /// Reel is spinning (not yet stopped)
+    ReelSpinning {
+        /// Which reel (0-indexed)
+        reel_index: u8,
+    },
+
+    /// Reel has stopped, showing final symbols
+    ReelStop {
+        /// Which reel stopped (0-indexed)
+        reel_index: u8,
+        /// Symbols on this reel (top to bottom)
+        #[serde(default)]
+        symbols: Vec<u32>,
+    },
+
+    /// All reels stopped, wins being evaluated
+    EvaluateWins,
+
+    /// Spin complete, ready for next spin
+    SpinEnd,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ANTICIPATION
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Anticipation triggered (slow spin, tension build)
+    AnticipationOn {
+        /// Which reel is in anticipation
+        reel_index: u8,
+        /// Reason for anticipation (e.g., "scatter", "bonus")
+        #[serde(default)]
+        reason: Option<String>,
+    },
+
+    /// Anticipation ended
+    AnticipationOff {
+        /// Which reel
+        reel_index: u8,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // WIN LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Win celebration starting
+    WinPresent {
+        /// Total win amount
+        #[serde(default)]
+        win_amount: f64,
+        /// Number of winning lines
+        #[serde(default)]
+        line_count: u8,
+    },
+
+    /// Individual win line being highlighted
+    WinLineShow {
+        /// Which line
+        line_index: u8,
+        /// Win amount for this line
+        #[serde(default)]
+        line_amount: f64,
+    },
+
+    /// Win counter (rollup) starting
+    RollupStart {
+        /// Target amount to count to
+        target_amount: f64,
+        /// Starting amount (usually 0 or previous balance)
+        #[serde(default)]
+        start_amount: f64,
+    },
+
+    /// Rollup tick (for granular audio)
+    RollupTick {
+        /// Current displayed amount
+        current_amount: f64,
+        /// Progress (0.0 - 1.0)
+        progress: f64,
+    },
+
+    /// Rollup complete
+    RollupEnd {
+        /// Final amount
+        final_amount: f64,
+    },
+
+    /// Big win tier reached
+    BigWinTier {
+        /// Which tier
+        tier: BigWinTier,
+        /// Win amount
+        #[serde(default)]
+        amount: f64,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FEATURE LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Entering a feature (free spins, bonus, etc.)
+    FeatureEnter {
+        /// Type of feature
+        feature_type: FeatureType,
+        /// Total steps/spins in feature
+        #[serde(default)]
+        total_steps: Option<u32>,
+        /// Initial multiplier
+        #[serde(default)]
+        multiplier: f64,
+    },
+
+    /// Feature step (e.g., one free spin)
+    FeatureStep {
+        /// Current step index (0-based)
+        step_index: u32,
+        /// Remaining steps
+        #[serde(default)]
+        steps_remaining: Option<u32>,
+        /// Current multiplier
+        #[serde(default)]
+        current_multiplier: f64,
+    },
+
+    /// Feature retrigger (more spins added)
+    FeatureRetrigger {
+        /// Additional steps added
+        additional_steps: u32,
+        /// New total
+        #[serde(default)]
+        new_total: Option<u32>,
+    },
+
+    /// Exiting feature
+    FeatureExit {
+        /// Total win from feature
+        #[serde(default)]
+        total_win: f64,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CASCADE / TUMBLE
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Cascade/tumble sequence starting
+    CascadeStart,
+
+    /// Individual cascade step (symbols falling)
+    CascadeStep {
+        /// Cascade step number (0-based)
+        step_index: u32,
+        /// Multiplier for this cascade
+        #[serde(default)]
+        multiplier: f64,
+    },
+
+    /// Cascade sequence complete
+    CascadeEnd {
+        /// Total cascade steps
+        total_steps: u32,
+        /// Total win from cascade
+        #[serde(default)]
+        total_win: f64,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BONUS / PICK GAMES
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Entering bonus/pick game
+    BonusEnter {
+        /// Bonus game name/type
+        #[serde(default)]
+        bonus_name: Option<String>,
+    },
+
+    /// Player making a choice
+    BonusChoice {
+        /// Type of choice
+        choice_type: BonusChoiceType,
+        /// Number of options
+        #[serde(default)]
+        option_count: u8,
+    },
+
+    /// Bonus item revealed
+    BonusReveal {
+        /// Revealed value
+        #[serde(default)]
+        revealed_value: f64,
+        /// Is this the end (e.g., revealed "collect")?
+        #[serde(default)]
+        is_terminal: bool,
+    },
+
+    /// Exiting bonus game
+    BonusExit {
+        /// Total bonus win
+        #[serde(default)]
+        total_win: f64,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GAMBLE / RISK
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Gamble feature starting
+    GambleStart {
+        /// Amount at stake
+        stake_amount: f64,
+    },
+
+    /// Player making gamble choice
+    GambleChoice {
+        /// Type of choice
+        choice_type: BonusChoiceType,
+    },
+
+    /// Gamble result
+    GambleResultStage {
+        /// Win/Lose/Draw
+        result: GambleResult,
+        /// New amount (if won) or 0 (if lost)
+        #[serde(default)]
+        new_amount: f64,
+    },
+
+    /// Gamble feature ending
+    GambleEnd {
+        /// Final collected amount
+        collected_amount: f64,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JACKPOT
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Jackpot triggered
+    JackpotTrigger {
+        /// Which jackpot tier
+        tier: JackpotTier,
+    },
+
+    /// Jackpot presentation/celebration
+    JackpotPresent {
+        /// Jackpot amount
+        amount: f64,
+        /// Tier
+        tier: JackpotTier,
+    },
+
+    /// Jackpot celebration complete
+    JackpotEnd,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // UI / IDLE
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Game entering idle state
+    IdleStart,
+
+    /// Idle loop point (for looping ambient)
+    IdleLoop,
+
+    /// Menu/settings opened
+    MenuOpen {
+        /// Which menu
+        #[serde(default)]
+        menu_name: Option<String>,
+    },
+
+    /// Menu/settings closed
+    MenuClose,
+
+    /// Autoplay started
+    AutoplayStart {
+        /// Number of spins
+        #[serde(default)]
+        spin_count: Option<u32>,
+    },
+
+    /// Autoplay stopped
+    AutoplayStop {
+        /// Reason for stopping
+        #[serde(default)]
+        reason: Option<String>,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SPECIAL
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Symbol transformation/morph
+    SymbolTransform {
+        /// Reel index
+        reel_index: u8,
+        /// Row index
+        row_index: u8,
+        /// From symbol ID
+        #[serde(default)]
+        from_symbol: Option<u32>,
+        /// To symbol ID
+        to_symbol: u32,
+    },
+
+    /// Wild expansion
+    WildExpand {
+        /// Reel index
+        reel_index: u8,
+        /// Direction (up, down, both)
+        #[serde(default)]
+        direction: Option<String>,
+    },
+
+    /// Multiplier change
+    MultiplierChange {
+        /// New multiplier value
+        new_value: f64,
+        /// Previous value
+        #[serde(default)]
+        old_value: Option<f64>,
+    },
+
+    /// Custom stage (engine-specific, adapter should document)
+    Custom {
+        /// Custom stage name
+        name: String,
+        /// Numeric ID
+        #[serde(default)]
+        id: u32,
+    },
+}
+
+impl Stage {
+    /// Get the stage category for grouping
+    pub fn category(&self) -> StageCategory {
+        match self {
+            Stage::SpinStart
+            | Stage::ReelSpinning { .. }
+            | Stage::ReelStop { .. }
+            | Stage::EvaluateWins
+            | Stage::SpinEnd => StageCategory::SpinLifecycle,
+
+            Stage::AnticipationOn { .. } | Stage::AnticipationOff { .. } => {
+                StageCategory::Anticipation
+            }
+
+            Stage::WinPresent { .. }
+            | Stage::WinLineShow { .. }
+            | Stage::RollupStart { .. }
+            | Stage::RollupTick { .. }
+            | Stage::RollupEnd { .. }
+            | Stage::BigWinTier { .. } => StageCategory::WinLifecycle,
+
+            Stage::FeatureEnter { .. }
+            | Stage::FeatureStep { .. }
+            | Stage::FeatureRetrigger { .. }
+            | Stage::FeatureExit { .. } => StageCategory::Feature,
+
+            Stage::CascadeStart | Stage::CascadeStep { .. } | Stage::CascadeEnd { .. } => {
+                StageCategory::Cascade
+            }
+
+            Stage::BonusEnter { .. }
+            | Stage::BonusChoice { .. }
+            | Stage::BonusReveal { .. }
+            | Stage::BonusExit { .. } => StageCategory::Bonus,
+
+            Stage::GambleStart { .. }
+            | Stage::GambleChoice { .. }
+            | Stage::GambleResultStage { .. }
+            | Stage::GambleEnd { .. } => StageCategory::Gamble,
+
+            Stage::JackpotTrigger { .. }
+            | Stage::JackpotPresent { .. }
+            | Stage::JackpotEnd => StageCategory::Jackpot,
+
+            Stage::IdleStart
+            | Stage::IdleLoop
+            | Stage::MenuOpen { .. }
+            | Stage::MenuClose
+            | Stage::AutoplayStart { .. }
+            | Stage::AutoplayStop { .. } => StageCategory::UI,
+
+            Stage::SymbolTransform { .. }
+            | Stage::WildExpand { .. }
+            | Stage::MultiplierChange { .. }
+            | Stage::Custom { .. } => StageCategory::Special,
+        }
+    }
+
+    /// Get a simple string name for this stage type
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Stage::SpinStart => "spin_start",
+            Stage::ReelSpinning { .. } => "reel_spinning",
+            Stage::ReelStop { .. } => "reel_stop",
+            Stage::EvaluateWins => "evaluate_wins",
+            Stage::SpinEnd => "spin_end",
+            Stage::AnticipationOn { .. } => "anticipation_on",
+            Stage::AnticipationOff { .. } => "anticipation_off",
+            Stage::WinPresent { .. } => "win_present",
+            Stage::WinLineShow { .. } => "win_line_show",
+            Stage::RollupStart { .. } => "rollup_start",
+            Stage::RollupTick { .. } => "rollup_tick",
+            Stage::RollupEnd { .. } => "rollup_end",
+            Stage::BigWinTier { .. } => "bigwin_tier",
+            Stage::FeatureEnter { .. } => "feature_enter",
+            Stage::FeatureStep { .. } => "feature_step",
+            Stage::FeatureRetrigger { .. } => "feature_retrigger",
+            Stage::FeatureExit { .. } => "feature_exit",
+            Stage::CascadeStart => "cascade_start",
+            Stage::CascadeStep { .. } => "cascade_step",
+            Stage::CascadeEnd { .. } => "cascade_end",
+            Stage::BonusEnter { .. } => "bonus_enter",
+            Stage::BonusChoice { .. } => "bonus_choice",
+            Stage::BonusReveal { .. } => "bonus_reveal",
+            Stage::BonusExit { .. } => "bonus_exit",
+            Stage::GambleStart { .. } => "gamble_start",
+            Stage::GambleChoice { .. } => "gamble_choice",
+            Stage::GambleResultStage { .. } => "gamble_result",
+            Stage::GambleEnd { .. } => "gamble_end",
+            Stage::JackpotTrigger { .. } => "jackpot_trigger",
+            Stage::JackpotPresent { .. } => "jackpot_present",
+            Stage::JackpotEnd => "jackpot_end",
+            Stage::IdleStart => "idle_start",
+            Stage::IdleLoop => "idle_loop",
+            Stage::MenuOpen { .. } => "menu_open",
+            Stage::MenuClose => "menu_close",
+            Stage::AutoplayStart { .. } => "autoplay_start",
+            Stage::AutoplayStop { .. } => "autoplay_stop",
+            Stage::SymbolTransform { .. } => "symbol_transform",
+            Stage::WildExpand { .. } => "wild_expand",
+            Stage::MultiplierChange { .. } => "multiplier_change",
+            Stage::Custom { .. } => "custom",
+        }
+    }
+
+    /// Check if this is a looping stage (audio should loop)
+    pub fn is_looping(&self) -> bool {
+        matches!(
+            self,
+            Stage::ReelSpinning { .. }
+                | Stage::AnticipationOn { .. }
+                | Stage::RollupTick { .. }
+                | Stage::IdleLoop
+        )
+    }
+
+    /// Check if this stage should duck music
+    pub fn should_duck_music(&self) -> bool {
+        matches!(
+            self,
+            Stage::BigWinTier { .. }
+                | Stage::JackpotTrigger { .. }
+                | Stage::JackpotPresent { .. }
+                | Stage::FeatureEnter { .. }
+        )
+    }
+}
+
+/// Stage category for grouping
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StageCategory {
+    SpinLifecycle,
+    Anticipation,
+    WinLifecycle,
+    Feature,
+    Cascade,
+    Bonus,
+    Gamble,
+    Jackpot,
+    UI,
+    Special,
+}
+
+impl StageCategory {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::SpinLifecycle => "Spin Lifecycle",
+            Self::Anticipation => "Anticipation",
+            Self::WinLifecycle => "Win Lifecycle",
+            Self::Feature => "Features",
+            Self::Cascade => "Cascade/Tumble",
+            Self::Bonus => "Bonus Games",
+            Self::Gamble => "Gamble/Risk",
+            Self::Jackpot => "Jackpot",
+            Self::UI => "UI/Idle",
+            Self::Special => "Special",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stage_serialization() {
+        let stage = Stage::ReelStop {
+            reel_index: 2,
+            symbols: vec![1, 2, 3],
+        };
+        let json = serde_json::to_string(&stage).unwrap();
+        assert!(json.contains("reel_stop"));
+        assert!(json.contains("reel_index"));
+
+        let deserialized: Stage = serde_json::from_str(&json).unwrap();
+        assert_eq!(stage, deserialized);
+    }
+
+    #[test]
+    fn test_stage_category() {
+        assert_eq!(Stage::SpinStart.category(), StageCategory::SpinLifecycle);
+        assert_eq!(
+            Stage::AnticipationOn {
+                reel_index: 0,
+                reason: None
+            }
+            .category(),
+            StageCategory::Anticipation
+        );
+        assert_eq!(
+            Stage::BigWinTier {
+                tier: BigWinTier::MegaWin,
+                amount: 0.0
+            }
+            .category(),
+            StageCategory::WinLifecycle
+        );
+    }
+
+    #[test]
+    fn test_is_looping() {
+        assert!(Stage::ReelSpinning { reel_index: 0 }.is_looping());
+        assert!(Stage::IdleLoop.is_looping());
+        assert!(!Stage::SpinStart.is_looping());
+        assert!(!Stage::ReelStop {
+            reel_index: 0,
+            symbols: vec![]
+        }
+        .is_looping());
+    }
+}

@@ -52,6 +52,8 @@ class TimelineClip {
   final bool selected;
   /// Clip FX chain (non-destructive per-clip processing)
   final ClipFxChain fxChain;
+  /// Event ID this clip belongs to (null = global/all events)
+  final String? eventId;
 
   const TimelineClip({
     required this.id,
@@ -74,6 +76,7 @@ class TimelineClip {
     this.locked = false,
     this.selected = false,
     this.fxChain = const ClipFxChain(),
+    this.eventId,
   });
 
   /// Check if clip has active FX processing
@@ -102,6 +105,7 @@ class TimelineClip {
     bool? locked,
     bool? selected,
     ClipFxChain? fxChain,
+    String? eventId,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -124,6 +128,7 @@ class TimelineClip {
       locked: locked ?? this.locked,
       selected: selected ?? this.selected,
       fxChain: fxChain ?? this.fxChain,
+      eventId: eventId ?? this.eventId,
     );
   }
 }
@@ -307,6 +312,51 @@ class TimelineMarker {
     required this.name,
     this.color = const Color(0xFFFF9040),
   });
+}
+
+/// Stage marker for timeline ruler - shows game engine stage events
+class StageMarker {
+  final String id;
+  final double time; // in seconds
+  final String stageName;
+  final StageMarkerType type;
+  final Color color;
+
+  const StageMarker({
+    required this.id,
+    required this.time,
+    required this.stageName,
+    this.type = StageMarkerType.generic,
+    this.color = const Color(0xFF40C8FF),
+  });
+}
+
+/// Stage marker type for visual differentiation
+enum StageMarkerType {
+  spin,      // Reels spin start/stop
+  win,       // Win events
+  feature,   // Feature triggers
+  bonus,     // Bonus game events
+  jackpot,   // Jackpot events
+  generic,   // Other events
+}
+
+/// Get color for stage marker type
+Color stageMarkerTypeColor(StageMarkerType type) {
+  switch (type) {
+    case StageMarkerType.spin:
+      return const Color(0xFF40C8FF); // Cyan
+    case StageMarkerType.win:
+      return const Color(0xFF40FF90); // Green
+    case StageMarkerType.feature:
+      return const Color(0xFFFF9040); // Orange
+    case StageMarkerType.bonus:
+      return const Color(0xFF9040FF); // Purple
+    case StageMarkerType.jackpot:
+      return const Color(0xFFFFD040); // Gold
+    case StageMarkerType.generic:
+      return const Color(0xFFFF4060); // Red
+  }
 }
 
 /// Crossfade curve type
@@ -1049,3 +1099,52 @@ class PoolFolder {
     );
   }
 }
+
+// ============ Timeline Event Filter Types ============
+
+/// Timeline event filter for event-centric timeline workflow
+/// Each filter represents a game state (spin_complete, bonus_enter, etc.)
+/// and the timeline filters to show only clips belonging to the selected event
+class TimelineEventFilter {
+  final String id;
+  final String name;
+  final String? description;
+  final Color color;
+  final DateTime createdAt;
+
+  const TimelineEventFilter({
+    required this.id,
+    required this.name,
+    this.description,
+    this.color = const Color(0xFF4A9EFF),
+    required this.createdAt,
+  });
+
+  TimelineEventFilter copyWith({
+    String? id,
+    String? name,
+    String? description,
+    Color? color,
+    DateTime? createdAt,
+  }) {
+    return TimelineEventFilter(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      color: color ?? this.color,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}
+
+/// Default event colors palette
+const List<Color> kEventColors = [
+  Color(0xFF4A9EFF), // Blue
+  Color(0xFFFF9040), // Orange
+  Color(0xFF40FF90), // Green
+  Color(0xFFFF4060), // Red
+  Color(0xFF40C8FF), // Cyan
+  Color(0xFFFF40C8), // Magenta
+  Color(0xFFFFD040), // Yellow
+  Color(0xFF9040FF), // Purple
+];

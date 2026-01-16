@@ -18,6 +18,8 @@ import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
+import '../providers/stage_provider.dart';
+import '../models/stage_models.dart' as stage;
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
@@ -88,6 +90,7 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
+import '../widgets/middleware/advanced_middleware_panel.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -177,6 +180,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   List<timeline.TimelineMarker> _markers = [];
   List<timeline.Crossfade> _crossfades = [];
   timeline.LoopRegion? _loopRegion;
+
+  // Event-centric timeline state
+  List<timeline.TimelineEventFilter> _eventFilters = [];
+  String? _currentEventId; // null = show all clips (no filter)
+
+  // Stage markers from game engine (shown on timeline ruler)
+  List<timeline.StageMarker> _stageMarkers = [];
 
   // Audio Pool - Cubase-style imported files (not on timeline yet)
   List<timeline.PoolAudioFile> _audioPool = [];
@@ -487,7 +497,47 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       shortcuts.actions.onShowTrackVersions = () => _showAdvancedPanel('track-versions');
       shortcuts.actions.onShowMacroControls = () => _showAdvancedPanel('macro-controls');
       shortcuts.actions.onShowClipGainEnvelope = () => _showAdvancedPanel('clip-gain-envelope');
+
+      // Listen to StageProvider for live game engine events
+      final stageProvider = context.read<StageProvider>();
+      stageProvider.addListener(_onStageEventsChanged);
     });
+  }
+
+  /// Convert StageProvider events to timeline StageMarkers
+  void _onStageEventsChanged() {
+    final stageProvider = context.read<StageProvider>();
+    final events = stageProvider.liveEvents;
+
+    setState(() {
+      _stageMarkers = events.map((e) => _stageEventToMarker(e)).toList();
+    });
+  }
+
+  /// Convert a StageEvent to a StageMarker for timeline display
+  timeline.StageMarker _stageEventToMarker(stage.StageEvent event) {
+    // Determine marker type based on stage type
+    final markerType = _getMarkerTypeForStage(event.stage);
+    final color = timeline.stageMarkerTypeColor(markerType);
+
+    return timeline.StageMarker(
+      id: 'stage_${event.timestampMs.toInt()}',
+      time: event.timestampMs / 1000.0, // Convert ms to seconds
+      stageName: event.typeName,
+      type: markerType,
+      color: color,
+    );
+  }
+
+  /// Map Stage type to StageMarkerType
+  timeline.StageMarkerType _getMarkerTypeForStage(stage.Stage stg) {
+    final typeName = stg.typeName.toLowerCase();
+    if (typeName.contains('spin')) return timeline.StageMarkerType.spin;
+    if (typeName.contains('win')) return timeline.StageMarkerType.win;
+    if (typeName.contains('feature')) return timeline.StageMarkerType.feature;
+    if (typeName.contains('bonus')) return timeline.StageMarkerType.bonus;
+    if (typeName.contains('jackpot')) return timeline.StageMarkerType.jackpot;
+    return timeline.StageMarkerType.generic;
   }
 
   /// Setup handler for native macOS menu bar actions
@@ -608,6 +658,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   @override
   void dispose() {
     _meterDecayTimer?.cancel();
+    // Remove StageProvider listener
+    try {
+      final stageProvider = context.read<StageProvider>();
+      stageProvider.removeListener(_onStageEventsChanged);
+    } catch (_) {
+      // Provider may not be available during dispose
+    }
     super.dispose();
   }
 
@@ -642,6 +699,124 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     _markers = [];
     _crossfades = [];
     _loopRegion = const timeline.LoopRegion(start: 0.0, end: 8.0);
+    _eventFilters = [];
+    _currentEventId = null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT-CENTRIC TIMELINE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get clips filtered by current event (or all if no event selected)
+  List<timeline.TimelineClip> get _filteredClips {
+    if (_currentEventId == null) {
+      return _clips; // No filter - show all clips
+    }
+    return _clips.where((c) => c.eventId == _currentEventId).toList();
+  }
+
+  /// Create a new event filter
+  void _createEventFilter(String name, {String? description}) {
+    final colorIndex = _eventFilters.length % timeline.kEventColors.length;
+    final filter = timeline.TimelineEventFilter(
+      id: 'event_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      description: description,
+      color: timeline.kEventColors[colorIndex],
+      createdAt: DateTime.now(),
+    );
+
+    setState(() {
+      _eventFilters = [..._eventFilters, filter];
+      // Auto-select the new event filter
+      _currentEventId = filter.id;
+    });
+
+    debugPrint('[EventFilters] Created filter: ${filter.name} (${filter.id})');
+  }
+
+  /// Select an event (filters timeline to show only this event's clips)
+  void _selectEvent(String? eventId) {
+    setState(() {
+      _currentEventId = eventId;
+    });
+    final eventName = eventId == null
+        ? 'All'
+        : _eventFilters.firstWhere((e) => e.id == eventId).name;
+    debugPrint('[Events] Selected event: $eventName');
+  }
+
+  /// Delete an event and optionally its clips
+  void _deleteEvent(String eventId, {bool deleteClips = false}) {
+    setState(() {
+      _eventFilters = _eventFilters.where((e) => e.id != eventId).toList();
+
+      if (deleteClips) {
+        // Remove clips belonging to this event
+        _clips = _clips.where((c) => c.eventId != eventId).toList();
+      } else {
+        // Orphan clips - set eventId to null
+        _clips = _clips.map((c) {
+          if (c.eventId == eventId) {
+            return c.copyWith(eventId: null);
+          }
+          return c;
+        }).toList();
+      }
+
+      // Clear selection if deleted event was selected
+      if (_currentEventId == eventId) {
+        _currentEventId = null;
+      }
+    });
+
+    debugPrint('[Events] Deleted event: $eventId (deleteClips: $deleteClips)');
+  }
+
+  /// Rename an event
+  void _renameEvent(String eventId, String newName) {
+    setState(() {
+      _eventFilters = _eventFilters.map((e) {
+        if (e.id == eventId) {
+          return e.copyWith(name: newName);
+        }
+        return e;
+      }).toList();
+    });
+  }
+
+  /// Assign a clip to an event
+  void _assignClipToEvent(String clipId, String? eventId) {
+    setState(() {
+      _clips = _clips.map((c) {
+        if (c.id == clipId) {
+          return c.copyWith(eventId: eventId);
+        }
+        return c;
+      }).toList();
+    });
+
+    final eventName = eventId == null
+        ? 'None'
+        : _eventFilters.firstWhere((e) => e.id == eventId).name;
+    debugPrint('[Events] Assigned clip $clipId to event: $eventName');
+  }
+
+  /// Assign all selected clips to current event
+  void _assignSelectedClipsToCurrentEvent() {
+    if (_currentEventId == null) return;
+
+    setState(() {
+      _clips = _clips.map((c) {
+        if (c.selected) {
+          return c.copyWith(eventId: _currentEventId);
+        }
+        return c;
+      }).toList();
+    });
+
+    final count = _clips.where((c) => c.selected).length;
+    debugPrint('[Events] Assigned $count clips to current event');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -950,6 +1125,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           sourceFile: poolFile.path,
           waveform: waveform,
           color: track.color,
+          eventId: _currentEventId, // Assign to current event
         ),
       ];
 
@@ -1026,6 +1202,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       sourceFile: poolFile.path,
       waveform: waveform,
       color: color,
+      eventId: _currentEventId, // Assign to current event
     );
 
     setState(() {
@@ -1163,6 +1340,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           sourceDuration: clipInfo.sourceDuration,
           waveform: waveform,
           color: _tracks.firstWhere((t) => t.id == trackId).color,
+          eventId: _currentEventId, // Assign to current event
         ),
       ];
     });
@@ -1419,6 +1597,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           gain: clip.gain,
           fadeIn: clip.fadeIn,
           fadeOut: clip.fadeOut,
+          eventId: _currentEventId, // Assign to current event
         ));
       }
     });
@@ -1553,6 +1732,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         fadeIn: 0.01,
         fadeOut: 0.01,
         selected: false,
+        eventId: _currentEventId, // Assign to current event
       );
 
       setState(() {
@@ -2298,6 +2478,102 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     });
   }
 
+  /// Show Add Action dialog with all options
+  void _showAddActionDialog() {
+    if (_selectedEvent == null) return;
+
+    // Get asset options from audio pool (real imported files)
+    final poolAssets = _audioPool.map((f) => f.name).toList();
+    final assetOptions = poolAssets.isNotEmpty ? poolAssets : kAllAssetIds;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgMid,
+          title: Row(
+            children: [
+              Icon(Icons.add_circle_outline, color: FluxForgeTheme.accentGreen, size: 20),
+              const SizedBox(width: 8),
+              Text('Add Action', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Action Type
+                _DialogDropdownRow(
+                  label: 'Action Type',
+                  value: _headerActionType,
+                  options: kActionTypes,
+                  onChanged: (v) => setDialogState(() => _headerActionType = v),
+                ),
+                const SizedBox(height: 12),
+                // Asset
+                _DialogDropdownRow(
+                  label: 'Asset',
+                  value: _headerAssetId,
+                  options: assetOptions,
+                  onChanged: (v) => setDialogState(() => _headerAssetId = v),
+                ),
+                const SizedBox(height: 12),
+                // Bus
+                _DialogDropdownRow(
+                  label: 'Bus',
+                  value: _headerBus,
+                  options: kAllBuses,
+                  onChanged: (v) => setDialogState(() => _headerBus = v),
+                ),
+                const SizedBox(height: 16),
+                Divider(color: FluxForgeTheme.borderSubtle),
+                const SizedBox(height: 12),
+                // Scope & Priority in row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DialogDropdownRow(
+                        label: 'Scope',
+                        value: _headerScope,
+                        options: kScopes,
+                        onChanged: (v) => setDialogState(() => _headerScope = v),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _DialogDropdownRow(
+                        label: 'Priority',
+                        value: _headerPriority,
+                        options: kPriorities,
+                        onChanged: (v) => setDialogState(() => _headerPriority = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _addAction();
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentGreen),
+              child: const Text('Add Action'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _deleteAction(int index) {
     if (_selectedEvent == null) return;
 
@@ -2822,8 +3098,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       selector: (_, engine) => engine.transport.positionSeconds,
       builder: (context, playheadPosition, child) => timeline_widget.Timeline(
       tracks: _tracks,
-      clips: _clips,
+      clips: _filteredClips, // Event-filtered clips
       markers: _markers,
+      stageMarkers: _stageMarkers, // Game engine stage events
       crossfades: _crossfades,
       loopRegion: _loopRegion,
       loopEnabled: transport.loopEnabled,
@@ -3205,6 +3482,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             waveform: clip.waveform,
             sourceOffset: rightOffset,
             sourceDuration: clip.sourceDuration,
+            eventId: clip.eventId, // Preserve original event
           ));
         });
       },
@@ -3226,6 +3504,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             waveform: clip.waveform,
             sourceOffset: clip.sourceOffset,
             sourceDuration: clip.sourceDuration,
+            eventId: clip.eventId, // Preserve original event
           ));
         });
       },
@@ -3681,64 +3960,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     accentColor: FluxForgeTheme.accentOrange,
                   ),
                   const SizedBox(width: 8),
+                  // Stats chip showing action count
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgDeep,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$actionCount actions',
+                      style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
                   const SizedBox(width: 8),
-                  // Action type dropdown - Updates header state
-                  _ToolbarDropdown(
-                    icon: Icons.flash_on,
-                    label: 'Action',
-                    value: _headerActionType,
-                    options: kActionTypes,
-                    onChanged: (val) => setState(() => _headerActionType = val),
-                    accentColor: FluxForgeTheme.accentGreen,
-                  ),
-                  const SizedBox(width: 8),
-                  // Asset ID dropdown
-                  _ToolbarDropdown(
-                    icon: Icons.audiotrack,
-                    label: 'Asset',
-                    value: _headerAssetId,
-                    options: kAllAssetIds,
-                    onChanged: (val) => setState(() => _headerAssetId = val),
-                    accentColor: FluxForgeTheme.accentCyan,
-                  ),
-                  const SizedBox(width: 8),
-                  // Bus dropdown
-                  _ToolbarDropdown(
-                    icon: Icons.speaker,
-                    label: 'Bus',
-                    value: _headerBus,
-                    options: kAllBuses,
-                    onChanged: (val) => setState(() => _headerBus = val),
-                    accentColor: FluxForgeTheme.accentBlue,
-                  ),
-                  const SizedBox(width: 8),
-                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 8),
-                  // Scope dropdown
-                  _ToolbarDropdown(
-                    icon: Icons.scatter_plot,
-                    label: 'Scope',
-                    value: _headerScope,
-                    options: kScopes,
-                    onChanged: (val) => setState(() => _headerScope = val),
-                    accentColor: FluxForgeTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  // Priority dropdown
-                  _ToolbarDropdown(
-                    icon: Icons.priority_high,
-                    label: 'Priority',
-                    value: _headerPriority,
-                    options: kPriorities,
-                    onChanged: (val) => setState(() => _headerPriority = val),
-                    accentColor: FluxForgeTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Container(width: 1, height: 20, color: FluxForgeTheme.borderSubtle),
-                  const SizedBox(width: 8),
-                  // Action buttons - ALL CONNECTED
-                  _ToolbarButton(icon: Icons.add, label: 'Add', onTap: _addAction),
+                  // Action buttons - simplified, Add opens dialog
+                  _ToolbarButton(icon: Icons.add, label: 'Add Action', onTap: () => _showAddActionDialog()),
                   const SizedBox(width: 4),
                   _ToolbarButton(icon: Icons.play_arrow, label: 'Preview', onTap: _previewEvent),
                   const SizedBox(width: 4),
@@ -3906,12 +4144,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           ),
           // Actions table with all columns - REAL DATA & FULLY INTERACTIVE
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: _buildActionsTable(),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: _buildActionsTable(constraints.maxWidth),
+                );
+              },
             ),
           ),
         ],
@@ -3920,11 +4159,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Build actions table with real data and full interactivity
-  Widget _buildActionsTable() {
+  Widget _buildActionsTable(double availableWidth) {
     final event = _selectedEvent;
     if (event == null) {
       return Container(
-        width: 900,
+        width: availableWidth - 24, // Full width minus margins
         height: 200,
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -3939,7 +4178,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
 
     return Container(
-      width: 950,
+      width: availableWidth - 24, // Full width minus margins
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgMid,
@@ -4310,6 +4549,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             color: clip.color,
             waveform: clip.waveform,
             selected: true,
+            eventId: clip.eventId, // Preserve original event
           ));
         });
       },
@@ -4450,6 +4690,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           sourceDuration: clip.sourceDuration,
           color: clip.color,
           waveform: clip.waveform,
+          eventId: clip.eventId, // Preserve original event
         ));
         prevTime = sliceTime;
       }
@@ -4467,6 +4708,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         sourceDuration: clip.sourceDuration,
         color: clip.color,
         waveform: clip.waveform,
+        eventId: clip.eventId, // Preserve original event
       ));
     }
 
@@ -7019,6 +7261,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: MlProcessorPanel(trackId: 0, sampleRate: 48000.0),
         groupId: 'advanced',
       ),
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 7: MIDDLEWARE — Game audio middleware (Wwise-style)
+      // ══════════════════════════════════════════════════════════════════════
+      LowerZoneTab(
+        id: 'middleware',
+        label: 'Middleware',
+        icon: Icons.account_tree,
+        content: const AdvancedMiddlewarePanel(),
+        groupId: 'middleware',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -7069,6 +7322,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         id: 'advanced',
         label: 'Advanced',
         tabs: ['routing', 'sidechain', 'multiband', 'channel-strip', 'mastering', 'restoration', 'ml-processor'],
+      ),
+      // GROUP 7: MIDDLEWARE — Game audio middleware (Wwise-style)
+      const TabGroup(
+        id: 'middleware',
+        label: 'Middleware',
+        tabs: ['middleware'],
       ),
     ];
 
@@ -7884,4 +8143,50 @@ class _ImportAudioIntent extends Intent {
 /// Intent for toggling debug console (Shift+Cmd+D)
 class _ToggleDebugIntent extends Intent {
   const _ToggleDebugIntent();
+}
+
+/// Dropdown row for dialogs
+class _DialogDropdownRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  const _DialogDropdownRow({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+        const SizedBox(height: 4),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgDeep,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
+          ),
+          child: DropdownButton<String>(
+            value: options.contains(value) ? value : options.first,
+            isExpanded: true,
+            underline: const SizedBox(),
+            dropdownColor: FluxForgeTheme.bgElevated,
+            style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
+            items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -26,6 +26,9 @@
 #![allow(clippy::field_reassign_with_default)]
 // Flutter Rust Bridge macro generates div_ceil manually
 #![allow(clippy::manual_div_ceil)]
+// FFI functions dereference raw pointers - this is expected for C FFI
+// The caller (Flutter/Dart) is responsible for passing valid pointers
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 pub mod advanced_metering;
 mod api;
@@ -37,6 +40,7 @@ mod engine_bridge;
 mod metering;
 pub mod midi_bridge;
 mod midi_ffi;
+pub mod middleware_ffi;
 mod playback;
 mod project;
 pub mod timestretch;
@@ -298,3 +302,6 @@ pub use rf_engine::ffi::*;
 
 // Re-export autosave and recent projects FFI
 pub use autosave_ffi::*;
+
+// Re-export middleware event system FFI
+pub use middleware_ffi::*;

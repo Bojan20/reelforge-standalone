@@ -534,6 +534,9 @@ mod tests {
 
     #[test]
     fn test_recording_state() {
+        // Clear any leftover state from other tests
+        let _ = take_recorded_events();
+
         set_recording_state(MidiRecordingState::Stopped);
         assert_eq!(get_recording_state(), MidiRecordingState::Stopped);
 
@@ -549,6 +552,8 @@ mod tests {
 
     #[test]
     fn test_event_buffer() {
+        // Clear any events from previous tests
+        let _ = take_recorded_events();
         set_recording_state(MidiRecordingState::Recording);
 
         // Simulate some events

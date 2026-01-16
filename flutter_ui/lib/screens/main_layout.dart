@@ -537,7 +537,7 @@ class _MainLayoutState extends State<MainLayout>
         Expanded(
           child: Row(
             children: [
-              // Left Zone (includes Channel + Clip inspector in DAW mode)
+              // Left Zone (Browser) - all modes
               LeftZone(
                 editorMode: widget.editorMode,
                 collapsed: !_leftVisible,
@@ -579,25 +579,12 @@ class _MainLayoutState extends State<MainLayout>
               Expanded(
                 child: Column(
                   children: [
-                    // Center Zone
+                    // Center Zone - Full width edge-to-edge (no borders, no padding)
                     Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: FluxForgeTheme.bgDeep,
-                          border: Border(
-                            left: BorderSide(
-                              color: FluxForgeTheme.borderSubtle,
-                            ),
-                            right: BorderSide(
-                              color: FluxForgeTheme.borderSubtle,
-                            ),
-                          ),
-                        ),
-                        child: widget.child,
-                      ),
+                      child: widget.child,
                     ),
 
-                    // Lower Zone - Classic version
+                    // Lower Zone
                     LowerZone(
                       collapsed: !_lowerVisible,
                       tabs: widget.lowerTabs,
@@ -615,7 +602,7 @@ class _MainLayoutState extends State<MainLayout>
                 ),
               ),
 
-              // Right Zone - Only for Middleware/Slot modes (DAW uses left Channel tab)
+              // Right Zone (Inspector) - Middleware/Slot modes
               if (widget.editorMode != EditorMode.daw)
                 RightZone(
                   collapsed: !_rightVisible,

@@ -1,0 +1,27 @@
+[package]
+name = "rf-event"
+description = "FluxForge Middleware Event System — Wwise/FMOD-style event management"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal
+rf-core = { workspace = true }
+
+# Concurrency
+rtrb = { workspace = true }
+parking_lot = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

@@ -705,6 +705,62 @@ flutter run --profile          # UI performance
 - ✅ Take lanes / Comping (recording lanes, takes, comp regions)
 - ✅ Tempo track / Time warp (tempo map, time signatures, grid)
 
+### Advanced Middleware (Wwise/FMOD-style)
+- ✅ **Ducking Matrix** — Automatic volume ducking (source→target bus matrix, attack/release/curve)
+- ✅ **Blend Containers** — RTPC-based crossfade between sounds (range sliders, curve visualization)
+- ✅ **Random Containers** — Weighted random selection (Random/Shuffle/Round Robin modes, pitch/volume variation)
+- ✅ **Sequence Containers** — Timed sound sequences (timeline, step editor, loop/hold/ping-pong)
+- ✅ **Music System** — Beat/bar synchronized music (tempo, time signature, cue points, stingers)
+- ✅ **Attenuation Curves** — Slot-specific curves (Win Amount, Near Win, Combo, Feature Progress)
+
+**Dart Models:** `flutter_ui/lib/models/middleware_models.dart`
+**Provider:** `flutter_ui/lib/providers/middleware_provider.dart`
+**UI Widgets:** `flutter_ui/lib/widgets/middleware/`
+- `advanced_middleware_panel.dart` — Combined tabbed interface
+- `ducking_matrix_panel.dart` — Visual matrix editor
+- `blend_container_panel.dart` — RTPC crossfade editor
+- `random_container_panel.dart` — Weighted random editor
+- `sequence_container_panel.dart` — Timeline sequence editor
+- `music_system_panel.dart` — Music segments + stingers
+- `attenuation_curve_panel.dart` — Curve shape editor
+
+### Universal Stage Ingest System (PLANNED)
+
+Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
+
+**Filozofija:** FluxForge ne razume tuđe evente — razume samo **STAGES** (semantičke faze toka igre).
+
+```
+Engine JSON/Events → Adapter → STAGES → FluxForge Audio
+```
+
+**Kanonske STAGES:**
+- `SPIN_START`, `REEL_STOP`, `ANTICIPATION_ON/OFF`
+- `WIN_PRESENT`, `ROLLUP_START/END`, `BIGWIN_TIER`
+- `FEATURE_ENTER/STEP/EXIT`, `CASCADE_STEP`
+- `JACKPOT_TRIGGER`, `BONUS_ENTER/EXIT`
+
+**Tri sloja ingesta:**
+1. **Direct Event** — Engine ima event log → mapiranje imena
+2. **Snapshot Diff** — Engine ima samo pre/posle stanje → diff derivation
+3. **Rule-Based** — Generički eventi → heuristička rekonstrukcija
+
+**Dva režima rada:**
+| Mode | Opis |
+|------|------|
+| **OFFLINE** | JSON import → Adapter Wizard → StageTrace → Audio dizajn |
+| **LIVE** | WebSocket/TCP → Real-time STAGES → Live audio preview |
+
+**Crates (planned):**
+- `rf-stage` — Stage enum, StageEvent, StageTrace, TimingResolver
+- `rf-ingest` — Adapter trait, registry, 3 ingest layers, Wizard
+- `rf-connector` — WebSocket/TCP connection, live event streaming
+- `adapters/rf-adapter-*` — Per-company adapters (IGT, Aristocrat, etc.)
+
+**Dokumentacija:**
+- `.claude/architecture/STAGE_INGEST_SYSTEM.md`
+- `.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md`
+
 ---
 
 Za detalje: `.claude/project/fluxforge-studio.md`

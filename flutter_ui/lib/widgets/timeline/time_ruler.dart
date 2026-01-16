@@ -30,6 +30,10 @@ class TimeRuler extends StatefulWidget {
   /// Called during scrub/drag on ruler (Cubase-style)
   final ValueChanged<double>? onTimeScrub;
   final VoidCallback? onLoopToggle;
+  /// Stage markers from game engine (displayed as triangles on ruler)
+  final List<StageMarker> stageMarkers;
+  /// Called when user clicks a stage marker
+  final ValueChanged<StageMarker>? onStageMarkerClick;
 
   const TimeRuler({
     super.key,
@@ -47,6 +51,8 @@ class TimeRuler extends StatefulWidget {
     this.onTimeClick,
     this.onTimeScrub,
     this.onLoopToggle,
+    this.stageMarkers = const [],
+    this.onStageMarkerClick,
   });
 
   @override
@@ -134,6 +140,7 @@ class _TimeRulerState extends State<TimeRuler> {
             hoverX: _isHovering ? _hoverX : -1,
             isDragging: _isDragging,
             isGlassMode: isGlassMode,
+            stageMarkers: widget.stageMarkers,
           ),
           size: Size(widget.width, 28),
         ),
@@ -184,6 +191,7 @@ class _TimeRulerPainter extends CustomPainter {
   final double hoverX;
   final bool isDragging;
   final bool isGlassMode;
+  final List<StageMarker> stageMarkers;
 
   _TimeRulerPainter({
     required this.zoom,
@@ -198,6 +206,7 @@ class _TimeRulerPainter extends CustomPainter {
     this.hoverX = -1,
     this.isDragging = false,
     this.isGlassMode = false,
+    this.stageMarkers = const [],
   });
 
   @override
@@ -258,6 +267,9 @@ class _TimeRulerPainter extends CustomPainter {
         hoverPaint,
       );
     }
+
+    // Stage markers (game engine events) - draw below playhead
+    _drawStageMarkers(canvas, size);
 
     // Playhead triangle (Cubase-style at top of ruler)
     final playheadX = (playheadPosition - scrollOffset) * zoom;
@@ -605,6 +617,64 @@ class _TimeRulerPainter extends CustomPainter {
     }
   }
 
+  /// Draw stage markers (game engine events) as colored triangles on top of ruler
+  void _drawStageMarkers(Canvas canvas, Size size) {
+    if (stageMarkers.isEmpty) return;
+
+    for (final marker in stageMarkers) {
+      final x = (marker.time - scrollOffset) * zoom;
+      if (x < -10 || x > size.width + 10) continue;
+
+      final color = marker.color;
+
+      // Draw small triangle pointing down at the top of the ruler
+      final trianglePath = Path()
+        ..moveTo(x - 4, 0)
+        ..lineTo(x + 4, 0)
+        ..lineTo(x, 8)
+        ..close();
+
+      final fillPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(trianglePath, fillPaint);
+
+      // Draw subtle vertical line from marker to ruler bottom
+      final linePaint = Paint()
+        ..color = color.withValues(alpha: 0.4)
+        ..strokeWidth = 1;
+
+      canvas.drawLine(
+        Offset(x, 8),
+        Offset(x, size.height - 10),
+        linePaint,
+      );
+
+      // Draw marker name if zoomed in enough
+      if (zoom >= 50 && marker.stageName.isNotEmpty) {
+        final textStyle = ui.TextStyle(
+          color: color,
+          fontSize: 8,
+          fontFamily: 'JetBrains Mono',
+        );
+
+        final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
+          textAlign: TextAlign.left,
+          fontSize: 8,
+        ))
+          ..pushStyle(textStyle)
+          ..addText(marker.stageName);
+
+        final paragraph = builder.build()
+          ..layout(const ui.ParagraphConstraints(width: 80));
+
+        // Position text to the right of the marker, avoid overlap
+        canvas.drawParagraph(paragraph, Offset(x + 6, 1));
+      }
+    }
+  }
+
   @override
   bool shouldRepaint(_TimeRulerPainter oldDelegate) =>
       zoom != oldDelegate.zoom ||
@@ -615,5 +685,6 @@ class _TimeRulerPainter extends CustomPainter {
       playheadPosition != oldDelegate.playheadPosition ||
       hoverX != oldDelegate.hoverX ||
       isDragging != oldDelegate.isDragging ||
-      isGlassMode != oldDelegate.isGlassMode;
+      isGlassMode != oldDelegate.isGlassMode ||
+      stageMarkers != oldDelegate.stageMarkers;
 }

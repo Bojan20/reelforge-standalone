@@ -5,6 +5,7 @@ members = [
     "crates/rf-dsp",
     "crates/rf-audio",
     "crates/rf-engine",
+    "crates/rf-event",
     "crates/rf-state",
     "crates/rf-bridge",
     "crates/rf-file",
@@ -18,6 +19,10 @@ members = [
     "crates/rf-master",
     "crates/rf-pitch",
     "crates/rf-realtime",
+    # Stage Ingest System
+    "crates/rf-stage",
+    "crates/rf-ingest",
+    "crates/rf-connector",
 ]
 
 [workspace.package]
@@ -46,6 +51,10 @@ rf-restore = { path = "crates/rf-restore" }
 rf-master = { path = "crates/rf-master" }
 rf-pitch = { path = "crates/rf-pitch" }
 rf-realtime = { path = "crates/rf-realtime" }
+rf-event = { path = "crates/rf-event" }
+rf-stage = { path = "crates/rf-stage" }
+rf-ingest = { path = "crates/rf-ingest" }
+rf-connector = { path = "crates/rf-connector" }
 
 # Plugin hosting
 vst3 = "0.3"
