@@ -509,6 +509,37 @@ impl VideoEngine {
         &self.tracks
     }
 
+    /// Set sample rate (must match audio engine)
+    pub fn set_sample_rate(&mut self, sr: SampleRate) {
+        self.sample_rate = sr;
+    }
+
+    /// Get playhead in samples
+    pub fn playhead_samples(&self) -> u64 {
+        self.playhead
+    }
+
+    /// Seek to sample position
+    pub fn seek_to_sample(&mut self, sample: u64) {
+        self.playhead = sample;
+        // Update all active players
+        for player in self.players.values_mut() {
+            let _ = player.seek_to_sample(sample);
+        }
+    }
+
+    /// Get frames skipped (sync metric)
+    pub fn frames_skipped(&self) -> u32 {
+        // TODO: Track actual skipped frames during playback
+        0
+    }
+
+    /// Get decode latency in ms (sync metric)
+    pub fn decode_latency_ms(&self) -> f32 {
+        // TODO: Track actual decode latency
+        0.0
+    }
+
     /// Generate thumbnails for clip
     pub fn generate_thumbnails(
         &mut self,

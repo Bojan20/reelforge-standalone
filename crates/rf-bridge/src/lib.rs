@@ -244,6 +244,50 @@ impl EngineBridge {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// INPUT LEVEL METERING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Get input peak levels (for recording meters)
+/// Returns (peak_l, peak_r) from the audio input stream
+pub fn get_input_peaks() -> (f32, f32) {
+    PLAYBACK.get_input_peaks()
+}
+
+/// C FFI: Get input peak levels (for recording meters)
+/// Returns stereo peak values via output pointers
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_input_peaks(out_peak_l: *mut f64, out_peak_r: *mut f64) -> i32 {
+    if out_peak_l.is_null() || out_peak_r.is_null() {
+        return 0;
+    }
+
+    let (peak_l, peak_r) = PLAYBACK.get_input_peaks();
+
+    unsafe {
+        *out_peak_l = peak_l as f64;
+        *out_peak_r = peak_r as f64;
+    }
+
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INPUT MONITORING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// C FFI: Enable/disable input monitoring (hear input through output)
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_set_input_monitoring(enabled: i32) {
+    PLAYBACK.set_input_monitoring(enabled != 0);
+}
+
+/// C FFI: Check if input monitoring is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn audio_get_input_monitoring() -> i32 {
+    if PLAYBACK.is_input_monitoring() { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // C FFI RE-EXPORTS FROM RF-ENGINE
 // These functions are defined in rf-engine/src/ffi.rs and need to be accessible
 // through librf_bridge.dylib for Flutter dart:ffi direct calls.

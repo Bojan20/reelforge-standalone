@@ -189,7 +189,7 @@ class _LowerZoneState extends State<LowerZone> {
               child: Row(
                 children: widget.tabGroups != null
                     ? _buildGroupedTabs(activeId, activeGroup?.id)
-                    : widget.tabs.map((tab) => _buildTab(tab, activeId)).toList(),
+                    : widget.tabs.map((tab) => _buildTabSimple(tab, activeId)).toList(),
               ),
             ),
           ),
@@ -209,86 +209,166 @@ class _LowerZoneState extends State<LowerZone> {
   }
 
   List<Widget> _buildGroupedTabs(String activeId, String? activeGroupId) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRO DAW STYLE - Clear group separation with visual hierarchy
+    // Group buttons are LARGE and distinct from tabs inside them
+    // ═══════════════════════════════════════════════════════════════════════
     final List<Widget> widgets = [];
+
+    // Group colors for visual distinction
+    const groupColors = {
+      'mix': Color(0xFF4A9EFF),      // Blue
+      'edit': Color(0xFFFF9040),      // Orange
+      'analyze': Color(0xFF40FF90),   // Green
+      'process': Color(0xFFFF4080),   // Pink/Red
+      'media': Color(0xFFFFD040),     // Yellow
+      'advanced': Color(0xFFB040FF),  // Purple
+    };
+
+    // Group icons
+    const groupIcons = {
+      'mix': Icons.tune,
+      'edit': Icons.edit,
+      'analyze': Icons.analytics,
+      'process': Icons.memory,
+      'media': Icons.perm_media,
+      'advanced': Icons.science,
+    };
 
     for (int i = 0; i < widget.tabGroups!.length; i++) {
       final group = widget.tabGroups![i];
       final groupTabs = widget.tabs.where((t) => group.tabs.contains(t.id)).toList();
-      final isActiveGroup = activeGroupId == group.id;
-      final hasMultipleTabs = groupTabs.length > 1;
 
-      // Separator between groups
-      if (i > 0) {
-        widgets.add(Container(
-          width: 1,
-          height: 20,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          color: FluxForgeTheme.borderSubtle,
-        ));
+      if (groupTabs.isEmpty) continue;
+
+      final isActiveGroup = group.id == activeGroupId;
+      final groupColor = groupColors[group.id] ?? FluxForgeTheme.accentBlue;
+      final groupIcon = groupIcons[group.id] ?? Icons.folder;
+
+      // Group separator
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(width: 8));
       }
 
-      if (hasMultipleTabs) {
-        // Group with dropdown
-        widgets.add(_buildGroupDropdown(group, groupTabs, isActiveGroup, activeId));
-      } else if (groupTabs.isNotEmpty) {
-        // Single tab in group
-        widgets.add(_buildTab(groupTabs.first, activeId));
+      // ════════════════════════════════════════════════════════════════════
+      // GROUP BUTTON - Large, distinct, clickable to select first tab in group
+      // ════════════════════════════════════════════════════════════════════
+      widgets.add(
+        GestureDetector(
+          onTap: () {
+            // Click group button -> select first tab in group
+            if (groupTabs.isNotEmpty) {
+              widget.onTabChange?.call(groupTabs.first.id);
+            }
+          },
+          child: Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              // Active group: bright background with strong color
+              // Inactive group: subtle background
+              gradient: isActiveGroup
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        groupColor.withOpacity(0.35),
+                        groupColor.withOpacity(0.2),
+                      ],
+                    )
+                  : null,
+              color: isActiveGroup ? null : FluxForgeTheme.bgDeepest.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isActiveGroup
+                    ? groupColor.withOpacity(0.7)
+                    : FluxForgeTheme.borderSubtle.withOpacity(0.4),
+                width: isActiveGroup ? 1.5 : 1,
+              ),
+              boxShadow: isActiveGroup
+                  ? [
+                      BoxShadow(
+                        color: groupColor.withOpacity(0.2),
+                        blurRadius: 6,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  groupIcon,
+                  size: 14,
+                  color: isActiveGroup ? groupColor : FluxForgeTheme.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  group.label.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isActiveGroup ? FontWeight.w800 : FontWeight.w600,
+                    color: isActiveGroup ? groupColor : FluxForgeTheme.textTertiary,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // ════════════════════════════════════════════════════════════════════
+      // TABS INSIDE GROUP - Only show if this group is active
+      // Smaller, subdued compared to group button
+      // ════════════════════════════════════════════════════════════════════
+      if (isActiveGroup && groupTabs.length > 1) {
+        widgets.add(
+          Container(
+            height: 28,
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: groupColor.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: groupTabs.map((tab) => _buildTab(tab, activeId, groupColor, isActiveGroup)).toList(),
+            ),
+          ),
+        );
       }
     }
 
     return widgets;
   }
 
-  Widget _buildGroupDropdown(TabGroup group, List<LowerZoneTab> groupTabs, bool isActiveGroup, String activeId) {
-    return PopupMenuButton<String>(
-      onSelected: (tabId) {
-        widget.onTabChange?.call(tabId);
-      },
-      offset: const Offset(0, 28),
-      color: FluxForgeTheme.bgElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: FluxForgeTheme.borderSubtle),
-      ),
-      itemBuilder: (context) => groupTabs.map((tab) {
-        final isActive = activeId == tab.id;
-        return PopupMenuItem<String>(
-          value: tab.id,
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            decoration: BoxDecoration(
-              color: isActive ? FluxForgeTheme.accentBlue : Colors.transparent,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (tab.icon != null) ...[
-                  Icon(tab.icon!, size: 12, color: isActive ? Colors.white : FluxForgeTheme.textSecondary),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  tab.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isActive ? Colors.white : FluxForgeTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
+  Widget _buildTab(LowerZoneTab tab, String activeId, Color groupColor, bool isActiveGroup) {
+    final isActive = tab.id == activeId;
+
+    // Tabs inside group are SMALLER and more subdued than the group button
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => widget.onTabChange?.call(tab.id),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
         decoration: BoxDecoration(
-          color: isActiveGroup ? FluxForgeTheme.bgElevated : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
+          // Active tab: light background with underline indicator
+          color: isActive
+              ? groupColor.withOpacity(0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
           border: Border(
             bottom: BorderSide(
-              color: isActiveGroup ? FluxForgeTheme.accentBlue : Colors.transparent,
+              color: isActive ? groupColor : Colors.transparent,
               width: 2,
             ),
           ),
@@ -296,19 +376,25 @@ class _LowerZoneState extends State<LowerZone> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              group.label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isActiveGroup ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                fontWeight: isActiveGroup ? FontWeight.w600 : FontWeight.normal,
+            if (tab.icon != null) ...[
+              Icon(
+                tab.icon!,
+                size: 11,
+                color: isActive
+                    ? groupColor
+                    : FluxForgeTheme.textTertiary,
               ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 14,
-              color: isActiveGroup ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
+              const SizedBox(width: 3),
+            ],
+            Text(
+              tab.label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isActive
+                    ? groupColor
+                    : FluxForgeTheme.textTertiary,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
           ],
         ),
@@ -316,7 +402,8 @@ class _LowerZoneState extends State<LowerZone> {
     );
   }
 
-  Widget _buildTab(LowerZoneTab tab, String activeId) {
+  /// Simple tab for fallback when no groups defined
+  Widget _buildTabSimple(LowerZoneTab tab, String activeId) {
     final isActive = tab.id == activeId;
 
     return GestureDetector(

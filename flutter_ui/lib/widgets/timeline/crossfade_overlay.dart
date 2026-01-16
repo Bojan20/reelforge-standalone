@@ -14,7 +14,10 @@ class CrossfadeOverlay extends StatefulWidget {
   final double zoom;
   final double scrollOffset;
   final double height;
+  /// Called when duration changes (legacy - right edge only)
   final ValueChanged<double>? onUpdate;
+  /// Called when startTime and/or duration changes (full resize support)
+  final void Function(double startTime, double duration)? onFullUpdate;
   final VoidCallback? onDelete;
 
   const CrossfadeOverlay({
@@ -24,6 +27,7 @@ class CrossfadeOverlay extends StatefulWidget {
     required this.scrollOffset,
     required this.height,
     this.onUpdate,
+    this.onFullUpdate,
     this.onDelete,
   });
 
@@ -35,6 +39,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
   bool _isDragging = false;
   String? _dragEdge;
   double _startDuration = 0;
+  double _startStartTime = 0;
   double _startX = 0;
 
   @override
@@ -83,6 +88,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
                     onHorizontalDragStart: (details) {
                       _startX = details.globalPosition.dx;
                       _startDuration = widget.crossfade.duration;
+                      _startStartTime = widget.crossfade.startTime;
                       setState(() {
                         _isDragging = true;
                         _dragEdge = 'left';
@@ -91,10 +97,16 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
                     onHorizontalDragUpdate: (details) {
                       if (_dragEdge == 'left') {
                         final deltaX = details.globalPosition.dx - _startX;
-                        final deltaTime = -deltaX / widget.zoom;
-                        final newDuration =
-                            (_startDuration + deltaTime).clamp(0.1, double.infinity);
-                        widget.onUpdate?.call(newDuration);
+                        final deltaTime = deltaX / widget.zoom;
+                        // Moving left edge: startTime changes, duration changes inversely
+                        final newStartTime = (_startStartTime + deltaTime).clamp(0.0, double.infinity);
+                        final newDuration = (_startDuration - deltaTime).clamp(0.1, double.infinity);
+                        // Use full update if available, otherwise legacy
+                        if (widget.onFullUpdate != null) {
+                          widget.onFullUpdate!(newStartTime, newDuration);
+                        } else {
+                          widget.onUpdate?.call(newDuration);
+                        }
                       }
                     },
                     onHorizontalDragEnd: (_) {

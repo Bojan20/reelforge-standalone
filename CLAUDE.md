@@ -695,11 +695,15 @@ flutter run --profile          # UI performance
 - ✅ Undo/Redo (command pattern)
 - ✅ Project save/load
 
-### Pending (TIER 3)
-- ⬜ Plugin hosting (VST3/AU/CLAP)
-- ⬜ Recording system
-- ⬜ Offline export/render
-- ⬜ Sidechain routing
+### Recording & Export
+- ✅ Recording system (arm, punch-in/out, pre-roll, auto-arm)
+- ✅ Offline export/render (WAV/FLAC/MP3, stems, normalize)
+- ✅ Sidechain routing (external/internal, filter, M/S, monitor)
+
+### Plugin & Workflow (TIER 4)
+- ✅ Plugin hosting (VST3/AU/CLAP scanner, instances, editor)
+- ✅ Take lanes / Comping (recording lanes, takes, comp regions)
+- ✅ Tempo track / Time warp (tempo map, time signatures, grid)
 
 ---
 

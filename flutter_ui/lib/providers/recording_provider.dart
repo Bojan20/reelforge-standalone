@@ -41,6 +41,9 @@ class RecordingProvider extends ChangeNotifier {
   bool _autoArmEnabled = false;
   double _autoArmThresholdDb = -40.0;
 
+  // Auto-disarm after punch-out
+  bool _autoDisarmAfterPunchOut = true;
+
   // Getters
   bool get isRecording => _isRecording;
   String get outputDir => _outputDir;
@@ -63,6 +66,7 @@ class RecordingProvider extends ChangeNotifier {
   // Auto-arm getters
   bool get autoArmEnabled => _autoArmEnabled;
   double get autoArmThresholdDb => _autoArmThresholdDb;
+  bool get autoDisarmAfterPunchOut => _autoDisarmAfterPunchOut;
 
   /// Initialize recording system
   Future<void> initialize() async {
@@ -302,6 +306,30 @@ class RecordingProvider extends ChangeNotifier {
   void removePendingAutoArm(int trackId) {
     if (_ffi.isLoaded) {
       _ffi.recordingRemovePendingAutoArm(trackId);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-DISARM AFTER PUNCH-OUT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Enable/disable auto-disarm after punch-out
+  void setAutoDisarmAfterPunchOut(bool enabled) {
+    _autoDisarmAfterPunchOut = enabled;
+    notifyListeners();
+  }
+
+  /// Called when punch-out occurs - disarms all tracks if auto-disarm is enabled
+  Future<void> onPunchOut() async {
+    if (_autoDisarmAfterPunchOut) {
+      // Stop recording and disarm all tracks
+      await stopRecording();
+
+      // Disarm all armed tracks
+      final tracksToDisarm = List<int>.from(_armedTracks.keys);
+      for (final trackId in tracksToDisarm) {
+        await disarmTrack(trackId);
+      }
     }
   }
 }

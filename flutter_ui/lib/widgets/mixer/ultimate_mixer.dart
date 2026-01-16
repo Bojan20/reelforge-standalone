@@ -186,6 +186,8 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, int sendIndex, String? destination)? onSendDestChange;
   final void Function(String channelId, int insertIndex)? onInsertClick;
   final void Function(String channelId, String outputBus)? onOutputChange;
+  final void Function(String channelId)? onPhaseToggle;
+  final void Function(String channelId, double gain)? onGainChange;
   final VoidCallback? onAddBus;
 
   const UltimateMixer({
@@ -212,6 +214,8 @@ class UltimateMixer extends StatefulWidget {
     this.onSendDestChange,
     this.onInsertClick,
     this.onOutputChange,
+    this.onPhaseToggle,
+    this.onGainChange,
     this.onAddBus,
   });
 
@@ -291,6 +295,8 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onSendPreFaderToggle: (idx, pre) => widget.onSendPreFaderToggle?.call(ch.id, idx, pre),
                         onSendDestChange: (idx, dest) => widget.onSendDestChange?.call(ch.id, idx, dest),
                         onInsertClick: (idx) => widget.onInsertClick?.call(ch.id, idx),
+                        onPhaseToggle: () => widget.onPhaseToggle?.call(ch.id),
+                        onGainChange: (g) => widget.onGainChange?.call(ch.id, g),
                       ),
                     )),
                     const _SectionDivider(),
@@ -464,6 +470,8 @@ class _UltimateChannelStrip extends StatefulWidget {
   final void Function(int index, bool preFader)? onSendPreFaderToggle;
   final void Function(int index, String? destination)? onSendDestChange;
   final void Function(int index)? onInsertClick;
+  final VoidCallback? onPhaseToggle;
+  final ValueChanged<double>? onGainChange;
 
   const _UltimateChannelStrip({
     super.key,
@@ -487,6 +495,8 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onSendPreFaderToggle,
     this.onSendDestChange,
     this.onInsertClick,
+    this.onPhaseToggle,
+    this.onGainChange,
   });
 
   @override
@@ -563,6 +573,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     ),
                   ),
                 ),
+                // Input section (gain + phase invert)
+                if (widget.showInput)
+                  _buildInputSection(),
                 // Insert slots (always shown when enabled)
                 if (widget.showInserts)
                   _buildInsertSection(),
@@ -581,6 +594,84 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             ),
           ),
         ),
+    );
+  }
+
+  /// Input section: Gain knob + Phase Invert button
+  Widget _buildInputSection() {
+    final input = widget.channel.input;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.3)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Phase Invert button (Ø symbol)
+          GestureDetector(
+            onTap: widget.onPhaseToggle,
+            child: Tooltip(
+              message: 'Phase Invert',
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: input.phaseInvert
+                      ? FluxForgeTheme.accentOrange.withOpacity(0.8)
+                      : FluxForgeTheme.bgVoid.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: input.phaseInvert
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.borderSubtle,
+                    width: 0.5,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    'Ø',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: input.phaseInvert
+                          ? Colors.white
+                          : FluxForgeTheme.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Gain value display
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'GAIN',
+                style: TextStyle(
+                  fontSize: 7,
+                  fontWeight: FontWeight.w600,
+                  color: FluxForgeTheme.textTertiary,
+                ),
+              ),
+              Text(
+                '${input.gain >= 0 ? '+' : ''}${input.gain.toStringAsFixed(1)}',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  color: input.gain.abs() > 0.1
+                      ? FluxForgeTheme.accentCyan
+                      : FluxForgeTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -854,38 +945,57 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     ),
                   ),
                 ),
-                // Fader cap
+                // Fader cap — Pro DAW standard: 32px height for easy grab
                 Positioned(
-                  left: meterWidth - 2,
-                  right: meterWidth - 2,
-                  top: 4 + (1.0 - widget.volume / 1.5) * (height - 24),
+                  left: meterWidth - 4,
+                  right: meterWidth - 4,
+                  top: 4 + (1.0 - widget.volume / 1.5) * (height - 40),
                   child: Container(
-                    height: 16,
+                    height: 32,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.grey.shade300,
+                          Colors.grey.shade200,
+                          Colors.grey.shade400,
                           Colors.grey.shade500,
                           Colors.grey.shade400,
+                          Colors.grey.shade300,
                         ],
+                        stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                       ),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: _isDragging
+                            ? FluxForgeTheme.accentBlue
+                            : Colors.grey.shade600,
+                        width: 0.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: FluxForgeTheme.bgVoid.withOpacity(0.3),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
+                          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Container(
-                        width: 8,
-                        height: 1,
-                        color: FluxForgeTheme.bgVoid.withOpacity(0.3),
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Fader cap grip lines (3 lines for tactile feel)
+                        for (int i = 0; i < 3; i++) ...[
+                          Container(
+                            width: 12,
+                            height: 1,
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(0.5),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

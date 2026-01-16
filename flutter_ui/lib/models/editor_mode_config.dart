@@ -127,9 +127,9 @@ const EditorModeLayoutConfig dawModeConfig = EditorModeLayoutConfig(
   mode: EditorMode.daw,
   lowerZone: LowerZoneConfig(
     defaultTab: 'mixer',
-    visibleGroups: ['mixconsole', 'clip-editor', 'sampler', 'media', 'dsp'],
+    visibleGroups: ['mix', 'edit', 'analyze', 'process', 'media', 'advanced'],
     hiddenTabs: ['timeline'], // Timeline is in center zone
-    groupOrder: ['mixconsole', 'clip-editor', 'sampler', 'media', 'dsp'],
+    groupOrder: ['mix', 'edit', 'analyze', 'process', 'media', 'advanced'],
   ),
   leftZone: LeftZoneConfig(
     defaultExpanded: ['audio-files', 'buses'],

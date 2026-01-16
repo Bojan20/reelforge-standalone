@@ -22,6 +22,18 @@ class TransportState {
   final double volume;
   final String? currentAssetId;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRO DAW FEATURES: Metronome, Pre-roll, Count-in, Tempo
+  // ═══════════════════════════════════════════════════════════════════════════
+  final bool metronomeEnabled;
+  final double metronomeVolume;
+  final bool preRollEnabled;
+  final int preRollBars;
+  final bool countInEnabled;
+  final int countInBars;
+  final double tempo;
+  final bool isRecording;
+
   const TransportState({
     this.isPlaying = false,
     this.isPaused = false,
@@ -30,6 +42,15 @@ class TransportState {
     this.looping = false,
     this.volume = 1,
     this.currentAssetId,
+    // Pro features
+    this.metronomeEnabled = false,
+    this.metronomeVolume = 0.8,
+    this.preRollEnabled = false,
+    this.preRollBars = 2,
+    this.countInEnabled = false,
+    this.countInBars = 1,
+    this.tempo = 120.0,
+    this.isRecording = false,
   });
 
   TransportState copyWith({
@@ -40,6 +61,14 @@ class TransportState {
     bool? looping,
     double? volume,
     String? currentAssetId,
+    bool? metronomeEnabled,
+    double? metronomeVolume,
+    bool? preRollEnabled,
+    int? preRollBars,
+    bool? countInEnabled,
+    int? countInBars,
+    double? tempo,
+    bool? isRecording,
   }) {
     return TransportState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -49,6 +78,14 @@ class TransportState {
       looping: looping ?? this.looping,
       volume: volume ?? this.volume,
       currentAssetId: currentAssetId ?? this.currentAssetId,
+      metronomeEnabled: metronomeEnabled ?? this.metronomeEnabled,
+      metronomeVolume: metronomeVolume ?? this.metronomeVolume,
+      preRollEnabled: preRollEnabled ?? this.preRollEnabled,
+      preRollBars: preRollBars ?? this.preRollBars,
+      countInEnabled: countInEnabled ?? this.countInEnabled,
+      countInBars: countInBars ?? this.countInBars,
+      tempo: tempo ?? this.tempo,
+      isRecording: isRecording ?? this.isRecording,
     );
   }
 }
@@ -66,6 +103,17 @@ class TransportControls extends StatefulWidget {
   final bool disabled;
   final bool compact;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRO DAW CALLBACKS
+  // ═══════════════════════════════════════════════════════════════════════════
+  final VoidCallback? onMetronomeToggle;
+  final ValueChanged<double>? onMetronomeVolumeChange;
+  final VoidCallback? onPreRollToggle;
+  final VoidCallback? onCountInToggle;
+  final ValueChanged<double>? onTempoChange;
+  final VoidCallback? onTapTempo;
+  final VoidCallback? onRecord;
+
   const TransportControls({
     super.key,
     required this.state,
@@ -77,6 +125,14 @@ class TransportControls extends StatefulWidget {
     this.onLoopToggle,
     this.disabled = false,
     this.compact = false,
+    // Pro callbacks
+    this.onMetronomeToggle,
+    this.onMetronomeVolumeChange,
+    this.onPreRollToggle,
+    this.onCountInToggle,
+    this.onTempoChange,
+    this.onTapTempo,
+    this.onRecord,
   });
 
   @override
@@ -88,10 +144,45 @@ class _TransportControlsState extends State<TransportControls> {
   double _dragTime = 0;
   final FocusNode _focusNode = FocusNode();
 
+  // Tap Tempo tracking
+  final List<DateTime> _tapTimes = [];
+  static const int _maxTaps = 4;
+
   @override
   void dispose() {
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Handle tap tempo — calculate BPM from tap intervals
+  void _handleTapTempo() {
+    final now = DateTime.now();
+
+    // Remove old taps (older than 2 seconds)
+    _tapTimes.removeWhere((t) => now.difference(t).inMilliseconds > 2000);
+
+    _tapTimes.add(now);
+
+    if (_tapTimes.length >= 2) {
+      // Calculate average interval
+      double totalMs = 0;
+      for (int i = 1; i < _tapTimes.length; i++) {
+        totalMs += _tapTimes[i].difference(_tapTimes[i - 1]).inMilliseconds;
+      }
+      final avgMs = totalMs / (_tapTimes.length - 1);
+      final bpm = 60000.0 / avgMs;
+
+      // Clamp to reasonable range
+      final clampedBpm = bpm.clamp(20.0, 300.0);
+      widget.onTempoChange?.call(clampedBpm);
+    }
+
+    // Keep only last N taps
+    while (_tapTimes.length > _maxTaps) {
+      _tapTimes.removeAt(0);
+    }
+
+    widget.onTapTempo?.call();
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
@@ -110,6 +201,15 @@ class _TransportControlsState extends State<TransportControls> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyL:
         widget.onLoopToggle?.call();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyM:
+        widget.onMetronomeToggle?.call();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyR:
+        widget.onRecord?.call();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyT:
+        _handleTapTempo();
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -147,6 +247,10 @@ class _TransportControlsState extends State<TransportControls> {
 
             // Time display
             _buildTimeDisplay(),
+            const SizedBox(width: 12),
+
+            // Tempo display with tap tempo
+            _buildTempoDisplay(),
             const SizedBox(width: 16),
 
             // Seek bar
@@ -169,6 +273,7 @@ class _TransportControlsState extends State<TransportControls> {
 
   Widget _buildTransportButtons() {
     final isPlaying = widget.state.isPlaying && !widget.state.isPaused;
+    final isRecording = widget.state.isRecording;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -193,6 +298,16 @@ class _TransportControlsState extends State<TransportControls> {
         ),
         const SizedBox(width: 4),
 
+        // Record
+        _TransportButton(
+          icon: Icons.fiber_manual_record,
+          onPressed: widget.disabled ? null : widget.onRecord,
+          tooltip: 'Record (R)',
+          active: isRecording,
+          recordButton: true,
+        ),
+        const SizedBox(width: 4),
+
         // Loop
         _TransportButton(
           icon: Icons.loop,
@@ -200,26 +315,80 @@ class _TransportControlsState extends State<TransportControls> {
           tooltip: 'Loop (L)',
           active: widget.state.looping,
         ),
+        const SizedBox(width: 8),
+
+        // Separator
+        Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
+        const SizedBox(width: 8),
+
+        // Metronome
+        _TransportButton(
+          icon: Icons.timer,
+          onPressed: widget.disabled ? null : widget.onMetronomeToggle,
+          tooltip: 'Metronome (M)',
+          active: widget.state.metronomeEnabled,
+          small: true,
+        ),
+        const SizedBox(width: 4),
+
+        // Pre-roll
+        _TransportButton(
+          icon: Icons.skip_previous,
+          onPressed: widget.disabled ? null : widget.onPreRollToggle,
+          tooltip: 'Pre-roll (${widget.state.preRollBars} bars)',
+          active: widget.state.preRollEnabled,
+          small: true,
+        ),
+        const SizedBox(width: 4),
+
+        // Count-in
+        _TransportButton(
+          icon: Icons.timer_outlined,
+          onPressed: widget.disabled ? null : widget.onCountInToggle,
+          tooltip: 'Count-in (${widget.state.countInBars} bars)',
+          active: widget.state.countInEnabled,
+          small: true,
+        ),
       ],
     );
   }
 
   Widget _buildTimeDisplay() {
+    final isRecording = widget.state.isRecording;
+    final timeColor = isRecording ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgVoid,
+        color: isRecording
+            ? FluxForgeTheme.accentRed.withValues(alpha: 0.15)
+            : FluxForgeTheme.bgVoid,
         borderRadius: BorderRadius.circular(4),
+        border: isRecording
+            ? Border.all(color: FluxForgeTheme.accentRed.withValues(alpha: 0.5))
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Recording indicator
+          if (isRecording) ...[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentRed,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           Text(
             _formatTime(_displayTime),
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 14,
-              color: FluxForgeTheme.textPrimary,
+              color: timeColor,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -233,6 +402,75 @@ class _TransportControlsState extends State<TransportControls> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Tempo display with tap tempo button
+  Widget _buildTempoDisplay() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Tempo value (editable on tap)
+        GestureDetector(
+          onTap: _handleTapTempo,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgVoid,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.speed,
+                  size: 14,
+                  color: FluxForgeTheme.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${widget.state.tempo.toStringAsFixed(1)} BPM',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: FluxForgeTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+
+        // Tap tempo button
+        Tooltip(
+          message: 'Tap Tempo (T)',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _handleTapTempo,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgSurface,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                ),
+                child: Text(
+                  'TAP',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: FluxForgeTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -392,6 +630,7 @@ class _TransportButton extends StatelessWidget {
   final bool active;
   final bool primary;
   final bool small;
+  final bool recordButton;
 
   const _TransportButton({
     required this.icon,
@@ -400,10 +639,14 @@ class _TransportButton extends StatelessWidget {
     this.active = false,
     this.primary = false,
     this.small = false,
+    this.recordButton = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Record button uses red accent color
+    final accentColor = recordButton ? FluxForgeTheme.accentRed : FluxForgeTheme.accentBlue;
+
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -416,23 +659,23 @@ class _TransportButton extends StatelessWidget {
             height: small ? 28 : 36,
             decoration: BoxDecoration(
               color: active
-                  ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                  ? accentColor.withValues(alpha: 0.2)
                   : FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: active
-                    ? FluxForgeTheme.accentBlue
-                    : FluxForgeTheme.borderSubtle,
+                color: active ? accentColor : FluxForgeTheme.borderSubtle,
               ),
             ),
             child: Icon(
               icon,
               size: small ? 16 : 20,
               color: active
-                  ? FluxForgeTheme.accentBlue
-                  : primary
-                      ? FluxForgeTheme.textPrimary
-                      : FluxForgeTheme.textSecondary,
+                  ? accentColor
+                  : recordButton
+                      ? FluxForgeTheme.accentRed.withValues(alpha: 0.6)
+                      : primary
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
             ),
           ),
         ),

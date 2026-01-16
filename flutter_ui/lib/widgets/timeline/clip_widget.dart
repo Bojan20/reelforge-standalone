@@ -851,8 +851,12 @@ class _UltimateClipWaveform extends StatefulWidget {
 }
 
 class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
-  // FIXED SIZE cache - render ONCE at fixed resolution, GPU scales during zoom
-  // 1024 gives good transient detail while staying fast
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GPU OPTIMIZATION: Fixed resolution cache with pre-computed combined L+R
+  // - Render ONCE at fixed resolution, GPU scales during zoom
+  // - Combined L+R computed in _loadCacheOnce(), not in build()
+  // - Zero allocations during build/paint cycle
+  // ═══════════════════════════════════════════════════════════════════════════
   static const int _fixedPixels = 1024;
 
   // Stereo data cache (L/R channels)
@@ -860,6 +864,11 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   int _cachedClipId = 0;
   double _cachedSourceOffset = -1;
   double _cachedDuration = -1;
+
+  // PRE-COMPUTED combined L+R (avoids allocation in build())
+  Float32List? _combinedMins;
+  Float32List? _combinedMaxs;
+  Float32List? _combinedRms;
 
   @override
   void initState() {
@@ -908,6 +917,21 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       _cachedClipId = clipIdNum;
       _cachedSourceOffset = widget.sourceOffset;
       _cachedDuration = widget.duration;
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // PRE-COMPUTE combined L+R here — NOT in build()!
+      // This eliminates Float32List allocation during rendering
+      // ═══════════════════════════════════════════════════════════════════════
+      final len = stereoData.left.mins.length;
+      _combinedMins = Float32List(len);
+      _combinedMaxs = Float32List(len);
+      _combinedRms = Float32List(len);
+
+      for (int i = 0; i < len; i++) {
+        _combinedMins![i] = math.min(stereoData.left.mins[i], stereoData.right.mins[i]);
+        _combinedMaxs![i] = math.max(stereoData.left.maxs[i], stereoData.right.maxs[i]);
+        _combinedRms![i] = (stereoData.left.rms[i] + stereoData.right.rms[i]) * 0.5;
+      }
     }
   }
 
@@ -947,34 +971,25 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         );
       }
 
-      // Default: Combined L+R display (mono-style, works at any height)
-      // Combine left and right channels for accurate stereo representation
-      final combinedMins = Float32List(_cachedStereoData!.left.mins.length);
-      final combinedMaxs = Float32List(_cachedStereoData!.left.maxs.length);
-      final combinedRms = Float32List(_cachedStereoData!.left.rms.length);
-      for (int i = 0; i < combinedMins.length; i++) {
-        // Take the most extreme values from both channels
-        combinedMins[i] = math.min(_cachedStereoData!.left.mins[i], _cachedStereoData!.right.mins[i]);
-        combinedMaxs[i] = math.max(_cachedStereoData!.left.maxs[i], _cachedStereoData!.right.maxs[i]);
-        combinedRms[i] = (_cachedStereoData!.left.rms[i] + _cachedStereoData!.right.rms[i]) / 2;
-      }
-
-      return RepaintBoundary(
-        child: ClipRect(
-          child: Transform.scale(
-            scaleY: widget.gain,
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _CubaseWaveformPainter(
-                mins: combinedMins,
-                maxs: combinedMaxs,
-                rms: combinedRms,
-                color: waveColor,
+      // Default: Combined L+R display (pre-computed, zero allocation)
+      if (_combinedMins != null) {
+        return RepaintBoundary(
+          child: ClipRect(
+            child: Transform.scale(
+              scaleY: widget.gain,
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _CubaseWaveformPainter(
+                  mins: _combinedMins!,
+                  maxs: _combinedMaxs!,
+                  rms: _combinedRms!,
+                  color: waveColor,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     // Fallback - simple legacy waveform
@@ -983,7 +998,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         child: Transform.scale(
           scaleY: widget.gain,
           child: CustomPaint(
-            size: Size.infinite, // Fill entire available space
+            size: Size.infinite,
             painter: _WaveformPainter(
               waveform: widget.waveform,
               sourceOffset: widget.sourceOffset,
@@ -1003,6 +1018,11 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 // - Thin dark outline around peaks (amplitude marker)
 // - Min/Max vertical lines per pixel column
 // - Uses Path for GPU-accelerated rendering (no per-pixel draw calls)
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// GPU OPTIMIZATION: Path objects are cached and only rebuilt when size changes
+// Paint objects are pre-allocated in constructor — zero allocations in paint()
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _CubaseWaveformPainter extends CustomPainter {
   final Float32List mins;
@@ -1010,103 +1030,109 @@ class _CubaseWaveformPainter extends CustomPainter {
   final Float32List rms;
   final Color color;
 
+  // Cached Path objects — rebuilt only on size change
+  Path? _cachedWavePath;
+  Path? _cachedRmsPath;
+  Size? _cachedSize;
+
+  // Pre-allocated Paint objects (zero allocation in paint())
+  late final Paint _rmsFillPaint;
+  late final Paint _peakFillPaint;
+  late final Paint _peakStrokePaint;
+  late final Paint _centerLinePaint;
+
   _CubaseWaveformPainter({
     required this.mins,
     required this.maxs,
     required this.rms,
     required this.color,
-  });
+  }) {
+    // Initialize paints ONCE in constructor
+    _rmsFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakStrokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true;
+
+    _centerLinePaint = Paint()
+      ..color = color.withValues(alpha: 0.08)
+      ..strokeWidth = 0.5;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (mins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
+    // GPU OPTIMIZATION: Only rebuild paths when size changes
+    if (_cachedWavePath == null || _cachedSize != size) {
+      _rebuildPaths(size);
+      _cachedSize = size;
+    }
+
+    final centerY = size.height / 2;
+
+    // 1. Draw RMS body FIRST (smaller, darker) - the "mass" of sound
+    if (_cachedRmsPath != null) {
+      canvas.drawPath(_cachedRmsPath!, _rmsFillPaint);
+    }
+
+    // 2. Draw PEAK fill - lighter, shows transient extent above RMS
+    canvas.drawPath(_cachedWavePath!, _peakFillPaint);
+
+    // 3. Draw SHARP peak outline - bright, crisp transient spikes
+    canvas.drawPath(_cachedWavePath!, _peakStrokePaint);
+
+    // 4. Center line (zero crossing) - very subtle
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _centerLinePaint);
+  }
+
+  /// Build and cache Path objects — called only when size changes
+  void _rebuildPaths(Size size) {
     final centerY = size.height / 2;
     final amplitude = centerY * 0.7;
     final numSamples = mins.length;
-    final scaleX = size.width / numSamples;
-
-    // ══════════════════════════════════════════════════════════════════
-    // CUBASE STYLE RENDERING:
-    // 1. Build filled polygon from min/max envelope (GPU path)
-    // 2. Add gradient shading effect
-    // 3. Draw thin outline for peak definition
-    // ══════════════════════════════════════════════════════════════════
-
-    // Build waveform envelope path (true min/max, not rectified)
-    // Top edge follows MAX values, bottom edge follows MIN values
-    // IMPORTANT: Scale X so that sample 0 = x:0, sample N-1 = x:width
-    final wavePath = Path();
 
     // Helper to map sample index to X coordinate (fills entire width)
     double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
 
-    // Start at first max point (x = 0)
-    wavePath.moveTo(0, centerY - maxs[0] * amplitude);
+    // Build waveform envelope path
+    _cachedWavePath = Path();
+    _cachedWavePath!.moveTo(0, centerY - maxs[0] * amplitude);
 
-    // Draw top edge (max values) left to right
     for (int i = 1; i < numSamples; i++) {
-      wavePath.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
+      _cachedWavePath!.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
     }
 
-    // Draw bottom edge (min values) right to left
     for (int i = numSamples - 1; i >= 0; i--) {
-      wavePath.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
+      _cachedWavePath!.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
     }
+    _cachedWavePath!.close();
 
-    wavePath.close();
-
-    // ══════════════════════════════════════════════════════════════════
-    // PRO TOOLS / CUBASE STYLE — SHARP TRANSIENT PEAKS
-    // ══════════════════════════════════════════════════════════════════
-    // Key: RMS is small/dark body, PEAKS are bright spikes above
-    // This makes transients "pop" visually
-
-    // 1. Draw RMS body FIRST (smaller, darker) - the "mass" of sound
+    // Build RMS path (smaller body)
     if (rms.isNotEmpty) {
-      final rmsPath = Path();
-      // RMS is scaled down to ~45% to leave room for peak spikes
-      final rmsScale = 0.45;
-      rmsPath.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
+      const rmsScale = 0.45;
+      _cachedRmsPath = Path();
+      _cachedRmsPath!.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
 
       for (int i = 1; i < numSamples; i++) {
-        rmsPath.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
       }
 
       for (int i = numSamples - 1; i >= 0; i--) {
-        rmsPath.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
       }
-
-      rmsPath.close();
-
-      // RMS body - solid dark fill
-      canvas.drawPath(rmsPath, Paint()
-        ..color = color.withValues(alpha: 0.7)
-        ..style = PaintingStyle.fill
-        ..isAntiAlias = true);
+      _cachedRmsPath!.close();
     }
-
-    // 2. Draw PEAK fill - lighter, shows transient extent above RMS
-    canvas.drawPath(wavePath, Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true);
-
-    // 3. Draw SHARP peak outline - bright, crisp transient spikes
-    canvas.drawPath(wavePath, Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..isAntiAlias = true);
-
-    // 4. Center line (zero crossing) - very subtle
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      Paint()
-        ..color = color.withValues(alpha: 0.08)
-        ..strokeWidth = 0.5,
-    );
   }
 
   @override
@@ -1120,6 +1146,11 @@ class _CubaseWaveformPainter extends CustomPainter {
 // ============ Stereo Waveform Painter (L/R split) ============
 // Shows LEFT channel in top half, RIGHT channel in bottom half
 // Pro Tools / Cubase stereo display style
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// GPU OPTIMIZATION: All 4 Path objects (L/R wave + L/R rms) cached
+// Paint objects pre-allocated — zero allocations in paint()
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _StereoWaveformPainter extends CustomPainter {
   final Float32List leftMins;
@@ -1130,6 +1161,20 @@ class _StereoWaveformPainter extends CustomPainter {
   final Float32List rightRms;
   final Color color;
 
+  // Cached Path objects — rebuilt only on size change
+  Path? _leftWavePath;
+  Path? _leftRmsPath;
+  Path? _rightWavePath;
+  Path? _rightRmsPath;
+  Size? _cachedSize;
+
+  // Pre-allocated Paint objects (zero allocation in paint())
+  late final Paint _rmsFillPaint;
+  late final Paint _peakFillPaint;
+  late final Paint _peakStrokePaint;
+  late final Paint _centerLinePaint;
+  late final Paint _separatorPaint;
+
   _StereoWaveformPainter({
     required this.leftMins,
     required this.leftMaxs,
@@ -1138,113 +1183,110 @@ class _StereoWaveformPainter extends CustomPainter {
     required this.rightMaxs,
     required this.rightRms,
     required this.color,
-  });
+  }) {
+    // Initialize paints ONCE in constructor
+    _rmsFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakStrokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true;
+
+    _centerLinePaint = Paint()
+      ..color = color.withValues(alpha: 0.08)
+      ..strokeWidth = 0.5;
+
+    _separatorPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..strokeWidth = 0.5;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (leftMins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
-    final numSamples = leftMins.length;
+    // GPU OPTIMIZATION: Only rebuild paths when size changes
+    if (_leftWavePath == null || _cachedSize != size) {
+      _rebuildAllPaths(size);
+      _cachedSize = size;
+    }
 
-    // Helper to map sample index to X coordinate
-    double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
-
-    // ══════════════════════════════════════════════════════════════════
-    // STEREO: Top half = LEFT, Bottom half = RIGHT
-    // Each channel gets its own centerline with amplitude expanding outward
-    // ══════════════════════════════════════════════════════════════════
-
-    final leftCenterY = size.height * 0.25;  // Center of top half
-    final rightCenterY = size.height * 0.75; // Center of bottom half
-    final channelHeight = size.height * 0.45; // Leave small gap between
-    final amplitude = channelHeight / 2;
+    final leftCenterY = size.height * 0.25;
+    final rightCenterY = size.height * 0.75;
 
     // Draw LEFT channel (top half)
-    _drawChannel(canvas, size, sampleToX, leftCenterY, amplitude,
-        leftMins, leftMaxs, leftRms, numSamples);
+    if (_leftRmsPath != null) canvas.drawPath(_leftRmsPath!, _rmsFillPaint);
+    canvas.drawPath(_leftWavePath!, _peakFillPaint);
+    canvas.drawPath(_leftWavePath!, _peakStrokePaint);
+    canvas.drawLine(Offset(0, leftCenterY), Offset(size.width, leftCenterY), _centerLinePaint);
 
     // Draw RIGHT channel (bottom half)
-    _drawChannel(canvas, size, sampleToX, rightCenterY, amplitude,
-        rightMins, rightMaxs, rightRms, numSamples);
+    if (_rightRmsPath != null) canvas.drawPath(_rightRmsPath!, _rmsFillPaint);
+    canvas.drawPath(_rightWavePath!, _peakFillPaint);
+    canvas.drawPath(_rightWavePath!, _peakStrokePaint);
+    canvas.drawLine(Offset(0, rightCenterY), Offset(size.width, rightCenterY), _centerLinePaint);
 
-    // Separator line between L/R (subtle)
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      Paint()
-        ..color = color.withValues(alpha: 0.15)
-        ..strokeWidth = 0.5,
-    );
+    // Separator line between L/R
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), _separatorPaint);
   }
 
-  void _drawChannel(
-    Canvas canvas,
-    Size size,
-    double Function(int) sampleToX,
-    double centerY,
-    double amplitude,
-    Float32List mins,
-    Float32List maxs,
-    Float32List rms,
-    int numSamples,
-  ) {
-    // Build waveform envelope path
-    final wavePath = Path();
-    wavePath.moveTo(0, centerY - maxs[0] * amplitude);
+  /// Build and cache all 4 Path objects — called only when size changes
+  void _rebuildAllPaths(Size size) {
+    final numSamples = leftMins.length;
+    final leftCenterY = size.height * 0.25;
+    final rightCenterY = size.height * 0.75;
+    final channelHeight = size.height * 0.45;
+    final amplitude = channelHeight / 2;
 
-    // Top edge (max values)
+    double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
+
+    // Build LEFT channel paths
+    _leftWavePath = _buildWavePath(leftMins, leftMaxs, leftCenterY, amplitude, numSamples, sampleToX);
+    _leftRmsPath = leftRms.isNotEmpty ? _buildRmsPath(leftRms, leftCenterY, amplitude, numSamples, sampleToX) : null;
+
+    // Build RIGHT channel paths
+    _rightWavePath = _buildWavePath(rightMins, rightMaxs, rightCenterY, amplitude, numSamples, sampleToX);
+    _rightRmsPath = rightRms.isNotEmpty ? _buildRmsPath(rightRms, rightCenterY, amplitude, numSamples, sampleToX) : null;
+  }
+
+  Path _buildWavePath(Float32List mins, Float32List maxs, double centerY, double amplitude, int numSamples, double Function(int) sampleToX) {
+    final path = Path();
+    path.moveTo(0, centerY - maxs[0] * amplitude);
+
     for (int i = 1; i < numSamples; i++) {
-      wavePath.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
+      path.lineTo(sampleToX(i), centerY - maxs[i] * amplitude);
     }
 
-    // Bottom edge (min values)
     for (int i = numSamples - 1; i >= 0; i--) {
-      wavePath.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
+      path.lineTo(sampleToX(i), centerY - mins[i] * amplitude);
     }
-    wavePath.close();
+    path.close();
+    return path;
+  }
 
-    // RMS body (smaller, darker)
-    if (rms.isNotEmpty) {
-      final rmsPath = Path();
-      const rmsScale = 0.45;
-      rmsPath.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
+  Path _buildRmsPath(Float32List rms, double centerY, double amplitude, int numSamples, double Function(int) sampleToX) {
+    const rmsScale = 0.45;
+    final path = Path();
+    path.moveTo(0, centerY - rms[0] * amplitude * rmsScale);
 
-      for (int i = 1; i < numSamples; i++) {
-        rmsPath.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
-      }
-
-      for (int i = numSamples - 1; i >= 0; i--) {
-        rmsPath.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
-      }
-      rmsPath.close();
-
-      canvas.drawPath(rmsPath, Paint()
-        ..color = color.withValues(alpha: 0.7)
-        ..style = PaintingStyle.fill
-        ..isAntiAlias = true);
+    for (int i = 1; i < numSamples; i++) {
+      path.lineTo(sampleToX(i), centerY - rms[i] * amplitude * rmsScale);
     }
 
-    // Peak fill
-    canvas.drawPath(wavePath, Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true);
-
-    // Peak outline
-    canvas.drawPath(wavePath, Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..isAntiAlias = true);
-
-    // Center line
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      Paint()
-        ..color = color.withValues(alpha: 0.08)
-        ..strokeWidth = 0.5,
-    );
+    for (int i = numSamples - 1; i >= 0; i--) {
+      path.lineTo(sampleToX(i), centerY + rms[i] * amplitude * rmsScale);
+    }
+    path.close();
+    return path;
   }
 
   @override
@@ -1661,8 +1703,14 @@ class _FadeHandleState extends State<_FadeHandle> {
 
   @override
   Widget build(BuildContext context) {
-    // Handle size for drag interaction
-    const handleSize = 16.0;
+    // Handle size for drag interaction — Pro DAW standard: 20px for visibility
+    const handleSize = 20.0;
+    final isActive = widget.isActive || _isHovered || _isDragging;
+
+    // Handle position: at the END of fade zone, moves with fade
+    // Left fade: handle at right edge of fade zone
+    // Right fade: handle at left edge of fade zone
+    final handleOffset = widget.width - handleSize - 2;
 
     return Positioned(
       left: widget.isLeft ? 0 : null,
@@ -1680,23 +1728,23 @@ class _FadeHandleState extends State<_FadeHandle> {
               child: CustomPaint(
                 painter: _FadeTrianglePainter(
                   isLeft: widget.isLeft,
-                  isActive: widget.isActive || _isHovered,
+                  isActive: isActive,
                   curve: widget.curve,
                 ),
               ),
             ),
           ),
           // Drag handle - ONLY this catches clicks
-          // Position at clip edge (left handle at left, right handle at right)
+          // Position at END of fade zone (moves with fade width)
           Positioned(
-            left: widget.isLeft ? 2 : null,
-            right: widget.isLeft ? null : 2,
+            left: widget.isLeft ? handleOffset.clamp(2.0, double.infinity) : null,
+            right: widget.isLeft ? null : handleOffset.clamp(2.0, double.infinity),
             top: 2,
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) {
                 fadeHandleActiveGlobal = true;
-                _isDragging = true;
+                setState(() => _isDragging = true);
                 _dragStartX = event.position.dx;
                 _accumulatedDelta = 0;
                 widget.onDragStart();
@@ -1714,7 +1762,7 @@ class _FadeHandleState extends State<_FadeHandle> {
               onPointerUp: (event) {
                 fadeHandleActiveGlobal = false;
                 if (_isDragging) {
-                  _isDragging = false;
+                  setState(() => _isDragging = false);
                   _accumulatedDelta = 0;
                   widget.onDragEnd();
                 }
@@ -1722,7 +1770,7 @@ class _FadeHandleState extends State<_FadeHandle> {
               onPointerCancel: (event) {
                 fadeHandleActiveGlobal = false;
                 if (_isDragging) {
-                  _isDragging = false;
+                  setState(() => _isDragging = false);
                   _accumulatedDelta = 0;
                   widget.onDragEnd();
                 }
@@ -1735,16 +1783,37 @@ class _FadeHandleState extends State<_FadeHandle> {
                   width: handleSize,
                   height: handleSize,
                   decoration: BoxDecoration(
-                    color: (widget.isActive || _isHovered)
+                    color: isActive
                         ? FluxForgeTheme.accentCyan
-                        : Colors.white.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(2),
+                        : Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isActive
+                          ? FluxForgeTheme.accentCyan
+                          : FluxForgeTheme.textSecondary,
+                      width: 1.5,
+                    ),
+                    boxShadow: isActive
+                        ? [
+                            BoxShadow(
+                              color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                   ),
                   child: Center(
                     child: Icon(
                       widget.isLeft ? Icons.chevron_right : Icons.chevron_left,
-                      size: 10,
-                      color: (widget.isActive || _isHovered)
+                      size: 14,
+                      color: isActive
                           ? Colors.white
                           : FluxForgeTheme.bgDeepest,
                     ),
@@ -1881,6 +1950,102 @@ class _FadeTrianglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FadeTrianglePainter oldDelegate) =>
+      isLeft != oldDelegate.isLeft ||
+      isActive != oldDelegate.isActive ||
+      curve != oldDelegate.curve;
+}
+
+/// Fade curve line painter — draws the actual fade curve with dashed style for S-curves
+class _FadeCurveLinePainter extends CustomPainter {
+  final bool isLeft;
+  final bool isActive;
+  final FadeCurve curve;
+
+  _FadeCurveLinePainter({
+    required this.isLeft,
+    required this.isActive,
+    required this.curve,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final isSCurve = curve == FadeCurve.sCurve || curve == FadeCurve.invSCurve;
+
+    final paint = Paint()
+      ..color = isActive
+          ? FluxForgeTheme.accentCyan
+          : FluxForgeTheme.textPrimary.withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isActive ? 2.5 : 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    const steps = 40;
+
+    if (isLeft) {
+      path.moveTo(0, size.height);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(t);
+        final y = size.height * (1 - fadeGain);
+        path.lineTo(x, y);
+      }
+    } else {
+      path.moveTo(0, 0);
+      for (var i = 0; i <= steps; i++) {
+        final t = i / steps;
+        final x = t * size.width;
+        final fadeGain = _evaluateCurve(1 - t);
+        final y = size.height * (1 - fadeGain);
+        path.lineTo(x, y);
+      }
+    }
+
+    // For S-curves, draw dashed line
+    if (isSCurve) {
+      _drawDashedPath(canvas, path, paint, 5.0, 3.0);
+    } else {
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint, double dashLen, double gapLen) {
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final dashEnd = (distance + dashLen).clamp(0.0, metric.length);
+        final dashPath = metric.extractPath(distance, dashEnd);
+        canvas.drawPath(dashPath, paint);
+        distance += dashLen + gapLen;
+      }
+    }
+  }
+
+  double _evaluateCurve(double t) {
+    switch (curve) {
+      case FadeCurve.linear:
+        return t;
+      case FadeCurve.exp1:
+        return t * t;
+      case FadeCurve.exp3:
+        return t * t * t;
+      case FadeCurve.log1:
+        return math.sqrt(t);
+      case FadeCurve.log3:
+        return math.pow(t, 1 / 3).toDouble();
+      case FadeCurve.sCurve:
+        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case FadeCurve.invSCurve:
+        return t < 0.5 ? 0.5 * math.sqrt(2 * t) : 0.5 + 0.5 * math.sqrt(2 * t - 1);
+      case FadeCurve.sine:
+        return math.sin(t * math.pi / 2);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FadeCurveLinePainter oldDelegate) =>
       isLeft != oldDelegate.isLeft ||
       isActive != oldDelegate.isActive ||
       curve != oldDelegate.curve;

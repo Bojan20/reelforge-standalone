@@ -3172,6 +3172,12 @@ class NativeFFI {
     _clearAll();
   }
 
+  /// Free a string allocated by Rust
+  void freeString(Pointer<Utf8> ptr) {
+    if (!_loaded || ptr.address == 0) return;
+    _freeString(ptr);
+  }
+
   /// Snap time to grid
   double snapToGrid(double time, double gridSize) {
     if (!_loaded) return time;
@@ -5629,6 +5635,51 @@ class NativeFFI {
   int audioGetCurrentBufferSize() => _audioGetCurrentBufferSize();
   double audioGetLatencyMs() => _audioGetLatencyMs();
 
+  // Input level metering for recording
+  late final _audioGetInputPeaks = _lib.lookupFunction<
+      Int32 Function(Pointer<Double>, Pointer<Double>),
+      int Function(Pointer<Double>, Pointer<Double>)>('audio_get_input_peaks');
+
+  /// Get input peak levels (L, R) for recording meters
+  (double, double) getInputPeaks() {
+    final peakL = calloc<Double>();
+    final peakR = calloc<Double>();
+    try {
+      final result = _audioGetInputPeaks(peakL, peakR);
+      if (result == 1) {
+        return (peakL.value, peakR.value);
+      }
+      return (0.0, 0.0);
+    } finally {
+      calloc.free(peakL);
+      calloc.free(peakR);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INPUT MONITORING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _audioSetInputMonitoring = _lib.lookupFunction<
+      Void Function(Int32),
+      void Function(int)>('audio_set_input_monitoring');
+
+  late final _audioGetInputMonitoring = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('audio_get_input_monitoring');
+
+  /// Enable/disable input monitoring (hear input through output)
+  void setInputMonitoring(bool enabled) {
+    if (!_loaded) return;
+    _audioSetInputMonitoring(enabled ? 1 : 0);
+  }
+
+  /// Check if input monitoring is enabled
+  bool isInputMonitoring() {
+    if (!_loaded) return false;
+    return _audioGetInputMonitoring() != 0;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ERROR HANDLING
   // ═══════════════════════════════════════════════════════════════════════════
@@ -6269,6 +6320,217 @@ class NativeFFI {
   double exportGetProgress() => _exportGetProgress();
   int exportIsExporting() => _exportIsExporting();
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PITCH ANALYSIS API (Full Clip Analysis)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _pitchAnalyzeClip = _lib.lookupFunction<
+      Uint32 Function(Uint64),
+      int Function(int)>('pitch_analyze_clip');
+
+  late final _pitchGetSegmentCount = _lib.lookupFunction<
+      Uint32 Function(Uint64),
+      int Function(int)>('pitch_get_segment_count');
+
+  late final _pitchGetSegments = _lib.lookupFunction<
+      Uint32 Function(Uint64, Pointer<Uint32>, Pointer<Uint64>, Pointer<Uint64>,
+          Pointer<Uint8>, Pointer<Double>, Pointer<Uint8>, Pointer<Double>,
+          Pointer<Double>, Pointer<Int32>, Uint32),
+      int Function(int, Pointer<Uint32>, Pointer<Uint64>, Pointer<Uint64>,
+          Pointer<Uint8>, Pointer<Double>, Pointer<Uint8>, Pointer<Double>,
+          Pointer<Double>, Pointer<Int32>, int)>('pitch_get_segments');
+
+  late final _pitchSetSegmentShift = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint32, Double),
+      int Function(int, int, double)>('pitch_set_segment_shift');
+
+  late final _pitchQuantizeSegment = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint32),
+      int Function(int, int)>('pitch_quantize_segment');
+
+  late final _pitchResetSegment = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint32),
+      int Function(int, int)>('pitch_reset_segment');
+
+  late final _pitchAutoCorrect = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint8, Uint8, Double, Double),
+      int Function(int, int, int, double, double)>('pitch_auto_correct');
+
+  late final _pitchQuantizeAll = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('pitch_quantize_all');
+
+  late final _pitchResetAll = _lib.lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('pitch_reset_all');
+
+  late final _pitchSplitSegment = _lib.lookupFunction<
+      Uint32 Function(Uint64, Uint32, Uint64),
+      int Function(int, int, int)>('pitch_split_segment');
+
+  late final _pitchMergeSegments = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint32, Uint32),
+      int Function(int, int, int)>('pitch_merge_segments');
+
+  late final _pitchClearState = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('pitch_clear_state');
+
+  /// Analyze pitch for entire clip - returns number of segments detected
+  int pitchAnalyzeClip(int clipId) {
+    if (!_loaded) return 0;
+    return _pitchAnalyzeClip(clipId);
+  }
+
+  /// Get pitch segment count for clip
+  int pitchGetSegmentCount(int clipId) {
+    if (!_loaded) return 0;
+    return _pitchGetSegmentCount(clipId);
+  }
+
+  /// Get all pitch segments for a clip
+  List<PitchSegmentData> pitchGetSegments(int clipId, {int maxCount = 1000}) {
+    if (!_loaded) return [];
+
+    final outIds = calloc<Uint32>(maxCount);
+    final outStarts = calloc<Uint64>(maxCount);
+    final outEnds = calloc<Uint64>(maxCount);
+    final outMidiNotes = calloc<Uint8>(maxCount);
+    final outCents = calloc<Double>(maxCount);
+    final outTargetMidi = calloc<Uint8>(maxCount);
+    final outTargetCents = calloc<Double>(maxCount);
+    final outConfidence = calloc<Double>(maxCount);
+    final outEdited = calloc<Int32>(maxCount);
+
+    try {
+      final count = _pitchGetSegments(
+        clipId, outIds, outStarts, outEnds, outMidiNotes, outCents,
+        outTargetMidi, outTargetCents, outConfidence, outEdited, maxCount,
+      );
+
+      return List.generate(count, (i) => PitchSegmentData(
+        id: outIds[i],
+        start: outStarts[i],
+        end: outEnds[i],
+        midiNote: outMidiNotes[i],
+        cents: outCents[i],
+        targetMidiNote: outTargetMidi[i],
+        targetCents: outTargetCents[i],
+        confidence: outConfidence[i],
+        edited: outEdited[i] != 0,
+      ));
+    } finally {
+      calloc.free(outIds);
+      calloc.free(outStarts);
+      calloc.free(outEnds);
+      calloc.free(outMidiNotes);
+      calloc.free(outCents);
+      calloc.free(outTargetMidi);
+      calloc.free(outTargetCents);
+      calloc.free(outConfidence);
+      calloc.free(outEdited);
+    }
+  }
+
+  /// Set segment target pitch shift (semitones)
+  bool pitchSetSegmentShift(int clipId, int segmentId, double semitones) {
+    if (!_loaded) return false;
+    return _pitchSetSegmentShift(clipId, segmentId, semitones) != 0;
+  }
+
+  /// Quantize segment to nearest semitone
+  bool pitchQuantizeSegment(int clipId, int segmentId) {
+    if (!_loaded) return false;
+    return _pitchQuantizeSegment(clipId, segmentId) != 0;
+  }
+
+  /// Reset segment to original pitch
+  bool pitchResetSegment(int clipId, int segmentId) {
+    if (!_loaded) return false;
+    return _pitchResetSegment(clipId, segmentId) != 0;
+  }
+
+  /// Auto-correct all segments to scale
+  /// scale: 0=Chromatic, 1=Major, 2=Minor, 3=HarmonicMinor, 4=PentMaj, 5=PentMin, 6=Blues, 7=Dorian
+  bool pitchAutoCorrect(int clipId, int scale, int root, double speed, double amount) {
+    if (!_loaded) return false;
+    return _pitchAutoCorrect(clipId, scale, root, speed, amount) != 0;
+  }
+
+  /// Quantize all segments
+  bool pitchQuantizeAll(int clipId) {
+    if (!_loaded) return false;
+    return _pitchQuantizeAll(clipId) != 0;
+  }
+
+  /// Reset all segments to original
+  bool pitchResetAll(int clipId) {
+    if (!_loaded) return false;
+    return _pitchResetAll(clipId) != 0;
+  }
+
+  /// Split segment at position
+  int pitchSplitSegment(int clipId, int segmentId, int position) {
+    if (!_loaded) return 0;
+    return _pitchSplitSegment(clipId, segmentId, position);
+  }
+
+  /// Merge two adjacent segments
+  bool pitchMergeSegments(int clipId, int segmentId1, int segmentId2) {
+    if (!_loaded) return false;
+    return _pitchMergeSegments(clipId, segmentId1, segmentId2) != 0;
+  }
+
+  /// Clear pitch editor state for clip
+  void pitchClearState(int clipId) {
+    if (!_loaded) return;
+    _pitchClearState(clipId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VIDEO SYNC API (Dynamic Sample Rate)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  late final _videoSetSampleRate = _lib.lookupFunction<
+      Void Function(Uint32),
+      void Function(int)>('video_set_sample_rate');
+
+  late final _videoGetPlayheadSamples = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('video_get_playhead_samples');
+
+  late final _videoSyncToAudio = _lib.lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('video_sync_to_audio');
+
+  late final _videoGetSyncDrift = _lib.lookupFunction<
+      Int64 Function(Uint64),
+      int Function(int)>('video_get_sync_drift');
+
+  /// Set video engine sample rate to match audio engine
+  void videoSetSampleRate(int sampleRate) {
+    if (!_loaded) return;
+    _videoSetSampleRate(sampleRate);
+  }
+
+  /// Get current video playhead in samples
+  int videoGetPlayheadSamples() {
+    if (!_loaded) return 0;
+    return _videoGetPlayheadSamples();
+  }
+
+  /// Sync video playhead to audio position
+  void videoSyncToAudio(int audioSamples) {
+    if (!_loaded) return;
+    _videoSyncToAudio(audioSamples);
+  }
+
+  /// Get sync drift in samples (video - audio)
+  int videoGetSyncDrift(int audioSamples) {
+    if (!_loaded) return 0;
+    return _videoGetSyncDrift(audioSamples);
+  }
+
   // Stems export
   late final _exportStems = _lib.lookupFunction<
       Int32 Function(Pointer<Utf8>, Int32, Uint32, Double, Double, Int32, Int32, Pointer<Utf8>),
@@ -6285,6 +6547,57 @@ class NativeFFI {
     calloc.free(dirPtr);
     calloc.free(prefixPtr);
     return result;
+  }
+}
+
+/// Pitch segment data from analysis
+class PitchSegmentData {
+  final int id;
+  final int start;      // Start position in samples
+  final int end;        // End position in samples
+  final int midiNote;   // Original MIDI note (0-127)
+  final double cents;   // Original cents deviation (-50 to +50)
+  final int targetMidiNote; // Target MIDI note after editing
+  final double targetCents; // Target cents after editing
+  final double confidence;  // Detection confidence (0.0-1.0)
+  final bool edited;        // Has been manually edited
+
+  const PitchSegmentData({
+    required this.id,
+    required this.start,
+    required this.end,
+    required this.midiNote,
+    required this.cents,
+    required this.targetMidiNote,
+    required this.targetCents,
+    required this.confidence,
+    required this.edited,
+  });
+
+  /// Duration in samples
+  int get duration => end - start;
+
+  /// Original pitch as MIDI (with cents)
+  double get pitchMidi => midiNote + cents / 100.0;
+
+  /// Target pitch as MIDI (with cents)
+  double get targetPitchMidi => targetMidiNote + targetCents / 100.0;
+
+  /// Pitch shift in semitones
+  double get pitchShift => targetPitchMidi - pitchMidi;
+
+  /// Note name (e.g. "C4", "A#3")
+  String get noteName {
+    const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    final octave = (midiNote ~/ 12) - 1;
+    return '${names[midiNote % 12]}$octave';
+  }
+
+  /// Target note name
+  String get targetNoteName {
+    const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    final octave = (targetMidiNote ~/ 12) - 1;
+    return '${names[targetMidiNote % 12]}$octave';
   }
 }
 

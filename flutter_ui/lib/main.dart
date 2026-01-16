@@ -46,6 +46,8 @@ import 'providers/scale_assistant_provider.dart';
 import 'providers/theme_mode_provider.dart';
 import 'providers/error_provider.dart';
 import 'providers/recent_projects_provider.dart';
+import 'providers/plugin_provider.dart';
+import 'providers/control_room_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -157,6 +159,12 @@ class FluxForgeApp extends StatelessWidget {
 
         // Error Handling
         ChangeNotifierProvider(create: (_) => ErrorProvider()),
+
+        // Plugin Browser & Hosting
+        ChangeNotifierProvider(create: (_) => PluginProvider()),
+
+        // Control Room (Studio Monitoring)
+        ChangeNotifierProvider(create: (_) => ControlRoomProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',
@@ -209,6 +217,11 @@ class _AppInitializerState extends State<_AppInitializer> {
       if (!mounted) return;
       final shortcuts = context.read<GlobalShortcutsProvider>();
       final history = context.read<ProjectHistoryProvider>();
+
+      // Phase 2.5: Initialize plugin host
+      _updateLoading('Initializing plugin host...');
+      final pluginProvider = context.read<PluginProvider>();
+      await pluginProvider.init();
 
       // Phase 3: Wire up shortcuts
       _updateLoading('Configuring shortcuts...');

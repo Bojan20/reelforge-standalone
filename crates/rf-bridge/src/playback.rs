@@ -565,6 +565,10 @@ pub struct PlaybackEngine {
     input_buffer_consumer: Mutex<Option<rtrb::Consumer<f32>>>,
     /// Recording flush thread handle
     recorder_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// Input monitoring enabled (hear input through output)
+    input_monitoring: Arc<AtomicBool>,
+    /// Input monitoring ring buffer consumer (output thread reads for monitoring)
+    monitor_consumer: Mutex<Option<rtrb::Consumer<f32>>>,
 }
 
 impl PlaybackEngine {
@@ -605,6 +609,8 @@ impl PlaybackEngine {
             input_buffer_producer: Mutex::new(None),
             input_buffer_consumer: Mutex::new(None),
             recorder_thread: Mutex::new(None),
+            input_monitoring: Arc::new(AtomicBool::new(false)),
+            monitor_consumer: Mutex::new(None),
         }
     }
 
@@ -682,6 +688,18 @@ impl PlaybackEngine {
         // Share master volume Arc for live updates in callback
         let master_volume = Arc::clone(&self.master_volume);
 
+        // Share input monitoring flag for callback
+        let input_monitoring = Arc::clone(&self.input_monitoring);
+
+        // Pre-create ring buffer for monitoring BEFORE output stream
+        // This allows us to move consumer into output callback
+        let buffer_samples = 192000 * 2;
+        let (monitor_producer, monitor_consumer) = rtrb::RingBuffer::<f32>::new(buffer_samples);
+        // Store producer in self for input callback to use later
+        // Consumer goes directly into output callback
+        let monitor_producer_arc = Arc::new(Mutex::new(Some(monitor_producer)));
+        let monitor_producer_clone = Arc::clone(&monitor_producer_arc);
+
         // Peak decay
         let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
         let channels = config.channels() as usize;
@@ -691,11 +709,18 @@ impl PlaybackEngine {
         let mut engine_output_l = vec![0.0f64; buffer_size];
         let mut engine_output_r = vec![0.0f64; buffer_size];
 
+        // Pre-allocated buffer for input monitoring
+        let mut monitor_buffer = vec![0.0f32; buffer_size * 2];
+
         // DSP storage for per-track processing
         let mut dsp_storage = DspStorage::new(sample_rate);
 
         // Clone master_volume for I16 path
         let master_volume_i16 = Arc::clone(&master_volume);
+        let _input_monitoring_i16 = Arc::clone(&input_monitoring);
+
+        // Move monitor consumer into callback
+        let mut monitor_consumer = Some(monitor_consumer);
 
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => {
@@ -708,6 +733,9 @@ impl PlaybackEngine {
                         if engine_output_l.len() < frames {
                             engine_output_l.resize(frames, 0.0);
                             engine_output_r.resize(frames, 0.0);
+                        }
+                        if monitor_buffer.len() < frames * 2 {
+                            monitor_buffer.resize(frames * 2, 0.0);
                         }
 
                         process_audio_unified(
@@ -725,6 +753,38 @@ impl PlaybackEngine {
                             &mut dsp_storage,
                             &master_volume,
                         );
+
+                        // Add input monitoring signal if enabled
+                        if input_monitoring.load(Ordering::Relaxed) {
+                            if let Some(ref mut consumer) = monitor_consumer {
+                                // Read available samples from monitor ring buffer
+                                let stereo_samples = frames * 2;
+                                let mut read_count = 0;
+                                for sample in monitor_buffer[..stereo_samples].iter_mut() {
+                                    if let Ok(s) = consumer.pop() {
+                                        *sample = s;
+                                        read_count += 1;
+                                    } else {
+                                        *sample = 0.0;
+                                    }
+                                }
+
+                                // Mix monitoring signal into output
+                                if read_count > 0 {
+                                    for i in 0..frames {
+                                        let idx = i * channels.max(2);
+                                        if channels >= 2 && idx + 1 < data.len() {
+                                            // Stereo: add L and R
+                                            data[idx] += monitor_buffer[i * 2];
+                                            data[idx + 1] += monitor_buffer[i * 2 + 1];
+                                        } else if channels == 1 && idx < data.len() {
+                                            // Mono: mix both channels
+                                            data[idx] += (monitor_buffer[i * 2] + monitor_buffer[i * 2 + 1]) * 0.5;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                     |err| log::error!("Audio stream error: {}", err),
                     None,
@@ -790,10 +850,10 @@ impl PlaybackEngine {
                     input_config.channels()
                 );
 
-                // Create lock-free ring buffer for input audio
+                // Create lock-free ring buffer for recording
                 // Buffer size: 1 second of stereo audio at max sample rate
-                let buffer_samples = 192000 * 2;
-                let (producer, consumer) = rtrb::RingBuffer::<f32>::new(buffer_samples);
+                let recording_buffer_samples = 192000 * 2;
+                let (producer, consumer) = rtrb::RingBuffer::<f32>::new(recording_buffer_samples);
                 *self.input_buffer_producer.lock() = Some(producer);
                 *self.input_buffer_consumer.lock() = Some(consumer);
 
@@ -805,6 +865,8 @@ impl PlaybackEngine {
 
                 // Get producer for callback (need to take ownership)
                 let mut producer_for_callback = self.input_buffer_producer.lock().take();
+                // Get monitor producer from Arc (created before output stream)
+                let mut monitor_producer_for_callback = monitor_producer_clone.lock().take();
 
                 let input_channels = input_config.channels() as usize;
 
@@ -831,8 +893,15 @@ impl PlaybackEngine {
                             input_peak_l_clone.store((peak_l as f64).to_bits(), Ordering::Relaxed);
                             input_peak_r_clone.store((peak_r as f64).to_bits(), Ordering::Relaxed);
 
-                            // Write to ring buffer (non-blocking)
+                            // Write to ring buffer for recording (non-blocking)
                             if let Some(ref mut producer) = producer_for_callback {
+                                for sample in data.iter() {
+                                    let _ = producer.push(*sample);
+                                }
+                            }
+
+                            // Write to monitor ring buffer (non-blocking)
+                            if let Some(ref mut producer) = monitor_producer_for_callback {
                                 for sample in data.iter() {
                                     let _ = producer.push(*sample);
                                 }
@@ -1222,6 +1291,17 @@ impl PlaybackEngine {
             f32::from_bits(self.input_peak_l.load(Ordering::Relaxed) as u32),
             f32::from_bits(self.input_peak_r.load(Ordering::Relaxed) as u32),
         )
+    }
+
+    /// Enable/disable input monitoring (hear input through output)
+    pub fn set_input_monitoring(&self, enabled: bool) {
+        self.input_monitoring.store(enabled, Ordering::Relaxed);
+        log::info!("Input monitoring: {}", if enabled { "ON" } else { "OFF" });
+    }
+
+    /// Check if input monitoring is enabled
+    pub fn is_input_monitoring(&self) -> bool {
+        self.input_monitoring.load(Ordering::Relaxed)
     }
 
     // ═══════════════════════════════════════════════════════════════════════

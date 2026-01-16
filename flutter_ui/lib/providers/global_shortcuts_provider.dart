@@ -96,6 +96,38 @@ class ShortcutAction {
   void Function()? onShowMacroControls;
   void Function()? onShowClipGainEnvelope;
 
+  // View panel shortcuts
+  void Function()? onToggleLeftPanel;
+  void Function()? onToggleRightPanel;
+  void Function()? onToggleLowerPanel;
+  void Function()? onShowAudioPool;
+  void Function()? onShowMarkers;
+  void Function()? onShowMidiEditor;
+  void Function()? onResetLayout;
+
+  // File menu shortcuts
+  void Function()? onImportJSON;
+  void Function()? onExportJSON;
+  void Function()? onImportAudioFolder;
+  void Function()? onBatchExport;
+  void Function()? onExportPresets;
+  void Function()? onBounceToFile;
+  void Function()? onRenderInPlace;
+
+  // Project menu shortcuts
+  void Function()? onProjectSettings;
+  void Function()? onTrackTemplates;
+  void Function()? onVersionHistory;
+  void Function()? onFreezeSelectedTracks;
+  void Function()? onValidateProject;
+  void Function()? onBuildProject;
+
+  // Studio menu shortcuts
+  void Function()? onAudioSettings;
+  void Function()? onMidiSettings;
+  void Function()? onPluginManager;
+  void Function()? onKeyboardShortcuts;
+
   bool Function(String key, ShortcutModifiers modifiers)? onCustom;
 
   ShortcutAction();
@@ -478,6 +510,182 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     if (key == LogicalKeyboardKey.keyG && isCmd && isShift && !isAlt) {
       if (actions.onShowClipGainEnvelope != null) {
         actions.onShowClipGainEnvelope!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ========== View Panel Shortcuts ==========
+
+    // Cmd+L - Toggle Left Panel
+    if (key == LogicalKeyboardKey.keyL && isCmd && !isShift && !isAlt) {
+      if (actions.onToggleLeftPanel != null) {
+        actions.onToggleLeftPanel!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+R - Toggle Right Panel
+    if (key == LogicalKeyboardKey.keyR && isCmd && !isShift && !isAlt) {
+      if (actions.onToggleRightPanel != null) {
+        actions.onToggleRightPanel!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+B - Toggle Lower Panel (only without shift - avoid conflict with bounce)
+    if (key == LogicalKeyboardKey.keyB && isCmd && !isShift && !isAlt) {
+      if (actions.onToggleLowerPanel != null) {
+        actions.onToggleLowerPanel!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+P - Audio Pool
+    if (key == LogicalKeyboardKey.keyP && isAlt && !isCmd && !isShift) {
+      if (actions.onShowAudioPool != null) {
+        actions.onShowAudioPool!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+M - Markers
+    if (key == LogicalKeyboardKey.keyM && isAlt && !isCmd && !isShift) {
+      if (actions.onShowMarkers != null) {
+        actions.onShowMarkers!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+E - MIDI Editor
+    if (key == LogicalKeyboardKey.keyE && isAlt && !isCmd && !isShift) {
+      if (actions.onShowMidiEditor != null) {
+        actions.onShowMidiEditor!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ========== File Menu Shortcuts ==========
+
+    // Cmd+N - New Project
+    if (key == LogicalKeyboardKey.keyN && isCmd && !isShift && !isAlt) {
+      if (actions.onNew != null) {
+        actions.onNew!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+O - Open Project
+    if (key == LogicalKeyboardKey.keyO && isCmd && !isShift && !isAlt) {
+      if (actions.onOpen != null) {
+        actions.onOpen!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+S - Save As
+    if (key == LogicalKeyboardKey.keyS && isCmd && isShift && !isAlt) {
+      if (actions.onSaveAs != null) {
+        actions.onSaveAs!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+I - Import JSON
+    if (key == LogicalKeyboardKey.keyI && isCmd && !isShift && !isAlt) {
+      if (actions.onImportJSON != null) {
+        actions.onImportJSON!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Cmd+E - Export JSON
+    if (key == LogicalKeyboardKey.keyE && isCmd && isShift && !isAlt) {
+      if (actions.onExportJSON != null) {
+        actions.onExportJSON!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+B - Bounce to Disk
+    if (key == LogicalKeyboardKey.keyB && isAlt && !isCmd && !isShift) {
+      if (actions.onBounceToFile != null) {
+        actions.onBounceToFile!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+R - Render in Place
+    if (key == LogicalKeyboardKey.keyR && isAlt && !isCmd && !isShift) {
+      if (actions.onRenderInPlace != null) {
+        actions.onRenderInPlace!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+Alt+E - Batch Export
+    if (key == LogicalKeyboardKey.keyE && isShift && isAlt && !isCmd) {
+      if (actions.onBatchExport != null) {
+        actions.onBatchExport!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ========== Project Menu Shortcuts ==========
+
+    // Alt+T - Track Templates
+    if (key == LogicalKeyboardKey.keyT && isAlt && !isCmd && !isShift) {
+      if (actions.onTrackTemplates != null) {
+        actions.onTrackTemplates!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+H - Version History
+    if (key == LogicalKeyboardKey.keyH && isAlt && !isCmd && !isShift) {
+      if (actions.onVersionHistory != null) {
+        actions.onVersionHistory!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+F - Freeze Selected Tracks
+    if (key == LogicalKeyboardKey.keyF && isAlt && !isCmd && !isShift) {
+      if (actions.onFreezeSelectedTracks != null) {
+        actions.onFreezeSelectedTracks!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ========== Studio Menu Shortcuts ==========
+
+    // Alt+Cmd+A - Audio Settings
+    if (key == LogicalKeyboardKey.keyA && isCmd && isAlt && !isShift) {
+      if (actions.onAudioSettings != null) {
+        actions.onAudioSettings!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+Cmd+M - MIDI Settings
+    if (key == LogicalKeyboardKey.keyM && isCmd && isAlt && !isShift) {
+      if (actions.onMidiSettings != null) {
+        actions.onMidiSettings!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+Cmd+P - Plugin Manager
+    if (key == LogicalKeyboardKey.keyP && isCmd && isAlt && !isShift) {
+      if (actions.onPluginManager != null) {
+        actions.onPluginManager!();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+Cmd+K - Keyboard Shortcuts
+    if (key == LogicalKeyboardKey.keyK && isCmd && isAlt && !isShift) {
+      if (actions.onKeyboardShortcuts != null) {
+        actions.onKeyboardShortcuts!();
         return KeyEventResult.handled;
       }
     }

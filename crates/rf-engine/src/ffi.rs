@@ -3502,6 +3502,336 @@ pub extern "C" fn pitch_detect_midi(samples: *const f64, length: u32, sample_rat
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PITCH ANALYSIS FFI (Full Clip Analysis)
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    /// Pitch editor states per clip (clip_id -> state JSON)
+    static ref PITCH_EDITOR_STATES: RwLock<std::collections::HashMap<u64, rf_dsp::pitch::PitchEditorState>> =
+        RwLock::new(std::collections::HashMap::new());
+}
+
+/// Analyze pitch for entire clip - returns number of segments detected
+/// This populates the internal pitch editor state for the clip
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_analyze_clip(clip_id: u64) -> u32 {
+    use rf_dsp::pitch::{PitchDetector, PitchEditorState};
+
+    let audio_map = IMPORTED_AUDIO.read();
+    let Some(audio) = audio_map.get(&ClipId(clip_id)) else {
+        log::warn!("[FFI] pitch_analyze_clip: clip {} not found", clip_id);
+        return 0;
+    };
+
+    // Convert to mono f64 for analysis
+    let mono: Vec<f64> = if audio.channels == 2 {
+        audio.samples.chunks(2)
+            .map(|chunk| ((chunk[0] + chunk.get(1).copied().unwrap_or(0.0)) * 0.5) as f64)
+            .collect()
+    } else {
+        audio.samples.iter().map(|&s| s as f64).collect()
+    };
+
+    let mut detector = PitchDetector::new(audio.sample_rate as f64);
+    let segments = detector.analyze(&mono);
+    let segment_count = segments.len() as u32;
+
+    // Store state
+    let state = PitchEditorState::new(segments, audio.sample_rate as f64, mono.len() as u64);
+    PITCH_EDITOR_STATES.write().insert(clip_id, state);
+
+    log::info!("[FFI] pitch_analyze_clip: clip {} -> {} segments", clip_id, segment_count);
+    segment_count
+}
+
+/// Get pitch segment count for clip
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_get_segment_count(clip_id: u64) -> u32 {
+    PITCH_EDITOR_STATES.read()
+        .get(&clip_id)
+        .map(|s| s.segments.len() as u32)
+        .unwrap_or(0)
+}
+
+/// Get pitch segment data (fills output arrays)
+/// Returns number of segments written
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_get_segments(
+    clip_id: u64,
+    out_ids: *mut u32,
+    out_starts: *mut u64,
+    out_ends: *mut u64,
+    out_midi_notes: *mut u8,
+    out_cents: *mut f64,
+    out_target_midi: *mut u8,
+    out_target_cents: *mut f64,
+    out_confidence: *mut f64,
+    out_edited: *mut i32,
+    max_count: u32,
+) -> u32 {
+    if out_ids.is_null() || max_count == 0 {
+        return 0;
+    }
+
+    let states = PITCH_EDITOR_STATES.read();
+    let Some(state) = states.get(&clip_id) else {
+        return 0;
+    };
+
+    let count = state.segments.len().min(max_count as usize);
+
+    unsafe {
+        for (i, seg) in state.segments.iter().take(count).enumerate() {
+            *out_ids.add(i) = seg.id;
+            *out_starts.add(i) = seg.start;
+            *out_ends.add(i) = seg.end;
+            *out_midi_notes.add(i) = seg.pitch.midi_note;
+            *out_cents.add(i) = seg.pitch.cents;
+            *out_target_midi.add(i) = seg.target_pitch.midi_note;
+            *out_target_cents.add(i) = seg.target_pitch.cents;
+            *out_confidence.add(i) = seg.confidence;
+            *out_edited.add(i) = if seg.edited { 1 } else { 0 };
+        }
+    }
+
+    count as u32
+}
+
+/// Set segment target pitch (semitone shift)
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_set_segment_shift(clip_id: u64, segment_id: u32, semitones: f64) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    if let Some(seg) = state.get_segment_mut(segment_id) {
+        seg.shift_pitch(semitones);
+        1
+    } else {
+        0
+    }
+}
+
+/// Quantize segment to nearest semitone
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_quantize_segment(clip_id: u64, segment_id: u32) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    if let Some(seg) = state.get_segment_mut(segment_id) {
+        seg.quantize();
+        1
+    } else {
+        0
+    }
+}
+
+/// Reset segment to original pitch
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_reset_segment(clip_id: u64, segment_id: u32) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    if let Some(seg) = state.get_segment_mut(segment_id) {
+        seg.reset();
+        1
+    } else {
+        0
+    }
+}
+
+/// Auto-correct all segments using scale
+/// scale: 0=Chromatic, 1=Major, 2=Minor, 3=HarmonicMinor, 4=PentMaj, 5=PentMin, 6=Blues, 7=Dorian
+/// root: 0-11 (C=0, C#=1, ..., B=11)
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_auto_correct(clip_id: u64, scale: u8, root: u8, speed: f64, amount: f64) -> i32 {
+    use rf_dsp::pitch::{PitchCorrector, Scale};
+
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    let scale = match scale {
+        0 => Scale::Chromatic,
+        1 => Scale::Major,
+        2 => Scale::Minor,
+        3 => Scale::HarmonicMinor,
+        4 => Scale::PentatonicMajor,
+        5 => Scale::PentatonicMinor,
+        6 => Scale::Blues,
+        7 => Scale::Dorian,
+        _ => Scale::Chromatic,
+    };
+
+    state.corrector = PitchCorrector {
+        scale,
+        root: root.min(11),
+        speed: speed.clamp(0.0, 1.0),
+        amount: amount.clamp(0.0, 1.0),
+        preserve_vibrato: true,
+        formant_preservation: 1.0,
+    };
+
+    state.auto_correct();
+    1
+}
+
+/// Quantize all segments
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_quantize_all(clip_id: u64) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    if let Some(state) = states.get_mut(&clip_id) {
+        state.quantize_all();
+        1
+    } else {
+        0
+    }
+}
+
+/// Reset all segments to original
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_reset_all(clip_id: u64) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    if let Some(state) = states.get_mut(&clip_id) {
+        state.reset_all();
+        1
+    } else {
+        0
+    }
+}
+
+/// Split segment at position
+/// Returns new segment ID or 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_split_segment(clip_id: u64, segment_id: u32, position: u64) -> u32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    state.split_segment(segment_id, position).unwrap_or(0)
+}
+
+/// Merge two adjacent segments
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_merge_segments(clip_id: u64, segment_id_1: u32, segment_id_2: u32) -> i32 {
+    let mut states = PITCH_EDITOR_STATES.write();
+    let Some(state) = states.get_mut(&clip_id) else {
+        return 0;
+    };
+
+    if state.merge_segments(segment_id_1, segment_id_2) { 1 } else { 0 }
+}
+
+/// Get pitch contour for segment (detailed pitch over time)
+/// Returns number of points written
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_get_contour(
+    clip_id: u64,
+    segment_id: u32,
+    out_positions: *mut u64,
+    out_pitches: *mut f64,
+    max_count: u32,
+) -> u32 {
+    if out_positions.is_null() || out_pitches.is_null() || max_count == 0 {
+        return 0;
+    }
+
+    let states = PITCH_EDITOR_STATES.read();
+    let Some(state) = states.get(&clip_id) else {
+        return 0;
+    };
+
+    let Some(seg) = state.get_segment(segment_id) else {
+        return 0;
+    };
+
+    let count = seg.contour.len().min(max_count as usize);
+
+    unsafe {
+        for (i, (pos, pitch)) in seg.contour.iter().take(count).enumerate() {
+            *out_positions.add(i) = *pos;
+            *out_pitches.add(i) = pitch.as_midi();
+        }
+    }
+
+    count as u32
+}
+
+/// Clear pitch editor state for clip
+#[unsafe(no_mangle)]
+pub extern "C" fn pitch_clear_state(clip_id: u64) {
+    PITCH_EDITOR_STATES.write().remove(&clip_id);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIDEO SYNC FFI (Dynamic Sample Rate)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set video engine sample rate (must match audio engine)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_set_sample_rate(sample_rate: u32) {
+    let sr = match sample_rate {
+        44100 => rf_core::SampleRate::Hz44100,
+        48000 => rf_core::SampleRate::Hz48000,
+        88200 => rf_core::SampleRate::Hz88200,
+        96000 => rf_core::SampleRate::Hz96000,
+        176400 => rf_core::SampleRate::Hz176400,
+        192000 => rf_core::SampleRate::Hz192000,
+        _ => rf_core::SampleRate::Hz48000,
+    };
+    VIDEO_ENGINE.write().set_sample_rate(sr);
+    log::info!("[FFI] Video engine sample rate set to {} Hz", sample_rate);
+}
+
+/// Get current video playhead in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_playhead_samples() -> u64 {
+    VIDEO_ENGINE.read().playhead_samples()
+}
+
+/// Set video playhead from audio engine (for sync)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_sync_to_audio(audio_samples: u64) {
+    VIDEO_ENGINE.write().seek_to_sample(audio_samples);
+}
+
+/// Get sync drift in samples (video - audio)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_sync_drift(audio_samples: u64) -> i64 {
+    let video_samples = VIDEO_ENGINE.read().playhead_samples();
+    video_samples as i64 - audio_samples as i64
+}
+
+/// Get sync metrics (drift, skipped frames, latency)
+#[unsafe(no_mangle)]
+pub extern "C" fn video_get_sync_metrics(
+    out_drift_samples: *mut i64,
+    out_frames_skipped: *mut u32,
+    out_decode_latency_ms: *mut f32,
+) {
+    let engine = VIDEO_ENGINE.read();
+
+    unsafe {
+        if !out_drift_samples.is_null() {
+            *out_drift_samples = 0; // Would need audio reference
+        }
+        if !out_frames_skipped.is_null() {
+            *out_frames_skipped = engine.frames_skipped();
+        }
+        if !out_decode_latency_ms.is_null() {
+            *out_decode_latency_ms = engine.decode_latency_ms();
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MEMORY MANAGEMENT FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -7400,9 +7730,9 @@ pub extern "C" fn expander_set_threshold(track_id: u32, db: f64) -> i32 {
     }
 }
 
-/// Set expander ratio (legacy, not connected to insert chain)
+/// Set expander ratio
 #[unsafe(no_mangle)]
-pub extern "C" fn legacy_expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
+pub extern "C" fn expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
     let mut expanders = EXPANDERS.write();
     if let Some(exp) = expanders.get_mut(&track_id) {
         exp.set_ratio(ratio);
@@ -7410,6 +7740,12 @@ pub extern "C" fn legacy_expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
     } else {
         0
     }
+}
+
+/// Set expander ratio (legacy alias)
+#[unsafe(no_mangle)]
+pub extern "C" fn legacy_expander_set_ratio(track_id: u32, ratio: f64) -> i32 {
+    expander_set_ratio(track_id, ratio)
 }
 
 /// Set expander knee in dB
@@ -13488,6 +13824,9 @@ pub extern "C" fn audio_get_latency_ms() -> f64 {
     let selected = SELECTED_DEVICE.read();
     (selected.buffer_size as f64 / selected.sample_rate as f64) * 1000.0
 }
+
+// NOTE: audio_get_input_peaks is implemented in rf-bridge/src/lib.rs
+// because it needs access to PLAYBACK which is defined there
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT/BOUNCE SYSTEM

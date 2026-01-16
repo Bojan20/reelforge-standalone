@@ -32,11 +32,19 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
   @override
   void initState() {
     super.initState();
-    // Refresh metering at 30 Hz
-    _refreshTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
-      if (mounted) {
-        context.read<ControlRoomProvider>().updateMetering();
-      }
+    // Start metering refresh after first frame (provider available)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Refresh metering at 30 Hz - with safety check for provider
+      _refreshTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+        if (mounted) {
+          try {
+            context.read<ControlRoomProvider>().updateMetering();
+          } catch (_) {
+            // Provider not available - likely widget disposed or not in tree
+          }
+        }
+      });
     });
   }
 

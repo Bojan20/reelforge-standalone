@@ -303,6 +303,11 @@ class PluginProvider extends ChangeNotifier {
 
   /// Initialize provider
   Future<void> init() async {
+    // Initialize Rust plugin host
+    if (_ffi.isLoaded) {
+      _ffi.pluginHostInit();
+    }
+
     // Load cached plugins first (fast startup)
     await _loadCachedPlugins();
     notifyListeners();

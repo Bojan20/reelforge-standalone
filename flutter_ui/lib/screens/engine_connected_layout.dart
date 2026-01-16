@@ -38,7 +38,6 @@ import '../widgets/timeline/timeline.dart' as timeline_widget;
 import '../widgets/spectrum/spectrum_analyzer.dart';
 import '../widgets/meters/loudness_meter.dart';
 import '../widgets/meters/pro_metering_panel.dart';
-import '../widgets/meters/advanced_metering_panel.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
 import '../widgets/debug/debug_console.dart';
@@ -57,19 +56,8 @@ import '../widgets/dsp/pitch_correction_panel.dart';
 import '../widgets/dsp/transient_panel.dart';
 import '../widgets/dsp/multiband_panel.dart';
 import '../widgets/dsp/saturation_panel.dart';
-import '../widgets/dsp/analog_eq_panel.dart';
 import '../widgets/dsp/sidechain_panel.dart';
-import '../widgets/dsp/wavelet_panel.dart';
 import '../widgets/dsp/channel_strip_panel.dart';
-import '../widgets/dsp/surround_panner_panel.dart';
-import '../widgets/dsp/linear_phase_eq_panel.dart';
-import '../widgets/dsp/stereo_eq_panel.dart';
-import '../widgets/dsp/pro_eq_panel.dart';
-import '../widgets/dsp/ultra_eq_panel.dart';
-import '../widgets/dsp/room_correction_panel.dart';
-import '../widgets/dsp/stereo_imager_panel.dart';
-import '../widgets/dsp/convolution_ultra_panel.dart';
-import '../widgets/dsp/gpu_settings_panel.dart';
 import '../widgets/dsp/ml_processor_panel.dart';
 import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
@@ -81,7 +69,6 @@ import '../widgets/recording/recording_panel.dart' as recording;
 import '../widgets/routing/routing_panel.dart' as routing;
 import '../widgets/plugin/plugin_browser.dart';
 import '../widgets/metering/metering_bridge.dart';
-import '../widgets/meters/pdc_display.dart';
 import '../src/rust/engine_api.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/waveform_cache.dart';
@@ -101,15 +88,6 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
-// Advanced panel imports
-import '../widgets/panels/logical_editor_panel.dart';
-import '../widgets/panels/scale_assistant_panel.dart';
-import '../widgets/panels/groove_quantize_panel.dart';
-import '../widgets/panels/audio_alignment_panel.dart';
-import '../widgets/panels/track_versions_panel.dart';
-import '../widgets/panels/macro_controls_panel.dart';
-import '../widgets/panels/clip_gain_envelope_panel.dart';
-import '../widgets/demo/liquid_glass_demo.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -165,6 +143,9 @@ class EngineConnectedLayout extends StatefulWidget {
 }
 
 class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
+  // Native menu channel
+  static const _menuChannel = MethodChannel('fluxforge/menu');
+
   // Debug console state
   bool _showDebugConsole = false;
 
@@ -446,6 +427,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Initialize demo middleware data (for Middleware tab only)
     _initDemoMiddlewareData();
 
+    // Setup native menu handler (macOS menu bar)
+    _setupNativeMenuHandler();
+
     // Register meters and setup shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final meters = context.read<MeterProvider>();
@@ -454,12 +438,48 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       meters.registerMeter('music');
       meters.registerMeter('voice');
 
-      // Wire up import audio shortcut
+      // Wire up all keyboard shortcuts
       final shortcuts = context.read<GlobalShortcutsProvider>();
+      final engine = context.read<EngineProvider>();
+
+      // File menu shortcuts
+      shortcuts.actions.onNew = () => _handleNewProject(engine);
+      shortcuts.actions.onOpen = () => _handleOpenProject(engine);
+      shortcuts.actions.onSave = () => _handleSaveProject(engine);
+      shortcuts.actions.onSaveAs = () => _handleSaveProjectAs(engine);
+      shortcuts.actions.onImportJSON = _handleImportJSON;
+      shortcuts.actions.onExportJSON = _handleExportJSON;
+      shortcuts.actions.onImportAudioFolder = _handleImportAudioFolder;
       shortcuts.actions.onImportAudioFiles = _openFilePicker;
       shortcuts.actions.onExport = _handleExportAudio;
+      shortcuts.actions.onBatchExport = _handleBatchExport;
+      shortcuts.actions.onBounceToFile = _handleBounce;
+      shortcuts.actions.onRenderInPlace = _handleRenderInPlace;
 
-      // Wire up Advanced panel shortcuts (Shift+Cmd)
+      // View panel shortcuts
+      shortcuts.actions.onToggleLeftPanel = () => setState(() => _leftVisible = !_leftVisible);
+      shortcuts.actions.onToggleRightPanel = () => setState(() => _rightVisible = !_rightVisible);
+      shortcuts.actions.onToggleLowerPanel = () => setState(() => _lowerVisible = !_lowerVisible);
+      shortcuts.actions.onShowAudioPool = _handleShowAudioPool;
+      shortcuts.actions.onShowMarkers = _handleShowMarkers;
+      shortcuts.actions.onShowMidiEditor = _handleShowMidiEditor;
+      shortcuts.actions.onResetLayout = _handleResetLayout;
+
+      // Project menu shortcuts
+      shortcuts.actions.onProjectSettings = _handleProjectSettings;
+      shortcuts.actions.onTrackTemplates = _handleTrackTemplates;
+      shortcuts.actions.onVersionHistory = _handleVersionHistory;
+      shortcuts.actions.onFreezeSelectedTracks = _handleFreezeSelectedTracks;
+      shortcuts.actions.onValidateProject = _handleValidateProject;
+      shortcuts.actions.onBuildProject = _handleBuildProject;
+
+      // Studio menu shortcuts
+      shortcuts.actions.onAudioSettings = _handleAudioSettings;
+      shortcuts.actions.onMidiSettings = _handleMidiSettings;
+      shortcuts.actions.onPluginManager = _handlePluginManager;
+      shortcuts.actions.onKeyboardShortcuts = _handleKeyboardShortcuts;
+
+      // Advanced panel shortcuts (Shift+Cmd)
       shortcuts.actions.onShowLogicalEditor = () => _showAdvancedPanel('logical-editor');
       shortcuts.actions.onShowScaleAssistant = () => _showAdvancedPanel('scale-assistant');
       shortcuts.actions.onShowGrooveQuantize = () => _showAdvancedPanel('groove-quantize');
@@ -468,6 +488,121 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       shortcuts.actions.onShowMacroControls = () => _showAdvancedPanel('macro-controls');
       shortcuts.actions.onShowClipGainEnvelope = () => _showAdvancedPanel('clip-gain-envelope');
     });
+  }
+
+  /// Setup handler for native macOS menu bar actions
+  void _setupNativeMenuHandler() {
+    _menuChannel.setMethodCallHandler((call) async {
+      if (call.method == 'menuAction') {
+        final action = call.arguments as String;
+        _handleNativeMenuAction(action);
+      }
+    });
+  }
+
+  /// Handle action from native macOS menu bar
+  void _handleNativeMenuAction(String action) {
+    final callbacks = _buildMenuCallbacks();
+
+    switch (action) {
+      // FILE MENU
+      case 'newProject':
+        callbacks.onNewProject?.call();
+      case 'openProject':
+        callbacks.onOpenProject?.call();
+      case 'save':
+        callbacks.onSaveProject?.call();
+      case 'saveAs':
+        callbacks.onSaveProjectAs?.call();
+      case 'importJSON':
+        callbacks.onImportJSON?.call();
+      case 'exportJSON':
+        callbacks.onExportJSON?.call();
+      case 'importAudioFolder':
+        callbacks.onImportAudioFolder?.call();
+      case 'importAudioFiles':
+        callbacks.onImportAudioFiles?.call();
+      case 'exportAudio':
+        callbacks.onExportAudio?.call();
+      case 'batchExport':
+        callbacks.onBatchExport?.call();
+      case 'exportPresets':
+        callbacks.onExportPresets?.call();
+      case 'bounce':
+        callbacks.onBounce?.call();
+      case 'renderInPlace':
+        callbacks.onRenderInPlace?.call();
+
+      // EDIT MENU
+      case 'undo':
+        callbacks.onUndo?.call();
+      case 'redo':
+        callbacks.onRedo?.call();
+      case 'cut':
+        callbacks.onCut?.call();
+      case 'copy':
+        callbacks.onCopy?.call();
+      case 'paste':
+        callbacks.onPaste?.call();
+      case 'delete':
+        callbacks.onDelete?.call();
+      case 'selectAll':
+        callbacks.onSelectAll?.call();
+
+      // VIEW MENU
+      case 'toggleLeftPanel':
+        callbacks.onToggleLeftPanel?.call();
+      case 'toggleRightPanel':
+        callbacks.onToggleRightPanel?.call();
+      case 'toggleLowerPanel':
+        callbacks.onToggleLowerPanel?.call();
+      case 'showAudioPool':
+        callbacks.onShowAudioPool?.call();
+      case 'showMarkers':
+        callbacks.onShowMarkers?.call();
+      case 'showMidiEditor':
+        callbacks.onShowMidiEditor?.call();
+      case 'showLogicalEditor':
+        callbacks.onShowLogicalEditor?.call();
+      case 'showScaleAssistant':
+        callbacks.onShowScaleAssistant?.call();
+      case 'showGrooveQuantize':
+        callbacks.onShowGrooveQuantize?.call();
+      case 'showAudioAlignment':
+        callbacks.onShowAudioAlignment?.call();
+      case 'showTrackVersions':
+        callbacks.onShowTrackVersions?.call();
+      case 'showMacroControls':
+        callbacks.onShowMacroControls?.call();
+      case 'showClipGainEnvelope':
+        callbacks.onShowClipGainEnvelope?.call();
+      case 'resetLayout':
+        callbacks.onResetLayout?.call();
+
+      // PROJECT MENU
+      case 'projectSettings':
+        callbacks.onProjectSettings?.call();
+      case 'trackTemplates':
+        callbacks.onTrackTemplates?.call();
+      case 'versionHistory':
+        callbacks.onVersionHistory?.call();
+      case 'freezeSelectedTracks':
+        callbacks.onFreezeSelectedTracks?.call();
+      case 'validateProject':
+        callbacks.onValidateProject?.call();
+      case 'buildProject':
+        callbacks.onBuildProject?.call();
+
+      // STUDIO MENU
+      case 'audioSettings':
+        callbacks.onAudioSettings?.call();
+      case 'midiSettings':
+        callbacks.onMidiSettings?.call();
+      case 'pluginManager':
+        callbacks.onPluginManager?.call();
+      case 'keyboardShortcuts':
+        callbacks.onKeyboardShortcuts?.call();
+    }
   }
 
   @override
@@ -1445,6 +1580,142 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _timelineScrollOffset = 0;
     });
     _showSnackBar('Layout reset to defaults');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-CROSSFADE SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Detect overlap with another clip on the same track and create crossfade
+  /// Returns the created crossfade ID, or null if no overlap
+  String? _createAutoCrossfadeIfOverlap(String movedClipId, String trackId) {
+    final movedClip = _clips.firstWhere(
+      (c) => c.id == movedClipId,
+      orElse: () => _clips.first,
+    );
+
+    // Find clips on the same track (excluding moved clip)
+    final trackClips = _clips
+        .where((c) => c.trackId == trackId && c.id != movedClipId)
+        .toList();
+
+    for (final otherClip in trackClips) {
+      // Check for overlap
+      final movedStart = movedClip.startTime;
+      final movedEnd = movedClip.startTime + movedClip.duration;
+      final otherStart = otherClip.startTime;
+      final otherEnd = otherClip.startTime + otherClip.duration;
+
+      // Calculate overlap region
+      final overlapStart = movedStart > otherStart ? movedStart : otherStart;
+      final overlapEnd = movedEnd < otherEnd ? movedEnd : otherEnd;
+      final overlapDuration = overlapEnd - overlapStart;
+
+      // If there's actual overlap (positive duration)
+      if (overlapDuration > 0.01) {
+        // Determine which clip is first (clipA) and which is second (clipB)
+        final String clipAId;
+        final String clipBId;
+        if (movedStart < otherStart) {
+          // Moved clip is first
+          clipAId = movedClipId;
+          clipBId = otherClip.id;
+        } else {
+          // Other clip is first
+          clipAId = otherClip.id;
+          clipBId = movedClipId;
+        }
+
+        // Check if crossfade already exists between these clips
+        final existingCrossfade = _crossfades.any(
+          (x) => x.trackId == trackId &&
+              ((x.clipAId == clipAId && x.clipBId == clipBId) ||
+               (x.clipAId == clipBId && x.clipBId == clipAId)),
+        );
+
+        if (!existingCrossfade) {
+          // Create new crossfade
+          final crossfadeId = 'xfade-${DateTime.now().millisecondsSinceEpoch}';
+          final newCrossfade = timeline.Crossfade(
+            id: crossfadeId,
+            trackId: trackId,
+            clipAId: clipAId,
+            clipBId: clipBId,
+            startTime: overlapStart,
+            duration: overlapDuration,
+            curveType: timeline.CrossfadeCurve.equalPower,
+          );
+
+          setState(() {
+            _crossfades = [..._crossfades, newCrossfade];
+          });
+
+          debugPrint('[AutoCrossfade] Created crossfade: $clipAId -> $clipBId, start=$overlapStart, duration=$overlapDuration');
+          return crossfadeId;
+        } else {
+          // Update existing crossfade position/duration
+          setState(() {
+            _crossfades = _crossfades.map((x) {
+              if (x.trackId == trackId &&
+                  ((x.clipAId == clipAId && x.clipBId == clipBId) ||
+                   (x.clipAId == clipBId && x.clipBId == clipAId))) {
+                return x.copyWith(
+                  startTime: overlapStart,
+                  duration: overlapDuration,
+                );
+              }
+              return x;
+            }).toList();
+          });
+          debugPrint('[AutoCrossfade] Updated existing crossfade');
+        }
+
+        // Only process one overlap at a time
+        return null;
+      }
+    }
+
+    // No overlap found - remove any crossfades involving this clip that no longer overlap
+    _removeStaleClipCrossfades(movedClipId);
+    return null;
+  }
+
+  /// Remove crossfades that no longer have overlapping clips
+  void _removeStaleClipCrossfades(String clipId) {
+    final clip = _clips.firstWhere(
+      (c) => c.id == clipId,
+      orElse: () => _clips.first,
+    );
+    final clipStart = clip.startTime;
+    final clipEnd = clip.startTime + clip.duration;
+
+    setState(() {
+      _crossfades = _crossfades.where((xfade) {
+        // Keep crossfades not involving this clip
+        if (xfade.clipAId != clipId && xfade.clipBId != clipId) return true;
+
+        // Find the other clip in the crossfade
+        final otherClipId = xfade.clipAId == clipId ? xfade.clipBId : xfade.clipAId;
+        final otherClip = _clips.firstWhere(
+          (c) => c.id == otherClipId,
+          orElse: () => _clips.first,
+        );
+        if (otherClip.id != otherClipId) return false; // Other clip not found
+
+        final otherStart = otherClip.startTime;
+        final otherEnd = otherClip.startTime + otherClip.duration;
+
+        // Check if still overlapping
+        final overlapStart = clipStart > otherStart ? clipStart : otherStart;
+        final overlapEnd = clipEnd < otherEnd ? clipEnd : otherEnd;
+        final stillOverlapping = (overlapEnd - overlapStart) > 0.01;
+
+        if (!stillOverlapping) {
+          debugPrint('[AutoCrossfade] Removed stale crossfade: ${xfade.id}');
+        }
+        return stillOverlapping;
+      }).toList();
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2664,6 +2935,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         setState(() {
           _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
         });
+
+        // Auto-create crossfade if clip overlaps with another clip on same track
+        _createAutoCrossfadeIfOverlap(clipId, clip.trackId);
       },
       onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
         // Move clip to a different track
@@ -3134,6 +3408,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _crossfades = _crossfades.map((x) {
             if (x.id == crossfadeId) {
               return x.copyWith(duration: duration);
+            }
+            return x;
+          }).toList();
+        });
+      },
+      onCrossfadeFullUpdate: (crossfadeId, startTime, duration) {
+        setState(() {
+          _crossfades = _crossfades.map((x) {
+            if (x.id == crossfadeId) {
+              return x.copyWith(startTime: startTime, duration: duration);
             }
             return x;
           }).toList();
@@ -4780,9 +5064,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           setState(() { _busInserts[channelId] = chain.setPlugin(insertIndex, plugin); });
           // Load new processor into engine audio path
           final trackId = _busIdToTrackId(channelId);
-          final processorName = _pluginIdToProcessorName(plugin.id);
-          if (processorName != null) {
-            NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+          if (plugin.format == PluginFormat.internal) {
+            final processorName = _pluginIdToProcessorName(plugin.id);
+            if (processorName != null) {
+              NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+            }
+          } else {
+            NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
           }
           debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
         }
@@ -4802,9 +5090,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         // Ensure insert chain exists and load processor into engine
         final trackId = _busIdToTrackId(channelId);
         NativeFFI.instance.insertCreateChain(trackId);
-        final processorName = _pluginIdToProcessorName(plugin.id);
-        if (processorName != null) {
-          NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+        if (plugin.format == PluginFormat.internal) {
+          final processorName = _pluginIdToProcessorName(plugin.id);
+          if (processorName != null) {
+            NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+          }
+        } else {
+          NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
         }
         debugPrint('[UltimateMixer] Inserted ${plugin.name} on slot $insertIndex for $channelId');
 
@@ -5302,10 +5594,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           });
           // Load new processor into engine audio path
           final trackId = _busIdToTrackId(busId);
-          final processorName = _pluginIdToProcessorName(plugin.id);
-          if (processorName != null) {
-            final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
-            debugPrint('[Mixer] Load processor "$processorName" -> result: $result');
+          if (plugin.format == PluginFormat.internal) {
+            final processorName = _pluginIdToProcessorName(plugin.id);
+            if (processorName != null) {
+              final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+              debugPrint('[Mixer] Load internal processor "$processorName" -> result: $result');
+            }
+          } else {
+            final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
+            debugPrint('[Mixer] Load external plugin "${plugin.name}" -> result: $result');
           }
           debugPrint('[Mixer] Replaced with ${plugin.name} on slot $insertIndex');
         }
@@ -5338,10 +5635,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         NativeFFI.instance.insertCreateChain(trackId);
 
         // Load processor into engine audio path
-        final processorName = _pluginIdToProcessorName(plugin.id);
-        if (processorName != null) {
-          final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
-          debugPrint('[Mixer] Load processor "$processorName" -> result: $result');
+        if (plugin.format == PluginFormat.internal) {
+          // Internal plugin - use insertLoadProcessor
+          final processorName = _pluginIdToProcessorName(plugin.id);
+          if (processorName != null) {
+            final result = NativeFFI.instance.insertLoadProcessor(trackId, insertIndex, processorName);
+            debugPrint('[Mixer] Load internal processor "$processorName" -> result: $result');
+          }
+        } else {
+          // External plugin (VST3/AU/CLAP) - use pluginInsertLoad
+          final result = NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
+          debugPrint('[Mixer] Load external plugin "${plugin.name}" (${plugin.format.name}) -> result: $result');
         }
 
         debugPrint('[Mixer] Inserted ${plugin.name} on slot $insertIndex');
@@ -6458,443 +6762,174 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// Build all lower zone tabs (matches React LayoutDemo.tsx 1:1)
   /// All tabs are created, then filtered by mode visibility
   List<LowerZoneTab> _buildLowerTabs(dynamic metering, bool isPlaying) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // REORGANIZED LOWER ZONE - Clean, Intuitive, Professional
+    // ═══════════════════════════════════════════════════════════════════════
+    // 6 Groups, ~25 Tabs (down from 52+)
+    // ═══════════════════════════════════════════════════════════════════════
     final List<LowerZoneTab> tabs = [
-      // ========== Timeline (center zone in DAW, hidden in lower) ==========
-      LowerZoneTab(
-        id: 'timeline',
-        label: 'Timeline',
-        icon: Icons.view_timeline,
-        content: const TimelineTabPlaceholder(),
-        groupId: 'mixconsole',
-      ),
-      // ========== Mixer (MixConsole group) ==========
-      // Only Ultimate Mixer - no legacy DAW mixer
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 1: MIX — Core mixing tools
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
         id: 'mixer',
         label: 'Mixer',
         icon: Icons.tune,
         content: _buildUltimateMixerContent(metering, isPlaying),
-        groupId: 'mixconsole',
-      ),
-      LowerZoneTab(
-        id: 'metering-bridge',
-        label: 'Metering Bridge',
-        icon: Icons.speed,
-        content: _buildMeteringBridgeContent(metering, isPlaying),
-        groupId: 'mixconsole',
+        groupId: 'mix',
       ),
       LowerZoneTab(
         id: 'control-room',
         label: 'Control Room',
         icon: Icons.headphones,
         content: _buildControlRoomContent(),
-        groupId: 'mixconsole',
-      ),
-      LowerZoneTab(
-        id: 'input-bus',
-        label: 'Input Bus',
-        icon: Icons.input,
-        content: _buildInputBusContent(),
-        groupId: 'mixconsole',
+        groupId: 'mix',
       ),
       LowerZoneTab(
         id: 'recording',
         label: 'Recording',
         icon: Icons.fiber_manual_record,
         content: _buildRecordingContent(),
-        groupId: 'mixconsole',
+        groupId: 'mix',
       ),
-      LowerZoneTab(
-        id: 'routing',
-        label: 'Routing',
-        icon: Icons.device_hub,
-        content: _buildRoutingContent(),
-        groupId: 'mixconsole',
-      ),
-      // ========== Clip Editor (Editor group) ==========
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 2: EDIT — Clip and arrangement editing
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
         id: 'clip-editor',
         label: 'Clip Editor',
         icon: Icons.edit,
-        contentBuilder: _buildClipEditorContent, // Dynamic - needs fresh callbacks
-        groupId: 'editor',
+        contentBuilder: _buildClipEditorContent,
+        groupId: 'edit',
       ),
-      // ========== Crossfade Editor (Editor group) ==========
       LowerZoneTab(
         id: 'crossfade',
         label: 'Crossfade',
         icon: Icons.compare,
         content: _buildCrossfadeEditorContent(),
-        groupId: 'editor',
+        groupId: 'edit',
       ),
-      // ========== Automation Editor (Editor group) ==========
       LowerZoneTab(
         id: 'automation',
         label: 'Automation',
         icon: Icons.timeline,
         content: _buildAutomationEditorContent(),
-        groupId: 'editor',
+        groupId: 'edit',
       ),
-      // ========== Piano Roll (Editor group) ==========
       LowerZoneTab(
         id: 'piano-roll',
         label: 'Piano Roll',
         icon: Icons.piano,
         content: _buildPianoRollContent(),
-        groupId: 'editor',
+        groupId: 'edit',
       ),
-      // ========== Layered Music (Sampler group) ==========
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 3: ANALYZE — Metering and analysis
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'layers',
-        label: 'Layered Music',
-        icon: Icons.layers,
-        content: const LayeredMusicTabPlaceholder(),
-        groupId: 'sampler',
-      ),
-      // ========== Console (Tools group) ==========
-      LowerZoneTab(
-        id: 'console',
-        label: 'Console',
-        icon: Icons.terminal,
-        content: const ConsoleTabPlaceholder(),
-        groupId: 'tools',
-      ),
-      // ========== Validation (Tools group) ==========
-      LowerZoneTab(
-        id: 'validation',
-        label: 'Validation',
-        icon: Icons.check_circle_outline,
-        content: const ValidationTabPlaceholder(),
-        groupId: 'tools',
-      ),
-      // ========== Plugin Browser (Tools group) ==========
-      LowerZoneTab(
-        id: 'plugins',
-        label: 'Plugins',
-        icon: Icons.extension,
-        content: PluginBrowser(
-          onPluginLoad: (plugin) {
-            // TODO: Load plugin into selected track/bus insert slot
-            debugPrint('Load plugin: ${plugin.name}');
-          },
-        ),
-        groupId: 'tools',
-      ),
-      // ========== Slot Audio Tabs ==========
-      LowerZoneTab(
-        id: 'spin-cycle',
-        label: 'Spin Cycle',
-        icon: Icons.casino,
-        content: const SpinCycleTabPlaceholder(),
-        groupId: 'slot',
-      ),
-      LowerZoneTab(
-        id: 'win-tiers',
-        label: 'Win Tiers',
-        icon: Icons.emoji_events,
-        content: const WinTiersTabPlaceholder(),
-        groupId: 'slot',
-      ),
-      LowerZoneTab(
-        id: 'reel-sequencer',
-        label: 'Reel Sequencer',
-        icon: Icons.timer,
-        content: const ReelSequencerTabPlaceholder(),
-        groupId: 'slot',
-      ),
-      // ========== Audio Features (Features group) ==========
-      LowerZoneTab(
-        id: 'audio-features',
-        label: 'Audio Features',
-        icon: Icons.settings,
-        content: const AudioFeaturesTabPlaceholder(),
-        groupId: 'features',
-      ),
-      // ========== Pro Features (Features group) ==========
-      LowerZoneTab(
-        id: 'pro-features',
-        label: 'Pro Features',
-        icon: Icons.flash_on,
-        content: const ProFeaturesTabPlaceholder(),
-        groupId: 'features',
-      ),
-      // ========== Slot Studio (Slot group) ==========
-      LowerZoneTab(
-        id: 'slot-studio',
-        label: 'Slot Studio',
-        icon: Icons.headphones,
-        content: const SlotStudioTabPlaceholder(),
-        groupId: 'slot',
-      ),
-      // ========== DSP Tabs ==========
-      LowerZoneTab(
-        id: 'eq',
-        label: 'EQ',
-        icon: Icons.graphic_eq,
-        content: _buildProEqContent(metering, isPlaying),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'analog-eq',
-        label: 'Analog EQ',
-        icon: Icons.tune,
-        content: _buildAnalogEqContent(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'spectrum',
-        label: 'Spectrum',
-        icon: Icons.show_chart,
-        content: const SpectrumAnalyzerDemo(),
-        groupId: 'dsp',
+        id: 'meters',
+        label: 'Meters',
+        icon: Icons.speed,
+        content: ProMeteringPanel(metering: metering),
+        groupId: 'analyze',
       ),
       LowerZoneTab(
         id: 'loudness',
         label: 'Loudness',
         icon: Icons.surround_sound,
         content: _buildLoudnessContent(metering),
-        groupId: 'dsp',
+        groupId: 'analyze',
       ),
       LowerZoneTab(
-        id: 'meters',
-        label: 'Meters',
-        icon: Icons.speed,
-        content: ProMeteringPanel(metering: metering),
-        groupId: 'dsp',
+        id: 'spectrum',
+        label: 'Spectrum',
+        icon: Icons.show_chart,
+        content: const SpectrumAnalyzerDemo(),
+        groupId: 'analyze',
       ),
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 4: PROCESS — DSP processors
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'advanced-meters',
-        label: 'Advanced',
-        icon: Icons.insights,
-        content: const AdvancedMeteringPanel(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'pdc',
-        label: 'PDC',
-        icon: Icons.timer_outlined,
-        content: PdcDetailPanel(
-          trackIds: _tracks.map((t) => t.id.hashCode).toList(),
-          sampleRate: 48000,
-        ),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'sidechain',
-        label: 'Sidechain',
-        icon: Icons.link,
-        content: const SidechainTabPlaceholder(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'multiband',
-        label: 'Multiband',
-        icon: Icons.equalizer,
-        content: MultibandPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'analysis',
-        label: 'Analysis',
-        icon: Icons.analytics,
-        content: _buildAnalysisContent(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'timestretch',
-        label: 'Time Stretch',
-        icon: Icons.speed,
-        content: _buildTimeStretchContent(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'fx-presets',
-        label: 'FX Presets',
-        icon: Icons.auto_fix_high,
-        content: const FXPresetsTabPlaceholder(),
-        groupId: 'dsp',
-      ),
-      // ========== DSP Processing Panels ==========
-      LowerZoneTab(
-        id: 'delay',
-        label: 'Delay',
-        icon: Icons.timer,
-        content: DelayPanel(trackId: 0, bpm: 120.0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'reverb',
-        label: 'Reverb',
-        icon: Icons.blur_on,
-        content: ReverbPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        id: 'eq',
+        label: 'EQ',
+        icon: Icons.graphic_eq,
+        content: _buildProEqContent(metering, isPlaying),
+        groupId: 'process',
       ),
       LowerZoneTab(
         id: 'dynamics',
         label: 'Dynamics',
         icon: Icons.compress,
         content: DynamicsPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        groupId: 'process',
       ),
       LowerZoneTab(
         id: 'spatial',
         label: 'Spatial',
-        icon: Icons.surround_sound,
+        icon: Icons.spatial_audio,
         content: SpatialPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'spectral',
-        label: 'Spectral',
-        icon: Icons.waves,
-        content: SpectralPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        id: 'reverb',
+        label: 'Reverb',
+        icon: Icons.blur_on,
+        content: ReverbPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'delay',
+        label: 'Delay',
+        icon: Icons.timer,
+        content: DelayPanel(trackId: 0, bpm: 120.0, sampleRate: 48000.0),
+        groupId: 'process',
       ),
       LowerZoneTab(
         id: 'pitch',
         label: 'Pitch',
         icon: Icons.music_note,
         content: PitchCorrectionPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'transient',
-        label: 'Transient',
-        icon: Icons.flash_on,
-        content: TransientPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        id: 'spectral',
+        label: 'Spectral',
+        icon: Icons.waves,
+        content: SpectralPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'process',
       ),
       LowerZoneTab(
         id: 'saturation',
         label: 'Saturation',
         icon: Icons.whatshot,
         content: SaturationPanel(trackId: 0),
-        groupId: 'dsp',
+        groupId: 'process',
       ),
       LowerZoneTab(
-        id: 'analog-eq',
-        label: 'Analog EQ',
-        icon: Icons.graphic_eq,
-        content: AnalogEqPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
+        id: 'transient',
+        label: 'Transient',
+        icon: Icons.flash_on,
+        content: TransientPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'process',
       ),
-      LowerZoneTab(
-        id: 'sidechain',
-        label: 'Sidechain',
-        icon: Icons.call_split,
-        content: SidechainPanel(processorId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'wavelet',
-        label: 'Wavelet',
-        icon: Icons.waves,
-        content: WaveletPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'channel-strip',
-        label: 'Channel Strip',
-        icon: Icons.tune,
-        content: ChannelStripPanel(trackId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'surround-panner',
-        label: 'Surround',
-        icon: Icons.surround_sound,
-        content: SurroundPannerPanel(trackId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'linear-phase-eq',
-        label: 'Linear EQ',
-        icon: Icons.graphic_eq,
-        content: LinearPhaseEqPanel(trackId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'stereo-eq',
-        label: 'Stereo EQ',
-        icon: Icons.graphic_eq,
-        content: StereoEqPanel(trackId: 0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'pro-eq',
-        label: 'Pro-EQ 64',
-        icon: Icons.auto_graph,
-        content: ProEqPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'ultra-eq',
-        label: 'Ultra-EQ 256',
-        icon: Icons.multiline_chart,
-        content: UltraEqPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'room-correction',
-        label: 'Room Correct',
-        icon: Icons.room_preferences,
-        content: RoomCorrectionPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'stereo-imager',
-        label: 'Stereo Imager',
-        icon: Icons.spatial_audio,
-        content: StereoImagerPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      // ========== Phase 2 Ultimate DSP Panels ==========
-      LowerZoneTab(
-        id: 'convolution-ultra',
-        label: 'Convolution Ultra',
-        icon: Icons.blur_on,
-        content: const ConvolutionUltraPanel(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'gpu-settings',
-        label: 'GPU DSP',
-        icon: Icons.memory,
-        content: const GpuSettingsPanel(),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'ml-processor',
-        label: 'ML Processor',
-        icon: Icons.psychology,
-        content: MlProcessorPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'mastering',
-        label: 'Mastering',
-        icon: Icons.auto_awesome,
-        content: MasteringPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      LowerZoneTab(
-        id: 'restoration',
-        label: 'Restoration',
-        icon: Icons.healing,
-        content: RestorationPanel(trackId: 0, sampleRate: 48000.0),
-        groupId: 'dsp',
-      ),
-      // ========== Media Tabs ==========
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 5: MEDIA — Browser, pool, templates
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
         id: 'audio-browser',
-        label: 'Audio Browser',
+        label: 'Browser',
         icon: Icons.folder_open,
         content: const AudioBrowserTabPlaceholder(),
         groupId: 'media',
       ),
       LowerZoneTab(
         id: 'audio-pool',
-        label: 'Audio Pool',
+        label: 'Pool',
         icon: Icons.library_music,
         content: AudioPoolPanel(
           key: AudioPoolPanelState.globalKey,
@@ -6902,10 +6937,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ),
         groupId: 'media',
       ),
-      // ========== Project Management Tabs ==========
+      LowerZoneTab(
+        id: 'plugins',
+        label: 'Plugins',
+        icon: Icons.extension,
+        content: PluginBrowser(
+          onPluginLoad: (plugin) {
+            debugPrint('Load plugin: ${plugin.name}');
+          },
+        ),
+        groupId: 'media',
+      ),
       LowerZoneTab(
         id: 'track-templates',
-        label: 'Track Templates',
+        label: 'Templates',
         icon: Icons.content_copy,
         content: TrackTemplatesPanel(
           onTrackCreated: (trackId) => setState(() {}),
@@ -6921,89 +6966,58 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ),
         groupId: 'media',
       ),
-      // ========== PDC (Tools group) ==========
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 6: ADVANCED — Pro features, routing, mastering
+      // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'pdc-status',
-        label: 'PDC Status',
-        icon: Icons.timer_outlined,
-        content: PdcDetailPanel(
-          trackIds: _tracks.map((t) => int.tryParse(t.id) ?? 0).toList(),
-          sampleRate: 48000.0,
-        ),
-        groupId: 'tools',
-      ),
-      // ========== Debug/Demo Tabs (Tools group) ==========
-      LowerZoneTab(
-        id: 'drag-drop-lab',
-        label: 'D&D Lab',
-        icon: Icons.pan_tool,
-        content: const DragDropLabPlaceholder(),
-        groupId: 'tools',
-      ),
-      LowerZoneTab(
-        id: 'loading-states',
-        label: 'Loading',
-        icon: Icons.hourglass_empty,
-        content: const LoadingStatesPlaceholder(),
-        groupId: 'tools',
-      ),
-      // ========== Advanced DAW Features (Advanced group) ==========
-      LowerZoneTab(
-        id: 'logical-editor',
-        label: 'Logical Editor',
-        icon: Icons.code,
-        content: const LogicalEditorPanel(),
+        id: 'routing',
+        label: 'Routing',
+        icon: Icons.device_hub,
+        content: _buildRoutingContent(),
         groupId: 'advanced',
       ),
       LowerZoneTab(
-        id: 'scale-assistant',
-        label: 'Scale Assistant',
-        icon: Icons.music_note,
-        content: const ScaleAssistantPanel(),
+        id: 'sidechain',
+        label: 'Sidechain',
+        icon: Icons.call_split,
+        content: SidechainPanel(processorId: 0),
         groupId: 'advanced',
       ),
       LowerZoneTab(
-        id: 'groove-quantize',
-        label: 'Groove Quantize',
-        icon: Icons.grid_on,
-        content: const GrooveQuantizePanel(),
+        id: 'multiband',
+        label: 'Multiband',
+        icon: Icons.equalizer,
+        content: MultibandPanel(trackId: 0, sampleRate: 48000.0),
         groupId: 'advanced',
       ),
       LowerZoneTab(
-        id: 'audio-alignment',
-        label: 'Audio Alignment',
-        icon: Icons.align_horizontal_left,
-        content: const AudioAlignmentPanel(),
-        groupId: 'advanced',
-      ),
-      LowerZoneTab(
-        id: 'track-versions',
-        label: 'Track Versions',
-        icon: Icons.history,
-        content: const TrackVersionsPanel(),
-        groupId: 'advanced',
-      ),
-      LowerZoneTab(
-        id: 'macro-controls',
-        label: 'Macro Controls',
+        id: 'channel-strip',
+        label: 'Channel Strip',
         icon: Icons.tune,
-        content: const MacroControlsPanel(),
+        content: ChannelStripPanel(trackId: 0),
         groupId: 'advanced',
       ),
       LowerZoneTab(
-        id: 'clip-gain-envelope',
-        label: 'Clip Gain',
-        icon: Icons.show_chart,
-        content: const ClipGainEnvelopePanel(),
+        id: 'mastering',
+        label: 'Mastering',
+        icon: Icons.auto_awesome,
+        content: MasteringPanel(trackId: 0, sampleRate: 48000.0),
         groupId: 'advanced',
       ),
-      // ========== Design Demos ==========
       LowerZoneTab(
-        id: 'liquid-glass',
-        label: 'Liquid Glass',
-        icon: Icons.blur_on,
-        content: const LiquidGlassDemo(),
-        groupId: 'tools',
+        id: 'restoration',
+        label: 'Restoration',
+        icon: Icons.healing,
+        content: RestorationPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'advanced',
+      ),
+      LowerZoneTab(
+        id: 'ml-processor',
+        label: 'ML/AI',
+        icon: Icons.psychology,
+        content: MlProcessorPanel(trackId: 0, sampleRate: 48000.0),
+        groupId: 'advanced',
       ),
     ];
 
@@ -7014,63 +7028,47 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   /// Build tab groups (matches React LayoutDemo.tsx 1:1)
   /// All groups are created, then filtered by mode visibility
   List<TabGroup> _buildTabGroups() {
+    // ═══════════════════════════════════════════════════════════════════════
+    // REORGANIZED TAB GROUPS - Clean, Intuitive, Professional
+    // ═══════════════════════════════════════════════════════════════════════
+    // 6 Groups (down from 9) - Logical workflow order
+    // ═══════════════════════════════════════════════════════════════════════
     final List<TabGroup> allGroups = [
-      // ========== DAW MODE GROUPS (Cubase-style) ==========
-      // MixConsole - Full mixer (like Cubase MixConsole in Lower Zone)
+      // GROUP 1: MIX — Core mixing workflow
       const TabGroup(
-        id: 'mixconsole',
-        label: 'MixConsole',
-        tabs: ['mixer', 'ultimate-mixer', 'metering-bridge', 'recording', 'routing'], // NOTE: timeline is in center zone, not lower
+        id: 'mix',
+        label: 'Mix',
+        tabs: ['mixer', 'control-room', 'recording'],
       ),
-      // Editor - Clip Editor, Crossfade, Automation, Piano Roll (like Cubase Lower Zone editors)
+      // GROUP 2: EDIT — Clip and arrangement editing
       const TabGroup(
-        id: 'editor',
-        label: 'Editor',
+        id: 'edit',
+        label: 'Edit',
         tabs: ['clip-editor', 'crossfade', 'automation', 'piano-roll'],
       ),
-      // Sampler - Layered music system (like Cubase Sampler Control)
+      // GROUP 3: ANALYZE — Metering and analysis
       const TabGroup(
-        id: 'sampler',
-        label: 'Sampler',
-        tabs: ['layers'],
+        id: 'analyze',
+        label: 'Analyze',
+        tabs: ['meters', 'loudness', 'spectrum'],
       ),
-      // Media - Audio Browser & Pool (like Cubase MediaBay)
+      // GROUP 4: PROCESS — DSP processors (consolidated)
+      const TabGroup(
+        id: 'process',
+        label: 'Process',
+        tabs: ['eq', 'dynamics', 'spatial', 'reverb', 'delay', 'pitch', 'spectral', 'saturation', 'transient'],
+      ),
+      // GROUP 5: MEDIA — Browser, pool, plugins, templates
       const TabGroup(
         id: 'media',
         label: 'Media',
-        tabs: ['audio-browser', 'audio-pool'],
+        tabs: ['audio-browser', 'audio-pool', 'plugins', 'track-templates', 'project-versions'],
       ),
-      // DSP - Professional audio processing
-      const TabGroup(
-        id: 'dsp',
-        label: 'DSP',
-        tabs: ['eq', 'analog-eq', 'spectrum', 'loudness', 'meters', 'sidechain', 'multiband', 'analysis', 'timestretch', 'fx-presets', 'delay', 'reverb', 'dynamics', 'spatial', 'spectral', 'pitch', 'transient', 'saturation', 'wavelet', 'channel-strip', 'surround-panner', 'linear-phase-eq', 'stereo-eq', 'pro-eq', 'ultra-eq', 'room-correction', 'stereo-imager', 'convolution-ultra', 'gpu-settings', 'ml-processor', 'mastering', 'restoration'],
-      ),
-
-      // ========== MIDDLEWARE MODE GROUPS ==========
-      // Slot - All slot-specific audio tools
-      const TabGroup(
-        id: 'slot',
-        label: 'Slot Audio',
-        tabs: ['spin-cycle', 'win-tiers', 'reel-sequencer', 'slot-studio'],
-      ),
-      // Features - Audio features and pro tools
-      const TabGroup(
-        id: 'features',
-        label: 'Features',
-        tabs: ['audio-features', 'pro-features'],
-      ),
-      // Tools - Validation, console, debug, demos
-      const TabGroup(
-        id: 'tools',
-        label: 'Tools',
-        tabs: ['validation', 'console', 'drag-drop-lab', 'loading-states', 'liquid-glass'],
-      ),
-      // Advanced - Pro DAW features (Cubase-inspired)
+      // GROUP 6: ADVANCED — Pro features, routing, mastering
       const TabGroup(
         id: 'advanced',
         label: 'Advanced',
-        tabs: ['logical-editor', 'scale-assistant', 'groove-quantize', 'audio-alignment', 'track-versions', 'macro-controls', 'clip-gain-envelope'],
+        tabs: ['routing', 'sidechain', 'multiband', 'channel-strip', 'mastering', 'restoration', 'ml-processor'],
       ),
     ];
 

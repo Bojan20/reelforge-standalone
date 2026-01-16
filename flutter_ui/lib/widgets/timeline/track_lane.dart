@@ -53,6 +53,8 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId, double newSourceOffset)? onClipSlipEdit;
   final void Function(String clipId)? onClipOpenAudioEditor;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
+  /// Full crossfade update with startTime and duration
+  final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
   final void Function(String crossfadeId)? onCrossfadeDelete;
   final ValueChanged<double>? onPlayheadMove;
   final bool snapEnabled;
@@ -93,6 +95,7 @@ class TrackLane extends StatefulWidget {
     this.onClipSlipEdit,
     this.onClipOpenAudioEditor,
     this.onCrossfadeUpdate,
+    this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
     this.onPlayheadMove,
     this.snapEnabled = false,
@@ -222,6 +225,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                     height: widget.trackHeight,
                     onUpdate: (duration) =>
                         widget.onCrossfadeUpdate?.call(xfade.id, duration),
+                    onFullUpdate: (startTime, duration) =>
+                        widget.onCrossfadeFullUpdate?.call(xfade.id, startTime, duration),
                     onDelete: () => widget.onCrossfadeDelete?.call(xfade.id),
                   )),
 

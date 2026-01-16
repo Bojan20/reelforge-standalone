@@ -121,6 +121,8 @@ class Timeline extends StatefulWidget {
   /// Crossfades
   final List<Crossfade> crossfades;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
+  /// Full crossfade update with startTime and duration (for left-edge resize)
+  final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
   final void Function(String crossfadeId)? onCrossfadeDelete;
 
   /// Snap settings
@@ -254,6 +256,7 @@ class Timeline extends StatefulWidget {
     this.onRedo,
     this.crossfades = const [],
     this.onCrossfadeUpdate,
+    this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
     this.snapEnabled = true,
     this.snapValue = 1,
@@ -897,6 +900,14 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${ms.toString().padLeft(3, '0')}';
   }
 
+  /// Format snap time for badge display (compact format)
+  String _formatSnapTime(double time) {
+    final minutes = (time / 60).floor();
+    final seconds = (time % 60).floor();
+    final frames = ((time % 1) * 100).floor(); // Frames at 100fps resolution
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${frames.toString().padLeft(2, '0')}';
+  }
+
   /// Handle pool file drop on timeline (drag from Audio Pool)
   void _handlePoolFileDrop(dynamic poolFile, Offset globalPosition) {
     if (widget.onPoolFileDrop == null) return;
@@ -1505,6 +1516,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
                     onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
+                    onCrossfadeFullUpdate: widget.onCrossfadeFullUpdate,
                     onCrossfadeDelete: widget.onCrossfadeDelete,
                     snapEnabled: widget.snapEnabled,
                     snapValue: widget.snapValue,
@@ -1938,24 +1950,55 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                             ),
 
                           // Snap preview line (vertical line showing snap position)
+                          // Pro DAW style: prominent cyan line with glow + time badge
                           if (_snapPreviewTime != null && widget.snapEnabled)
                             Positioned(
-                              left: (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom,
+                              left: (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom - 1,
                               top: 0,
                               bottom: 0,
                               child: IgnorePointer(
-                                child: Container(
-                                  width: 2,
-                                  decoration: BoxDecoration(
-                                    color: FluxForgeTheme.accentCyan.withOpacity(0.8),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: FluxForgeTheme.accentCyan.withOpacity(0.5),
-                                        blurRadius: 6,
-                                        spreadRadius: 1,
+                                child: Column(
+                                  children: [
+                                    // Time badge at top
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: FluxForgeTheme.accentCyan,
+                                        borderRadius: BorderRadius.circular(3),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: FluxForgeTheme.accentCyan.withOpacity(0.6),
+                                            blurRadius: 6,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                      child: Text(
+                                        _formatSnapTime(_snapPreviewTime!),
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ),
+                                    // Vertical snap line
+                                    Expanded(
+                                      child: Container(
+                                        width: 2,
+                                        decoration: BoxDecoration(
+                                          color: FluxForgeTheme.accentCyan,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: FluxForgeTheme.accentCyan.withOpacity(0.7),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

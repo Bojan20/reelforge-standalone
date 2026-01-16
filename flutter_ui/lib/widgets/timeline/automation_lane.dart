@@ -856,13 +856,32 @@ class _AutomationCurvePainter extends CustomPainter {
       ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
-    // Horizontal lines (value markers)
-    for (double v = 0.25; v < 1; v += 0.25) {
+    // Horizontal lines (value markers) with range labels
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    for (double v = 0.0; v <= 1.0; v += 0.25) {
       final y = (1 - v) * size.height;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+
+      // Draw range value labels on left edge
+      if (v == 0.0 || v == 0.5 || v == 1.0) {
+        final labelValue = _formatRangeValue(v);
+        textPainter.text = TextSpan(
+          text: labelValue,
+          style: TextStyle(
+            fontSize: 8,
+            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+            fontFamily: 'monospace',
+          ),
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(4, y - textPainter.height / 2),
+        );
+      }
     }
 
-    // Center line (0.5)
+    // Center line (0.5) - slightly brighter
     final centerPaint = Paint()
       ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)
       ..strokeWidth = 1;
@@ -871,6 +890,63 @@ class _AutomationCurvePainter extends CustomPainter {
       Offset(size.width, size.height / 2),
       centerPaint,
     );
+
+    // Draw min/max range indicators on right edge
+    _drawRangeIndicators(canvas, size, textPainter);
+  }
+
+  String _formatRangeValue(double v) {
+    // Format based on parameter type (volume: dB, pan: L/R, etc)
+    // Default: percentage
+    final percent = (v * 100).round();
+    return '$percent%';
+  }
+
+  void _drawRangeIndicators(Canvas canvas, Size size, TextPainter textPainter) {
+    if (data.points.isEmpty) return;
+
+    // Find min/max values in visible area
+    double minVal = 1.0;
+    double maxVal = 0.0;
+    for (final point in data.points) {
+      final x = (point.time - scrollOffset) * zoom;
+      if (x >= 0 && x <= size.width) {
+        if (point.value < minVal) minVal = point.value;
+        if (point.value > maxVal) maxVal = point.value;
+      }
+    }
+
+    if (minVal > maxVal) return;
+
+    // Draw range bracket on right side
+    final minY = (1 - minVal) * size.height;
+    final maxY = (1 - maxVal) * size.height;
+
+    final rangePaint = Paint()
+      ..color = data.color.withValues(alpha: 0.6)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    // Bracket
+    final bracketX = size.width - 8;
+    canvas.drawLine(Offset(bracketX, maxY), Offset(size.width - 2, maxY), rangePaint);
+    canvas.drawLine(Offset(size.width - 2, maxY), Offset(size.width - 2, minY), rangePaint);
+    canvas.drawLine(Offset(bracketX, minY), Offset(size.width - 2, minY), rangePaint);
+
+    // Range label
+    final rangeText = '${_formatRangeValue(maxVal)}\n${_formatRangeValue(minVal)}';
+    textPainter.text = TextSpan(
+      text: rangeText,
+      style: TextStyle(
+        fontSize: 7,
+        color: data.color,
+        fontFamily: 'monospace',
+        fontWeight: FontWeight.w500,
+      ),
+    );
+    textPainter.layout();
+    final labelY = (maxY + minY) / 2 - textPainter.height / 2;
+    textPainter.paint(canvas, Offset(size.width - 28, labelY.clamp(4.0, size.height - textPainter.height - 4)));
   }
 
   void _drawCurve(Canvas canvas, Size size) {
@@ -923,8 +999,19 @@ class _AutomationCurvePainter extends CustomPainter {
             break;
 
           case AutomationCurveType.scurve:
-            final midX = (prevX + x) / 2;
-            path.cubicTo(midX, prevY, midX, y, x, y);
+            // Improved S-curve using proper sigmoid-like interpolation
+            // Creates smoother transition with tension control
+            final dx = x - prevX;
+            final dy = y - prevY;
+            final tension = 0.5; // Adjustable S-curve tension
+
+            // Control points for smooth S-curve
+            final cp1x = prevX + dx * tension;
+            final cp1y = prevY;
+            final cp2x = x - dx * tension;
+            final cp2y = y;
+
+            path.cubicTo(cp1x, cp1y, cp2x, cp2y, x, y);
             break;
 
           case AutomationCurveType.bezier:

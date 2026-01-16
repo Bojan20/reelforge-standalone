@@ -832,7 +832,7 @@ class _ChannelStripState extends State<ChannelStrip> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
-        final faderHeight = 24.0;
+        final faderHeight = 32.0; // Pro DAW standard: 32px for easy grab
         final trackHeight = height - faderHeight;
         final faderPosition = trackHeight * (1 - widget.data.faderLevel);
 
@@ -893,7 +893,7 @@ class _ChannelStripState extends State<ChannelStrip> {
                       ),
                     ),
                   ),
-                // Fader cap
+                // Fader cap — Pro DAW standard: 32px height
                 Positioned(
                   left: 2,
                   right: 2,
@@ -905,32 +905,42 @@ class _ChannelStripState extends State<ChannelStrip> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          FluxForgeTheme.textSecondary,
-                          FluxForgeTheme.textTertiary,
-                          FluxForgeTheme.textSecondary,
+                          Colors.grey.shade200,
+                          Colors.grey.shade400,
+                          Colors.grey.shade500,
+                          Colors.grey.shade400,
+                          Colors.grey.shade300,
                         ],
+                        stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                       ),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: _faderDragging
                             ? FluxForgeTheme.accentBlue
-                            : FluxForgeTheme.borderMedium,
+                            : Colors.grey.shade600,
+                        width: 0.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
+                          color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Container(
-                        width: double.infinity,
-                        height: 2,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        color: FluxForgeTheme.bgElevated,
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Fader cap grip lines (3 lines)
+                        for (int i = 0; i < 3; i++) ...[
+                          Container(
+                            width: double.infinity,
+                            height: 1,
+                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

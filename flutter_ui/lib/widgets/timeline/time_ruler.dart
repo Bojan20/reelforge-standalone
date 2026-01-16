@@ -307,6 +307,15 @@ class _TimeRulerPainter extends CustomPainter {
       ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
+    // Subdivision tick paint (8th and 16th notes)
+    final subdivisionTickPaint = Paint()
+      ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.35)
+      ..strokeWidth = 0.5;
+
+    final fineSubdivisionTickPaint = Paint()
+      ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.2)
+      ..strokeWidth = 0.5;
+
     // Text styles
     final barTextStyle = ui.TextStyle(
       color: FluxForgeTheme.textPrimary,
@@ -321,7 +330,80 @@ class _TimeRulerPainter extends CustomPainter {
       fontFamily: 'JetBrains Mono',
     );
 
-    // Draw beats first (if zoom allows)
+    // Calculate subdivision visibility based on zoom
+    // At higher zoom, show finer subdivisions
+    final pixelsPerBeat = beatDuration * zoom;
+    final show8thNotes = pixelsPerBeat >= 30;  // Show 8th notes when beat is 30+ px
+    final show16thNotes = pixelsPerBeat >= 60; // Show 16th notes when beat is 60+ px
+    final show32ndNotes = pixelsPerBeat >= 120; // Show 32nd notes when beat is 120+ px
+
+    // Draw subdivisions first (background layer)
+    if (show8thNotes) {
+      // Calculate subdivision duration
+      final eighthDuration = beatDuration / 2;
+      final sixteenthDuration = beatDuration / 4;
+      final thirtySecondDuration = beatDuration / 8;
+
+      // Draw 32nd notes (finest subdivision)
+      if (show32ndNotes) {
+        final firstSubdiv = (startTime / thirtySecondDuration).floor() * thirtySecondDuration;
+        for (double t = firstSubdiv; t <= endTime; t += thirtySecondDuration) {
+          if (t < 0) continue;
+          // Skip if on 16th, 8th, beat, or bar boundary
+          final isOn16th = ((t / sixteenthDuration).round() * sixteenthDuration - t).abs() < 0.0001;
+          if (isOn16th) continue;
+
+          final x = (t - scrollOffset) * zoom;
+          if (x < 0 || x > size.width) continue;
+
+          canvas.drawLine(
+            Offset(x, 24),
+            Offset(x, size.height - 1),
+            fineSubdivisionTickPaint,
+          );
+        }
+      }
+
+      // Draw 16th notes
+      if (show16thNotes) {
+        final firstSubdiv = (startTime / sixteenthDuration).floor() * sixteenthDuration;
+        for (double t = firstSubdiv; t <= endTime; t += sixteenthDuration) {
+          if (t < 0) continue;
+          // Skip if on 8th, beat, or bar boundary
+          final isOn8th = ((t / eighthDuration).round() * eighthDuration - t).abs() < 0.0001;
+          if (isOn8th) continue;
+
+          final x = (t - scrollOffset) * zoom;
+          if (x < 0 || x > size.width) continue;
+
+          canvas.drawLine(
+            Offset(x, 22),
+            Offset(x, size.height - 1),
+            fineSubdivisionTickPaint,
+          );
+        }
+      }
+
+      // Draw 8th notes (between beats)
+      final firstEighth = (startTime / eighthDuration).floor() * eighthDuration;
+      for (double t = firstEighth; t <= endTime; t += eighthDuration) {
+        if (t < 0) continue;
+        // Skip if on beat or bar boundary
+        final isOnBeat = ((t / beatDuration).round() * beatDuration - t).abs() < 0.0001;
+        if (isOnBeat) continue;
+
+        final x = (t - scrollOffset) * zoom;
+        if (x < 0 || x > size.width) continue;
+
+        canvas.drawLine(
+          Offset(x, 20),
+          Offset(x, size.height - 1),
+          subdivisionTickPaint,
+        );
+      }
+    }
+
+    // Draw beats (if zoom allows)
     if (showBeats) {
       final firstBeat = (startTime / beatDuration).floor() * beatDuration;
       for (double t = firstBeat; t <= endTime; t += beatDuration) {
