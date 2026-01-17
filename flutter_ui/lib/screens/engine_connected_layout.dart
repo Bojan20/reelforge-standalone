@@ -2793,8 +2793,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             canRequestFocus: true,
             // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
             child: _editorMode == EditorMode.slot
-                ? SlotLabScreen(
-                    onClose: () => setState(() => _editorMode = EditorMode.middleware),
+                ? Builder(
+                    builder: (context) {
+                      debugPrint('[EngineLayout] Passing ${_audioPool.length} audio files to SlotLab');
+                      return SlotLabScreen(
+                        onClose: () => setState(() => _editorMode = EditorMode.middleware),
+                        audioPool: _audioPool.map((f) => <String, dynamic>{
+                          'path': f.path,
+                          'name': f.name,
+                          'duration': f.duration,
+                          'sampleRate': f.sampleRate,
+                          'channels': f.channels,
+                        }).toList(),
+                      );
+                    },
                   )
                 : Stack(
         children: [

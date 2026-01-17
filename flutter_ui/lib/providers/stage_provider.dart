@@ -478,6 +478,11 @@ class StageProvider extends ChangeNotifier {
     await _liveEngine.sendCommand(command);
   }
 
+  /// Inject a simulated stage event (for Slot Lab scenario testing)
+  void injectLiveEvent(StageEvent event) {
+    _onLiveEvent(event);
+  }
+
   // ─── Recording ──────────────────────────────────────────────────────────────
 
   /// Check if recording is active
