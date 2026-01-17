@@ -15,7 +15,9 @@ import 'package:flutter/foundation.dart';
 
 import '../models/stage_models.dart';
 import '../services/live_engine_service.dart';
+import '../services/stage_audio_mapper.dart';
 import '../src/rust/native_ffi.dart';
+import 'middleware_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STAGE PROVIDER
@@ -48,6 +50,19 @@ class StageProvider extends ChangeNotifier {
   // ─── Throttling ───────────────────────────────────────────────────────────
   DateTime _lastNotifyTime = DateTime.now();
   static const _notifyThrottleMs = 50; // 20fps max
+
+  // ─── Audio Mapper ────────────────────────────────────────────────────────
+  StageAudioMapper? _audioMapper;
+
+  /// Initialize audio mapper with middleware provider
+  void initializeAudioMapper(MiddlewareProvider middleware) {
+    _audioMapper = StageAudioMapper(middleware, _ffi);
+    debugPrint('[Stage] Audio mapper initialized');
+  }
+
+  /// Get audio mapper stats
+  ({int registeredEvents, int activeLoops, bool inFeature, bool inAnticipation, int cascadeDepth})?
+  get audioMapperStats => _audioMapper?.stats;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
@@ -449,9 +464,12 @@ class StageProvider extends ChangeNotifier {
 
   /// Trigger audio based on stage event
   void _triggerAudioForEvent(StageEvent event) {
-    // TODO: Connect to audio engine via FFI
-    // _ffi.triggerStageAudio(event.stage.typeName, event.toJson());
-    debugPrint('[Stage] Audio trigger: ${event.stage.typeName}');
+    // Route to audio mapper for intelligent Stage→Audio mapping
+    if (_audioMapper != null) {
+      _audioMapper!.mapAndTrigger(event);
+    } else {
+      debugPrint('[Stage] Audio mapper not initialized - event: ${event.stage.typeName}');
+    }
   }
 
   /// Send command to engine

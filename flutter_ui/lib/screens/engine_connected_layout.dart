@@ -16,6 +16,7 @@ import '../services/native_file_picker.dart';
 import '../providers/engine_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
+import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
 import '../providers/stage_provider.dart';
@@ -91,7 +92,7 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
-import '../widgets/middleware/advanced_middleware_panel.dart';
+import '../widgets/middleware/event_editor_panel.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -136,10 +137,14 @@ class _TimelineTransportData {
 
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
+  final VoidCallback? onBackToLauncher;
+  final EditorMode? initialEditorMode;
 
   const EngineConnectedLayout({
     super.key,
     this.projectName,
+    this.onBackToLauncher,
+    this.initialEditorMode,
   });
 
   @override
@@ -161,7 +166,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   LeftZoneTab _activeLeftTab = LeftZoneTab.project;
 
   // Local UI state
-  EditorMode _editorMode = EditorMode.daw; // DAW default
+  late EditorMode _editorMode;
   TimeDisplayMode _timeDisplayMode = TimeDisplayMode.bars;
   bool _metronomeEnabled = false;
   bool _snapEnabled = true;
@@ -429,6 +434,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void initState() {
     super.initState();
 
+    // Set initial editor mode (from widget parameter or default to DAW)
+    _editorMode = widget.initialEditorMode ?? EditorMode.daw;
+
     // Set default tab based on initial mode
     _activeLowerTab = getDefaultTabForMode(_editorMode);
 
@@ -502,6 +510,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Listen to StageProvider for live game engine events
       final stageProvider = context.read<StageProvider>();
       stageProvider.addListener(_onStageEventsChanged);
+
+      // Initialize StageAudioMapper — connects STAGES protocol to Middleware audio
+      // This must happen AFTER providers are available but BEFORE live events arrive
+      final middleware = context.read<MiddlewareProvider>();
+      stageProvider.initializeAudioMapper(middleware);
+      debugPrint('[EngineConnectedLayout] Audio mapper initialized');
     });
   }
 
@@ -2433,9 +2447,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       ),
     ];
 
-    // Set default selected event
+    // Initialize route events list (but don't auto-select - inspector should be empty)
     if (_middlewareEvents.isNotEmpty) {
-      _selectedEventId = _middlewareEvents.first.id;
       _routeEvents = _middlewareEvents.map((e) => e.name).toList();
     }
   }
@@ -2450,6 +2463,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       (e) => e?.id == _selectedEventId,
       orElse: () => null,
     );
+  }
+
+  /// Get the currently selected action (for Inspector)
+  MiddlewareAction? get _selectedAction {
+    final event = _selectedEvent;
+    if (event == null || _selectedActionIndex < 0 || _selectedActionIndex >= event.actions.length) {
+      return null;
+    }
+    return event.actions[_selectedActionIndex];
+  }
+
+  /// Update a specific field of the selected action
+  void _updateSelectedAction(MiddlewareAction Function(MiddlewareAction) updater) {
+    if (_selectedEvent == null || _selectedActionIndex < 0) return;
+
+    setState(() {
+      _middlewareEvents = _middlewareEvents.map((e) {
+        if (e.id == _selectedEventId) {
+          final newActions = List<MiddlewareAction>.from(e.actions);
+          if (_selectedActionIndex < newActions.length) {
+            newActions[_selectedActionIndex] = updater(newActions[_selectedActionIndex]);
+          }
+          return e.copyWith(actions: newActions);
+        }
+        return e;
+      }).toList();
+    });
   }
 
   void _addAction() {
@@ -2754,7 +2794,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
             child: _editorMode == EditorMode.slot
                 ? SlotLabScreen(
-                    onClose: () => setState(() => _editorMode = EditorMode.daw),
+                    onClose: () => setState(() => _editorMode = EditorMode.middleware),
                   )
                 : Stack(
         children: [
@@ -2794,6 +2834,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               onToggleRightZone: () => setState(() => _rightVisible = !_rightVisible),
               onToggleLowerZone: () => setState(() => _lowerVisible = !_lowerVisible),
               menuCallbacks: _buildMenuCallbacks(),
+              onBackToLauncher: widget.onBackToLauncher,
+              onBackToMiddleware: _editorMode == EditorMode.slot
+                  ? () => setState(() {
+                      _editorMode = EditorMode.middleware;
+                      _activeLowerTab = getDefaultTabForMode(EditorMode.middleware);
+                    })
+                  : null,
             ),
 
             // These props are no longer used when customControlBar is provided
@@ -2937,10 +2984,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             // Center zone - uses Selector internally for playhead
             child: _buildCenterContentOptimized(),
 
-            // Inspector (for middleware mode)
-            inspectorType: InspectedObjectType.event,
-            inspectorName: 'Play_Music',
-            inspectorSections: _buildInspectorSections(),
+            // Inspector (for middleware mode) - only show when event is selected
+            inspectorType: _selectedEvent != null ? InspectedObjectType.event : InspectedObjectType.none,
+            inspectorName: _selectedEvent?.name,
+            inspectorSections: _selectedEvent != null ? _buildInspectorSections() : const [],
 
             // Clip inspector (DAW mode)
             selectedClip: _clips.cast<timeline.TimelineClip?>().firstWhere(
@@ -5225,6 +5272,120 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
+  /// Build Middleware Mixer - simplified bus masters only (no track channels)
+  /// Used in Middleware/Slot modes for game audio mixing
+  Widget _buildMiddlewareMixerContent(dynamic metering, bool isPlaying) {
+    // Middleware mixer: buses only (Music, SFX, Voice, UI, Ambience, Reels, Wins, VO) + Master
+    // No track channels, no recording, just bus mixing
+
+    final List<ultimate.UltimateMixerChannel> buses = [];
+
+    // Define middleware buses with colors
+    final middlewareBuses = [
+      ('Music', FluxForgeTheme.accentBlue, Icons.music_note),
+      ('SFX', FluxForgeTheme.accentGreen, Icons.volume_up),
+      ('Voice', FluxForgeTheme.accentPurple, Icons.record_voice_over),
+      ('UI', FluxForgeTheme.accentCyan, Icons.touch_app),
+      ('Ambience', FluxForgeTheme.textSecondary, Icons.nature),
+      ('Reels', FluxForgeTheme.warningOrange, Icons.casino),
+      ('Wins', FluxForgeTheme.successGreen, Icons.emoji_events),
+      ('VO', FluxForgeTheme.accentPink, Icons.mic),
+    ];
+
+    for (final (name, color, _) in middlewareBuses) {
+      final busId = name.toLowerCase();
+
+      // Get inserts for this bus
+      final busInsertChain = _busInserts[busId]?.slots ?? [];
+      final busInserts = busInsertChain.map((slot) => ultimate.InsertData(
+        index: slot.index,
+        pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      )).toList();
+
+      buses.add(ultimate.UltimateMixerChannel(
+        id: busId,
+        name: name.toUpperCase(),
+        type: ultimate.ChannelType.bus,
+        color: color,
+        volume: _busVolumes[busId] ?? 1.0,
+        pan: _busPan[busId] ?? -1.0, // L channel pan: hard left default
+        panRight: _busPanRight[busId] ?? 1.0, // R channel pan: hard right default
+        isStereo: true, // True stereo dual pan knobs (L/R) like DAW mixer
+        muted: _busMuted[busId] ?? false,
+        soloed: _busSoloed[busId] ?? false,
+        inserts: busInserts,
+        // Buses show simulated/aggregate metering based on routed events
+        peakL: isPlaying ? 0.3 : 0,
+        peakR: isPlaying ? 0.3 : 0,
+        rmsL: isPlaying ? 0.2 : 0,
+        rmsR: isPlaying ? 0.2 : 0,
+        correlation: 1.0,
+      ));
+    }
+
+    // Master channel inserts
+    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
+      index: slot.index,
+      pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+      bypassed: slot.bypassed,
+      isPreFader: slot.isPreFader,
+    )).toList();
+
+    // Master channel
+    final masterChannel = ultimate.UltimateMixerChannel(
+      id: 'master',
+      name: 'MASTER',
+      type: ultimate.ChannelType.master,
+      color: FluxForgeTheme.warningOrange,
+      volume: _busVolumes['master'] ?? 1.0,
+      pan: 0,
+      muted: _busMuted['master'] ?? false,
+      soloed: false,
+      inserts: masterInserts,
+      peakL: isPlaying ? _dbToLinear(metering.masterPeakL) : _decayMasterL,
+      peakR: isPlaying ? _dbToLinear(metering.masterPeakR) : _decayMasterR,
+      rmsL: isPlaying ? _dbToLinear(metering.masterRmsL) : 0,
+      rmsR: isPlaying ? _dbToLinear(metering.masterRmsR) : 0,
+      correlation: metering.correlation,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
+    );
+
+    // Middleware mixer: buses only (in channels), no aux/VCA
+    return ultimate.UltimateMixer(
+      channels: const [], // No track channels in middleware
+      buses: buses, // All buses shown
+      auxes: const [],
+      vcas: const [],
+      master: masterChannel,
+      compact: true,
+      onVolumeChange: (id, vol) => _onBusVolumeChange(id, vol),
+      onPanChange: (id, pan) => _onBusPanChange(id, pan),
+      onPanRightChange: (id, pan) => _onBusPanRightChange(id, pan),
+      onMuteToggle: (id) => _onBusMuteToggle(id),
+      onSoloToggle: (id) => _onBusSoloToggle(id),
+      onInsertClick: (busId, insertIndex) {
+        debugPrint('[MiddlewareMixer] Insert click: bus=$busId, slot=$insertIndex');
+        _handleUltimateMixerInsertClick(busId, insertIndex);
+      },
+      onSendLevelChange: (busId, sendIndex, level) {
+        debugPrint('[MiddlewareMixer] Send level: bus=$busId, send=$sendIndex, level=$level');
+      },
+      onSendMuteToggle: (busId, sendIndex, muted) {
+        debugPrint('[MiddlewareMixer] Send mute: bus=$busId, send=$sendIndex, muted=$muted');
+      },
+      onSendPreFaderToggle: (busId, sendIndex, preFader) {
+        debugPrint('[MiddlewareMixer] Send pre-fader: bus=$busId, send=$sendIndex, preFader=$preFader');
+      },
+      onSendDestChange: (busId, sendIndex, destination) {
+        debugPrint('[MiddlewareMixer] Send destination: bus=$busId, send=$sendIndex, dest=$destination');
+      },
+    );
+  }
+
   /// Build Control Room panel content
   Widget _buildControlRoomContent() {
     return const control_room.ControlRoomPanel();
@@ -5406,6 +5567,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   };
   final Map<String, bool> _busMuted = {};
   final Map<String, bool> _busSoloed = {};
+  final Map<String, double> _busPan = {}; // Bus L channel pan: -1.0 (L) to 1.0 (R)
+  final Map<String, double> _busPanRight = {}; // Bus R channel pan: -1.0 (L) to 1.0 (R)
 
   // Insert chains per bus - starts EMPTY (user adds plugins)
   final Map<String, InsertChain> _busInserts = {
@@ -5492,6 +5655,51 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // TODO: Send to Rust engine via FFI
     // engine.setBusSolo(busId, _busSoloed[busId]);
     debugPrint('[Mixer] Bus $busId soloed: ${_busSoloed[busId]}');
+  }
+
+  void _onBusPanChange(String busId, double pan) {
+    // L channel pan (stereo left)
+    final clampedPan = pan.clamp(-1.0, 1.0);
+    setState(() {
+      _busPan[busId] = clampedPan;
+    });
+    // Send to Rust engine
+    _sendBusPanToEngine(busId, clampedPan);
+    debugPrint('[Mixer] Bus $busId pan L: $clampedPan');
+  }
+
+  void _onBusPanRightChange(String busId, double pan) {
+    // R channel pan (stereo right)
+    final clampedPan = pan.clamp(-1.0, 1.0);
+    setState(() {
+      _busPanRight[busId] = clampedPan;
+    });
+    // Send to Rust engine (R channel)
+    _sendBusPanRightToEngine(busId, clampedPan);
+    debugPrint('[Mixer] Bus $busId pan R: $clampedPan');
+  }
+
+  void _sendBusPanRightToEngine(String busId, double pan) {
+    try {
+      final busIndex = _busIdToIndex(busId);
+      if (busIndex >= 0) {
+        // TODO: Implement R channel pan in Rust engine
+        // engine.mixerSetBusPanRight(busIndex, pan);
+      }
+    } catch (e) {
+      // Engine not ready yet
+    }
+  }
+
+  void _sendBusPanToEngine(String busId, double pan) {
+    try {
+      final busIndex = _busIdToIndex(busId);
+      if (busIndex >= 0) {
+        engine.mixerSetBusPan(busIndex, pan);
+      }
+    } catch (e) {
+      // Engine not ready yet
+    }
   }
 
   /// Handle output routing click
@@ -6952,54 +7160,134 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ),
       ];
     } else {
-      // Middleware mode - event/action inspector
+      // Middleware mode - event/action inspector with REAL data
+      final action = _selectedAction;
+      final hasAction = action != null;
+
+      // Asset options from audio pool
+      final poolAssets = _audioPool.map((f) => f.name).toList();
+      final assetOptions = poolAssets.isNotEmpty ? poolAssets : kAllAssetIds;
+
       return [
+        // Event info (if no action selected)
+        if (!hasAction && _selectedEvent != null)
+          InspectorSection(
+            id: 'event-info',
+            title: 'Event',
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InspectorField(label: 'Name', value: _selectedEvent!.name),
+                _InspectorField(label: 'Category', value: _selectedEvent!.category.isEmpty ? 'General' : _selectedEvent!.category),
+                _InspectorField(label: 'Actions', value: '${_selectedEvent!.actions.length}'),
+                const SizedBox(height: 8),
+                Text(
+                  'Select an action to edit properties',
+                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+
+        // Action section - connected to real data
         InspectorSection(
           id: 'action',
-          title: 'Action',
+          title: hasAction ? 'Action #${_selectedActionIndex + 1}' : 'Action',
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _InspectorDropdown(
+              _InspectorDropdownInteractive(
                 label: 'Type',
-                value: 'Play',
-                options: ['Play', 'Stop', 'StopAll', 'Fade', 'Pause', 'SetBusGain'],
+                value: hasAction ? action.type.displayName : 'Play',
+                options: kActionTypes,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) =>
+                    a.copyWith(type: ActionTypeExtension.fromString(v))),
               ),
-              _InspectorDropdown(
+              _InspectorDropdownInteractive(
                 label: 'Asset',
-                value: 'music_main.wav',
-                options: ['music_main.wav', 'sfx_click.wav', 'ui_hover.wav'],
+                value: hasAction ? action.assetId : '-',
+                options: assetOptions,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(assetId: v)),
               ),
-              _InspectorDropdown(
+              _InspectorDropdownInteractive(
                 label: 'Bus',
-                value: 'Music',
-                options: ['Master', 'Music', 'SFX', 'UI', 'Voice'],
+                value: hasAction ? action.bus : 'Master',
+                options: kAllBuses,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(bus: v)),
               ),
             ],
           ),
         ),
+
+        // Playback section
         InspectorSection(
           id: 'playback',
           title: 'Playback',
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _InspectorSlider(label: 'Gain', value: 1.0, suffix: '100%'),
-              _InspectorSlider(label: 'Pan', value: 0.0, suffix: 'C'),
-              _InspectorCheckbox(label: 'Loop', checked: false),
-              _InspectorCheckbox(label: 'Allow Overlap', checked: true),
+              _InspectorSliderInteractive(
+                label: 'Gain',
+                value: hasAction ? action.gain : 1.0,
+                min: 0.0,
+                max: 2.0,
+                enabled: hasAction,
+                formatValue: (v) => '${(v * 100).toInt()}%',
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(gain: v)),
+              ),
+              _InspectorCheckboxInteractive(
+                label: 'Loop',
+                checked: hasAction ? action.loop : false,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(loop: v)),
+              ),
+              _InspectorDropdownInteractive(
+                label: 'Scope',
+                value: hasAction ? action.scope.displayName : 'Global',
+                options: kScopes,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) =>
+                    a.copyWith(scope: ActionScopeExtension.fromString(v))),
+              ),
+              _InspectorDropdownInteractive(
+                label: 'Priority',
+                value: hasAction ? action.priority.displayName : 'Normal',
+                options: kPriorities,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) =>
+                    a.copyWith(priority: ActionPriorityExtension.fromString(v))),
+              ),
             ],
           ),
         ),
+
+        // Timing section
         InspectorSection(
           id: 'timing',
           title: 'Timing',
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _InspectorField(label: 'Delay', value: '0 ms'),
-              _InspectorField(label: 'Fade In', value: '100 ms'),
-              _InspectorField(label: 'Fade Out', value: '200 ms'),
+              _InspectorSliderInteractive(
+                label: 'Fade Time',
+                value: hasAction ? action.fadeTime : 0.1,
+                min: 0.0,
+                max: 2.0,
+                enabled: hasAction,
+                formatValue: (v) => '${(v * 1000).toInt()} ms',
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(fadeTime: v)),
+              ),
+              _InspectorDropdownInteractive(
+                label: 'Fade Curve',
+                value: hasAction ? action.fadeCurve.displayName : 'Linear',
+                options: kFadeCurves,
+                enabled: hasAction,
+                onChanged: (v) => _updateSelectedAction((a) =>
+                    a.copyWith(fadeCurve: FadeCurveExtension.fromString(v))),
+              ),
             ],
           ),
         ),
@@ -7021,9 +7309,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
         id: 'mixer',
-        label: 'Mixer',
+        label: _editorMode == EditorMode.daw ? 'Mixer' : 'Bus Mix',
         icon: Icons.tune,
-        content: _buildUltimateMixerContent(metering, isPlaying),
+        // DAW mode: full mixer with track channels
+        // Middleware/Slot mode: simplified bus masters only
+        content: _editorMode == EditorMode.daw
+            ? _buildUltimateMixerContent(metering, isPlaying)
+            : _buildMiddlewareMixerContent(metering, isPlaying),
         groupId: 'mix',
       ),
       LowerZoneTab(
@@ -7273,9 +7565,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
         id: 'middleware',
-        label: 'Middleware',
-        icon: Icons.account_tree,
-        content: const AdvancedMiddlewarePanel(),
+        label: 'Event Editor',
+        icon: Icons.event_note,
+        content: const EventEditorPanel(),
         groupId: 'middleware',
       ),
     ];
@@ -7618,6 +7910,243 @@ class _InspectorCheckbox extends StatelessWidget {
             child: checked
                 ? Icon(Icons.check, size: 12, color: FluxForgeTheme.textPrimary)
                 : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============ Interactive Inspector Widgets ============
+
+/// Interactive dropdown for Inspector - connected to real data
+class _InspectorDropdownInteractive extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<String> options;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  const _InspectorDropdownInteractive({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          Expanded(
+            child: PopupMenuButton<String>(
+              enabled: enabled,
+              onSelected: onChanged,
+              offset: const Offset(0, 24),
+              color: FluxForgeTheme.bgElevated,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: BorderSide(color: FluxForgeTheme.borderSubtle),
+              ),
+              itemBuilder: (context) => options.map((option) {
+                final isSelected = option == value;
+                return PopupMenuItem<String>(
+                  value: option,
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      if (isSelected)
+                        Icon(Icons.check, size: 12, color: FluxForgeTheme.accentOrange)
+                      else
+                        const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      Text(
+                        option,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.textPrimary,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: enabled ? FluxForgeTheme.bgDeepest : FluxForgeTheme.bgDeep,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: enabled ? FluxForgeTheme.borderSubtle : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      size: 16,
+                      color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Interactive slider for Inspector - connected to real data
+class _InspectorSliderInteractive extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final bool enabled;
+  final String Function(double) formatValue;
+  final ValueChanged<double> onChanged;
+
+  const _InspectorSliderInteractive({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.enabled,
+    required this.formatValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                inactiveTrackColor: FluxForgeTheme.bgDeepest,
+                thumbColor: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: enabled ? onChanged : null,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 50,
+            child: Text(
+              formatValue(value),
+              style: TextStyle(
+                fontSize: 10,
+                color: enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Interactive checkbox for Inspector - connected to real data
+class _InspectorCheckboxInteractive extends StatelessWidget {
+  final String label;
+  final bool checked;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _InspectorCheckboxInteractive({
+    required this.label,
+    required this.checked,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: enabled ? () => onChanged(!checked) : null,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: checked
+                    ? (enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary)
+                    : FluxForgeTheme.bgDeepest,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: checked
+                      ? (enabled ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary)
+                      : (enabled ? FluxForgeTheme.borderSubtle : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)),
+                ),
+              ),
+              child: checked
+                  ? Icon(Icons.check, size: 12, color: FluxForgeTheme.textPrimary)
+                  : null,
+            ),
           ),
         ],
       ),

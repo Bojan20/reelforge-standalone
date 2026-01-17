@@ -90,6 +90,22 @@ class _RightZoneState extends State<RightZone> {
       return const SizedBox.shrink();
     }
 
+    // Completely empty when nothing selected
+    if (widget.objectType == InspectedObjectType.none) {
+      return Container(
+        width: 280,
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeep,
+          border: Border(
+            left: BorderSide(
+              color: FluxForgeTheme.borderSubtle,
+              width: 1,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: 280,
       decoration: BoxDecoration(
@@ -108,9 +124,7 @@ class _RightZoneState extends State<RightZone> {
 
           // Content
           Expanded(
-            child: widget.objectType == InspectedObjectType.none
-                ? _buildEmptyState()
-                : _buildContent(),
+            child: _buildContent(),
           ),
         ],
       ),
@@ -152,22 +166,8 @@ class _RightZoneState extends State<RightZone> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('📋', style: TextStyle(fontSize: 32)),
-          const SizedBox(height: 8),
-          Text(
-            'Select an object to inspect',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
+    // Empty state - no placeholder, just empty space
+    return const SizedBox.shrink();
   }
 
   Widget _buildContent() {

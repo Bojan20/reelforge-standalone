@@ -8,6 +8,8 @@
 
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../widgets/project/schema_migration_panel.dart';
+import '../../services/schema_migration.dart';
 
 // Mock types until flutter_rust_bridge generates them
 class ProjectInfo {
@@ -197,6 +199,8 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                   _buildTempoSection(),
                   const SizedBox(height: 32),
                   _buildAudioSection(),
+                  const SizedBox(height: 32),
+                  _buildSchemaVersionSection(),
                   const SizedBox(height: 32),
                   _buildInfoSection(),
                 ],
@@ -413,6 +417,40 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildSchemaVersionSection() {
+    return _buildSection(
+      title: 'Schema Version',
+      icon: Icons.upgrade,
+      children: [
+        SchemaMigrationPanel(
+          projectData: _getMockProjectData(),
+          onMigrationComplete: (migratedData) {
+            // Handle migrated data
+            setState(() {
+              _hasChanges = true;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Project migrated successfully'),
+                backgroundColor: FluxForgeTheme.accentGreen,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Map<String, dynamic> _getMockProjectData() {
+    // Mock project data for demo - in real app, this comes from loaded project
+    return {
+      'schema_version': currentSchemaVersion, // Current version for demo
+      'name': _nameController.text.isNotEmpty ? _nameController.text : 'Untitled',
+      'tracks': [],
+      'bus_hierarchy': {'buses': []},
+    };
   }
 
   Widget _buildInfoSection() {

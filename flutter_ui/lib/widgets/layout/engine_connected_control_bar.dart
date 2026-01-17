@@ -34,6 +34,10 @@ class EngineConnectedControlBar extends StatelessWidget {
   final VoidCallback? onToggleRightZone;
   final VoidCallback? onToggleLowerZone;
 
+  // Navigation callbacks
+  final VoidCallback? onBackToLauncher;
+  final VoidCallback? onBackToMiddleware;
+
   const EngineConnectedControlBar({
     super.key,
     required this.editorMode,
@@ -52,6 +56,8 @@ class EngineConnectedControlBar extends StatelessWidget {
     this.onToggleLeftZone,
     this.onToggleRightZone,
     this.onToggleLowerZone,
+    this.onBackToLauncher,
+    this.onBackToMiddleware,
   });
 
   @override
@@ -182,6 +188,8 @@ class EngineConnectedControlBar extends StatelessWidget {
           pdcLatencyMs: data.pdcLatencyMs,
           pdcEnabled: data.pdcEnabled,
           onPdcTap: onPdcToggle,
+          onBackToLauncher: onBackToLauncher,
+          onBackToMiddleware: onBackToMiddleware,
         );
       },
     );

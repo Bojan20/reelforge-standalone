@@ -154,15 +154,23 @@ const EditorModeLayoutConfig dawModeConfig = EditorModeLayoutConfig(
 ///
 /// Lower Zone tabs (left to right):
 /// - Middleware (States, Switches, RTPC, Ducking, Blend, Random, Sequence, Music, Curves)
-/// - Mix (Mixer, Recording - NO control room)
+/// - Mix (Mixer ONLY - simplified bus masters, NO Recording)
 /// - Analyze (Meters, Loudness, Spectrum)
-/// - Process (EQ, Dynamics, etc)
+/// - Process (DSP for bus-level processing)
+///
+/// Hidden: Recording, Control Room, Edit tools, Media browser
 const EditorModeLayoutConfig middlewareModeConfig = EditorModeLayoutConfig(
   mode: EditorMode.middleware,
   lowerZone: LowerZoneConfig(
     defaultTab: 'middleware',
     visibleGroups: ['middleware', 'mix', 'analyze', 'process'],
-    hiddenTabs: ['timeline', 'control-room', 'layers', 'audio-browser', 'audio-pool', 'clip-editor', 'crossfade', 'automation', 'piano-roll'],
+    hiddenTabs: [
+      // DAW-centric tabs
+      'timeline', 'control-room', 'layers', 'audio-browser', 'audio-pool',
+      'clip-editor', 'crossfade', 'automation', 'piano-roll',
+      // Recording (not needed in middleware - no timeline recording)
+      'recording',
+    ],
     groupOrder: ['middleware', 'mix', 'analyze', 'process'],
   ),
   leftZone: LeftZoneConfig(

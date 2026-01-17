@@ -11,14 +11,17 @@ import 'package:provider/provider.dart';
 import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
 import 'screens/splash_screen.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/launcher_screen.dart';
+import 'screens/daw_hub_screen.dart';
+import 'screens/middleware_hub_screen.dart';
 import 'screens/eq_test_screen.dart';
 import 'providers/engine_provider.dart';
 import 'providers/timeline_playback_provider.dart';
 import 'providers/mixer_dsp_provider.dart';
 import 'providers/meter_provider.dart';
 import 'providers/mixer_provider.dart';
-import 'providers/editor_mode_provider.dart';
+import 'providers/editor_mode_provider.dart' show EditorModeProvider, EditorMode;
+import 'models/layout_models.dart' as layout;
 import 'providers/global_shortcuts_provider.dart' show GlobalShortcutsProvider, ShortcutAction;
 import 'providers/project_history_provider.dart';
 import 'providers/auto_save_provider.dart';
@@ -197,13 +200,14 @@ class _AppInitializer extends StatefulWidget {
   State<_AppInitializer> createState() => _AppInitializerState();
 }
 
-enum _AppState { splash, welcome, main }
+enum _AppState { splash, launcher, dawHub, middlewareHub, main, middleware }
 
 class _AppInitializerState extends State<_AppInitializer> {
   _AppState _appState = _AppState.splash;
   String? _error;
   String _loadingMessage = 'Starting...';
   String? _projectName;
+  AppMode? _selectedMode;
 
   @override
   void initState() {
@@ -253,12 +257,12 @@ class _AppInitializerState extends State<_AppInitializer> {
       };
       shortcuts.setActions(actions);
 
-      // Phase 4: Show welcome screen
+      // Phase 4: Show launcher screen (mode selection)
       _updateLoading('Ready');
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        setState(() => _appState = _AppState.welcome);
+        setState(() => _appState = _AppState.launcher);
       }
     } catch (e) {
       if (mounted) {
@@ -282,6 +286,19 @@ class _AppInitializerState extends State<_AppInitializer> {
     _initializeApp();
   }
 
+  void _handleModeSelected(AppMode mode) {
+    setState(() {
+      _selectedMode = mode;
+      if (mode == AppMode.middleware) {
+        // Middleware mode - show middleware hub
+        _appState = _AppState.middlewareHub;
+      } else {
+        // DAW mode - show DAW hub
+        _appState = _AppState.dawHub;
+      }
+    });
+  }
+
   void _handleNewProject(String name) {
     final engine = context.read<EngineProvider>();
     engine.newProject(name);
@@ -300,6 +317,13 @@ class _AppInitializerState extends State<_AppInitializer> {
     });
   }
 
+  void _handleBackToLauncher() {
+    setState(() {
+      _appState = _AppState.launcher;
+      _selectedMode = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (_appState) {
@@ -312,18 +336,126 @@ class _AppInitializerState extends State<_AppInitializer> {
           onRetry: _retry,
         );
 
-      case _AppState.welcome:
-        return WelcomeScreen(
+      case _AppState.launcher:
+        return LauncherScreen(
+          onModeSelected: _handleModeSelected,
+        );
+
+      case _AppState.dawHub:
+        return DawHubScreen(
           onNewProject: _handleNewProject,
           onOpenProject: _handleOpenProject,
-          onSkip: () => _handleNewProject('Untitled Project'),
+          onBackToLauncher: _handleBackToLauncher,
+        );
+
+      case _AppState.middlewareHub:
+        return MiddlewareHubScreen(
+          onNewProject: (name) {
+            // For middleware, go directly to slot lab
+            setState(() {
+              _projectName = name;
+              _appState = _AppState.middleware;
+            });
+          },
+          onOpenProject: (path) {
+            setState(() {
+              _projectName = path.split('/').last.replaceAll('.fxm', '');
+              _appState = _AppState.middleware;
+            });
+          },
+          onQuickStart: () {
+            setState(() {
+              _projectName = 'Sandbox';
+              _appState = _AppState.middleware;
+            });
+          },
+          onBackToLauncher: _handleBackToLauncher,
         );
 
       case _AppState.main:
-        return EngineConnectedLayout(
+        return _DawLayout(
+          onBackToLauncher: _handleBackToLauncher,
+          projectName: _projectName,
+        );
+
+      case _AppState.middleware:
+        return _MiddlewareLayout(
+          onBackToLauncher: _handleBackToLauncher,
           projectName: _projectName,
         );
     }
+  }
+}
+
+/// Middleware-focused layout (uses EngineConnectedLayout with middleware mode)
+class _MiddlewareLayout extends StatefulWidget {
+  final VoidCallback onBackToLauncher;
+  final String? projectName;
+
+  const _MiddlewareLayout({
+    required this.onBackToLauncher,
+    this.projectName,
+  });
+
+  @override
+  State<_MiddlewareLayout> createState() => _MiddlewareLayoutState();
+}
+
+class _MiddlewareLayoutState extends State<_MiddlewareLayout> {
+  @override
+  void initState() {
+    super.initState();
+    // Set editor mode to middleware on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final editorMode = context.read<EditorModeProvider>();
+      editorMode.setMode(EditorMode.middleware);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Back button is now in header (ControlBar), not overlay
+    return EngineConnectedLayout(
+      projectName: widget.projectName,
+      onBackToLauncher: widget.onBackToLauncher,
+      initialEditorMode: layout.EditorMode.middleware,
+    );
+  }
+}
+
+/// DAW-focused layout with back to launcher button
+class _DawLayout extends StatefulWidget {
+  final VoidCallback onBackToLauncher;
+  final String? projectName;
+
+  const _DawLayout({
+    required this.onBackToLauncher,
+    this.projectName,
+  });
+
+  @override
+  State<_DawLayout> createState() => _DawLayoutState();
+}
+
+class _DawLayoutState extends State<_DawLayout> {
+  @override
+  void initState() {
+    super.initState();
+    // Ensure DAW mode on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final editorMode = context.read<EditorModeProvider>();
+      editorMode.setMode(EditorMode.daw);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Back button is now in header (ControlBar), not overlay
+    return EngineConnectedLayout(
+      projectName: widget.projectName,
+      onBackToLauncher: widget.onBackToLauncher,
+      initialEditorMode: layout.EditorMode.daw,
+    );
   }
 }
 

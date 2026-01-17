@@ -6338,3 +6338,169 @@ pub extern "C" fn ffi_insert_get_total_latency(track_id: u64) -> u32 {
 // NOTE: insert_load_processor, insert_unload_slot, insert_set_param,
 // insert_get_param, and insert_is_loaded are defined in rf-engine/src/ffi.rs
 // They support both master bus (track_id=0) and audio tracks, so we use those.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO FILE INFO & WAVEFORM EXTRACTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Audio file information DTO
+#[derive(Debug, Clone)]
+pub struct AudioFileInfoDto {
+    /// File format (wav, mp3, flac, ogg, aac)
+    pub format: String,
+    /// Number of channels
+    pub channels: u16,
+    /// Sample rate in Hz
+    pub sample_rate: u32,
+    /// Bit depth (8, 16, 24, 32)
+    pub bit_depth: u32,
+    /// Total number of sample frames
+    pub num_frames: u64,
+    /// Duration in seconds
+    pub duration_seconds: f64,
+    /// File size in bytes
+    pub file_size: u64,
+}
+
+/// Waveform extraction result DTO
+#[derive(Debug, Clone)]
+pub struct WaveformDataDto {
+    /// Waveform peak values (0.0 to 1.0)
+    pub peaks: Vec<f32>,
+    /// Duration in seconds
+    pub duration_seconds: f64,
+    /// Sample rate of original file
+    pub sample_rate: u32,
+    /// Number of channels
+    pub channels: u16,
+}
+
+/// Get audio file information without fully decoding
+/// Supports: WAV, MP3, FLAC, OGG, AAC/M4A
+#[flutter_rust_bridge::frb(sync)]
+pub fn audio_file_get_info(file_path: String) -> Option<AudioFileInfoDto> {
+    use rf_file::{get_audio_info, AudioFormat};
+
+    let path = Path::new(&file_path);
+    match get_audio_info(path) {
+        Ok(info) => Some(AudioFileInfoDto {
+            format: match info.format {
+                AudioFormat::Wav => "wav".to_string(),
+                AudioFormat::Mp3 => "mp3".to_string(),
+                AudioFormat::Flac => "flac".to_string(),
+                AudioFormat::Ogg => "ogg".to_string(),
+                AudioFormat::Aac => "aac".to_string(),
+                AudioFormat::Unknown => "unknown".to_string(),
+            },
+            channels: info.channels,
+            sample_rate: info.sample_rate,
+            bit_depth: info.bit_depth.bits(),
+            num_frames: info.num_frames,
+            duration_seconds: info.duration,
+            file_size: info.file_size,
+        }),
+        Err(e) => {
+            log::warn!("Failed to get audio file info for {}: {}", file_path, e);
+            None
+        }
+    }
+}
+
+/// Extract waveform peaks from audio file
+/// Supports: WAV, MP3, FLAC, OGG, AAC/M4A
+/// Returns normalized peak values (0.0 to 1.0) for visualization
+#[flutter_rust_bridge::frb(sync)]
+pub fn audio_file_extract_waveform(file_path: String, num_peaks: u32) -> Option<WaveformDataDto> {
+    use rf_file::read_audio;
+
+    let path = Path::new(&file_path);
+    match read_audio(path) {
+        Ok(audio_data) => {
+            let num_frames = audio_data.num_frames();
+            let num_channels = audio_data.num_channels();
+            let sample_rate = audio_data.sample_rate;
+            let duration_seconds = audio_data.duration();
+
+            if num_frames == 0 {
+                return None;
+            }
+
+            // Calculate samples per peak
+            let target_peaks = num_peaks.max(10).min(2000) as usize;
+            let samples_per_peak = (num_frames / target_peaks).max(1);
+
+            let mut peaks = Vec::with_capacity(target_peaks);
+            let mut max_peak = 0.0f64;
+
+            // Extract peak values (max absolute sample in each window)
+            for peak_idx in 0..target_peaks {
+                let start = peak_idx * samples_per_peak;
+                let end = ((peak_idx + 1) * samples_per_peak).min(num_frames);
+
+                if start >= num_frames {
+                    break;
+                }
+
+                let mut peak_value = 0.0f64;
+
+                // Get max across all channels for this window
+                for frame in start..end {
+                    for ch in 0..num_channels {
+                        let sample = audio_data.channels[ch][frame].abs();
+                        if sample > peak_value {
+                            peak_value = sample;
+                        }
+                    }
+                }
+
+                peaks.push(peak_value);
+                if peak_value > max_peak {
+                    max_peak = peak_value;
+                }
+            }
+
+            // Normalize to 0.0-1.0
+            let normalized_peaks: Vec<f32> = if max_peak > 0.0 {
+                peaks.iter().map(|&p| (p / max_peak) as f32).collect()
+            } else {
+                peaks.iter().map(|_| 0.0f32).collect()
+            };
+
+            log::debug!(
+                "Extracted {} waveform peaks from {} ({:.2}s, {} ch, {} Hz)",
+                normalized_peaks.len(),
+                file_path,
+                duration_seconds,
+                num_channels,
+                sample_rate
+            );
+
+            Some(WaveformDataDto {
+                peaks: normalized_peaks,
+                duration_seconds,
+                sample_rate,
+                channels: num_channels as u16,
+            })
+        }
+        Err(e) => {
+            log::warn!("Failed to extract waveform from {}: {}", file_path, e);
+            None
+        }
+    }
+}
+
+/// Get audio file duration only (faster than full waveform extraction)
+/// Supports: WAV, MP3, FLAC, OGG, AAC/M4A
+#[flutter_rust_bridge::frb(sync)]
+pub fn audio_file_get_duration(file_path: String) -> Option<f64> {
+    use rf_file::get_audio_info;
+
+    let path = Path::new(&file_path);
+    match get_audio_info(path) {
+        Ok(info) => Some(info.duration),
+        Err(e) => {
+            log::warn!("Failed to get audio duration for {}: {}", file_path, e);
+            None
+        }
+    }
+}

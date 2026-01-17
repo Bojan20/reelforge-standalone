@@ -146,6 +146,7 @@ class _LeftZoneState extends State<LeftZone> {
             projectTabLabel: _projectTabLabel,
             projectTabIcon: _projectTabIcon,
             accentColor: _modeAccentColor,
+            editorMode: widget.editorMode,
           ),
           Expanded(
             child: _buildContent(),
@@ -306,6 +307,7 @@ class _Header extends StatelessWidget {
   final String projectTabLabel;
   final IconData projectTabIcon;
   final Color accentColor;
+  final EditorMode editorMode;
 
   const _Header({
     required this.activeTab,
@@ -314,10 +316,14 @@ class _Header extends StatelessWidget {
     required this.projectTabLabel,
     required this.projectTabIcon,
     required this.accentColor,
+    required this.editorMode,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Channel tab only visible in DAW mode
+    final showChannelTab = editorMode == EditorMode.daw;
+
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -335,14 +341,15 @@ class _Header extends StatelessWidget {
             onTap: () => onTabChange?.call(LeftZoneTab.project),
             accentColor: accentColor,
           ),
-          // Channel tab
-          _Tab(
-            label: 'Channel',
-            icon: Icons.tune,
-            isActive: activeTab == LeftZoneTab.channel,
-            onTap: () => onTabChange?.call(LeftZoneTab.channel),
-            accentColor: accentColor,
-          ),
+          // Channel tab (DAW mode only)
+          if (showChannelTab)
+            _Tab(
+              label: 'Channel',
+              icon: Icons.tune,
+              isActive: activeTab == LeftZoneTab.channel,
+              onTap: () => onTabChange?.call(LeftZoneTab.channel),
+              accentColor: accentColor,
+            ),
           const Spacer(),
           if (onToggleCollapse != null)
             IconButton(

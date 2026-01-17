@@ -151,6 +151,10 @@ class ControlBar extends StatefulWidget {
   final bool pdcEnabled;
   final VoidCallback? onPdcTap;
 
+  // Navigation callbacks
+  final VoidCallback? onBackToLauncher;
+  final VoidCallback? onBackToMiddleware; // For Slot mode only
+
   const ControlBar({
     super.key,
     this.editorMode = EditorMode.daw,
@@ -189,6 +193,8 @@ class ControlBar extends StatefulWidget {
     this.pdcLatencyMs = 0,
     this.pdcEnabled = true,
     this.onPdcTap,
+    this.onBackToLauncher,
+    this.onBackToMiddleware,
   });
 
   @override
@@ -273,7 +279,26 @@ class _ControlBarState extends State<ControlBar> {
                         children: [
                           // Logo
                           _Logo(),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
+
+                          // Back button - context-aware navigation
+                          if (widget.editorMode == EditorMode.slot && widget.onBackToMiddleware != null)
+                            _BackButton(
+                              label: 'Middleware',
+                              accentColor: FluxForgeTheme.accentOrange,
+                              onTap: widget.onBackToMiddleware!,
+                            )
+                          else if (widget.onBackToLauncher != null)
+                            _BackButton(
+                              label: 'Launcher',
+                              accentColor: widget.editorMode == EditorMode.daw
+                                  ? FluxForgeTheme.accentBlue
+                                  : FluxForgeTheme.accentOrange,
+                              onTap: widget.onBackToLauncher!,
+                            ),
+
+                          if (widget.onBackToLauncher != null || widget.onBackToMiddleware != null)
+                            const SizedBox(width: 8),
 
                           // Note: Menu bar moved to native macOS menu bar
                           // See AppDelegate.swift for native menu implementation
@@ -2664,6 +2689,87 @@ class _MoreToolsMenuState extends State<_MoreToolsMenu> {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// BACK BUTTON (Navigation to Launcher/Middleware)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _BackButton extends StatefulWidget {
+  final String label;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _BackButton({
+    required this.label,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_BackButton> createState() => _BackButtonState();
+}
+
+class _BackButtonState extends State<_BackButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(
+            horizontal: _isHovered ? 10 : 8,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.accentColor.withValues(alpha: 0.15)
+                : FluxForgeTheme.bgMid,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: _isHovered
+                  ? widget.accentColor.withValues(alpha: 0.5)
+                  : FluxForgeTheme.borderSubtle,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.arrow_back_rounded,
+                size: 12,
+                color: _isHovered
+                    ? widget.accentColor
+                    : FluxForgeTheme.textSecondary,
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 150),
+                child: _isHovered
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          widget.label,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: widget.accentColor,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

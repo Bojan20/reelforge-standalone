@@ -7,8 +7,14 @@
 //
 // Connects Dart UI to Rust rf-event system via FFI.
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../models/middleware_models.dart';
+import '../models/slot_audio_events.dart';
+import '../models/advanced_middleware_models.dart';
+import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 
 // ============ Provider ============
@@ -59,10 +65,98 @@ class MiddlewareProvider extends ChangeNotifier {
   // Attenuation Curves
   final Map<int, AttenuationCurve> _attenuationCurves = {};
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SLOT ELEMENT MAPPINGS (bidirectional sync with Slot Fullscreen)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Slot element to event mappings
+  final Map<SlotElementType, SlotElementEventMapping> _slotElementMappings = {};
+
+  /// Custom element mappings (for user-defined elements)
+  final Map<String, SlotElementEventMapping> _customElementMappings = {};
+
   // Music system state
   int? _currentMusicSegmentId;
   int? _nextMusicSegmentId;
   int _musicBusId = 1; // Music bus
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Voice pool for polyphony management
+  final VoicePool _voicePool = VoicePool(
+    config: const VoicePoolConfig(
+      maxVoices: 48,
+      stealingMode: VoiceStealingMode.lowestPriority,
+      enableVirtualVoices: true,
+    ),
+  );
+
+  /// Bus hierarchy with effects
+  final BusHierarchy _busHierarchy = BusHierarchy();
+
+  /// Memory budget manager
+  final MemoryBudgetManager _memoryManager = MemoryBudgetManager(
+    config: const MemoryBudgetConfig(
+      maxResidentBytes: 64 * 1024 * 1024, // 64MB
+      maxStreamingBytes: 32 * 1024 * 1024, // 32MB
+    ),
+  );
+
+  /// Event profiler
+  final EventProfiler _eventProfiler = EventProfiler(maxEvents: 10000);
+
+  /// Spatial audio config for reels
+  ReelSpatialConfig _reelSpatialConfig = const ReelSpatialConfig(
+    reelCount: 5,
+    panSpread: 0.8,
+  );
+
+  /// Cascade audio config
+  CascadeAudioConfig _cascadeConfig = defaultCascadeConfig;
+
+  /// HDR audio config
+  HdrAudioConfig _hdrConfig = HdrAudioConfig.fromProfile(HdrProfile.desktop);
+
+  /// Streaming config
+  StreamingConfig _streamingConfig = const StreamingConfig();
+
+  /// AutoSpatial engine for UI-driven spatial positioning
+  final AutoSpatialEngine _autoSpatialEngine = AutoSpatialEngine();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SHARED AUDIO POOL (accessible from DAW, Middleware, and Slot Mode)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  final List<SharedPoolAudioFile> _sharedAudioPool = [];
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SLOT MODE STATE (persistent across mode switches)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  final List<SlotAudioTrack> _slotTracks = [];
+  final List<SlotStageMarker> _slotMarkers = [];
+  double _slotPlayheadPosition = 0.0;
+  double _slotTimelineZoom = 1.0;
+  bool _slotLoopEnabled = false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPOSITE EVENTS (Wwise/FMOD-style layered events)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  final Map<String, SlotCompositeEvent> _compositeEvents = {};
+  String? _selectedCompositeEventId;
+  int _nextLayerId = 1;
+
+  // Undo/Redo stacks for composite events
+  final List<Map<String, SlotCompositeEvent>> _undoStack = [];
+  final List<Map<String, SlotCompositeEvent>> _redoStack = [];
+  static const int _maxUndoHistory = 50;
+
+  // Layer clipboard for copy/paste
+  SlotEventLayer? _layerClipboard;
+  String? _selectedLayerId;
 
   // ID counters for new groups
   int _nextStateGroupId = 100;
@@ -101,6 +195,45 @@ class MiddlewareProvider extends ChangeNotifier {
   int? get currentMusicSegmentId => _currentMusicSegmentId;
   int? get nextMusicSegmentId => _nextMusicSegmentId;
   int get musicBusId => _musicBusId;
+
+  // Advanced systems getters
+  VoicePool get voicePool => _voicePool;
+  BusHierarchy get busHierarchy => _busHierarchy;
+  MemoryBudgetManager get memoryManager => _memoryManager;
+  EventProfiler get eventProfiler => _eventProfiler;
+  ReelSpatialConfig get reelSpatialConfig => _reelSpatialConfig;
+  CascadeAudioConfig get cascadeConfig => _cascadeConfig;
+  HdrAudioConfig get hdrConfig => _hdrConfig;
+  StreamingConfig get streamingConfig => _streamingConfig;
+  AutoSpatialEngine get autoSpatialEngine => _autoSpatialEngine;
+  AnchorRegistry get anchorRegistry => _autoSpatialEngine.anchorRegistry;
+
+  // Shared Audio Pool getters
+  List<SharedPoolAudioFile> get sharedAudioPool => List.unmodifiable(_sharedAudioPool);
+
+  // Slot Mode state getters
+  List<SlotAudioTrack> get slotTracks => List.unmodifiable(_slotTracks);
+  List<SlotStageMarker> get slotMarkers => List.unmodifiable(_slotMarkers);
+  double get slotPlayheadPosition => _slotPlayheadPosition;
+  double get slotTimelineZoom => _slotTimelineZoom;
+  bool get slotLoopEnabled => _slotLoopEnabled;
+
+  // Composite Events getters
+  List<SlotCompositeEvent> get compositeEvents => _compositeEvents.values.toList();
+  SlotCompositeEvent? get selectedCompositeEvent =>
+      _selectedCompositeEventId != null ? _compositeEvents[_selectedCompositeEventId] : null;
+  String? get selectedCompositeEventId => _selectedCompositeEventId;
+
+  // Undo/Redo getters
+  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canRedo => _redoStack.isNotEmpty;
+  int get undoStackSize => _undoStack.length;
+  int get redoStackSize => _redoStack.length;
+
+  // Layer clipboard getters
+  bool get hasLayerInClipboard => _layerClipboard != null;
+  SlotEventLayer? get layerClipboard => _layerClipboard;
+  String? get selectedLayerId => _selectedLayerId;
 
   StateGroup? getStateGroup(int groupId) => _stateGroups[groupId];
   SwitchGroup? getSwitchGroup(int groupId) => _switchGroups[groupId];
@@ -2189,13 +2322,31 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Post (trigger) an event
   ///
+  /// [eventId] - The event identifier
+  /// [gameObjectId] - Optional game object for scoped audio
+  /// [context] - Optional context data for RTPC/switch evaluation
+  ///
   /// Returns playing ID (0 if failed)
-  int postEvent(String eventId, {int gameObjectId = 0}) {
+  int postEvent(String eventId, {int gameObjectId = 0, Map<String, dynamic>? context}) {
     final event = _events[eventId];
-    if (event == null) return 0;
+    if (event == null) {
+      debugPrint('[Middleware] Event not found: $eventId');
+      return 0;
+    }
 
     final numericId = _eventNameToId[event.name];
-    if (numericId == null) return 0;
+    if (numericId == null) {
+      // Auto-register if not yet registered
+      final newId = _nextEventNumericId++;
+      _eventNameToId[event.name] = newId;
+      _syncEventToEngine(event, newId);
+      return postEvent(eventId, gameObjectId: gameObjectId, context: context);
+    }
+
+    // Apply context to RTPCs if provided
+    if (context != null) {
+      _applyContextToRtpcs(context);
+    }
 
     final playingId = _ffi.middlewarePostEvent(numericId, gameObjectId: gameObjectId);
 
@@ -2205,6 +2356,38 @@ class MiddlewareProvider extends ChangeNotifier {
     }
 
     return playingId;
+  }
+
+  /// Apply context data to relevant RTPCs
+  void _applyContextToRtpcs(Map<String, dynamic> context) {
+    // Win multiplier from ratio
+    if (context.containsKey('win_amount') && context.containsKey('bet_amount')) {
+      final winAmount = (context['win_amount'] as num).toDouble();
+      final betAmount = (context['bet_amount'] as num).toDouble();
+      if (betAmount > 0) {
+        final ratio = winAmount / betAmount;
+        // Find win multiplier RTPC (ID 100 by convention)
+        final rtpc = _rtpcDefs[100];
+        if (rtpc != null) {
+          setRtpc(100, ratio.clamp(rtpc.min, rtpc.max));
+        }
+      }
+    }
+
+    // Cascade depth
+    if (context.containsKey('cascade_depth')) {
+      final depth = (context['cascade_depth'] as num).toDouble();
+      final rtpc = _rtpcDefs[104]; // Cascade depth RTPC
+      if (rtpc != null) {
+        setRtpc(104, depth.clamp(rtpc.min, rtpc.max));
+      }
+    }
+
+    // Multiplier
+    if (context.containsKey('multiplier')) {
+      final mult = (context['multiplier'] as num).toDouble();
+      // Could be mapped to various RTPCs
+    }
   }
 
   /// Post event by name
@@ -2316,5 +2499,2059 @@ class MiddlewareProvider extends ChangeNotifier {
         _syncEventToEngine(event, numericId);
       }
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SLOT ELEMENT MAPPING - Bidirectional Sync
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get all slot element mappings
+  List<SlotElementEventMapping> get slotElementMappings =>
+      [..._slotElementMappings.values, ..._customElementMappings.values];
+
+  /// Get mapping for a specific element
+  SlotElementEventMapping? getSlotElementMapping(SlotElementType element, [String? customName]) {
+    if (element == SlotElementType.custom && customName != null) {
+      return _customElementMappings[customName];
+    }
+    return _slotElementMappings[element];
+  }
+
+  /// Initialize default slot element mappings
+  /// This creates all standard mappings and their corresponding events
+  void initializeSlotElementMappings() {
+    // Clear existing
+    _slotElementMappings.clear();
+    _customElementMappings.clear();
+
+    // Create default mappings
+    final defaults = SlotElementMappingFactory.createDefaultMappings();
+    for (final mapping in defaults) {
+      _slotElementMappings[mapping.element] = mapping;
+
+      // Ensure corresponding event exists
+      _ensureEventForMapping(mapping);
+    }
+
+    notifyListeners();
+  }
+
+  /// Ensure event exists for a mapping, create if not
+  void _ensureEventForMapping(SlotElementEventMapping mapping) {
+    final existingEvent = _events[mapping.eventId];
+    if (existingEvent != null) return;
+
+    // Create event from slot audio events factory
+    final allSlotEvents = SlotAudioEventFactory.createAllEvents();
+    final matchingEvent = allSlotEvents.where((e) => e.id == mapping.eventId).firstOrNull;
+
+    if (matchingEvent != null) {
+      registerEvent(matchingEvent);
+    } else {
+      // Create placeholder event for custom mappings
+      final newEvent = MiddlewareEvent(
+        id: mapping.eventId,
+        name: mapping.displayName.replaceAll(' ', '_'),
+        category: 'Slot_Custom',
+        actions: [],
+      );
+      registerEvent(newEvent);
+    }
+  }
+
+  /// Add audio layer to a slot element
+  /// This is called when user drags audio onto a slot element in Slot Fullscreen mode
+  void addAudioToSlotElement({
+    required SlotElementType element,
+    String? customName,
+    required String assetPath,
+    required String assetName,
+    String bus = 'SFX',
+    double volume = 1.0,
+  }) {
+    // Get or create mapping
+    SlotElementEventMapping? mapping;
+    if (element == SlotElementType.custom && customName != null) {
+      mapping = _customElementMappings[customName];
+      if (mapping == null) {
+        // Create new custom mapping
+        final eventId = 'slot_custom_${customName.toLowerCase().replaceAll(' ', '_')}';
+        mapping = SlotElementEventMapping(
+          element: element,
+          customName: customName,
+          eventId: eventId,
+          audioLayers: [],
+        );
+        _customElementMappings[customName] = mapping;
+        _ensureEventForMapping(mapping);
+      }
+    } else {
+      mapping = _slotElementMappings[element];
+      if (mapping == null) {
+        // Create default mapping
+        final defaultEventId = SlotElementMappingFactory.defaultMappings[element];
+        if (defaultEventId == null) return;
+        mapping = SlotElementEventMapping(
+          element: element,
+          eventId: defaultEventId,
+          audioLayers: [],
+        );
+        _slotElementMappings[element] = mapping;
+        _ensureEventForMapping(mapping);
+      }
+    }
+
+    // Create audio layer
+    final layerId = 'layer_${DateTime.now().millisecondsSinceEpoch}';
+    final layer = SlotAudioLayer(
+      id: layerId,
+      assetPath: assetPath,
+      assetName: assetName,
+      bus: bus,
+      volume: volume,
+    );
+
+    // Add layer to mapping
+    final updatedMapping = mapping.addAudioLayer(layer);
+
+    // Update mapping in appropriate collection
+    if (element == SlotElementType.custom && customName != null) {
+      _customElementMappings[customName] = updatedMapping;
+    } else {
+      _slotElementMappings[element] = updatedMapping;
+    }
+
+    // Sync to event - add Play action for this audio
+    _syncSlotLayerToEvent(updatedMapping, layer);
+
+    notifyListeners();
+  }
+
+  /// Sync a slot layer to its corresponding middleware event
+  void _syncSlotLayerToEvent(SlotElementEventMapping mapping, SlotAudioLayer layer) {
+    final event = _events[mapping.eventId];
+    if (event == null) return;
+
+    // Create action for this layer
+    final actionId = 'action_${layer.id}';
+    final action = MiddlewareAction(
+      id: actionId,
+      type: ActionType.play,
+      assetId: layer.assetName,
+      bus: layer.bus,
+      gain: layer.volume,
+    );
+
+    // Add action to event
+    addActionToEvent(mapping.eventId, action);
+  }
+
+  /// Remove audio layer from slot element
+  void removeAudioFromSlotElement({
+    required SlotElementType element,
+    String? customName,
+    required String layerId,
+  }) {
+    SlotElementEventMapping? mapping;
+    if (element == SlotElementType.custom && customName != null) {
+      mapping = _customElementMappings[customName];
+    } else {
+      mapping = _slotElementMappings[element];
+    }
+
+    if (mapping == null) return;
+
+    // Find and remove the layer
+    final updatedLayers = mapping.audioLayers.where((l) => l.id != layerId).toList();
+    final updatedMapping = mapping.copyWith(audioLayers: updatedLayers);
+
+    // Update mapping
+    if (element == SlotElementType.custom && customName != null) {
+      _customElementMappings[customName] = updatedMapping;
+    } else {
+      _slotElementMappings[element] = updatedMapping;
+    }
+
+    // Remove corresponding action from event
+    final actionId = 'action_$layerId';
+    removeActionFromEvent(mapping.eventId, actionId);
+
+    notifyListeners();
+  }
+
+  /// Update audio layer properties
+  void updateSlotAudioLayer({
+    required SlotElementType element,
+    String? customName,
+    required SlotAudioLayer layer,
+  }) {
+    SlotElementEventMapping? mapping;
+    if (element == SlotElementType.custom && customName != null) {
+      mapping = _customElementMappings[customName];
+    } else {
+      mapping = _slotElementMappings[element];
+    }
+
+    if (mapping == null) return;
+
+    // Update the layer
+    final updatedLayers = mapping.audioLayers.map((l) {
+      return l.id == layer.id ? layer : l;
+    }).toList();
+
+    final updatedMapping = mapping.copyWith(audioLayers: updatedLayers);
+
+    // Update mapping
+    if (element == SlotElementType.custom && customName != null) {
+      _customElementMappings[customName] = updatedMapping;
+    } else {
+      _slotElementMappings[element] = updatedMapping;
+    }
+
+    // Update corresponding action in event
+    final event = _events[mapping.eventId];
+    if (event != null) {
+      final actionId = 'action_${layer.id}';
+      final existingAction = event.actions.where((a) => a.id == actionId).firstOrNull;
+      if (existingAction != null) {
+        final updatedAction = existingAction.copyWith(
+          assetId: layer.assetName,
+          bus: layer.bus,
+          gain: layer.volume,
+        );
+        updateActionInEvent(mapping.eventId, updatedAction);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Create custom slot element mapping
+  void createCustomSlotElement(String customName, {String? eventId}) {
+    final resolvedEventId = eventId ?? 'slot_custom_${customName.toLowerCase().replaceAll(' ', '_')}';
+    final mapping = SlotElementEventMapping(
+      element: SlotElementType.custom,
+      customName: customName,
+      eventId: resolvedEventId,
+      audioLayers: [],
+    );
+
+    _customElementMappings[customName] = mapping;
+    _ensureEventForMapping(mapping);
+
+    notifyListeners();
+  }
+
+  /// Remove custom slot element mapping
+  void removeCustomSlotElement(String customName) {
+    final mapping = _customElementMappings.remove(customName);
+    if (mapping != null) {
+      // Optionally delete the event too
+      deleteEvent(mapping.eventId);
+    }
+    notifyListeners();
+  }
+
+  /// Sync from Middleware Event to Slot Element
+  /// Called when event is modified in Event Editor - updates slot element mapping
+  void syncEventToSlotElement(String eventId) {
+    final event = _events[eventId];
+    if (event == null) return;
+
+    // Find mapping that uses this event
+    SlotElementEventMapping? mapping;
+    SlotElementType? elementType;
+    String? customName;
+
+    for (final entry in _slotElementMappings.entries) {
+      if (entry.value.eventId == eventId) {
+        mapping = entry.value;
+        elementType = entry.key;
+        break;
+      }
+    }
+
+    if (mapping == null) {
+      for (final entry in _customElementMappings.entries) {
+        if (entry.value.eventId == eventId) {
+          mapping = entry.value;
+          elementType = SlotElementType.custom;
+          customName = entry.key;
+          break;
+        }
+      }
+    }
+
+    if (mapping == null || elementType == null) return;
+
+    // Rebuild audio layers from event actions
+    final newLayers = <SlotAudioLayer>[];
+    for (final action in event.actions) {
+      if (action.type == ActionType.play && action.assetId.isNotEmpty) {
+        final layerId = action.id.startsWith('action_')
+            ? action.id.substring(7)
+            : 'layer_${action.id}';
+
+        newLayers.add(SlotAudioLayer(
+          id: layerId,
+          assetPath: '', // Would need asset registry to resolve
+          assetName: action.assetId,
+          bus: action.bus,
+          volume: action.gain,
+          muted: false,
+          solo: false,
+          pan: 0.0,
+        ));
+      }
+    }
+
+    final updatedMapping = mapping.copyWith(audioLayers: newLayers);
+
+    if (elementType == SlotElementType.custom && customName != null) {
+      _customElementMappings[customName] = updatedMapping;
+    } else {
+      _slotElementMappings[elementType] = updatedMapping;
+    }
+
+    notifyListeners();
+  }
+
+  /// Get event for a slot element
+  MiddlewareEvent? getEventForSlotElement(SlotElementType element, [String? customName]) {
+    final mapping = getSlotElementMapping(element, customName);
+    if (mapping == null) return null;
+    return _events[mapping.eventId];
+  }
+
+  /// Load slot audio profile (creates all events and mappings from factory)
+  void loadSlotAudioProfile() {
+    final profile = SlotAudioProfile.defaultProfile();
+
+    // Register all events
+    for (final event in profile.events) {
+      registerEvent(event);
+    }
+
+    // Register RTPCs
+    for (final rtpc in profile.rtpcs) {
+      registerRtpc(rtpc);
+    }
+
+    // Register state groups
+    for (final group in profile.stateGroups) {
+      registerStateGroup(group);
+    }
+
+    // Add ducking rules
+    for (final rule in profile.duckingRules) {
+      _duckingRules[rule.id] = rule;
+      _ffi.middlewareAddDuckingRule(rule);
+    }
+
+    // Add music segments
+    for (final segment in profile.musicSegments) {
+      _musicSegments[segment.id] = segment;
+      _ffi.middlewareAddMusicSegment(segment);
+    }
+
+    // Add stingers
+    for (final stinger in profile.stingers) {
+      _stingers[stinger.id] = stinger;
+      _ffi.middlewareAddStinger(stinger);
+    }
+
+    // Set up element mappings
+    for (final mapping in profile.elementMappings) {
+      if (mapping.element == SlotElementType.custom && mapping.customName != null) {
+        _customElementMappings[mapping.customName!] = mapping;
+      } else {
+        _slotElementMappings[mapping.element] = mapping;
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Export slot mappings to JSON
+  Map<String, dynamic> exportSlotMappingsToJson() {
+    return {
+      'version': '1.0',
+      'exported_at': DateTime.now().toIso8601String(),
+      'standard_mappings': _slotElementMappings.entries.map((e) => {
+        'element': e.key.name,
+        'eventId': e.value.eventId,
+        'audioLayers': e.value.audioLayers.map((l) => l.toJson()).toList(),
+      }).toList(),
+      'custom_mappings': _customElementMappings.entries.map((e) => {
+        'customName': e.key,
+        'eventId': e.value.eventId,
+        'audioLayers': e.value.audioLayers.map((l) => l.toJson()).toList(),
+      }).toList(),
+    };
+  }
+
+  /// Import slot mappings from JSON
+  void importSlotMappingsFromJson(Map<String, dynamic> json) {
+    // Standard mappings
+    final standardList = json['standard_mappings'] as List<dynamic>?;
+    if (standardList != null) {
+      for (final m in standardList) {
+        final elementName = m['element'] as String;
+        final element = SlotElementType.values.where((e) => e.name == elementName).firstOrNull;
+        if (element == null) continue;
+
+        final audioLayers = (m['audioLayers'] as List<dynamic>?)
+            ?.map((l) => SlotAudioLayer.fromJson(l as Map<String, dynamic>))
+            .toList() ?? [];
+
+        final mapping = SlotElementEventMapping(
+          element: element,
+          eventId: m['eventId'] as String,
+          audioLayers: audioLayers,
+        );
+
+        _slotElementMappings[element] = mapping;
+      }
+    }
+
+    // Custom mappings
+    final customList = json['custom_mappings'] as List<dynamic>?;
+    if (customList != null) {
+      for (final m in customList) {
+        final customName = m['customName'] as String;
+        final audioLayers = (m['audioLayers'] as List<dynamic>?)
+            ?.map((l) => SlotAudioLayer.fromJson(l as Map<String, dynamic>))
+            .toList() ?? [];
+
+        final mapping = SlotElementEventMapping(
+          element: SlotElementType.custom,
+          customName: customName,
+          eventId: m['eventId'] as String,
+          audioLayers: audioLayers,
+        );
+
+        _customElementMappings[customName] = mapping;
+      }
+    }
+
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - VOICE MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Request a voice from the pool
+  int? requestVoice({
+    required int soundId,
+    required int busId,
+    int priority = 50,
+    double volume = 1.0,
+    double pitch = 1.0,
+    double pan = 0.0,
+    double? spatialDistance,
+  }) {
+    final voiceId = _voicePool.requestVoice(
+      soundId: soundId,
+      busId: busId,
+      priority: priority,
+      volume: volume,
+      pitch: pitch,
+      pan: pan,
+      spatialDistance: spatialDistance,
+    );
+
+    if (voiceId != null) {
+      _eventProfiler.record(
+        type: ProfilerEventType.voiceStart,
+        description: 'Voice $voiceId started (sound: $soundId)',
+        soundId: soundId,
+        busId: busId,
+        voiceId: voiceId,
+      );
+    }
+
+    return voiceId;
+  }
+
+  /// Release a voice back to the pool
+  void releaseVoice(int voiceId) {
+    _voicePool.releaseVoice(voiceId);
+    _eventProfiler.record(
+      type: ProfilerEventType.voiceStop,
+      description: 'Voice $voiceId released',
+      voiceId: voiceId,
+    );
+  }
+
+  /// Get voice pool statistics
+  VoicePoolStats getVoicePoolStats() => _voicePool.getStats();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - BUS HIERARCHY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get a bus by ID
+  AudioBus? getBus(int busId) => _busHierarchy.getBus(busId);
+
+  /// Get all buses
+  List<AudioBus> getAllBuses() => _busHierarchy.allBuses;
+
+  /// Get effective volume for a bus (considering parent chain)
+  double getEffectiveBusVolume(int busId) => _busHierarchy.getEffectiveVolume(busId);
+
+  /// Set bus volume
+  void setBusVolume(int busId, double volume) {
+    final bus = _busHierarchy.getBus(busId);
+    if (bus != null) {
+      bus.volume = volume.clamp(0.0, 1.0);
+      notifyListeners();
+    }
+  }
+
+  /// Set bus mute
+  void setBusMute(int busId, bool mute) {
+    final bus = _busHierarchy.getBus(busId);
+    if (bus != null) {
+      bus.mute = mute;
+      notifyListeners();
+    }
+  }
+
+  /// Set bus solo
+  void setBusSolo(int busId, bool solo) {
+    final bus = _busHierarchy.getBus(busId);
+    if (bus != null) {
+      bus.solo = solo;
+      notifyListeners();
+    }
+  }
+
+  /// Add effect to bus pre-insert chain
+  void addBusPreInsert(int busId, EffectSlot effect) {
+    final bus = _busHierarchy.getBus(busId);
+    if (bus != null) {
+      bus.addPreInsert(effect);
+      notifyListeners();
+    }
+  }
+
+  /// Add effect to bus post-insert chain
+  void addBusPostInsert(int busId, EffectSlot effect) {
+    final bus = _busHierarchy.getBus(busId);
+    if (bus != null) {
+      bus.addPostInsert(effect);
+      notifyListeners();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - MEMORY MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register a soundbank
+  void registerSoundbank(SoundBank bank) {
+    _memoryManager.registerBank(bank);
+  }
+
+  /// Load a soundbank
+  bool loadSoundbank(String bankId) {
+    final success = _memoryManager.loadBank(bankId);
+    if (success) {
+      _eventProfiler.record(
+        type: ProfilerEventType.bankLoad,
+        description: 'Bank loaded: $bankId',
+      );
+    }
+    return success;
+  }
+
+  /// Unload a soundbank
+  bool unloadSoundbank(String bankId) {
+    final success = _memoryManager.unloadBank(bankId);
+    if (success) {
+      _eventProfiler.record(
+        type: ProfilerEventType.bankUnload,
+        description: 'Bank unloaded: $bankId',
+      );
+    }
+    return success;
+  }
+
+  /// Get memory statistics
+  MemoryStats getMemoryStats() => _memoryManager.getStats();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - SPATIAL AUDIO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update reel spatial config
+  void updateReelSpatialConfig(ReelSpatialConfig config) {
+    _reelSpatialConfig = config;
+    notifyListeners();
+  }
+
+  /// Get audio position for a reel
+  AudioPosition getReelPosition(int reelIndex, {int rowIndex = 1}) {
+    return _reelSpatialConfig.getReelPosition(reelIndex, rowIndex: rowIndex);
+  }
+
+  /// Calculate attenuation for distance
+  double calculateSpatialAttenuation(double distance) {
+    return _reelSpatialConfig.calculateAttenuation(distance);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - CASCADE AUDIO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update cascade config
+  void updateCascadeConfig(CascadeAudioConfig config) {
+    _cascadeConfig = config;
+    notifyListeners();
+  }
+
+  /// Get audio parameters for cascade step
+  ({double pitch, double volume, double width, double reverbWet, double tension})
+  getCascadeAudioParams(int cascadeStep) {
+    return (
+      pitch: _cascadeConfig.getPitchMultiplier(cascadeStep),
+      volume: _cascadeConfig.getVolume(cascadeStep),
+      width: _cascadeConfig.getWidth(cascadeStep),
+      reverbWet: _cascadeConfig.getReverbWet(cascadeStep),
+      tension: _cascadeConfig.getTensionValue(cascadeStep),
+    );
+  }
+
+  /// Get active cascade layers for step
+  List<CascadeLayer> getActiveCascadeLayers(int cascadeStep) {
+    return _cascadeConfig.getActiveLayers(cascadeStep);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - HDR AUDIO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set HDR profile
+  void setHdrProfile(HdrProfile profile) {
+    _hdrConfig = HdrAudioConfig.fromProfile(profile);
+    notifyListeners();
+  }
+
+  /// Update HDR config
+  void updateHdrConfig(HdrAudioConfig config) {
+    _hdrConfig = config;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - STREAMING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update streaming config
+  void updateStreamingConfig(StreamingConfig config) {
+    _streamingConfig = config;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - PROFILER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Record a profiler event
+  void recordProfilerEvent({
+    required ProfilerEventType type,
+    required String description,
+    int? soundId,
+    int? busId,
+    int? voiceId,
+    double? value,
+    int latencyUs = 0,
+  }) {
+    _eventProfiler.record(
+      type: type,
+      description: description,
+      soundId: soundId,
+      busId: busId,
+      voiceId: voiceId,
+      value: value,
+      latencyUs: latencyUs,
+    );
+  }
+
+  /// Get profiler statistics
+  ProfilerStats getProfilerStats() => _eventProfiler.getStats();
+
+  /// Get recent profiler events
+  List<ProfilerEvent> getRecentProfilerEvents({int count = 100}) {
+    return _eventProfiler.getRecentEvents(count: count);
+  }
+
+  /// Clear profiler
+  void clearProfiler() {
+    _eventProfiler.clear();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO SPATIAL ENGINE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register a UI element anchor for spatial tracking
+  ///
+  /// Call this from widget build() or layout callbacks to track element positions.
+  /// The engine will use these positions to automatically position sounds in the stereo field.
+  void registerSpatialAnchor({
+    required String id,
+    required double xNorm,
+    required double yNorm,
+    double wNorm = 0.1,
+    double hNorm = 0.1,
+    bool visible = true,
+  }) {
+    _autoSpatialEngine.anchorRegistry.registerAnchor(
+      id: id,
+      xNorm: xNorm,
+      yNorm: yNorm,
+      wNorm: wNorm,
+      hNorm: hNorm,
+      visible: visible,
+    );
+  }
+
+  /// Unregister a UI element anchor
+  void unregisterSpatialAnchor(String id) {
+    _autoSpatialEngine.anchorRegistry.unregisterAnchor(id);
+  }
+
+  /// Emit a spatial audio event
+  ///
+  /// The AutoSpatialEngine will automatically determine the spatial position
+  /// based on registered anchors, motion, and intent rules.
+  void emitSpatialEvent(SpatialEvent event) {
+    _autoSpatialEngine.onEvent(event);
+
+    // Record in profiler
+    recordProfilerEvent(
+      type: ProfilerEventType.eventTrigger,
+      description: 'Spatial: ${event.intent}',
+      value: event.importance,
+    );
+  }
+
+  /// Stop a spatial event
+  void stopSpatialEvent(String eventId) {
+    _autoSpatialEngine.stopEvent(eventId);
+  }
+
+  /// Update all spatial events and get outputs
+  ///
+  /// Call this every frame (or at audio rate) to get updated spatial parameters.
+  /// Returns a map of eventId -> SpatialOutput with pan, width, gains, etc.
+  Map<String, SpatialOutput> updateSpatialEvents() {
+    return _autoSpatialEngine.update();
+  }
+
+  /// Get spatial output for a specific event
+  SpatialOutput? getSpatialOutput(String eventId) {
+    return _autoSpatialEngine.getOutput(eventId);
+  }
+
+  /// Get AutoSpatial engine statistics
+  AutoSpatialStats getSpatialStats() {
+    return _autoSpatialEngine.getStats();
+  }
+
+  /// Configure the AutoSpatial engine
+  void configureSpatialEngine(AutoSpatialConfig config) {
+    _autoSpatialEngine.config = config;
+    notifyListeners();
+  }
+
+  /// Clear all spatial tracking
+  void clearSpatialTracking() {
+    _autoSpatialEngine.clear();
+  }
+
+  /// Helper: Register standard slot anchors
+  ///
+  /// Call this to set up default anchor positions for a standard slot layout.
+  /// The positions are normalized (0-1) with (0,0) at top-left.
+  void registerStandardSlotAnchors({
+    int reelCount = 5,
+    double reelSpacing = 0.15,
+  }) {
+    // Calculate reel positions (centered)
+    final reelStartX = 0.5 - (reelCount - 1) * reelSpacing / 2;
+
+    for (int i = 0; i < reelCount; i++) {
+      registerSpatialAnchor(
+        id: 'reel_${i + 1}',
+        xNorm: reelStartX + i * reelSpacing,
+        yNorm: 0.5, // Center vertically
+        wNorm: 0.12,
+        hNorm: 0.6,
+      );
+    }
+
+    // Reels center
+    registerSpatialAnchor(
+      id: 'reels_center',
+      xNorm: 0.5,
+      yNorm: 0.5,
+      wNorm: reelCount * reelSpacing,
+      hNorm: 0.6,
+    );
+
+    // Balance/win display (top right)
+    registerSpatialAnchor(
+      id: 'balance_value',
+      xNorm: 0.85,
+      yNorm: 0.08,
+      wNorm: 0.15,
+      hNorm: 0.05,
+    );
+
+    // Win display (center top)
+    registerSpatialAnchor(
+      id: 'win_display',
+      xNorm: 0.5,
+      yNorm: 0.15,
+      wNorm: 0.3,
+      hNorm: 0.08,
+    );
+
+    // Spin button (center bottom)
+    registerSpatialAnchor(
+      id: 'spin_button',
+      xNorm: 0.5,
+      yNorm: 0.92,
+      wNorm: 0.15,
+      hNorm: 0.08,
+    );
+
+    // Bet controls (bottom left)
+    registerSpatialAnchor(
+      id: 'bet_controls',
+      xNorm: 0.15,
+      yNorm: 0.92,
+      wNorm: 0.2,
+      hNorm: 0.08,
+    );
+  }
+
+  /// Helper: Create spatial event for reel stop
+  SpatialEvent createReelStopEvent(int reelIndex) {
+    return SpatialEvent(
+      id: 'reel_stop_${reelIndex}_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Reel $reelIndex Stop',
+      intent: 'REEL_STOP_$reelIndex',
+      bus: SpatialBus.reels,
+      timeMs: DateTime.now().millisecondsSinceEpoch,
+      anchorId: 'reel_$reelIndex',
+      importance: 0.7,
+      lifetimeMs: 300,
+    );
+  }
+
+  /// Helper: Create spatial event for coin fly animation
+  SpatialEvent createCoinFlyEvent({
+    required double progress01,
+    String? startAnchor,
+    String? endAnchor,
+  }) {
+    return SpatialEvent(
+      id: 'coin_fly_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Coin Fly',
+      intent: 'COIN_FLY_TO_BALANCE',
+      bus: SpatialBus.sfx,
+      timeMs: DateTime.now().millisecondsSinceEpoch,
+      startAnchorId: startAnchor ?? 'reels_center',
+      endAnchorId: endAnchor ?? 'balance_value',
+      progress01: progress01,
+      importance: 0.6,
+      lifetimeMs: 1200,
+    );
+  }
+
+  /// Helper: Create spatial event for big win
+  SpatialEvent createBigWinEvent({
+    required String tier, // 'BIG_WIN', 'MEGA_WIN', 'SUPER_WIN', 'EPIC_WIN'
+  }) {
+    final lifetimes = {
+      'BIG_WIN': 3000,
+      'MEGA_WIN': 4000,
+      'SUPER_WIN': 5000,
+      'EPIC_WIN': 6000,
+    };
+
+    return SpatialEvent(
+      id: '${tier.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}',
+      name: tier.replaceAll('_', ' '),
+      intent: tier,
+      bus: SpatialBus.sfx,
+      timeMs: DateTime.now().millisecondsSinceEpoch,
+      anchorId: 'reels_center',
+      importance: 1.0,
+      lifetimeMs: lifetimes[tier] ?? 3000,
+    );
+  }
+
+  /// Helper: Create spatial event for UI click
+  SpatialEvent createUIClickEvent({
+    required String anchorId,
+    required double xNorm,
+    required double yNorm,
+  }) {
+    return SpatialEvent(
+      id: 'ui_click_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'UI Click',
+      intent: 'UI_CLICK',
+      bus: SpatialBus.ui,
+      timeMs: DateTime.now().millisecondsSinceEpoch,
+      anchorId: anchorId,
+      xNorm: xNorm,
+      yNorm: yNorm,
+      importance: 0.3,
+      lifetimeMs: 150,
+    );
+  }
+
+  /// Dispose AutoSpatial resources
+  void disposeSpatialEngine() {
+    _autoSpatialEngine.dispose();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SHARED AUDIO POOL METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add audio file to shared pool
+  void addToSharedPool(SharedPoolAudioFile file) {
+    // Avoid duplicates by path
+    if (_sharedAudioPool.any((f) => f.path == file.path)) return;
+    _sharedAudioPool.add(file);
+    notifyListeners();
+  }
+
+  /// Remove audio file from shared pool
+  void removeFromSharedPool(String fileId) {
+    _sharedAudioPool.removeWhere((f) => f.id == fileId);
+    notifyListeners();
+  }
+
+  /// Get audio file from pool by path
+  SharedPoolAudioFile? getPoolFileByPath(String path) {
+    try {
+      return _sharedAudioPool.firstWhere((f) => f.path == path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clear entire audio pool
+  void clearSharedPool() {
+    _sharedAudioPool.clear();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SLOT MODE STATE METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set slot tracks (replaces all)
+  void setSlotTracks(List<SlotAudioTrack> tracks) {
+    _slotTracks.clear();
+    _slotTracks.addAll(tracks);
+    notifyListeners();
+  }
+
+  /// Update a single slot track
+  void updateSlotTrack(SlotAudioTrack track) {
+    final index = _slotTracks.indexWhere((t) => t.id == track.id);
+    if (index >= 0) {
+      _slotTracks[index] = track;
+      notifyListeners();
+    }
+  }
+
+  /// Add region to slot track
+  void addSlotRegion(String trackId, SlotAudioRegion region) {
+    final index = _slotTracks.indexWhere((t) => t.id == trackId);
+    if (index >= 0) {
+      final track = _slotTracks[index];
+      _slotTracks[index] = track.copyWith(
+        regions: [...track.regions, region],
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Remove region from slot track
+  void removeSlotRegion(String trackId, String regionId) {
+    final index = _slotTracks.indexWhere((t) => t.id == trackId);
+    if (index >= 0) {
+      final track = _slotTracks[index];
+      _slotTracks[index] = track.copyWith(
+        regions: track.regions.where((r) => r.id != regionId).toList(),
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Set slot stage markers
+  void setSlotMarkers(List<SlotStageMarker> markers) {
+    _slotMarkers.clear();
+    _slotMarkers.addAll(markers);
+    notifyListeners();
+  }
+
+  /// Set slot playhead position
+  void setSlotPlayheadPosition(double position) {
+    _slotPlayheadPosition = position.clamp(0.0, 1.0);
+    // Don't notify - high frequency updates
+  }
+
+  /// Set slot timeline zoom
+  void setSlotTimelineZoom(double zoom) {
+    _slotTimelineZoom = zoom.clamp(0.25, 8.0);
+    notifyListeners();
+  }
+
+  /// Set slot loop enabled
+  void setSlotLoopEnabled(bool enabled) {
+    _slotLoopEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// Initialize default slot tracks if empty
+  void initializeDefaultSlotTracks() {
+    if (_slotTracks.isNotEmpty) return;
+
+    _slotTracks.addAll([
+      SlotAudioTrack(
+        id: 'spin_loop',
+        name: 'Spin Loop',
+        color: const Color(0xFF4A9EFF),
+      ),
+      SlotAudioTrack(
+        id: 'reel_stops',
+        name: 'Reel Stops',
+        color: const Color(0xFF9B59B6),
+      ),
+      SlotAudioTrack(
+        id: 'anticipation',
+        name: 'Anticipation',
+        color: const Color(0xFFE74C3C),
+      ),
+      SlotAudioTrack(
+        id: 'win_music',
+        name: 'Win Music',
+        color: const Color(0xFFF1C40F),
+      ),
+      SlotAudioTrack(
+        id: 'rollup',
+        name: 'Rollup',
+        color: const Color(0xFF40FF90),
+      ),
+      SlotAudioTrack(
+        id: 'big_win',
+        name: 'Big Win Stinger',
+        color: const Color(0xFFFF9040),
+      ),
+    ]);
+
+    _slotMarkers.addAll([
+      const SlotStageMarker(id: 'm1', position: 0.0, name: 'SPIN START', color: Color(0xFF4A9EFF)),
+      const SlotStageMarker(id: 'm2', position: 0.12, name: 'REEL 1', color: Color(0xFF9B59B6)),
+      const SlotStageMarker(id: 'm3', position: 0.22, name: 'ANTIC', color: Color(0xFFE74C3C)),
+      const SlotStageMarker(id: 'm4', position: 0.35, name: 'WIN', color: Color(0xFFF1C40F)),
+      const SlotStageMarker(id: 'm5', position: 0.40, name: 'ROLLUP', color: Color(0xFF40FF90)),
+      const SlotStageMarker(id: 'm6', position: 0.65, name: 'BIG WIN', color: Color(0xFFFF9040)),
+      const SlotStageMarker(id: 'm7', position: 1.0, name: 'END', color: Color(0xFF888888)),
+    ]);
+
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPOSITE EVENT UNDO/REDO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Push current state to undo stack before making changes
+  void _pushUndoState() {
+    // Deep copy current state
+    final snapshot = <String, SlotCompositeEvent>{};
+    for (final entry in _compositeEvents.entries) {
+      snapshot[entry.key] = entry.value.copyWith(
+        layers: List<SlotEventLayer>.from(entry.value.layers),
+      );
+    }
+    _undoStack.add(snapshot);
+
+    // Limit stack size
+    while (_undoStack.length > _maxUndoHistory) {
+      _undoStack.removeAt(0);
+    }
+
+    // Clear redo stack on new action
+    _redoStack.clear();
+  }
+
+  /// Undo last composite event change
+  void undoCompositeEvents() {
+    if (_undoStack.isEmpty) return;
+
+    // Save current state to redo stack
+    final currentSnapshot = <String, SlotCompositeEvent>{};
+    for (final entry in _compositeEvents.entries) {
+      currentSnapshot[entry.key] = entry.value.copyWith(
+        layers: List<SlotEventLayer>.from(entry.value.layers),
+      );
+    }
+    _redoStack.add(currentSnapshot);
+
+    // Restore previous state
+    final previousState = _undoStack.removeLast();
+    _compositeEvents.clear();
+    _compositeEvents.addAll(previousState);
+
+    // Validate selected event still exists
+    if (_selectedCompositeEventId != null &&
+        !_compositeEvents.containsKey(_selectedCompositeEventId)) {
+      _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
+    }
+
+    // Sync all events
+    for (final event in _compositeEvents.values) {
+      _syncCompositeToMiddleware(event);
+    }
+
+    notifyListeners();
+    debugPrint('[Undo] Restored composite events state (undo: ${_undoStack.length}, redo: ${_redoStack.length})');
+  }
+
+  /// Redo previously undone change
+  void redoCompositeEvents() {
+    if (_redoStack.isEmpty) return;
+
+    // Save current state to undo stack
+    final currentSnapshot = <String, SlotCompositeEvent>{};
+    for (final entry in _compositeEvents.entries) {
+      currentSnapshot[entry.key] = entry.value.copyWith(
+        layers: List<SlotEventLayer>.from(entry.value.layers),
+      );
+    }
+    _undoStack.add(currentSnapshot);
+
+    // Restore redo state
+    final redoState = _redoStack.removeLast();
+    _compositeEvents.clear();
+    _compositeEvents.addAll(redoState);
+
+    // Validate selected event still exists
+    if (_selectedCompositeEventId != null &&
+        !_compositeEvents.containsKey(_selectedCompositeEventId)) {
+      _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
+    }
+
+    // Sync all events
+    for (final event in _compositeEvents.values) {
+      _syncCompositeToMiddleware(event);
+    }
+
+    notifyListeners();
+    debugPrint('[Redo] Restored composite events state (undo: ${_undoStack.length}, redo: ${_redoStack.length})');
+  }
+
+  /// Clear undo/redo history
+  void clearUndoHistory() {
+    _undoStack.clear();
+    _redoStack.clear();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LAYER SELECTION & CLIPBOARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Select a layer for clipboard operations
+  void selectLayer(String? layerId) {
+    _selectedLayerId = layerId;
+    notifyListeners();
+  }
+
+  /// Copy selected layer to clipboard
+  void copyLayer(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    try {
+      final layer = event.layers.firstWhere((l) => l.id == layerId);
+      _layerClipboard = layer;
+      _selectedLayerId = layerId;
+      notifyListeners();
+      debugPrint('[Clipboard] Copied layer: ${layer.name}');
+    } catch (e) {
+      debugPrint('[Clipboard] Layer not found: $layerId');
+    }
+  }
+
+  /// Paste layer from clipboard to event
+  SlotEventLayer? pasteLayer(String eventId) {
+    if (_layerClipboard == null) return null;
+    final event = _compositeEvents[eventId];
+    if (event == null) return null;
+
+    _pushUndoState();
+
+    final newId = 'layer_${_nextLayerId++}';
+    final pastedLayer = _layerClipboard!.copyWith(
+      id: newId,
+      name: '${_layerClipboard!.name} (copy)',
+    );
+
+    final updated = event.copyWith(
+      layers: [...event.layers, pastedLayer],
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+
+    debugPrint('[Clipboard] Pasted layer: ${pastedLayer.name}');
+    return pastedLayer;
+  }
+
+  /// Duplicate a layer within the same event
+  SlotEventLayer? duplicateLayer(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return null;
+
+    try {
+      final layer = event.layers.firstWhere((l) => l.id == layerId);
+      _pushUndoState();
+
+      final newId = 'layer_${_nextLayerId++}';
+      final duplicatedLayer = layer.copyWith(
+        id: newId,
+        name: '${layer.name} (copy)',
+        offsetMs: layer.offsetMs + 100, // Slight offset so it's visible
+      );
+
+      final updated = event.copyWith(
+        layers: [...event.layers, duplicatedLayer],
+        modifiedAt: DateTime.now(),
+      );
+      _compositeEvents[eventId] = updated;
+      _syncCompositeToMiddleware(updated);
+      notifyListeners();
+
+      debugPrint('[Duplicate] Created: ${duplicatedLayer.name}');
+      return duplicatedLayer;
+    } catch (e) {
+      debugPrint('[Duplicate] Layer not found: $layerId');
+      return null;
+    }
+  }
+
+  /// Clear clipboard
+  void clearClipboard() {
+    _layerClipboard = null;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPOSITE EVENT METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a new composite event
+  SlotCompositeEvent createCompositeEvent({
+    required String name,
+    String category = 'general',
+    Color? color,
+  }) {
+    _pushUndoState();
+    final id = 'event_${DateTime.now().millisecondsSinceEpoch}';
+    final event = SlotCompositeEvent(
+      id: id,
+      name: name,
+      category: category,
+      color: color ?? SlotEventCategory.values
+          .firstWhere((c) => c.name == category, orElse: () => SlotEventCategory.ui)
+          .color,
+      createdAt: DateTime.now(),
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[id] = event;
+    _selectedCompositeEventId = id;
+    _syncCompositeToMiddleware(event); // Real-time sync
+    notifyListeners();
+    return event;
+  }
+
+  /// Create composite event from template
+  SlotCompositeEvent createFromTemplate(SlotCompositeEvent template) {
+    _pushUndoState();
+    final id = 'event_${DateTime.now().millisecondsSinceEpoch}';
+    final event = template.copyWith(
+      id: id,
+      createdAt: DateTime.now(),
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[id] = event;
+    _selectedCompositeEventId = id;
+    _syncCompositeToMiddleware(event); // Real-time sync
+    notifyListeners();
+    return event;
+  }
+
+  /// Delete a composite event
+  void deleteCompositeEvent(String eventId) {
+    _pushUndoState();
+    _compositeEvents.remove(eventId);
+    _removeMiddlewareEventForComposite(eventId); // Real-time sync
+    if (_selectedCompositeEventId == eventId) {
+      _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
+    }
+    notifyListeners();
+  }
+
+  /// Select a composite event
+  void selectCompositeEvent(String? eventId) {
+    _selectedCompositeEventId = eventId;
+    notifyListeners();
+  }
+
+  /// Update composite event
+  void updateCompositeEvent(SlotCompositeEvent event) {
+    _pushUndoState();
+    _compositeEvents[event.id] = event.copyWith(modifiedAt: DateTime.now());
+    _syncCompositeToMiddleware(event); // Real-time sync
+    notifyListeners();
+  }
+
+  /// Rename composite event
+  void renameCompositeEvent(String eventId, String newName) {
+    final event = _compositeEvents[eventId];
+    if (event != null) {
+      _pushUndoState();
+      final updated = event.copyWith(
+        name: newName,
+        modifiedAt: DateTime.now(),
+      );
+      _compositeEvents[eventId] = updated;
+      _syncCompositeToMiddleware(updated); // Real-time sync
+      notifyListeners();
+    }
+  }
+
+  /// Add layer to composite event
+  /// If durationSeconds is not provided, auto-detects from audio file via FFI
+  SlotEventLayer addLayerToEvent(String eventId, {
+    required String audioPath,
+    required String name,
+    double? durationSeconds,
+    List<double>? waveformData,
+  }) {
+    final event = _compositeEvents[eventId];
+    if (event == null) throw Exception('Event not found: $eventId');
+    _pushUndoState();
+
+    // Auto-detect duration if not provided
+    final actualDuration = durationSeconds ?? _ffi.getAudioFileDuration(audioPath);
+    final validDuration = (actualDuration > 0) ? actualDuration : null;
+
+    if (durationSeconds == null && validDuration != null) {
+      debugPrint('[Middleware] Auto-detected duration for $name: ${validDuration.toStringAsFixed(2)}s');
+    }
+
+    final layerId = 'layer_${_nextLayerId++}';
+    final layer = SlotEventLayer(
+      id: layerId,
+      name: name,
+      audioPath: audioPath,
+      durationSeconds: validDuration,
+      waveformData: waveformData,
+    );
+
+    final updated = event.copyWith(
+      layers: [...event.layers, layer],
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated); // Real-time sync
+    notifyListeners();
+    return layer;
+  }
+
+  /// Remove layer from composite event
+  void removeLayerFromEvent(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+
+    final updated = event.copyWith(
+      layers: event.layers.where((l) => l.id != layerId).toList(),
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated); // Real-time sync
+    notifyListeners();
+  }
+
+  /// Update layer in composite event (internal, no undo)
+  void _updateEventLayerInternal(String eventId, SlotEventLayer layer) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    final updated = event.copyWith(
+      layers: event.layers.map((l) => l.id == layer.id ? layer : l).toList(),
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated); // Real-time sync
+    notifyListeners();
+  }
+
+  /// Update layer in composite event (public, with undo)
+  void updateEventLayer(String eventId, SlotEventLayer layer) {
+    _pushUndoState();
+    _updateEventLayerInternal(eventId, layer);
+  }
+
+  /// Toggle layer mute
+  void toggleLayerMute(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(muted: !layer.muted));
+  }
+
+  /// Toggle layer solo
+  void toggleLayerSolo(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(solo: !layer.solo));
+  }
+
+  /// Set layer volume (no undo - use for continuous slider updates)
+  void setLayerVolumeContinuous(String eventId, String layerId, double volume) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(volume: volume.clamp(0.0, 1.0)));
+  }
+
+  /// Set layer volume (with undo - use for final value or discrete changes)
+  void setLayerVolume(String eventId, String layerId, double volume) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(volume: volume.clamp(0.0, 1.0)));
+  }
+
+  /// Set layer pan (no undo - use for continuous slider updates)
+  void setLayerPanContinuous(String eventId, String layerId, double pan) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(pan: pan.clamp(-1.0, 1.0)));
+  }
+
+  /// Set layer pan (with undo - use for final value)
+  void setLayerPan(String eventId, String layerId, double pan) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(pan: pan.clamp(-1.0, 1.0)));
+  }
+
+  /// Set layer offset (no undo - use for continuous drag updates)
+  void setLayerOffsetContinuous(String eventId, String layerId, double offsetMs) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(offsetMs: offsetMs.clamp(0, 10000)));
+  }
+
+  /// Set layer offset (with undo - use for final value)
+  void setLayerOffset(String eventId, String layerId, double offsetMs) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(offsetMs: offsetMs.clamp(0, 10000)));
+  }
+
+  /// Set layer fade in/out times
+  void setLayerFade(String eventId, String layerId, double fadeInMs, double fadeOutMs) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(
+      fadeInMs: fadeInMs.clamp(0, 10000),
+      fadeOutMs: fadeOutMs.clamp(0, 10000),
+    ));
+  }
+
+  /// Reorder layers in event
+  void reorderEventLayers(String eventId, int oldIndex, int newIndex) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+
+    final layers = List<SlotEventLayer>.from(event.layers);
+    if (oldIndex < newIndex) newIndex--;
+    final layer = layers.removeAt(oldIndex);
+    layers.insert(newIndex, layer);
+
+    final updated = event.copyWith(
+      layers: layers,
+      modifiedAt: DateTime.now(),
+    );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated); // Real-time sync
+    notifyListeners();
+  }
+
+  /// Get composite event by ID
+  SlotCompositeEvent? getCompositeEvent(String eventId) => _compositeEvents[eventId];
+
+  /// Get events by category
+  List<SlotCompositeEvent> getEventsByCategory(String category) =>
+      _compositeEvents.values.where((e) => e.category == category).toList();
+
+  /// Initialize default composite events from templates
+  void initializeDefaultCompositeEvents() {
+    if (_compositeEvents.isNotEmpty) return;
+
+    for (final template in SlotEventTemplates.allTemplates()) {
+      final id = 'event_${template.name.toLowerCase().replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}';
+      final event = template.copyWith(
+        id: id,
+        createdAt: DateTime.now(),
+        modifiedAt: DateTime.now(),
+      );
+      _compositeEvents[id] = event;
+      _syncCompositeToMiddleware(event); // Real-time sync
+    }
+    _selectedCompositeEventId = _compositeEvents.keys.first;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REAL-TIME SYNC: SlotCompositeEvent ↔ MiddlewareEvent
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Convert composite event ID to middleware event ID
+  String _compositeToMiddlewareId(String compositeId) => 'mw_$compositeId';
+
+  /// Convert middleware event ID to composite event ID
+  String? _middlewareToCompositeId(String middlewareId) {
+    if (middlewareId.startsWith('mw_event_')) {
+      return middlewareId.substring(3); // Remove 'mw_' prefix
+    }
+    return null;
+  }
+
+  /// Sync SlotCompositeEvent to MiddlewareEvent (real-time)
+  void _syncCompositeToMiddleware(SlotCompositeEvent composite) {
+    final middlewareId = _compositeToMiddlewareId(composite.id);
+
+    // Generate MiddlewareActions from layers
+    final actions = <MiddlewareAction>[];
+    int actionIndex = 0;
+
+    for (final layer in composite.layers) {
+      // Skip muted layers, respect solo
+      if (layer.muted) continue;
+      if (composite.hasSoloedLayer && !layer.solo) continue;
+
+      actions.add(MiddlewareAction(
+        id: '${middlewareId}_action_${actionIndex++}',
+        type: ActionType.play,
+        assetId: layer.audioPath,
+        bus: _getBusNameForCategory(composite.category),
+        gain: layer.volume * composite.masterVolume,
+        delay: layer.offsetMs / 1000.0, // Convert ms to seconds
+        fadeTime: layer.fadeInMs / 1000.0,
+        loop: composite.looping,
+        priority: ActionPriority.normal,
+      ));
+    }
+
+    // Create or update MiddlewareEvent
+    final middlewareEvent = MiddlewareEvent(
+      id: middlewareId,
+      name: composite.name,
+      category: 'Slot_${_capitalizeCategory(composite.category)}',
+      actions: actions,
+    );
+
+    _events[middlewareId] = middlewareEvent;
+    debugPrint('[Sync] Composite → Middleware: ${composite.name} (${actions.length} actions)');
+  }
+
+  /// Remove MiddlewareEvent when composite is deleted
+  void _removeMiddlewareEventForComposite(String compositeId) {
+    final middlewareId = _compositeToMiddlewareId(compositeId);
+    _events.remove(middlewareId);
+    debugPrint('[Sync] Removed middleware event: $middlewareId');
+  }
+
+  /// Sync MiddlewareEvent back to SlotCompositeEvent (bidirectional)
+  void syncMiddlewareToComposite(String middlewareId) {
+    final compositeId = _middlewareToCompositeId(middlewareId);
+    if (compositeId == null) return;
+
+    final middlewareEvent = _events[middlewareId];
+    final composite = _compositeEvents[compositeId];
+    if (middlewareEvent == null || composite == null) return;
+
+    // Update composite from middleware changes
+    // Note: This preserves layer structure, only updates playable properties
+    final updatedLayers = <SlotEventLayer>[];
+
+    for (int i = 0; i < composite.layers.length && i < middlewareEvent.actions.length; i++) {
+      final action = middlewareEvent.actions[i];
+      final layer = composite.layers[i];
+
+      updatedLayers.add(layer.copyWith(
+        volume: action.gain,
+        offsetMs: action.delay * 1000.0,
+        fadeInMs: action.fadeTime * 1000.0,
+      ));
+    }
+
+    // Add any remaining layers that don't have corresponding actions
+    if (composite.layers.length > middlewareEvent.actions.length) {
+      updatedLayers.addAll(composite.layers.skip(middlewareEvent.actions.length));
+    }
+
+    _compositeEvents[compositeId] = composite.copyWith(
+      name: middlewareEvent.name,
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    debugPrint('[Sync] Middleware → Composite: ${middlewareEvent.name}');
+    notifyListeners();
+  }
+
+  /// Get bus name for event category
+  String _getBusNameForCategory(String category) {
+    return switch (category.toLowerCase()) {
+      'spin' => 'Reels',
+      'reelstop' => 'Reels',
+      'anticipation' => 'SFX',
+      'win' => 'Wins',
+      'bigwin' => 'Wins',
+      'feature' => 'Music',
+      'bonus' => 'Music',
+      'ui' => 'UI',
+      'ambient' => 'Ambience',
+      'music' => 'Music',
+      _ => 'SFX',
+    };
+  }
+
+  /// Capitalize category for middleware naming
+  String _capitalizeCategory(String category) {
+    if (category.isEmpty) return 'General';
+    return category[0].toUpperCase() + category.substring(1);
+  }
+
+  /// Check if a middleware event is linked to a composite event
+  bool isLinkedToComposite(String middlewareId) {
+    return middlewareId.startsWith('mw_event_');
+  }
+
+  /// Get composite event for a middleware event
+  SlotCompositeEvent? getCompositeForMiddleware(String middlewareId) {
+    final compositeId = _middlewareToCompositeId(middlewareId);
+    if (compositeId == null) return null;
+    return _compositeEvents[compositeId];
+  }
+
+  /// Expand composite event to timeline clips
+  /// Returns list of clip data for each layer with absolute positions
+  List<Map<String, dynamic>> expandEventToTimelineClips(
+    String compositeEventId, {
+    required double startPositionNormalized,
+    required double timelineWidth,
+  }) {
+    final event = _compositeEvents[compositeEventId];
+    if (event == null) return [];
+
+    final clips = <Map<String, dynamic>>[];
+    final totalDuration = event.totalDurationMs;
+    if (totalDuration <= 0) return [];
+
+    for (final layer in event.playableLayers) {
+      final layerDuration = (layer.durationSeconds ?? 1.0) * 1000;
+      final offsetRatio = layer.offsetMs / totalDuration;
+      final durationRatio = layerDuration / totalDuration;
+
+      // Calculate normalized positions on timeline
+      final clipStart = startPositionNormalized + (offsetRatio * 0.2); // 0.2 = event block width
+      final clipEnd = clipStart + (durationRatio * 0.2);
+
+      clips.add({
+        'layerId': layer.id,
+        'name': layer.name,
+        'path': layer.audioPath,
+        'start': clipStart.clamp(0.0, 1.0),
+        'end': clipEnd.clamp(0.0, 1.0),
+        'volume': layer.volume,
+        'pan': layer.pan,
+        'offsetMs': layer.offsetMs,
+        'durationSeconds': layer.durationSeconds,
+        'waveformData': layer.waveformData,
+        'eventId': compositeEventId,
+        'eventName': event.name,
+        'eventColor': event.color,
+        'bus': _getBusNameForCategory(event.category),
+      });
+    }
+
+    return clips;
+  }
+
+  // ===========================================================================
+  // PROJECT SAVE/LOAD - Composite Events
+  // ===========================================================================
+
+  /// Export all composite events to JSON
+  Map<String, dynamic> exportCompositeEventsToJson() {
+    return {
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'compositeEvents': _compositeEvents.values.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  /// Import composite events from JSON
+  void importCompositeEventsFromJson(Map<String, dynamic> json) {
+    final version = json['version'] as int? ?? 1;
+    if (version != 1) {
+      debugPrint('[Middleware] Warning: Unknown composite events version: $version');
+    }
+
+    final events = json['compositeEvents'] as List<dynamic>?;
+    if (events == null) return;
+
+    _compositeEvents.clear();
+    for (final eventJson in events) {
+      final event = SlotCompositeEvent.fromJson(eventJson as Map<String, dynamic>);
+      _compositeEvents[event.id] = event;
+      _syncCompositeToMiddleware(event);
+    }
+
+    debugPrint('[Middleware] Imported ${_compositeEvents.length} composite events');
+    notifyListeners();
+  }
+
+  /// Get all composite events as JSON string
+  String exportCompositeEventsToJsonString() {
+    final json = exportCompositeEventsToJson();
+    return const JsonEncoder.withIndent('  ').convert(json);
+  }
+
+  /// Import composite events from JSON string
+  void importCompositeEventsFromJsonString(String jsonString) {
+    try {
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+      importCompositeEventsFromJson(json);
+    } catch (e) {
+      debugPrint('[Middleware] Failed to import composite events: $e');
+    }
+  }
+
+  /// Clear all composite events
+  void clearAllCompositeEvents() {
+    for (final event in _compositeEvents.values) {
+      _removeMiddlewareEventForComposite(event.id);
+    }
+    _compositeEvents.clear();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE TRIGGER MAPPING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get all available stage type names (canonical STAGES)
+  static const List<String> availableStageTypes = [
+    // Spin Lifecycle
+    'spin_start',
+    'reel_spinning',
+    'reel_stop',
+    'evaluate_wins',
+    'spin_end',
+    // Anticipation
+    'anticipation_on',
+    'anticipation_off',
+    // Win Lifecycle
+    'win_present',
+    'win_line_show',
+    'rollup_start',
+    'rollup_tick',
+    'rollup_end',
+    'bigwin_tier',
+    // Feature Lifecycle
+    'feature_enter',
+    'feature_step',
+    'feature_retrigger',
+    'feature_exit',
+    // Cascade
+    'cascade_start',
+    'cascade_step',
+    'cascade_end',
+    // Bonus
+    'bonus_enter',
+    'bonus_choice',
+    'bonus_reveal',
+    'bonus_exit',
+    // Gamble
+    'gamble_start',
+    'gamble_choice',
+    'gamble_result',
+    'gamble_end',
+    // Jackpot
+    'jackpot_trigger',
+    'jackpot_present',
+    'jackpot_end',
+    // UI/Idle
+    'idle_start',
+    'idle_loop',
+    'menu_open',
+    'menu_close',
+    'autoplay_start',
+    'autoplay_stop',
+    // Special
+    'symbol_transform',
+    'wild_expand',
+    'multiplier_change',
+  ];
+
+  /// Get stage display name
+  static String getStageDisplayName(String stageType) {
+    return switch (stageType) {
+      'spin_start' => 'Spin Start',
+      'reel_spinning' => 'Reel Spinning',
+      'reel_stop' => 'Reel Stop',
+      'evaluate_wins' => 'Evaluate Wins',
+      'spin_end' => 'Spin End',
+      'anticipation_on' => 'Anticipation ON',
+      'anticipation_off' => 'Anticipation OFF',
+      'win_present' => 'Win Present',
+      'win_line_show' => 'Win Line Show',
+      'rollup_start' => 'Rollup Start',
+      'rollup_tick' => 'Rollup Tick',
+      'rollup_end' => 'Rollup End',
+      'bigwin_tier' => 'Big Win Tier',
+      'feature_enter' => 'Feature Enter',
+      'feature_step' => 'Feature Step',
+      'feature_retrigger' => 'Feature Retrigger',
+      'feature_exit' => 'Feature Exit',
+      'cascade_start' => 'Cascade Start',
+      'cascade_step' => 'Cascade Step',
+      'cascade_end' => 'Cascade End',
+      'bonus_enter' => 'Bonus Enter',
+      'bonus_choice' => 'Bonus Choice',
+      'bonus_reveal' => 'Bonus Reveal',
+      'bonus_exit' => 'Bonus Exit',
+      'gamble_start' => 'Gamble Start',
+      'gamble_choice' => 'Gamble Choice',
+      'gamble_result' => 'Gamble Result',
+      'gamble_end' => 'Gamble End',
+      'jackpot_trigger' => 'Jackpot Trigger',
+      'jackpot_present' => 'Jackpot Present',
+      'jackpot_end' => 'Jackpot End',
+      'idle_start' => 'Idle Start',
+      'idle_loop' => 'Idle Loop',
+      'menu_open' => 'Menu Open',
+      'menu_close' => 'Menu Close',
+      'autoplay_start' => 'Autoplay Start',
+      'autoplay_stop' => 'Autoplay Stop',
+      'symbol_transform' => 'Symbol Transform',
+      'wild_expand' => 'Wild Expand',
+      'multiplier_change' => 'Multiplier Change',
+      _ => stageType,
+    };
+  }
+
+  /// Get stage category
+  static String getStageCategory(String stageType) {
+    return switch (stageType) {
+      'spin_start' || 'reel_spinning' || 'reel_stop' || 'evaluate_wins' || 'spin_end' => 'Spin Lifecycle',
+      'anticipation_on' || 'anticipation_off' => 'Anticipation',
+      'win_present' || 'win_line_show' || 'rollup_start' || 'rollup_tick' || 'rollup_end' || 'bigwin_tier' => 'Win Lifecycle',
+      'feature_enter' || 'feature_step' || 'feature_retrigger' || 'feature_exit' => 'Feature',
+      'cascade_start' || 'cascade_step' || 'cascade_end' => 'Cascade',
+      'bonus_enter' || 'bonus_choice' || 'bonus_reveal' || 'bonus_exit' => 'Bonus',
+      'gamble_start' || 'gamble_choice' || 'gamble_result' || 'gamble_end' => 'Gamble',
+      'jackpot_trigger' || 'jackpot_present' || 'jackpot_end' => 'Jackpot',
+      'idle_start' || 'idle_loop' || 'menu_open' || 'menu_close' || 'autoplay_start' || 'autoplay_stop' => 'UI/Idle',
+      'symbol_transform' || 'wild_expand' || 'multiplier_change' => 'Special',
+      _ => 'Unknown',
+    };
+  }
+
+  /// Set trigger stages for a composite event
+  void setTriggerStages(String eventId, List<String> stages) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    _compositeEvents[eventId] = event.copyWith(
+      triggerStages: stages,
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Add a trigger stage to a composite event
+  void addTriggerStage(String eventId, String stageType) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    if (event.triggerStages.contains(stageType)) return;
+    _pushUndoState();
+    _compositeEvents[eventId] = event.copyWith(
+      triggerStages: [...event.triggerStages, stageType],
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Remove a trigger stage from a composite event
+  void removeTriggerStage(String eventId, String stageType) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    if (!event.triggerStages.contains(stageType)) return;
+    _pushUndoState();
+    _compositeEvents[eventId] = event.copyWith(
+      triggerStages: event.triggerStages.where((s) => s != stageType).toList(),
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Set trigger conditions for a composite event
+  void setTriggerConditions(String eventId, Map<String, String> conditions) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    _compositeEvents[eventId] = event.copyWith(
+      triggerConditions: conditions,
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Add a trigger condition
+  void addTriggerCondition(String eventId, String rtpcName, String condition) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final newConditions = Map<String, String>.from(event.triggerConditions);
+    newConditions[rtpcName] = condition;
+    _compositeEvents[eventId] = event.copyWith(
+      triggerConditions: newConditions,
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Remove a trigger condition
+  void removeTriggerCondition(String eventId, String rtpcName) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    if (!event.triggerConditions.containsKey(rtpcName)) return;
+    _pushUndoState();
+    final newConditions = Map<String, String>.from(event.triggerConditions);
+    newConditions.remove(rtpcName);
+    _compositeEvents[eventId] = event.copyWith(
+      triggerConditions: newConditions,
+      modifiedAt: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  /// Find all composite events that should trigger for a given stage type
+  List<SlotCompositeEvent> getEventsForStage(String stageType) {
+    return _compositeEvents.values
+        .where((e) => e.triggerStages.contains(stageType))
+        .toList();
+  }
+
+  /// Find all composite events that match stage + conditions
+  List<SlotCompositeEvent> getEventsForStageWithConditions(
+    String stageType,
+    Map<String, double> rtpcValues,
+  ) {
+    return _compositeEvents.values.where((e) {
+      // Must have this stage as trigger
+      if (!e.triggerStages.contains(stageType)) return false;
+
+      // Check all conditions
+      for (final entry in e.triggerConditions.entries) {
+        final rtpcName = entry.key;
+        final condition = entry.value;
+        final value = rtpcValues[rtpcName];
+        if (value == null) return false;
+
+        // Parse condition (e.g., ">= 10", "< 5", "== 1")
+        if (!_evaluateCondition(value, condition)) return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  /// Evaluate a condition string against a value
+  bool _evaluateCondition(double value, String condition) {
+    final parts = condition.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2) return false;
+
+    final op = parts[0];
+    final target = double.tryParse(parts[1]);
+    if (target == null) return false;
+
+    return switch (op) {
+      '>=' => value >= target,
+      '>' => value > target,
+      '<=' => value <= target,
+      '<' => value < target,
+      '==' => (value - target).abs() < 0.001,
+      '!=' => (value - target).abs() >= 0.001,
+      _ => false,
+    };
+  }
+
+  /// Get all stages that have at least one event mapped
+  List<String> get mappedStages {
+    final stages = <String>{};
+    for (final event in _compositeEvents.values) {
+      stages.addAll(event.triggerStages);
+    }
+    return stages.toList()..sort();
+  }
+
+  /// Get event count per stage (for visualization)
+  Map<String, int> get stageEventCounts {
+    final counts = <String, int>{};
+    for (final event in _compositeEvents.values) {
+      for (final stage in event.triggerStages) {
+        counts[stage] = (counts[stage] ?? 0) + 1;
+      }
+    }
+    return counts;
   }
 }
