@@ -20,6 +20,8 @@ rf-audio = { path = "../rf-audio" }
 rf-file = { path = "../rf-file" }
 rf-plugin = { path = "../rf-plugin" }
 rf-event = { path = "../rf-event" }
+rf-stage = { path = "../rf-stage" }
+rf-slot-lab = { path = "../rf-slot-lab" }
 
 # Audio I/O
 cpal.workspace = true

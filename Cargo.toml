@@ -23,6 +23,7 @@ members = [
     "crates/rf-stage",
     "crates/rf-ingest",
     "crates/rf-connector",
+    "crates/rf-slot-lab",
 ]
 
 [workspace.package]
@@ -55,6 +56,7 @@ rf-event = { path = "crates/rf-event" }
 rf-stage = { path = "crates/rf-stage" }
 rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
+rf-slot-lab = { path = "crates/rf-slot-lab" }
 
 # Plugin hosting
 vst3 = "0.3"

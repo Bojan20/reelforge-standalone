@@ -84,6 +84,9 @@ pub mod stage_audio;
 // Phase 16: Middleware Integration
 pub mod middleware_integration;
 
+// Audio Preview Engine (dedicated one-shot playback for Slot Lab, audio browser, etc.)
+pub mod preview;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;

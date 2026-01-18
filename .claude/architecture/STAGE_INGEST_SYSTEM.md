@@ -77,8 +77,8 @@ Slot igre mogu imati:
 
 ```
 Spin je pokrenut       → SPIN_START
-Reels se okreću        → REEL_SPINNING
-Reels staju            → REEL_STOP
+Reels se okreću        → REEL_SPIN (loop audio)
+Reels staju            → REEL_STOP (generički) ili REEL_STOP_0..4 (per-reel)
 Anticipation aktivan   → ANTICIPATION_ON
 Rezultat je poznat     → EVALUATE_WINS
 Dobitak se prikazuje   → WIN_PRESENT
@@ -90,6 +90,25 @@ Feature se završava    → FEATURE_EXIT
 Cascade/Respin         → CASCADE_STEP
 Spin je završen        → SPIN_END
 ```
+
+### Per-Reel REEL_STOP (IMPLEMENTIRANO)
+
+Za preciznu audio kontrolu svakog reel-a:
+
+| Stage | Opis |
+|-------|------|
+| `REEL_STOP_0` | Prvi reel stao |
+| `REEL_STOP_1` | Drugi reel stao |
+| `REEL_STOP_2` | Treći reel stao |
+| `REEL_STOP_3` | Četvrti reel stao |
+| `REEL_STOP_4` | Peti reel stao |
+| `REEL_STOP` | Fallback ako nema per-reel eventa |
+
+### REEL_SPIN Loop (IMPLEMENTIRANO)
+
+- Automatski se trigeruje na `SPIN_START`
+- Loop audio dok se rilovi vrte
+- Automatski se zaustavlja na `REEL_STOP_4` (poslednji reel)
 
 **STAGE nije animacija.**
 **STAGE nije event iz engine-a.**

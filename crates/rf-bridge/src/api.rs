@@ -1382,6 +1382,40 @@ pub fn playback_clear_clips() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AUDIO PREVIEW (for Slot Lab and general preview playback)
+// Uses dedicated PreviewEngine from rf-engine (separate from main timeline playback)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Preview audio file - loads and plays immediately via dedicated PreviewEngine
+/// Returns voice ID on success
+#[flutter_rust_bridge::frb(sync)]
+pub fn preview_audio_file(path: String, volume: f64) -> Result<u64, String> {
+    use rf_engine::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.play(&path, volume as f32)
+}
+
+/// Stop all preview playback
+#[flutter_rust_bridge::frb(sync)]
+pub fn preview_stop() {
+    use rf_engine::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.stop_all();
+}
+
+/// Check if preview is playing
+#[flutter_rust_bridge::frb(sync)]
+pub fn preview_is_playing() -> bool {
+    use rf_engine::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.is_playing()
+}
+
+/// Set preview master volume (0.0 to 1.0)
+#[flutter_rust_bridge::frb(sync)]
+pub fn preview_set_volume(volume: f64) {
+    use rf_engine::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.set_volume(volume as f32);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EQ
 // ═══════════════════════════════════════════════════════════════════════════
 

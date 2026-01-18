@@ -105,3 +105,9 @@ export 'script_provider.dart';
 
 // Middleware (Wwise/FMOD-style State/Switch/RTPC)
 export 'middleware_provider.dart';
+
+// Slot Lab (Synthetic Slot Engine)
+export 'slot_lab_provider.dart';
+
+// Stage Ingest System
+export 'stage_provider.dart';

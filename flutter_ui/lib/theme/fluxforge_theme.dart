@@ -740,6 +740,18 @@ class FluxForgeTheme {
       radius: const Radius.circular(4),
       thickness: WidgetStateProperty.all(6),
     ),
+
+    // SnackBar theme - dark background, no blue bar
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: bgElevated,
+      contentTextStyle: body.copyWith(color: textPrimary),
+      actionTextColor: accentBlue,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: borderSubtle),
+      ),
+    ),
   );
 }
 

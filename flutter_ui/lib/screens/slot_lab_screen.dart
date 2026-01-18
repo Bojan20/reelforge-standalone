@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
+import '../providers/slot_lab_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
 import '../theme/fluxforge_theme.dart';
@@ -31,7 +32,13 @@ import '../widgets/slot_lab/volatility_dial.dart';
 import '../widgets/slot_lab/scenario_controls.dart';
 import '../widgets/slot_lab/resources_panel.dart';
 import '../widgets/slot_lab/aux_sends_panel.dart';
+import '../widgets/slot_lab/stage_trace_widget.dart';
+import '../widgets/slot_lab/slot_preview_widget.dart';
+import '../widgets/slot_lab/event_log_panel.dart';
+// audio_hover_preview.dart prepared for audio browser integration
+import '../widgets/slot_lab/forced_outcome_panel.dart';
 import '../src/rust/native_ffi.dart';
+import '../services/event_registry.dart';
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -73,8 +80,9 @@ class _RegionLayer {
   final String audioPath;
   final String name;
   final int? ffiClipId;
-  final double volume;
-  final double delay;
+  double volume;
+  double delay;
+  double offset; // Individual horizontal offset within region (in seconds)
 
   _RegionLayer({
     required this.id,
@@ -83,6 +91,7 @@ class _RegionLayer {
     this.ffiClipId,
     this.volume = 1.0,
     this.delay = 0.0,
+    this.offset = 0.0,
   });
 }
 
@@ -196,6 +205,7 @@ enum _BottomPanelTab {
   rtpc,
   resources,
   auxSends,
+  eventLog,
 }
 
 // =============================================================================
@@ -250,6 +260,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   double _playheadPosition = 0.0; // In seconds
   bool _isPlaying = false;
   bool _isLooping = false;
+  double? _loopStart;  // null = no loop region
+  double? _loopEnd;
   double _timelineDuration = 10.0; // Total duration in seconds
   Timer? _playbackTimer;
 
@@ -282,12 +294,34 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Track expansion state
   bool _allTracksExpanded = false;  // Default: collapsed
 
-  // Drag state
+  // Drag state for audio browser
   String? _draggingAudioPath;
   Offset? _dragPosition;
 
-  // Simulated reel symbols
-  final List<List<String>> _reelSymbols = [
+  // Drag state for region repositioning
+  _AudioRegion? _draggingRegion;
+  int? _draggingRegionTrackIndex;
+  double? _regionDragStartX;
+  double? _regionDragOffsetX;
+
+  // Drag state for individual layer repositioning within expanded region
+  _RegionLayer? _draggingLayer;
+  _AudioRegion? _draggingLayerRegion;
+  double? _layerDragStartOffset;
+  double? _layerDragDelta;
+
+  // Event → Region mapping (for auto-update when layer added to event)
+  final Map<String, String> _eventToRegionMap = {}; // eventId → regionId
+
+  // Playback tracking - which layers have been triggered in current playback
+  final Set<String> _triggeredLayers = {}; // layer.id
+  double _lastPlayheadPosition = 0.0;
+
+  // Audio player tracking (using Rust engine via FFI)
+  final Set<String> _activeLayerIds = {}; // layer.id → currently playing
+
+  // Simulated reel symbols (fallback when engine not available)
+  final List<List<String>> _fallbackReelSymbols = [
     ['7', 'BAR', 'BELL', 'CHERRY', 'WILD'],
     ['BAR', '7', 'BONUS', 'BELL', 'CHERRY'],
     ['CHERRY', 'WILD', '7', 'BAR', 'BELL'],
@@ -295,8 +329,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     ['WILD', 'BELL', 'CHERRY', '7', 'BAR'],
   ];
 
+  // Current reel symbols from engine (or fallback)
+  List<List<String>> _reelSymbols = [];
+
   // Audio pool (loaded from FFI or demo data)
   List<Map<String, dynamic>> _audioPool = [];
+
+  // ─── Synthetic Slot Engine ────────────────────────────────────────────────
+  SlotLabProvider? _slotLabProviderNullable;
+  SlotLabProvider get _slotLabProvider => _slotLabProviderNullable!;
+  bool get _hasSlotLabProvider => _slotLabProviderNullable != null;
+  bool _engineInitialized = false;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE
@@ -307,6 +350,234 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     super.initState();
     _initializeTracks();
     _loadAudioPool();
+    _initializeSlotEngine();
+    _restorePersistedState();
+  }
+
+  /// Restore state from provider (survives screen switches)
+  void _restorePersistedState() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final provider = Provider.of<SlotLabProvider>(context, listen: false);
+
+        // Restore audio pool
+        if (provider.persistedAudioPool.isNotEmpty) {
+          setState(() {
+            _audioPool = List.from(provider.persistedAudioPool);
+          });
+        }
+
+        // Restore composite events
+        if (provider.persistedCompositeEvents.isNotEmpty) {
+          setState(() {
+            _compositeEvents.clear();
+            for (final eventData in provider.persistedCompositeEvents) {
+              _compositeEvents.add(_CompositeEvent(
+                id: eventData['id'] as String,
+                name: eventData['name'] as String,
+                stage: eventData['stage'] as String,
+                layers: (eventData['layers'] as List<dynamic>?)?.map((l) {
+                  final layerData = l as Map<String, dynamic>;
+                  return _CompositeLayer(
+                    id: layerData['id'] as String,
+                    audioPath: layerData['audioPath'] as String,
+                    name: layerData['name'] as String,
+                    volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
+                    pan: (layerData['pan'] as num?)?.toDouble() ?? 0.0,
+                    delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
+                    busId: layerData['busId'] as int? ?? 0,
+                  );
+                }).toList(),
+                isExpanded: eventData['isExpanded'] as bool? ?? false,
+              ));
+            }
+          });
+          // Re-sync to event registry
+          _syncAllEventsToRegistry();
+        }
+
+        // Restore tracks
+        if (provider.persistedTracks.isNotEmpty) {
+          setState(() {
+            _tracks.clear();
+            for (final trackData in provider.persistedTracks) {
+              _tracks.add(_SlotAudioTrack(
+                id: trackData['id'] as String,
+                name: trackData['name'] as String,
+                color: Color(trackData['color'] as int),
+                isMuted: trackData['isMuted'] as bool? ?? false,
+                isSolo: trackData['isSolo'] as bool? ?? false,
+                volume: (trackData['volume'] as num?)?.toDouble() ?? 1.0,
+                regions: (trackData['regions'] as List<dynamic>?)?.map((r) {
+                  final regionData = r as Map<String, dynamic>;
+                  return _AudioRegion(
+                    id: regionData['id'] as String,
+                    name: regionData['name'] as String,
+                    start: (regionData['start'] as num).toDouble(),
+                    end: (regionData['end'] as num).toDouble(),
+                    color: Color(regionData['color'] as int),
+                    layers: (regionData['layers'] as List<dynamic>?)?.map((l) {
+                      final layerData = l as Map<String, dynamic>;
+                      return _RegionLayer(
+                        id: layerData['id'] as String,
+                        audioPath: layerData['audioPath'] as String,
+                        name: layerData['name'] as String,
+                        volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
+                        delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
+                        offset: (layerData['offset'] as num?)?.toDouble() ?? 0.0,
+                      );
+                    }).toList() ?? [],
+                  );
+                }).toList() ?? [],
+              ));
+            }
+          });
+        }
+
+        // Restore event to region mapping
+        if (provider.persistedEventToRegionMap.isNotEmpty) {
+          _eventToRegionMap.clear();
+          _eventToRegionMap.addAll(provider.persistedEventToRegionMap);
+        }
+
+        debugPrint('[SlotLab] Restored persisted state');
+      } catch (e) {
+        debugPrint('[SlotLab] Error restoring state: $e');
+      }
+    });
+  }
+
+  /// Persist state to provider (survives screen switches)
+  void _persistState() {
+    try {
+      final provider = Provider.of<SlotLabProvider>(context, listen: false);
+
+      // Persist audio pool
+      provider.persistedAudioPool = List.from(_audioPool);
+
+      // Persist composite events
+      provider.persistedCompositeEvents = _compositeEvents.map((event) => {
+        'id': event.id,
+        'name': event.name,
+        'stage': event.stage,
+        'isExpanded': event.isExpanded,
+        'layers': event.layers.map((layer) => {
+          'id': layer.id,
+          'audioPath': layer.audioPath,
+          'name': layer.name,
+          'volume': layer.volume,
+          'pan': layer.pan,
+          'delay': layer.delay,
+          'busId': layer.busId,
+        }).toList(),
+      }).toList();
+
+      // Persist tracks
+      provider.persistedTracks = _tracks.map((track) => {
+        'id': track.id,
+        'name': track.name,
+        'color': track.color.value,
+        'isMuted': track.isMuted,
+        'isSolo': track.isSolo,
+        'volume': track.volume,
+        'regions': track.regions.map((region) => {
+          'id': region.id,
+          'name': region.name,
+          'start': region.start,
+          'end': region.end,
+          'color': region.color.value,
+          'layers': region.layers.map((layer) => {
+            'id': layer.id,
+            'audioPath': layer.audioPath,
+            'name': layer.name,
+            'volume': layer.volume,
+            'delay': layer.delay,
+            'offset': layer.offset,
+          }).toList(),
+        }).toList(),
+      }).toList();
+
+      // Persist event to region mapping
+      provider.persistedEventToRegionMap = Map.from(_eventToRegionMap);
+
+      debugPrint('[SlotLab] Persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks');
+    } catch (e) {
+      debugPrint('[SlotLab] Error persisting state: $e');
+    }
+  }
+
+  void _initializeSlotEngine() {
+    // Get or create SlotLabProvider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
+
+        // Initialize engine for audio testing mode
+        _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
+
+        if (_engineInitialized) {
+          // Connect to middleware for audio triggering
+          final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+          _slotLabProvider.connectMiddleware(middleware);
+
+          // Set bet amount from UI
+          _slotLabProvider.setBetAmount(_bet);
+
+          // Listen to provider changes
+          _slotLabProvider.addListener(_onSlotLabUpdate);
+
+          debugPrint('[SlotLab] Synthetic engine initialized');
+        } else {
+          debugPrint('[SlotLab] Engine init failed, using fallback');
+        }
+
+        // Initialize reel symbols (fallback or empty for engine)
+        _reelSymbols = List.from(_fallbackReelSymbols);
+        setState(() {});
+      } catch (e) {
+        debugPrint('[SlotLab] Engine init error: $e');
+        _engineInitialized = false;
+        _reelSymbols = List.from(_fallbackReelSymbols);
+      }
+    });
+  }
+
+  void _onSlotLabUpdate() {
+    if (!mounted) return;
+
+    // Update reel symbols from engine result
+    final grid = _slotLabProvider.currentGrid;
+    if (grid != null && grid.isNotEmpty) {
+      setState(() {
+        _reelSymbols = _gridToSymbols(grid);
+        _lastWin = _slotLabProvider.lastWinAmount;
+        if (_slotLabProvider.lastSpinWasWin) {
+          _balance += _lastWin;
+        }
+        _isSpinning = _slotLabProvider.isSpinning;
+      });
+    }
+  }
+
+  /// Convert engine grid (symbol IDs) to display symbols
+  List<List<String>> _gridToSymbols(List<List<int>> grid) {
+    const symbolMap = {
+      0: 'BLANK',
+      1: '7',
+      2: 'BAR',
+      3: 'BELL',
+      4: 'CHERRY',
+      5: 'WILD',
+      6: 'BONUS',
+      7: 'SCATTER',
+      8: 'DIAMOND',
+      9: 'STAR',
+    };
+
+    return grid.map((reel) {
+      return reel.map((id) => symbolMap[id] ?? '?').toList();
+    }).toList();
   }
 
   @override
@@ -396,12 +667,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    // Persist state before disposing
+    _persistState();
+
+    // Remove slot lab listener
+    if (_engineInitialized && _hasSlotLabProvider) {
+      _slotLabProvider.removeListener(_onSlotLabUpdate);
+    }
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
     _previewTimer?.cancel();
     _focusNode.dispose();
     _headersScrollController.dispose();
     _timelineScrollController.dispose();
+    _disposeLayerPlayers(); // Dispose audio players
     super.dispose();
   }
 
@@ -443,6 +722,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while provider initializes
+    if (!_hasSlotLabProvider) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0A0C),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(FluxForgeTheme.accentBlue),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Initializing Slot Lab Engine...',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -479,7 +780,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     // Left: Game Spec & Paytable
                     _buildLeftPanel(),
 
-                    // Center: Timeline + Slot View
+                    // Center: Timeline + Stage Trace + Slot View
                     Expanded(
                       flex: 3,
                       child: Column(
@@ -489,7 +790,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                             flex: 2,
                             child: _buildTimelineArea(),
                           ),
-                          // Mock Slot View
+                          // Stage Trace Bar (animated stage progress)
+                          StageProgressBar(
+                            provider: _slotLabProvider,
+                            height: 28,
+                          ),
+                          // Mock Slot View with improved preview
                           Expanded(
                             flex: 1,
                             child: _buildMockSlot(),
@@ -546,28 +852,35 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // ═══════════════════════════════════════════════════════════════════════════
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
     final key = event.logicalKey;
 
-    // Space = Play/Stop
+    // Keys that allow repeat (hold key for continuous adjustment)
+    final isZoomKey = key == LogicalKeyboardKey.keyG || key == LogicalKeyboardKey.keyH;
+    final isArrowKey = key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight;
+
+    // Accept KeyDownEvent and KeyRepeatEvent (for zoom and arrows)
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+    // Only allow repeat for zoom and arrow keys
+    if (event is KeyRepeatEvent && !isZoomKey && !isArrowKey) return KeyEventResult.ignored;
+
+    // Space = Play/Stop (no repeat)
     if (key == LogicalKeyboardKey.space) {
       _togglePlayback();
       return KeyEventResult.handled;
     }
 
-    // G = Zoom Out
+    // G = Zoom Out (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyG) {
       setState(() {
-        _timelineZoom = (_timelineZoom * 0.8).clamp(0.1, 10.0);
+        _timelineZoom = (_timelineZoom * 0.85).clamp(0.1, 10.0);
       });
       return KeyEventResult.handled;
     }
 
-    // H = Zoom In
+    // H = Zoom In (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyH) {
       setState(() {
-        _timelineZoom = (_timelineZoom * 1.25).clamp(0.1, 10.0);
+        _timelineZoom = (_timelineZoom * 1.18).clamp(0.1, 10.0);
       });
       return KeyEventResult.handled;
     }
@@ -588,15 +901,42 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
-    // L = Toggle Loop
+    // L = Set loop around selected region AND toggle loop
     if (key == LogicalKeyboardKey.keyL) {
-      setState(() {
-        _isLooping = !_isLooping;
-      });
+      // Find selected region
+      _AudioRegion? selectedRegion;
+      for (final track in _tracks) {
+        for (final region in track.regions) {
+          if (region.isSelected) {
+            selectedRegion = region;
+            break;
+          }
+        }
+        if (selectedRegion != null) break;
+      }
+
+      if (selectedRegion != null) {
+        // Set loop around selected region
+        setState(() {
+          _loopStart = selectedRegion!.start;
+          _loopEnd = selectedRegion.end;
+          _isLooping = true;
+        });
+      } else if (_loopStart != null && _loopEnd != null) {
+        // No selection but loop exists - toggle loop on/off
+        setState(() {
+          _isLooping = !_isLooping;
+        });
+      } else {
+        // No selection, no loop - just toggle (will do nothing meaningful)
+        setState(() {
+          _isLooping = !_isLooping;
+        });
+      }
       return KeyEventResult.handled;
     }
 
-    // Left Arrow = Nudge playhead left
+    // Left Arrow = Nudge playhead left (supports repeat)
     if (key == LogicalKeyboardKey.arrowLeft) {
       setState(() {
         _playheadPosition = (_playheadPosition - 0.1).clamp(0.0, _timelineDuration);
@@ -604,7 +944,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
-    // Right Arrow = Nudge playhead right
+    // Right Arrow = Nudge playhead right (supports repeat)
     if (key == LogicalKeyboardKey.arrowRight) {
       setState(() {
         _playheadPosition = (_playheadPosition + 0.1).clamp(0.0, _timelineDuration);
@@ -694,14 +1034,29 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
           const Spacer(),
 
-          // Status indicators
-          _buildStatusChip('BALANCE', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
-          const SizedBox(width: 8),
-          _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
-          const SizedBox(width: 8),
-          _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
+          // Status indicators - wrapped to prevent overflow
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStatusChip('BALANCE', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
+                const SizedBox(width: 6),
+                _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
+                const SizedBox(width: 6),
+                _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
+              ],
+            ),
+          ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
+
+          // Mini slot preview (shows last spin result)
+          SlotMiniPreview(
+            provider: _slotLabProvider,
+            size: 90,
+          ),
+
+          const SizedBox(width: 8),
 
           // View toggles
           _buildGlassButton(
@@ -718,7 +1073,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             isActive: _showPreviewPanel,
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
     );
@@ -747,22 +1102,59 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             () => setState(() => _isLooping = !_isLooping),
             isActive: _isLooping,
           ),
+          // Clear loop region button
+          if (_loopStart != null && _loopEnd != null)
+            Tooltip(
+              message: 'Clear loop region',
+              child: InkWell(
+                onTap: _clearLoopRegion,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9040).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.close, size: 14, color: Color(0xFFFF9040)),
+                ),
+              ),
+            ),
           const SizedBox(width: 8),
-          // Timecode display
+          // Timecode display with loop info
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: Colors.black,
               borderRadius: BorderRadius.circular(4),
+              border: _loopStart != null && _isLooping
+                  ? Border.all(color: const Color(0xFFFF9040).withOpacity(0.5))
+                  : null,
             ),
-            child: Text(
-              _formatTimecode(_playheadPosition),
-              style: const TextStyle(
-                color: Color(0xFF40FF90),
-                fontSize: 12,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTimecode(_playheadPosition),
+                  style: const TextStyle(
+                    color: Color(0xFF40FF90),
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_loopStart != null && _loopEnd != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '⟳${_formatTimecode(_loopStart!)}-${_formatTimecode(_loopEnd!)}',
+                    style: TextStyle(
+                      color: const Color(0xFFFF9040).withOpacity(0.8),
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -797,9 +1189,95 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}:${frames.toString().padLeft(2, '0')}';
   }
 
+  /// Set loop region from selected region or event
+  void _setLoopRegion(double start, double end) {
+    setState(() {
+      _loopStart = start;
+      _loopEnd = end;
+      _isLooping = true;  // Auto-enable looping when region is set
+    });
+    debugPrint('[SlotLab] Loop region set: ${start.toStringAsFixed(2)}s - ${end.toStringAsFixed(2)}s');
+  }
+
+  /// Clear loop region
+  void _clearLoopRegion() {
+    setState(() {
+      _loopStart = null;
+      _loopEnd = null;
+    });
+  }
+
+  /// Set loop region from selected audio region
+  void _setLoopFromRegion(_AudioRegion region) {
+    _setLoopRegion(region.start, region.end);
+  }
+
+  /// Show context menu for audio region
+  void _showRegionContextMenu(Offset position, _AudioRegion region) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      items: [
+        PopupMenuItem(
+          value: 'loop',
+          child: Row(
+            children: [
+              Icon(Icons.repeat, size: 16, color: const Color(0xFFFF9040)),
+              const SizedBox(width: 8),
+              const Text('Set as Loop Region', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'play',
+          child: Row(
+            children: [
+              Icon(Icons.play_arrow, size: 16, color: const Color(0xFF40FF90)),
+              const SizedBox(width: 8),
+              const Text('Play from Start', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 16, color: const Color(0xFFFF4060)),
+              const SizedBox(width: 8),
+              const Text('Delete Region', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'loop') {
+        _setLoopFromRegion(region);
+      } else if (value == 'play') {
+        setState(() {
+          _playheadPosition = region.start;
+          _isPlaying = true;
+        });
+        if (_ffi.isLoaded) {
+          try {
+            _ffi.seek(region.start);
+            _ffi.play();
+          } catch (_) {}
+        }
+      } else if (value == 'delete') {
+        setState(() {
+          for (final track in _tracks) {
+            track.regions.removeWhere((r) => r.id == region.id);
+          }
+        });
+      }
+    });
+  }
+
   void _goToStart() {
     setState(() {
-      _playheadPosition = 0.0;
+      // If looping with region, go to loop start
+      _playheadPosition = (_isLooping && _loopStart != null) ? _loopStart! : 0.0;
     });
   }
 
@@ -814,17 +1292,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
 
     if (_isPlaying) {
-      // Start audio engine playback (only if FFI is loaded)
-      if (_ffi.isLoaded) {
-        try {
-          // Seek to current playhead position first
-          _ffi.seek(_playheadPosition);
-          _ffi.play();
-          debugPrint('[SlotLab] Playback started at ${_playheadPosition}s');
-        } catch (e) {
-          debugPrint('[SlotLab] FFI play error: $e');
-        }
-      }
+      // Clear triggered layers tracking for new playback
+      _triggeredLayers.clear();
+      _lastPlayheadPosition = _playheadPosition;
+
+      // Check which layers should already be playing at current position
+      _triggerLayersAtPosition(_playheadPosition);
+
+      debugPrint('[SlotLab] Playback started at ${_playheadPosition}s');
 
       _playbackTimer = Timer.periodic(const Duration(milliseconds: 33), (timer) {
         if (!mounted || !_isPlaying) {
@@ -832,30 +1307,34 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           return;
         }
         setState(() {
+          final prevPosition = _playheadPosition;
           _playheadPosition += 0.033;
-          if (_playheadPosition >= _timelineDuration) {
+
+          // Check and trigger any layers that playhead crossed
+          _checkAndTriggerLayers(prevPosition, _playheadPosition);
+
+          // Determine loop boundaries
+          final loopEnd = (_isLooping && _loopEnd != null) ? _loopEnd! : _timelineDuration;
+          final loopStart = (_isLooping && _loopStart != null) ? _loopStart! : 0.0;
+
+          if (_playheadPosition >= loopEnd) {
             if (_isLooping) {
-              _playheadPosition = 0.0;
-              // Restart from beginning
-              if (_ffi.isLoaded) {
-                try {
-                  _ffi.seek(0.0);
-                } catch (_) {}
-              }
+              _playheadPosition = loopStart;
+              // Reset triggered layers for loop
+              _triggeredLayers.clear();
+              _triggerLayersAtPosition(loopStart);
             } else {
               _isPlaying = false;
               timer.cancel();
-              if (_ffi.isLoaded) {
-                try {
-                  _ffi.stop();
-                } catch (_) {}
-              }
+              _stopAllLayerAudio();
             }
           }
         });
       });
     } else {
       _playbackTimer?.cancel();
+      // Stop all layer audio
+      _stopAllLayerAudio();
       // Stop audio engine playback
       if (_ffi.isLoaded) {
         try {
@@ -873,9 +1352,98 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _playheadPosition = 0.0;
     });
     _playbackTimer?.cancel();
+    _triggeredLayers.clear();
+    _stopAllLayerAudio();
+  }
+
+  /// Calculate the absolute start time of a layer on the timeline
+  double _getLayerStartTime(_AudioRegion region, _RegionLayer layer) {
+    return region.start + layer.offset;
+  }
+
+  /// Trigger layers that should be playing at the given position
+  void _triggerLayersAtPosition(double position) {
+    for (final track in _tracks) {
+      if (track.isMuted) continue;
+
+      for (final region in track.regions) {
+        if (region.isMuted) continue;
+
+        for (final layer in region.layers) {
+          final layerStart = _getLayerStartTime(region, layer);
+          final layerEnd = layerStart + region.duration;
+
+          // If playhead is within this layer's time range
+          if (position >= layerStart && position < layerEnd) {
+            if (!_triggeredLayers.contains(layer.id)) {
+              _triggeredLayers.add(layer.id);
+              // Calculate offset into the audio file
+              final audioOffset = position - layerStart;
+              _playLayerAudio(layer, audioOffset);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Check and trigger layers that the playhead crossed between prevPos and currentPos
+  void _checkAndTriggerLayers(double prevPos, double currentPos) {
+    for (final track in _tracks) {
+      if (track.isMuted) continue;
+
+      for (final region in track.regions) {
+        if (region.isMuted) continue;
+
+        for (final layer in region.layers) {
+          final layerStart = _getLayerStartTime(region, layer);
+
+          // If playhead crossed the layer start point
+          if (prevPos < layerStart && currentPos >= layerStart) {
+            if (!_triggeredLayers.contains(layer.id)) {
+              _triggeredLayers.add(layer.id);
+              _playLayerAudio(layer, 0.0); // Start from beginning
+              debugPrint('[SlotLab] Triggered layer: ${layer.name} at ${layerStart}s');
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Play audio for a specific layer using Rust engine
+  Future<void> _playLayerAudio(_RegionLayer layer, double offsetSeconds) async {
+    if (layer.audioPath.isEmpty) return;
+
     try {
-      _ffi.stop();
-    } catch (_) {}
+      // Play via dedicated PreviewEngine (separate from main timeline)
+      final voiceId = NativeFFI.instance.previewAudioFile(
+        layer.audioPath,
+        volume: layer.volume,
+      );
+      if (voiceId >= 0) {
+        _activeLayerIds.add(layer.id);
+      }
+
+      debugPrint('[SlotLab] Playing ${layer.name} at offset ${offsetSeconds}s (voice $voiceId)');
+    } catch (e) {
+      debugPrint('[SlotLab] Error playing layer audio: $e');
+    }
+  }
+
+  /// Stop all currently playing layer audio
+  Future<void> _stopAllLayerAudio() async {
+    try {
+      NativeFFI.instance.previewStop();
+      _activeLayerIds.clear();
+    } catch (e) {
+      debugPrint('[SlotLab] Error stopping audio: $e');
+    }
+  }
+
+  /// Dispose all audio players (cleanup)
+  void _disposeLayerPlayers() {
+    _stopAllLayerAudio();
   }
 
   Widget _buildStatusChip(String label, String value, Color color) {
@@ -2029,74 +2597,139 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       builder: (context, candidateData, rejectedData) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            return Stack(
-              alignment: AlignmentDirectional.topStart,  // Tracks start from TOP
-              children: [
-                // Grid lines
-                CustomPaint(
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
-                  painter: _TimelineGridPainter(
-                    zoom: _timelineZoom,
-                    duration: _timelineDuration,
-                  ),
-                ),
+            // Apply zoom to timeline width
+            final zoomedWidth = constraints.maxWidth * _timelineZoom;
 
-                // Tracks (synchronized with headers via scroll notification)
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollUpdateNotification) {
-                      _syncHeadersToTimeline();
-                    }
-                    return false;
-                  },
-                  child: SingleChildScrollView(
-                    controller: _timelineScrollController,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: _tracks.asMap().entries.map((entry) {
-                        return _buildTrackTimeline(
-                          entry.value,
-                          entry.key,
-                          constraints.maxWidth,
-                        );
-                      }).toList(),
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: zoomedWidth,
+                height: constraints.maxHeight,
+                child: Stack(
+                  alignment: AlignmentDirectional.topStart,  // Tracks start from TOP
+                  children: [
+                    // Grid lines (FIRST - bottom layer)
+                    CustomPaint(
+                      size: Size(zoomedWidth, constraints.maxHeight),
+                      painter: _TimelineGridPainter(
+                        zoom: _timelineZoom,
+                        duration: _timelineDuration,
+                      ),
                     ),
-                  ),
-                ),
 
-                // Playhead
-                Positioned(
-                  left: (_playheadPosition / _timelineDuration) * constraints.maxWidth,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 2,
-                    color: Colors.white,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+                    // Click to set playhead - BEFORE tracks so tracks can intercept drag
+                    // Only responds to tap, not drag
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTapUp: (details) {
+                          // Only set playhead if we're NOT dragging a region
+                          if (_draggingRegion == null) {
+                            final newPosition = (details.localPosition.dx / zoomedWidth) * _timelineDuration;
+                            setState(() {
+                              _playheadPosition = newPosition.clamp(0.0, _timelineDuration);
+                            });
+                            // Seek audio engine to new position
+                            if (_ffi.isLoaded) {
+                              try {
+                                _ffi.seek(_playheadPosition);
+                              } catch (_) {}
+                            }
+                          }
+                        },
+                      ),
+                    ),
+
+                    // Tracks (synchronized with headers via scroll notification) - ABOVE playhead click area
+                    NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollUpdateNotification) {
+                          _syncHeadersToTimeline();
+                        }
+                        return false;
+                      },
+                      child: SingleChildScrollView(
+                        controller: _timelineScrollController,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _tracks.asMap().entries.map((entry) {
+                            return _buildTrackTimeline(
+                              entry.value,
+                              entry.key,
+                              zoomedWidth,
+                            );
+                          }).toList(),
                         ),
                       ),
                     ),
-                  ),
-                ),
 
-                // Click to set playhead
-                GestureDetector(
-                  onTapDown: (details) {
-                    final newPosition = (details.localPosition.dx / constraints.maxWidth) * _timelineDuration;
-                    setState(() {
-                      _playheadPosition = newPosition.clamp(0.0, _timelineDuration);
-                    });
-                  },
-                  child: Container(color: Colors.transparent),
+                    // Loop region overlay
+                    if (_loopStart != null && _loopEnd != null)
+                      Positioned(
+                        left: (_loopStart! / _timelineDuration) * zoomedWidth,
+                        top: 0,
+                        bottom: 0,
+                        width: ((_loopEnd! - _loopStart!) / _timelineDuration) * zoomedWidth,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9040).withOpacity(_isLooping ? 0.15 : 0.05),
+                              border: Border.symmetric(
+                                vertical: BorderSide(
+                                  color: const Color(0xFFFF9040).withOpacity(_isLooping ? 0.8 : 0.3),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF9040).withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text(
+                                  'LOOP',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Playhead visual (IgnorePointer - just visual, no interaction)
+                    IgnorePointer(
+                      child: Positioned(
+                        left: (_playheadPosition / _timelineDuration) * zoomedWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 2,
+                          color: Colors.white,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             );
           },
         );
@@ -2106,249 +2739,475 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Widget _buildTrackTimeline(_SlotAudioTrack track, int index, double width) {
     final trackHeight = _getTrackHeight(track);
+    final isDropTarget = _draggingRegion != null && _draggingRegionTrackIndex != index;
+
+    return DragTarget<_AudioRegion>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        // Move region from source track to this track
+        final region = details.data;
+        final sourceTrackIndex = _draggingRegionTrackIndex;
+        if (sourceTrackIndex != null && sourceTrackIndex != index) {
+          setState(() {
+            // Remove from source track
+            _tracks[sourceTrackIndex].regions.remove(region);
+            // Update region color to match new track
+            region.color = track.color;
+            // Add to this track
+            track.regions.add(region);
+          });
+        }
+        _clearRegionDrag();
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Container(
+          height: trackHeight,
+          decoration: BoxDecoration(
+            color: isDropTarget ? track.color.withOpacity(0.1) : null,
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              top: isDropTarget ? BorderSide(color: track.color, width: 2) : BorderSide.none,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Regions - use FULL height, no padding
+              ...track.regions.map((region) {
+                final startX = (region.start / _timelineDuration) * width;
+                final regionWidth = (region.duration / _timelineDuration) * width;
+                final isDragging = _draggingRegion == region;
+
+                return Positioned(
+                  left: isDragging ? (_regionDragStartX ?? startX) : startX,
+                  top: 0,  // Full height - no padding
+                  bottom: 0,  // Full height - no padding
+                  child: Opacity(
+                    opacity: isDragging ? 0.5 : 1.0,
+                    child: _buildDraggableRegion(region, track, index, regionWidth, trackHeight, width),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Build draggable audio region
+  /// When collapsed: drag whole region
+  /// When expanded: layers handle their own drag (region drag disabled)
+  Widget _buildDraggableRegion(_AudioRegion region, _SlotAudioTrack track, int trackIndex, double regionWidth, double trackHeight, double totalWidth) {
+    final duration = region.duration;
+    final isExpanded = region.isExpanded && region.layers.length > 1;
+
+    // When expanded, don't handle region drag - let individual layers handle it
+    if (isExpanded) {
+      return GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        // Only tap/double-tap for selection/collapse
+        onTap: () => setState(() => region.isSelected = !region.isSelected),
+        onDoubleTap: () => setState(() => region.isExpanded = false),
+        onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
+        child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
+      );
+    }
+
+    // When collapsed, drag the whole region
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (details) {
+        setState(() {
+          _regionDragStartX = region.start;
+          _regionDragOffsetX = 0;
+          _draggingRegion = region;
+          _draggingRegionTrackIndex = trackIndex;
+        });
+      },
+      onPanUpdate: (details) {
+        final timeDelta = (details.delta.dx / totalWidth) * _timelineDuration;
+        setState(() {
+          _regionDragOffsetX = (_regionDragOffsetX ?? 0) + timeDelta;
+          final newStart = (_regionDragStartX ?? region.start) + _regionDragOffsetX!;
+          final clampedStart = newStart.clamp(0.0, _timelineDuration - duration);
+          region.start = clampedStart;
+          region.end = clampedStart + duration;
+        });
+      },
+      onPanEnd: (details) {
+        _clearRegionDrag();
+      },
+      onTap: () => setState(() => region.isSelected = !region.isSelected),
+      onDoubleTap: region.layers.length > 1
+          ? () => setState(() => region.isExpanded = !region.isExpanded)
+          : null,
+      onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
+      child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
+    );
+  }
+
+  void _clearRegionDrag() {
+    setState(() {
+      _draggingRegion = null;
+      _draggingRegionTrackIndex = null;
+      _regionDragStartX = null;
+      _regionDragOffsetX = null;
+    });
+  }
+
+  /// Calculate track height based on expanded regions
+  /// Collapsed = single layer height, Expanded = all layers equal height
+  double _getTrackHeight(_SlotAudioTrack track) {
+    const singleLayerHeight = 36.0;  // Height for one layer
+    const layerHeight = 28.0;  // Height per layer when expanded
+
+    // Check if any region is expanded with multiple layers
+    for (final region in track.regions) {
+      if (region.isExpanded && region.layers.length > 1) {
+        // Expanded: all layers equal height
+        return region.layers.length * layerHeight;
+      }
+    }
+    return singleLayerHeight;
+  }
+
+  /// Visual-only widget for audio region (no gestures - handled by parent for whole region drag)
+  /// When expanded, each layer can be dragged individually across entire timeline
+  Widget _buildAudioRegionVisual(_AudioRegion region, Color trackColor, bool muted, double regionWidth, double trackHeight) {
+    final width = regionWidth.clamp(20.0, 4000.0);
+    final hasLayers = region.layers.isNotEmpty;
+    final layerCount = region.layers.length;
+    final isExpanded = region.isExpanded && layerCount > 1;
+
+    if (isExpanded) {
+      // EXPANDED: No border, layers are shown as free-floating tracks
+      return SizedBox(
+        width: width,
+        height: trackHeight,
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: region.layers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final layer = entry.value;
+            return Expanded(
+              child: _buildDraggableLayerRow(layer, region, index, region.color, muted, width),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    // COLLAPSED: Normal region with border
+    return MouseRegion(
+      cursor: _draggingRegion == region ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+      child: Container(
+        width: width,
+        height: trackHeight,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: region.isSelected
+                ? Colors.white
+                : (muted ? Colors.grey : region.color),
+            width: region.isSelected ? 2 : 1,
+          ),
+        ),
+        child: hasLayers
+            ? _buildLayerRow(region.layers.first, region.color, muted, true, layerCount)
+            : _buildEmptyRegionRow(region, muted),
+      ),
+    );
+  }
+
+  /// Build a draggable layer row - can be moved freely across entire timeline
+  Widget _buildDraggableLayerRow(_RegionLayer layer, _AudioRegion region, int layerIndex, Color color, bool muted, double regionWidth) {
+    final isDragging = _draggingLayer == layer;
+    final pixelsPerSecond = regionWidth / region.duration;
+    final offsetPixels = layer.offset * pixelsPerSecond;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (details) {
+        setState(() {
+          _draggingLayer = layer;
+          _draggingLayerRegion = region;
+          _layerDragStartOffset = layer.offset;
+          _layerDragDelta = 0;
+        });
+      },
+      onHorizontalDragUpdate: (details) {
+        if (_draggingLayer != layer) return;
+        final timeDelta = details.delta.dx / pixelsPerSecond;
+        setState(() {
+          _layerDragDelta = (_layerDragDelta ?? 0) + timeDelta;
+          final newOffset = (_layerDragStartOffset ?? 0) + _layerDragDelta!;
+          // No clamping - allow free movement across entire timeline
+          // Limit only to prevent going before timeline start or after timeline end
+          final minOffset = -region.start; // Can't go before 0
+          final maxOffset = _timelineDuration - region.start - 0.1; // Can't go past end
+          layer.offset = newOffset.clamp(minOffset, maxOffset);
+        });
+      },
+      onHorizontalDragEnd: (details) {
+        _clearLayerDrag();
+      },
+      child: MouseRegion(
+        cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Layer content positioned with offset - each layer as mini-track
+            Positioned(
+              left: offsetPixels,
+              top: 1,
+              bottom: 1,
+              width: regionWidth, // Fixed width, moves with offset
+              child: Opacity(
+                opacity: isDragging ? 0.7 : 1.0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isDragging ? Colors.white : color.withOpacity(0.6),
+                      width: 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: _buildLayerRowContent(layer, color, muted),
+                ),
+              ),
+            ),
+            // Offset indicator when layer is offset
+            if (layer.offset.abs() > 0.001)
+              Positioned(
+                left: offsetPixels + 4,
+                top: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    '${layer.offset >= 0 ? '+' : ''}${(layer.offset * 1000).toStringAsFixed(0)}ms',
+                    style: const TextStyle(color: Colors.white70, fontSize: 7),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build layer row content (waveform + name) without border
+  Widget _buildLayerRowContent(_RegionLayer layer, Color color, bool muted) {
+    final waveformData = _getWaveformForPath(layer.audioPath);
+    final hasWaveform = waveformData != null && waveformData.isNotEmpty;
 
     return Container(
-      height: trackHeight,
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            (muted ? Colors.grey : color).withOpacity(0.4),
+            (muted ? Colors.grey : color).withOpacity(0.25),
+          ],
         ),
       ),
       child: Stack(
         children: [
-          // Regions - use FULL height, no padding
-          ...track.regions.map((region) {
-            final startX = (region.start / _timelineDuration) * width;
-            final regionWidth = (region.duration / _timelineDuration) * width;
-
-            return Positioned(
-              left: startX,
-              top: 0,  // Full height - no padding
-              bottom: 0,  // Full height - no padding
-              child: _buildAudioRegion(region, track.color, track.isMuted, regionWidth, trackHeight),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  /// Calculate track height based on expanded regions
-  /// Uses consistent values with _buildAudioRegion to prevent overflow
-  double _getTrackHeight(_SlotAudioTrack track) {
-    const collapsedHeight = 36.0;  // Compact height when collapsed
-    const layerHeight = 20.0;  // Same as _buildAudioRegion
-
-    // Check if any region is expanded
-    for (final region in track.regions) {
-      if (region.isExpanded && region.layers.length > 1) {
-        // Expanded: collapsed base + all layers
-        return collapsedHeight + (region.layers.length * layerHeight);
-      }
-    }
-    return collapsedHeight;
-  }
-
-  Widget _buildAudioRegion(_AudioRegion region, Color trackColor, bool muted, double regionWidth, double trackHeight) {
-    final width = regionWidth.clamp(20.0, 4000.0);
-    final hasLayers = region.layers.isNotEmpty;
-    final hasAudio = region.waveformData != null && region.waveformData!.isNotEmpty;
-
-    // Use trackHeight directly - passed from parent, no calculation needed
-    // This ensures region fills the ENTIRE track height dynamically
-    const layerHeight = 20.0;
-
-    // Height for main header area (what's left after layers)
-    final headerHeight = region.isExpanded && region.layers.length > 1
-        ? trackHeight - (region.layers.length * layerHeight)
-        : trackHeight;
-
-    // Determine how many layers to show
-    final layersToShow = region.isExpanded && region.layers.length > 1
-        ? region.layers.length
-        : 0;
-
-    return GestureDetector(
-          onTap: () => setState(() => region.isSelected = !region.isSelected),
-          onDoubleTap: hasLayers && region.layers.length > 1
-              ? () => setState(() => region.isExpanded = !region.isExpanded)
-              : null,
-          child: Container(
-            width: width,
-            // USE FULL TRACK HEIGHT - no hardcoded value
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  (muted ? Colors.grey : region.color).withOpacity(0.4),
-                  (muted ? Colors.grey : region.color).withOpacity(0.25),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: region.isSelected
-                    ? Colors.white
-                    : (muted ? Colors.grey : region.color),
-                width: region.isSelected ? 2 : 1,
+          // Waveform background
+          if (hasWaveform)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _WaveformPainter(
+                  data: waveformData,
+                  color: (muted ? Colors.grey : color).withOpacity(0.6),
+                ),
               ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main region header (always visible) - uses calculated headerHeight
-                  SizedBox(
-                    height: headerHeight,
-                    child: Stack(
-                      children: [
-                        // Waveform - ONLY if we have real audio data
-                        if (hasAudio)
-                          CustomPaint(
-                            size: Size(width, headerHeight),
-                            painter: _WaveformPainter(
-                              data: region.waveformData!,
-                              color: muted ? Colors.grey : region.color,
-                            ),
-                          ),
-                        // Region name + expand control
-                        Positioned(
-                          left: 4,
-                          top: 2,
-                          right: 4,
-                          child: Row(
-                            children: [
-                              // Expand/collapse button if has multiple layers
-                              if (hasLayers && region.layers.length > 1)
-                                GestureDetector(
-                                  onTap: () => setState(() => region.isExpanded = !region.isExpanded),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                    child: Icon(
-                                      region.isExpanded ? Icons.expand_less : Icons.expand_more,
-                                      size: 12,
-                                      color: muted ? Colors.grey : Colors.white70,
-                                    ),
-                                  ),
-                                ),
-                              if (hasLayers && region.layers.length > 1) const SizedBox(width: 3),
-                              Flexible(
-                                child: Text(
-                                  region.name,
-                                  style: TextStyle(
-                                    color: muted ? Colors.grey : Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Layer count badge
-                              if (hasLayers && region.layers.length > 1) ...[
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.layers, size: 8, color: region.color),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        '${region.layers.length}',
-                                        style: TextStyle(
-                                          color: region.color,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Expanded layers (when expanded, show as many as fit)
-                  if (layersToShow > 0)
-                    ...region.layers.take(layersToShow).map((layer) => _buildLayerRow(layer, region.color, muted)),
-                ],
-              ),
-            ),
-          ),
-        );
-  }
-
-  /// Build a single layer row (for expanded regions)
-  /// Height MUST match layerHeight in _getTrackHeight (20.0)
-  Widget _buildLayerRow(_RegionLayer layer, Color color, bool muted) {
-    return Container(
-      height: 20,  // Must match layerHeight constant
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.25),
-        border: Border(
-          top: BorderSide(color: color.withOpacity(0.2), width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.audiotrack,
-            size: 9,
-            color: muted ? Colors.grey : color.withOpacity(0.7),
-          ),
-          const SizedBox(width: 3),
-          Expanded(
+          // Layer name
+          Positioned(
+            left: 4,
+            top: 2,
+            right: 4,
             child: Text(
               layer.name,
               style: TextStyle(
-                color: muted ? Colors.grey.withOpacity(0.7) : Colors.white70,
-                fontSize: 8,
+                color: muted ? Colors.grey : Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Volume bar
-          Container(
-            width: 24,
-            height: 3,
-            margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(1),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: layer.volume.clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: muted ? Colors.grey : color.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ),
-          ),
-          // Delay indicator
-          if (layer.delay > 0)
-            Text(
-              '+${(layer.delay * 1000).toInt()}ms',
-              style: const TextStyle(color: Colors.white38, fontSize: 7),
-            ),
         ],
       ),
     );
+  }
+
+  void _clearLayerDrag() {
+    setState(() {
+      _draggingLayer = null;
+      _draggingLayerRegion = null;
+      _layerDragStartOffset = null;
+      _layerDragDelta = null;
+    });
+  }
+
+  /// Build a single layer row with waveform and name
+  Widget _buildLayerRow(_RegionLayer layer, Color color, bool muted, bool showExpandButton, int totalLayers) {
+    final waveformData = _getWaveformForPath(layer.audioPath);
+    final hasWaveform = waveformData != null && waveformData.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            (muted ? Colors.grey : color).withOpacity(0.4),
+            (muted ? Colors.grey : color).withOpacity(0.25),
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: color.withOpacity(0.2), width: 0.5),
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Waveform background
+          if (hasWaveform)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _WaveformPainter(
+                  data: waveformData,
+                  color: (muted ? Colors.grey : color).withOpacity(0.6),
+                ),
+              ),
+            ),
+          // Layer info
+          Positioned(
+            left: 4,
+            top: 2,
+            right: 4,
+            bottom: 2,
+            child: Row(
+              children: [
+                // Expand button (only on first layer when multiple)
+                if (showExpandButton && totalLayers > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.unfold_more,
+                      size: 10,
+                      color: muted ? Colors.grey : Colors.white54,
+                    ),
+                  ),
+                // Layer name
+                Expanded(
+                  child: Text(
+                    layer.name,
+                    style: TextStyle(
+                      color: muted ? Colors.grey : Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Layer count badge (only on first layer when collapsed)
+                if (showExpandButton && totalLayers > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$totalLayers',
+                      style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build empty region row (no layers)
+  Widget _buildEmptyRegionRow(_AudioRegion region, bool muted) {
+    final hasAudio = region.waveformData != null && region.waveformData!.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            (muted ? Colors.grey : region.color).withOpacity(0.4),
+            (muted ? Colors.grey : region.color).withOpacity(0.25),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (hasAudio)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _WaveformPainter(
+                  data: region.waveformData!,
+                  color: muted ? Colors.grey : region.color,
+                ),
+              ),
+            ),
+          Positioned(
+            left: 4,
+            top: 2,
+            child: Text(
+              region.name,
+              style: TextStyle(
+                color: muted ? Colors.grey : Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Get waveform data for an audio path from the pool or generate from FFI
+  List<double>? _getWaveformForPath(String audioPath) {
+    // First try to find in audio pool
+    for (final item in _audioPool) {
+      final path = item['path'] as String? ?? '';
+      if (path == audioPath || path.endsWith(audioPath.split('/').last)) {
+        final waveform = item['waveform'];
+        if (waveform is List && waveform.isNotEmpty) {
+          return waveform.map((e) => (e as num).toDouble()).toList();
+        }
+      }
+    }
+
+    // Try to find clip ID in existing regions and load from FFI
+    for (final track in _tracks) {
+      for (final region in track.regions) {
+        for (final layer in region.layers) {
+          if (layer.audioPath == audioPath && layer.ffiClipId != null && layer.ffiClipId! > 0) {
+            return _loadWaveformForClip(layer.ffiClipId!);
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   void _handleAudioDrop(String audioPath, Offset globalPosition) {
@@ -2540,6 +3399,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _tracks.add(newTrack);
       _tracks.last.regions.add(region);
       _selectedTrackIndex = _tracks.length - 1;
+      // Map event to region for auto-update
+      _eventToRegionMap[event.id] = region.id;
     });
 
     // Scroll to show the new track at the bottom
@@ -2646,14 +3507,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           // Controls
           Container(
             width: 120,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
-                const SizedBox(height: 8),
-                _buildSlotButton('TURBO', const Color(0xFFFFAA00), () {}),
-              ],
+            padding: const EdgeInsets.all(6),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
+                      const SizedBox(height: 4),
+                      // Forced outcome buttons (only when engine is active)
+                      if (_engineInitialized) ...[
+                        _buildSmallButton('BIG WIN', const Color(0xFFFF9040),
+                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.bigWin)),
+                        const SizedBox(height: 3),
+                        _buildSmallButton('MEGA', const Color(0xFFFF4080),
+                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.megaWin)),
+                        const SizedBox(height: 3),
+                        _buildSmallButton('FREE', const Color(0xFF40C8FF),
+                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.freeSpins)),
+                        const SizedBox(height: 3),
+                        _buildSmallButton('JACKPOT', const Color(0xFFFFD700),
+                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.jackpotGrand)),
+                      ] else ...[
+                        _buildSlotButton('TURBO', const Color(0xFFFFAA00), () {}),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -2665,7 +3548,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final isStoppedOrStopping = _currentStoppingReel >= reelIndex;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.5),
         borderRadius: BorderRadius.circular(6),
@@ -2673,12 +3556,21 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           color: const Color(0xFFFFD700).withOpacity(0.2),
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(
-          _rowCount,
-          (row) => _buildSymbol(_reelSymbols[reelIndex][row], isStoppedOrStopping),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final symbolHeight = (constraints.maxHeight / _rowCount).clamp(12.0, 30.0);
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+              _rowCount,
+              (row) => SizedBox(
+                height: symbolHeight,
+                child: _buildSymbol(_reelSymbols[reelIndex][row], isStoppedOrStopping),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2749,9 +3641,152 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
+  /// Small button for forced outcomes
+  Widget _buildSmallButton(String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: _isSpinning ? null : onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _isSpinning
+                ? [Colors.grey, Colors.grey.shade700]
+                : [color, color.withOpacity(0.7)],
+          ),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: _isSpinning
+              ? []
+              : [
+                  BoxShadow(
+                    color: color.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _isSpinning ? Colors.grey.shade400 : Colors.black,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _handleSpin() {
     if (_isSpinning) return;
 
+    // Use synthetic engine if available
+    if (_engineInitialized) {
+      _handleEngineSpin();
+      return;
+    }
+
+    // Fallback to mock spin
+    _handleMockSpin();
+  }
+
+  /// Spin using the Synthetic Slot Engine (real)
+  void _handleEngineSpin({ForcedOutcome? forcedOutcome}) async {
+    if (_isSpinning) return;
+
+    setState(() {
+      _isSpinning = true;
+      _balance -= _bet;
+      _currentStoppingReel = -1;
+      _inAnticipation = false;
+      _lastWin = 0;
+    });
+
+    // Update bet in engine
+    _slotLabProvider.setBetAmount(_bet);
+
+    // Execute spin (engine handles audio via stages)
+    final result = forcedOutcome != null
+        ? await _slotLabProvider.spinForced(forcedOutcome)
+        : await _slotLabProvider.spin();
+
+    if (result == null) {
+      // Engine error, fallback to mock
+      _handleMockSpin();
+      return;
+    }
+
+    // Update UI with engine result
+    _updateFromEngineResult(result);
+  }
+
+  void _updateFromEngineResult(SlotLabSpinResult result) {
+    // Animate reel stops
+    _startEngineReelSequence(result);
+  }
+
+  void _startEngineReelSequence(SlotLabSpinResult result) {
+    final grid = result.grid;
+    int reelIndex = 0;
+    const reelDelay = Duration(milliseconds: 350);
+
+    _spinTimer = Timer.periodic(reelDelay, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      // Check for anticipation (last 2 reels on potential big win)
+      if (reelIndex >= 2 && reelIndex < _reelCount - 1 && !_inAnticipation) {
+        // Trigger anticipation for big wins or near misses
+        if (result.nearMiss || (result.isWin && result.winRatio >= 10.0)) {
+          setState(() => _inAnticipation = true);
+          // Audio triggered by stage events from engine
+        }
+      }
+
+      // Update symbols for this reel
+      if (reelIndex < grid.length) {
+        setState(() {
+          _reelSymbols[reelIndex] = _gridToSymbols([grid[reelIndex]])[0];
+          _currentStoppingReel = reelIndex;
+        });
+      }
+
+      reelIndex++;
+
+      if (reelIndex >= _reelCount) {
+        timer.cancel();
+        _onEngineReelsStopped(result);
+      }
+    });
+  }
+
+  void _onEngineReelsStopped(SlotLabSpinResult result) {
+    if (_inAnticipation) {
+      setState(() => _inAnticipation = false);
+    }
+
+    // Update win display
+    if (result.isWin) {
+      setState(() {
+        _lastWin = result.totalWin;
+        _balance += result.totalWin;
+      });
+    }
+
+    // Spin complete
+    setState(() {
+      _isSpinning = false;
+    });
+  }
+
+  /// Mock spin (fallback when engine not available)
+  void _handleMockSpin() {
     setState(() {
       _isSpinning = true;
       _balance -= _bet;
@@ -3124,7 +4159,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   void _addLayerToEvent(_CompositeEvent event, String audioPath) {
     final audioInfo = _audioPool.firstWhere(
       (a) => a['path'] == audioPath,
-      orElse: () => {'path': audioPath, 'name': audioPath.split('/').last},
+      orElse: () => {'path': audioPath, 'name': audioPath.split('/').last, 'duration': 1.0},
     );
 
     final newLayer = _CompositeLayer(
@@ -3136,7 +4171,70 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     setState(() {
       event.layers.add(newLayer);
       event.isExpanded = true;
+
+      // Auto-update timeline region if this event is already on timeline
+      final regionId = _eventToRegionMap[event.id];
+      if (regionId != null) {
+        _updateTimelineRegionFromEvent(event, regionId, audioInfo);
+      }
     });
+
+    // Sinhronizuj sa Event Registry
+    _syncEventToRegistry(event);
+  }
+
+  /// Update timeline region when audio is added to mapped event
+  void _updateTimelineRegionFromEvent(_CompositeEvent event, String regionId, Map<String, dynamic> audioInfo) {
+    // Find the region in tracks
+    for (final track in _tracks) {
+      final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
+      if (regionIndex >= 0) {
+        final region = track.regions[regionIndex];
+        final layerDuration = (audioInfo['duration'] as num?)?.toDouble() ?? 1.0;
+
+        // Import audio to FFI for playback
+        int ffiClipId = 0;
+        if (track.id.startsWith('ffi_') && audioInfo['path'] != null) {
+          try {
+            final trackId = int.parse(track.id.substring(4));
+            ffiClipId = _ffi.importAudio(
+              audioInfo['path'] as String,
+              trackId,
+              0.0, // Start at beginning
+            );
+            debugPrint('[SlotLab] Auto-imported layer audio: $ffiClipId');
+          } catch (e) {
+            debugPrint('[SlotLab] FFI importAudio error: $e');
+          }
+        }
+
+        // Add layer to region
+        region.layers.add(_RegionLayer(
+          id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}',
+          audioPath: audioInfo['path'] as String? ?? '',
+          name: audioInfo['name'] as String? ?? 'Audio',
+          ffiClipId: ffiClipId > 0 ? ffiClipId : null,
+        ));
+
+        // Extend region duration if new layer is longer
+        if (region.start + layerDuration > region.end) {
+          region.end = region.start + layerDuration;
+        }
+
+        // Load waveform if this is first layer with audio
+        if (ffiClipId > 0 && (region.waveformData == null || region.waveformData!.isEmpty)) {
+          region.waveformData = _loadWaveformForClip(ffiClipId);
+        }
+
+        // Auto-expand to show the new layer
+        if (region.layers.length > 1) {
+          region.isExpanded = true;
+        }
+
+        debugPrint('[SlotLab] Updated region ${region.id} with new layer: ${audioInfo['name']}');
+        return;
+      }
+    }
   }
 
   Widget _buildLayerItem(_CompositeLayer layer) {
@@ -3168,16 +4266,150 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   void _createCompositeEvent() {
+    final controller = TextEditingController(text: 'Event ${_compositeEvents.length + 1}');
+    String selectedStage = 'SPIN_START';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgMid,
+          title: const Text('Create Event', style: TextStyle(color: Colors.white, fontSize: 14)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Name input
+              const Text('Name:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Enter event name...',
+                  hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.black26,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: Colors.white24),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                onSubmitted: (_) {
+                  _finishCreateEvent(controller.text.trim(), selectedStage);
+                  Navigator.pop(ctx);
+                },
+              ),
+              const SizedBox(height: 12),
+              // Stage dropdown
+              const Text('Stage:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: DropdownButton<String>(
+                  value: selectedStage,
+                  isExpanded: true,
+                  dropdownColor: FluxForgeTheme.bgDeep,
+                  underline: const SizedBox(),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  items: const [
+                    DropdownMenuItem(value: 'SPIN_START', child: Text('SPIN_START')),
+                    DropdownMenuItem(value: 'REEL_SPIN', child: Text('REEL_SPIN (loop)')),
+                    DropdownMenuItem(value: 'REEL_STOP', child: Text('REEL_STOP (all)')),
+                    DropdownMenuItem(value: 'REEL_STOP_0', child: Text('REEL_STOP_0')),
+                    DropdownMenuItem(value: 'REEL_STOP_1', child: Text('REEL_STOP_1')),
+                    DropdownMenuItem(value: 'REEL_STOP_2', child: Text('REEL_STOP_2')),
+                    DropdownMenuItem(value: 'REEL_STOP_3', child: Text('REEL_STOP_3')),
+                    DropdownMenuItem(value: 'REEL_STOP_4', child: Text('REEL_STOP_4')),
+                    DropdownMenuItem(value: 'ANTICIPATION', child: Text('ANTICIPATION')),
+                    DropdownMenuItem(value: 'WIN_PRESENT', child: Text('WIN_PRESENT')),
+                    DropdownMenuItem(value: 'BIGWIN', child: Text('BIGWIN')),
+                    DropdownMenuItem(value: 'FEATURE_ENTER', child: Text('FEATURE_ENTER')),
+                    DropdownMenuItem(value: 'FEATURE_EXIT', child: Text('FEATURE_EXIT')),
+                    DropdownMenuItem(value: 'JACKPOT', child: Text('JACKPOT')),
+                    DropdownMenuItem(value: 'CASCADE', child: Text('CASCADE')),
+                    DropdownMenuItem(value: 'CUSTOM', child: Text('CUSTOM')),
+                  ],
+                  onChanged: (v) => setDialogState(() => selectedStage = v!),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () {
+                _finishCreateEvent(controller.text.trim(), selectedStage);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Create', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _finishCreateEvent(String name, String stage) {
+    if (name.isEmpty) name = 'Event ${_compositeEvents.length + 1}';
+
     final newEvent = _CompositeEvent(
       id: 'event_${DateTime.now().millisecondsSinceEpoch}',
-      name: 'New Event ${_compositeEvents.length + 1}',
-      stage: 'SPIN_START',
+      name: name,
+      stage: stage,
     );
 
     setState(() {
       _compositeEvents.add(newEvent);
       _selectedEventId = newEvent.id;
     });
+
+    // Registruj u centralni Event Registry
+    _syncEventToRegistry(newEvent);
+  }
+
+  /// Sinhronizuj composite event sa centralnim Event Registry
+  void _syncEventToRegistry(_CompositeEvent compositeEvent) {
+    final audioEvent = AudioEvent(
+      id: compositeEvent.id,
+      name: compositeEvent.name,
+      stage: compositeEvent.stage,
+      layers: compositeEvent.layers.map((l) => AudioLayer(
+        id: l.id,
+        audioPath: l.audioPath,
+        name: l.name,
+        volume: l.volume,
+        pan: l.pan,
+        delay: l.delay,
+        busId: l.busId,
+      )).toList(),
+    );
+    eventRegistry.registerEvent(audioEvent);
+  }
+
+  /// Sinhronizuj sve evente sa registry-jem
+  void _syncAllEventsToRegistry() {
+    for (final event in _compositeEvents) {
+      _syncEventToRegistry(event);
+    }
   }
 
   Widget _buildAudioBrowser() {
@@ -3416,6 +4648,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               _BottomPanelTab.rtpc => 'RTPC',
               _BottomPanelTab.resources => 'Resources',
               _BottomPanelTab.auxSends => 'Aux Sends',
+              _BottomPanelTab.eventLog => 'Event Log',
             };
 
             return InkWell(
@@ -3479,24 +4712,35 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _buildResourcesContent();
       case _BottomPanelTab.auxSends:
         return _buildAuxSendsContent();
+      case _BottomPanelTab.eventLog:
+        return _buildEventLogContent();
     }
   }
 
+  Widget _buildEventLogContent() {
+    final middleware = context.read<MiddlewareProvider>();
+    return EventLogPanel(
+      slotLabProvider: _slotLabProvider,
+      middlewareProvider: middleware,
+      height: _bottomPanelHeight - 8,
+    );
+  }
+
   Widget _buildTimelineTabContent() {
-    return Center(
+    // Stage Trace Widget with full timeline visualization
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.timeline, size: 40, color: Colors.white.withOpacity(0.2)),
-          const SizedBox(height: 8),
-          const Text(
-            'Timeline Overview',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+          // Stage trace (animated marker through stages)
+          StageTraceWidget(
+            provider: _slotLabProvider,
+            height: 80,
+            showMiniProgress: true,
           ),
-          const Text(
-            'Detailed stage timing and event visualization',
-            style: TextStyle(color: Colors.white24, fontSize: 10),
-          ),
+          const SizedBox(height: 4),
+          // Forced Outcome - plain text line
+          QuickOutcomeBar(provider: _slotLabProvider),
         ],
       ),
     );
@@ -3621,7 +4865,8 @@ class _TimelineGridPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     // Vertical grid lines (time markers)
-    final secondWidth = (size.width / duration) * zoom;
+    // size.width is already zoomed, so secondWidth = size.width / duration
+    final secondWidth = size.width / duration;
     for (double x = 0; x < size.width; x += secondWidth) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }

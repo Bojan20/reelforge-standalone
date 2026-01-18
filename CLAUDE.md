@@ -110,6 +110,31 @@ pkill -f "target/release" 2>/dev/null || true
 ./scripts/run.sh --clean
 ```
 
+### 8. Eksterni disk (ExFAT/NTFS) build — OBAVEZNO
+
+Projekat je na eksternom SSD-u (ExFAT). macOS kreira AppleDouble (`._*`) fajlove na non-HFS+ volumima koji uzrokuju codesign greške.
+
+**REŠENJE: Koristi xcodebuild sa derived data na internom disku:**
+
+```bash
+# Koristi helper script:
+./scripts/run-macos.sh
+
+# Ili ručno:
+cd flutter_ui/macos
+find Pods -name '._*' -type f -delete 2>/dev/null || true
+xcodebuild -workspace Runner.xcworkspace \
+    -scheme Runner \
+    -configuration Debug \
+    -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData/FluxForge-macos" \
+    build
+
+# Zatim pokreni:
+open "$HOME/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge Studio.app"
+```
+
+**NIKADA ne koristi `flutter run` direktno na eksternom disku** — koristiti samo xcodebuild pristup.
+
 ---
 
 ## Jezik
@@ -164,7 +189,7 @@ Ti si elite multi-disciplinary professional sa 20+ godina iskustva:
 | **Audio Engine**  | Rust + FFI       | Real-time DSP, lock-free state   |
 | **Audio I/O**     | cpal + ASIO      | Cross-platform, low-latency      |
 | **DSP**           | Rust + SIMD      | AVX-512/AVX2/NEON                |
-| **Plugin Format** | nih-plug         | VST3/AU/CLAP                     |
+| **Plugin Hosting**| vst3 + rack      | VST3/AU/CLAP scanner & hosting   |
 | **Serialization** | serde            | JSON/Binary projects             |
 
 ### Jezici
@@ -249,7 +274,7 @@ fluxforge-studio/
 │   ├── rf-state/           # Undo/redo, presets
 │   ├── rf-file/            # Audio file I/O
 │   ├── rf-viz/             # wgpu visualizations (future)
-│   ├── rf-plugin/          # nih-plug wrappers
+│   ├── rf-plugin/          # VST3/AU/CLAP hosting (vst3, rack)
 │   │
 │   │   # ═══ ADVANCED FEATURES ═══
 │   ├── rf-master/          # AI mastering engine
@@ -443,18 +468,15 @@ while let Ok(change) = consumer.pop() {
 
 ## Key Dependencies
 
+### Rust (Cargo.toml workspace)
+
 ```toml
 [workspace.dependencies]
-# App shell
-tauri = "2.0"
-
-# GUI
-iced = { version = "0.13", features = ["wgpu", "tokio"] }
-
 # Graphics
 wgpu = "24.0"
+bytemuck = "1.21"
 
-# Audio
+# Audio I/O
 cpal = "0.15"
 dasp = "0.11"
 
@@ -462,22 +484,44 @@ dasp = "0.11"
 rustfft = "6.2"
 realfft = "3.4"
 
-# Plugin format
-nih_plug = "0.2"
+# Plugin hosting
+vst3 = "0.3"
+rack = "0.4"
 
 # Concurrency
 rtrb = "0.3"
 parking_lot = "0.12"
 rayon = "1.10"
+crossbeam-channel = "0.5"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Audio file I/O
+symphonia = "0.5"
+hound = "3.5"
+
 # Utilities
 log = "0.4"
-env_logger = "0.11"
 thiserror = "2.0"
+anyhow = "1.0"
+
+# Flutter-Rust bridge (rf-bridge)
+flutter_rust_bridge = "2.7"
+tokio = "1.43"
+```
+
+### Flutter (pubspec.yaml)
+
+```yaml
+dependencies:
+  provider: ^6.1.5           # State management
+  flutter_rust_bridge: ^2.11.1  # FFI bridge
+  flutter_animate: ^4.5.2    # Animations
+  just_audio: ^0.9.46        # Audio preview
+  file_picker: ^9.2.0        # File dialogs
+  web_socket_channel: ^3.0.3 # Live engine connection
 ```
 
 ---
@@ -511,7 +555,7 @@ cargo xtask bundle rf-plugin --release  # VST3/AU/CLAP
 | -------------- | ---------------------- | -------------------- |
 | Audio latency  | < 3ms @ 128 samples    | cpal callback timing |
 | DSP load       | < 20% @ 44.1kHz stereo | CPU profiler         |
-| GUI frame rate | 60fps minimum          | iced metrics         |
+| GUI frame rate | 60fps minimum          | Flutter DevTools     |
 | Memory         | < 200MB idle           | System monitor       |
 | Startup time   | < 2s cold start        | Wall clock           |
 
@@ -724,6 +768,85 @@ flutter run --profile          # UI performance
 - `music_system_panel.dart` — Music segments + stingers
 - `attenuation_curve_panel.dart` — Curve shape editor
 
+### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
+
+Fullscreen audio sandbox za slot game audio dizajn.
+
+**Rust Crate:** `crates/rf-slot-lab/`
+- `engine.rs` — SyntheticSlotEngine, spin(), forced outcomes
+- `symbols.rs` — SymbolSet, ReelStrip, 10 standard symbols
+- `paytable.rs` — Paytable, Payline, LineWin evaluation
+- `timing.rs` — TimingProfile (normal/turbo/mobile/studio)
+- `stages.rs` — StageEvent generation (20+ stage types)
+- `config.rs` — GridSpec, VolatilityProfile (low/med/high/studio)
+
+**FFI Bridge:** `crates/rf-bridge/src/slot_lab_ffi.rs`
+- `slot_lab_init()` / `slot_lab_shutdown()`
+- `slot_lab_spin()` / `slot_lab_spin_forced(outcome: i32)`
+- `slot_lab_get_spin_result_json()` / `slot_lab_get_stages_json()`
+
+**Flutter Provider:** `flutter_ui/lib/providers/slot_lab_provider.dart`
+- `spin()` / `spinForced(ForcedOutcome)`
+- `lastResult` / `lastStages` / `isPlayingStages`
+- Auto-triggers MiddlewareProvider events
+
+**UI Widgets:** `flutter_ui/lib/widgets/slot_lab/`
+- `stage_trace_widget.dart` — Animated timeline kroz stage evente
+- `slot_preview_widget.dart` — Premium slot machine sa animacijama
+- `event_log_panel.dart` — Real-time log audio eventa
+- `forced_outcome_panel.dart` — Test buttons (keyboard shortcuts 1-0)
+- `audio_hover_preview.dart` — Browser sa hover preview
+
+**Forced Outcomes:**
+```
+1-Lose, 2-SmallWin, 3-BigWin, 4-MegaWin, 5-EpicWin,
+6-FreeSpins, 7-JackpotGrand, 8-NearMiss, 9-Cascade, 0-UltraWin
+```
+
+**Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`
+
+### Event Registry System (IMPLEMENTED) ✅
+
+Wwise/FMOD-style centralni audio event sistem.
+
+**Arhitektura:**
+```
+STAGE → EventRegistry → AudioEvent → AudioPlayer(s)
+          ↓
+    Per-layer playback sa delay/offset
+```
+
+**Ključne komponente:**
+
+| Komponenta | Opis |
+|------------|------|
+| `EventRegistry` | Singleton koji mapira stage→event, trigger, stop |
+| `AudioEvent` | Event definicija sa multiple layers |
+| `AudioLayer` | Pojedinačni zvuk sa volume/pan/delay/offset |
+
+**Per-Reel REEL_STOP:**
+```
+REEL_STOP_0 → Zvuk za prvi reel
+REEL_STOP_1 → Zvuk za drugi reel
+REEL_STOP_2 → Zvuk za treći reel
+REEL_STOP_3 → Zvuk za četvrti reel
+REEL_STOP_4 → Zvuk za peti reel
+REEL_STOP   → Fallback za sve (ako nema specifičnog)
+```
+
+**REEL_SPIN Loop:**
+- Trigeruje se automatski na `SPIN_START`
+- Zaustavlja se na `REEL_STOP_4` (poslednji reel)
+- Koristi se za loop audio dok se rilovi vrte
+
+**Fajlovi:**
+- `flutter_ui/lib/services/event_registry.dart` — Centralni registry
+- `flutter_ui/lib/providers/slot_lab_provider.dart` — Integracija sa stage playback
+
+**State Persistence:**
+- Audio pool, composite events, tracks, event→region mapping
+- Čuva se u Provider, preživljava switch između sekcija
+
 ### Universal Stage Ingest System (PLANNED)
 
 Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
@@ -735,9 +858,9 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 ```
 
 **Kanonske STAGES:**
-- `SPIN_START`, `REEL_STOP`, `ANTICIPATION_ON/OFF`
-- `WIN_PRESENT`, `ROLLUP_START/END`, `BIGWIN_TIER`
-- `FEATURE_ENTER/STEP/EXIT`, `CASCADE_STEP`
+- `SPIN_START`, `REEL_SPIN`, `REEL_STOP`, `REEL_STOP_0..4`
+- `ANTICIPATION_ON/OFF`, `WIN_PRESENT`, `ROLLUP_START/END`
+- `BIGWIN_TIER`, `FEATURE_ENTER/STEP/EXIT`, `CASCADE_STEP`
 - `JACKPOT_TRIGGER`, `BONUS_ENTER/EXIT`
 
 **Tri sloja ingesta:**
@@ -760,6 +883,7 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 **Dokumentacija:**
 - `.claude/architecture/STAGE_INGEST_SYSTEM.md`
 - `.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md`
+- `.claude/architecture/SLOT_LAB_SYSTEM.md`
 
 ---
 

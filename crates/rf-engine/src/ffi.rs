@@ -19105,3 +19105,52 @@ pub extern "C" fn adapter_get_info_json(adapter_id: *const c_char) -> *mut c_cha
         None => string_to_cstr(r#"{"error":"Adapter not found"}"#),
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO PREVIEW (for Slot Lab and general preview playback)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Preview audio file - loads and plays immediately
+/// Returns allocated string with voice_id on success, or error message
+/// Uses dedicated PreviewEngine (separate from main timeline playback)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_preview_audio_file(path: *const c_char, volume: f64) -> *mut c_char {
+    use crate::preview::PREVIEW_ENGINE;
+
+    if path.is_null() {
+        return string_to_cstr(r#"{"error":"null path"}"#);
+    }
+
+    let path_str = match unsafe { CStr::from_ptr(path) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
+    };
+
+    // Play via dedicated preview engine
+    match PREVIEW_ENGINE.play(path_str, volume as f32) {
+        Ok(voice_id) => string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id)),
+        Err(e) => string_to_cstr(&format!(r#"{{"error":"{}"}}"#, e)),
+    }
+}
+
+/// Stop all preview playback
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_preview_stop() {
+    use crate::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.stop_all();
+}
+
+/// Check if preview is playing
+/// Returns 1 if playing, 0 otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_preview_is_playing() -> i32 {
+    use crate::preview::PREVIEW_ENGINE;
+    if PREVIEW_ENGINE.is_playing() { 1 } else { 0 }
+}
+
+/// Set preview master volume (0.0 to 1.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_preview_set_volume(volume: f64) {
+    use crate::preview::PREVIEW_ENGINE;
+    PREVIEW_ENGINE.set_volume(volume as f32);
+}

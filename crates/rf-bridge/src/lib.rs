@@ -42,6 +42,7 @@ pub mod midi_bridge;
 mod midi_ffi;
 pub mod middleware_ffi;
 mod playback;
+pub mod slot_lab_ffi;
 mod project;
 pub mod timestretch;
 mod transport;
@@ -305,3 +306,6 @@ pub use autosave_ffi::*;
 
 // Re-export middleware event system FFI
 pub use middleware_ffi::*;
+
+// Re-export slot lab FFI
+pub use slot_lab_ffi::*;

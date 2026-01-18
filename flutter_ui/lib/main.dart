@@ -53,6 +53,7 @@ import 'providers/plugin_provider.dart';
 import 'providers/control_room_provider.dart';
 import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
+import 'providers/slot_lab_provider.dart';
 import 'src/rust/native_ffi.dart';
 
 void main() {
@@ -177,6 +178,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Stage Ingest System (Universal game engine integration)
         ChangeNotifierProvider(create: (_) => StageProvider()),
+
+        // Slot Lab (Synthetic Slot Engine)
+        ChangeNotifierProvider(create: (_) => SlotLabProvider()),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

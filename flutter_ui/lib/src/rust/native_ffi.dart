@@ -412,6 +412,16 @@ typedef EngineStartPlaybackDart = int Function();
 typedef EngineStopPlaybackNative = Void Function();
 typedef EngineStopPlaybackDart = void Function();
 
+// Audio Preview (for Slot Lab and general preview playback)
+typedef EnginePreviewAudioFileNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume);
+typedef EnginePreviewAudioFileDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume);
+
+typedef EnginePreviewStopNative = Void Function();
+typedef EnginePreviewStopDart = void Function();
+
+typedef EnginePreviewIsPlayingNative = Int32 Function();
+typedef EnginePreviewIsPlayingDart = int Function();
+
 // Undo/Redo
 typedef EngineUndoNative = Int32 Function();
 typedef EngineUndoDart = int Function();
@@ -1855,6 +1865,11 @@ class NativeFFI {
   late final EngineStartPlaybackDart _startPlayback;
   late final EngineStopPlaybackDart _stopPlayback;
 
+  // Audio Preview
+  late final EnginePreviewAudioFileDart _previewAudioFile;
+  late final EnginePreviewStopDart _previewStop;
+  late final EnginePreviewIsPlayingDart _previewIsPlaying;
+
   // Undo/Redo
   late final EngineUndoDart _undo;
   late final EngineRedoDart _redo;
@@ -2431,6 +2446,11 @@ class NativeFFI {
     // Audio stream control
     _startPlayback = _lib.lookupFunction<EngineStartPlaybackNative, EngineStartPlaybackDart>('engine_start_playback');
     _stopPlayback = _lib.lookupFunction<EngineStopPlaybackNative, EngineStopPlaybackDart>('engine_stop_playback');
+
+    // Audio Preview
+    _previewAudioFile = _lib.lookupFunction<EnginePreviewAudioFileNative, EnginePreviewAudioFileDart>('engine_preview_audio_file');
+    _previewStop = _lib.lookupFunction<EnginePreviewStopNative, EnginePreviewStopDart>('engine_preview_stop');
+    _previewIsPlaying = _lib.lookupFunction<EnginePreviewIsPlayingNative, EnginePreviewIsPlayingDart>('engine_preview_is_playing');
 
     // Undo/Redo
     _undo = _lib.lookupFunction<EngineUndoNative, EngineUndoDart>('engine_undo');
@@ -3652,6 +3672,49 @@ class NativeFFI {
   void stopPlayback() {
     if (!_loaded) return;
     _stopPlayback();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO PREVIEW API (for Slot Lab and general preview playback)
+  // Uses dedicated PreviewEngine (separate from main timeline playback)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Preview audio file - loads and plays immediately via dedicated PreviewEngine
+  /// Returns voice_id on success (positive number), -1 on error
+  int previewAudioFile(String path, {double volume = 1.0}) {
+    if (!_loaded) return -1;
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final resultPtr = _previewAudioFile(pathPtr, volume);
+      if (resultPtr == nullptr) return -1;
+      final result = resultPtr.toDartString();
+      calloc.free(resultPtr);
+      // Parse JSON result
+      if (result.contains('"error"')) {
+        print('[NativeFFI] Preview error: $result');
+        return -1;
+      }
+      // Extract voice_id from {"voice_id":123}
+      final match = RegExp(r'"voice_id":(\d+)').firstMatch(result);
+      if (match != null) {
+        return int.tryParse(match.group(1)!) ?? -1;
+      }
+      return -1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Stop all preview playback
+  void previewStop() {
+    if (!_loaded) return;
+    _previewStop();
+  }
+
+  /// Check if preview is playing
+  bool previewIsPlaying() {
+    if (!_loaded) return false;
+    return _previewIsPlaying() != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -13852,6 +13915,774 @@ class ScriptAction {
       case 'redo': return ScriptActionType.redo;
       case 'save': return ScriptActionType.save;
       default: return ScriptActionType.unknown;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SLOT LAB SYNTHETIC ENGINE BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Forced outcome for synthetic spin
+enum ForcedOutcome {
+  lose(0),
+  smallWin(1),
+  mediumWin(2),
+  bigWin(3),
+  megaWin(4),
+  epicWin(5),
+  ultraWin(6),
+  freeSpins(7),
+  jackpotMini(8),
+  jackpotMinor(9),
+  jackpotMajor(10),
+  jackpotGrand(11),
+  nearMiss(12),
+  cascade(13);
+
+  const ForcedOutcome(this.value);
+  final int value;
+}
+
+/// Volatility preset for slot engine
+enum VolatilityPreset {
+  low(0),
+  medium(1),
+  high(2),
+  studio(3);
+
+  const VolatilityPreset(this.value);
+  final int value;
+}
+
+/// Timing profile for stage generation
+enum TimingProfileType {
+  normal(0),
+  turbo(1),
+  mobile(2),
+  studio(3);
+
+  const TimingProfileType(this.value);
+  final int value;
+}
+
+/// Big win tier (for Slot Lab)
+enum SlotLabWinTier {
+  none(0),
+  win(1),
+  bigWin(2),
+  megaWin(3),
+  epicWin(4),
+  ultraWin(5);
+
+  const SlotLabWinTier(this.value);
+  final int value;
+
+  static SlotLabWinTier fromInt(int value) {
+    return SlotLabWinTier.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => SlotLabWinTier.none,
+    );
+  }
+}
+
+/// Slot Lab session statistics
+class SlotLabStats {
+  final int totalSpins;
+  final double totalBet;
+  final double totalWin;
+  final int wins;
+  final int losses;
+  final int bigWins;
+  final int megaWins;
+  final int featuresTriggered;
+  final int jackpotsWon;
+  final double maxWinRatio;
+  final int cascadeChains;
+  final double rtp;
+  final double hitRate;
+
+  const SlotLabStats({
+    required this.totalSpins,
+    required this.totalBet,
+    required this.totalWin,
+    required this.wins,
+    required this.losses,
+    required this.bigWins,
+    required this.megaWins,
+    required this.featuresTriggered,
+    required this.jackpotsWon,
+    required this.maxWinRatio,
+    required this.cascadeChains,
+    required this.rtp,
+    required this.hitRate,
+  });
+
+  factory SlotLabStats.fromJson(Map<String, dynamic> json) {
+    return SlotLabStats(
+      totalSpins: json['total_spins'] as int? ?? 0,
+      totalBet: (json['total_bet'] as num?)?.toDouble() ?? 0.0,
+      totalWin: (json['total_win'] as num?)?.toDouble() ?? 0.0,
+      wins: json['wins'] as int? ?? 0,
+      losses: json['losses'] as int? ?? 0,
+      bigWins: json['big_wins'] as int? ?? 0,
+      megaWins: json['mega_wins'] as int? ?? 0,
+      featuresTriggered: json['features_triggered'] as int? ?? 0,
+      jackpotsWon: json['jackpots_won'] as int? ?? 0,
+      maxWinRatio: (json['max_win_ratio'] as num?)?.toDouble() ?? 0.0,
+      cascadeChains: json['cascade_chains'] as int? ?? 0,
+      rtp: 0.0,
+      hitRate: 0.0,
+    );
+  }
+}
+
+/// Line win from spin result
+class LineWin {
+  final int lineIndex;
+  final int symbolId;
+  final String symbolName;
+  final int matchCount;
+  final double winAmount;
+  final List<List<int>> positions;
+
+  const LineWin({
+    required this.lineIndex,
+    required this.symbolId,
+    required this.symbolName,
+    required this.matchCount,
+    required this.winAmount,
+    required this.positions,
+  });
+
+  factory LineWin.fromJson(Map<String, dynamic> json) {
+    final positionsRaw = json['positions'] as List? ?? [];
+    final positions = positionsRaw.map<List<int>>((p) {
+      if (p is List) {
+        return [p[0] as int? ?? 0, p[1] as int? ?? 0];
+      }
+      return [0, 0];
+    }).toList();
+
+    return LineWin(
+      lineIndex: json['line_index'] as int? ?? 0,
+      symbolId: json['symbol_id'] as int? ?? 0,
+      symbolName: json['symbol_name'] as String? ?? '',
+      matchCount: json['match_count'] as int? ?? 0,
+      winAmount: (json['win_amount'] as num?)?.toDouble() ?? 0.0,
+      positions: positions,
+    );
+  }
+}
+
+/// Spin result from slot lab
+class SlotLabSpinResult {
+  final String spinId;
+  final List<List<int>> grid;
+  final double bet;
+  final double totalWin;
+  final double winRatio;
+  final List<LineWin> lineWins;
+  final SlotLabWinTier? bigWinTier;
+  final bool featureTriggered;
+  final bool nearMiss;
+  final bool isFreeSpins;
+  final int? freeSpinIndex;
+  final double multiplier;
+  final int cascadeCount;
+
+  const SlotLabSpinResult({
+    required this.spinId,
+    required this.grid,
+    required this.bet,
+    required this.totalWin,
+    required this.winRatio,
+    required this.lineWins,
+    this.bigWinTier,
+    required this.featureTriggered,
+    required this.nearMiss,
+    required this.isFreeSpins,
+    this.freeSpinIndex,
+    required this.multiplier,
+    required this.cascadeCount,
+  });
+
+  bool get isWin => totalWin > 0;
+
+  factory SlotLabSpinResult.fromJson(Map<String, dynamic> json) {
+    final gridRaw = json['grid'] as List? ?? [];
+    final grid = gridRaw.map<List<int>>((col) {
+      if (col is List) {
+        return col.map((e) => e as int? ?? 0).toList();
+      }
+      return <int>[];
+    }).toList();
+
+    final lineWinsRaw = json['line_wins'] as List? ?? [];
+    final lineWins = lineWinsRaw.map((lw) {
+      return LineWin.fromJson(lw as Map<String, dynamic>);
+    }).toList();
+
+    SlotLabWinTier? tier;
+    final tierData = json['big_win_tier'];
+    if (tierData != null) {
+      if (tierData is String) {
+        switch (tierData) {
+          case 'win': tier = SlotLabWinTier.win;
+          case 'big_win': tier = SlotLabWinTier.bigWin;
+          case 'mega_win': tier = SlotLabWinTier.megaWin;
+          case 'epic_win': tier = SlotLabWinTier.epicWin;
+          case 'ultra_win': tier = SlotLabWinTier.ultraWin;
+        }
+      }
+    }
+
+    final cascades = json['cascades'] as List? ?? [];
+
+    return SlotLabSpinResult(
+      spinId: json['spin_id'] as String? ?? '',
+      grid: grid,
+      bet: (json['bet'] as num?)?.toDouble() ?? 0.0,
+      totalWin: (json['total_win'] as num?)?.toDouble() ?? 0.0,
+      winRatio: (json['win_ratio'] as num?)?.toDouble() ?? 0.0,
+      lineWins: lineWins,
+      bigWinTier: tier,
+      featureTriggered: json['feature_triggered'] != null,
+      nearMiss: json['near_miss'] as bool? ?? false,
+      isFreeSpins: json['is_free_spin'] as bool? ?? false,
+      freeSpinIndex: json['free_spin_index'] as int?,
+      multiplier: (json['multiplier'] as num?)?.toDouble() ?? 1.0,
+      cascadeCount: cascades.length,
+    );
+  }
+}
+
+/// Stage event from slot lab
+class SlotLabStageEvent {
+  final String stageType;
+  final double timestampMs;
+  final Map<String, dynamic> payload;
+  final Map<String, dynamic> rawStage;
+
+  const SlotLabStageEvent({
+    required this.stageType,
+    required this.timestampMs,
+    required this.payload,
+    required this.rawStage,
+  });
+
+  factory SlotLabStageEvent.fromJson(Map<String, dynamic> json) {
+    final stageData = json['stage'] as Map<String, dynamic>? ?? {};
+    return SlotLabStageEvent(
+      stageType: stageData['type'] as String? ?? 'unknown',
+      timestampMs: (json['timestamp_ms'] as num?)?.toDouble() ?? 0.0,
+      payload: json['payload'] as Map<String, dynamic>? ?? {},
+      rawStage: stageData,
+    );
+  }
+}
+
+/// Extension on NativeFFI for Slot Lab functions
+extension SlotLabFFI on NativeFFI {
+  // ═══════════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize the Slot Lab engine
+  bool slotLabInit() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_init',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabInit error: $e');
+      return false;
+    }
+  }
+
+  /// Initialize for audio testing (high frequency events)
+  bool slotLabInitAudioTest() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_init_audio_test',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabInitAudioTest error: $e');
+      return false;
+    }
+  }
+
+  /// Shutdown the engine
+  void slotLabShutdown() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'slot_lab_shutdown',
+      );
+      fn();
+    } catch (e) {
+      print('[SlotLab] slotLabShutdown error: $e');
+    }
+  }
+
+  /// Check if initialized
+  bool slotLabIsInitialized() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_is_initialized',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabIsInitialized error: $e');
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Set volatility by slider (0.0 = low, 1.0 = high)
+  void slotLabSetVolatilitySlider(double value) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Double), void Function(double)>(
+        'slot_lab_set_volatility_slider',
+      );
+      fn(value);
+    } catch (e) {
+      print('[SlotLab] slotLabSetVolatilitySlider error: $e');
+    }
+  }
+
+  /// Set volatility preset
+  void slotLabSetVolatilityPreset(VolatilityPreset preset) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32), void Function(int)>(
+        'slot_lab_set_volatility_preset',
+      );
+      fn(preset.value);
+    } catch (e) {
+      print('[SlotLab] slotLabSetVolatilityPreset error: $e');
+    }
+  }
+
+  /// Set timing profile
+  void slotLabSetTimingProfile(TimingProfileType profile) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32), void Function(int)>(
+        'slot_lab_set_timing_profile',
+      );
+      fn(profile.value);
+    } catch (e) {
+      print('[SlotLab] slotLabSetTimingProfile error: $e');
+    }
+  }
+
+  /// Set bet amount
+  void slotLabSetBet(double bet) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Double), void Function(double)>(
+        'slot_lab_set_bet',
+      );
+      fn(bet);
+    } catch (e) {
+      print('[SlotLab] slotLabSetBet error: $e');
+    }
+  }
+
+  /// Seed the RNG for reproducible results
+  void slotLabSeedRng(int seed) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Uint64), void Function(int)>(
+        'slot_lab_seed_rng',
+      );
+      fn(seed);
+    } catch (e) {
+      print('[SlotLab] slotLabSeedRng error: $e');
+    }
+  }
+
+  /// Reset session stats
+  void slotLabResetStats() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'slot_lab_reset_stats',
+      );
+      fn();
+    } catch (e) {
+      print('[SlotLab] slotLabResetStats error: $e');
+    }
+  }
+
+  /// Enable/disable cascades
+  void slotLabSetCascadesEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32), void Function(int)>(
+        'slot_lab_set_cascades_enabled',
+      );
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[SlotLab] slotLabSetCascadesEnabled error: $e');
+    }
+  }
+
+  /// Enable/disable free spins
+  void slotLabSetFreeSpinsEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32), void Function(int)>(
+        'slot_lab_set_free_spins_enabled',
+      );
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[SlotLab] slotLabSetFreeSpinsEnabled error: $e');
+    }
+  }
+
+  /// Enable/disable jackpot
+  void slotLabSetJackpotEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32), void Function(int)>(
+        'slot_lab_set_jackpot_enabled',
+      );
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[SlotLab] slotLabSetJackpotEnabled error: $e');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // SPIN EXECUTION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Execute a random spin, returns spin ID
+  int slotLabSpin() {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(), int Function()>(
+        'slot_lab_spin',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabSpin error: $e');
+      return 0;
+    }
+  }
+
+  /// Execute a forced spin with specific outcome
+  int slotLabSpinForced(ForcedOutcome outcome) {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(Int32), int Function(int)>(
+        'slot_lab_spin_forced',
+      );
+      return fn(outcome.value);
+    } catch (e) {
+      print('[SlotLab] slotLabSpinForced error: $e');
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RESULT RETRIEVAL
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Get last spin result as parsed object
+  SlotLabSpinResult? slotLabGetSpinResult() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_get_spin_result_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      if (json.isEmpty || json == '{}') return null;
+
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      return SlotLabSpinResult.fromJson(map);
+    } catch (e) {
+      print('[SlotLab] slotLabGetSpinResult error: $e');
+      return null;
+    }
+  }
+
+  /// Get last generated stages as list
+  List<SlotLabStageEvent> slotLabGetStages() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_get_stages_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      if (json.isEmpty || json == '[]') return [];
+
+      final list = jsonDecode(json) as List;
+      return list.map((e) => SlotLabStageEvent.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      print('[SlotLab] slotLabGetStages error: $e');
+      return [];
+    }
+  }
+
+  /// Get stage count from last spin
+  int slotLabGetStageCount() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_get_stage_count',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetStageCount error: $e');
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATS AND STATE QUERIES
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Get session stats
+  SlotLabStats? slotLabGetStats() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_get_stats_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      if (json.isEmpty || json == '{}') return null;
+
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      return SlotLabStats.fromJson(map);
+    } catch (e) {
+      print('[SlotLab] slotLabGetStats error: $e');
+      return null;
+    }
+  }
+
+  /// Get current RTP
+  double slotLabGetRtp() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_rtp',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetRtp error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get hit rate
+  double slotLabGetHitRate() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_hit_rate',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetHitRate error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get total spins
+  int slotLabGetTotalSpins() {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(), int Function()>(
+        'slot_lab_get_total_spins',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetTotalSpins error: $e');
+      return 0;
+    }
+  }
+
+  /// Check if in free spins
+  bool slotLabInFreeSpins() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_in_free_spins',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabInFreeSpins error: $e');
+      return false;
+    }
+  }
+
+  /// Get remaining free spins
+  int slotLabFreeSpinsRemaining() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+        'slot_lab_free_spins_remaining',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabFreeSpinsRemaining error: $e');
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // QUICK ACCESS (without JSON parsing)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Check if last spin was a win
+  bool slotLabLastSpinIsWin() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_last_spin_is_win',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinIsWin error: $e');
+      return false;
+    }
+  }
+
+  /// Get last spin win amount
+  double slotLabLastSpinWinAmount() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_last_spin_win_amount',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinWinAmount error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get last spin win ratio
+  double slotLabLastSpinWinRatio() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_last_spin_win_ratio',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinWinRatio error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get last spin big win tier
+  SlotLabWinTier slotLabLastSpinSlotLabWinTier() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_last_spin_big_win_tier',
+      );
+      return SlotLabWinTier.fromInt(fn());
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinSlotLabWinTier error: $e');
+      return SlotLabWinTier.none;
+    }
+  }
+
+  /// Check if last spin triggered a feature
+  bool slotLabLastSpinTriggeredFeature() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_last_spin_triggered_feature',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinTriggeredFeature error: $e');
+      return false;
+    }
+  }
+
+  /// Check if last spin was a near miss
+  bool slotLabLastSpinNearMiss() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_last_spin_near_miss',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinNearMiss error: $e');
+      return false;
+    }
+  }
+
+  /// Get cascade count from last spin
+  int slotLabLastSpinCascadeCount() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'slot_lab_last_spin_cascade_count',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabLastSpinCascadeCount error: $e');
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CONFIG EXPORT/IMPORT
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Export current config as JSON
+  String? slotLabExportConfig() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_export_config',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[SlotLab] slotLabExportConfig error: $e');
+      return null;
+    }
+  }
+
+  /// Import config from JSON
+  bool slotLabImportConfig(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_lab_import_config');
+
+      final jsonPtr = json.toNativeUtf8();
+      final result = fn(jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[SlotLab] slotLabImportConfig error: $e');
+      return false;
     }
   }
 }
