@@ -213,13 +213,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // Current action being edited (header controls)
   String _headerActionType = 'Play';
-  String _headerAssetId = 'music_main';
+  String _headerAssetId = ''; // Empty by default - user selects from imported sounds
   String _headerBus = 'Music';
   String _headerScope = 'Global';
   String _headerPriority = 'Normal';
   String _headerFadeCurve = 'Linear';
   double _headerFadeTime = 0.1;
   double _headerGain = 1.0;
+  double _headerDelay = 0.0;
   bool _headerLoop = false;
 
   // Loudness meter state
@@ -230,6 +231,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   // Selected event for timeline (middleware mode)
   String? _selectedEventForTimeline;
+
+  // Track action count for auto-sync (when event changes externally)
+  int _lastSyncedActionCount = 0;
 
   // Meter decay state - Cubase-style: meters decay to 0 when playback stops
   bool _wasPlaying = false;
@@ -885,14 +889,99 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.deleteChannel('ch_$trackId');
 
+    // In middleware mode, sync deletion to event actions
+    final isMiddlewareTrack = _editorMode == EditorMode.middleware && trackId.startsWith('evt_track_');
+    if (isMiddlewareTrack) {
+      _syncTrackDeletionToEvent(trackId);
+    }
+
     setState(() {
       _tracks = _tracks.where((t) => t.id != trackId).toList();
       _clips = _clips.where((c) => c.trackId != trackId).toList();
     });
+
+    // After syncing, reload timeline to update indices
+    if (isMiddlewareTrack && _selectedEventId.isNotEmpty) {
+      Future.microtask(() => _loadEventToTimeline(_selectedEventId));
+    }
   }
 
   /// Delete track by ID (alias for timeline callback)
   void _handleDeleteTrackById(String trackId) => _handleDeleteTrack(trackId);
+
+  /// Sync track deletion to middleware event (removes corresponding action)
+  void _syncTrackDeletionToEvent(String trackId) {
+    // Extract action index from track ID (evt_track_0 → 0)
+    final indexStr = trackId.substring('evt_track_'.length);
+    final actionIndex = int.tryParse(indexStr) ?? -1;
+    if (actionIndex < 0) return;
+
+    final event = _selectedEvent;
+    if (event == null || actionIndex >= event.actions.length) return;
+
+    final actionToRemove = event.actions[actionIndex];
+    final eventId = _selectedEventId;
+
+    // Update local state
+    setState(() {
+      _middlewareEvents = _middlewareEvents.map((e) {
+        if (e.id == eventId) {
+          final newActions = List<MiddlewareAction>.from(e.actions);
+          if (actionIndex < newActions.length) {
+            newActions.removeAt(actionIndex);
+          }
+          return e.copyWith(actions: newActions);
+        }
+        return e;
+      }).toList();
+      // Reset selection
+      _selectedActionIndex = -1;
+    });
+
+    // Sync to MiddlewareProvider → triggers SlotLab sync
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.removeActionFromEvent(eventId, actionToRemove.id);
+
+    debugPrint('[Middleware] Synced track deletion: removed action ${actionToRemove.id} from event $eventId');
+  }
+
+  /// Sync clip deletion to middleware event (removes corresponding action)
+  void _syncClipDeletionToEvent(String clipId) {
+    // Extract action index from clip ID (evt_clip_0 → 0)
+    if (!clipId.startsWith('evt_clip_')) return;
+
+    final indexStr = clipId.substring('evt_clip_'.length);
+    final actionIndex = int.tryParse(indexStr) ?? -1;
+    if (actionIndex < 0) return;
+
+    final event = _selectedEvent;
+    if (event == null || actionIndex >= event.actions.length) return;
+
+    final actionToRemove = event.actions[actionIndex];
+    final eventId = _selectedEventId;
+
+    // Update local state
+    setState(() {
+      _middlewareEvents = _middlewareEvents.map((e) {
+        if (e.id == eventId) {
+          final newActions = List<MiddlewareAction>.from(e.actions);
+          if (actionIndex < newActions.length) {
+            newActions.removeAt(actionIndex);
+          }
+          return e.copyWith(actions: newActions);
+        }
+        return e;
+      }).toList();
+      // Reset selection
+      _selectedActionIndex = -1;
+    });
+
+    // Sync to MiddlewareProvider → triggers SlotLab sync
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.removeActionFromEvent(eventId, actionToRemove.id);
+
+    debugPrint('[Middleware] Synced clip deletion: removed action ${actionToRemove.id} from event $eventId');
+  }
 
   /// Duplicate a track with all its clips
   void _handleDuplicateTrack(String trackId) {
@@ -1154,6 +1243,54 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final trackId = 'evt_track_$i';
       final clipId = 'evt_clip_$i';
 
+      // Find matching audio file from pool for duration and waveform
+      timeline.PoolAudioFile? poolFile;
+      if (action.assetId.isNotEmpty && action.assetId != '—') {
+        final assetId = action.assetId;
+        final filename = assetId.split('/').last;
+
+        // Try multiple matching strategies:
+        // 1. Full path match
+        poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+          (f) => f?.path == assetId,
+          orElse: () => null,
+        );
+
+        // 2. Match by filename (without extension comparison)
+        if (poolFile == null) {
+          poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+            (f) => f?.name == filename,
+            orElse: () => null,
+          );
+        }
+
+        // 3. Match by name without extension
+        if (poolFile == null) {
+          final nameNoExt = filename.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a)$', caseSensitive: false), '');
+          poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+            (f) {
+              if (f == null) return false;
+              final poolNameNoExt = f.name.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a)$', caseSensitive: false), '');
+              return poolNameNoExt == nameNoExt;
+            },
+            orElse: () => null,
+          );
+        }
+
+        // 4. Partial path match (end of path)
+        if (poolFile == null) {
+          poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+            (f) => f?.path.endsWith(filename) ?? false,
+            orElse: () => null,
+          );
+        }
+
+        debugPrint('[UI] Pool lookup for "$assetId": found=${poolFile != null}, duration=${poolFile?.duration}, hasWaveform=${poolFile?.waveform != null}');
+      }
+
+      // Use real duration from pool file, or default to 2 seconds
+      final clipDuration = poolFile?.duration ?? 2.0;
+
       // Determine track name
       String trackName;
       if (action.assetId.isNotEmpty) {
@@ -1177,34 +1314,48 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         outputBus: timeline.OutputBus.sfx,
       ));
 
-      // Create clip (even without audio path, shows placeholder)
+      // Create clip with real duration and waveform from pool
       newClips.add(timeline.TimelineClip(
         id: clipId,
         trackId: trackId,
         name: action.assetId.isNotEmpty ? action.assetId.split('/').last : trackName,
         startTime: action.delay,
-        duration: 2.0,
+        duration: clipDuration,
         color: _getTrackColor(i),
         sourceFile: action.assetId.isNotEmpty ? action.assetId : null,
+        waveform: poolFile?.waveform,
+        sourceDuration: poolFile?.duration,
+        gain: action.gain,
       ));
     }
+
+    // Check if this is a reload of same event (don't show snackbar)
+    final isReload = _selectedEventForTimeline == eventId;
+    final preserveIndex = isReload ? _selectedActionIndex : -1;
 
     setState(() {
       _tracks = newTracks;
       _clips = newClips;
       _selectedEventForTimeline = eventId;
       _selectedEventId = eventId; // Sync with middleware dropdown
-      _selectedActionIndex = -1; // Reset action selection
+      // Preserve selection if same event, reset otherwise
+      _selectedActionIndex = (preserveIndex >= 0 && preserveIndex < newTracks.length)
+          ? preserveIndex
+          : -1;
+      // Update synced action count to prevent infinite reload loop
+      _lastSyncedActionCount = event.actions.length;
     });
 
-    // Show feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Loaded "${event.name}" → ${newTracks.length} tracks'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.green.shade800,
-      ),
-    );
+    // Show feedback only for initial load, not reloads
+    if (!isReload) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Loaded "${event.name}" → ${newTracks.length} tracks'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green.shade800,
+        ),
+      );
+    }
   }
 
   Color _getTrackColor(int index) {
@@ -1676,7 +1827,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       return;
     }
 
-    debugPrint('[UI] Found ${audioFiles.length} audio files');
+    // Sort alphabetically by filename to match individual file import order
+    audioFiles.sort((a, b) {
+      final nameA = a.path.split('/').last.toLowerCase();
+      final nameB = b.path.split('/').last.toLowerCase();
+      return nameA.compareTo(nameB);
+    });
+
+    debugPrint('[UI] Found ${audioFiles.length} audio files (sorted)');
 
     // Import all files to Pool (not timeline)
     for (final file in audioFiles) {
@@ -2540,6 +2698,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final duration = (item['duration'] as num?)?.toDouble() ?? 1.0;
       final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
 
+      // Generate waveform for visualization (demo until real FFI is implemented)
+      final waveform = timeline.generateDemoWaveform(samples: 2000);
+
       _audioPool.add(timeline.PoolAudioFile(
         id: fileId,
         path: path,
@@ -2548,12 +2709,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         sampleRate: (item['sampleRate'] as num?)?.toInt() ?? 48000,
         channels: (item['channels'] as num?)?.toInt() ?? 2,
         format: path.split('.').last,
-        waveform: null,
+        waveform: waveform,
         importedAt: DateTime.now(),
         defaultBus: timeline.OutputBus.master,
       ));
 
-      debugPrint('[UI] Synced from Slot Lab: $name');
+      debugPrint('[UI] Synced from Slot Lab: $name (duration: ${duration}s)');
     }
   }
 
@@ -2588,20 +2749,47 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Update a specific field of the selected action
   void _updateSelectedAction(MiddlewareAction Function(MiddlewareAction) updater) {
-    if (_selectedEvent == null || _selectedActionIndex < 0) return;
+    final event = _selectedEvent;
+    if (event == null || _selectedActionIndex < 0 || _selectedActionIndex >= event.actions.length) return;
 
+    final eventId = _selectedEventId;
+    final currentAction = event.actions[_selectedActionIndex];
+    final updatedAction = updater(currentAction);
+
+    debugPrint('[Inspector] Updating action ${updatedAction.id}: assetId="${updatedAction.assetId}", gain=${updatedAction.gain}, delay=${updatedAction.delay}');
+
+    // Update directly in MiddlewareProvider (single source of truth)
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.updateActionInEvent(eventId, updatedAction);
+
+    // Also update local _middlewareEvents and header values for immediate UI feedback
     setState(() {
       _middlewareEvents = _middlewareEvents.map((e) {
-        if (e.id == _selectedEventId) {
+        if (e.id == eventId) {
           final newActions = List<MiddlewareAction>.from(e.actions);
           if (_selectedActionIndex < newActions.length) {
-            newActions[_selectedActionIndex] = updater(newActions[_selectedActionIndex]);
+            newActions[_selectedActionIndex] = updatedAction;
           }
           return e.copyWith(actions: newActions);
         }
         return e;
       }).toList();
+
+      // Sync header values for command track display
+      _headerActionType = updatedAction.type.displayName;
+      _headerAssetId = updatedAction.assetId;
+      _headerBus = updatedAction.bus;
+      _headerScope = updatedAction.scope.displayName;
+      _headerPriority = updatedAction.priority.displayName;
+      _headerFadeCurve = updatedAction.fadeCurve.displayName;
+      _headerFadeTime = updatedAction.fadeTime;
+      _headerGain = updatedAction.gain;
+      _headerDelay = updatedAction.delay;
+      _headerLoop = updatedAction.loop;
     });
+
+    // Reload timeline to reflect changes (preserves selection now)
+    _loadEventToTimeline(eventId);
   }
 
   void _addAction() {
@@ -2617,27 +2805,43 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       fadeCurve: FadeCurveExtension.fromString(_headerFadeCurve),
       fadeTime: _headerFadeTime,
       gain: _headerGain,
+      delay: _headerDelay,
       loop: _headerLoop,
     );
 
+    final eventId = _selectedEventId;
+
     setState(() {
       _middlewareEvents = _middlewareEvents.map((e) {
-        if (e.id == _selectedEventId) {
+        if (e.id == eventId) {
           return e.copyWith(actions: [...e.actions, newAction]);
         }
         return e;
       }).toList();
       _selectedActionIndex = _selectedEvent!.actions.length; // Select new action
     });
+
+    // Sync to MiddlewareProvider → triggers SlotLab sync
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.addActionToEvent(eventId, newAction);
+
+    // Reload timeline to show new action
+    _loadEventToTimeline(eventId);
+
+    debugPrint('[Middleware] Added action ${newAction.id} to event $eventId, syncing to SlotLab');
   }
 
   /// Show Add Action dialog with all options
   void _showAddActionDialog() {
     if (_selectedEvent == null) return;
 
-    // Get asset options from audio pool (real imported files) - no placeholders
+    // Reset header asset to empty for new action
+    _headerAssetId = '';
+
+    // Get asset options from audio pool (real imported files only)
+    // First option is empty string for "no selection"
     final poolAssets = _audioPool.map((f) => f.name).toList();
-    final assetOptions = poolAssets.isNotEmpty ? poolAssets : ['—'];
+    final assetOptions = ['', ...poolAssets]; // Empty first, then real sounds
 
     showDialog(
       context: context,
@@ -2730,9 +2934,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void _deleteAction(int index) {
     if (_selectedEvent == null) return;
 
+    final eventId = _selectedEventId;
+    final actionId = _selectedEvent!.actions[index].id;
+
     setState(() {
       _middlewareEvents = _middlewareEvents.map((e) {
-        if (e.id == _selectedEventId) {
+        if (e.id == eventId) {
           final newActions = List<MiddlewareAction>.from(e.actions);
           newActions.removeAt(index);
           return e.copyWith(actions: newActions);
@@ -2741,11 +2948,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }).toList();
       _selectedActionIndex = -1;
     });
+
+    // Sync to MiddlewareProvider → triggers SlotLab sync
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.removeActionFromEvent(eventId, actionId);
+
+    // Reload timeline
+    _loadEventToTimeline(eventId);
+
+    debugPrint('[Middleware] Deleted action $actionId from event $eventId');
   }
 
   void _duplicateAction(int index) {
     if (_selectedEvent == null || index < 0 || index >= _selectedEvent!.actions.length) return;
 
+    final eventId = _selectedEventId;
     final original = _selectedEvent!.actions[index];
     final duplicate = original.copyWith(
       id: 'act-${DateTime.now().millisecondsSinceEpoch}',
@@ -2753,7 +2970,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     setState(() {
       _middlewareEvents = _middlewareEvents.map((e) {
-        if (e.id == _selectedEventId) {
+        if (e.id == eventId) {
           final newActions = List<MiddlewareAction>.from(e.actions);
           newActions.insert(index + 1, duplicate);
           return e.copyWith(actions: newActions);
@@ -2762,21 +2979,56 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }).toList();
       _selectedActionIndex = index + 1;
     });
+
+    // Sync to MiddlewareProvider → triggers SlotLab sync
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.addActionToEvent(eventId, duplicate);
+
+    // Reload timeline
+    _loadEventToTimeline(eventId);
+
+    debugPrint('[Middleware] Duplicated action to ${duplicate.id} in event $eventId');
   }
 
   void _updateAction(int index, MiddlewareAction updated) {
     if (_selectedEvent == null) return;
 
+    final eventId = _selectedEventId;
+
+    // Sync to MiddlewareProvider first (single source of truth)
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.updateActionInEvent(eventId, updated);
+
+    // Update local state for immediate UI feedback
     setState(() {
       _middlewareEvents = _middlewareEvents.map((e) {
-        if (e.id == _selectedEventId) {
+        if (e.id == eventId) {
           final newActions = List<MiddlewareAction>.from(e.actions);
           newActions[index] = updated;
           return e.copyWith(actions: newActions);
         }
         return e;
       }).toList();
+
+      // Sync header values if this is the selected action
+      if (index == _selectedActionIndex) {
+        _headerActionType = updated.type.displayName;
+        _headerAssetId = updated.assetId;
+        _headerBus = updated.bus;
+        _headerScope = updated.scope.displayName;
+        _headerPriority = updated.priority.displayName;
+        _headerFadeCurve = updated.fadeCurve.displayName;
+        _headerFadeTime = updated.fadeTime;
+        _headerGain = updated.gain;
+        _headerDelay = updated.delay;
+        _headerLoop = updated.loop;
+      }
     });
+
+    // Reload timeline (preserves selection now)
+    _loadEventToTimeline(eventId);
+
+    debugPrint('[Middleware] Updated action ${updated.id} in event $eventId');
   }
 
   void _selectAction(int index) {
@@ -2792,16 +3044,110 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         _headerFadeCurve = action.fadeCurve.displayName;
         _headerFadeTime = action.fadeTime;
         _headerGain = action.gain;
+        _headerDelay = action.delay;
         _headerLoop = action.loop;
       }
     });
   }
 
+  bool _isPreviewingEvent = false;
+  int _previewSessionId = 0; // Incremented each preview to invalidate old timers
+
   void _previewEvent() {
     if (_selectedEvent == null) return;
-    // TODO: Connect to engine - for now just print
-    debugPrint('Preview event: ${_selectedEvent!.name}');
-    debugPrint('Actions: ${_selectedEvent!.actions.map((a) => a.type.displayName).join(', ')}');
+
+    final event = _selectedEvent!;
+    debugPrint('[Middleware] Preview event: ${event.name} (${event.actions.length} actions)');
+
+    if (_isPreviewingEvent) {
+      // Stop preview
+      _stopEventPreview();
+      return;
+    }
+
+    // Increment session ID to invalidate any pending timers from previous preview
+    _previewSessionId++;
+    final currentSession = _previewSessionId;
+
+    // Build name → path and name → duration lookups from audio pool
+    final assetPathMap = <String, String>{};
+    final assetDurationMap = <String, double>{};
+    for (final poolFile in _audioPool) {
+      assetPathMap[poolFile.name] = poolFile.path;
+      assetPathMap[poolFile.path] = poolFile.path; // Also map full path
+      assetDurationMap[poolFile.name] = poolFile.duration;
+      assetDurationMap[poolFile.path] = poolFile.duration;
+    }
+
+    // Play all actions with their delays
+    _isPreviewingEvent = true;
+    setState(() {});
+
+    for (final action in event.actions) {
+      if (action.assetId.isEmpty || action.assetId == '—') continue;
+
+      // Resolve assetId to full path
+      // If assetId already contains '/', it's a full path - use directly
+      // Otherwise, look up in audio pool by name
+      String? filePath;
+      if (action.assetId.contains('/')) {
+        filePath = action.assetId;
+      } else {
+        filePath = assetPathMap[action.assetId];
+      }
+
+      if (filePath == null || filePath.isEmpty) {
+        debugPrint('[Middleware] Asset not in pool: ${action.assetId}');
+        continue;
+      }
+
+      // Schedule playback with delay
+      final delayMs = (action.delay * 1000).toInt();
+      final resolvedPath = filePath; // Already checked for null above
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        // Check both preview state AND session ID to avoid stale callbacks
+        if (!_isPreviewingEvent || _previewSessionId != currentSession) return;
+
+        try {
+          final voiceId = NativeFFI.instance.previewAudioFile(
+            resolvedPath,
+            volume: action.gain,
+          );
+          debugPrint('[Middleware] Playing ${action.assetId} ($resolvedPath) at ${action.delay}s (voice $voiceId)');
+        } catch (e) {
+          debugPrint('[Middleware] Error playing ${action.assetId}: $e');
+        }
+      });
+    }
+
+    // Auto-stop after longest action completes (delay + audio duration + buffer)
+    double maxEndTime = 0.0;
+    for (final action in event.actions) {
+      if (action.assetId.isEmpty || action.assetId == '—') continue;
+      final duration = assetDurationMap[action.assetId] ?? 3.0; // Default 3s if unknown
+      final endTime = action.delay + duration;
+      if (endTime > maxEndTime) maxEndTime = endTime;
+    }
+    // Add small buffer for safety
+    maxEndTime += 0.5;
+
+    Future.delayed(Duration(milliseconds: (maxEndTime * 1000).toInt()), () {
+      // Only auto-stop if this is still the same preview session
+      if (_isPreviewingEvent && _previewSessionId == currentSession) {
+        _stopEventPreview();
+      }
+    });
+  }
+
+  void _stopEventPreview() {
+    _isPreviewingEvent = false;
+    try {
+      NativeFFI.instance.previewStop();
+    } catch (e) {
+      debugPrint('[Middleware] Error stopping preview: $e');
+    }
+    setState(() {});
+    debugPrint('[Middleware] Preview stopped');
   }
 
   void _exportEventsToJson() async {
@@ -2872,7 +3218,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   Widget build(BuildContext context) {
     // Watch MiddlewareProvider for Events folder updates in left panel
     // This ensures new events from Slot Lab appear immediately
-    context.watch<MiddlewareProvider>();
+    final middlewareProvider = context.watch<MiddlewareProvider>();
+
+    // Auto-sync timeline when selected event's actions change externally
+    // (e.g., when action is added from another source like MiddlewareProvider)
+    if (_editorMode == EditorMode.middleware && _selectedEventId.isNotEmpty) {
+      final currentEvent = middlewareProvider.events.cast<MiddlewareEvent?>().firstWhere(
+        (e) => e?.id == _selectedEventId,
+        orElse: () => null,
+      );
+      if (currentEvent != null) {
+        final currentActionCount = currentEvent.actions.length;
+        if (currentActionCount != _lastSyncedActionCount) {
+          // Action count changed - schedule timeline reload
+          _lastSyncedActionCount = currentActionCount;
+          Future.microtask(() {
+            if (mounted) _loadEventToTimeline(_selectedEventId);
+          });
+        }
+      }
+    }
 
     // Sync audio pool from SlotLabProvider (sounds imported in Slot Lab appear in DAW)
     final slotLabProvider = context.watch<SlotLabProvider>();
@@ -2908,6 +3273,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           child: Focus(
             autofocus: true,
             canRequestFocus: true,
+            onKeyEvent: (node, event) {
+              // Handle SPACE for middleware preview at this level
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.space &&
+                  _editorMode == EditorMode.middleware) {
+                debugPrint('[EngineLayout] Focus.onKeyEvent: SPACE in middleware mode');
+                _previewEvent();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
             // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
             child: _editorMode == EditorMode.slot
                 ? Builder(
@@ -3141,6 +3517,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onLeftZoneToggle: () => setState(() => _leftVisible = !_leftVisible),
             onRightZoneToggle: () => setState(() => _rightVisible = !_rightVisible),
             onLowerZoneToggle: () => setState(() => _lowerVisible = !_lowerVisible),
+
+            // Transport - SPACE key handling
+            onPlay: () {
+              debugPrint('[EngineLayout] onPlay called, editorMode=$_editorMode');
+              // In middleware mode, SPACE triggers event preview
+              if (_editorMode == EditorMode.middleware) {
+                debugPrint('[EngineLayout] Middleware mode - calling _previewEvent');
+                _previewEvent();
+                return;
+              }
+              // In DAW mode, SPACE toggles playback
+              final engine = context.read<EngineProvider>();
+              if (engine.transport.isPlaying) {
+                engine.pause();
+              } else {
+                engine.play();
+              }
+            },
           ),
           // Floating EQ windows - optimized
           ..._buildFloatingEqWindowsOptimized(),
@@ -3692,6 +4086,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
       },
       onClipDelete: (clipId) {
+        // In middleware mode, sync deletion to event actions FIRST
+        // (before removing clip from list, as we need to find the track)
+        if (_editorMode == EditorMode.middleware && clipId.startsWith('evt_clip_')) {
+          _syncClipDeletionToEvent(clipId);
+          // After syncing, reload timeline to update indices
+          final eventId = _selectedEventId;
+          if (eventId.isNotEmpty) {
+            // Defer reload to after setState completes
+            Future.microtask(() => _loadEventToTimeline(eventId));
+          }
+        }
         // Notify engine and invalidate waveform cache
         engine.deleteClip(clipId);
         WaveformCache().remove(clipId);
@@ -3930,6 +4335,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             }).toList();
           }
         });
+
+        // In middleware mode, track selection = action selection
+        // Track IDs are "evt_track_0", "evt_track_1", etc. - extract index
+        if (_editorMode == EditorMode.middleware && trackId.startsWith('evt_track_')) {
+          final indexStr = trackId.substring('evt_track_'.length);
+          final actionIndex = int.tryParse(indexStr) ?? -1;
+          if (actionIndex >= 0) {
+            _selectAction(actionIndex);
+          }
+        }
       },
       // Track context menu
       onTrackContextMenu: (trackId, position) {
@@ -3937,6 +4352,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       },
       // Transport shortcuts (SPACE)
       onPlayPause: () {
+        // In middleware mode, SPACE triggers event preview
+        if (_editorMode == EditorMode.middleware) {
+          _previewEvent();
+          return;
+        }
+        // In DAW mode, SPACE toggles playback
         if (engine.transport.isPlaying) {
           engine.pause();
         } else {
@@ -4169,7 +4590,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                   // Action buttons - simplified, Add opens dialog
                   _ToolbarButton(icon: Icons.add, label: 'Add Action', onTap: () => _showAddActionDialog()),
                   const SizedBox(width: 4),
-                  _ToolbarButton(icon: Icons.play_arrow, label: 'Preview', onTap: _previewEvent),
+                  _ToolbarButton(
+                    icon: _isPreviewingEvent ? Icons.stop : Icons.play_arrow,
+                    label: _isPreviewingEvent ? 'Stop' : 'Preview',
+                    onTap: _previewEvent,
+                    isActive: _isPreviewingEvent,
+                  ),
                   const SizedBox(width: 4),
                   _ToolbarButton(
                     icon: Icons.copy,
@@ -4368,18 +4794,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       );
     }
 
-    // Build asset options from event's actual sounds (no placeholders)
-    final eventAssetIds = <String>{'—'}; // Always include empty option
-    for (final action in event.actions) {
-      if (action.assetId.isNotEmpty) {
-        // Extract filename from path for display
-        final displayName = action.assetId.contains('/')
-            ? action.assetId.split('/').last
-            : action.assetId;
-        eventAssetIds.add(displayName);
-      }
-    }
-    final assetOptions = eventAssetIds.toList();
+    // Build asset options from audio pool (real imported sounds only)
+    // Empty string first for "no selection", then all imported sounds
+    final poolSounds = _audioPool.map((f) => f.name).toList();
+    final assetOptions = ['', ...poolSounds]; // Empty first option, then real sounds
 
     return Container(
       width: availableWidth - 24, // Full width minus margins
@@ -4403,15 +4821,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             child: Row(
               children: const [
                 SizedBox(width: 24, child: Text('#', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 110, child: Text('Action Type', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 130, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Target Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 50, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 100, child: Text('Action Type', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 120, child: Text('Asset ID', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Bus', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Gain', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Delay', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 60, child: Text('Fade', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Curve', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 90, child: Text('Scope', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 32, child: Text('L', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('Priority', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Curve', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 80, child: Text('Scope', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 28, child: Text('L', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+                SizedBox(width: 70, child: Text('Priority', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
                 SizedBox(width: 50, child: Text('Actions', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
               ],
             ),
@@ -4434,7 +4853,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     SizedBox(width: 24, child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary))),
                     // Action Type dropdown - CONNECTED
                     SizedBox(
-                      width: 110,
+                      width: 100,
                       child: _CellDropdown(
                         value: action.type.displayName,
                         options: kActionTypes,
@@ -4442,21 +4861,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         onChanged: (val) => _updateAction(idx, action.copyWith(type: ActionTypeExtension.fromString(val))),
                       ),
                     ),
-                    // Asset ID dropdown - shows actual sounds from this event
+                    // Asset ID dropdown - shows imported sounds from audio pool
                     SizedBox(
-                      width: 130,
+                      width: 120,
                       child: _CellDropdown(
                         value: action.assetId.isEmpty
-                            ? '—'
+                            ? ''
                             : (action.assetId.contains('/') ? action.assetId.split('/').last : action.assetId),
                         options: assetOptions,
                         color: FluxForgeTheme.accentCyan,
-                        onChanged: (val) => _updateAction(idx, action.copyWith(assetId: val == '—' ? '' : val)),
+                        onChanged: (val) => _updateAction(idx, action.copyWith(assetId: val)),
                       ),
                     ),
                     // Bus dropdown - CONNECTED
                     SizedBox(
-                      width: 80,
+                      width: 70,
                       child: _CellDropdown(
                         value: action.bus,
                         options: kAllBuses,
@@ -4464,19 +4883,38 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         onChanged: (val) => _updateAction(idx, action.copyWith(bus: val)),
                       ),
                     ),
-                    // Gain - display
+                    // Gain slider - CONNECTED (synced with Inspector)
                     SizedBox(
-                      width: 50,
-                      child: Text('${(action.gain * 100).toInt()}%', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary, fontFamily: 'monospace')),
+                      width: 70,
+                      child: _CellSlider(
+                        value: action.gain,
+                        min: 0.0,
+                        max: 2.0,
+                        formatValue: (v) => '${(v * 100).toInt()}%',
+                        color: FluxForgeTheme.accentGreen,
+                        onChanged: (val) => _updateAction(idx, action.copyWith(gain: val)),
+                      ),
                     ),
-                    // Fade - display
+                    // Delay slider - CONNECTED (synced with Inspector)
+                    SizedBox(
+                      width: 70,
+                      child: _CellSlider(
+                        value: action.delay,
+                        min: 0.0,
+                        max: 10.0,
+                        formatValue: (v) => '${(v * 1000).toInt()}ms',
+                        color: FluxForgeTheme.accentOrange,
+                        onChanged: (val) => _updateAction(idx, action.copyWith(delay: val)),
+                      ),
+                    ),
+                    // Fade - display (read-only, edit in Inspector)
                     SizedBox(
                       width: 60,
                       child: Text('${(action.fadeTime * 1000).toInt()}ms', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary, fontFamily: 'monospace')),
                     ),
                     // Curve dropdown - CONNECTED
                     SizedBox(
-                      width: 80,
+                      width: 70,
                       child: _CellDropdown(
                         value: action.fadeCurve.displayName,
                         options: kFadeCurves,
@@ -4485,7 +4923,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     ),
                     // Scope dropdown - CONNECTED
                     SizedBox(
-                      width: 90,
+                      width: 80,
                       child: _CellDropdown(
                         value: action.scope.displayName,
                         options: kScopes,
@@ -4494,7 +4932,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     ),
                     // Loop toggle - CONNECTED
                     SizedBox(
-                      width: 32,
+                      width: 28,
                       child: GestureDetector(
                         onTap: () => _updateAction(idx, action.copyWith(loop: !action.loop)),
                         child: Icon(
@@ -4506,7 +4944,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                     ),
                     // Priority dropdown - CONNECTED
                     SizedBox(
-                      width: 80,
+                      width: 70,
                       child: _CellDropdown(
                         value: action.priority.displayName,
                         options: kPriorities,
@@ -7317,9 +7755,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final action = _selectedAction;
       final hasAction = action != null;
 
-      // Asset options from audio pool - no placeholders
+      // Asset options from audio pool - real sounds only, empty first
       final poolAssets = _audioPool.map((f) => f.name).toList();
-      final assetOptions = poolAssets.isNotEmpty ? poolAssets : ['—'];
+      final assetOptions = ['', ...poolAssets]; // Empty first, then real sounds
 
       return [
         // Event info (if no action selected)
@@ -7357,13 +7795,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 onChanged: (v) => _updateSelectedAction((a) =>
                     a.copyWith(type: ActionTypeExtension.fromString(v))),
               ),
-              _InspectorDropdownInteractive(
-                label: 'Asset',
-                value: hasAction ? action.assetId : '-',
-                options: assetOptions,
-                enabled: hasAction,
-                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(assetId: v)),
-              ),
+              // Asset dropdown - show filename only, map full path to name
+              Builder(builder: (context) {
+                // Get display name (filename only) from assetId
+                String displayValue = '';
+                if (hasAction && action.assetId.isNotEmpty) {
+                  if (action.assetId.contains('/')) {
+                    // Full path - extract filename
+                    displayValue = action.assetId.split('/').last;
+                  } else {
+                    displayValue = action.assetId;
+                  }
+                }
+                // Ensure displayValue is in options, if not use empty
+                if (!assetOptions.contains(displayValue)) {
+                  displayValue = '';
+                }
+                return _InspectorDropdownInteractive(
+                  label: 'Asset',
+                  value: displayValue,
+                  options: assetOptions,
+                  enabled: hasAction,
+                  onChanged: (v) {
+                    // When user selects a name, store the full path
+                    final poolFile = _audioPool.where((f) => f.name == v).firstOrNull;
+                    final newAssetId = poolFile?.path ?? v;
+                    _updateSelectedAction((a) => a.copyWith(assetId: newAssetId));
+                  },
+                );
+              }),
               _InspectorDropdownInteractive(
                 label: 'Bus',
                 value: hasAction ? action.bus : 'Master',
@@ -7424,6 +7884,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _InspectorSliderInteractive(
+                label: 'Delay',
+                value: hasAction ? action.delay : 0.0,
+                min: 0.0,
+                max: 10.0,
+                enabled: hasAction,
+                formatValue: (v) => '${(v * 1000).toInt()} ms',
+                onChanged: (v) => _updateSelectedAction((a) => a.copyWith(delay: v)),
+              ),
               _InspectorSliderInteractive(
                 label: 'Fade Time',
                 value: hasAction ? action.fadeTime : 0.1,
@@ -8313,17 +8782,24 @@ class _ToolbarButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isActive;
 
-  const _ToolbarButton({required this.icon, required this.label, required this.onTap});
+  const _ToolbarButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isActive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = isActive ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: label.isEmpty ? 6 : 8, vertical: 4),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.accentOrange,
+          color: bgColor,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -8608,16 +9084,20 @@ class _CellDropdown extends StatelessWidget {
       ),
       itemBuilder: (context) => options.map((option) {
         final isSelected = option == value;
+        final displayText = option.isEmpty ? '(none)' : option;
         return PopupMenuItem<String>(
           value: option,
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            option,
+            displayText,
             style: TextStyle(
               fontSize: 11,
-              color: isSelected ? (color ?? FluxForgeTheme.accentBlue) : FluxForgeTheme.textPrimary,
+              color: isSelected
+                  ? (color ?? FluxForgeTheme.accentBlue)
+                  : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
             ),
           ),
         );
@@ -8635,8 +9115,14 @@ class _CellDropdown extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                value,
-                style: TextStyle(fontSize: 10, color: color ?? FluxForgeTheme.textPrimary),
+                value.isEmpty ? '(select)' : value,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: value.isEmpty
+                      ? FluxForgeTheme.textTertiary
+                      : (color ?? FluxForgeTheme.textPrimary),
+                  fontStyle: value.isEmpty ? FontStyle.italic : FontStyle.normal,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -8649,6 +9135,197 @@ class _CellDropdown extends StatelessWidget {
 }
 
 // NOTE: _ActionsTable, _TableHeader, _TableCell, _TableCellDropdown removed - unused legacy widgets
+
+/// Compact inline slider for table cells
+class _CellSlider extends StatefulWidget {
+  final double value;
+  final double min;
+  final double max;
+  final String Function(double) formatValue;
+  final ValueChanged<double> onChanged;
+  final Color? color;
+
+  const _CellSlider({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.formatValue,
+    required this.onChanged,
+    this.color,
+  });
+
+  @override
+  State<_CellSlider> createState() => _CellSliderState();
+}
+
+class _CellSliderState extends State<_CellSlider> {
+  late double _currentValue;
+  bool _isDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentValue = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(_CellSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isDragging && oldWidget.value != widget.value) {
+      _currentValue = widget.value;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = widget.color ?? FluxForgeTheme.accentOrange;
+
+    return GestureDetector(
+      onHorizontalDragStart: (details) {
+        setState(() => _isDragging = true);
+      },
+      onHorizontalDragUpdate: (details) {
+        final box = context.findRenderObject() as RenderBox;
+        final localX = details.localPosition.dx;
+        final ratio = (localX / box.size.width).clamp(0.0, 1.0);
+        final newValue = widget.min + ratio * (widget.max - widget.min);
+        setState(() => _currentValue = newValue);
+      },
+      onHorizontalDragEnd: (details) {
+        setState(() => _isDragging = false);
+        widget.onChanged(_currentValue);
+      },
+      onTap: () {
+        // Show popup slider for precise control
+        _showSliderPopup(context, effectiveColor);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeepest,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: _isDragging ? effectiveColor : FluxForgeTheme.borderSubtle,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mini progress bar
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgMid,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: ((_currentValue - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: effectiveColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Value text
+            Text(
+              widget.formatValue(_currentValue),
+              style: TextStyle(
+                fontSize: 9,
+                color: effectiveColor,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSliderPopup(BuildContext context, Color color) {
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    final Offset position = box.localToGlobal(Offset.zero);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          Positioned(
+            left: position.dx - 20,
+            top: position.dy - 40,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 140,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgElevated,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: StatefulBuilder(
+                  builder: (context, setPopupState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.formatValue(_currentValue),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SliderTheme(
+                          data: SliderThemeData(
+                            activeTrackColor: color,
+                            inactiveTrackColor: FluxForgeTheme.bgDeepest,
+                            thumbColor: color,
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          ),
+                          child: Slider(
+                            value: _currentValue.clamp(widget.min, widget.max),
+                            min: widget.min,
+                            max: widget.max,
+                            onChanged: (v) {
+                              setState(() => _currentValue = v);
+                              setPopupState(() {});
+                            },
+                            onChangeEnd: (v) {
+                              widget.onChanged(v);
+                              Navigator.of(ctx).pop();
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Settings row for project settings dialog
 class _SettingsRow extends StatelessWidget {
@@ -8849,6 +9526,9 @@ class _DialogDropdownRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure value is in options, fallback to first option if not
+    final effectiveValue = options.contains(value) ? value : options.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -8863,12 +9543,21 @@ class _DialogDropdownRow extends StatelessWidget {
             border: Border.all(color: FluxForgeTheme.borderSubtle),
           ),
           child: DropdownButton<String>(
-            value: options.contains(value) ? value : options.first,
+            value: effectiveValue,
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: FluxForgeTheme.bgElevated,
             style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary),
-            items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+            items: options.map((o) => DropdownMenuItem(
+              value: o,
+              child: Text(
+                o.isEmpty ? '(none)' : o,
+                style: TextStyle(
+                  color: o.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary,
+                  fontStyle: o.isEmpty ? FontStyle.italic : FontStyle.normal,
+                ),
+              ),
+            )).toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
             },

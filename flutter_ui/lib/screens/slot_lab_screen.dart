@@ -26,6 +26,7 @@ import '../providers/stage_provider.dart';
 import '../providers/slot_lab_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
+import '../models/middleware_models.dart';
 import '../theme/fluxforge_theme.dart';
 import '../widgets/slot_lab/rtpc_editor_panel.dart';
 import '../widgets/slot_lab/bus_hierarchy_panel.dart';
@@ -86,6 +87,7 @@ class _RegionLayer {
   double volume;
   double delay;
   double offset; // Individual horizontal offset within region (in seconds)
+  double duration; // REAL audio file duration in seconds
 
   _RegionLayer({
     required this.id,
@@ -95,6 +97,7 @@ class _RegionLayer {
     this.volume = 1.0,
     this.delay = 0.0,
     this.offset = 0.0,
+    this.duration = 1.0, // Default, should be set from FFI/pool
   });
 }
 
@@ -316,6 +319,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Event → Region mapping (for auto-update when layer added to event)
   final Map<String, String> _eventToRegionMap = {}; // eventId → regionId
 
+  // Middleware sync tracking - to detect when actions added in Middleware mode
+  final Map<String, int> _lastKnownActionCounts = {}; // eventId → actionCount
+
   // Playback tracking - which layers have been triggered in current playback
   final Set<String> _triggeredLayers = {}; // layer.id
   double _lastPlayheadPosition = 0.0;
@@ -338,6 +344,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Audio pool (loaded from FFI or demo data)
   List<Map<String, dynamic>> _audioPool = [];
 
+  // Waveform cache: path → waveform data
+  final Map<String, List<double>> _waveformCache = {};
+
+  // Clip ID cache: path → clip ID (for waveform loading)
+  final Map<String, int> _clipIdCache = {};
+
   // ─── Synthetic Slot Engine ────────────────────────────────────────────────
   SlotLabProvider? _slotLabProviderNullable;
   SlotLabProvider get _slotLabProvider => _slotLabProviderNullable!;
@@ -356,6 +368,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _initializeSlotEngine();
     _restorePersistedState();
     _setupMiddlewareSync();
+
+    // Request focus for keyboard shortcuts after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+        debugPrint('[SlotLab] Focus requested for keyboard shortcuts');
+      }
+    });
   }
 
   /// Set up listener for two-way sync with Middleware
@@ -373,7 +393,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
 
-    // Sync back from Middleware to local state
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC 1: SlotCompositeEvent → local _CompositeEvent (layers)
+    // ═══════════════════════════════════════════════════════════════════════════
     for (final compositeEvent in middleware.compositeEvents) {
       // Find matching local event
       final localIndex = _compositeEvents.indexWhere((e) => e.id == compositeEvent.id);
@@ -413,6 +435,107 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               isExpanded: localEvent.isExpanded,
             );
           });
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC 2: MiddlewareEvent (actions) → local _CompositeEvent (layers)
+    // This handles changes made in Middleware timeline mode
+    // ═══════════════════════════════════════════════════════════════════════════
+    for (final middlewareEvent in middleware.events) {
+      // Find matching local event by ID or name
+      final localIndex = _compositeEvents.indexWhere(
+        (e) => e.id == middlewareEvent.id || e.name == middlewareEvent.name,
+      );
+
+      if (localIndex >= 0) {
+        final localEvent = _compositeEvents[localIndex];
+
+        // Convert MiddlewareAction → _CompositeLayer
+        final updatedLayers = middlewareEvent.actions.map((action) {
+          // Try to find existing layer with same ID
+          final existingLayer = localEvent.layers
+              .where((l) => l.id == action.id)
+              .firstOrNull;
+
+          // Resolve assetId to full path from audio pool
+          String audioPath = action.assetId;
+          if (action.assetId.isNotEmpty && !action.assetId.contains('/')) {
+            // It's just a filename, find full path in pool
+            final poolFile = _audioPool
+                .where((f) => f['name'] == action.assetId)
+                .firstOrNull;
+            if (poolFile != null) {
+              audioPath = poolFile['path'] as String? ?? action.assetId;
+            }
+          }
+
+          return _CompositeLayer(
+            id: action.id,
+            audioPath: audioPath,
+            name: action.assetId.split('/').last.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac)$'), ''),
+            volume: action.gain,
+            pan: 0.0,
+            delay: action.delay * 1000, // Convert seconds to ms
+            busId: existingLayer?.busId ?? 0,
+          );
+        }).toList();
+
+        // Check if layers actually changed
+        final hasChanges = updatedLayers.length != localEvent.layers.length ||
+            updatedLayers.any((newLayer) {
+              final oldLayer = localEvent.layers.where((l) => l.id == newLayer.id).firstOrNull;
+              if (oldLayer == null) return true;
+              return oldLayer.audioPath != newLayer.audioPath ||
+                     oldLayer.volume != newLayer.volume ||
+                     oldLayer.delay != newLayer.delay;
+            });
+
+        if (hasChanges) {
+          setState(() {
+            _compositeEvents[localIndex] = _CompositeEvent(
+              id: middlewareEvent.id,
+              name: middlewareEvent.name,
+              stage: localEvent.stage,
+              layers: updatedLayers,
+              isExpanded: localEvent.isExpanded,
+            );
+          });
+          debugPrint('[SlotLab] Synced composite event from Middleware: ${middlewareEvent.name} (${updatedLayers.length} layers)');
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // SYNC 2b: MiddlewareEvent (actions) → Timeline Region (layers)
+      // This syncs changes to regions on the timeline
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      // Find if this event has a region on timeline
+      String? regionId = _eventToRegionMap[middlewareEvent.id];
+
+      // If not found by ID, try by name
+      if (regionId == null) {
+        for (final track in _tracks) {
+          for (final region in track.regions) {
+            if (region.name == middlewareEvent.name) {
+              regionId = region.id;
+              _eventToRegionMap[middlewareEvent.id] = regionId;
+              break;
+            }
+          }
+          if (regionId != null) break;
+        }
+      }
+
+      // If we found a matching region, sync the layers
+      if (regionId != null) {
+        for (final track in _tracks) {
+          final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
+          if (regionIndex >= 0) {
+            _syncEventLayersToRegion(middlewareEvent, track.regions[regionIndex], track);
+            break;
+          }
         }
       }
     }
@@ -500,6 +623,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                       volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
                       delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
                       offset: (layerData['offset'] as num?)?.toDouble() ?? 0.0,
+                      duration: (layerData['duration'] as num?)?.toDouble() ?? 1.0,
                     );
                   }).toList() ?? [],
                 );
@@ -516,9 +640,303 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       }
 
       debugPrint('[SlotLab] Restored persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks');
+
+      // Sync with MiddlewareProvider to get any changes made in Middleware mode
+      _syncFromMiddlewareProvider();
     } catch (e) {
       debugPrint('[SlotLab] Error restoring state: $e');
     }
+  }
+
+  /// Sync events from MiddlewareProvider (updates made in Middleware timeline mode)
+  void _syncFromMiddlewareProvider() {
+    if (!mounted) return;
+
+    try {
+      final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+
+      // Sync MiddlewareEvent.actions → local _CompositeEvent.layers
+      for (final middlewareEvent in middleware.events) {
+        // Find matching local event by ID or name
+        final localIndex = _compositeEvents.indexWhere(
+          (e) => e.id == middlewareEvent.id || e.name == middlewareEvent.name,
+        );
+
+        if (localIndex >= 0) {
+          final localEvent = _compositeEvents[localIndex];
+
+          // Convert MiddlewareAction → _CompositeLayer
+          final updatedLayers = middlewareEvent.actions.map((action) {
+            // Resolve assetId to full path from audio pool
+            String audioPath = action.assetId;
+            if (action.assetId.isNotEmpty && !action.assetId.contains('/')) {
+              final poolFile = _audioPool
+                  .where((f) => f['name'] == action.assetId)
+                  .firstOrNull;
+              if (poolFile != null) {
+                audioPath = poolFile['path'] as String? ?? action.assetId;
+              }
+            }
+
+            return _CompositeLayer(
+              id: action.id,
+              audioPath: audioPath,
+              name: action.assetId.split('/').last.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac)$'), ''),
+              volume: action.gain,
+              pan: 0.0,
+              delay: action.delay * 1000, // Convert seconds to ms
+              busId: 0,
+            );
+          }).toList();
+
+          // Only update if there are more layers now (new sounds added)
+          if (updatedLayers.length > localEvent.layers.length) {
+            setState(() {
+              _compositeEvents[localIndex] = _CompositeEvent(
+                id: middlewareEvent.id,
+                name: middlewareEvent.name,
+                stage: localEvent.stage,
+                layers: updatedLayers,
+                isExpanded: localEvent.isExpanded,
+              );
+            });
+            debugPrint('[SlotLab] Synced from Middleware on restore: ${middlewareEvent.name} (${updatedLayers.length} layers)');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Error syncing from MiddlewareProvider: $e');
+    }
+  }
+
+  /// Check if any event in MiddlewareProvider has new actions and sync to timeline
+  void _checkMiddlewareChangesAndSync(MiddlewareProvider middleware) {
+    for (final mwEvent in middleware.events) {
+      final currentActionCount = mwEvent.actions.length;
+      final lastKnownCount = _lastKnownActionCounts[mwEvent.id] ?? 0;
+
+      // Detect new actions added
+      if (currentActionCount > lastKnownCount) {
+        debugPrint('[SlotLab] Middleware event "${mwEvent.name}" has new actions: $lastKnownCount → $currentActionCount');
+
+        // Find if this event is on our timeline - try by ID first, then by name
+        String? regionId = _eventToRegionMap[mwEvent.id];
+
+        // If not found by ID, try to find by event name matching region name
+        if (regionId == null) {
+          for (final track in _tracks) {
+            for (final region in track.regions) {
+              if (region.name == mwEvent.name) {
+                regionId = region.id;
+                // Cache this mapping for future
+                _eventToRegionMap[mwEvent.id] = regionId;
+                debugPrint('[SlotLab] Found region by name match: ${mwEvent.name} → $regionId');
+                break;
+              }
+            }
+            if (regionId != null) break;
+          }
+        }
+
+        if (regionId != null) {
+          // Find the region on timeline
+          for (final track in _tracks) {
+            final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
+            if (regionIndex >= 0) {
+              // Sync the new layers to the region
+              debugPrint('[SlotLab] Syncing to region: $regionId on track ${track.name}');
+              _syncEventLayersToRegion(mwEvent, track.regions[regionIndex], track);
+              break;
+            }
+          }
+        } else {
+          debugPrint('[SlotLab] No matching region found for event "${mwEvent.name}"');
+        }
+
+        // Update known count
+        _lastKnownActionCounts[mwEvent.id] = currentActionCount;
+      } else if (currentActionCount != lastKnownCount) {
+        // Just update the count (actions may have been removed)
+        _lastKnownActionCounts[mwEvent.id] = currentActionCount;
+      }
+    }
+  }
+
+  /// Sync layers from MiddlewareEvent to an existing region on timeline
+  /// INCREMENTAL: Only adds NEW layers, preserves existing ones
+  /// Loads REAL waveform and duration via FFI for accurate display
+  void _syncEventLayersToRegion(MiddlewareEvent mwEvent, _AudioRegion region, _SlotAudioTrack track) {
+    debugPrint('[SlotLab] ═══ SYNC START: "${mwEvent.name}" → region "${region.id}" ═══');
+    debugPrint('[SlotLab] Audio pool: ${_audioPool.length} files, Region layers: ${region.layers.length}');
+
+    // Get existing layer IDs and audio paths to avoid duplicates
+    final existingLayerIds = region.layers.map((l) => l.id).toSet();
+    final existingPaths = region.layers.map((l) => l.audioPath).toSet();
+
+    // Find NEW layers from middleware actions
+    final newLayers = <_RegionLayer>[];
+    double maxEndTime = region.end - region.start; // Current duration
+
+    // Get FFI track ID from track.id
+    int ffiTrackId = 0;
+    if (track.id.startsWith('ffi_')) {
+      ffiTrackId = int.tryParse(track.id.substring(4)) ?? 0;
+    }
+
+    for (final action in mwEvent.actions) {
+      // Skip if this action is already synced (by ID)
+      if (existingLayerIds.contains(action.id)) {
+        debugPrint('[SlotLab] Skip: action ${action.id} already synced');
+        continue;
+      }
+
+      // Skip empty asset IDs
+      if (action.assetId.isEmpty || action.assetId == '—') {
+        debugPrint('[SlotLab] Skip: empty assetId');
+        continue;
+      }
+
+      debugPrint('[SlotLab] Processing NEW action: "${action.assetId}"');
+
+      // Resolve assetId to full path
+      String audioPath = action.assetId;
+      double audioDuration = 0.0;
+      int clipId = 0;
+
+      // Try to find in audio pool
+      Map<String, dynamic>? poolFile = _findInAudioPool(action.assetId);
+
+      if (poolFile != null) {
+        audioPath = poolFile['path'] as String? ?? action.assetId;
+        audioDuration = (poolFile['duration'] as num?)?.toDouble() ?? 0.0;
+        clipId = poolFile['clipId'] as int? ?? 0;
+        debugPrint('[SlotLab] Found in pool: "$audioPath", dur=$audioDuration, clipId=$clipId');
+      }
+
+      // Skip if we already have a layer with this audioPath
+      if (existingPaths.contains(audioPath)) {
+        debugPrint('[SlotLab] Skip: path already exists');
+        continue;
+      }
+
+      // If no clipId or duration, import via FFI to get REAL data
+      if (clipId <= 0 || audioDuration <= 0) {
+        if (_ffi.isLoaded && audioPath.isNotEmpty) {
+          try {
+            // Import audio to get real clipId
+            clipId = _ffi.importAudio(audioPath, ffiTrackId > 0 ? ffiTrackId : 0, action.delay);
+            if (clipId > 0) {
+              _clipIdCache[audioPath] = clipId;
+              debugPrint('[SlotLab] FFI imported: clipId=$clipId');
+
+              // Get REAL duration from FFI metadata
+              if (audioDuration <= 0) {
+                audioDuration = _getAudioDuration(audioPath);
+                debugPrint('[SlotLab] FFI duration: ${audioDuration}s');
+              }
+            }
+          } catch (e) {
+            debugPrint('[SlotLab] FFI import error: $e');
+          }
+        }
+      }
+
+      // Fallback duration if still unknown
+      if (audioDuration <= 0) audioDuration = 1.0;
+
+      // Calculate layer end time
+      final layerEndTime = action.delay + audioDuration;
+      if (layerEndTime > maxEndTime) {
+        maxEndTime = layerEndTime;
+      }
+
+      final layerName = audioPath.split('/').last.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac)$', caseSensitive: false), '');
+
+      newLayers.add(_RegionLayer(
+        id: action.id.isNotEmpty ? action.id : 'layer_${DateTime.now().millisecondsSinceEpoch}_${newLayers.length}',
+        audioPath: audioPath,
+        name: layerName,
+        ffiClipId: clipId > 0 ? clipId : null,
+        volume: action.gain,
+        delay: action.delay,
+        offset: action.delay,
+        duration: audioDuration, // REAL duration from FFI/pool
+      ));
+
+      debugPrint('[SlotLab] Added layer: "$layerName", clipId=$clipId, dur=${audioDuration}s');
+    }
+
+    // If no new layers, nothing to do
+    if (newLayers.isEmpty) {
+      debugPrint('[SlotLab] ═══ SYNC END: No new layers ═══');
+      return;
+    }
+
+    // MERGE existing layers with new layers
+    final trackIndex = _tracks.indexOf(track);
+    final regionIndex = track.regions.indexOf(region);
+
+    if (trackIndex >= 0 && regionIndex >= 0) {
+      setState(() {
+        final mergedLayers = [...region.layers, ...newLayers];
+        final newEnd = region.start + maxEndTime;
+
+        _tracks[trackIndex].regions[regionIndex] = _AudioRegion(
+          id: region.id,
+          start: region.start,
+          end: newEnd > region.end ? newEnd : region.end,
+          name: region.name,
+          audioPath: mergedLayers.isNotEmpty ? mergedLayers.first.audioPath : region.audioPath,
+          color: region.color,
+          waveformData: region.waveformData, // Waveform loaded via _getWaveformForPath per-layer
+          isSelected: region.isSelected,
+          isMuted: region.isMuted,
+          isExpanded: mergedLayers.length > 1, // Auto-expand when multiple layers
+          layers: mergedLayers,
+        );
+      });
+      debugPrint('[SlotLab] ═══ SYNC END: Added ${newLayers.length} layers. Total: ${region.layers.length + newLayers.length} ═══');
+    }
+  }
+
+  /// Helper to find file in audio pool with multiple strategies
+  Map<String, dynamic>? _findInAudioPool(String assetId) {
+    // Strategy 1: Exact name match
+    var poolFile = _audioPool.cast<Map<String, dynamic>?>().firstWhere(
+      (f) => f != null && (f['name'] as String?) == assetId,
+      orElse: () => null,
+    );
+    if (poolFile != null) return poolFile;
+
+    // Strategy 2: Full path match
+    poolFile = _audioPool.cast<Map<String, dynamic>?>().firstWhere(
+      (f) => f != null && (f['path'] as String?) == assetId,
+      orElse: () => null,
+    );
+    if (poolFile != null) return poolFile;
+
+    // Strategy 3: Filename (without extension) match
+    final assetName = assetId.split('/').last.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac)$', caseSensitive: false), '');
+    poolFile = _audioPool.cast<Map<String, dynamic>?>().firstWhere(
+      (f) {
+        if (f == null) return false;
+        final poolName = (f['name'] as String? ?? '').replaceAll(RegExp(r'\.(wav|mp3|ogg|flac)$', caseSensitive: false), '');
+        return poolName == assetName;
+      },
+      orElse: () => null,
+    );
+    if (poolFile != null) return poolFile;
+
+    // Strategy 4: Path ends with assetId
+    poolFile = _audioPool.cast<Map<String, dynamic>?>().firstWhere(
+      (f) {
+        if (f == null) return false;
+        final path = f['path'] as String? ?? '';
+        return path.endsWith('/$assetId') || path.endsWith(assetId);
+      },
+      orElse: () => null,
+    );
+    return poolFile;
   }
 
   /// Persist state to provider (survives screen switches)
@@ -572,6 +990,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             'volume': layer.volume,
             'delay': layer.delay,
             'offset': layer.offset,
+            'duration': layer.duration,
           }).toList(),
         }).toList(),
       }).toList();
@@ -780,14 +1199,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         final dir = Directory(result);
         final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
 
+        // Collect all audio files first
+        final audioFiles = <File>[];
         await for (final entity in dir.list(recursive: true)) {
           if (entity is File) {
             final ext = entity.path.toLowerCase().split('.').last;
             if (audioExtensions.contains('.$ext')) {
-              final name = entity.path.split('/').last;
-              await _addAudioToPool(entity.path, name);
+              audioFiles.add(entity);
             }
           }
+        }
+
+        // Sort alphabetically by filename to match individual file import order
+        audioFiles.sort((a, b) {
+          final nameA = a.path.split('/').last.toLowerCase();
+          final nameB = b.path.split('/').last.toLowerCase();
+          return nameA.compareTo(nameB);
+        });
+
+        // Import sorted files
+        for (final file in audioFiles) {
+          final name = file.path.split('/').last;
+          await _addAudioToPool(file.path, name);
         }
         _persistState();
       }
@@ -921,6 +1354,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
+    // Watch MiddlewareProvider for changes to sync timeline
+    final middleware = context.watch<MiddlewareProvider>();
+    _checkMiddlewareChangesAndSync(middleware);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _focusNode.requestFocus(),
@@ -1035,6 +1472,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     final key = event.logicalKey;
 
+    debugPrint('[SlotLab] Key event: ${key.keyLabel}, type: ${event.runtimeType}');
+
     // Keys that allow repeat (hold key for continuous adjustment)
     final isZoomKey = key == LogicalKeyboardKey.keyG || key == LogicalKeyboardKey.keyH;
     final isArrowKey = key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight;
@@ -1046,12 +1485,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Space = Play/Stop (no repeat)
     if (key == LogicalKeyboardKey.space) {
+      debugPrint('[SlotLab] SPACE pressed - toggling playback, isPlaying=$_isPlaying');
       _togglePlayback();
       return KeyEventResult.handled;
     }
 
     // G = Zoom Out (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyG) {
+      debugPrint('[SlotLab] G pressed - zoom out, current=$_timelineZoom');
       setState(() {
         _timelineZoom = (_timelineZoom * 0.85).clamp(0.1, 10.0);
       });
@@ -1060,6 +1501,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // H = Zoom In (supports hold for continuous zoom)
     if (key == LogicalKeyboardKey.keyH) {
+      debugPrint('[SlotLab] H pressed - zoom in, current=$_timelineZoom');
       setState(() {
         _timelineZoom = (_timelineZoom * 1.18).clamp(0.1, 10.0);
       });
@@ -1084,6 +1526,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // L = Set loop around selected region AND toggle loop
     if (key == LogicalKeyboardKey.keyL) {
+      debugPrint('[SlotLab] L pressed - toggle loop, isLooping=$_isLooping');
       // Find selected region
       _AudioRegion? selectedRegion;
       for (final track in _tracks) {
@@ -1145,9 +1588,65 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   void _deleteSelectedRegions() {
     setState(() {
       for (final track in _tracks) {
+        // Get selected regions before removing
+        final selectedRegions = track.regions.where((r) => r.isSelected).toList();
+
+        // Sync delete to composite events
+        for (final region in selectedRegions) {
+          _syncRegionDeleteToEvent(region);
+        }
+
         track.regions.removeWhere((r) => r.isSelected);
       }
     });
+  }
+
+  /// When a region is deleted from timeline, DELETE the composite event too
+  void _syncRegionDeleteToEvent(_AudioRegion region) {
+    debugPrint('[SlotLab] Sync delete for region: "${region.name}" (id=${region.id})');
+
+    // Strategy 1: Find event by ID mapping
+    String? eventId;
+    for (final entry in _eventToRegionMap.entries) {
+      if (entry.value == region.id) {
+        eventId = entry.key;
+        break;
+      }
+    }
+
+    // Strategy 2: Find event by name if no ID mapping
+    int eventIndex = -1;
+    if (eventId != null) {
+      eventIndex = _compositeEvents.indexWhere((e) => e.id == eventId);
+    }
+    if (eventIndex < 0) {
+      // Try by name
+      eventIndex = _compositeEvents.indexWhere((e) => e.name == region.name);
+      if (eventIndex >= 0) {
+        eventId = _compositeEvents[eventIndex].id;
+        debugPrint('[SlotLab] Found event by name match: ${region.name}');
+      }
+    }
+
+    if (eventIndex >= 0) {
+      final eventName = _compositeEvents[eventIndex].name;
+
+      // DELETE the entire composite event
+      _compositeEvents.removeAt(eventIndex);
+      debugPrint('[SlotLab] Deleted composite event: "$eventName"');
+
+      // Remove the mapping
+      if (eventId != null) {
+        _eventToRegionMap.remove(eventId);
+      }
+
+      // Clear selection if this was selected
+      if (_selectedEventId == eventId) {
+        _selectedEventId = null;
+      }
+    } else {
+      debugPrint('[SlotLab] No matching composite event found for region "${region.name}"');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1447,6 +1946,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
       } else if (value == 'delete') {
         setState(() {
+          // Sync delete to composite event first
+          _syncRegionDeleteToEvent(region);
+
           for (final track in _tracks) {
             track.regions.removeWhere((r) => r.id == region.id);
           }
@@ -2540,16 +3042,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   ),
                 );
               }),
-              // Playhead indicator on ruler
-              Positioned(
-                left: (_playheadPosition / _timelineDuration) * constraints.maxWidth - 1,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 2,
-                  color: Colors.white,
-                ),
-              ),
+              // NOTE: White playhead indicator removed - red DAW-style playhead on timeline is sufficient
             ],
           );
         },
@@ -2728,6 +3221,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               color: const Color(0xFFF1C40F),
               onTap: () => setState(() => track.isSolo = !track.isSolo),
             ),
+            // Delete track button
+            _buildTrackButton(
+              icon: Icons.delete_outline,
+              isActive: false,
+              color: const Color(0xFFFF4040),
+              onTap: () => _deleteTrack(track, index),
+            ),
           ],
         ),
       ),
@@ -2885,26 +3385,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                         ),
                       ),
 
-                    // Playhead visual (IgnorePointer - just visual, no interaction)
-                    IgnorePointer(
-                      child: Positioned(
-                        left: (_playheadPosition / _timelineDuration) * zoomedWidth,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 2,
-                          color: Colors.white,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
+                    // DAW-style Playhead (Cubase/Pro Tools style with triangle head)
+                    Positioned(
+                      left: (_playheadPosition / _timelineDuration) * zoomedWidth - 8, // Center the 16px wide playhead
+                      top: 0,
+                      bottom: 0,
+                      child: SizedBox(
+                        width: 16,
+                        child: CustomPaint(
+                          size: Size(16, constraints.maxHeight),
+                          painter: _SlotLabPlayheadPainter(isDragging: _isPlaying),
                         ),
                       ),
                     ),
@@ -3078,7 +3568,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
-    // COLLAPSED: Normal region with border
+    // COLLAPSED: Normal region with border + delete button
     return MouseRegion(
       cursor: _draggingRegion == region ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
       child: Container(
@@ -3094,18 +3584,54 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             width: region.isSelected ? 2 : 1,
           ),
         ),
-        child: hasLayers
-            ? _buildLayerRow(region.layers.first, region.color, muted, true, layerCount)
-            : _buildEmptyRegionRow(region, muted),
+        child: Stack(
+          children: [
+            // Region content
+            Positioned.fill(
+              child: hasLayers
+                  ? _buildLayerRow(region.layers.first, region.color, muted, true, layerCount)
+                  : _buildEmptyRegionRow(region, muted),
+            ),
+            // Delete button for region - inside container
+            Positioned(
+              right: 4,
+              top: 4,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _deleteRegionFromTimeline(region),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   /// Build a draggable layer row - can be moved freely across entire timeline
+  /// Uses layer.duration for REAL audio file width, not region width
   Widget _buildDraggableLayerRow(_RegionLayer layer, _AudioRegion region, int layerIndex, Color color, bool muted, double regionWidth) {
     final isDragging = _draggingLayer == layer;
     final pixelsPerSecond = regionWidth / region.duration;
     final offsetPixels = layer.offset * pixelsPerSecond;
+    // Use REAL layer duration for width, not region width
+    final layerWidth = layer.duration * pixelsPerSecond;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -3138,12 +3664,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Layer content positioned with offset - each layer as mini-track
+            // Layer content positioned with offset - width based on REAL duration
             Positioned(
               left: offsetPixels,
               top: 1,
               bottom: 1,
-              width: regionWidth, // Fixed width, moves with offset
+              width: layerWidth.clamp(20.0, regionWidth), // Real duration width, min 20px
               child: Opacity(
                 opacity: isDragging ? 0.7 : 1.0,
                 child: Container(
@@ -3176,6 +3702,26 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   ),
                 ),
               ),
+            // Delete button for layer
+            Positioned(
+              right: offsetPixels + 2,
+              top: 2,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _deleteLayerFromTimeline(region, layer),
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Icon(Icons.close, size: 10, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -3364,31 +3910,79 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  /// Get waveform data for an audio path from the pool or generate from FFI
+  /// Get waveform data for an audio path from cache or load via FFI
   List<double>? _getWaveformForPath(String audioPath) {
-    // First try to find in audio pool
+    if (audioPath.isEmpty) return null;
+
+    // Check cache first
+    if (_waveformCache.containsKey(audioPath)) {
+      return _waveformCache[audioPath];
+    }
+
+    // Try audio pool
     for (final item in _audioPool) {
       final path = item['path'] as String? ?? '';
       if (path == audioPath || path.endsWith(audioPath.split('/').last)) {
         final waveform = item['waveform'];
         if (waveform is List && waveform.isNotEmpty) {
-          return waveform.map((e) => (e as num).toDouble()).toList();
+          final data = waveform.map((e) => (e as num).toDouble()).toList();
+          _waveformCache[audioPath] = data;
+          return data;
         }
       }
     }
 
-    // Try to find clip ID in existing regions and load from FFI
+    // Try to find clip ID in existing regions
     for (final track in _tracks) {
       for (final region in track.regions) {
         for (final layer in region.layers) {
           if (layer.audioPath == audioPath && layer.ffiClipId != null && layer.ffiClipId! > 0) {
-            return _loadWaveformForClip(layer.ffiClipId!);
+            final data = _loadWaveformForClip(layer.ffiClipId!);
+            if (data != null) {
+              _waveformCache[audioPath] = data;
+              return data;
+            }
           }
         }
       }
     }
 
+    // Check clip ID cache
+    if (_clipIdCache.containsKey(audioPath)) {
+      final clipId = _clipIdCache[audioPath]!;
+      final data = _loadWaveformForClip(clipId);
+      if (data != null) {
+        _waveformCache[audioPath] = data;
+        return data;
+      }
+    }
+
+    // Try to load waveform asynchronously (will be available on next rebuild)
+    _loadWaveformAsync(audioPath);
+
     return null;
+  }
+
+  /// Asynchronously load waveform for a path
+  void _loadWaveformAsync(String audioPath) async {
+    if (_clipIdCache.containsKey(audioPath) || !_ffi.isLoaded) return;
+
+    try {
+      // Import audio to get clip ID (use track 0 temporarily)
+      final clipId = _ffi.importAudio(audioPath, 0, 0.0);
+      if (clipId > 0) {
+        _clipIdCache[audioPath] = clipId;
+        final waveform = _loadWaveformForClip(clipId);
+        if (waveform != null && waveform.isNotEmpty) {
+          _waveformCache[audioPath] = waveform;
+          // Trigger rebuild to show waveform
+          if (mounted) setState(() {});
+          debugPrint('[SlotLab] Loaded waveform for $audioPath (${waveform.length} peaks)');
+        }
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Async waveform load error: $e');
+    }
   }
 
   void _handleAudioDrop(String audioPath, Offset globalPosition) {
@@ -3413,7 +4007,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       orElse: () => {'path': audioPath, 'name': audioPath.split('/').last, 'duration': 1.0},
     );
 
-    final duration = (audioInfo['duration'] as num?)?.toDouble() ?? 1.0;
+    // Get actual duration from FFI metadata (more accurate than pool data)
+    final duration = _getAudioDuration(audioPath);
     final name = audioInfo['name'] as String;
 
     // Import audio to FFI engine for real playback
@@ -3461,18 +4056,39 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Load real waveform data from FFI for a clip
+  /// Returns min/max pairs for accurate waveform display
   List<double>? _loadWaveformForClip(int clipId) {
     if (clipId <= 0 || !_ffi.isLoaded) return null;
     try {
-      final peaks = _ffi.getWaveformPeaks(clipId, maxPeaks: 200);
+      // Use higher resolution for better waveform detail (512 peaks = 1024 values for min/max pairs)
+      final peaks = _ffi.getWaveformPeaks(clipId, maxPeaks: 512);
       if (peaks.isNotEmpty) {
-        debugPrint('[SlotLab] Loaded waveform with ${peaks.length} peaks');
+        debugPrint('[SlotLab] Loaded waveform with ${peaks.length} values (${peaks.length ~/ 2} peaks)');
         return peaks;
       }
     } catch (e) {
       debugPrint('[SlotLab] Waveform load error: $e');
     }
     return null;
+  }
+
+  /// Get audio duration from FFI metadata
+  double _getAudioDuration(String audioPath) {
+    if (audioPath.isEmpty || !_ffi.isLoaded) return 1.0;
+    try {
+      final metadataJson = NativeFFI.instance.audioGetMetadata(audioPath);
+      if (metadataJson.isNotEmpty && metadataJson != 'null') {
+        final metadata = jsonDecode(metadataJson) as Map<String, dynamic>;
+        final duration = (metadata['duration'] as num?)?.toDouble();
+        if (duration != null && duration > 0) {
+          debugPrint('[SlotLab] Got duration for $audioPath: ${duration}s');
+          return duration;
+        }
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Metadata error: $e');
+    }
+    return 1.0;
   }
 
   void _handleEventDrop(_CompositeEvent event, Offset globalPosition) {
@@ -3501,6 +4117,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       name: event.name, // Track name = Event name
       color: trackColor,
     );
+
+    // Empty events - create track header only, NO region on timeline
+    if (event.layers.isEmpty) {
+      setState(() {
+        _tracks.add(newTrack);
+        _selectedTrackIndex = _tracks.length - 1;
+        _eventToRegionMap[event.id] = 'empty_${newTrack.id}'; // Track mapping without region
+      });
+      debugPrint('[SlotLab] Created empty track header: ${event.name}');
+      _persistState();
+      return;
+    }
 
     // Calculate total duration from all layers (longest layer wins)
     double totalDuration = 0.0;
@@ -3554,6 +4182,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         ffiClipId: ffiClipId > 0 ? ffiClipId : null,
         volume: layer.volume,
         delay: layer.delay,
+        duration: layerDuration, // REAL duration from pool
       ));
     }
 
@@ -3575,6 +4204,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       layers: regionLayers,
       isExpanded: false, // DEFAULT: collapsed - user expands manually
     );
+
+    debugPrint('[SlotLab] Created region: ${region.name}, layers: ${regionLayers.length}, waveform: ${waveformData != null}');
 
     setState(() {
       _tracks.add(newTrack);
@@ -3658,66 +4289,40 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Widget _buildMockSlot() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(0, 4, 0, 0),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1A1A22), Color(0xFF0D0D10), Color(0xFF1A1A22)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withOpacity(0.3),
-          width: 2,
-        ),
-      ),
+      margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       child: Row(
         children: [
-          // Reels
+          // Premium Slot Preview Widget - fills available space
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: List.generate(
-                  _reelCount,
-                  (i) => Expanded(child: _buildReel(i)),
-                ),
-              ),
+            child: SlotPreviewWidget(
+              provider: _slotLabProvider,
+              reels: _reelCount,
+              rows: _rowCount,
             ),
           ),
-          // Controls
+          // Compact Controls
           Container(
-            width: 120,
-            padding: const EdgeInsets.all(6),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
-                      const SizedBox(height: 4),
-                      // Forced outcome buttons (only when engine is active)
-                      if (_engineInitialized) ...[
-                        _buildSmallButton('BIG WIN', const Color(0xFFFF9040),
-                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.bigWin)),
-                        const SizedBox(height: 3),
-                        _buildSmallButton('MEGA', const Color(0xFFFF4080),
-                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.megaWin)),
-                        const SizedBox(height: 3),
-                        _buildSmallButton('FREE', const Color(0xFF40C8FF),
-                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.freeSpins)),
-                        const SizedBox(height: 3),
-                        _buildSmallButton('JACKPOT', const Color(0xFFFFD700),
-                            () => _handleEngineSpin(forcedOutcome: ForcedOutcome.jackpotGrand)),
-                      ] else ...[
-                        _buildSlotButton('TURBO', const Color(0xFFFFAA00), () {}),
-                      ],
-                    ],
-                  ),
-                );
-              },
+            width: 90,
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
+                const SizedBox(height: 4),
+                if (_engineInitialized) ...[
+                  _buildSmallButton('BIG', const Color(0xFFFF9040),
+                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.bigWin)),
+                  const SizedBox(height: 3),
+                  _buildSmallButton('MEGA', const Color(0xFFFF4080),
+                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.megaWin)),
+                  const SizedBox(height: 3),
+                  _buildSmallButton('FREE', const Color(0xFF40C8FF),
+                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.freeSpins)),
+                  const SizedBox(height: 3),
+                  _buildSmallButton('JACK', const Color(0xFFFFD700),
+                      () => _handleEngineSpin(forcedOutcome: ForcedOutcome.jackpotGrand)),
+                ],
+              ],
             ),
           ),
         ],
@@ -3879,6 +4484,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   void _handleEngineSpin({ForcedOutcome? forcedOutcome}) async {
     if (_isSpinning) return;
 
+    // Stop all previous audio to prevent overlapping sounds
+    try {
+      final mw = Provider.of<MiddlewareProvider>(context, listen: false);
+      mw.stopAllEvents(fadeMs: 50);
+    } catch (_) {}
+
     setState(() {
       _isSpinning = true;
       _balance -= _bet;
@@ -3968,6 +4579,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Mock spin (fallback when engine not available)
   void _handleMockSpin() {
+    // Stop all previous audio to prevent overlapping sounds
+    try {
+      final mw = Provider.of<MiddlewareProvider>(context, listen: false);
+      mw.stopAllEvents(fadeMs: 50);
+    } catch (_) {}
+
     setState(() {
       _isSpinning = true;
       _balance -= _bet;
@@ -4309,6 +4926,19 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 '${event.layers.length} layers',
                 style: const TextStyle(color: Colors.white38, fontSize: 9),
               ),
+              const SizedBox(width: 8),
+              // Delete event button
+              InkWell(
+                onTap: () => _deleteCompositeEvent(event),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4060).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4060)),
+                ),
+              ),
             ],
           ),
         ),
@@ -4330,7 +4960,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     ),
                   )
                 : Column(
-                    children: event.layers.map((layer) => _buildLayerItem(layer)).toList(),
+                    children: event.layers.map((layer) => _buildLayerItem(event, layer)).toList(),
                   ),
           ),
       ],
@@ -4374,7 +5004,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
       if (regionIndex >= 0) {
         final region = track.regions[regionIndex];
-        final layerDuration = (audioInfo['duration'] as num?)?.toDouble() ?? 1.0;
+        final audioPath = audioInfo['path'] as String? ?? '';
+        // Get actual duration from FFI metadata
+        final layerDuration = _getAudioDuration(audioPath);
 
         // Import audio to FFI for playback
         int ffiClipId = 0;
@@ -4398,6 +5030,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           audioPath: audioInfo['path'] as String? ?? '',
           name: audioInfo['name'] as String? ?? 'Audio',
           ffiClipId: ffiClipId > 0 ? ffiClipId : null,
+          duration: layerDuration, // REAL duration from FFI
         ));
 
         // Extend region duration if new layer is longer
@@ -4421,7 +5054,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
-  Widget _buildLayerItem(_CompositeLayer layer) {
+  Widget _buildLayerItem(_CompositeEvent event, _CompositeLayer layer) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -4444,9 +5077,205 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             '${(layer.volume * 100).toInt()}%',
             style: const TextStyle(color: Colors.white38, fontSize: 9),
           ),
+          const SizedBox(width: 6),
+          // Delete layer button
+          InkWell(
+            onTap: () => _deleteLayerFromEvent(event, layer),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF4060).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Icon(Icons.close, size: 10, color: Color(0xFFFF4060)),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// Delete entire composite event (also deletes timeline region AND track header)
+  void _deleteCompositeEvent(_CompositeEvent event) {
+    setState(() {
+      // Delete associated timeline region - try by ID mapping first
+      String? regionId = _eventToRegionMap[event.id];
+
+      // If no ID mapping, try to find by name
+      if (regionId == null) {
+        for (final track in _tracks) {
+          for (final region in track.regions) {
+            if (region.name == event.name) {
+              regionId = region.id;
+              break;
+            }
+          }
+          if (regionId != null) break;
+        }
+      }
+
+      // Remove the region from timeline
+      if (regionId != null) {
+        final localRegionId = regionId;
+        for (final track in _tracks) {
+          track.regions.removeWhere((r) => r.id == localRegionId);
+        }
+        _eventToRegionMap.remove(event.id);
+      } else {
+        // Fallback: remove any region with matching name
+        for (final track in _tracks) {
+          track.regions.removeWhere((r) => r.name == event.name);
+        }
+      }
+
+      // Also delete track header with same name
+      final trackIndex = _tracks.indexWhere((t) => t.name == event.name);
+      if (trackIndex >= 0) {
+        _tracks.removeAt(trackIndex);
+        // Adjust selection
+        if (_selectedTrackIndex == trackIndex) {
+          _selectedTrackIndex = _tracks.isNotEmpty ? 0 : null;
+        } else if (_selectedTrackIndex != null && _selectedTrackIndex! > trackIndex) {
+          _selectedTrackIndex = _selectedTrackIndex! - 1;
+        }
+        debugPrint('[SlotLab] Also deleted track header: ${event.name}');
+      }
+
+      // Remove from composite events
+      _compositeEvents.removeWhere((e) => e.id == event.id);
+
+      // Clear selection if this was selected
+      if (_selectedEventId == event.id) {
+        _selectedEventId = null;
+      }
+    });
+
+    _persistState();
+    debugPrint('[SlotLab] Deleted event, region and track: ${event.name}');
+  }
+
+  /// Delete entire track with all its regions (syncs to composite events)
+  void _deleteTrack(_SlotAudioTrack track, int index) {
+    setState(() {
+      // Sync delete all regions to composite events
+      for (final region in track.regions) {
+        _syncRegionDeleteToEvent(region);
+      }
+
+      // Also delete composite event with same name (for empty tracks without regions)
+      final eventIndex = _compositeEvents.indexWhere((e) => e.name == track.name);
+      if (eventIndex >= 0) {
+        final eventId = _compositeEvents[eventIndex].id;
+        _compositeEvents.removeAt(eventIndex);
+        _eventToRegionMap.remove(eventId);
+        if (_selectedEventId == eventId) {
+          _selectedEventId = null;
+        }
+        debugPrint('[SlotLab] Also deleted composite event: ${track.name}');
+      }
+
+      // Remove track
+      _tracks.removeAt(index);
+
+      // Clear selection if this was selected
+      if (_selectedTrackIndex == index) {
+        _selectedTrackIndex = _tracks.isNotEmpty ? 0 : null;
+      } else if (_selectedTrackIndex != null && _selectedTrackIndex! > index) {
+        _selectedTrackIndex = _selectedTrackIndex! - 1;
+      }
+    });
+
+    _persistState();
+    debugPrint('[SlotLab] Deleted track: ${track.name}');
+  }
+
+  /// Delete entire region from timeline (syncs to composite event too)
+  void _deleteRegionFromTimeline(_AudioRegion region) {
+    setState(() {
+      // Sync delete to composite event first
+      _syncRegionDeleteToEvent(region);
+
+      // Remove region from tracks
+      for (final track in _tracks) {
+        track.regions.removeWhere((r) => r.id == region.id);
+      }
+    });
+
+    _persistState();
+    debugPrint('[SlotLab] Deleted region from timeline: ${region.name}');
+  }
+
+  /// Delete a layer from timeline region (syncs to composite event too)
+  void _deleteLayerFromTimeline(_AudioRegion region, _RegionLayer layer) {
+    setState(() {
+      // Remove layer from region
+      region.layers.removeWhere((l) => l.id == layer.id);
+
+      // Find and update composite event
+      String? eventId;
+      for (final entry in _eventToRegionMap.entries) {
+        if (entry.value == region.id) {
+          eventId = entry.key;
+          break;
+        }
+      }
+
+      if (eventId != null) {
+        final event = _compositeEvents.firstWhere(
+          (e) => e.id == eventId,
+          orElse: () => _CompositeEvent(id: '', name: '', stage: '', layers: []),
+        );
+        if (event.id.isNotEmpty) {
+          // Remove matching layer from composite event
+          event.layers.removeWhere((l) =>
+              l.id == layer.id || l.audioPath == layer.audioPath);
+        }
+      }
+
+      // If region has no layers left, remove the region and mapping
+      if (region.layers.isEmpty) {
+        for (final track in _tracks) {
+          track.regions.removeWhere((r) => r.id == region.id);
+        }
+        if (eventId != null) {
+          _eventToRegionMap.remove(eventId);
+        }
+      }
+    });
+
+    _persistState();
+    debugPrint('[SlotLab] Deleted layer from timeline: ${layer.name}');
+  }
+
+  void _deleteLayerFromEvent(_CompositeEvent event, _CompositeLayer layer) {
+    setState(() {
+      // Remove layer from event
+      event.layers.removeWhere((l) => l.id == layer.id);
+
+      // Also remove from timeline region if exists
+      final regionId = _eventToRegionMap[event.id];
+      if (regionId != null) {
+        for (final track in _tracks) {
+          final regionIndex = track.regions.indexWhere((r) => r.id == regionId);
+          if (regionIndex >= 0) {
+            final region = track.regions[regionIndex];
+            // Remove matching layer by ID or audioPath
+            region.layers.removeWhere((l) =>
+                l.id == layer.id || l.audioPath == layer.audioPath);
+
+            // If region has no layers left, remove the region too
+            if (region.layers.isEmpty) {
+              track.regions.removeAt(regionIndex);
+              _eventToRegionMap.remove(event.id);
+            }
+            break;
+          }
+        }
+      }
+    });
+
+    _persistState();
+    debugPrint('[SlotLab] Deleted layer: ${layer.name} from event: ${event.name}');
   }
 
   void _createCompositeEvent() {
@@ -5227,34 +6056,225 @@ class _TimelineGridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
+/// Cubase-style waveform painter with min/max/rms layers
+/// Shows: RMS body (darker), peak fill (lighter), peak stroke (bright)
 class _WaveformPainter extends CustomPainter {
   final List<double> data;
   final Color color;
 
-  _WaveformPainter({required this.data, required this.color});
+  // Cached paths for GPU optimization
+  Path? _cachedPeakPath;
+  Path? _cachedRmsPath;
+  Size? _cachedSize;
+
+  // Pre-allocated paints
+  late final Paint _rmsFillPaint;
+  late final Paint _peakFillPaint;
+  late final Paint _peakStrokePaint;
+  late final Paint _centerLinePaint;
+
+  _WaveformPainter({required this.data, required this.color}) {
+    _rmsFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakFillPaint = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    _peakStrokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true;
+
+    _centerLinePaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..strokeWidth = 0.5;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
+    if (data.isEmpty || size.width <= 0 || size.height <= 0) return;
 
+    // Rebuild paths only when size changes
+    if (_cachedPeakPath == null || _cachedSize != size) {
+      _rebuildPaths(size);
+      _cachedSize = size;
+    }
+
+    final centerY = size.height / 2;
+
+    // 1. Draw RMS body (darker, inner) — the "mass" of sound
+    if (_cachedRmsPath != null) {
+      canvas.drawPath(_cachedRmsPath!, _rmsFillPaint);
+    }
+
+    // 2. Draw peak fill — lighter, shows transient extent
+    if (_cachedPeakPath != null) {
+      canvas.drawPath(_cachedPeakPath!, _peakFillPaint);
+    }
+
+    // 3. Draw peak stroke — bright outline for crisp transients
+    if (_cachedPeakPath != null) {
+      canvas.drawPath(_cachedPeakPath!, _peakStrokePaint);
+    }
+
+    // 4. Center line (zero crossing)
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _centerLinePaint);
+  }
+
+  void _rebuildPaths(Size size) {
+    final centerY = size.height / 2;
+    final amplitude = centerY * 0.85;
+
+    // Data comes as min/max pairs from getWaveformPeaks
+    final bool isMinMaxPairs = data.length >= 2 && data.length.isEven;
+    final int numPeaks = isMinMaxPairs ? data.length ~/ 2 : data.length;
+
+    if (numPeaks <= 0) return;
+
+    double sampleToX(int i) => numPeaks > 1 ? (i / (numPeaks - 1)) * size.width : size.width / 2;
+
+    // Build peak envelope path
+    _cachedPeakPath = Path();
+
+    if (isMinMaxPairs) {
+      // Min at even indices, max at odd indices
+      _cachedPeakPath!.moveTo(0, centerY - data[1].abs().clamp(0.0, 1.0) * amplitude);
+
+      for (int i = 1; i < numPeaks; i++) {
+        final maxVal = data[i * 2 + 1].abs().clamp(0.0, 1.0);
+        _cachedPeakPath!.lineTo(sampleToX(i), centerY - maxVal * amplitude);
+      }
+
+      for (int i = numPeaks - 1; i >= 0; i--) {
+        final minVal = data[i * 2].abs().clamp(0.0, 1.0);
+        _cachedPeakPath!.lineTo(sampleToX(i), centerY + minVal * amplitude);
+      }
+    } else {
+      // Single amplitude values (fallback)
+      _cachedPeakPath!.moveTo(0, centerY - data[0].abs().clamp(0.0, 1.0) * amplitude);
+
+      for (int i = 1; i < numPeaks; i++) {
+        final val = data[i].abs().clamp(0.0, 1.0);
+        _cachedPeakPath!.lineTo(sampleToX(i), centerY - val * amplitude);
+      }
+
+      for (int i = numPeaks - 1; i >= 0; i--) {
+        final val = data[i].abs().clamp(0.0, 1.0);
+        _cachedPeakPath!.lineTo(sampleToX(i), centerY + val * amplitude);
+      }
+    }
+    _cachedPeakPath!.close();
+
+    // Build RMS path (smaller body — simulate RMS as 45% of peak)
+    const rmsScale = 0.45;
+    _cachedRmsPath = Path();
+
+    if (isMinMaxPairs) {
+      final firstRms = ((data[0].abs() + data[1].abs()) * 0.5).clamp(0.0, 1.0);
+      _cachedRmsPath!.moveTo(0, centerY - firstRms * amplitude * rmsScale);
+
+      for (int i = 1; i < numPeaks; i++) {
+        final rms = ((data[i * 2].abs() + data[i * 2 + 1].abs()) * 0.5).clamp(0.0, 1.0);
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY - rms * amplitude * rmsScale);
+      }
+
+      for (int i = numPeaks - 1; i >= 0; i--) {
+        final rms = ((data[i * 2].abs() + data[i * 2 + 1].abs()) * 0.5).clamp(0.0, 1.0);
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY + rms * amplitude * rmsScale);
+      }
+    } else {
+      _cachedRmsPath!.moveTo(0, centerY - data[0].abs().clamp(0.0, 1.0) * amplitude * rmsScale);
+
+      for (int i = 1; i < numPeaks; i++) {
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY - data[i].abs().clamp(0.0, 1.0) * amplitude * rmsScale);
+      }
+
+      for (int i = numPeaks - 1; i >= 0; i--) {
+        _cachedRmsPath!.lineTo(sampleToX(i), centerY + data[i].abs().clamp(0.0, 1.0) * amplitude * rmsScale);
+      }
+    }
+    _cachedRmsPath!.close();
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
+    return oldDelegate.data != data || oldDelegate.color != color;
+  }
+}
+
+/// DAW-style playhead painter with triangle head and vertical line
+class _SlotLabPlayheadPainter extends CustomPainter {
+  final bool isDragging;
+
+  _SlotLabPlayheadPainter({this.isDragging = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Shadow for depth
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
+      ..style = PaintingStyle.fill;
+
+    // Main playhead color
     final paint = Paint()
-      ..color = color.withOpacity(0.5)
-      ..strokeWidth = 1;
+      ..color = isDragging
+          ? FluxForgeTheme.accentRed
+          : FluxForgeTheme.accentRed.withValues(alpha: 0.95)
+      ..style = PaintingStyle.fill;
 
-    final midY = size.height / 2;
-    final sampleWidth = size.width / data.length;
+    // Line paint
+    final linePaint = Paint()
+      ..color = isDragging
+          ? FluxForgeTheme.accentRed
+          : FluxForgeTheme.accentRed.withValues(alpha: 0.8)
+      ..strokeWidth = isDragging ? 2.0 : 1.5;
 
-    for (int i = 0; i < data.length; i++) {
-      final x = i * sampleWidth;
-      final amplitude = data[i] * midY * 0.8;
-      canvas.drawLine(
-        Offset(x, midY - amplitude),
-        Offset(x, midY + amplitude),
-        paint,
-      );
+    // Draw vertical line first
+    final centerX = size.width / 2;
+    canvas.drawLine(
+      Offset(centerX, 10), // Start below triangle
+      Offset(centerX, size.height),
+      linePaint,
+    );
+
+    // Triangle head shadow
+    final triangleWidth = 12.0;
+    final triangleHeight = 10.0;
+    final shadowPath = Path()
+      ..moveTo(centerX - triangleWidth / 2 + 1, 1)
+      ..lineTo(centerX + triangleWidth / 2 + 1, 1)
+      ..lineTo(centerX + 1, triangleHeight + 1)
+      ..close();
+    canvas.drawPath(shadowPath, shadowPaint);
+
+    // Triangle head
+    final path = Path()
+      ..moveTo(centerX - triangleWidth / 2, 0)
+      ..lineTo(centerX + triangleWidth / 2, 0)
+      ..lineTo(centerX, triangleHeight)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    // Highlight for 3D effect when dragging
+    if (isDragging) {
+      final highlightPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      final highlightPath = Path()
+        ..moveTo(centerX - triangleWidth / 2 + 2, 2)
+        ..lineTo(centerX + triangleWidth / 2 - 2, 2)
+        ..lineTo(centerX, triangleHeight - 2);
+      canvas.drawPath(highlightPath, highlightPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(_SlotLabPlayheadPainter oldDelegate) =>
+      isDragging != oldDelegate.isDragging;
 }

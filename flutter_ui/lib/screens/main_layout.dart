@@ -280,12 +280,16 @@ class _MainLayoutState extends State<MainLayout>
       return KeyEventResult.handled;
     }
 
-    // Transport shortcuts (only in DAW mode)
+    // Transport shortcuts
     // Space = Play/Pause toggle (onPlay callback handles the toggle logic)
-    if (key == LogicalKeyboardKey.space &&
-        widget.editorMode == EditorMode.daw) {
-      widget.onPlay?.call();
-      return KeyEventResult.handled;
+    // In DAW mode: toggles playback
+    // In Middleware mode: triggers event preview (handled by callback)
+    if (key == LogicalKeyboardKey.space) {
+      debugPrint('[MainLayout] SPACE pressed, editorMode=${widget.editorMode}, onPlay=${widget.onPlay != null}');
+      if (widget.editorMode == EditorMode.daw || widget.editorMode == EditorMode.middleware) {
+        widget.onPlay?.call();
+        return KeyEventResult.handled;
+      }
     } else if (key == LogicalKeyboardKey.period &&
         !isCtrl &&
         widget.editorMode == EditorMode.daw) {
