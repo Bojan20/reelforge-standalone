@@ -162,7 +162,7 @@ const EditorModeLayoutConfig dawModeConfig = EditorModeLayoutConfig(
 const EditorModeLayoutConfig middlewareModeConfig = EditorModeLayoutConfig(
   mode: EditorMode.middleware,
   lowerZone: LowerZoneConfig(
-    defaultTab: 'middleware',
+    defaultTab: 'events-folder',
     visibleGroups: ['middleware', 'mix', 'analyze', 'process'],
     hiddenTabs: [
       // DAW-centric tabs

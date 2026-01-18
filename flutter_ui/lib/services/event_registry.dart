@@ -161,12 +161,34 @@ class EventRegistry extends ChangeNotifier {
   // ==========================================================================
 
   /// Registruj event za stage
+  /// CRITICAL: This REPLACES any existing event with same ID or stage
+  /// Stops any playing instances before replacing to prevent stale audio
   void registerEvent(AudioEvent event) {
+    // Stop any playing instances of this event before replacing
+    // This prevents old audio from continuing to play after layer changes
+    final existingEvent = _events[event.id];
+    if (existingEvent != null) {
+      // Event exists - stop all playing instances SYNCHRONOUSLY
+      _stopEventSync(event.id);
+      debugPrint('[EventRegistry] Stopping existing instances before update: ${event.name}');
+    }
+
+    // Also check if another event has this stage (shouldn't happen but defensive)
+    final existingByStage = _stageToEvent[event.stage];
+    if (existingByStage != null && existingByStage.id != event.id) {
+      _stopEventSync(existingByStage.id);
+      _events.remove(existingByStage.id);
+      debugPrint('[EventRegistry] Removed conflicting event for stage: ${event.stage}');
+    }
+
     _events[event.id] = event;
     _stageToEvent[event.stage] = event;
-    debugPrint('[EventRegistry] Registered: ${event.name} → ${event.stage}');
 
-    // Mark paths as preloaded (Rust engine handles actual caching)
+    // Log layer details for debugging
+    final layerPaths = event.layers.map((l) => l.audioPath.split('/').last).join(', ');
+    debugPrint('[EventRegistry] Registered: ${event.name} → ${event.stage} (${event.layers.length} layers: $layerPaths)');
+
+    // Update preloaded paths
     for (final layer in event.layers) {
       if (layer.audioPath.isNotEmpty) {
         _preloadedPaths.add(layer.audioPath);
@@ -176,12 +198,40 @@ class EventRegistry extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Synchronous stop - for use in registerEvent
+  void _stopEventSync(String eventIdOrStage) {
+    final eventByStage = _stageToEvent[eventIdOrStage];
+    final targetEventId = eventByStage?.id ?? eventIdOrStage;
+
+    final toRemove = <_PlayingInstance>[];
+    for (final instance in _playingInstances) {
+      if (instance.eventId == targetEventId) {
+        // Stop via PreviewEngine (synchronous call)
+        try {
+          NativeFFI.instance.previewStop();
+        } catch (e) {
+          debugPrint('[EventRegistry] Stop error: $e');
+        }
+        toRemove.add(instance);
+      }
+    }
+
+    _playingInstances.removeWhere((i) => toRemove.contains(i));
+    if (toRemove.isNotEmpty) {
+      debugPrint('[EventRegistry] Sync stopped ${toRemove.length} instance(s) of: $eventIdOrStage');
+    }
+  }
+
   /// Ukloni event
+  /// CRITICAL: Stops any playing instances before removing
   void unregisterEvent(String eventId) {
+    // Stop any playing instances first (synchronous)
+    _stopEventSync(eventId);
+
     final event = _events.remove(eventId);
     if (event != null) {
       _stageToEvent.remove(event.stage);
-      debugPrint('[EventRegistry] Unregistered: ${event.name}');
+      debugPrint('[EventRegistry] Unregistered: ${event.name} (stopped all instances)');
       notifyListeners();
     }
   }

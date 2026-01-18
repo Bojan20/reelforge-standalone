@@ -1314,6 +1314,7 @@ class ExtendedKalmanFilter3D {
   final Float64List _state = Float64List(6);
 
   // State covariance matrix (6x6, stored as 1D)
+  // ignore: non_constant_identifier_names
   final Float64List _P = Float64List(36);
 
   // Process noise
@@ -1853,7 +1854,7 @@ class AutoSpatialEngine {
   final AnchorRegistry _registry;
   final EventTrackerPool _pool;
   final Map<String, IntentRule> _rules = {};
-  AutoSpatialConfig _config;
+  AutoSpatialConfig config;
 
   // Statistics (atomic would be better, but Dart doesn't have them)
   int _totalEventsProcessed = 0;
@@ -1866,10 +1867,9 @@ class AutoSpatialEngine {
   AutoSpatialEngine({
     AnchorRegistry? registry,
     List<IntentRule>? intentRules,
-    AutoSpatialConfig config = const AutoSpatialConfig(),
+    this.config = const AutoSpatialConfig(),
   })  : _registry = registry ?? AnchorRegistry(),
-        _pool = EventTrackerPool(maxSize: config.maxTrackedEvents),
-        _config = config {
+        _pool = EventTrackerPool(maxSize: config.maxTrackedEvents) {
     final rules = intentRules ?? SlotIntentRules.defaults;
     for (final r in rules) {
       _rules[r.intent] = r;
@@ -1877,9 +1877,6 @@ class AutoSpatialEngine {
   }
 
   AnchorRegistry get anchorRegistry => _registry;
-  AutoSpatialConfig get config => _config;
-
-  set config(AutoSpatialConfig value) => _config = value;
 
   /// Register a spatial event
   void onEvent(SpatialEvent event) {

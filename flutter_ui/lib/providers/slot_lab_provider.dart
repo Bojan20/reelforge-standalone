@@ -68,6 +68,15 @@ class SlotLabProvider extends ChangeNotifier {
   List<Map<String, dynamic>> persistedTracks = [];
   Map<String, String> persistedEventToRegionMap = {};
 
+  /// Clear all persisted UI state (use when data is corrupted)
+  void clearPersistedState() {
+    persistedAudioPool.clear();
+    persistedCompositeEvents.clear();
+    persistedTracks.clear();
+    persistedEventToRegionMap.clear();
+    notifyListeners();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -389,13 +398,18 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   /// Trigger audio for a stage event
+  /// CRITICAL: Uses ONLY EventRegistry. Legacy systems DISABLED to prevent duplicate audio.
   void _triggerStage(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
     final reelIndex = stage.payload['reel_index'];
 
     debugPrint('[SlotLabProvider] _triggerStage: $stageType ${reelIndex != null ? "(reel $reelIndex)" : ""} @ ${stage.timestampMs.toStringAsFixed(0)}ms');
 
-    // ═══ CENTRALNI EVENT REGISTRY (ultimativni način) ═══
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CENTRALNI EVENT REGISTRY — JEDINI izvor audio playback-a
+    // Legacy sistemi (Middleware postEvent, StageAudioMapper) su ONEMOGUĆENI
+    // jer izazivaju dupli audio playback
+    // ═══════════════════════════════════════════════════════════════════════════
 
     // Za REEL_STOP, koristi specifičan stage po reel-u: REEL_STOP_0, REEL_STOP_1, itd.
     String effectiveStage = stageType;
@@ -430,21 +444,23 @@ class SlotLabProvider extends ChangeNotifier {
       debugPrint('[SlotLabProvider] REEL_SPIN stopped (last reel landed)');
     }
 
-    // ═══ LEGACY: Middleware fallback ═══
-    if (_middleware != null) {
-      final eventId = _mapStageToEventId(stage);
-      if (eventId != null) {
-        final context = _buildStageContext(stage);
-        _middleware!.postEvent(eventId, context: context);
-        debugPrint('[SlotLabProvider] Middleware: $eventId');
-      }
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LEGACY SISTEMI — ONEMOGUĆENI (uzrokuju dupli audio)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DISABLED: Middleware postEvent causes duplicate audio playback
+    // if (_middleware != null) {
+    //   final eventId = _mapStageToEventId(stage);
+    //   if (eventId != null) {
+    //     final context = _buildStageContext(stage);
+    //     _middleware!.postEvent(eventId, context: context);
+    //   }
+    // }
 
-    // ═══ LEGACY: StageAudioMapper fallback ═══
-    final stageEvent = _convertToStageEvent(stage);
-    if (stageEvent != null) {
-      _audioMapper?.mapAndTrigger(stageEvent);
-    }
+    // DISABLED: StageAudioMapper causes duplicate audio playback
+    // final stageEvent = _convertToStageEvent(stage);
+    // if (stageEvent != null) {
+    //   _audioMapper?.mapAndTrigger(stageEvent);
+    // }
   }
 
   /// Convert SlotLabStageEvent to StageEvent (for StageAudioMapper)

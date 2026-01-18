@@ -955,9 +955,10 @@ Float32List generateDemoWaveform({int samples = 1000}) {
   return waveform;
 }
 
+final _waveformRandom = math.Random();
+
 double _randomDouble() {
-  // Simple deterministic pseudo-random for demo
-  return (DateTime.now().microsecondsSinceEpoch % 1000) / 1000.0;
+  return _waveformRandom.nextDouble();
 }
 
 // ============ Track Colors ============

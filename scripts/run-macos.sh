@@ -63,6 +63,18 @@ if [ "$RUN_ONLY" = false ]; then
         build
 
     echo ""
+    echo "Copying native library to app bundle..."
+    FRAMEWORKS_DIR="$DERIVED_DATA/Build/Products/Debug/FluxForge Studio.app/Contents/Frameworks"
+    DYLIB_SRC="$PROJECT_ROOT/target/release/librf_bridge.dylib"
+    if [ -f "$DYLIB_SRC" ]; then
+        cp "$DYLIB_SRC" "$FRAMEWORKS_DIR/"
+        echo "Copied librf_bridge.dylib to Frameworks"
+    else
+        echo "WARNING: librf_bridge.dylib not found at $DYLIB_SRC"
+        echo "Run 'cargo build --release -p rf-bridge' first"
+    fi
+
+    echo ""
     echo "Build completed!"
 fi
 

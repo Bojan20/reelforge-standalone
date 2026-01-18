@@ -25,6 +25,7 @@ import '../models/stage_models.dart' as stage;
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
+import '../models/slot_audio_events.dart' show SlotCompositeEvent;
 import '../models/timeline_models.dart' as timeline;
 import '../theme/fluxforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
@@ -93,7 +94,7 @@ import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
-import '../widgets/middleware/event_editor_panel.dart';
+import '../widgets/middleware/events_folder_panel.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -340,15 +341,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     } else {
       // ========== MIDDLEWARE MODE: Wwise-style event browser ==========
 
-      // Events folder - reads from MiddlewareProvider (includes Slot Lab events)
+      // Events folder - reads from MiddlewareProvider composite events (Slot Lab events)
       final middlewareProvider = context.read<MiddlewareProvider>();
-      final providerEvents = middlewareProvider.events;
+      final compositeEvents = middlewareProvider.compositeEvents;
       tree.add(ProjectTreeNode(
         id: 'events',
         type: TreeItemType.folder,
         label: 'Events',
-        count: providerEvents.length,
-        children: providerEvents
+        count: compositeEvents.length,
+        children: compositeEvents
             .map((event) => ProjectTreeNode(
                   id: 'evt-${event.id}',
                   type: TreeItemType.event,
@@ -525,7 +526,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // This must happen AFTER providers are available but BEFORE live events arrive
       final middleware = context.read<MiddlewareProvider>();
       stageProvider.initializeAudioMapper(middleware);
-      debugPrint('[EngineConnectedLayout] Audio mapper initialized');
     });
   }
 
@@ -756,8 +756,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Auto-select the new event filter
       _currentEventId = filter.id;
     });
-
-    debugPrint('[EventFilters] Created filter: ${filter.name} (${filter.id})');
   }
 
   /// Select an event (filters timeline to show only this event's clips)
@@ -765,10 +763,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     setState(() {
       _currentEventId = eventId;
     });
-    final eventName = eventId == null
-        ? 'All'
-        : _eventFilters.firstWhere((e) => e.id == eventId).name;
-    debugPrint('[Events] Selected event: $eventName');
   }
 
   /// Delete an event and optionally its clips
@@ -794,8 +788,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         _currentEventId = null;
       }
     });
-
-    debugPrint('[Events] Deleted event: $eventId (deleteClips: $deleteClips)');
   }
 
   /// Rename an event
@@ -820,11 +812,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         return c;
       }).toList();
     });
-
-    final eventName = eventId == null
-        ? 'None'
-        : _eventFilters.firstWhere((e) => e.id == eventId).name;
-    debugPrint('[Events] Assigned clip $clipId to event: $eventName');
   }
 
   /// Assign all selected clips to current event
@@ -839,9 +826,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         return c;
       }).toList();
     });
-
-    final count = _clips.where((c) => c.selected).length;
-    debugPrint('[Events] Assigned $count clips to current event');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -941,8 +925,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Sync to MiddlewareProvider → triggers SlotLab sync
     final middlewareProvider = context.read<MiddlewareProvider>();
     middlewareProvider.removeActionFromEvent(eventId, actionToRemove.id);
-
-    debugPrint('[Middleware] Synced track deletion: removed action ${actionToRemove.id} from event $eventId');
   }
 
   /// Sync clip deletion to middleware event (removes corresponding action)
@@ -979,8 +961,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Sync to MiddlewareProvider → triggers SlotLab sync
     final middlewareProvider = context.read<MiddlewareProvider>();
     middlewareProvider.removeActionFromEvent(eventId, actionToRemove.id);
-
-    debugPrint('[Middleware] Synced clip deletion: removed action ${actionToRemove.id} from event $eventId');
   }
 
   /// Duplicate a track with all its clips
@@ -1151,8 +1131,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Handle single-click on pool/tree item - selects and loads event to timeline
   void _handlePoolItemClick(String id, TreeItemType type, dynamic data) {
-    debugPrint('[UI] Pool item clicked: $id, type: $type');
-
     // Event click in middleware mode - load to timeline
     if (id.startsWith('evt-')) {
       final eventId = id.substring(4); // Remove 'evt-' prefix
@@ -1162,8 +1140,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Handle double-click on pool item - creates NEW track with audio file
   void _handlePoolItemDoubleClick(String id, TreeItemType type, dynamic data) {
-    debugPrint('[UI] Pool item double-clicked: $id, type: $type');
-
     // Check if it's a pool audio file
     if (id.startsWith('pool-') && data is timeline.PoolAudioFile) {
       // ALWAYS create NEW track on double-click (Cubase behavior)
@@ -1181,43 +1157,30 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void _loadEventToTimeline(String eventId) {
     final provider = context.read<MiddlewareProvider>();
 
-    // Debug: log all available events
-    debugPrint('[UI] _loadEventToTimeline: Looking for eventId="$eventId"');
-    debugPrint('[UI] Available events (${provider.events.length}):');
-    for (final e in provider.events) {
-      debugPrint('[UI]   - id="${e.id}", name="${e.name}", actions=${e.actions.length}');
+    // First try composite events (SlotCompositeEvent from Slot Lab)
+    final compositeEvent = provider.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+
+    if (compositeEvent != null) {
+      // Select this composite event in provider
+      provider.selectCompositeEvent(eventId);
+
+      // Load composite event layers as tracks
+      _loadCompositeEventToTimeline(compositeEvent);
+      return;
     }
 
+    // Fallback to MiddlewareEvent (legacy)
     final event = provider.events.firstWhere(
       (e) => e.id == eventId,
       orElse: () => MiddlewareEvent(id: '', name: ''),
     );
 
     if (event.id.isEmpty) {
-      debugPrint('[UI] Event not found: $eventId');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Event not found: $eventId'),
-          backgroundColor: Colors.red.shade800,
-        ),
-      );
       return;
     }
 
-    debugPrint('[UI] Loading event to timeline: ${event.name} (${event.actions.length} actions)');
-    for (int i = 0; i < event.actions.length; i++) {
-      debugPrint('[UI]   Action $i: type=${event.actions[i].type}, assetId="${event.actions[i].assetId}", delay=${event.actions[i].delay}');
-    }
-
-    // If event has no actions, show message but still allow viewing
+    // If event has no actions, still allow viewing with empty track
     if (event.actions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Event "${event.name}" has no sounds yet. Add layers in Slot Lab.'),
-          backgroundColor: Colors.orange.shade800,
-          duration: const Duration(seconds: 3),
-        ),
-      );
       // Create single empty track for the event
       setState(() {
         _tracks = [
@@ -1230,6 +1193,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         ];
         _clips = [];
         _selectedEventForTimeline = eventId;
+        _selectedEventId = eventId;
       });
       return;
     }
@@ -1257,12 +1221,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         );
 
         // 2. Match by filename (without extension comparison)
-        if (poolFile == null) {
-          poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
-            (f) => f?.name == filename,
-            orElse: () => null,
-          );
-        }
+        poolFile ??= _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+          (f) => f?.name == filename,
+          orElse: () => null,
+        );
 
         // 3. Match by name without extension
         if (poolFile == null) {
@@ -1278,14 +1240,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         }
 
         // 4. Partial path match (end of path)
-        if (poolFile == null) {
-          poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
-            (f) => f?.path.endsWith(filename) ?? false,
-            orElse: () => null,
-          );
-        }
-
-        debugPrint('[UI] Pool lookup for "$assetId": found=${poolFile != null}, duration=${poolFile?.duration}, hasWaveform=${poolFile?.waveform != null}');
+        poolFile ??= _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+          (f) => f?.path.endsWith(filename) ?? false,
+          orElse: () => null,
+        );
       }
 
       // Use real duration from pool file, or default to 2 seconds
@@ -1346,16 +1304,86 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _lastSyncedActionCount = event.actions.length;
     });
 
-    // Show feedback only for initial load, not reloads
-    if (!isReload) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Loaded "${event.name}" → ${newTracks.length} tracks'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: Colors.green.shade800,
-        ),
-      );
+  }
+
+  /// Load SlotCompositeEvent layers to timeline (Wwise-style)
+  void _loadCompositeEventToTimeline(SlotCompositeEvent event) {
+    // Even if event has no layers, show empty timeline with event name
+    if (event.layers.isEmpty) {
+      setState(() {
+        _tracks = [
+          timeline.TimelineTrack(
+            id: 'evt_track_0',
+            name: '${event.name} (empty)',
+            color: event.color,
+            height: 80,
+          ),
+        ];
+        _clips = [];
+        _selectedEventForTimeline = event.id;
+        _selectedEventId = event.id;
+      });
+      return;
     }
+
+    // Load layers as tracks
+    final newTracks = <timeline.TimelineTrack>[];
+    final newClips = <timeline.TimelineClip>[];
+
+    for (int i = 0; i < event.layers.length; i++) {
+      final layer = event.layers[i];
+      final trackId = 'evt_track_$i';
+      final clipId = 'evt_clip_$i';
+
+      // Find matching audio file from pool
+      timeline.PoolAudioFile? poolFile;
+      if (layer.audioPath.isNotEmpty) {
+        final filename = layer.audioPath.split('/').last;
+        poolFile = _audioPool.cast<timeline.PoolAudioFile?>().firstWhere(
+          (f) => f?.path == layer.audioPath || f?.name == filename,
+          orElse: () => null,
+        );
+      }
+
+      final trackName = layer.name.isNotEmpty ? layer.name : 'Layer ${i + 1}';
+      final layerDuration = layer.durationSeconds ?? 0.0;
+      final clipDuration = layerDuration > 0 ? layerDuration : (poolFile?.duration ?? 1.0);
+
+      newTracks.add(timeline.TimelineTrack(
+        id: trackId,
+        name: trackName,
+        color: _getTrackColor(i),
+        height: 80,
+        volume: layer.volume,
+        pan: layer.pan,
+        muted: layer.muted,
+        soloed: layer.solo,
+      ));
+
+      // Only add clip if there's an asset
+      if (layer.audioPath.isNotEmpty) {
+        newClips.add(timeline.TimelineClip(
+          id: clipId,
+          trackId: trackId,
+          name: layer.name.isNotEmpty ? layer.name : layer.audioPath.split('/').last,
+          startTime: layer.offsetMs / 1000.0, // Convert ms to seconds
+          duration: clipDuration,
+          color: _getTrackColor(i),
+          sourceFile: layer.audioPath,
+          waveform: poolFile?.waveform,
+          sourceDuration: poolFile?.duration,
+          gain: layer.volume,
+        ));
+      }
+    }
+
+    setState(() {
+      _tracks = newTracks;
+      _clips = newClips;
+      _selectedEventForTimeline = event.id;
+      _selectedEventId = event.id;
+      _selectedActionIndex = -1;
+    });
   }
 
   Color _getTrackColor(int index) {
@@ -1460,7 +1488,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
     });
 
-    debugPrint('[UI] Added ${poolFile.name} to track ${track.name} at $insertTime');
     _showSnackBar('Added ${poolFile.name} to ${track.name}');
     _updateActiveBuses();
 
@@ -1554,7 +1581,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color, channels: channelCount);
 
-    debugPrint('[UI] Created new track "$trackName" with ${poolFile.name} at $startTime (channels: $channelCount)');
     _showSnackBar('Created track "$trackName" with ${poolFile.name}');
     _updateActiveBuses();
 
@@ -1734,7 +1760,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (path == null) return;
 
     await engine.loadProject(path);
-    debugPrint('[UI] Opened project: $path');
   }
 
   /// Save Project
@@ -1762,7 +1787,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     setState(() {
       _clips = _clips.map((c) => c.copyWith(selected: true)).toList();
     });
-    debugPrint('[Timeline] Selected all ${_clips.length} clips');
   }
 
   /// Deselect All (Escape)
@@ -1770,7 +1794,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     setState(() {
       _clips = _clips.map((c) => c.copyWith(selected: false)).toList();
     });
-    debugPrint('[Timeline] Deselected all clips');
   }
 
   /// Import JSON routes (Middleware mode)
@@ -1791,14 +1814,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Import entire audio folder to Pool
   Future<void> _handleImportAudioFolder() async {
-    debugPrint('[UI] Opening folder picker...');
-
     final result = await NativeFilePicker.pickAudioFolder();
 
-    debugPrint('[UI] Folder picker result: $result');
-
     if (result == null) {
-      debugPrint('[UI] No folder selected');
       return;
     }
 
@@ -1817,7 +1835,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         }
       }
     } catch (e) {
-      debugPrint('[UI] Error scanning folder: $e');
       _showSnackBar('Error scanning folder: $e');
       return;
     }
@@ -1833,8 +1850,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final nameB = b.path.split('/').last.toLowerCase();
       return nameA.compareTo(nameB);
     });
-
-    debugPrint('[UI] Found ${audioFiles.length} audio files (sorted)');
 
     // Import all files to Pool (not timeline)
     for (final file in audioFiles) {
@@ -2071,7 +2086,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _showSnackBar('Added "${file.name}" to timeline');
     } catch (e) {
       _showSnackBar('Error loading audio file: $e');
-      debugPrint('[AudioPool] Error loading file: $e');
     }
   }
 
@@ -2159,7 +2173,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             _crossfades = [..._crossfades, newCrossfade];
           });
 
-          debugPrint('[AutoCrossfade] Created crossfade: $clipAId -> $clipBId, start=$overlapStart, duration=$overlapDuration');
           return crossfadeId;
         } else {
           // Update existing crossfade position/duration
@@ -2176,7 +2189,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               return x;
             }).toList();
           });
-          debugPrint('[AutoCrossfade] Updated existing crossfade');
         }
 
         // Only process one overlap at a time
@@ -2219,9 +2231,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final overlapEnd = clipEnd < otherEnd ? clipEnd : otherEnd;
         final stillOverlapping = (overlapEnd - overlapStart) > 0.01;
 
-        if (!stillOverlapping) {
-          debugPrint('[AutoCrossfade] Removed stale crossfade: ${xfade.id}');
-        }
         return stillOverlapping;
       }).toList();
     });
@@ -2593,27 +2602,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     );
   }
 
-  /// Show snackbar message
+  /// Show snackbar message - DISABLED
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: FluxForgeTheme.bgElevated,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    // Disabled - no snackbar notifications
   }
 
   /// Open file picker dialog to import audio files to Pool
   Future<void> _openFilePicker() async {
-    debugPrint('[UI] Opening file picker...');
-
     final paths = await NativeFilePicker.pickAudioFiles();
 
-    debugPrint('[UI] File picker result: ${paths.length} files');
-
     if (paths.isEmpty) {
-      debugPrint('[UI] No files selected');
       return;
     }
 
@@ -2627,8 +2625,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Add a file to the Audio Pool
   Future<void> _addFileToPool(String filePath) async {
-    debugPrint('[UI] Adding to pool: $filePath');
-
     final fileName = filePath.split('/').last;
     final ext = fileName.split('.').last.toLowerCase();
     final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
@@ -2645,9 +2641,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         duration = (metadata['duration'] as num?)?.toDouble() ?? 0.0;
         sampleRate = (metadata['sample_rate'] as num?)?.toInt() ?? 48000;
         channels = (metadata['channels'] as num?)?.toInt() ?? 2;
-        debugPrint('[UI] Audio metadata: duration=$duration, sampleRate=$sampleRate, channels=$channels');
-      } catch (e) {
-        debugPrint('[UI] Failed to parse audio metadata: $e');
+      } catch (_) {
+        // Use default values on parse failure
       }
     }
 
@@ -2668,8 +2663,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         defaultBus: timeline.OutputBus.master,
       ));
     });
-
-    debugPrint('[UI] Added to pool: $fileName (${_audioPool.length} files total)');
   }
 
   void _initDemoMiddlewareData() {
@@ -2713,8 +2706,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         importedAt: DateTime.now(),
         defaultBus: timeline.OutputBus.master,
       ));
-
-      debugPrint('[UI] Synced from Slot Lab: $name (duration: ${duration}s)');
     }
   }
 
@@ -2755,8 +2746,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final eventId = _selectedEventId;
     final currentAction = event.actions[_selectedActionIndex];
     final updatedAction = updater(currentAction);
-
-    debugPrint('[Inspector] Updating action ${updatedAction.id}: assetId="${updatedAction.assetId}", gain=${updatedAction.gain}, delay=${updatedAction.delay}');
 
     // Update directly in MiddlewareProvider (single source of truth)
     final middlewareProvider = context.read<MiddlewareProvider>();
@@ -2827,8 +2816,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Reload timeline to show new action
     _loadEventToTimeline(eventId);
-
-    debugPrint('[Middleware] Added action ${newAction.id} to event $eventId, syncing to SlotLab');
   }
 
   /// Show Add Action dialog with all options
@@ -2955,8 +2942,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Reload timeline
     _loadEventToTimeline(eventId);
-
-    debugPrint('[Middleware] Deleted action $actionId from event $eventId');
   }
 
   void _duplicateAction(int index) {
@@ -2986,8 +2971,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Reload timeline
     _loadEventToTimeline(eventId);
-
-    debugPrint('[Middleware] Duplicated action to ${duplicate.id} in event $eventId');
   }
 
   void _updateAction(int index, MiddlewareAction updated) {
@@ -3027,8 +3010,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Reload timeline (preserves selection now)
     _loadEventToTimeline(eventId);
-
-    debugPrint('[Middleware] Updated action ${updated.id} in event $eventId');
   }
 
   void _selectAction(int index) {
@@ -3057,7 +3038,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     if (_selectedEvent == null) return;
 
     final event = _selectedEvent!;
-    debugPrint('[Middleware] Preview event: ${event.name} (${event.actions.length} actions)');
 
     if (_isPreviewingEvent) {
       // Stop preview
@@ -3097,7 +3077,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
 
       if (filePath == null || filePath.isEmpty) {
-        debugPrint('[Middleware] Asset not in pool: ${action.assetId}');
         continue;
       }
 
@@ -3109,13 +3088,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (!_isPreviewingEvent || _previewSessionId != currentSession) return;
 
         try {
-          final voiceId = NativeFFI.instance.previewAudioFile(
+          NativeFFI.instance.previewAudioFile(
             resolvedPath,
             volume: action.gain,
           );
-          debugPrint('[Middleware] Playing ${action.assetId} ($resolvedPath) at ${action.delay}s (voice $voiceId)');
-        } catch (e) {
-          debugPrint('[Middleware] Error playing ${action.assetId}: $e');
+        } catch (_) {
+          // Ignore playback errors
         }
       });
     }
@@ -3143,11 +3121,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     _isPreviewingEvent = false;
     try {
       NativeFFI.instance.previewStop();
-    } catch (e) {
-      debugPrint('[Middleware] Error stopping preview: $e');
+    } catch (_) {
+      // Ignore stop errors
     }
     setState(() {});
-    debugPrint('[Middleware] Preview stopped');
   }
 
   void _exportEventsToJson() async {
@@ -3158,7 +3135,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Copy to clipboard
     await Clipboard.setData(ClipboardData(text: json));
-    debugPrint('Events exported to clipboard');
   }
 
   void _importEventsFromJson() async {
@@ -3179,9 +3155,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _selectedEventId = events.first.id;
         }
       });
-      debugPrint('Imported ${events.length} events from clipboard');
-    } catch (e) {
-      debugPrint('Import failed: $e');
+    } catch (_) {
+      // Ignore import errors
     }
   }
 
@@ -3278,7 +3253,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               if (event is KeyDownEvent &&
                   event.logicalKey == LogicalKeyboardKey.space &&
                   _editorMode == EditorMode.middleware) {
-                debugPrint('[EngineLayout] Focus.onKeyEvent: SPACE in middleware mode');
                 _previewEvent();
                 return KeyEventResult.handled;
               }
@@ -3288,7 +3262,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             child: _editorMode == EditorMode.slot
                 ? Builder(
                     builder: (context) {
-                      debugPrint('[EngineLayout] Passing ${_audioPool.length} audio files to SlotLab');
                       return SlotLabScreen(
                         onClose: () => setState(() => _editorMode = EditorMode.middleware),
                         audioPool: _audioPool.map((f) => <String, dynamic>{
@@ -3520,10 +3493,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
             // Transport - SPACE key handling
             onPlay: () {
-              debugPrint('[EngineLayout] onPlay called, editorMode=$_editorMode');
               // In middleware mode, SPACE triggers event preview
               if (_editorMode == EditorMode.middleware) {
-                debugPrint('[EngineLayout] Middleware mode - calling _previewEvent');
                 _previewEvent();
                 return;
               }
@@ -3805,7 +3776,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           (t) => t.id == targetTrackId,
           orElse: () => _tracks.first,
         );
-        debugPrint('[UI] onClipMoveToTrack: clipId=$clipId, targetTrackId=$targetTrackId, targetTrack.color=${targetTrack.color}');
         setState(() {
           // Auto-select the target track
           _selectedTrackId = targetTrackId;
@@ -3813,7 +3783,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
           _clips = _clips.map((c) {
             if (c.id == clipId) {
-              debugPrint('[UI] Updating clip $clipId color to ${targetTrack.color}');
               return c.copyWith(
                 trackId: targetTrackId,
                 startTime: newStartTime,
@@ -3831,7 +3800,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         final trackIndex = _tracks.length;
         final trackName = 'Audio ${trackIndex + 1}';
         final color = _defaultTrackColor;
-        debugPrint('[UI] onClipMoveToNewTrack: clipId=$clipId, newTrackIndex=$trackIndex, color=$color');
 
         // Get channel count from original clip's track
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
@@ -3939,8 +3907,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                 duration: _pendingResize!['duration'],
                 sourceOffset: _pendingResize!['sourceOffset'],
               );
-            } catch (e) {
-              debugPrint('[ClipResize] Engine error: $e');
+            } catch (_) {
+              // Ignore resize errors
             }
             _pendingResize = null;
           }
@@ -3958,8 +3926,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               duration: _pendingResize!['duration'],
               sourceOffset: _pendingResize!['sourceOffset'],
             );
-          } catch (e) {
-            debugPrint('[ClipResizeEnd] Engine error: $e');
+          } catch (_) {
+            // Ignore resize end errors
           }
           _pendingResize = null;
         }
@@ -4528,13 +4496,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Middleware Mode: Events Editor in center - FULLY FUNCTIONAL
   Widget _buildMiddlewareCenterContent() {
-    // Use provider events for dropdown (includes Slot Lab synced events)
+    // Use compositeEvents for dropdown (same as left panel tree)
     final provider = context.read<MiddlewareProvider>();
-    final allEvents = provider.events;
+    final compositeEvents = provider.compositeEvents;
 
-    final event = _selectedEvent;
-    final eventName = event?.name ?? 'No Event Selected';
-    final actionCount = event?.actions.length ?? 0;
+    // Get selected composite event by ID
+    final selectedComposite = compositeEvents.where((e) => e.id == _selectedEventId).firstOrNull;
+    final eventName = selectedComposite?.name ?? 'No Event Selected';
+    final actionCount = selectedComposite?.layers.length ?? 0;
 
     return Container(
       color: FluxForgeTheme.bgDeep,
@@ -4552,19 +4521,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  // Event selector dropdown - Connected to real events from provider
+                  // Event selector dropdown - Connected to compositeEvents (same as left panel)
                   _ToolbarDropdown(
                     icon: Icons.api,
                     label: 'Event',
                     value: eventName,
-                    options: allEvents.isEmpty
+                    options: compositeEvents.isEmpty
                         ? ['No Events - Create in Slot Lab']
-                        : allEvents.map((e) => e.name).toList(),
+                        : compositeEvents.map((e) => e.name).toList(),
                     onChanged: (val) {
-                      if (allEvents.isEmpty || val == 'No Events - Create in Slot Lab') return;
-                      final evt = allEvents.firstWhere(
+                      if (compositeEvents.isEmpty || val == 'No Events - Create in Slot Lab') return;
+                      final evt = compositeEvents.firstWhere(
                         (e) => e.name == val,
-                        orElse: () => allEvents.first,
+                        orElse: () => compositeEvents.first,
                       );
                       // Load event to timeline (same as clicking in Events folder)
                       _loadEventToTimeline(evt.id);
@@ -4692,7 +4661,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('$actionCount action(s) • Category: ${event?.category ?? "—"}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+                      Text('$actionCount layer(s) • Category: ${selectedComposite?.category ?? "—"}', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
                     ],
                   ),
                   const SizedBox(width: 24),
@@ -5146,7 +5115,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // Audition - play clip preview
       isAuditioning: _isAuditioning,
       onAudition: (clipId, startTime, endTime) {
-        debugPrint('[Audition] Play clip $clipId from $startTime to $endTime');
         // Move playhead to start position and play
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         engine.seek(clip.startTime + startTime);
@@ -5154,7 +5122,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         setState(() => _isAuditioning = true);
       },
       onStopAudition: () {
-        debugPrint('[Audition] Stop');
         engine.pause();
         setState(() => _isAuditioning = false);
       },
@@ -5229,7 +5196,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         setState(() => _clipHitpointAlgorithm = algorithm);
       },
       onDetectHitpoints: () {
-        debugPrint('[Layout] onDetectHitpoints callback called');
         _detectClipHitpoints();
       },
       onHitpointsChange: (hitpoints) {
@@ -5276,7 +5242,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Parse clip ID to get the numeric clip ID for FFI
     final clipIdNumeric = int.tryParse(clip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     if (clipIdNumeric == 0) {
-      debugPrint('[ClipEditor] Invalid clip ID for hitpoint detection: ${clip.id}');
       return;
     }
 
@@ -5300,8 +5265,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           .toList();
       _showClipHitpoints = true;
     });
-
-    debugPrint('[ClipEditor] Detected ${_clipHitpoints.length} hitpoints');
   }
 
   /// Slice clip at hitpoint positions (creates multiple clips)
@@ -5360,8 +5323,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       _clips = _clips.where((c) => c.id != clipId).toList()..addAll(newClips);
       _clipHitpoints = []; // Clear hitpoints after slicing
     });
-
-    debugPrint('[ClipEditor] Sliced clip into ${newClips.length} parts');
   }
 
   /// Build Crossfade Editor content
@@ -5382,33 +5343,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       ),
       onConfigChanged: (config) {
         // Live preview - apply crossfade changes in real-time
-        debugPrint('Crossfade config changed: duration=${config.duration}, preset=${config.fadeOut.preset}');
       },
       onApply: () {
-        // Apply crossfade to selected crossfade in timeline
-        // TODO: Get selected crossfade ID from timeline selection
-        debugPrint('Crossfade applied');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Crossfade applied'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        // Apply crossfade
       },
       onCancel: () {
-        // Revert to original crossfade settings
-        debugPrint('Crossfade edit cancelled');
+        // Cancel crossfade edit
       },
       onAudition: () {
-        // Start playback of crossfade region only
-        // Use loop region for audition
-        debugPrint('Audition crossfade');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Playing crossfade region...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        // Audition crossfade
       },
     );
   }
@@ -5455,8 +5398,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               final curveType = _curveTypeToInt(point.curveType);
               NativeFFI.instance.automationAddPoint(1, paramName, timeSamples, point.value, curveType: curveType);
             }
-
-            debugPrint('Automation synced: ${data.points.length} points to engine');
           },
         );
       },
@@ -8186,10 +8127,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // GROUP 7: MIDDLEWARE — Game audio middleware (Wwise-style)
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'event-editor',
-        label: 'Event Editor',
-        icon: Icons.event_note,
-        content: const EventEditorPanel(),
+        id: 'events-folder',
+        label: 'Events Folder',
+        icon: Icons.folder_special,
+        content: const EventsFolderPanel(),
         groupId: 'middleware',
       ),
     ];
