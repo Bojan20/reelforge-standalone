@@ -19,6 +19,7 @@ import '../providers/meter_provider.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
+import '../providers/slot_lab_provider.dart';
 import '../providers/stage_provider.dart';
 import '../models/stage_models.dart' as stage;
 import '../models/layout_models.dart';
@@ -227,6 +228,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // Selected track for Channel tab (DAW mode)
   String? _selectedTrackId;
 
+  // Selected event for timeline (middleware mode)
+  String? _selectedEventForTimeline;
+
   // Meter decay state - Cubase-style: meters decay to 0 when playback stops
   bool _wasPlaying = false;
   Timer? _meterDecayTimer;
@@ -332,17 +336,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     } else {
       // ========== MIDDLEWARE MODE: Wwise-style event browser ==========
 
-      // Events folder - from imported JSON routes (starts empty or from routes)
+      // Events folder - reads from MiddlewareProvider (includes Slot Lab events)
+      final middlewareProvider = context.read<MiddlewareProvider>();
+      final providerEvents = middlewareProvider.events;
       tree.add(ProjectTreeNode(
         id: 'events',
         type: TreeItemType.folder,
         label: 'Events',
-        count: _routeEvents.length,
-        children: _routeEvents
-            .map((name) => ProjectTreeNode(
-                  id: 'evt-$name',
+        count: providerEvents.length,
+        children: providerEvents
+            .map((event) => ProjectTreeNode(
+                  id: 'evt-${event.id}',
                   type: TreeItemType.event,
-                  label: name,
+                  label: event.name,
                 ))
             .toList(),
       ));
@@ -1054,6 +1060,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // POOL & TIMELINE
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Handle single-click on pool/tree item - selects and loads event to timeline
+  void _handlePoolItemClick(String id, TreeItemType type, dynamic data) {
+    debugPrint('[UI] Pool item clicked: $id, type: $type');
+
+    // Event click in middleware mode - load to timeline
+    if (id.startsWith('evt-')) {
+      final eventId = id.substring(4); // Remove 'evt-' prefix
+      _loadEventToTimeline(eventId);
+    }
+  }
+
   /// Handle double-click on pool item - creates NEW track with audio file
   void _handlePoolItemDoubleClick(String id, TreeItemType type, dynamic data) {
     debugPrint('[UI] Pool item double-clicked: $id, type: $type');
@@ -1063,6 +1080,145 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // ALWAYS create NEW track on double-click (Cubase behavior)
       _addPoolFileToNewTrack(data);
     }
+
+    // Check if it's an event from Events folder (middleware mode)
+    if (id.startsWith('evt-')) {
+      final eventId = id.substring(4); // Remove 'evt-' prefix
+      _loadEventToTimeline(eventId);
+    }
+  }
+
+  /// Load event's sounds to timeline as separate tracks
+  void _loadEventToTimeline(String eventId) {
+    final provider = context.read<MiddlewareProvider>();
+
+    // Debug: log all available events
+    debugPrint('[UI] _loadEventToTimeline: Looking for eventId="$eventId"');
+    debugPrint('[UI] Available events (${provider.events.length}):');
+    for (final e in provider.events) {
+      debugPrint('[UI]   - id="${e.id}", name="${e.name}", actions=${e.actions.length}');
+    }
+
+    final event = provider.events.firstWhere(
+      (e) => e.id == eventId,
+      orElse: () => MiddlewareEvent(id: '', name: ''),
+    );
+
+    if (event.id.isEmpty) {
+      debugPrint('[UI] Event not found: $eventId');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Event not found: $eventId'),
+          backgroundColor: Colors.red.shade800,
+        ),
+      );
+      return;
+    }
+
+    debugPrint('[UI] Loading event to timeline: ${event.name} (${event.actions.length} actions)');
+    for (int i = 0; i < event.actions.length; i++) {
+      debugPrint('[UI]   Action $i: type=${event.actions[i].type}, assetId="${event.actions[i].assetId}", delay=${event.actions[i].delay}');
+    }
+
+    // If event has no actions, show message but still allow viewing
+    if (event.actions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Event "${event.name}" has no sounds yet. Add layers in Slot Lab.'),
+          backgroundColor: Colors.orange.shade800,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      // Create single empty track for the event
+      setState(() {
+        _tracks = [
+          timeline.TimelineTrack(
+            id: 'evt_track_0',
+            name: event.name,
+            color: _getTrackColor(0),
+            height: 80,
+          ),
+        ];
+        _clips = [];
+        _selectedEventForTimeline = eventId;
+      });
+      return;
+    }
+
+    // Load event's actions as tracks
+    final newTracks = <timeline.TimelineTrack>[];
+    final newClips = <timeline.TimelineClip>[];
+
+    for (int i = 0; i < event.actions.length; i++) {
+      final action = event.actions[i];
+      final trackId = 'evt_track_$i';
+      final clipId = 'evt_clip_$i';
+
+      // Determine track name
+      String trackName;
+      if (action.assetId.isNotEmpty) {
+        trackName = action.assetId.split('/').last
+            .replaceAll('.wav', '')
+            .replaceAll('.mp3', '')
+            .replaceAll('.ogg', '');
+      } else {
+        trackName = '${action.type.displayName} ${i + 1}';
+      }
+
+      // Create track for this action
+      newTracks.add(timeline.TimelineTrack(
+        id: trackId,
+        name: trackName,
+        color: _getTrackColor(i),
+        height: 80,
+        muted: false,
+        soloed: false,
+        armed: false,
+        outputBus: timeline.OutputBus.sfx,
+      ));
+
+      // Create clip (even without audio path, shows placeholder)
+      newClips.add(timeline.TimelineClip(
+        id: clipId,
+        trackId: trackId,
+        name: action.assetId.isNotEmpty ? action.assetId.split('/').last : trackName,
+        startTime: action.delay,
+        duration: 2.0,
+        color: _getTrackColor(i),
+        sourceFile: action.assetId.isNotEmpty ? action.assetId : null,
+      ));
+    }
+
+    setState(() {
+      _tracks = newTracks;
+      _clips = newClips;
+      _selectedEventForTimeline = eventId;
+      _selectedEventId = eventId; // Sync with middleware dropdown
+      _selectedActionIndex = -1; // Reset action selection
+    });
+
+    // Show feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Loaded "${event.name}" → ${newTracks.length} tracks'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.green.shade800,
+      ),
+    );
+  }
+
+  Color _getTrackColor(int index) {
+    const colors = [
+      Color(0xFF4A9EFF), // Blue
+      Color(0xFFFF9040), // Orange
+      Color(0xFF40FF90), // Green
+      Color(0xFFFF4060), // Red
+      Color(0xFF40C8FF), // Cyan
+      Color(0xFFFFFF40), // Yellow
+      Color(0xFFFF40FF), // Magenta
+      Color(0xFF90FF40), // Lime
+    ];
+    return colors[index % colors.length];
   }
 
   /// Add pool file to a NEW track (double-click behavior)
@@ -2359,97 +2515,45 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   void _initDemoMiddlewareData() {
-    // Create demo events with actions
-    _middlewareEvents = [
-      MiddlewareEvent(
-        id: 'evt-play-music',
-        name: 'Play_Music',
-        category: 'Music',
-        actions: [
-          const MiddlewareAction(
-            id: 'act-1',
-            type: ActionType.play,
-            assetId: 'music_main',
-            bus: 'Music',
-            fadeTime: 0.5,
-            loop: true,
-          ),
-        ],
-      ),
-      MiddlewareEvent(
-        id: 'evt-stop-music',
-        name: 'Stop_Music',
-        category: 'Music',
-        actions: [
-          const MiddlewareAction(
-            id: 'act-2',
-            type: ActionType.stop,
-            assetId: 'music_main',
-            bus: 'Music',
-            fadeTime: 1.0,
-          ),
-        ],
-      ),
-      MiddlewareEvent(
-        id: 'evt-bigwin',
-        name: 'BigWin_Start',
-        category: 'Wins',
-        actions: [
-          const MiddlewareAction(
-            id: 'act-3',
-            type: ActionType.setVolume,
-            bus: 'Music',
-            gain: 0.3,
-            fadeTime: 0.2,
-          ),
-          const MiddlewareAction(
-            id: 'act-4',
-            type: ActionType.play,
-            assetId: 'sfx_jackpot',
-            bus: 'Wins',
-            priority: ActionPriority.high,
-          ),
-          const MiddlewareAction(
-            id: 'act-5',
-            type: ActionType.play,
-            assetId: 'vo_bigwin',
-            bus: 'VO',
-            delay: 0.5,
-          ),
-        ],
-      ),
-      MiddlewareEvent(
-        id: 'evt-spin-start',
-        name: 'Spin_Start',
-        category: 'Gameplay',
-        actions: [
-          const MiddlewareAction(
-            id: 'act-6',
-            type: ActionType.play,
-            assetId: 'sfx_spin',
-            bus: 'SFX',
-          ),
-        ],
-      ),
-      MiddlewareEvent(
-        id: 'evt-ui-click',
-        name: 'UI_Click',
-        category: 'UI',
-        actions: [
-          const MiddlewareAction(
-            id: 'act-7',
-            type: ActionType.play,
-            assetId: 'sfx_click',
-            bus: 'UI',
-            scope: ActionScope.gameObject,
-          ),
-        ],
-      ),
-    ];
+    // No placeholder events - events are created by user or synced from Slot Lab
+    _middlewareEvents = [];
+    _routeEvents = [];
+  }
 
-    // Initialize route events list (but don't auto-select - inspector should be empty)
-    if (_middlewareEvents.isNotEmpty) {
-      _routeEvents = _middlewareEvents.map((e) => e.name).toList();
+  /// Sync audio pool from SlotLabProvider to DAW _audioPool
+  /// This ensures sounds imported in Slot Lab appear in DAW Audio Pool
+  void _syncAudioPoolFromSlotLab(SlotLabProvider slotLabProvider) {
+    final slotLabPool = slotLabProvider.persistedAudioPool;
+    if (slotLabPool.isEmpty) return;
+
+    // Add any new files from Slot Lab that aren't already in DAW pool
+    for (final item in slotLabPool) {
+      final path = item['path'] as String? ?? '';
+      if (path.isEmpty) continue;
+
+      // Check if already in DAW pool
+      final exists = _audioPool.any((f) => f.path == path);
+      if (exists) continue;
+
+      // Add to DAW pool
+      final name = item['name'] as String? ?? path.split('/').last;
+      final duration = (item['duration'] as num?)?.toDouble() ?? 1.0;
+      final fileId = 'pool-${DateTime.now().millisecondsSinceEpoch}-${_audioPool.length}';
+
+      _audioPool.add(timeline.PoolAudioFile(
+        id: fileId,
+        path: path,
+        name: name,
+        duration: duration,
+        sampleRate: (item['sampleRate'] as num?)?.toInt() ?? 48000,
+        channels: (item['channels'] as num?)?.toInt() ?? 2,
+        format: path.split('.').last,
+        waveform: null,
+        importedAt: DateTime.now(),
+        defaultBus: timeline.OutputBus.master,
+      ));
+
+      debugPrint('[UI] Synced from Slot Lab: $name');
     }
   }
 
@@ -2459,6 +2563,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   MiddlewareEvent? get _selectedEvent {
     if (_selectedEventId.isEmpty) return null;
+    // First check provider events (includes Slot Lab synced events)
+    final provider = context.read<MiddlewareProvider>();
+    final providerEvent = provider.events.cast<MiddlewareEvent?>().firstWhere(
+      (e) => e?.id == _selectedEventId,
+      orElse: () => null,
+    );
+    if (providerEvent != null) return providerEvent;
+    // Fallback to local events
     return _middlewareEvents.cast<MiddlewareEvent?>().firstWhere(
       (e) => e?.id == _selectedEventId,
       orElse: () => null,
@@ -2523,9 +2635,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   void _showAddActionDialog() {
     if (_selectedEvent == null) return;
 
-    // Get asset options from audio pool (real imported files)
+    // Get asset options from audio pool (real imported files) - no placeholders
     final poolAssets = _audioPool.map((f) => f.name).toList();
-    final assetOptions = poolAssets.isNotEmpty ? poolAssets : kAllAssetIds;
+    final assetOptions = poolAssets.isNotEmpty ? poolAssets : ['—'];
 
     showDialog(
       context: context,
@@ -2758,8 +2870,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   @override
   Widget build(BuildContext context) {
-    // PERFORMANCE: No Consumer wrapper - prevents entire layout rebuild on every engine update
-    // Use context.read() for callbacks and Selector for reactive parts only
+    // Watch MiddlewareProvider for Events folder updates in left panel
+    // This ensures new events from Slot Lab appear immediately
+    context.watch<MiddlewareProvider>();
+
+    // Sync audio pool from SlotLabProvider (sounds imported in Slot Lab appear in DAW)
+    final slotLabProvider = context.watch<SlotLabProvider>();
+    _syncAudioPoolFromSlotLab(slotLabProvider);
 
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
@@ -2863,6 +2980,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             projectTree: _buildProjectTree(),
             activeLeftTab: _activeLeftTab,
             onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
+            onProjectSelect: _handlePoolItemClick,
             onProjectDoubleClick: _handlePoolItemDoubleClick,
 
             // Channel tab data (DAW mode)
@@ -3989,6 +4107,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   /// Middleware Mode: Events Editor in center - FULLY FUNCTIONAL
   Widget _buildMiddlewareCenterContent() {
+    // Use provider events for dropdown (includes Slot Lab synced events)
+    final provider = context.read<MiddlewareProvider>();
+    final allEvents = provider.events;
+
     final event = _selectedEvent;
     final eventName = event?.name ?? 'No Event Selected';
     final actionCount = event?.actions.length ?? 0;
@@ -4009,18 +4131,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  // Event selector dropdown - Connected to real events
+                  // Event selector dropdown - Connected to real events from provider
                   _ToolbarDropdown(
                     icon: Icons.api,
                     label: 'Event',
                     value: eventName,
-                    options: _middlewareEvents.map((e) => e.name).toList(),
+                    options: allEvents.isEmpty
+                        ? ['No Events - Create in Slot Lab']
+                        : allEvents.map((e) => e.name).toList(),
                     onChanged: (val) {
-                      final evt = _middlewareEvents.firstWhere((e) => e.name == val);
-                      setState(() {
-                        _selectedEventId = evt.id;
-                        _selectedActionIndex = -1;
-                      });
+                      if (allEvents.isEmpty || val == 'No Events - Create in Slot Lab') return;
+                      final evt = allEvents.firstWhere(
+                        (e) => e.name == val,
+                        orElse: () => allEvents.first,
+                      );
+                      // Load event to timeline (same as clicking in Events folder)
+                      _loadEventToTimeline(evt.id);
                     },
                     accentColor: FluxForgeTheme.accentOrange,
                   ),
@@ -4242,6 +4368,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       );
     }
 
+    // Build asset options from event's actual sounds (no placeholders)
+    final eventAssetIds = <String>{'—'}; // Always include empty option
+    for (final action in event.actions) {
+      if (action.assetId.isNotEmpty) {
+        // Extract filename from path for display
+        final displayName = action.assetId.contains('/')
+            ? action.assetId.split('/').last
+            : action.assetId;
+        eventAssetIds.add(displayName);
+      }
+    }
+    final assetOptions = eventAssetIds.toList();
+
     return Container(
       width: availableWidth - 24, // Full width minus margins
       margin: const EdgeInsets.all(12),
@@ -4303,12 +4442,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         onChanged: (val) => _updateAction(idx, action.copyWith(type: ActionTypeExtension.fromString(val))),
                       ),
                     ),
-                    // Asset ID dropdown - CONNECTED
+                    // Asset ID dropdown - shows actual sounds from this event
                     SizedBox(
                       width: 130,
                       child: _CellDropdown(
-                        value: action.assetId.isEmpty ? '—' : action.assetId,
-                        options: kAllAssetIds,
+                        value: action.assetId.isEmpty
+                            ? '—'
+                            : (action.assetId.contains('/') ? action.assetId.split('/').last : action.assetId),
+                        options: assetOptions,
                         color: FluxForgeTheme.accentCyan,
                         onChanged: (val) => _updateAction(idx, action.copyWith(assetId: val == '—' ? '' : val)),
                       ),
@@ -7176,9 +7317,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       final action = _selectedAction;
       final hasAction = action != null;
 
-      // Asset options from audio pool
+      // Asset options from audio pool - no placeholders
       final poolAssets = _audioPool.map((f) => f.name).toList();
-      final assetOptions = poolAssets.isNotEmpty ? poolAssets : kAllAssetIds;
+      final assetOptions = poolAssets.isNotEmpty ? poolAssets : ['—'];
 
       return [
         // Event info (if no action selected)
@@ -7576,7 +7717,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       // GROUP 7: MIDDLEWARE — Game audio middleware (Wwise-style)
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
-        id: 'middleware',
+        id: 'event-editor',
         label: 'Event Editor',
         icon: Icons.event_note,
         content: const EventEditorPanel(),
@@ -7637,7 +7778,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'middleware',
         label: 'Middleware',
-        tabs: ['middleware'],
+        tabs: ['event-editor'],
       ),
     ];
 

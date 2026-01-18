@@ -114,217 +114,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   }
 
   void _initSampleData() {
-    // Music category
-    _addEvent('Play_MainTheme', 'Music', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'music_main',
-        bus: 'Music',
-        fadeTime: 0.5,
-        loop: true,
-        priority: ActionPriority.high,
-      ),
-    ]);
-    _addEvent('Play_BonusTheme', 'Music', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.setVolume,
-        bus: 'Music',
-        gain: 0.3,
-        fadeTime: 0.2,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'music_bonus',
-        bus: 'Music',
-        fadeTime: 1.0,
-        loop: true,
-        delay: 0.2,
-      ),
-    ]);
-    _addEvent('Stop_Music', 'Music', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.stop,
-        bus: 'Music',
-        fadeTime: 1.5,
-        fadeCurve: FadeCurve.exp1,
-      ),
-    ]);
-
-    // SFX category
-    _addEvent('Play_SpinClick', 'SFX', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_click',
-        bus: 'SFX',
-      ),
-    ]);
-    _addEvent('Play_ReelLand', 'SFX', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_reel_land',
-        bus: 'Reels',
-        priority: ActionPriority.high,
-      ),
-    ]);
-    _addEvent('Play_CoinDrop', 'SFX', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_coins',
-        bus: 'SFX',
-      ),
-    ]);
-
-    // Slot category
-    _addEvent('Spin_Start', 'Slot', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_spin',
-        bus: 'Reels',
-        priority: ActionPriority.high,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.setVolume,
-        bus: 'Music',
-        gain: 0.5,
-        fadeTime: 0.3,
-      ),
-    ]);
-    _addEvent('Spin_Stop', 'Slot', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.stop,
-        bus: 'Reels',
-        fadeTime: 0.1,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.setVolume,
-        bus: 'Music',
-        gain: 1.0,
-        fadeTime: 0.5,
-        delay: 0.2,
-      ),
-    ]);
-    _addEvent('BigWin_Start', 'Slot', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.setVolume,
-        bus: 'Music',
-        gain: 0.2,
-        fadeTime: 0.1,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_jackpot',
-        bus: 'Wins',
-        priority: ActionPriority.highest,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'vo_bigwin',
-        bus: 'VO',
-        delay: 0.5,
-        priority: ActionPriority.high,
-      ),
-    ]);
-    _addEvent('BigWin_Loop', 'Slot', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'music_bigwin',
-        bus: 'Wins',
-        loop: true,
-      ),
-    ]);
-    _addEvent('BigWin_End', 'Slot', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.stop,
-        bus: 'Wins',
-        fadeTime: 1.0,
-      ),
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.setVolume,
-        bus: 'Music',
-        gain: 1.0,
-        fadeTime: 1.0,
-        delay: 0.5,
-      ),
-    ]);
-
-    // Voice category
-    _addEvent('VO_BigWin', 'Voice', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'vo_bigwin',
-        bus: 'VO',
-        priority: ActionPriority.highest,
-      ),
-    ]);
-    _addEvent('VO_MegaWin', 'Voice', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'vo_megawin',
-        bus: 'VO',
-        priority: ActionPriority.highest,
-      ),
-    ]);
-
-    // UI category
-    _addEvent('UI_Click', 'UI', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_click',
-        bus: 'UI',
-      ),
-    ]);
-    _addEvent('UI_Hover', 'UI', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.play,
-        assetId: 'sfx_hover',
-        bus: 'UI',
-        gain: 0.5,
-      ),
-    ]);
-
-    // System category
-    _addEvent('Stop_All', 'System', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.stopAll,
-        fadeTime: 0.5,
-      ),
-    ]);
-    _addEvent('Pause_All', 'System', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.pauseAll,
-        fadeTime: 0.1,
-      ),
-    ]);
-    _addEvent('Resume_All', 'System', [
-      MiddlewareAction(
-        id: _nextId(),
-        type: ActionType.resumeAll,
-        fadeTime: 0.1,
-      ),
-    ]);
+    // No placeholder data - events are created by user or synced from Slot Lab
+    // Categories will be populated as events are added
   }
 
   String _nextId() => '${_nextActionId++}';
@@ -362,6 +153,40 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     }
   }
 
+  /// Sync events FROM provider (Slot Lab events appear in Event Editor)
+  void _syncEventsFromProvider(MiddlewareProvider provider) {
+    // Provider.events already contains MiddlewareEvents synced from Slot Lab composites
+    // via _syncCompositeToMiddleware() in the provider
+    final providerEvents = provider.events;
+
+    for (final event in providerEvents) {
+      if (!_events.containsKey(event.id)) {
+        // New event from provider
+        _events[event.id] = event;
+        _categoryFolders.putIfAbsent(event.category, () => []);
+        if (!_categoryFolders[event.category]!.contains(event.id)) {
+          _categoryFolders[event.category]!.add(event.id);
+        }
+        _expandedCategories.add(event.category);
+      } else {
+        // Update if changed
+        final existing = _events[event.id]!;
+        if (existing.name != event.name ||
+            existing.category != event.category ||
+            existing.actions.length != event.actions.length) {
+          _events[event.id] = event;
+          if (existing.category != event.category) {
+            _categoryFolders[existing.category]?.remove(event.id);
+            _categoryFolders.putIfAbsent(event.category, () => []);
+            if (!_categoryFolders[event.category]!.contains(event.id)) {
+              _categoryFolders[event.category]!.add(event.id);
+            }
+          }
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -380,6 +205,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       onKeyEvent: _handleKeyEvent,
       child: Consumer<MiddlewareProvider>(
         builder: (context, provider, _) {
+          // Sync events from provider (includes Slot Lab events)
+          _syncEventsFromProvider(provider);
+
           return Container(
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgDeep,
@@ -2348,21 +2176,16 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                             border: Border.all(color: FluxForgeTheme.borderSubtle),
                           ),
                           child: DropdownButton<String>(
-                            value: selectedAsset.isEmpty
-                                ? kAllAssetIds.first
-                                : selectedAsset,
+                            value: selectedAsset.isEmpty ? '—' : selectedAsset,
                             isExpanded: true,
                             underline: const SizedBox(),
                             dropdownColor: FluxForgeTheme.bgSurface,
                             style: FluxForgeTheme.body.copyWith(
                               color: FluxForgeTheme.textPrimary,
                             ),
-                            items: kAllAssetIds.map((asset) {
-                              return DropdownMenuItem(
-                                value: asset,
-                                child: Text(asset),
-                              );
-                            }).toList(),
+                            items: const [
+                              DropdownMenuItem(value: '—', child: Text('—')),
+                            ],
                             onChanged: (value) {
                               if (value != null) {
                                 setFormState(() => selectedAsset = value);
@@ -2390,7 +2213,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                       event,
                       selectedType,
                       selectedBus,
-                      selectedAsset.isEmpty ? kAllAssetIds.first : selectedAsset,
+                      selectedAsset.isEmpty ? '—' : selectedAsset,
                     );
                     setState(() => _isCreatingAction = false);
                   },
@@ -2537,9 +2360,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               action.type == ActionType.playAndContinue)
             _buildInspectorDropdown(
               'Asset',
-              action.assetId.isEmpty ? kAllAssetIds.first : action.assetId,
-              kAllAssetIds,
-              (value) => _updateAction(event, action, assetId: value),
+              action.assetId.isEmpty ? '—' : action.assetId,
+              [if (action.assetId.isNotEmpty) action.assetId, '—'],
+              (value) => _updateAction(event, action, assetId: value == '—' ? '' : value),
             ),
         ]),
         const SizedBox(height: 16),
@@ -2673,6 +2496,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     List<String> options,
     ValueChanged<String> onChanged,
   ) {
+    // Ensure value is in options list, fallback to first option
+    final safeOptions = options.isEmpty ? ['—'] : options;
+    final safeValue = safeOptions.contains(value) ? value : safeOptions.first;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -2696,14 +2523,14 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                 border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: DropdownButton<String>(
-                value: value,
+                value: safeValue,
                 isExpanded: true,
                 underline: const SizedBox(),
                 dropdownColor: FluxForgeTheme.bgSurface,
                 style: FluxForgeTheme.bodySmall.copyWith(
                   color: FluxForgeTheme.textPrimary,
                 ),
-                items: options.map((opt) {
+                items: safeOptions.map((opt) {
                   return DropdownMenuItem(
                     value: opt,
                     child: Text(opt),
@@ -3420,48 +3247,71 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   }
 
   void _testEvent(MiddlewareEvent event) {
-    final provider = context.read<MiddlewareProvider>();
+    try {
+      final provider = context.read<MiddlewareProvider>();
 
-    // Sync event to provider if not already registered
-    if (provider.getEvent(event.id) == null) {
-      provider.registerEvent(event);
-    } else {
-      provider.updateEvent(event);
-    }
+      // Sync event to provider if not already registered
+      if (provider.getEvent(event.id) == null) {
+        provider.registerEvent(event);
+      } else {
+        provider.updateEvent(event);
+      }
 
-    // Post event to engine
-    final playingId = provider.testEvent(event.id);
+      // Check if event has any actions with audio
+      if (event.actions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Event "${event.name}" has no actions to play'),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
 
-    debugPrint('[EventEditor] Testing event: ${event.name} (playingId: $playingId)');
+      // Post event to engine
+      final playingId = provider.testEvent(event.id);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              playingId > 0 ? Icons.play_circle : Icons.error,
-              color: playingId > 0 ? Colors.green : Colors.red,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(playingId > 0
-                ? 'Playing: ${event.name}'
-                : 'Failed to play: ${event.name}'),
-          ],
+      debugPrint('[EventEditor] Testing event: ${event.name} (playingId: $playingId)');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                playingId > 0 ? Icons.play_circle : Icons.info,
+                color: playingId > 0 ? Colors.green : Colors.orange,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(playingId > 0
+                  ? 'Playing: ${event.name}'
+                  : 'Event posted: ${event.name} (no audio loaded)'),
+            ],
+          ),
+          backgroundColor: FluxForgeTheme.bgSurface,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          action: playingId > 0
+              ? SnackBarAction(
+                  label: 'Stop',
+                  textColor: FluxForgeTheme.accentBlue,
+                  onPressed: () => provider.stopPlayingId(playingId),
+                )
+              : null,
         ),
-        backgroundColor: FluxForgeTheme.bgSurface,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        action: playingId > 0
-            ? SnackBarAction(
-                label: 'Stop',
-                textColor: FluxForgeTheme.accentBlue,
-                onPressed: () => provider.stopPlayingId(playingId),
-              )
-            : null,
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('[EventEditor] Error testing event: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red.shade800,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _addAction(

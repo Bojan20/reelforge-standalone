@@ -128,9 +128,16 @@ String _nextActionId() => 'slot_action_${_actionId++}';
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Factory for creating predefined slot audio events
+/// NOTE: Templates removed - events are now created by user or synced from Slot Lab
 class SlotAudioEventFactory {
   /// Create all core slot audio events
+  /// Returns empty list - no placeholder events
   static List<MiddlewareEvent> createAllEvents() {
+    return []; // No placeholder events - user creates events in Slot Lab
+  }
+
+  /// Create events from templates (optional, call explicitly if needed)
+  static List<MiddlewareEvent> createFromTemplates() {
     _actionId = 0; // Reset counter
     return [
       ...createSpinLifecycleEvents(),

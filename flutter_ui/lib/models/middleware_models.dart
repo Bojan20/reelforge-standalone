@@ -357,14 +357,10 @@ const List<String> kAllBuses = [
   'Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience', 'Reels', 'Wins', 'VO',
 ];
 
-/// All available asset IDs
+/// All available asset IDs - empty by default, populated from actual imported sounds
+/// User imports sounds via Slot Lab, they appear here automatically
 const List<String> kAllAssetIds = [
-  'music_main', 'music_bonus', 'music_freespins', 'music_bigwin',
-  'sfx_spin', 'sfx_reel_land', 'sfx_win_small', 'sfx_win_medium', 'sfx_win_big',
-  'sfx_click', 'sfx_hover', 'sfx_coins', 'sfx_jackpot',
-  'amb_casino', 'amb_nature', 'amb_crowd',
-  'vo_bigwin', 'vo_megawin', 'vo_jackpot', 'vo_freespins',
-  '—',
+  '—', // Empty placeholder - actual sounds come from events
 ];
 
 /// All available events
@@ -986,64 +982,10 @@ const List<Map<String, dynamic>> kDefaultRtpcDefinitions = [
   {'id': 10, 'name': 'TensionLevel', 'min': 0.0, 'max': 100.0, 'default': 0.0},
 ];
 
-/// Generate demo actions for an event
+/// Generate actions for an event (no placeholder sounds)
 List<MiddlewareAction> generateDemoActions(String eventName) {
-  switch (eventName) {
-    case 'Play_Music':
-      return [
-        MiddlewareAction(
-          id: '${eventName}_1',
-          type: ActionType.play,
-          assetId: 'music_main',
-          bus: 'Music',
-          fadeTime: 0.5,
-          loop: true,
-        ),
-      ];
-    case 'Stop_Music':
-      return [
-        MiddlewareAction(
-          id: '${eventName}_1',
-          type: ActionType.stop,
-          assetId: 'music_main',
-          bus: 'Music',
-          fadeTime: 1.0,
-        ),
-      ];
-    case 'BigWin_Start':
-      return [
-        MiddlewareAction(
-          id: '${eventName}_1',
-          type: ActionType.setVolume,
-          bus: 'Music',
-          gain: 0.3,
-          fadeTime: 0.2,
-        ),
-        MiddlewareAction(
-          id: '${eventName}_2',
-          type: ActionType.play,
-          assetId: 'sfx_jackpot',
-          bus: 'Wins',
-          priority: ActionPriority.high,
-        ),
-        MiddlewareAction(
-          id: '${eventName}_3',
-          type: ActionType.play,
-          assetId: 'vo_bigwin',
-          bus: 'VO',
-          delay: 0.5,
-        ),
-      ];
-    default:
-      return [
-        MiddlewareAction(
-          id: '${eventName}_1',
-          type: ActionType.play,
-          assetId: 'sfx_click',
-          bus: 'SFX',
-        ),
-      ];
-  }
+  // Return empty actions - user adds real sounds via Slot Lab or manually
+  return [];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -3821,6 +3821,16 @@ class MiddlewareProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Add existing composite event (for sync from external sources)
+  void addCompositeEvent(SlotCompositeEvent event) {
+    debugPrint('[Middleware] addCompositeEvent: ${event.name} (id: ${event.id})');
+    _pushUndoState();
+    _compositeEvents[event.id] = event;
+    _syncCompositeToMiddleware(event);
+    debugPrint('[Middleware] Total composite events: ${_compositeEvents.length}');
+    notifyListeners();
+  }
+
   /// Update composite event
   void updateCompositeEvent(SlotCompositeEvent event) {
     _pushUndoState();

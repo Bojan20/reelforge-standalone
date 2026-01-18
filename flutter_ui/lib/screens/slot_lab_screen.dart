@@ -14,11 +14,13 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/slot_lab_provider.dart';
@@ -39,6 +41,7 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
+import '../models/slot_audio_events.dart'; // SlotCompositeEvent, SlotEventLayer
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -352,106 +355,181 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _loadAudioPool();
     _initializeSlotEngine();
     _restorePersistedState();
+    _setupMiddlewareSync();
+  }
+
+  /// Set up listener for two-way sync with Middleware
+  void _setupMiddlewareSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+      middleware.addListener(_onMiddlewareChanged);
+    });
+  }
+
+  /// Handle changes from Middleware (two-way sync)
+  void _onMiddlewareChanged() {
+    if (!mounted) return;
+
+    final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+
+    // Sync back from Middleware to local state
+    for (final compositeEvent in middleware.compositeEvents) {
+      // Find matching local event
+      final localIndex = _compositeEvents.indexWhere((e) => e.id == compositeEvent.id);
+
+      if (localIndex >= 0) {
+        // Update existing local event with Middleware changes
+        final localEvent = _compositeEvents[localIndex];
+
+        // Sync layers (mute, solo, volume, pan, offset)
+        final updatedLayers = <_CompositeLayer>[];
+        for (final layer in compositeEvent.layers) {
+          final localLayerIndex = localEvent.layers.indexWhere((l) => l.id == layer.id);
+          if (localLayerIndex >= 0) {
+            final localLayer = localEvent.layers[localLayerIndex];
+            updatedLayers.add(_CompositeLayer(
+              id: layer.id,
+              audioPath: layer.audioPath,
+              name: layer.name,
+              volume: layer.volume,
+              pan: layer.pan,
+              delay: layer.offsetMs,
+              busId: layer.busId ?? localLayer.busId,
+            ));
+          }
+        }
+
+        // Only update if there are actual changes
+        if (updatedLayers.isNotEmpty) {
+          setState(() {
+            _compositeEvents[localIndex] = _CompositeEvent(
+              id: compositeEvent.id,
+              name: compositeEvent.name,
+              stage: compositeEvent.triggerStages.isNotEmpty
+                  ? compositeEvent.triggerStages.first
+                  : localEvent.stage,
+              layers: updatedLayers.isNotEmpty ? updatedLayers : localEvent.layers,
+              isExpanded: localEvent.isExpanded,
+            );
+          });
+        }
+      }
+    }
   }
 
   /// Restore state from provider (survives screen switches)
   void _restorePersistedState() {
+    // Delay to ensure provider is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      try {
-        final provider = Provider.of<SlotLabProvider>(context, listen: false);
-
-        // Restore audio pool
-        if (provider.persistedAudioPool.isNotEmpty) {
-          setState(() {
-            _audioPool = List.from(provider.persistedAudioPool);
-          });
-        }
-
-        // Restore composite events
-        if (provider.persistedCompositeEvents.isNotEmpty) {
-          setState(() {
-            _compositeEvents.clear();
-            for (final eventData in provider.persistedCompositeEvents) {
-              _compositeEvents.add(_CompositeEvent(
-                id: eventData['id'] as String,
-                name: eventData['name'] as String,
-                stage: eventData['stage'] as String,
-                layers: (eventData['layers'] as List<dynamic>?)?.map((l) {
-                  final layerData = l as Map<String, dynamic>;
-                  return _CompositeLayer(
-                    id: layerData['id'] as String,
-                    audioPath: layerData['audioPath'] as String,
-                    name: layerData['name'] as String,
-                    volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
-                    pan: (layerData['pan'] as num?)?.toDouble() ?? 0.0,
-                    delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
-                    busId: layerData['busId'] as int? ?? 0,
-                  );
-                }).toList(),
-                isExpanded: eventData['isExpanded'] as bool? ?? false,
-              ));
-            }
-          });
-          // Re-sync to event registry
-          _syncAllEventsToRegistry();
-        }
-
-        // Restore tracks
-        if (provider.persistedTracks.isNotEmpty) {
-          setState(() {
-            _tracks.clear();
-            for (final trackData in provider.persistedTracks) {
-              _tracks.add(_SlotAudioTrack(
-                id: trackData['id'] as String,
-                name: trackData['name'] as String,
-                color: Color(trackData['color'] as int),
-                isMuted: trackData['isMuted'] as bool? ?? false,
-                isSolo: trackData['isSolo'] as bool? ?? false,
-                volume: (trackData['volume'] as num?)?.toDouble() ?? 1.0,
-                regions: (trackData['regions'] as List<dynamic>?)?.map((r) {
-                  final regionData = r as Map<String, dynamic>;
-                  return _AudioRegion(
-                    id: regionData['id'] as String,
-                    name: regionData['name'] as String,
-                    start: (regionData['start'] as num).toDouble(),
-                    end: (regionData['end'] as num).toDouble(),
-                    color: Color(regionData['color'] as int),
-                    layers: (regionData['layers'] as List<dynamic>?)?.map((l) {
-                      final layerData = l as Map<String, dynamic>;
-                      return _RegionLayer(
-                        id: layerData['id'] as String,
-                        audioPath: layerData['audioPath'] as String,
-                        name: layerData['name'] as String,
-                        volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
-                        delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
-                        offset: (layerData['offset'] as num?)?.toDouble() ?? 0.0,
-                      );
-                    }).toList() ?? [],
-                  );
-                }).toList() ?? [],
-              ));
-            }
-          });
-        }
-
-        // Restore event to region mapping
-        if (provider.persistedEventToRegionMap.isNotEmpty) {
-          _eventToRegionMap.clear();
-          _eventToRegionMap.addAll(provider.persistedEventToRegionMap);
-        }
-
-        debugPrint('[SlotLab] Restored persisted state');
-      } catch (e) {
-        debugPrint('[SlotLab] Error restoring state: $e');
-      }
+      // Wait a frame for _initializeSlotEngine to complete
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (!mounted || !_hasSlotLabProvider) return;
+        _doRestorePersistedState();
+      });
     });
+  }
+
+  void _doRestorePersistedState() {
+    try {
+      final provider = _slotLabProvider;
+
+      // Restore audio pool
+      if (provider.persistedAudioPool.isNotEmpty) {
+        setState(() {
+          _audioPool = List.from(provider.persistedAudioPool);
+        });
+      }
+
+      // Restore composite events
+      if (provider.persistedCompositeEvents.isNotEmpty) {
+        setState(() {
+          _compositeEvents.clear();
+          for (final eventData in provider.persistedCompositeEvents) {
+            _compositeEvents.add(_CompositeEvent(
+              id: eventData['id'] as String,
+              name: eventData['name'] as String,
+              stage: eventData['stage'] as String,
+              layers: (eventData['layers'] as List<dynamic>?)?.map((l) {
+                final layerData = l as Map<String, dynamic>;
+                return _CompositeLayer(
+                  id: layerData['id'] as String,
+                  audioPath: layerData['audioPath'] as String,
+                  name: layerData['name'] as String,
+                  volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
+                  pan: (layerData['pan'] as num?)?.toDouble() ?? 0.0,
+                  delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
+                  busId: layerData['busId'] as int? ?? 0,
+                );
+              }).toList(),
+              isExpanded: eventData['isExpanded'] as bool? ?? false,
+            ));
+          }
+        });
+        // Re-sync to event registry
+        _syncAllEventsToRegistry();
+      }
+
+      // Restore tracks
+      if (provider.persistedTracks.isNotEmpty) {
+        setState(() {
+          _tracks.clear();
+          for (final trackData in provider.persistedTracks) {
+            _tracks.add(_SlotAudioTrack(
+              id: trackData['id'] as String,
+              name: trackData['name'] as String,
+              color: Color(trackData['color'] as int),
+              isMuted: trackData['isMuted'] as bool? ?? false,
+              isSolo: trackData['isSolo'] as bool? ?? false,
+              volume: (trackData['volume'] as num?)?.toDouble() ?? 1.0,
+              regions: (trackData['regions'] as List<dynamic>?)?.map((r) {
+                final regionData = r as Map<String, dynamic>;
+                return _AudioRegion(
+                  id: regionData['id'] as String,
+                  name: regionData['name'] as String,
+                  start: (regionData['start'] as num).toDouble(),
+                  end: (regionData['end'] as num).toDouble(),
+                  color: Color(regionData['color'] as int),
+                  layers: (regionData['layers'] as List<dynamic>?)?.map((l) {
+                    final layerData = l as Map<String, dynamic>;
+                    return _RegionLayer(
+                      id: layerData['id'] as String,
+                      audioPath: layerData['audioPath'] as String,
+                      name: layerData['name'] as String,
+                      volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
+                      delay: (layerData['delay'] as num?)?.toDouble() ?? 0.0,
+                      offset: (layerData['offset'] as num?)?.toDouble() ?? 0.0,
+                    );
+                  }).toList() ?? [],
+                );
+              }).toList() ?? [],
+            ));
+          }
+        });
+      }
+
+      // Restore event to region mapping
+      if (provider.persistedEventToRegionMap.isNotEmpty) {
+        _eventToRegionMap.clear();
+        _eventToRegionMap.addAll(provider.persistedEventToRegionMap);
+      }
+
+      debugPrint('[SlotLab] Restored persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks');
+    } catch (e) {
+      debugPrint('[SlotLab] Error restoring state: $e');
+    }
   }
 
   /// Persist state to provider (survives screen switches)
   void _persistState() {
+    // Use cached reference to avoid context issues during dispose
+    if (!_hasSlotLabProvider) {
+      debugPrint('[SlotLab] Cannot persist state: no provider');
+      return;
+    }
     try {
-      final provider = Provider.of<SlotLabProvider>(context, listen: false);
+      final provider = _slotLabProvider;
 
       // Persist audio pool
       provider.persistedAudioPool = List.from(_audioPool);
@@ -659,10 +737,100 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       debugPrint('[SlotLab] FFI audio pool error: $e');
     }
 
-    // No demo data - start empty, user imports audio files
+    // Keep existing audio pool if we have one (don't clear user's imported files)
+    // Only initialize to empty if pool is truly uninitialized
+    if (_audioPool.isEmpty) {
+      debugPrint('[SlotLab] No external audio pool, keeping local pool (${_audioPool.length} files)');
+    } else {
+      debugPrint('[SlotLab] Preserving existing local pool with ${_audioPool.length} files');
+    }
+  }
+
+  /// Import audio files via file picker
+  Future<void> _importAudioFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Import Audio Files',
+        type: FileType.custom,
+        allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif', 'm4a', 'wma'],
+        allowMultiple: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            await _addAudioToPool(file.path!, file.name);
+          }
+        }
+        _persistState();
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] File picker error: $e');
+    }
+  }
+
+  /// Import entire folder of audio files
+  Future<void> _importAudioFolder() async {
+    try {
+      final result = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select Audio Folder',
+      );
+
+      if (result != null) {
+        final dir = Directory(result);
+        final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
+
+        await for (final entity in dir.list(recursive: true)) {
+          if (entity is File) {
+            final ext = entity.path.toLowerCase().split('.').last;
+            if (audioExtensions.contains('.$ext')) {
+              final name = entity.path.split('/').last;
+              await _addAudioToPool(entity.path, name);
+            }
+          }
+        }
+        _persistState();
+      }
+    } catch (e) {
+      debugPrint('[SlotLab] Folder picker error: $e');
+    }
+  }
+
+  /// Add audio file to pool with metadata
+  Future<void> _addAudioToPool(String path, String name) async {
+    // Check if already in pool
+    if (_audioPool.any((a) => a['path'] == path)) {
+      debugPrint('[SlotLab] Audio already in pool: $name');
+      return;
+    }
+
+    // Determine folder/category from path
+    String folder = 'SFX';
+    final lowerPath = path.toLowerCase();
+    final lowerName = name.toLowerCase();
+    if (lowerPath.contains('music') || lowerName.contains('music') || lowerName.contains('mus_')) {
+      folder = 'Music';
+    } else if (lowerPath.contains('ambience') || lowerPath.contains('amb')) {
+      folder = 'Ambience';
+    } else if (lowerPath.contains('voice') || lowerPath.contains('vo_') || lowerName.contains('vo_')) {
+      folder = 'Voice';
+    } else if (lowerPath.contains('ui') || lowerName.contains('button') || lowerName.contains('click')) {
+      folder = 'UI';
+    }
+
+    // Default duration (actual duration will be determined when played)
+    double duration = 2.0;
+
     setState(() {
-      _audioPool = [];
+      _audioPool.add({
+        'name': name.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false), ''),
+        'path': path,
+        'duration': duration,
+        'folder': folder,
+      });
     });
+
+    debugPrint('[SlotLab] Added to pool: $name (${duration}s) - $folder');
   }
 
   @override
@@ -674,6 +842,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (_engineInitialized && _hasSlotLabProvider) {
       _slotLabProvider.removeListener(_onSlotLabUpdate);
     }
+
+    // Remove middleware listener (two-way sync)
+    try {
+      final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+      middleware.removeListener(_onMiddlewareChanged);
+    } catch (_) {
+      // Context may not be available during disposal
+    }
+
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
     _previewTimer?.cancel();
@@ -744,15 +921,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0C),
-        body: Stack(
-        children: [
-          // Background gradient
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _focusNode.requestFocus(),
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Scaffold(
+          backgroundColor: const Color(0xFF0A0A0C),
+          body: Stack(
+          children: [
+            // Background gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -841,8 +1021,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 ),
               ),
             ),
-        ],
-      ),
+          ],
+        ),
+        ),
       ),
     );
   }
@@ -4181,6 +4362,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Sinhronizuj sa Event Registry
     _syncEventToRegistry(event);
+
+    // Persist state after adding layer
+    _persistState();
   }
 
   /// Update timeline region when audio is added to mapped event
@@ -4384,9 +4568,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Registruj u centralni Event Registry
     _syncEventToRegistry(newEvent);
+
+    // Persist state (including audio pool) after creating event
+    _persistState();
   }
 
-  /// Sinhronizuj composite event sa centralnim Event Registry
+  /// Sinhronizuj composite event sa centralnim Event Registry i Middleware
   void _syncEventToRegistry(_CompositeEvent compositeEvent) {
     final audioEvent = AudioEvent(
       id: compositeEvent.id,
@@ -4403,12 +4590,113 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       )).toList(),
     );
     eventRegistry.registerEvent(audioEvent);
+
+    // Two-way sync: Also sync to Middleware so it shows in Events folder
+    _syncEventToMiddleware(compositeEvent);
   }
 
-  /// Sinhronizuj sve evente sa registry-jem
+  /// Sinhronizuj sa Middleware Providerom (two-way sync)
+  void _syncEventToMiddleware(_CompositeEvent compositeEvent) {
+    debugPrint('[SlotLab] _syncEventToMiddleware called: ${compositeEvent.name}');
+    if (!mounted) {
+      debugPrint('[SlotLab] _syncEventToMiddleware: NOT MOUNTED, skipping');
+      return;
+    }
+
+    final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
+
+    // Convert to SlotCompositeEvent za Middleware
+    final layers = compositeEvent.layers.map((l) {
+      return SlotEventLayer(
+        id: l.id,
+        name: l.name,
+        audioPath: l.audioPath,
+        volume: l.volume,
+        pan: l.pan,
+        offsetMs: l.delay, // Delay in ms
+        fadeInMs: 0,
+        fadeOutMs: 0,
+        muted: false,
+        solo: false,
+        busId: l.busId,
+      );
+    }).toList();
+
+    // Determine category and color from stage
+    final category = _categoryFromStage(compositeEvent.stage);
+    final color = _colorFromStage(compositeEvent.stage);
+
+    final slotCompositeEvent = SlotCompositeEvent(
+      id: compositeEvent.id,
+      name: compositeEvent.name,
+      category: category,
+      color: color,
+      layers: layers,
+      masterVolume: 1.0,
+      looping: false,
+      maxInstances: 1,
+      createdAt: DateTime.now(),
+      modifiedAt: DateTime.now(),
+      triggerStages: [compositeEvent.stage],
+    );
+
+    // Check if already exists in Middleware
+    final existing = middleware.compositeEvents
+        .where((e) => e.id == compositeEvent.id)
+        .firstOrNull;
+
+    if (existing != null) {
+      middleware.updateCompositeEvent(slotCompositeEvent);
+    } else {
+      middleware.addCompositeEvent(slotCompositeEvent);
+    }
+
+    // Visual feedback - show snackbar
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Synced: ${compositeEvent.name} → Middleware (${middleware.compositeEvents.length} total)'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green.shade800,
+        ),
+      );
+    }
+
+    debugPrint('[SlotLab] Synced to Middleware: ${compositeEvent.name} (${layers.length} layers)');
+  }
+
+  String _categoryFromStage(String stage) {
+    final lower = stage.toLowerCase();
+    if (lower.contains('spin')) return 'spin';
+    if (lower.contains('reel')) return 'reelStop';
+    if (lower.contains('anticipation')) return 'anticipation';
+    if (lower.contains('win') && lower.contains('big')) return 'bigWin';
+    if (lower.contains('win')) return 'win';
+    if (lower.contains('feature')) return 'feature';
+    if (lower.contains('bonus')) return 'bonus';
+    if (lower.contains('jackpot')) return 'bigWin';
+    return 'general';
+  }
+
+  Color _colorFromStage(String stage) {
+    final category = _categoryFromStage(stage);
+    return switch (category) {
+      'spin' => const Color(0xFF4A9EFF),
+      'reelStop' => const Color(0xFF9B59B6),
+      'anticipation' => const Color(0xFFE74C3C),
+      'win' => const Color(0xFFF1C40F),
+      'bigWin' => const Color(0xFFFF9040),
+      'feature' => const Color(0xFF40FF90),
+      'bonus' => const Color(0xFFFF40FF),
+      _ => const Color(0xFF888888),
+    };
+  }
+
+  /// Sinhronizuj sve evente sa registry-jem i Middleware
   void _syncAllEventsToRegistry() {
     for (final event in _compositeEvents) {
       _syncEventToRegistry(event);
+      _syncEventToMiddleware(event);
     }
   }
 
@@ -4427,6 +4715,63 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return Column(
       children: [
         _buildPanelHeader('AUDIO BROWSER', Icons.folder_open),
+        // Import button row
+        Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A22),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+          ),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: _importAudioFiles,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.5)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 12, color: FluxForgeTheme.accentBlue),
+                      SizedBox(width: 4),
+                      Text('Import Audio', style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _importAudioFolder,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.folder_open, size: 12, color: Colors.white54),
+                      SizedBox(width: 4),
+                      Text('Folder', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_audioPool.length} files',
+                style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
         // Search bar
         Container(
           height: 32,
