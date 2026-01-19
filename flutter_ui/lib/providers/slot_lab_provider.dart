@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import '../models/stage_models.dart';
 import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
+import '../services/audio_pool.dart';
 import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
 import 'middleware_provider.dart';
@@ -148,6 +149,11 @@ class SlotLabProvider extends ChangeNotifier {
     if (success) {
       _initialized = true;
       _updateStats();
+
+      // Configure AudioPool for Slot Lab rapid-fire events
+      AudioPool.instance.configure(AudioPoolConfig.slotLabConfig);
+      AudioPool.instance.preloadSlotLabEvents();
+
       debugPrint('[SlotLabProvider] Engine initialized (audioTest: $audioTestMode)');
       notifyListeners();
     } else {

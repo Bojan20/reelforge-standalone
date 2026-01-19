@@ -659,3 +659,112 @@ class GlassWinCelebrationWrapper extends StatelessWidget {
     return child;
   }
 }
+
+// ==============================================================================
+// AUDIO POOL STATS WIDGET — Show pool performance in UI
+// ==============================================================================
+
+/// Glass widget showing AudioPool statistics
+class GlassAudioPoolStats extends StatelessWidget {
+  final String statsString;
+  final double hitRate;
+  final int activeVoices;
+
+  const GlassAudioPoolStats({
+    super.key,
+    required this.statsString,
+    required this.hitRate,
+    required this.activeVoices,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    // Determine accent color based on hit rate
+    final Color accentColor;
+    if (hitRate >= 0.8) {
+      accentColor = LiquidGlassTheme.accentGreen;
+    } else if (hitRate >= 0.5) {
+      accentColor = LiquidGlassTheme.accentYellow;
+    } else {
+      accentColor = LiquidGlassTheme.accentOrange;
+    }
+
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Pool hit indicator
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: accentColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: accentColor.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Hit rate
+          Text(
+            '${(hitRate * 100).toStringAsFixed(0)}%',
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Active voices
+          Text(
+            '$activeVoices voices',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isGlassMode) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accentColor.withValues(alpha: 0.08),
+                  Colors.black.withValues(alpha: 0.04),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: accentColor.withValues(alpha: 0.2),
+              ),
+            ),
+            child: content,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A24),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF3A3A4C)),
+      ),
+      child: content,
+    );
+  }
+}

@@ -12,11 +12,17 @@
 /// - Hot-reload audio bez restarta
 ///
 /// Audio playback koristi Rust engine preko FFI (unified audio stack)
+///
+/// AudioPool Integration:
+/// - Rapid-fire events (CASCADE_STEP, ROLLUP_TICK) use voice pooling
+/// - Pool hit = instant playback, Pool miss = new voice allocation
+/// - Configurable via AudioPoolConfig for different scenarios
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
+import 'audio_pool.dart';
 import 'unified_playback_controller.dart';
 
 // =============================================================================
@@ -144,6 +150,19 @@ class _PlayingInstance {
 // EVENT REGISTRY — Centralni sistem
 // =============================================================================
 
+/// Events that benefit from voice pooling (rapid-fire playback)
+const _pooledEventStages = {
+  'CASCADE_STEP',
+  'ROLLUP_TICK',
+  'WIN_LINE_SHOW',
+  'REEL_STOP',
+  'REEL_STOP_0',
+  'REEL_STOP_1',
+  'REEL_STOP_2',
+  'REEL_STOP_3',
+  'REEL_STOP_4',
+};
+
 class EventRegistry extends ChangeNotifier {
   // Stage → Event mapping
   final Map<String, AudioEvent> _stageToEvent = {};
@@ -157,9 +176,27 @@ class EventRegistry extends ChangeNotifier {
   // Preloaded paths (for tracking)
   final Set<String> _preloadedPaths = {};
 
+  // Audio pool for rapid-fire events
+  bool _useAudioPool = true;
+
   // Stats
   int _triggerCount = 0;
+  int _pooledTriggers = 0;
   int get triggerCount => _triggerCount;
+  int get pooledTriggers => _pooledTriggers;
+
+  /// Enable/disable audio pooling for rapid-fire events
+  void setUseAudioPool(bool enabled) {
+    _useAudioPool = enabled;
+    debugPrint('[EventRegistry] Audio pooling: ${enabled ? "ENABLED" : "DISABLED"}');
+  }
+
+  /// Check if a stage should use pooling
+  bool _shouldUsePool(String stage) {
+    if (!_useAudioPool) return false;
+    final normalized = stage.toUpperCase().trim();
+    return _pooledEventStages.contains(normalized);
+  }
 
   // ==========================================================================
   // REGISTRATION
@@ -278,7 +315,11 @@ class EventRegistry extends ChangeNotifier {
     }
 
     _triggerCount++;
-    debugPrint('[EventRegistry] Triggering: ${event.name} (${event.layers.length} layers)');
+
+    // Check if this event should use pooling
+    final usePool = _shouldUsePool(event.stage);
+    final poolStr = usePool ? ' [POOLED]' : '';
+    debugPrint('[EventRegistry] Triggering: ${event.name} (${event.layers.length} layers)$poolStr');
 
     // Kreiraj playing instance
     final voiceIds = <int>[];
@@ -291,7 +332,13 @@ class EventRegistry extends ChangeNotifier {
 
     // Pokreni sve layer-e sa njihovim delay-ima
     for (final layer in event.layers) {
-      _playLayer(layer, voiceIds, context);
+      _playLayer(
+        layer,
+        voiceIds,
+        context,
+        usePool: usePool,
+        eventKey: event.stage,
+      );
     }
 
     notifyListeners();
@@ -300,8 +347,10 @@ class EventRegistry extends ChangeNotifier {
   Future<void> _playLayer(
     AudioLayer layer,
     List<int> voiceIds,
-    Map<String, dynamic>? context,
-  ) async {
+    Map<String, dynamic>? context, {
+    bool usePool = false,
+    String? eventKey,
+  }) async {
     if (layer.audioPath.isEmpty) return;
 
     // Delay pre početka
@@ -337,8 +386,17 @@ class EventRegistry extends ChangeNotifier {
           volume: volume.clamp(0.0, 1.0),
           source: source,
         );
+      } else if (usePool && eventKey != null) {
+        // Use AudioPool for rapid-fire events (CASCADE_STEP, ROLLUP_TICK, etc.)
+        voiceId = AudioPool.instance.acquire(
+          eventKey: eventKey,
+          audioPath: layer.audioPath,
+          busId: layer.busId,
+          volume: volume.clamp(0.0, 1.0),
+        );
+        _pooledTriggers++;
       } else {
-        // Middleware/SlotLab use bus routing through PlaybackEngine
+        // Standard bus routing through PlaybackEngine
         voiceId = AudioPlaybackService.instance.playFileToBus(
           layer.audioPath,
           volume: volume.clamp(0.0, 1.0),
@@ -350,7 +408,9 @@ class EventRegistry extends ChangeNotifier {
       if (voiceId >= 0) {
         voiceIds.add(voiceId);
       }
-      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})');
+
+      final poolStr = usePool ? ' [POOLED]' : '';
+      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr');
     } catch (e) {
       debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
     }
@@ -434,6 +494,23 @@ class EventRegistry extends ChangeNotifier {
       final event = AudioEvent.fromJson(eventJson as Map<String, dynamic>);
       registerEvent(event);
     }
+  }
+
+  // ==========================================================================
+  // POOL STATS
+  // ==========================================================================
+
+  /// Get combined stats from EventRegistry and AudioPool
+  String get statsString {
+    final poolStats = AudioPool.instance.statsString;
+    return 'EventRegistry: triggers=$_triggerCount, pooled=$_pooledTriggers | $poolStats';
+  }
+
+  /// Reset all stats
+  void resetStats() {
+    _triggerCount = 0;
+    _pooledTriggers = 0;
+    AudioPool.instance.reset();
   }
 
   // ==========================================================================
