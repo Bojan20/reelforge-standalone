@@ -390,6 +390,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Drag state for individual layer repositioning within expanded region
   _RegionLayer? _draggingLayer;
   _AudioRegion? _draggingLayerRegion;
+  String? _draggingLayerEventId; // Track by eventLayerId to survive rebuilds
   double? _layerDragStartOffset;
   double? _layerDragDelta;
 
@@ -3582,26 +3583,34 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
 
     // Build region layers from event layers (live sync)
+    // CRITICAL: Use eventLayerId for matching, NOT audioPath (supports duplicates)
     final List<_RegionLayer> liveLayers = (event?.layers ?? []).map((el) {
       // Get offset from provider (source of truth) - convert ms to seconds
       // offsetMs is absolute position, we need relative to region.start
       final providerOffsetSec = el.offsetMs / 1000.0;
       final relativeOffset = providerOffsetSec - region.start;
 
-      // Try to find existing region layer to preserve duration
+      // Try to find existing region layer by eventLayerId (unique, supports duplicates)
       final existingLayer = region.layers.firstWhere(
-        (rl) => rl.audioPath == el.audioPath,
+        (rl) => rl.eventLayerId == el.id, // ✅ Use unique eventLayerId, not audioPath
         orElse: () => _RegionLayer(
           id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+          eventLayerId: el.id, // ✅ Store eventLayerId for future matching
           audioPath: el.audioPath,
           name: el.name,
           duration: _getAudioDuration(el.audioPath),
         ),
       );
 
+      // Ensure eventLayerId is set (for layers created before this fix)
+      if (existingLayer.eventLayerId == null) {
+        // Can't modify final field, but this layer will be replaced next sync
+      }
+
       // CRITICAL: Sync offset from provider (source of truth)
-      // But only if not currently dragging this layer
-      if (_draggingLayer?.audioPath != el.audioPath) {
+      // But only if not currently dragging this layer (by eventLayerId, not audioPath)
+      final isDraggingThisLayer = _draggingLayerEventId == el.id;
+      if (!isDraggingThisLayer) {
         existingLayer.offset = relativeOffset.clamp(-region.start, _timelineDuration);
       }
 
@@ -3691,7 +3700,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   /// Build a draggable layer row - can be moved freely across entire timeline
   /// Uses layer.duration for REAL audio file width, not region width
   Widget _buildDraggableLayerRow(_RegionLayer layer, _AudioRegion region, int layerIndex, Color color, bool muted, double regionWidth) {
-    final isDragging = _draggingLayer == layer;
+    // Use eventLayerId for drag identity check (survives rebuilds)
+    final isDragging = _draggingLayerEventId == layer.eventLayerId && layer.eventLayerId != null;
     final pixelsPerSecond = regionWidth / region.duration;
     final offsetPixels = layer.offset * pixelsPerSecond;
     // Use REAL layer duration for width, not region width
@@ -3703,12 +3713,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         setState(() {
           _draggingLayer = layer;
           _draggingLayerRegion = region;
+          _draggingLayerEventId = layer.eventLayerId; // ✅ Track by ID, survives rebuilds
           _layerDragStartOffset = layer.offset;
           _layerDragDelta = 0;
         });
       },
       onHorizontalDragUpdate: (details) {
-        if (_draggingLayer != layer) return;
+        // Use eventLayerId for identity check (survives rebuilds)
+        if (_draggingLayerEventId != layer.eventLayerId) return;
         final timeDelta = details.delta.dx / pixelsPerSecond;
         setState(() {
           _layerDragDelta = (_layerDragDelta ?? 0) + timeDelta;
@@ -3849,6 +3861,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     setState(() {
       _draggingLayer = null;
       _draggingLayerRegion = null;
+      _draggingLayerEventId = null; // ✅ Clear eventLayerId tracking
       _layerDragStartOffset = null;
       _layerDragDelta = null;
     });
@@ -3861,8 +3874,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
     if (event == null) return;
 
-    // Find matching layer by audioPath
-    final eventLayer = event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull;
+    // Find matching layer by eventLayerId (unique, supports duplicates)
+    final eventLayer = layer.eventLayerId != null
+        ? event.layers.where((l) => l.id == layer.eventLayerId).firstOrNull
+        : event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull; // fallback
     if (eventLayer == null) return;
 
     // Calculate total offset in milliseconds:
