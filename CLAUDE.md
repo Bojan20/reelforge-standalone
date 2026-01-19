@@ -47,6 +47,17 @@ U tom režimu:
 - Vraćaš isključivo PASS/FAIL format
 - Postupaš kao Principal Engineer / Gatekeeper
 
+## DEBUGGING
+
+**KORISNIK NEMA PRISTUP KONZOLI/LOGU.**
+
+- NE koristi `debugPrint` ili `print` za debugging
+- NE pitaj korisnika šta piše u logu
+- Ako treba debug info, prikaži ga u samom UI-u (overlay, snackbar, ili debug panel)
+- Ili: analiziraj kod logički bez oslanjanja na runtime log
+
+---
+
 ## KRITIČNA PRAVILA
 
 ### 1. Ti si VLASNIK ovog koda

@@ -3822,12 +3822,16 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Add existing composite event (for sync from external sources)
-  void addCompositeEvent(SlotCompositeEvent event) {
+  void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
     debugPrint('[Middleware] addCompositeEvent: ${event.name} (id: ${event.id})');
     _pushUndoState();
     _compositeEvents[event.id] = event;
     _syncCompositeToMiddleware(event);
-    debugPrint('[Middleware] Total composite events: ${_compositeEvents.length}');
+    // Auto-select newly added event
+    if (select) {
+      _selectedCompositeEventId = event.id;
+    }
+    debugPrint('[Middleware] Total composite events: ${_compositeEvents.length}, selected: $_selectedCompositeEventId');
     notifyListeners();
   }
 
@@ -3864,6 +3868,7 @@ class MiddlewareProvider extends ChangeNotifier {
   }) {
     final event = _compositeEvents[eventId];
     if (event == null) throw Exception('Event not found: $eventId');
+
     _pushUndoState();
 
     // Auto-detect duration if not provided
@@ -3889,6 +3894,7 @@ class MiddlewareProvider extends ChangeNotifier {
     );
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated); // Real-time sync
+    debugPrint('[Middleware] addLayerToEvent: "${updated.name}" now has ${updated.layers.length} layers');
     notifyListeners();
     return layer;
   }

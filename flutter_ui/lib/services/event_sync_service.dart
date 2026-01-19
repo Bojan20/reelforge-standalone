@@ -314,7 +314,7 @@ class EventSyncService extends ChangeNotifier {
         triggerStages: [event.stage],
       );
 
-      _middleware.addCompositeEvent(composite);
+      _middleware.addCompositeEvent(composite, select: false);
     }
 
     debugPrint(

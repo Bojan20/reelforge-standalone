@@ -68,6 +68,12 @@ class SlotLabProvider extends ChangeNotifier {
   List<Map<String, dynamic>> persistedTracks = [];
   Map<String, String> persistedEventToRegionMap = {};
 
+  // ─── Waveform Cache (survives screen switches) ────────────────────────────
+  /// Cache of waveform data by audio path - persists across navigation
+  final Map<String, List<double>> waveformCache = {};
+  /// Cache of FFI clip IDs by audio path - persists across navigation
+  final Map<String, int> clipIdCache = {};
+
   /// Clear all persisted UI state (use when data is corrupted)
   void clearPersistedState() {
     persistedAudioPool.clear();

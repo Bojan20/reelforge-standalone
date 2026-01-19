@@ -1459,6 +1459,7 @@ class SlotEventLayer {
   final List<double>? waveformData;
   final double? durationSeconds;
   final int? busId; // Target bus for routing
+  final String actionType; // Action type: Play, Stop, SetVolume, etc.
 
   const SlotEventLayer({
     required this.id,
@@ -1474,6 +1475,7 @@ class SlotEventLayer {
     this.waveformData,
     this.durationSeconds,
     this.busId,
+    this.actionType = 'Play',
   });
 
   SlotEventLayer copyWith({
@@ -1490,6 +1492,7 @@ class SlotEventLayer {
     List<double>? waveformData,
     double? durationSeconds,
     int? busId,
+    String? actionType,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1505,6 +1508,7 @@ class SlotEventLayer {
       waveformData: waveformData ?? this.waveformData,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       busId: busId ?? this.busId,
+      actionType: actionType ?? this.actionType,
     );
   }
 
@@ -1525,6 +1529,7 @@ class SlotEventLayer {
     'solo': solo,
     'durationSeconds': durationSeconds,
     'busId': busId,
+    'actionType': actionType,
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1543,6 +1548,7 @@ class SlotEventLayer {
       solo: json['solo'] as bool? ?? false,
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
       busId: json['busId'] as int?,
+      actionType: json['actionType'] as String? ?? 'Play',
     );
   }
 }

@@ -3,6 +3,38 @@
 // Premium "casino-grade" UI for slot game audio design.
 // Inspired by Wwise + FMOD but 100% focused on slot games.
 //
+// ═══════════════════════════════════════════════════════════════════════════════
+// SLOT LAB ↔ MIDDLEWARE UNIFIED DATA MODEL
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// SINGLE SOURCE OF TRUTH: MiddlewareProvider.compositeEvents
+//
+// DATA FLOW:
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  MIDDLEWARE (Actions Table)          │  SLOT LAB (Timeline)                 │
+// │  └─ List view of layers              │  └─ Visual timeline with waveforms   │
+// │  └─ Columns: Type, Asset, Bus, etc.  │  └─ Regions positioned by offsetMs   │
+// │                                      │  └─ Duration from durationSeconds    │
+// ├──────────────────────────────────────┴──────────────────────────────────────┤
+// │                    SAME DATA: SlotCompositeEvent.layers                     │
+// │                                                                             │
+// │  SlotEventLayer:                                                            │
+// │  ├─ audioPath    → Region audio + waveform                                  │
+// │  ├─ offsetMs     → Region position on timeline                              │
+// │  ├─ durationSeconds → Region width                                          │
+// │  ├─ volume/pan   → Region display properties                                │
+// │  └─ muted/solo   → Playback control                                         │
+// └─────────────────────────────────────────────────────────────────────────────┘
+//
+// PERSISTENCE:
+// - waveformCache, clipIdCache → SlotLabProvider (survives screen switches)
+// - tracks/regions → SlotLabProvider.persistedTracks
+// - compositeEvents → MiddlewareProvider (single source)
+//
+// When layer is added in Middleware → appears on Slot Lab timeline
+// When region is moved on timeline → updates layer.offsetMs in provider
+// ═══════════════════════════════════════════════════════════════════════════════
+//
 // Features:
 // - Audio tracks timeline with drag & drop
 // - Stage markers ruler (SPIN_START, REEL_STOP, etc.)
@@ -20,7 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../services/native_file_picker.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/slot_lab_provider.dart';
@@ -81,6 +113,7 @@ class _StageMarker {
 /// Layer within a region (for composite events with multiple sounds)
 class _RegionLayer {
   final String id;
+  final String? eventLayerId; // Maps to SlotEventLayer.id for syncing
   final String audioPath;
   final String name;
   final int? ffiClipId;
@@ -91,6 +124,7 @@ class _RegionLayer {
 
   _RegionLayer({
     required this.id,
+    this.eventLayerId,
     required this.audioPath,
     required this.name,
     this.ffiClipId,
@@ -387,10 +421,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   List<Map<String, dynamic>> _audioPool = [];
 
   // Waveform cache: path → waveform data
-  final Map<String, List<double>> _waveformCache = {};
+  // Stored in SlotLabProvider for persistence across screen switches
+  final Map<String, List<double>> _localWaveformCache = {}; // Fallback before provider init
+  Map<String, List<double>> get _waveformCache =>
+      _hasSlotLabProvider ? _slotLabProvider.waveformCache : _localWaveformCache;
 
   // Clip ID cache: path → clip ID (for waveform loading)
-  final Map<String, int> _clipIdCache = {};
+  // Stored in SlotLabProvider for persistence across screen switches
+  final Map<String, int> _localClipIdCache = {}; // Fallback before provider init
+  Map<String, int> get _clipIdCache =>
+      _hasSlotLabProvider ? _slotLabProvider.clipIdCache : _localClipIdCache;
 
   // ─── Synthetic Slot Engine ────────────────────────────────────────────────
   SlotLabProvider? _slotLabProviderNullable;
@@ -410,20 +450,29 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _loadAudioPool();
     _initializeSlotEngine();
     _restorePersistedState();
-    // NOTE: Middleware sync removed - using MiddlewareProvider directly as single source of truth
 
-    // Request focus for keyboard shortcuts after widget is built
+    // Listen to MiddlewareProvider for bidirectional sync
+    // When layers are added in Middleware center panel, Slot Lab updates automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        _middleware.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
-        debugPrint('[SlotLab] Focus requested for keyboard shortcuts');
       }
     });
   }
 
-  // NOTE: _setupMiddlewareSync and _onMiddlewareChanged removed
-  // MiddlewareProvider is now the single source of truth for composite events
-  // SlotLab reads directly from _middlewareEvents getter
+  /// Callback when MiddlewareProvider changes (bidirectional sync)
+  void _onMiddlewareChanged() {
+    debugPrint('[SlotLab] _onMiddlewareChanged called, mounted=$mounted');
+    if (mounted) {
+      // Rebuild region layers to match updated events from MiddlewareProvider
+      for (final event in _compositeEvents) {
+        _rebuildRegionForEvent(event);
+      }
+      setState(() {});
+      debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider');
+    }
+  }
 
   /// Restore state from provider (survives screen switches)
   void _restorePersistedState() {
@@ -484,6 +533,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     final layerData = l as Map<String, dynamic>;
                     return _RegionLayer(
                       id: layerData['id'] as String,
+                      eventLayerId: layerData['eventLayerId'] as String?,
                       audioPath: layerData['audioPath'] as String,
                       name: layerData['name'] as String,
                       volume: (layerData['volume'] as num?)?.toDouble() ?? 1.0,
@@ -505,7 +555,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         _eventToRegionMap.addAll(provider.persistedEventToRegionMap);
       }
 
-      debugPrint('[SlotLab] Restored persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks');
+      // Count total regions
+      int totalRegions = 0;
+      for (final track in _tracks) {
+        totalRegions += track.regions.length;
+      }
+      debugPrint('[SlotLab] Restored persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks, $totalRegions regions');
+      debugPrint('[SlotLab] persistedTracks had ${provider.persistedTracks.length} tracks');
 
       // CRITICAL: Sync region layers to match event layers (remove stale data)
       _syncAllRegionsToEvents();
@@ -518,60 +574,70 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Sync ALL region layers to match their corresponding event layers
-  /// Called after restore to remove stale/deleted layers from regions
+  /// Called after restore to sync with MiddlewareProvider changes
   void _syncAllRegionsToEvents() {
-    debugPrint('[SlotLab] _syncAllRegionsToEvents: ${_tracks.length} tracks, ${_compositeEvents.length} events');
-
     for (final track in _tracks) {
       for (final region in track.regions) {
-        debugPrint('[SlotLab] Checking region "${region.name}" with ${region.layers.length} layers');
-
         // Find matching event by name
         final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
 
         if (event == null) {
-          // No matching event - clear region layers
-          debugPrint('[SlotLab] No matching event for region "${region.name}" - clearing layers');
-          region.layers.clear();
+          // Event not found - DON'T clear layers, keep persisted state
+          // Event might be loaded later or timing issue
           continue;
         }
 
-        debugPrint('[SlotLab] Found event "${event.name}" with ${event.layers.length} layers');
+        // Get event layer IDs for comparison (use ID, not audioPath - allows duplicates)
+        final eventLayerIds = event.layers.map((l) => l.id).toSet();
 
-        // Get audio paths from event
-        final eventAudioPaths = event.layers.map((l) => l.audioPath).toSet();
-        debugPrint('[SlotLab] Event audio paths: $eventAudioPaths');
+        // Remove region layers whose eventLayerId no longer exists in event
+        region.layers.removeWhere((rl) => rl.eventLayerId != null && !eventLayerIds.contains(rl.eventLayerId));
 
-        // Log region layer paths
-        final regionPaths = region.layers.map((l) => l.audioPath).toList();
-        debugPrint('[SlotLab] Region audio paths: $regionPaths');
-
-        // Remove region layers that don't exist in event anymore
-        final beforeCount = region.layers.length;
-        region.layers.removeWhere((rl) {
-          final shouldRemove = !eventAudioPaths.contains(rl.audioPath);
-          if (shouldRemove) {
-            debugPrint('[SlotLab] Removing stale layer: ${rl.name} (${rl.audioPath})');
+        // ADD new layers from event that don't exist in region (by eventLayerId)
+        for (final eventLayer in event.layers) {
+          final existsInRegion = region.layers.any((rl) => rl.eventLayerId == eventLayer.id);
+          if (!existsInRegion) {
+            final dur = _getAudioDuration(eventLayer.audioPath);
+            region.layers.add(_RegionLayer(
+              id: 'layer_${DateTime.now().millisecondsSinceEpoch}_${region.layers.length}',
+              eventLayerId: eventLayer.id, // Track which event layer this maps to
+              audioPath: eventLayer.audioPath,
+              name: eventLayer.name,
+              volume: eventLayer.volume,
+              delay: eventLayer.offsetMs.toDouble(),
+              duration: dur > 0 ? dur : 1.0,
+            ));
           }
-          return shouldRemove;
-        });
-        final afterCount = region.layers.length;
+        }
 
-        debugPrint('[SlotLab] Synced region "${region.name}": $beforeCount -> $afterCount layers');
+        // Update region end time if needed
+        double maxEnd = region.start + 1.0;
+        for (final layer in region.layers) {
+          final layerEnd = region.start + layer.delay + layer.duration;
+          if (layerEnd > maxEnd) maxEnd = layerEnd;
+        }
+        region.end = maxEnd;
       }
     }
   }
 
   /// Sync events from MiddlewareProvider (updates made in Middleware timeline mode)
   /// NOTE: MiddlewareProvider is now the single source of truth for composite events.
-  /// This function now only syncs to EventRegistry, not to local state.
+  /// This rebuilds regions to match current event layers.
   void _syncFromMiddlewareProvider() {
     if (!mounted) return;
 
     try {
-      // Just sync all events to registry - events come from MiddlewareProvider
+      // Sync all events to registry
       _syncAllEventsToRegistry();
-      debugPrint('[SlotLab] Synced ${_middlewareEvents.length} events from MiddlewareProvider to registry');
+
+      // CRITICAL: Rebuild ALL regions to match current event layers from MiddlewareProvider
+      // This ensures changes made in Middleware mode are reflected in Slot Lab timeline
+      for (final event in _compositeEvents) {
+        _rebuildRegionForEvent(event);
+      }
+
+      debugPrint('[SlotLab] Synced ${_middlewareEvents.length} events from MiddlewareProvider (rebuilt regions)');
     } catch (e) {
       debugPrint('[SlotLab] Error syncing from MiddlewareProvider: $e');
     }
@@ -809,13 +875,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Persist state to provider (survives screen switches)
   void _persistState() {
-    // Use cached reference to avoid context issues during dispose
-    if (!_hasSlotLabProvider) {
-      debugPrint('[SlotLab] Cannot persist state: no provider');
-      return;
+    // Try to get provider - use cached reference or fetch from context
+    SlotLabProvider? provider;
+    if (_hasSlotLabProvider) {
+      provider = _slotLabProvider;
+    } else {
+      // Fallback: try to get from context (may fail during dispose)
+      try {
+        provider = Provider.of<SlotLabProvider>(context, listen: false);
+      } catch (e) {
+        debugPrint('[SlotLab] Cannot persist state: no provider available');
+        return;
+      }
     }
     try {
-      final provider = _slotLabProvider;
 
       // Persist audio pool
       provider.persistedAudioPool = List.from(_audioPool);
@@ -853,6 +926,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           'color': region.color.value,
           'layers': region.layers.map((layer) => {
             'id': layer.id,
+            'eventLayerId': layer.eventLayerId,
             'audioPath': layer.audioPath,
             'name': layer.name,
             'volume': layer.volume,
@@ -866,7 +940,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       // Persist event to region mapping
       provider.persistedEventToRegionMap = Map.from(_eventToRegionMap);
 
-      debugPrint('[SlotLab] Persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks');
+      // Count total regions
+      int totalRegions = 0;
+      for (final track in _tracks) {
+        totalRegions += track.regions.length;
+      }
+      debugPrint('[SlotLab] Persisted state: ${_audioPool.length} audio, ${_compositeEvents.length} events, ${_tracks.length} tracks, $totalRegions regions');
     } catch (e) {
       debugPrint('[SlotLab] Error persisting state: $e');
     }
@@ -877,6 +956,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         _slotLabProviderNullable = Provider.of<SlotLabProvider>(context, listen: false);
+
+        // Migrate local cache to provider (in case anything was cached before init)
+        if (_localWaveformCache.isNotEmpty) {
+          _slotLabProvider.waveformCache.addAll(_localWaveformCache);
+          _localWaveformCache.clear();
+        }
+        if (_localClipIdCache.isNotEmpty) {
+          _slotLabProvider.clipIdCache.addAll(_localClipIdCache);
+          _localClipIdCache.clear();
+        }
 
         // Initialize engine for audio testing mode
         _engineInitialized = _slotLabProvider.initialize(audioTestMode: true);
@@ -1033,43 +1122,52 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
-  /// Import audio files via file picker
+  /// Import audio files via native file picker (faster than file_picker plugin)
   Future<void> _importAudioFiles() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Import Audio Files',
-        type: FileType.custom,
-        allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif', 'm4a', 'wma'],
-        allowMultiple: true,
-      );
+      final paths = await NativeFilePicker.pickAudioFiles();
 
-      if (result != null && result.files.isNotEmpty) {
-        for (final file in result.files) {
-          if (file.path != null) {
-            await _addAudioToPool(file.path!, file.name);
-          }
+      if (paths.isNotEmpty) {
+        // Batch add - collect all entries first, then single setState
+        final newEntries = <Map<String, dynamic>>[];
+        for (final path in paths) {
+          if (_audioPool.any((a) => a['path'] == path)) continue; // Skip duplicates
+          final name = path.split('/').last;
+          newEntries.add(_createAudioPoolEntry(path, name));
         }
-        _persistState();
+        if (newEntries.isNotEmpty) {
+          setState(() {
+            _audioPool.addAll(newEntries);
+          });
+          _persistState();
+          debugPrint('[SlotLab] Batch added ${newEntries.length} files');
+        }
       }
     } catch (e) {
       debugPrint('[SlotLab] File picker error: $e');
     }
   }
 
-  /// Import entire folder of audio files
+  /// Import entire folder of audio files (native picker - faster)
   Future<void> _importAudioFolder() async {
     try {
-      final result = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select Audio Folder',
-      );
+      final result = await NativeFilePicker.pickAudioFolder();
 
       if (result != null) {
         final dir = Directory(result);
         final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
 
-        // Collect all audio files first
+        // Collect all audio files (sync listSync is faster for local dirs)
+        final List<FileSystemEntity> entities;
+        try {
+          entities = dir.listSync(recursive: true);
+        } catch (e) {
+          debugPrint('[SlotLab] Error listing directory: $e');
+          return;
+        }
+
         final audioFiles = <File>[];
-        await for (final entity in dir.list(recursive: true)) {
+        for (final entity in entities) {
           if (entity is File) {
             final ext = entity.path.toLowerCase().split('.').last;
             if (audioExtensions.contains('.$ext')) {
@@ -1078,33 +1176,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           }
         }
 
-        // Sort alphabetically by filename to match individual file import order
+        // Sort alphabetically
         audioFiles.sort((a, b) {
           final nameA = a.path.split('/').last.toLowerCase();
           final nameB = b.path.split('/').last.toLowerCase();
           return nameA.compareTo(nameB);
         });
 
-        // Import sorted files
+        // Batch add - single setState
+        final newEntries = <Map<String, dynamic>>[];
         for (final file in audioFiles) {
+          if (_audioPool.any((a) => a['path'] == file.path)) continue;
           final name = file.path.split('/').last;
-          await _addAudioToPool(file.path, name);
+          newEntries.add(_createAudioPoolEntry(file.path, name));
         }
-        _persistState();
+
+        if (newEntries.isNotEmpty) {
+          setState(() {
+            _audioPool.addAll(newEntries);
+          });
+          _persistState();
+        }
+        debugPrint('[SlotLab] Added ${newEntries.length} files from folder');
       }
     } catch (e) {
       debugPrint('[SlotLab] Folder picker error: $e');
     }
   }
 
-  /// Add audio file to pool with metadata
-  Future<void> _addAudioToPool(String path, String name) async {
-    // Check if already in pool
-    if (_audioPool.any((a) => a['path'] == path)) {
-      debugPrint('[SlotLab] Audio already in pool: $name');
-      return;
-    }
-
+  /// Create audio pool entry (no setState - for batch operations)
+  Map<String, dynamic> _createAudioPoolEntry(String path, String name) {
     // Determine folder/category from path
     String folder = 'SFX';
     final lowerPath = path.toLowerCase();
@@ -1119,19 +1220,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       folder = 'UI';
     }
 
-    // Default duration (actual duration will be determined when played)
-    double duration = 2.0;
+    return {
+      'name': name.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false), ''),
+      'path': path,
+      'duration': 2.0, // Default, actual duration determined when played
+      'folder': folder,
+    };
+  }
 
+  /// Add audio file to pool with metadata (legacy - use batch methods for multiple files)
+  Future<void> _addAudioToPool(String path, String name) async {
+    // Check if already in pool
+    if (_audioPool.any((a) => a['path'] == path)) {
+      debugPrint('[SlotLab] Audio already in pool: $name');
+      return;
+    }
+
+    final entry = _createAudioPoolEntry(path, name);
     setState(() {
-      _audioPool.add({
-        'name': name.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false), ''),
-        'path': path,
-        'duration': duration,
-        'folder': folder,
-      });
+      _audioPool.add(entry);
     });
 
-    debugPrint('[SlotLab] Added to pool: $name (${duration}s) - $folder');
+    debugPrint('[SlotLab] Added to pool: $name - ${entry['folder']}');
   }
 
   @override
@@ -1144,7 +1254,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _slotLabProvider.removeListener(_onSlotLabUpdate);
     }
 
-    // NOTE: Middleware listener removed - using direct access to MiddlewareProvider
+    // Remove middleware listener (bidirectional sync)
+    _middleware.removeListener(_onMiddlewareChanged);
 
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
@@ -3386,12 +3497,42 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   void _clearRegionDrag() {
+    // Sync region offset to MiddlewareProvider before clearing
+    if (_draggingRegion != null) {
+      _syncRegionOffsetToProvider(_draggingRegion!);
+    }
+
     setState(() {
       _draggingRegion = null;
       _draggingRegionTrackIndex = null;
       _regionDragStartX = null;
       _regionDragOffsetX = null;
     });
+  }
+
+  /// Sync region offset from timeline drag to MiddlewareProvider
+  /// Updates ALL layers in the event with the new base offset
+  void _syncRegionOffsetToProvider(_AudioRegion region) {
+    // Find event by region name
+    final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
+    if (event == null) return;
+
+    // Region start position in milliseconds is the base offset for all layers
+    final baseOffsetMs = region.start * 1000.0;
+
+    // Update each layer's offset
+    for (final eventLayer in event.layers) {
+      // Find corresponding region layer to get individual offset
+      final regionLayer = region.layers.where((l) => l.audioPath == eventLayer.audioPath).firstOrNull;
+      final layerLocalOffsetMs = (regionLayer?.offset ?? 0) * 1000.0;
+
+      // Total offset = region start + layer local offset
+      final totalOffsetMs = baseOffsetMs + layerLocalOffsetMs;
+
+      _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
+    }
+
+    debugPrint('[SlotLab] Synced region "${region.name}" to ${baseOffsetMs.toStringAsFixed(0)}ms');
   }
 
   /// Calculate track height based on expanded regions
@@ -3427,9 +3568,36 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // ═══════════════════════════════════════════════════════════════════════════
     final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC REGION START FROM PROVIDER (source of truth)
+    // Region start = minimum offsetMs of all layers (converted to seconds)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (event != null && event.layers.isNotEmpty) {
+      final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
+      final regionStartFromProvider = minOffsetMs / 1000.0;
+      // Only update if not currently dragging this region
+      if (_draggingRegion != region) {
+        region.start = regionStartFromProvider;
+        // Recalculate end based on max layer end
+        double maxEnd = region.start + 0.5; // Minimum 0.5s
+        for (final layer in event.layers) {
+          final layerStart = layer.offsetMs / 1000.0;
+          final layerDur = layer.durationSeconds ?? _getAudioDuration(layer.audioPath);
+          final layerEnd = layerStart + layerDur;
+          if (layerEnd > maxEnd) maxEnd = layerEnd;
+        }
+        region.end = maxEnd;
+      }
+    }
+
     // Build region layers from event layers (live sync)
     final List<_RegionLayer> liveLayers = (event?.layers ?? []).map((el) {
-      // Try to find existing region layer to preserve offset/duration
+      // Get offset from provider (source of truth) - convert ms to seconds
+      // offsetMs is absolute position, we need relative to region.start
+      final providerOffsetSec = el.offsetMs / 1000.0;
+      final relativeOffset = providerOffsetSec - region.start;
+
+      // Try to find existing region layer to preserve duration
       final existingLayer = region.layers.firstWhere(
         (rl) => rl.audioPath == el.audioPath,
         orElse: () => _RegionLayer(
@@ -3439,6 +3607,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           duration: _getAudioDuration(el.audioPath),
         ),
       );
+
+      // CRITICAL: Sync offset from provider (source of truth)
+      // But only if not currently dragging this layer
+      if (_draggingLayer?.audioPath != el.audioPath) {
+        existingLayer.offset = relativeOffset.clamp(-region.start, _timelineDuration);
+      }
+
       return existingLayer;
     }).toList();
 
@@ -3675,12 +3850,38 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   void _clearLayerDrag() {
+    // Sync layer offset to MiddlewareProvider before clearing
+    if (_draggingLayer != null && _draggingLayerRegion != null) {
+      _syncLayerOffsetToProvider(_draggingLayer!, _draggingLayerRegion!);
+    }
+
     setState(() {
       _draggingLayer = null;
       _draggingLayerRegion = null;
       _layerDragStartOffset = null;
       _layerDragDelta = null;
     });
+  }
+
+  /// Sync layer offset from timeline drag to MiddlewareProvider
+  /// This makes the change visible in Middleware Actions table (Delay column)
+  void _syncLayerOffsetToProvider(_RegionLayer layer, _AudioRegion region) {
+    // Find event by region name
+    final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
+    if (event == null) return;
+
+    // Find matching layer by audioPath
+    final eventLayer = event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull;
+    if (eventLayer == null) return;
+
+    // Calculate total offset in milliseconds:
+    // region.start (seconds) + layer.offset (seconds) → milliseconds
+    final totalOffsetMs = (region.start + layer.offset) * 1000.0;
+
+    // Update via provider (with undo support)
+    _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
+
+    debugPrint('[SlotLab] Synced layer "${layer.name}" offset: ${totalOffsetMs.toStringAsFixed(0)}ms');
   }
 
   /// Build a single layer row with waveform and name
@@ -4074,7 +4275,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       }
 
       regionLayers.add(_RegionLayer(
-        id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}',
+        id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}_${regionLayers.length}',
+        eventLayerId: layer.id, // Track which event layer this maps to
         audioPath: layer.audioPath,
         name: layer.name,
         ffiClipId: ffiClipId > 0 ? ffiClipId : null,
@@ -4112,6 +4314,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       // Map event to region for auto-update
       _eventToRegionMap[event.id] = region.id;
     });
+
+    // CRITICAL: Persist state so region survives screen switches
+    _persistState();
 
     // Scroll to show the new track at the bottom
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -4648,72 +4853,78 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   Widget _buildCompositeEventsPanel() {
-    return Column(
-      children: [
-        _buildPanelHeader('COMPOSITE EVENTS', Icons.layers),
-        Container(
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A22),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
-          ),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: _createCompositeEvent,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF40FF90).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF40FF90).withOpacity(0.5)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
-                      SizedBox(width: 4),
-                      Text('Create Event', style: TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
-                    ],
-                  ),
-                ),
+    // Use Consumer to ensure we always get fresh data from MiddlewareProvider
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        final events = middleware.compositeEvents;
+        return Column(
+          children: [
+            _buildPanelHeader('COMPOSITE EVENTS', Icons.layers),
+            Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A22),
+                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
               ),
-              const Spacer(),
-              Text(
-                '${_compositeEvents.length} events',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _compositeEvents.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.layers, size: 32, color: Colors.white.withOpacity(0.2)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'No composite events',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: _createCompositeEvent,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF40FF90).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF40FF90).withOpacity(0.5)),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Drag audio to timeline to create',
-                        style: TextStyle(color: Colors.white24, fontSize: 9),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 12, color: Color(0xFF40FF90)),
+                          SizedBox(width: 4),
+                          Text('Create Event', style: TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _compositeEvents.length,
-                  itemBuilder: (context, index) => _buildCompositeEventItem(_compositeEvents[index]),
-                ),
-        ),
-      ],
+                  const Spacer(),
+                  Text(
+                    '${events.length} events',
+                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: events.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.layers, size: 32, color: Colors.white.withOpacity(0.2)),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No composite events',
+                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Drag audio to timeline to create',
+                            style: TextStyle(color: Colors.white24, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: events.length,
+                      itemBuilder: (context, index) => _buildCompositeEventItem(events[index]),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -4757,7 +4968,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       child: DragTarget<String>(
         onAcceptWithDetails: (details) {
           // Audio dropped on event - add as layer
-          _addLayerToEvent(event, details.data);
+          // Use event.id to get fresh data, not stale closure-captured event
+          final freshEvent = _compositeEvents.firstWhere(
+            (e) => e.id == event.id,
+            orElse: () => event,
+          );
+          _addLayerToEvent(freshEvent, details.data);
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
@@ -4872,16 +5088,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
 
     // Add layer via MiddlewareProvider (single source of truth)
+    // _onMiddlewareChanged listener will automatically rebuild region
     _addLayerToMiddlewareEvent(event.id, audioPath, audioInfo['name'] as String);
 
     setState(() {
       _eventExpandedState[event.id] = true;
-      // Rebuild region from updated event
-      final updatedEvent = _compositeEvents.firstWhere(
-        (e) => e.id == event.id,
-        orElse: () => event,
-      );
-      _rebuildRegionForEvent(updatedEvent);
     });
 
     _persistState();
@@ -4895,20 +5106,47 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     final track = _tracks[trackIndex];
 
-    // Delete ALL existing regions for this event
-    track.regions.removeWhere((r) => r.name == event.name);
+    // Check if region already exists by:
+    // 1. Using _eventToRegionMap (primary)
+    // 2. Fallback: searching by name
+    _AudioRegion? existingRegion;
+    final mappedRegionId = _eventToRegionMap[event.id];
+    if (mappedRegionId != null) {
+      existingRegion = track.regions.where((r) => r.id == mappedRegionId).firstOrNull;
+    }
+    existingRegion ??= track.regions.where((r) => r.name == event.name).firstOrNull;
+
+    if (existingRegion != null) {
+      // Region exists - just sync layers, preserve position
+      _syncRegionLayersToEvent(existingRegion, event, track);
+      // Ensure map is updated
+      _eventToRegionMap[event.id] = existingRegion.id;
+      return;
+    }
+
+    // No existing region - create new one (only happens on first drop)
+    // No region to delete since we checked above
     _eventToRegionMap.remove(event.id);
 
     // If event has no layers, done (track header only)
     if (event.layers.isEmpty) return;
 
+    // Get region start from provider (source of truth)
+    double regionStart = 0.0;
+    if (event.layers.isNotEmpty) {
+      final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
+      regionStart = minOffsetMs / 1000.0;
+    }
+
     // Create fresh region with EXACTLY event's current layers
     final List<_RegionLayer> regionLayers = [];
-    double maxDuration = 1.0;
+    double maxEnd = regionStart + 0.5;
 
     for (final el in event.layers) {
       final dur = _getAudioDuration(el.audioPath);
-      if (dur > maxDuration) maxDuration = dur;
+      final layerStart = el.offsetMs / 1000.0;
+      final layerEnd = layerStart + dur;
+      if (layerEnd > maxEnd) maxEnd = layerEnd;
 
       int ffiClipId = 0;
       if (track.id.startsWith('ffi_')) {
@@ -4920,18 +5158,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
       regionLayers.add(_RegionLayer(
         id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}_${regionLayers.length}',
+        eventLayerId: el.id, // Track which event layer this maps to
         audioPath: el.audioPath,
         name: el.name,
         ffiClipId: ffiClipId > 0 ? ffiClipId : null,
         duration: dur,
+        offset: (el.offsetMs / 1000.0) - regionStart, // Relative offset from region start
       ));
     }
 
     final newRegion = _AudioRegion(
       id: 'region_${DateTime.now().millisecondsSinceEpoch}',
       name: event.name,
-      start: 0.0,
-      end: maxDuration,
+      start: regionStart,
+      end: maxEnd,
       color: track.color,
       layers: regionLayers,
       isExpanded: regionLayers.length > 1,
@@ -4943,15 +5183,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Sync region layers to exactly match event layers (remove old, add missing)
   void _syncRegionLayersToEvent(_AudioRegion region, SlotCompositeEvent event, _SlotAudioTrack track) {
-    // Get audio paths from event
-    final eventAudioPaths = event.layers.map((l) => l.audioPath).toSet();
+    // Get event layer IDs for comparison (use ID, not audioPath - allows duplicates)
+    final eventLayerIds = event.layers.map((l) => l.id).toSet();
 
-    // Remove region layers that don't exist in event
-    region.layers.removeWhere((rl) => !eventAudioPaths.contains(rl.audioPath));
+    // Remove region layers whose eventLayerId no longer exists in event
+    region.layers.removeWhere((rl) => rl.eventLayerId != null && !eventLayerIds.contains(rl.eventLayerId));
 
-    // Add missing layers from event
+    // Add missing layers from event (by eventLayerId, not audioPath)
     for (final eventLayer in event.layers) {
-      final existsInRegion = region.layers.any((rl) => rl.audioPath == eventLayer.audioPath);
+      final existsInRegion = region.layers.any((rl) => rl.eventLayerId == eventLayer.id);
       if (!existsInRegion) {
         // Import to FFI
         final layerDuration = _getAudioDuration(eventLayer.audioPath);
@@ -4966,11 +5206,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
 
         region.layers.add(_RegionLayer(
-          id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}',
+          id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}_${region.layers.length}',
+          eventLayerId: eventLayer.id, // Track which event layer this maps to
           audioPath: eventLayer.audioPath,
           name: eventLayer.name,
           ffiClipId: ffiClipId > 0 ? ffiClipId : null,
           duration: layerDuration,
+          offset: eventLayer.offsetMs / 1000.0, // Sync offset from event
         ));
       }
     }
@@ -4986,16 +5228,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (region.layers.length > 1) {
       region.isExpanded = true;
     }
-
-    debugPrint('[SlotLab] Synced region "${region.name}" - now has ${region.layers.length} layers');
   }
 
   /// Create region from ALL event layers (not just one)
   void _createRegionFromEventLayers(SlotCompositeEvent event, _SlotAudioTrack track) {
-    debugPrint('[SlotLab] _createRegionFromEventLayers: event "${event.name}" has ${event.layers.length} layers');
-    for (int i = 0; i < event.layers.length; i++) {
-      debugPrint('[SlotLab]   Layer $i: ${event.layers[i].name} (${event.layers[i].audioPath})');
-    }
 
     final List<_RegionLayer> regionLayers = [];
     double maxDuration = 1.0;
@@ -5017,6 +5253,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
       regionLayers.add(_RegionLayer(
         id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}_${regionLayers.length}',
+        eventLayerId: eventLayer.id, // Track which event layer this maps to
         audioPath: eventLayer.audioPath,
         name: eventLayer.name,
         ffiClipId: ffiClipId > 0 ? ffiClipId : null,
