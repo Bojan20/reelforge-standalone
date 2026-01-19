@@ -217,6 +217,11 @@ impl AudioCache {
         self.entries.read().len()
     }
 
+    /// Get all cache keys (for debugging)
+    pub fn keys(&self) -> Vec<String> {
+        self.entries.read().keys().cloned().collect()
+    }
+
     /// Get total memory usage (bytes)
     pub fn memory_usage(&self) -> usize {
         self.current_bytes.load(Ordering::Relaxed) as usize
@@ -544,6 +549,157 @@ impl Default for PlaybackPosition {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ONE-SHOT VOICE — For Middleware/SlotLab event playback through buses
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum concurrent one-shot voices
+const MAX_ONE_SHOT_VOICES: usize = 32;
+
+/// One-shot voice for event-triggered audio playback
+/// Routes directly to a bus (bypasses track system)
+#[derive(Debug)]
+pub struct OneShotVoice {
+    /// Unique voice ID
+    pub id: u64,
+    /// Audio data
+    audio: Arc<ImportedAudio>,
+    /// Current playback position in frames
+    position: u64,
+    /// Volume (0.0 to 1.0)
+    volume: f32,
+    /// Target bus for routing
+    bus: OutputBus,
+    /// Is voice active
+    active: bool,
+    /// Fade state (for smooth stop)
+    fade_samples_remaining: u64,
+    /// Fade increment per sample (negative for fade out)
+    fade_increment: f32,
+    /// Current fade gain
+    fade_gain: f32,
+}
+
+impl OneShotVoice {
+    fn new_inactive() -> Self {
+        Self {
+            id: 0,
+            audio: Arc::new(ImportedAudio {
+                samples: Vec::new(),
+                sample_rate: 44100,
+                channels: 2,
+                duration_secs: 0.0,
+                sample_count: 0,
+                source_path: String::new(),
+                name: String::new(),
+                bit_depth: None,
+                format: String::new(),
+            }),
+            position: 0,
+            volume: 1.0,
+            bus: OutputBus::Sfx,
+            active: false,
+            fade_samples_remaining: 0,
+            fade_increment: 0.0,
+            fade_gain: 1.0,
+        }
+    }
+
+    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, bus: OutputBus) {
+        self.id = id;
+        self.audio = audio;
+        self.position = 0;
+        self.volume = volume;
+        self.bus = bus;
+        self.active = true;
+        self.fade_samples_remaining = 0;
+        self.fade_increment = 0.0;
+        self.fade_gain = 1.0;
+    }
+
+    fn deactivate(&mut self) {
+        self.active = false;
+        self.position = 0;
+    }
+
+    /// Start fade out (for smooth stop)
+    fn start_fade_out(&mut self, fade_samples: u64) {
+        if fade_samples > 0 {
+            self.fade_samples_remaining = fade_samples;
+            self.fade_increment = -self.fade_gain / fade_samples as f32;
+        } else {
+            self.deactivate();
+        }
+    }
+
+    /// Fill buffer with audio, returns true if still playing
+    #[inline]
+    fn fill_buffer(&mut self, left: &mut [f64], right: &mut [f64]) -> bool {
+        if !self.active {
+            return false;
+        }
+
+        let frames_needed = left.len();
+        let channels_src = self.audio.channels as usize;
+        let total_frames = self.audio.samples.len() / channels_src.max(1);
+
+        if self.position >= total_frames as u64 {
+            self.active = false;
+            return false;
+        }
+
+        for frame in 0..frames_needed {
+            // Handle fade
+            if self.fade_samples_remaining > 0 {
+                self.fade_gain += self.fade_increment;
+                self.fade_samples_remaining -= 1;
+                if self.fade_gain <= 0.0 {
+                    self.active = false;
+                    return false;
+                }
+            }
+
+            let src_frame = self.position as usize + frame;
+            if src_frame >= total_frames {
+                break;
+            }
+
+            let gain = self.volume * self.fade_gain;
+
+            // Read source (mono or stereo) - samples are f32, convert to f64 for bus mixing
+            let sample_l = (self.audio.samples[src_frame * channels_src] * gain) as f64;
+            let sample_r = if channels_src > 1 {
+                (self.audio.samples[src_frame * channels_src + 1] * gain) as f64
+            } else {
+                sample_l // Mono to stereo
+            };
+
+            // Add to bus buffers (mixing)
+            left[frame] += sample_l;
+            right[frame] += sample_r;
+        }
+
+        self.position += frames_needed as u64;
+        self.position < total_frames as u64
+    }
+}
+
+/// One-shot voice command for lock-free communication
+#[derive(Debug)]
+pub enum OneShotCommand {
+    /// Play a new one-shot voice
+    Play {
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        bus: OutputBus,
+    },
+    /// Stop specific voice
+    Stop { id: u64 },
+    /// Stop all voices
+    StopAll,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PLAYBACK ENGINE
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -856,6 +1012,15 @@ pub struct PlaybackEngine {
     input_buffer: RwLock<Vec<f32>>,
     /// Recording manager (Phase 12 - Multi-track Recording)
     recording_manager: Arc<RecordingManager>,
+
+    // === ONE-SHOT VOICES (Middleware/SlotLab event playback) ===
+    /// Pre-allocated one-shot voice slots
+    one_shot_voices: RwLock<[OneShotVoice; MAX_ONE_SHOT_VOICES]>,
+    /// Command ring buffer for one-shot voices (UI → Audio)
+    one_shot_cmd_tx: parking_lot::Mutex<rtrb::Producer<OneShotCommand>>,
+    one_shot_cmd_rx: parking_lot::Mutex<rtrb::Consumer<OneShotCommand>>,
+    /// Next voice ID counter
+    next_one_shot_id: AtomicU64,
 }
 
 impl PlaybackEngine {
@@ -863,6 +1028,10 @@ impl PlaybackEngine {
         // Create single ring buffer and split into tx/rx
         let (insert_param_tx, insert_param_rx) =
             rtrb::RingBuffer::<InsertParamChange>::new(4096);
+
+        // Create one-shot voice command ring buffer
+        let (one_shot_tx, one_shot_rx) =
+            rtrb::RingBuffer::<OneShotCommand>::new(256);
 
         Self {
             track_manager,
@@ -919,6 +1088,11 @@ impl PlaybackEngine {
             input_buffer: RwLock::new(vec![0.0f32; 16384]),
             // Recording manager for multi-track recording
             recording_manager: Arc::new(RecordingManager::new(sample_rate)),
+            // One-shot voices for Middleware/SlotLab event playback
+            one_shot_voices: RwLock::new(std::array::from_fn(|_| OneShotVoice::new_inactive())),
+            one_shot_cmd_tx: parking_lot::Mutex::new(one_shot_tx),
+            one_shot_cmd_rx: parking_lot::Mutex::new(one_shot_rx),
+            next_one_shot_id: AtomicU64::new(1),
         }
     }
 
@@ -1886,6 +2060,158 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ONE-SHOT VOICE API (Middleware/SlotLab event playback)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Play audio file directly to a bus (bypasses track system)
+    /// Returns voice ID on success, 0 on failure
+    ///
+    /// bus_id mapping:
+    /// - 0 = Master (routed through Sfx)
+    /// - 1 = Music
+    /// - 2 = Sfx (default)
+    /// - 3 = Voice
+    /// - 4 = Ambience
+    /// - 5 = Aux
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, bus_id: u32) -> u64 {
+        // Load audio from cache (may block if not cached)
+        let audio = match self.cache.load(path) {
+            Some(a) => a,
+            None => {
+                log::warn!("[PlaybackEngine] Failed to load audio: {}", path);
+                return 0;
+            }
+        };
+
+        // Map bus_id to OutputBus
+        let bus = match bus_id {
+            0 => OutputBus::Sfx,      // Master routes through Sfx
+            1 => OutputBus::Music,
+            2 => OutputBus::Sfx,
+            3 => OutputBus::Voice,
+            4 => OutputBus::Ambience,
+            5 => OutputBus::Aux,
+            _ => OutputBus::Sfx,      // Default to Sfx
+        };
+
+        // Get next voice ID
+        let id = self.next_one_shot_id.fetch_add(1, Ordering::Relaxed);
+
+        // Send command to audio thread (lock-free)
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::Play {
+                id,
+                audio,
+                volume,
+                bus,
+            });
+            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, bus={:?})", path, id, bus);
+            id
+        } else {
+            log::warn!("[PlaybackEngine] One-shot command queue busy");
+            0
+        }
+    }
+
+    /// Stop a specific one-shot voice
+    pub fn stop_one_shot(&self, voice_id: u64) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::Stop { id: voice_id });
+        }
+    }
+
+    /// Stop all one-shot voices
+    pub fn stop_all_one_shots(&self) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::StopAll);
+        }
+    }
+
+    /// Process one-shot voice commands (call at start of audio block)
+    fn process_one_shot_commands(&self) {
+        let mut rx = match self.one_shot_cmd_rx.try_lock() {
+            Some(rx) => rx,
+            None => return,
+        };
+
+        let mut voices = match self.one_shot_voices.try_write() {
+            Some(v) => v,
+            None => return,
+        };
+
+        while let Ok(cmd) = rx.pop() {
+            match cmd {
+                OneShotCommand::Play { id, audio, volume, bus } => {
+                    // Find first inactive slot
+                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                        voice.activate(id, audio, volume, bus);
+                    } else {
+                        log::warn!("[PlaybackEngine] No free one-shot voice slots");
+                    }
+                }
+                OneShotCommand::Stop { id } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        // Fade out over ~5ms at 48kHz
+                        voice.start_fade_out(240);
+                    }
+                }
+                OneShotCommand::StopAll => {
+                    for voice in voices.iter_mut() {
+                        if voice.active {
+                            voice.start_fade_out(240);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process all one-shot voices and mix to bus buffers
+    fn process_one_shot_voices(&self, bus_buffers: &mut BusBuffers, frames: usize) {
+        let mut voices = match self.one_shot_voices.try_write() {
+            Some(v) => v,
+            None => return,
+        };
+
+        // Pre-allocated temp buffers per bus for mixing
+        // Use thread-local scratch buffers to avoid allocation
+        SCRATCH_BUFFER_L.with(|buf_l| {
+            SCRATCH_BUFFER_R.with(|buf_r| {
+                let mut guard_l = buf_l.borrow_mut();
+                let mut guard_r = buf_r.borrow_mut();
+
+                if guard_l.len() < frames {
+                    guard_l.resize(frames, 0.0);
+                    guard_r.resize(frames, 0.0);
+                }
+
+                for voice in voices.iter_mut() {
+                    if !voice.active {
+                        continue;
+                    }
+
+                    // Clear temp buffers
+                    guard_l[..frames].fill(0.0);
+                    guard_r[..frames].fill(0.0);
+
+                    // Fill with voice audio
+                    let still_playing = voice.fill_buffer(
+                        &mut guard_l[..frames],
+                        &mut guard_r[..frames],
+                    );
+
+                    // Route to bus
+                    bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
+
+                    if !still_playing {
+                        voice.deactivate();
+                    }
+                }
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // AUDIO PROCESSING (called from audio thread)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1979,6 +2305,12 @@ impl PlaybackEngine {
 
         // Clear bus buffers
         bus_buffers.clear();
+
+        // === ONE-SHOT VOICES (Middleware/SlotLab) ===
+        // Process commands first (may activate/deactivate voices)
+        self.process_one_shot_commands();
+        // Mix one-shot voices into bus buffers
+        self.process_one_shot_voices(&mut bus_buffers, frames);
 
         // Clear control room buffers (solo bus, cue mixes)
         self.control_room.clear_all_buffers();

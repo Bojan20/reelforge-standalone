@@ -2428,8 +2428,11 @@ class EngineApi {
   void _updateState() {
     if (!_initialized) return;
 
-    // Update transport position
-    if (_transport.isPlaying) {
+    // Read actual playback state from FFI (supports external callers like UnifiedPlaybackController)
+    final actuallyPlaying = !_useMock ? _ffi.isPlaying() : _transport.isPlaying;
+
+    // Update transport position when playing
+    if (actuallyPlaying) {
       double finalSeconds;
       final sampleRate = _project.sampleRate;
 
@@ -2454,6 +2457,22 @@ class EngineApi {
         isRecording: _transport.isRecording,
         positionSamples: (finalSeconds * sampleRate).toInt(),
         positionSeconds: finalSeconds,
+        tempo: _transport.tempo,
+        timeSigNum: _transport.timeSigNum,
+        timeSigDenom: _transport.timeSigDenom,
+        loopEnabled: _transport.loopEnabled,
+        loopStart: _transport.loopStart,
+        loopEnd: _transport.loopEnd,
+      );
+      _transportController.add(_transport);
+    } else if (_transport.isPlaying) {
+      // Playback stopped externally (e.g., via UnifiedPlaybackController)
+      // Sync internal state with FFI state
+      _transport = TransportState(
+        isPlaying: false,
+        isRecording: _transport.isRecording,
+        positionSamples: _transport.positionSamples,
+        positionSeconds: _transport.positionSeconds,
         tempo: _transport.tempo,
         timeSigNum: _transport.timeSigNum,
         timeSigDenom: _transport.timeSigDenom,

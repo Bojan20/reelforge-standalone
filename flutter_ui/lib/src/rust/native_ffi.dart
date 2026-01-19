@@ -432,6 +432,16 @@ typedef EnginePreviewStopDart = void Function();
 typedef EnginePreviewIsPlayingNative = Int32 Function();
 typedef EnginePreviewIsPlayingDart = int Function();
 
+// One-Shot Bus Playback (for Middleware/SlotLab event preview through buses)
+typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Uint32 busId);
+typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, int busId);
+
+typedef EnginePlaybackStopOneShotNative = Void Function(Uint64 voiceId);
+typedef EnginePlaybackStopOneShotDart = void Function(int voiceId);
+
+typedef EnginePlaybackStopAllOneShotsNative = Void Function();
+typedef EnginePlaybackStopAllOneShotsDart = void Function();
+
 // Undo/Redo
 typedef EngineUndoNative = Int32 Function();
 typedef EngineUndoDart = int Function();
@@ -1786,10 +1796,18 @@ typedef AdapterGetInfoJsonDart = Pointer<Utf8> Function(int index);
 /// Native FFI bindings to Rust engine
 class NativeFFI {
   static NativeFFI? _instance;
-  static NativeFFI get instance => _instance ??= NativeFFI._();
+  static NativeFFI get instance {
+    _instance ??= NativeFFI._();
+    // Auto-load when accessed
+    _instance!.tryLoad();
+    return _instance!;
+  }
 
   late final DynamicLibrary _lib;
   bool _loaded = false;
+
+  /// Last preview error message (for debugging)
+  static String lastPreviewError = '';
 
   // Function pointers
   late final EngineCreateTrackDart _createTrack;
@@ -1898,6 +1916,11 @@ class NativeFFI {
   late final EnginePreviewAudioFileDart _previewAudioFile;
   late final EnginePreviewStopDart _previewStop;
   late final EnginePreviewIsPlayingDart _previewIsPlaying;
+
+  // One-Shot Bus Playback
+  late final EnginePlaybackPlayToBusDart _playbackPlayToBus;
+  late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
+  late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
 
   // Undo/Redo
   late final EngineUndoDart _undo;
@@ -2490,6 +2513,11 @@ class NativeFFI {
     _previewAudioFile = _lib.lookupFunction<EnginePreviewAudioFileNative, EnginePreviewAudioFileDart>('engine_preview_audio_file');
     _previewStop = _lib.lookupFunction<EnginePreviewStopNative, EnginePreviewStopDart>('engine_preview_stop');
     _previewIsPlaying = _lib.lookupFunction<EnginePreviewIsPlayingNative, EnginePreviewIsPlayingDart>('engine_preview_is_playing');
+
+    // One-Shot Bus Playback
+    _playbackPlayToBus = _lib.lookupFunction<EnginePlaybackPlayToBusNative, EnginePlaybackPlayToBusDart>('engine_playback_play_to_bus');
+    _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
+    _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
 
     // Undo/Redo
     _undo = _lib.lookupFunction<EngineUndoNative, EngineUndoDart>('engine_undo');
@@ -3818,23 +3846,34 @@ class NativeFFI {
   /// Preview audio file - loads and plays immediately via dedicated PreviewEngine
   /// Returns voice_id on success (positive number), -1 on error
   int previewAudioFile(String path, {double volume = 1.0}) {
-    if (!_loaded) return -1;
+    if (!_loaded) {
+      lastPreviewError = 'FFI not loaded';
+      return -1;
+    }
     final pathPtr = path.toNativeUtf8();
     try {
       final resultPtr = _previewAudioFile(pathPtr, volume);
-      if (resultPtr == nullptr) return -1;
+      if (resultPtr == nullptr) {
+        lastPreviewError = 'null result pointer';
+        return -1;
+      }
       final result = resultPtr.toDartString();
       calloc.free(resultPtr);
       // Parse JSON result
       if (result.contains('"error"')) {
-        print('[NativeFFI] Preview error: $result');
+        // Extract error message
+        final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
+        lastPreviewError = errorMatch?.group(1) ?? result;
+        print('[NativeFFI] Preview error: $lastPreviewError');
         return -1;
       }
       // Extract voice_id from {"voice_id":123}
       final match = RegExp(r'"voice_id":(\d+)').firstMatch(result);
       if (match != null) {
+        lastPreviewError = '';
         return int.tryParse(match.group(1)!) ?? -1;
       }
+      lastPreviewError = 'invalid response: $result';
       return -1;
     } finally {
       calloc.free(pathPtr);
@@ -3851,6 +3890,63 @@ class NativeFFI {
   bool previewIsPlaying() {
     if (!_loaded) return false;
     return _previewIsPlaying() != 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ONE-SHOT BUS PLAYBACK API (for Middleware/SlotLab event preview through buses)
+  // Uses PlaybackEngine with bus routing - audio goes through DAW buses for mixing
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Last error from playback to bus operation
+  String lastPlaybackToBusError = '';
+
+  /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// Returns voice_id on success (positive number), -1 on error
+  int playbackPlayToBus(String path, {double volume = 1.0, int busId = 0}) {
+    if (!_loaded) {
+      lastPlaybackToBusError = 'FFI not loaded';
+      return -1;
+    }
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final resultPtr = _playbackPlayToBus(pathPtr, volume, busId);
+      if (resultPtr == nullptr) {
+        lastPlaybackToBusError = 'null result pointer';
+        return -1;
+      }
+      final result = resultPtr.toDartString();
+      calloc.free(resultPtr);
+      // Parse JSON result
+      if (result.contains('"error"')) {
+        // Extract error message
+        final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
+        lastPlaybackToBusError = errorMatch?.group(1) ?? result;
+        return -1;
+      }
+      // Extract voice_id from {"voice_id":123}
+      final match = RegExp(r'"voice_id":(\d+)').firstMatch(result);
+      if (match != null) {
+        lastPlaybackToBusError = '';
+        return int.tryParse(match.group(1)!) ?? -1;
+      }
+      lastPlaybackToBusError = 'invalid response: $result';
+      return -1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Stop specific one-shot voice
+  void playbackStopOneShot(int voiceId) {
+    if (!_loaded) return;
+    _playbackStopOneShot(voiceId);
+  }
+
+  /// Stop all one-shot voices
+  void playbackStopAllOneShots() {
+    if (!_loaded) return;
+    _playbackStopAllOneShots();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

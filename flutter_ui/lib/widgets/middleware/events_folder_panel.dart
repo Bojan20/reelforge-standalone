@@ -9,6 +9,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
@@ -57,14 +58,32 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
 
   final ScrollController _folderScrollController = ScrollController();
   final ScrollController _timelineScrollController = ScrollController();
+  final ScrollController _tracksScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+
+  // Track keys for scroll-to-layer
+  final Map<String, GlobalKey> _layerKeys = {};
 
   @override
   void dispose() {
     _folderScrollController.dispose();
     _timelineScrollController.dispose();
+    _tracksScrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Scroll to selected layer
+  void _scrollToLayer(String layerId) {
+    final key = _layerKeys[layerId];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -83,7 +102,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
           grouped.putIfAbsent(cat, () => []).add(event);
         }
 
-        return Container(
+        return Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) => _handleKeyEvent(event, middleware, selectedEvent),
+          child: Container(
           color: FluxforgeColors.deepBg,
           child: Column(
             children: [
@@ -148,9 +170,94 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
               ),
             ],
           ),
+        ),
         );
       },
     );
+  }
+
+  /// Handle keyboard shortcuts for multi-select operations
+  KeyEventResult _handleKeyEvent(KeyEvent event, MiddlewareProvider middleware, SlotCompositeEvent? selectedEvent) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (selectedEvent == null) return KeyEventResult.ignored;
+
+    final isCmd = HardwareKeyboard.instance.isMetaPressed;
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final isMod = isCmd || isCtrl;
+
+    // Cmd/Ctrl+A - Select all
+    if (isMod && event.logicalKey == LogicalKeyboardKey.keyA) {
+      middleware.selectAllLayers(selectedEvent.id);
+      return KeyEventResult.handled;
+    }
+
+    // Escape - Clear selection
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      middleware.clearLayerSelection();
+      setState(() => _selectedLayerId = null);
+      return KeyEventResult.handled;
+    }
+
+    // Delete/Backspace - Delete selected
+    if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (middleware.selectedLayerCount > 0) {
+        middleware.deleteSelectedLayers(selectedEvent.id);
+        setState(() => _selectedLayerId = null);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd/Ctrl+D - Duplicate selected
+    if (isMod && event.logicalKey == LogicalKeyboardKey.keyD) {
+      if (middleware.selectedLayerCount > 0) {
+        middleware.duplicateSelectedLayers(selectedEvent.id);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd/Ctrl+C - Copy selected
+    if (isMod && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (_selectedLayerId != null) {
+        middleware.copyLayer(selectedEvent.id, _selectedLayerId!);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd/Ctrl+V - Paste
+    if (isMod && event.logicalKey == LogicalKeyboardKey.keyV) {
+      if (middleware.hasLayerInClipboard) {
+        middleware.pasteLayer(selectedEvent.id);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // M - Mute selected
+    if (event.logicalKey == LogicalKeyboardKey.keyM) {
+      if (middleware.selectedLayerCount > 0) {
+        middleware.muteSelectedLayers(selectedEvent.id, true);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Shift+M - Unmute selected
+    if (HardwareKeyboard.instance.isShiftPressed &&
+        event.logicalKey == LogicalKeyboardKey.keyM) {
+      if (middleware.selectedLayerCount > 0) {
+        middleware.muteSelectedLayers(selectedEvent.id, false);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // S - Solo selected
+    if (event.logicalKey == LogicalKeyboardKey.keyS && !isMod) {
+      if (middleware.selectedLayerCount > 0) {
+        middleware.soloSelectedLayers(selectedEvent.id, true);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
   }
 
   Widget _buildEventFolder(
@@ -402,13 +509,17 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             child: Container(
               color: const Color(0xFF121218),
               child: ListView(
+                controller: _tracksScrollController,
                 children: [
                   // Event header track (ALWAYS visible)
                   _buildEventHeaderTrack(event, middleware, totalWidth),
                   // Layer tracks (if any)
                   ...event.layers.map((layer) {
-                    final isSelected = _selectedLayerId == layer.id;
+                    // Ensure key exists for scroll-to
+                    _layerKeys.putIfAbsent(layer.id, () => GlobalKey());
+                    final isSelected = middleware.isLayerSelected(layer.id);
                     return _buildTrack(
+                      key: _layerKeys[layer.id],
                       layer: layer,
                       event: event,
                       middleware: middleware,
@@ -693,6 +804,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   Widget _buildTrack({
+    Key? key,
     required SlotEventLayer layer,
     required SlotCompositeEvent event,
     required MiddlewareProvider middleware,
@@ -701,6 +813,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     required double duration,
   }) {
     return Container(
+      key: key,
       height: _kTrackHeight,
       decoration: BoxDecoration(
         color: isSelected
@@ -708,13 +821,41 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             : FluxforgeColors.surfaceBg,
         border: Border(
           bottom: BorderSide(color: FluxforgeColors.divider.withValues(alpha: 0.5)),
+          left: isSelected
+              ? BorderSide(color: FluxforgeColors.accent, width: 3)
+              : BorderSide.none,
         ),
       ),
       child: Row(
         children: [
           // Track header (fixed width)
           GestureDetector(
-            onTap: () => setState(() => _selectedLayerId = layer.id),
+            onTap: () {
+              // Multi-select with modifiers
+              final isMod = HardwareKeyboard.instance.isMetaPressed ||
+                  HardwareKeyboard.instance.isControlPressed;
+              final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+              if (isMod) {
+                // Cmd/Ctrl+click: toggle selection
+                middleware.toggleLayerSelection(layer.id);
+              } else if (isShift) {
+                // Shift+click: range select
+                if (_selectedLayerId != null) {
+                  middleware.selectLayerRange(event.id, _selectedLayerId!, layer.id);
+                } else {
+                  middleware.selectLayer(layer.id);
+                }
+              } else {
+                // Normal click: single select
+                middleware.selectLayer(layer.id);
+              }
+              setState(() => _selectedLayerId = layer.id);
+              // Scroll to newly selected layer
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _scrollToLayer(layer.id);
+              });
+            },
             child: Container(
               width: 160,
               padding: const EdgeInsets.symmetric(horizontal: 8),

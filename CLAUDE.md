@@ -89,6 +89,7 @@ Kada menjaš BILO ŠTA:
 - Biraj NAJBOLJE rešenje, ne najsigurnije
 - Pronađi ROOT CAUSE, ne simptom
 - Implementiraj PRAVO rešenje, ne workaround
+- **NIKADA jednostavno rešenje — UVEK najbolje rešenje**
 
 ### 5. UVEK čitaj CLAUDE.md pre rada
 
@@ -895,6 +896,7 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 - `.claude/architecture/STAGE_INGEST_SYSTEM.md`
 - `.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md`
 - `.claude/architecture/SLOT_LAB_SYSTEM.md`
+- `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — **KRITIČNO: Unified playback across DAW/Middleware/SlotLab**
 
 ---
 

@@ -1416,6 +1416,31 @@ pub fn preview_set_volume(volume: f64) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ONE-SHOT BUS PLAYBACK (for Middleware/SlotLab event preview through buses)
+// Uses PlaybackEngine with bus routing - audio goes through DAW buses for mixing
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+/// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// Returns voice ID (0 = failed to queue)
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_play_to_bus(path: String, volume: f64, bus_id: u32) -> u64 {
+    crate::PLAYBACK.play_one_shot_to_bus(&path, volume as f32, bus_id)
+}
+
+/// Stop specific one-shot voice
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_stop_one_shot(voice_id: u64) {
+    crate::PLAYBACK.stop_one_shot(voice_id);
+}
+
+/// Stop all one-shot voices
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_stop_all_one_shots() {
+    crate::PLAYBACK.stop_all_one_shots();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EQ
 // ═══════════════════════════════════════════════════════════════════════════
 

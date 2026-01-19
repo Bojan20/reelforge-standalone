@@ -17,6 +17,19 @@ import '../models/advanced_middleware_models.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 
+// ============ Change Types ============
+
+/// Types of changes to composite events for bidirectional sync
+enum CompositeEventChangeType {
+  created,
+  updated,
+  deleted,
+  layerAdded,
+  layerRemoved,
+  layerUpdated,
+  selectionChanged,
+}
+
 // ============ Provider ============
 
 class MiddlewareProvider extends ChangeNotifier {
@@ -158,6 +171,12 @@ class MiddlewareProvider extends ChangeNotifier {
   SlotEventLayer? _layerClipboard;
   String? _selectedLayerId;
 
+  // Multi-select support for batch operations
+  final Set<String> _selectedLayerIds = {};
+
+  // Change listeners for bidirectional sync
+  final List<void Function(String eventId, CompositeEventChangeType type)> _compositeChangeListeners = [];
+
   // ID counters for new groups
   int _nextStateGroupId = 100;
   int _nextSwitchGroupId = 100;
@@ -234,6 +253,32 @@ class MiddlewareProvider extends ChangeNotifier {
   bool get hasLayerInClipboard => _layerClipboard != null;
   SlotEventLayer? get layerClipboard => _layerClipboard;
   String? get selectedLayerId => _selectedLayerId;
+
+  // Multi-select getters
+  Set<String> get selectedLayerIds => Set.unmodifiable(_selectedLayerIds);
+  bool get hasMultipleLayersSelected => _selectedLayerIds.length > 1;
+  int get selectedLayerCount => _selectedLayerIds.length;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHANGE LISTENERS (Bidirectional Sync)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register a listener for composite event changes
+  void addCompositeChangeListener(void Function(String eventId, CompositeEventChangeType type) listener) {
+    _compositeChangeListeners.add(listener);
+  }
+
+  /// Remove a composite event change listener
+  void removeCompositeChangeListener(void Function(String eventId, CompositeEventChangeType type) listener) {
+    _compositeChangeListeners.remove(listener);
+  }
+
+  /// Notify all listeners of a change
+  void _notifyCompositeChange(String eventId, CompositeEventChangeType type) {
+    for (final listener in _compositeChangeListeners) {
+      listener(eventId, type);
+    }
+  }
 
   StateGroup? getStateGroup(int groupId) => _stateGroups[groupId];
   SwitchGroup? getSwitchGroup(int groupId) => _switchGroups[groupId];
@@ -3676,7 +3721,246 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Select a layer for clipboard operations
   void selectLayer(String? layerId) {
     _selectedLayerId = layerId;
+    // Clear multi-select when single select
+    _selectedLayerIds.clear();
+    if (layerId != null) {
+      _selectedLayerIds.add(layerId);
+    }
     notifyListeners();
+  }
+
+  /// Add layer to multi-selection (Cmd/Ctrl+click)
+  void toggleLayerSelection(String layerId) {
+    if (_selectedLayerIds.contains(layerId)) {
+      _selectedLayerIds.remove(layerId);
+      // Update primary selection
+      _selectedLayerId = _selectedLayerIds.isNotEmpty ? _selectedLayerIds.last : null;
+    } else {
+      _selectedLayerIds.add(layerId);
+      _selectedLayerId = layerId;
+    }
+    notifyListeners();
+  }
+
+  /// Range selection (Shift+click)
+  void selectLayerRange(String eventId, String fromLayerId, String toLayerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    final layers = event.layers;
+    final fromIndex = layers.indexWhere((l) => l.id == fromLayerId);
+    final toIndex = layers.indexWhere((l) => l.id == toLayerId);
+
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    final start = fromIndex < toIndex ? fromIndex : toIndex;
+    final end = fromIndex < toIndex ? toIndex : fromIndex;
+
+    for (int i = start; i <= end; i++) {
+      _selectedLayerIds.add(layers[i].id);
+    }
+    _selectedLayerId = toLayerId;
+    notifyListeners();
+  }
+
+  /// Select all layers in event
+  void selectAllLayers(String eventId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _selectedLayerIds.clear();
+    for (final layer in event.layers) {
+      _selectedLayerIds.add(layer.id);
+    }
+    _selectedLayerId = event.layers.isNotEmpty ? event.layers.last.id : null;
+    notifyListeners();
+  }
+
+  /// Clear multi-selection
+  void clearLayerSelection() {
+    _selectedLayerIds.clear();
+    _selectedLayerId = null;
+    notifyListeners();
+  }
+
+  /// Check if layer is selected
+  bool isLayerSelected(String layerId) => _selectedLayerIds.contains(layerId);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BATCH OPERATIONS FOR MULTI-SELECT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Delete all selected layers
+  void deleteSelectedLayers(String eventId) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _pushUndoState();
+
+    final updatedLayers = event.layers
+        .where((l) => !_selectedLayerIds.contains(l.id))
+        .toList();
+
+    final updated = event.copyWith(
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    _selectedLayerIds.clear();
+    _selectedLayerId = null;
+    notifyListeners();
+  }
+
+  /// Mute/unmute all selected layers
+  void muteSelectedLayers(String eventId, bool mute) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _pushUndoState();
+
+    final updatedLayers = event.layers.map((l) {
+      if (_selectedLayerIds.contains(l.id)) {
+        return l.copyWith(muted: mute);
+      }
+      return l;
+    }).toList();
+
+    final updated = event.copyWith(
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+  }
+
+  /// Solo selected layers (mute all others)
+  void soloSelectedLayers(String eventId, bool solo) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _pushUndoState();
+
+    final updatedLayers = event.layers.map((l) {
+      final isSelected = _selectedLayerIds.contains(l.id);
+      if (solo) {
+        // When soloing, mute non-selected layers
+        return l.copyWith(muted: !isSelected);
+      } else {
+        // When un-soloing, unmute all
+        return l.copyWith(muted: false);
+      }
+    }).toList();
+
+    final updated = event.copyWith(
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+  }
+
+  /// Adjust volume for all selected layers
+  void adjustSelectedLayersVolume(String eventId, double volumeDelta) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _pushUndoState();
+
+    final updatedLayers = event.layers.map((l) {
+      if (_selectedLayerIds.contains(l.id)) {
+        return l.copyWith(
+          volume: (l.volume + volumeDelta).clamp(0.0, 2.0),
+        );
+      }
+      return l;
+    }).toList();
+
+    final updated = event.copyWith(
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+  }
+
+  /// Move all selected layers by offset
+  void moveSelectedLayers(String eventId, double offsetDeltaMs) {
+    if (_selectedLayerIds.isEmpty) return;
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+
+    _pushUndoState();
+
+    final updatedLayers = event.layers.map((l) {
+      if (_selectedLayerIds.contains(l.id)) {
+        return l.copyWith(
+          offsetMs: (l.offsetMs + offsetDeltaMs).clamp(0.0, double.infinity),
+        );
+      }
+      return l;
+    }).toList();
+
+    final updated = event.copyWith(
+      layers: updatedLayers,
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+  }
+
+  /// Duplicate all selected layers
+  List<SlotEventLayer> duplicateSelectedLayers(String eventId) {
+    if (_selectedLayerIds.isEmpty) return [];
+
+    final event = _compositeEvents[eventId];
+    if (event == null) return [];
+
+    _pushUndoState();
+
+    final newLayers = <SlotEventLayer>[];
+    final layersToDuplicate = event.layers
+        .where((l) => _selectedLayerIds.contains(l.id))
+        .toList();
+
+    for (final layer in layersToDuplicate) {
+      final newId = 'layer_${_nextLayerId++}';
+      final duplicated = layer.copyWith(
+        id: newId,
+        name: '${layer.name} (copy)',
+        offsetMs: layer.offsetMs + 100,
+      );
+      newLayers.add(duplicated);
+    }
+
+    final updated = event.copyWith(
+      layers: [...event.layers, ...newLayers],
+      modifiedAt: DateTime.now(),
+    );
+
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
+    notifyListeners();
+
+    return newLayers;
   }
 
   /// Copy selected layer to clipboard
@@ -3784,6 +4068,7 @@ class MiddlewareProvider extends ChangeNotifier {
     _compositeEvents[id] = event;
     _selectedCompositeEventId = id;
     _syncCompositeToMiddleware(event); // Real-time sync
+    _notifyCompositeChange(id, CompositeEventChangeType.created);
     notifyListeners();
     return event;
   }
@@ -4113,6 +4398,9 @@ class MiddlewareProvider extends ChangeNotifier {
 
     _events[middlewareId] = middlewareEvent;
     debugPrint('[Sync] Composite → Middleware: ${composite.name} (${actions.length} actions)');
+
+    // Notify listeners of the change
+    _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
   }
 
   /// Remove MiddlewareEvent when composite is deleted
@@ -4120,6 +4408,9 @@ class MiddlewareProvider extends ChangeNotifier {
     final middlewareId = _compositeToMiddlewareId(compositeId);
     _events.remove(middlewareId);
     debugPrint('[Sync] Removed middleware event: $middlewareId');
+
+    // Notify listeners of deletion
+    _notifyCompositeChange(compositeId, CompositeEventChangeType.deleted);
   }
 
   /// Sync MiddlewareEvent back to SlotCompositeEvent (bidirectional)

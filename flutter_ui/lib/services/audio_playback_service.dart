@@ -1,16 +1,16 @@
 /// FluxForge Studio — Unified Audio Playback Service
 ///
-/// EXCLUSIVE MODE: Only ONE source plays at a time.
-/// When DAW plays → Middleware & Slot Lab stop
-/// When Slot Lab plays → DAW & Middleware stop
-/// When Middleware plays → DAW & Slot Lab stop
+/// DELEGATED MODE: Respects UnifiedPlaybackController for section management.
+/// - DAW, SlotLab, Middleware share PLAYBACK_ENGINE (via UnifiedPlaybackController)
+/// - Browser uses PREVIEW_ENGINE (isolated, always allowed)
 ///
-/// Single source of truth for ALL audio playback in FluxForge.
+/// Voice-level playback management for preview/event audio.
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/slot_audio_events.dart';
 import '../src/rust/native_ffi.dart';
+import 'unified_playback_controller.dart';
 
 // =============================================================================
 // PLAYBACK SOURCE ENUM
@@ -76,15 +76,46 @@ class AudioPlaybackService extends ChangeNotifier {
   int get activeVoiceCount => _activeVoices.length;
 
   // ===========================================================================
-  // EXCLUSIVE MODE — Stop other sources before playing
+  // DELEGATED MODE — Respects UnifiedPlaybackController
   // ===========================================================================
 
-  /// Acquire playback for a source. Stops all other sources.
+  /// Acquire playback for a source. Delegated to UnifiedPlaybackController.
+  /// Browser source is always allowed (uses PREVIEW_ENGINE, isolated).
+  /// Other sources must have already acquired via UnifiedPlaybackController.
   void _acquirePlayback(PlaybackSource source) {
-    if (_activeSource != null && _activeSource != source) {
-      debugPrint('[AudioPlayback] Switching from $_activeSource to $source — stopping previous');
-      _stopAllInternal();
+    // Browser uses PREVIEW_ENGINE — always allowed, no conflict
+    if (source == PlaybackSource.browser) {
+      _activeSource = source;
+      _isPlaying = true;
+      notifyListeners();
+      return;
     }
+
+    // For other sources, verify they match UnifiedPlaybackController's active section
+    final controller = UnifiedPlaybackController.instance;
+    final activeSection = controller.activeSection;
+
+    // Map PlaybackSource to PlaybackSection for comparison
+    final expectedSection = switch (source) {
+      PlaybackSource.daw => PlaybackSection.daw,
+      PlaybackSource.slotlab => PlaybackSection.slotLab,
+      PlaybackSource.middleware => PlaybackSection.middleware,
+      PlaybackSource.browser => PlaybackSection.browser,
+    };
+
+    // If source doesn't match active section, it means the caller didn't acquire first
+    // We still allow it but log a warning for debugging
+    if (activeSection != expectedSection && activeSection != null) {
+      debugPrint('[AudioPlayback] WARNING: Source $source but active section is $activeSection');
+    }
+
+    // If switching sources locally, stop previous voices (not transport)
+    if (_activeSource != null && _activeSource != source && _activeSource != PlaybackSource.browser) {
+      debugPrint('[AudioPlayback] Switching from $_activeSource to $source — clearing voices');
+      _activeVoices.clear();
+      _eventVoices.clear();
+    }
+
     _activeSource = source;
     _isPlaying = true;
     notifyListeners();
@@ -103,7 +134,7 @@ class AudioPlaybackService extends ChangeNotifier {
   // PREVIEW API — Single file playback (Audio Browser, hover preview)
   // ===========================================================================
 
-  /// Play single audio file for preview
+  /// Play single audio file for preview (uses PreviewEngine - isolated)
   /// Returns voice_id on success, -1 on error
   int previewFile(
     String path, {
@@ -132,15 +163,77 @@ class AudioPlaybackService extends ChangeNotifier {
   }
 
   // ===========================================================================
+  // BUS ROUTING API — Play through DAW buses (Middleware/SlotLab)
+  // ===========================================================================
+
+  /// Play single audio file through a specific bus (uses PlaybackEngine)
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// Returns voice_id on success, -1 on error
+  int playFileToBus(
+    String path, {
+    double volume = 1.0,
+    int busId = 0,
+    PlaybackSource source = PlaybackSource.middleware,
+    String? eventId,
+    String? layerId,
+  }) {
+    if (path.isEmpty) return -1;
+
+    _acquirePlayback(source);
+
+    try {
+      final voiceId = _ffi.playbackPlayToBus(path, volume: volume, busId: busId);
+      if (voiceId >= 0) {
+        _activeVoices.add(VoiceInfo(
+          voiceId: voiceId,
+          audioPath: path,
+          source: source,
+          eventId: eventId,
+          layerId: layerId,
+        ));
+
+        // Track by event if provided
+        if (eventId != null) {
+          _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
+        }
+
+        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId)');
+      }
+      return voiceId;
+    } catch (e) {
+      debugPrint('[AudioPlayback] PlayToBus error: $e');
+      return -1;
+    }
+  }
+
+  /// Stop specific one-shot voice (bus routing)
+  void stopOneShotVoice(int voiceId) {
+    _activeVoices.removeWhere((v) => v.voiceId == voiceId);
+    _ffi.playbackStopOneShot(voiceId);
+    _checkAndReleasePlayback();
+  }
+
+  /// Stop all one-shot voices (bus routing)
+  void stopAllOneShots() {
+    _activeVoices.removeWhere((v) =>
+        v.source == PlaybackSource.middleware || v.source == PlaybackSource.slotlab);
+    _eventVoices.clear();
+    _ffi.playbackStopAllOneShots();
+    debugPrint('[AudioPlayback] All one-shots stopped');
+  }
+
+  // ===========================================================================
   // LAYER API — Play single layer from SlotEventLayer
   // ===========================================================================
 
   /// Play a single layer (used by Slot Lab timeline)
+  /// Uses bus routing for slotlab/middleware sources, preview engine for browser
   int playLayer(
     SlotEventLayer layer, {
     double offsetSeconds = 0,
     PlaybackSource source = PlaybackSource.slotlab,
     String? eventId,
+    int? busIdOverride,
   }) {
     if (layer.audioPath.isEmpty) return -1;
     if (layer.muted) return -1;
@@ -148,10 +241,23 @@ class AudioPlaybackService extends ChangeNotifier {
     _acquirePlayback(source);
 
     try {
-      final voiceId = _ffi.previewAudioFile(
-        layer.audioPath,
-        volume: layer.volume,
-      );
+      int voiceId;
+
+      // Use bus routing for slotlab/middleware, preview engine for browser
+      if (source == PlaybackSource.browser) {
+        voiceId = _ffi.previewAudioFile(
+          layer.audioPath,
+          volume: layer.volume,
+        );
+      } else {
+        // Use layer's busId, override, or default to Sfx (0)
+        final busId = busIdOverride ?? layer.busId ?? 0;
+        voiceId = _ffi.playbackPlayToBus(
+          layer.audioPath,
+          volume: layer.volume,
+          busId: busId,
+        );
+      }
 
       if (voiceId >= 0) {
         _activeVoices.add(VoiceInfo(
@@ -167,7 +273,7 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] Layer started: ${layer.name} (voice $voiceId)');
+        debugPrint('[AudioPlayback] Layer started: ${layer.name} (voice $voiceId, bus: ${layer.busId ?? 0})');
       }
       return voiceId;
     } catch (e) {
@@ -181,11 +287,13 @@ class AudioPlaybackService extends ChangeNotifier {
   // ===========================================================================
 
   /// Play entire composite event with all its layers
-  /// Respects offsetMs, volume, mute, solo for each layer
+  /// Uses bus routing for middleware/slotlab sources
+  /// Respects offsetMs, volume, mute, solo, busId for each layer
   Future<List<int>> playEvent(
     SlotCompositeEvent event, {
     PlaybackSource source = PlaybackSource.middleware,
     Map<String, dynamic>? context,
+    int? defaultBusId,
   }) async {
     if (event.layers.isEmpty) return [];
 
@@ -212,10 +320,23 @@ class AudioPlaybackService extends ChangeNotifier {
       }
 
       try {
-        final voiceId = _ffi.previewAudioFile(
-          layer.audioPath,
-          volume: volume.clamp(0.0, 1.0),
-        );
+        int voiceId;
+
+        // Use bus routing for middleware/slotlab, preview engine for browser
+        if (source == PlaybackSource.browser) {
+          voiceId = _ffi.previewAudioFile(
+            layer.audioPath,
+            volume: volume.clamp(0.0, 1.0),
+          );
+        } else {
+          // Use layer's busId, event default, or fallback to Sfx (0)
+          final busId = layer.busId ?? defaultBusId ?? 0;
+          voiceId = _ffi.playbackPlayToBus(
+            layer.audioPath,
+            volume: volume.clamp(0.0, 1.0),
+            busId: busId,
+          );
+        }
 
         if (voiceId >= 0) {
           voiceIds.add(voiceId);
@@ -227,7 +348,7 @@ class AudioPlaybackService extends ChangeNotifier {
             layerId: layer.id,
           ));
         }
-        debugPrint('[AudioPlayback] Event layer: ${layer.name} (voice $voiceId)');
+        debugPrint('[AudioPlayback] Event layer: ${layer.name} (voice $voiceId, bus: ${layer.busId ?? defaultBusId ?? 0})');
       } catch (e) {
         debugPrint('[AudioPlayback] Event layer error: $e');
       }
@@ -243,37 +364,34 @@ class AudioPlaybackService extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // DAW TIMELINE API
+  // DAW TIMELINE API — Delegated to UnifiedPlaybackController
   // ===========================================================================
 
   /// Start DAW timeline playback
-  /// Stops all other sources first
+  /// DEPRECATED: Use UnifiedPlaybackController.instance.play() instead
+  /// Kept for backward compatibility
   bool startDAWPlayback() {
-    _acquirePlayback(PlaybackSource.daw);
-
-    try {
-      final success = _ffi.startPlayback();
-      if (success) {
-        debugPrint('[AudioPlayback] DAW playback started');
-      }
-      return success;
-    } catch (e) {
-      debugPrint('[AudioPlayback] DAW start error: $e');
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(PlaybackSection.daw)) {
+      debugPrint('[AudioPlayback] Failed to acquire DAW section');
       return false;
     }
+
+    _acquirePlayback(PlaybackSource.daw);
+    controller.play();
+    debugPrint('[AudioPlayback] DAW playback started via UnifiedPlaybackController');
+    return true;
   }
 
   /// Stop DAW timeline playback
+  /// DEPRECATED: Use UnifiedPlaybackController.instance.stop() instead
   void stopDAWPlayback() {
     if (_activeSource != PlaybackSource.daw) return;
 
-    try {
-      _ffi.stopPlayback();
-      _releasePlayback(PlaybackSource.daw);
-      debugPrint('[AudioPlayback] DAW playback stopped');
-    } catch (e) {
-      debugPrint('[AudioPlayback] DAW stop error: $e');
-    }
+    final controller = UnifiedPlaybackController.instance;
+    controller.stop(releaseAfterStop: true);
+    _releasePlayback(PlaybackSource.daw);
+    debugPrint('[AudioPlayback] DAW playback stopped via UnifiedPlaybackController');
   }
 
   // ===========================================================================

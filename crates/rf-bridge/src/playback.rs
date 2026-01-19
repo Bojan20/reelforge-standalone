@@ -1542,6 +1542,36 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ONE-SHOT BUS PLAYBACK (for Middleware/SlotLab event preview through buses)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+    /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+    /// Returns voice ID (0 = failed to queue)
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, bus_id: u32) -> u64 {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.play_one_shot_to_bus(path, volume, bus_id)
+        } else {
+            log::warn!("play_one_shot_to_bus: engine not connected");
+            0
+        }
+    }
+
+    /// Stop specific one-shot voice
+    pub fn stop_one_shot(&self, voice_id: u64) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.stop_one_shot(voice_id);
+        }
+    }
+
+    /// Stop all one-shot voices
+    pub fn stop_all_one_shots(&self) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.stop_all_one_shots();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // AUDIO DEVICE SETTINGS
     // ═══════════════════════════════════════════════════════════════════════════
 

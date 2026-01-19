@@ -76,6 +76,7 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
+import '../services/slotlab_track_bridge.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 
 // =============================================================================
@@ -247,6 +248,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   // FFI instance
   final _ffi = NativeFFI.instance;
+
+  // Bridge to DAW TRACK_MANAGER for unified playback
+  final _trackBridge = SlotLabTrackBridge.instance;
 
   // Focus node for keyboard shortcuts
   final FocusNode _focusNode = FocusNode();
@@ -1998,26 +2002,27 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
 
     if (_isPlaying) {
-      // Clear triggered layers tracking for new playback
-      _triggeredLayers.clear();
-      _lastPlayheadPosition = _playheadPosition;
+      // ═══════════════════════════════════════════════════════════════════════
+      // UNIFIED PLAYBACK: Use PLAYBACK_ENGINE (same as DAW)
+      // ═══════════════════════════════════════════════════════════════════════
 
-      // Check which layers should already be playing at current position
-      _triggerLayersAtPosition(_playheadPosition);
+      // Ensure all SlotLab layers are synced to TRACK_MANAGER as clips
+      _syncLayersToTrackManager();
 
-      debugPrint('[SlotLab] Playback started at ${_playheadPosition}s');
+      // Start playback via PLAYBACK_ENGINE
+      _trackBridge.play(fromPosition: _playheadPosition);
 
+      debugPrint('[SlotLab] Playback started at ${_playheadPosition}s via PLAYBACK_ENGINE');
+
+      // UI update timer (visual only - audio is handled by PLAYBACK_ENGINE)
       _playbackTimer = Timer.periodic(const Duration(milliseconds: 33), (timer) {
         if (!mounted || !_isPlaying) {
           timer.cancel();
           return;
         }
         setState(() {
-          final prevPosition = _playheadPosition;
-          _playheadPosition += 0.033;
-
-          // Check and trigger any layers that playhead crossed
-          _checkAndTriggerLayers(prevPosition, _playheadPosition);
+          // Sync playhead from PLAYBACK_ENGINE position
+          _playheadPosition = _trackBridge.currentPosition;
 
           // Determine loop boundaries
           final loopEnd = (_isLooping && _loopEnd != null) ? _loopEnd! : _timelineDuration;
@@ -2025,24 +2030,49 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
           if (_playheadPosition >= loopEnd) {
             if (_isLooping) {
+              _trackBridge.seek(loopStart);
               _playheadPosition = loopStart;
-              // Reset triggered layers for loop
-              _triggeredLayers.clear();
-              _triggerLayersAtPosition(loopStart);
             } else {
               _isPlaying = false;
               timer.cancel();
-              _stopAllLayerAudio();
+              _trackBridge.stop();
             }
           }
         });
       });
     } else {
       _playbackTimer?.cancel();
-      // Stop all playback via unified service
-      AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
-      _activeLayerIds.clear();
+      // Stop via PLAYBACK_ENGINE
+      _trackBridge.pause();
     }
+  }
+
+  /// Sync all SlotLab layers to TRACK_MANAGER clips for unified playback
+  void _syncLayersToTrackManager() {
+    for (final track in _tracks) {
+      if (track.isMuted) continue;
+
+      for (final region in track.regions) {
+        if (region.isMuted) continue;
+
+        for (final layer in region.layers) {
+          if (layer.audioPath.isEmpty) continue;
+
+          // Calculate absolute position on timeline
+          final absoluteStart = region.start + layer.offset;
+
+          // Add/update clip in TRACK_MANAGER
+          _trackBridge.addLayerClip(
+            layerId: layer.id,
+            audioPath: layer.audioPath,
+            startTime: absoluteStart,
+            duration: layer.duration,
+            volume: layer.volume * track.volume,
+          );
+        }
+      }
+    }
+    debugPrint('[SlotLab] Synced ${_tracks.length} tracks to TRACK_MANAGER');
   }
 
   void _stopPlayback() {
@@ -2052,7 +2082,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
     _playbackTimer?.cancel();
     _triggeredLayers.clear();
-    _stopAllLayerAudio();
+
+    // UNIFIED PLAYBACK: Stop via PLAYBACK_ENGINE
+    _trackBridge.stop();
   }
 
   /// Calculate the absolute start time of a layer on the timeline
@@ -2060,85 +2092,38 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return region.start + layer.offset;
   }
 
-  /// Trigger layers that should be playing at the given position
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEPRECATED: Legacy layer triggering methods (no longer used)
+  // PLAYBACK_ENGINE now handles clip playback automatically via TRACK_MANAGER
+  // These remain for reference but are not called in unified playback mode
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
   void _triggerLayersAtPosition(double position) {
-    for (final track in _tracks) {
-      if (track.isMuted) continue;
-
-      for (final region in track.regions) {
-        if (region.isMuted) continue;
-
-        for (final layer in region.layers) {
-          final layerStart = _getLayerStartTime(region, layer);
-          final layerEnd = layerStart + region.duration;
-
-          // If playhead is within this layer's time range
-          if (position >= layerStart && position < layerEnd) {
-            if (!_triggeredLayers.contains(layer.id)) {
-              _triggeredLayers.add(layer.id);
-              // Calculate offset into the audio file
-              final audioOffset = position - layerStart;
-              _playLayerAudio(layer, audioOffset);
-            }
-          }
-        }
-      }
-    }
+    // DEPRECATED: PLAYBACK_ENGINE handles this automatically
+    debugPrint('[SlotLab] DEPRECATED: _triggerLayersAtPosition called');
   }
 
-  /// Check and trigger layers that the playhead crossed between prevPos and currentPos
+  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
   void _checkAndTriggerLayers(double prevPos, double currentPos) {
-    for (final track in _tracks) {
-      if (track.isMuted) continue;
-
-      for (final region in track.regions) {
-        if (region.isMuted) continue;
-
-        for (final layer in region.layers) {
-          final layerStart = _getLayerStartTime(region, layer);
-
-          // If playhead crossed the layer start point
-          if (prevPos < layerStart && currentPos >= layerStart) {
-            if (!_triggeredLayers.contains(layer.id)) {
-              _triggeredLayers.add(layer.id);
-              _playLayerAudio(layer, 0.0); // Start from beginning
-              debugPrint('[SlotLab] Triggered layer: ${layer.name} at ${layerStart}s');
-            }
-          }
-        }
-      }
-    }
+    // DEPRECATED: PLAYBACK_ENGINE handles this automatically
+    debugPrint('[SlotLab] DEPRECATED: _checkAndTriggerLayers called');
   }
 
-  /// Play audio for a specific layer using AudioPlaybackService
+  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
+  /// Was used for individual layer playback via PREVIEW_ENGINE
   Future<void> _playLayerAudio(_RegionLayer layer, double offsetSeconds) async {
-    if (layer.audioPath.isEmpty) return;
-
-    // Create temporary SlotEventLayer for playback service
-    final eventLayer = SlotEventLayer(
-      id: layer.id,
-      name: layer.name,
-      audioPath: layer.audioPath,
-      volume: layer.volume,
-    );
-
-    final voiceId = AudioPlaybackService.instance.playLayer(
-      eventLayer,
-      offsetSeconds: offsetSeconds,
-      source: PlaybackSource.slotlab,
-    );
-
-    if (voiceId >= 0) {
-      _activeLayerIds.add(layer.id);
-    }
-
-    debugPrint('[SlotLab] Playing ${layer.name} at offset ${offsetSeconds}s (voice $voiceId)');
+    // DEPRECATED: PLAYBACK_ENGINE handles clip playback automatically
+    debugPrint('[SlotLab] DEPRECATED: _playLayerAudio called for ${layer.name}');
   }
 
   /// Stop all currently playing layer audio
+  /// NOTE: With unified PLAYBACK_ENGINE, this is now handled by _trackBridge.stop()
   Future<void> _stopAllLayerAudio() async {
-    AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+    // Legacy cleanup - clear tracking state
     _activeLayerIds.clear();
+    // UNIFIED PLAYBACK: Stop via PLAYBACK_ENGINE
+    _trackBridge.stop();
   }
 
   /// Dispose all audio players (cleanup)

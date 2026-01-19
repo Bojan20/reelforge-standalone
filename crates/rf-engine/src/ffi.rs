@@ -2178,6 +2178,28 @@ pub extern "C" fn engine_preload_range(start_time: f64, end_time: f64) {
     PLAYBACK_ENGINE.preload_range(start_time, end_time);
 }
 
+/// Get debug info about playback state (tracks, clips, cache)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_playback_debug_info() -> *mut std::ffi::c_char {
+    let tracks = TRACK_MANAGER.get_all_tracks();
+    let clips = TRACK_MANAGER.get_all_clips();
+    let cache_size = PLAYBACK_ENGINE.cache.size();
+    let cache_keys = PLAYBACK_ENGINE.cache.keys();
+    let stream_running = AUDIO_STREAM_RUNNING.load(std::sync::atomic::Ordering::Relaxed);
+
+    let info = format!(
+        "tracks={}, clips={}, cache={}, stream={}, keys=[{}]",
+        tracks.len(),
+        clips.len(),
+        cache_size,
+        if stream_running { "ON" } else { "OFF" },
+        cache_keys.join(", ")
+    );
+
+    let c_str = std::ffi::CString::new(info).unwrap_or_default();
+    c_str.into_raw()
+}
+
 /// Process audio block - main audio callback
 ///
 /// This should be called from the audio thread callback.
@@ -15766,6 +15788,7 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     let bit_depth = codec_params.bits_per_sample.unwrap_or(24);
 
     // Calculate duration from n_frames and sample_rate
+    // This works for most formats (WAV, FLAC, AIFF, MP3, OGG, etc.)
     let duration_secs = codec_params.n_frames
         .map(|frames| frames as f64 / sample_rate as f64)
         .unwrap_or(0.0);
@@ -19336,6 +19359,53 @@ pub extern "C" fn engine_preview_is_playing() -> i32 {
 pub extern "C" fn engine_preview_set_volume(volume: f64) {
     use crate::preview::PREVIEW_ENGINE;
     PREVIEW_ENGINE.set_volume(volume as f32);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONE-SHOT BUS PLAYBACK (for Middleware/SlotLab event preview through buses)
+// Uses PlaybackEngine with bus routing - audio goes through DAW buses for mixing
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+/// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// Returns allocated string with voice_id on success, or error message
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_play_to_bus(
+    path: *const c_char,
+    volume: f64,
+    bus_id: u32,
+) -> *mut c_char {
+    // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
+
+    if path.is_null() {
+        return string_to_cstr(r#"{"error":"null path"}"#);
+    }
+
+    let path_str = match unsafe { CStr::from_ptr(path) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
+    };
+
+    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, bus_id);
+    if voice_id > 0 {
+        string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
+    } else {
+        string_to_cstr(r#"{"error":"failed to queue voice"}"#)
+    }
+}
+
+/// Stop specific one-shot voice
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_stop_one_shot(voice_id: u64) {
+    // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
+    PLAYBACK_ENGINE.stop_one_shot(voice_id);
+}
+
+/// Stop all one-shot voices
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_stop_all_one_shots() {
+    // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
+    PLAYBACK_ENGINE.stop_all_one_shots();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

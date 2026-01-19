@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
+import 'unified_playback_controller.dart';
 
 // =============================================================================
 // AUDIO LAYER — Pojedinačni zvuk u eventu
@@ -118,7 +119,7 @@ class AudioEvent {
 
 class _PlayingInstance {
   final String eventId;
-  final List<int> voiceIds; // Rust voice IDs from PreviewEngine
+  final List<int> voiceIds; // Rust voice IDs from PlaybackEngine one-shots
   final DateTime startTime;
 
   _PlayingInstance({
@@ -129,7 +130,10 @@ class _PlayingInstance {
 
   Future<void> stop() async {
     try {
-      NativeFFI.instance.previewStop();
+      // Stop each voice individually through bus routing
+      for (final voiceId in voiceIds) {
+        NativeFFI.instance.playbackStopOneShot(voiceId);
+      }
     } catch (e) {
       debugPrint('[EventRegistry] Stop error: $e');
     }
@@ -207,9 +211,11 @@ class EventRegistry extends ChangeNotifier {
     final toRemove = <_PlayingInstance>[];
     for (final instance in _playingInstances) {
       if (instance.eventId == targetEventId) {
-        // Stop via PreviewEngine (synchronous call)
+        // Stop each voice via bus routing (synchronous calls)
         try {
-          NativeFFI.instance.previewStop();
+          for (final voiceId in instance.voiceIds) {
+            NativeFFI.instance.playbackStopOneShot(voiceId);
+          }
         } catch (e) {
           debugPrint('[EventRegistry] Stop error: $e');
         }
@@ -311,16 +317,40 @@ class EventRegistry extends ChangeNotifier {
         volume *= (context['volumeMultiplier'] as num).toDouble();
       }
 
-      // Play via unified AudioPlaybackService (middleware source)
-      final voiceId = AudioPlaybackService.instance.previewFile(
-        layer.audioPath,
-        volume: volume.clamp(0.0, 1.0),
-        source: PlaybackSource.middleware,
-      );
+      // Determine correct PlaybackSource from active section in UnifiedPlaybackController
+      final activeSection = UnifiedPlaybackController.instance.activeSection;
+      final source = switch (activeSection) {
+        PlaybackSection.daw => PlaybackSource.daw,
+        PlaybackSection.slotLab => PlaybackSource.slotlab,
+        PlaybackSection.middleware => PlaybackSource.middleware,
+        PlaybackSection.browser => PlaybackSource.browser,
+        null => PlaybackSource.middleware, // Default fallback
+      };
+
+      int voiceId;
+
+      // Use bus routing for middleware/slotlab, preview engine for browser/daw
+      if (source == PlaybackSource.browser) {
+        // Browser uses isolated PreviewEngine
+        voiceId = AudioPlaybackService.instance.previewFile(
+          layer.audioPath,
+          volume: volume.clamp(0.0, 1.0),
+          source: source,
+        );
+      } else {
+        // Middleware/SlotLab use bus routing through PlaybackEngine
+        voiceId = AudioPlaybackService.instance.playFileToBus(
+          layer.audioPath,
+          volume: volume.clamp(0.0, 1.0),
+          busId: layer.busId,
+          source: source,
+        );
+      }
+
       if (voiceId >= 0) {
         voiceIds.add(voiceId);
       }
-      debugPrint('[EventRegistry] Playing via AudioPlaybackService: ${layer.name} (voice $voiceId)');
+      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})');
     } catch (e) {
       debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
     }
@@ -354,8 +384,8 @@ class EventRegistry extends ChangeNotifier {
 
   /// Zaustavi sve
   Future<void> stopAll() async {
-    // Stop via unified service
-    AudioPlaybackService.instance.stopSource(PlaybackSource.middleware);
+    // Stop all one-shot voices via bus routing
+    AudioPlaybackService.instance.stopAllOneShots();
 
     for (final instance in _playingInstances) {
       await instance.stop();

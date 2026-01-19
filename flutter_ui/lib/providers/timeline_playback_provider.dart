@@ -11,6 +11,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import '../src/rust/engine_api.dart' as api;
+import '../services/unified_playback_controller.dart';
 
 // ============ Types ============
 
@@ -188,6 +189,16 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   Future<void> play() async {
     if (_state.isPlaying) return;
 
+    // Acquire DAW section in UnifiedPlaybackController
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(PlaybackSection.daw)) {
+      debugPrint('[TimelinePlayback] Failed to acquire DAW section');
+      return;
+    }
+
+    // Start audio playback via UnifiedPlaybackController (delegates to Rust)
+    controller.play();
+
     // Start vsync ticker (60 FPS) for smooth UI updates
     _ticker?.dispose();
     _ticker = Ticker(_onTick)..start();
@@ -200,6 +211,9 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   }
 
   void pause() {
+    // Pause audio via UnifiedPlaybackController
+    UnifiedPlaybackController.instance.pause();
+
     _ticker?.stop();
 
     _state = _state.copyWith(isPlaying: false, isPaused: true);
@@ -207,6 +221,9 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   }
 
   void stop() {
+    // Stop audio via UnifiedPlaybackController and release section
+    UnifiedPlaybackController.instance.stop(releaseAfterStop: true);
+
     _ticker?.dispose();
     _ticker = null;
 
@@ -233,8 +250,8 @@ class TimelinePlaybackProvider extends ChangeNotifier {
       _lastScrubTime = now;
     }
 
-    // Send seek command to Rust audio engine
-    api.seek(clampedTime);
+    // Send seek command via UnifiedPlaybackController
+    UnifiedPlaybackController.instance.seek(clampedTime);
 
     _state = _state.copyWith(currentTime: clampedTime);
     notifyListeners();
@@ -249,8 +266,8 @@ class TimelinePlaybackProvider extends ChangeNotifier {
       scrubSpeed: 0,
     );
 
-    // Start audio scrubbing in Rust engine
-    api.EngineApi.instance.startScrub(_scrubStartTime);
+    // Start audio scrubbing via UnifiedPlaybackController
+    UnifiedPlaybackController.instance.startScrub(_scrubStartTime);
 
     notifyListeners();
   }
@@ -281,8 +298,8 @@ class TimelinePlaybackProvider extends ChangeNotifier {
 
     _state = _state.copyWith(scrubSpeed: speed);
 
-    // Update scrub in Rust engine with velocity for audio preview
-    api.EngineApi.instance.updateScrub(newTime, speed);
+    // Update scrub via UnifiedPlaybackController with velocity for audio preview
+    UnifiedPlaybackController.instance.updateScrub(newTime, speed);
 
     seek(newTime, isScrubbing: true);
     _scrubStartPosition = newTime;
@@ -295,8 +312,8 @@ class TimelinePlaybackProvider extends ChangeNotifier {
       scrubSpeed: 0,
     );
 
-    // Stop audio scrubbing in Rust engine
-    api.EngineApi.instance.stopScrub();
+    // Stop audio scrubbing via UnifiedPlaybackController
+    UnifiedPlaybackController.instance.stopScrub();
 
     notifyListeners();
   }
@@ -309,10 +326,11 @@ class TimelinePlaybackProvider extends ChangeNotifier {
     final newTime = (_state.currentTime + timeDelta).clamp(0.0, _state.duration);
 
     // For jog scrub, use momentary scrub - start, update, and immediately schedule stop
+    final controller = UnifiedPlaybackController.instance;
     if (!_state.isScrubbing) {
-      api.EngineApi.instance.startScrub(newTime);
+      controller.startScrub(newTime);
     }
-    api.EngineApi.instance.updateScrub(newTime, scrollDelta.sign * 0.5); // Half speed for jog
+    controller.updateScrub(newTime, scrollDelta.sign * 0.5); // Half speed for jog
 
     seek(newTime, isScrubbing: true);
   }

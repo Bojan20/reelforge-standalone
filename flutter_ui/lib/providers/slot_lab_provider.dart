@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import '../models/stage_models.dart';
 import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
+import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
 import 'middleware_provider.dart';
 
@@ -363,6 +364,13 @@ class SlotLabProvider extends ChangeNotifier {
   void _playStagesSequentially() {
     if (_lastStages.isEmpty) return;
 
+    // Acquire SlotLab section in UnifiedPlaybackController
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(PlaybackSection.slotLab)) {
+      debugPrint('[SlotLabProvider] Failed to acquire SlotLab section');
+      return;
+    }
+
     _stagePlaybackTimer?.cancel();
     _currentStageIndex = 0;
     _isPlayingStages = true;
@@ -384,6 +392,8 @@ class SlotLabProvider extends ChangeNotifier {
   void _scheduleNextStage() {
     if (_currentStageIndex >= _lastStages.length - 1) {
       _isPlayingStages = false;
+      // Release SlotLab section when done
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
       notifyListeners();
       return;
     }
@@ -554,6 +564,8 @@ class SlotLabProvider extends ChangeNotifier {
   void stopStagePlayback() {
     _stagePlaybackTimer?.cancel();
     _isPlayingStages = false;
+    // Release SlotLab section
+    UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
     notifyListeners();
   }
 

@@ -2736,6 +2736,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       }
     }
 
+    // Fallback: If duration is still 0, use getAudioFileDuration (decodes file header)
+    if (duration <= 0.0) {
+      final fallbackDuration = NativeFFI.instance.getAudioFileDuration(filePath);
+      if (fallbackDuration > 0) {
+        duration = fallbackDuration;
+      }
+    }
+
     // Generate demo waveform (real waveform would come from engine)
     final waveform = timeline.generateDemoWaveform();
 
