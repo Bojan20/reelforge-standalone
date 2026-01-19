@@ -6,6 +6,9 @@
 // - Stereo L/R metering
 // - LUFS short-term
 // - OPTIMIZED: No rebuild storms, minimal allocations
+//
+// NOW WITH SHARED MEMORY: Zero-latency meter updates via direct memory access
+// (falls back to 50ms stream polling if shared memory unavailable)
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -13,6 +16,7 @@ import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 
 import '../src/rust/engine_api.dart';
+import '../services/shared_meter_reader.dart';
 
 // ============ Types ============
 
@@ -113,24 +117,126 @@ class MeterProvider extends ChangeNotifier {
   StreamSubscription<MeteringState>? _meteringSubscription;
   StreamSubscription<TransportState>? _transportSubscription;
   Timer? _decayTimer;
+  Timer? _sharedMeterTimer;
   bool _isActive = true;
   bool _isPlaying = false;
   int _lastNotifyMs = 0;
+  int _lastSequence = 0;
 
-  // OPTIMIZED: 20Hz = 50ms (matches engine metering rate, no wasted cycles)
-  static const _updateIntervalMs = 50;
+  // Shared memory metering (zero-latency)
+  final SharedMeterReader _sharedReader = SharedMeterReader.instance;
+  bool _useSharedMemory = false;
+
+  // OPTIMIZED: 16ms = 60fps for shared memory, 50ms for stream fallback
+  static const _sharedMemoryIntervalMs = 16;
+  static const _streamIntervalMs = 50;
 
   MeterState _masterState = MeterState.zero;
 
   MeterProvider() {
-    _subscribeToEngine();
+    _initializeSharedMemory();
     _subscribeToTransport();
   }
 
-  /// Throttled notify - max 30fps
+  /// Initialize shared memory metering (preferred)
+  /// Falls back to stream if unavailable
+  Future<void> _initializeSharedMemory() async {
+    try {
+      final success = await _sharedReader.initialize();
+      if (success) {
+        _useSharedMemory = true;
+        _startSharedMemoryPolling();
+        debugPrint('[MeterProvider] Using shared memory metering (60fps)');
+      } else {
+        _useSharedMemory = false;
+        _subscribeToEngine();
+        debugPrint('[MeterProvider] Falling back to stream metering (20fps)');
+      }
+    } catch (e) {
+      _useSharedMemory = false;
+      _subscribeToEngine();
+      debugPrint('[MeterProvider] Shared memory init failed: $e');
+    }
+  }
+
+  /// Start polling shared memory at 60fps
+  void _startSharedMemoryPolling() {
+    _sharedMeterTimer?.cancel();
+    _sharedMeterTimer = Timer.periodic(
+      const Duration(milliseconds: _sharedMemoryIntervalMs),
+      (_) => _pollSharedMemory(),
+    );
+  }
+
+  /// Poll shared memory for meter updates
+  void _pollSharedMemory() {
+    if (!_isActive || !_useSharedMemory) return;
+
+    // Fast check: has sequence changed?
+    final currentSeq = _sharedReader.currentSequence;
+    if (currentSeq == _lastSequence) return;
+    _lastSequence = currentSeq;
+
+    // Read full meter data
+    final snapshot = _sharedReader.readMeters();
+    _onSharedMeterUpdate(snapshot);
+  }
+
+  /// Handle shared memory meter update
+  void _onSharedMeterUpdate(SharedMeterSnapshot snapshot) {
+    // Stop decay when receiving new data
+    _decayTimer?.cancel();
+    _decayTimer = null;
+
+    final now = DateTime.now();
+
+    // Update master from shared memory
+    _masterState = _convertToMeterState(
+      'master',
+      snapshot.masterPeakL,
+      snapshot.masterPeakR,
+      snapshot.masterRmsL,
+      snapshot.masterRmsR,
+      snapshot.lufsShort,
+      now,
+    );
+
+    // Update channel meters from shared memory
+    _activeBusCount = 6; // Always 6 channels available
+    for (int i = 0; i < 6; i++) {
+      final peakL = snapshot.channelPeaks[i * 2];
+      final peakR = snapshot.channelPeaks[i * 2 + 1];
+      _busStates[i] = _convertToMeterState(
+        'bus_$i',
+        peakL,
+        peakR,
+        peakL * 0.7, // Approximate RMS
+        peakR * 0.7,
+        -14.0,
+        now,
+      );
+    }
+
+    // Update registered meters
+    _meterStates.forEach((meterId, _) {
+      if (meterId == 'master') {
+        _meterStates[meterId] = _masterState;
+      } else if (meterId.startsWith('bus_')) {
+        final index = int.tryParse(meterId.substring(4));
+        if (index != null && index < _activeBusCount) {
+          _meterStates[meterId] = _busStates[index];
+        }
+      }
+    });
+
+    _throttledNotify();
+  }
+
+  /// Throttled notify - 60fps for shared memory, 20fps for stream
   void _throttledNotify() {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (nowMs - _lastNotifyMs < _updateIntervalMs) {
+    final interval = _useSharedMemory ? _sharedMemoryIntervalMs : _streamIntervalMs;
+    if (nowMs - _lastNotifyMs < interval) {
       return;
     }
     _lastNotifyMs = nowMs;
@@ -273,9 +379,10 @@ class MeterProvider extends ChangeNotifier {
 
   void _startDecayLoop() {
     _decayTimer?.cancel();
-    // OPTIMIZED: Decay at same rate as notify throttle (33ms = 30fps)
+    // Decay at same rate as notify throttle
+    final interval = _useSharedMemory ? _sharedMemoryIntervalMs : _streamIntervalMs;
     _decayTimer = Timer.periodic(
-      const Duration(milliseconds: _updateIntervalMs),
+      Duration(milliseconds: interval),
       (_) => _decayMeters(),
     );
   }
@@ -360,8 +467,12 @@ class MeterProvider extends ChangeNotifier {
     _meteringSubscription?.cancel();
     _transportSubscription?.cancel();
     _decayTimer?.cancel();
+    _sharedMeterTimer?.cancel();
     super.dispose();
   }
+
+  /// Get whether shared memory metering is active
+  bool get useSharedMemory => _useSharedMemory;
 }
 
 /// OPTIMIZED: Combined peak hold data to reduce map lookups

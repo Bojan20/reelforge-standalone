@@ -1663,6 +1663,189 @@ pub extern "C" fn engine_query_raw_samples(
     0
 }
 
+/// Generate multi-LOD waveform from audio file path (SIMD optimized)
+///
+/// This is the FAST path for waveform generation - runs in Rust with SIMD
+/// instead of computing LODs in Dart.
+///
+/// Parameters:
+/// - path: Path to audio file (WAV, FLAC, MP3, OGG, AAC)
+/// - cache_key: Unique key for caching (e.g., "slotlab_layer_xxx")
+///
+/// Returns:
+/// - JSON string with all LOD levels if successful
+/// - null on failure
+///
+/// JSON format:
+/// {
+///   "sample_rate": 48000,
+///   "total_samples": 123456,
+///   "duration_secs": 2.57,
+///   "levels": [
+///     {"samples_per_bucket": 4, "buckets": [[min,max,rms], ...]},
+///     {"samples_per_bucket": 8, "buckets": [[min,max,rms], ...]},
+///     ...
+///   ]
+/// }
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_generate_waveform_from_file(
+    path: *const c_char,
+    cache_key: *const c_char,
+) -> *mut c_char {
+    let path_str = match unsafe { cstr_to_string(path) } {
+        Some(p) => p,
+        None => {
+            eprintln!("[FFI Waveform] Invalid path");
+            return ptr::null_mut();
+        }
+    };
+
+    let key = match unsafe { cstr_to_string(cache_key) } {
+        Some(k) => k,
+        None => path_str.clone(), // Use path as key if no key provided
+    };
+
+    // Check if already cached
+    if let Some(cached) = WAVEFORM_CACHE.cache.read().get(&key) {
+        // Return cached data as JSON
+        return waveform_to_json(cached);
+    }
+
+    // Load audio file
+    let audio_data = match rf_file::read_audio(&path_str) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("[FFI Waveform] Failed to read audio: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    // Convert to f32 samples
+    let left_samples: Vec<f32> = audio_data.channels[0].iter().map(|&s| s as f32).collect();
+    let right_samples: Option<Vec<f32>> = if audio_data.channels.len() > 1 {
+        Some(audio_data.channels[1].iter().map(|&s| s as f32).collect())
+    } else {
+        None
+    };
+
+    // Generate multi-LOD waveform using existing Rust code
+    let waveform = if let Some(right) = &right_samples {
+        let mut interleaved = Vec::with_capacity(left_samples.len() * 2);
+        for (l, r) in left_samples.iter().zip(right.iter()) {
+            interleaved.push(*l);
+            interleaved.push(*r);
+        }
+        crate::waveform::StereoWaveformData::from_interleaved(&interleaved, audio_data.sample_rate)
+    } else {
+        crate::waveform::StereoWaveformData::from_mono(&left_samples, audio_data.sample_rate)
+    };
+
+    // Cache it
+    WAVEFORM_CACHE.cache.write().insert(key, Arc::new(waveform.clone()));
+
+    // Return as JSON
+    waveform_to_json(&waveform)
+}
+
+/// Generate waveform from already-loaded samples (for Slot Lab layers)
+///
+/// This avoids re-reading the file when samples are already in memory.
+///
+/// Parameters:
+/// - samples: Interleaved f32 samples [L0, R0, L1, R1, ...] or mono [S0, S1, ...]
+/// - sample_count: Total number of f32 values
+/// - channels: 1 for mono, 2 for stereo
+/// - sample_rate: Sample rate in Hz
+/// - cache_key: Unique key for caching
+///
+/// Returns: JSON string with waveform data, or null on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_generate_waveform_from_samples(
+    samples: *const f32,
+    sample_count: u64,
+    channels: u8,
+    sample_rate: u32,
+    cache_key: *const c_char,
+) -> *mut c_char {
+    if samples.is_null() || sample_count == 0 {
+        return ptr::null_mut();
+    }
+
+    let key = match unsafe { cstr_to_string(cache_key) } {
+        Some(k) => k,
+        None => return ptr::null_mut(),
+    };
+
+    // Check if already cached
+    if let Some(cached) = WAVEFORM_CACHE.cache.read().get(&key) {
+        return waveform_to_json(cached);
+    }
+
+    // Safety: Trust FFI caller for buffer validity
+    let samples_slice = unsafe {
+        std::slice::from_raw_parts(samples, sample_count as usize)
+    };
+
+    // Generate waveform
+    let waveform = if channels == 2 {
+        crate::waveform::StereoWaveformData::from_interleaved(samples_slice, sample_rate)
+    } else {
+        crate::waveform::StereoWaveformData::from_mono(samples_slice, sample_rate)
+    };
+
+    // Cache it
+    WAVEFORM_CACHE.cache.write().insert(key.clone(), Arc::new(waveform.clone()));
+
+    // Return as JSON
+    waveform_to_json(&waveform)
+}
+
+/// Helper: Convert waveform to JSON string
+fn waveform_to_json(waveform: &crate::waveform::StereoWaveformData) -> *mut c_char {
+    use serde_json::json;
+
+    // Build levels array
+    let mut levels = Vec::new();
+    for level_idx in 0..crate::waveform::NUM_LOD_LEVELS {
+        let left_buckets = waveform.left.get_level(level_idx);
+        let samples_per_bucket = crate::waveform::SAMPLES_PER_BUCKET[level_idx];
+
+        // Convert buckets to JSON array [[min,max,rms], ...]
+        let buckets: Vec<[f32; 3]> = left_buckets
+            .iter()
+            .map(|b| [b.min, b.max, b.rms])
+            .collect();
+
+        levels.push(json!({
+            "samples_per_bucket": samples_per_bucket,
+            "bucket_count": buckets.len(),
+            "buckets": buckets
+        }));
+    }
+
+    let json_obj = json!({
+        "sample_rate": waveform.sample_rate(),
+        "total_samples": waveform.total_samples(),
+        "duration_secs": waveform.left.duration_secs,
+        "levels": levels
+    });
+
+    let json_str = json_obj.to_string();
+    string_to_cstr(&json_str)
+}
+
+/// Invalidate waveform cache for a specific key
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_invalidate_waveform_cache(cache_key: *const c_char) -> i32 {
+    let key = match unsafe { cstr_to_string(cache_key) } {
+        Some(k) => k,
+        None => return 0,
+    };
+
+    WAVEFORM_CACHE.cache.write().remove(&key);
+    1
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CROSSFADE FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19153,4 +19336,360 @@ pub extern "C" fn engine_preview_is_playing() -> i32 {
 pub extern "C" fn engine_preview_set_volume(volume: f64) {
     use crate::preview::PREVIEW_ENGINE;
     PREVIEW_ENGINE.set_volume(volume as f32);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARED MEMORY METERING (Zero-latency push model)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// This replaces the 50ms polling model with direct memory access.
+// Audio thread writes to atomic values, Dart isolate reads directly.
+//
+// Architecture:
+//   Audio Thread → SharedMeterBuffer (atomics) ← Dart Isolate (reads)
+//
+// Benefits:
+//   - Zero latency (instant meter updates)
+//   - No FFI call overhead for polling
+//   - No locks (atomics only)
+//   - Memory-safe via repr(C) layout
+
+use std::sync::atomic::{AtomicU64, AtomicU32};
+
+/// Shared meter buffer - single contiguous memory region
+/// Layout: repr(C) ensures predictable memory layout for FFI
+/// All values are f64 stored as AtomicU64 (bit pattern)
+#[repr(C)]
+pub struct SharedMeterBuffer {
+    // Sequence number for change detection (UI can poll this first)
+    pub sequence: AtomicU64,
+
+    // Master channel meters (dB values)
+    pub master_peak_l: AtomicU64,
+    pub master_peak_r: AtomicU64,
+    pub master_rms_l: AtomicU64,
+    pub master_rms_r: AtomicU64,
+
+    // LUFS meters
+    pub lufs_short: AtomicU64,
+    pub lufs_integrated: AtomicU64,
+    pub lufs_momentary: AtomicU64,
+
+    // True Peak (8x oversampled, dBTP)
+    pub true_peak_l: AtomicU64,
+    pub true_peak_r: AtomicU64,
+    pub true_peak_max: AtomicU64,
+
+    // Stereo analysis
+    pub correlation: AtomicU64,
+    pub balance: AtomicU64,
+    pub stereo_width: AtomicU64,
+
+    // Dynamics
+    pub dynamic_range: AtomicU64,
+    pub crest_factor_l: AtomicU64,
+    pub crest_factor_r: AtomicU64,
+    pub psr: AtomicU64,  // Peak-to-Short-term Ratio
+
+    // Gain reduction (from compressor/limiter, dB)
+    pub gain_reduction: AtomicU64,
+
+    // Transport state (for sync)
+    pub playback_position_samples: AtomicU64,
+    pub is_playing: AtomicU32,
+    pub sample_rate: AtomicU32,
+
+    // Per-channel meters (6 channels, 2 values each: peak_l, peak_r)
+    // Layout: [ch0_peak_l, ch0_peak_r, ch1_peak_l, ch1_peak_r, ...]
+    pub channel_peaks: [AtomicU64; 12],
+
+    // Spectrum data (32-band simplified spectrum for overview)
+    pub spectrum_bands: [AtomicU64; 32],
+}
+
+impl Default for SharedMeterBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SharedMeterBuffer {
+    /// Create new buffer with default values (-infinity for dB values)
+    pub const fn new() -> Self {
+        const NEG_INF: u64 = 0xC070_0000_0000_0000; // -256.0 as f64 bits
+        const ZERO: u64 = 0;
+
+        Self {
+            sequence: AtomicU64::new(0),
+            master_peak_l: AtomicU64::new(NEG_INF),
+            master_peak_r: AtomicU64::new(NEG_INF),
+            master_rms_l: AtomicU64::new(NEG_INF),
+            master_rms_r: AtomicU64::new(NEG_INF),
+            lufs_short: AtomicU64::new(NEG_INF),
+            lufs_integrated: AtomicU64::new(NEG_INF),
+            lufs_momentary: AtomicU64::new(NEG_INF),
+            true_peak_l: AtomicU64::new(NEG_INF),
+            true_peak_r: AtomicU64::new(NEG_INF),
+            true_peak_max: AtomicU64::new(NEG_INF),
+            correlation: AtomicU64::new(ZERO),
+            balance: AtomicU64::new(ZERO),
+            stereo_width: AtomicU64::new(ZERO),
+            dynamic_range: AtomicU64::new(ZERO),
+            crest_factor_l: AtomicU64::new(ZERO),
+            crest_factor_r: AtomicU64::new(ZERO),
+            psr: AtomicU64::new(ZERO),
+            gain_reduction: AtomicU64::new(ZERO),
+            playback_position_samples: AtomicU64::new(0),
+            is_playing: AtomicU32::new(0),
+            sample_rate: AtomicU32::new(48000),
+            channel_peaks: [
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+            ],
+            spectrum_bands: [
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+                AtomicU64::new(NEG_INF), AtomicU64::new(NEG_INF),
+            ],
+        }
+    }
+
+    /// Write f64 to atomic (bit pattern, no conversion)
+    #[inline(always)]
+    fn write_f64(atomic: &AtomicU64, value: f64) {
+        atomic.store(value.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Read f64 from atomic
+    #[inline(always)]
+    fn read_f64(atomic: &AtomicU64) -> f64 {
+        f64::from_bits(atomic.load(Ordering::Relaxed))
+    }
+
+    /// Increment sequence number (call after batch update)
+    #[inline]
+    pub fn increment_sequence(&self) {
+        self.sequence.fetch_add(1, Ordering::Release);
+    }
+
+    /// Update master meters (call from audio thread)
+    pub fn update_master(&self, peak_l: f64, peak_r: f64, rms_l: f64, rms_r: f64) {
+        Self::write_f64(&self.master_peak_l, peak_l);
+        Self::write_f64(&self.master_peak_r, peak_r);
+        Self::write_f64(&self.master_rms_l, rms_l);
+        Self::write_f64(&self.master_rms_r, rms_r);
+    }
+
+    /// Update LUFS meters
+    pub fn update_lufs(&self, short: f64, integrated: f64, momentary: f64) {
+        Self::write_f64(&self.lufs_short, short);
+        Self::write_f64(&self.lufs_integrated, integrated);
+        Self::write_f64(&self.lufs_momentary, momentary);
+    }
+
+    /// Update true peak meters
+    pub fn update_true_peak(&self, left: f64, right: f64, max: f64) {
+        Self::write_f64(&self.true_peak_l, left);
+        Self::write_f64(&self.true_peak_r, right);
+        Self::write_f64(&self.true_peak_max, max);
+    }
+
+    /// Update channel peak (0-5)
+    pub fn update_channel_peak(&self, channel: usize, peak_l: f64, peak_r: f64) {
+        if channel < 6 {
+            let idx = channel * 2;
+            Self::write_f64(&self.channel_peaks[idx], peak_l);
+            Self::write_f64(&self.channel_peaks[idx + 1], peak_r);
+        }
+    }
+}
+
+/// Global shared meter buffer instance
+static SHARED_METERS: SharedMeterBuffer = SharedMeterBuffer::new();
+
+/// Get pointer to shared meter buffer
+/// Dart can use this pointer to read meters directly without FFI calls
+/// Returns raw pointer to SharedMeterBuffer
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_get_shared_buffer_ptr() -> *const SharedMeterBuffer {
+    &SHARED_METERS as *const SharedMeterBuffer
+}
+
+/// Get size of SharedMeterBuffer in bytes (for Dart memory allocation verification)
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_get_shared_buffer_size() -> u64 {
+    std::mem::size_of::<SharedMeterBuffer>() as u64
+}
+
+/// Get sequence number (for change detection without reading all values)
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_get_sequence() -> u64 {
+    SHARED_METERS.sequence.load(Ordering::Acquire)
+}
+
+/// Read all shared meters as JSON (convenience function for debugging/initial sync)
+/// Returns JSON string with all meter values
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_read_all_json() -> *mut c_char {
+    let json = serde_json::json!({
+        "sequence": SHARED_METERS.sequence.load(Ordering::Acquire),
+        "master": {
+            "peak_l": SharedMeterBuffer::read_f64(&SHARED_METERS.master_peak_l),
+            "peak_r": SharedMeterBuffer::read_f64(&SHARED_METERS.master_peak_r),
+            "rms_l": SharedMeterBuffer::read_f64(&SHARED_METERS.master_rms_l),
+            "rms_r": SharedMeterBuffer::read_f64(&SHARED_METERS.master_rms_r),
+        },
+        "lufs": {
+            "short": SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_short),
+            "integrated": SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_integrated),
+            "momentary": SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_momentary),
+        },
+        "true_peak": {
+            "left": SharedMeterBuffer::read_f64(&SHARED_METERS.true_peak_l),
+            "right": SharedMeterBuffer::read_f64(&SHARED_METERS.true_peak_r),
+            "max": SharedMeterBuffer::read_f64(&SHARED_METERS.true_peak_max),
+        },
+        "stereo": {
+            "correlation": SharedMeterBuffer::read_f64(&SHARED_METERS.correlation),
+            "balance": SharedMeterBuffer::read_f64(&SHARED_METERS.balance),
+            "width": SharedMeterBuffer::read_f64(&SHARED_METERS.stereo_width),
+        },
+        "dynamics": {
+            "range": SharedMeterBuffer::read_f64(&SHARED_METERS.dynamic_range),
+            "crest_l": SharedMeterBuffer::read_f64(&SHARED_METERS.crest_factor_l),
+            "crest_r": SharedMeterBuffer::read_f64(&SHARED_METERS.crest_factor_r),
+            "psr": SharedMeterBuffer::read_f64(&SHARED_METERS.psr),
+            "gain_reduction": SharedMeterBuffer::read_f64(&SHARED_METERS.gain_reduction),
+        },
+        "transport": {
+            "position_samples": SHARED_METERS.playback_position_samples.load(Ordering::Relaxed),
+            "is_playing": SHARED_METERS.is_playing.load(Ordering::Relaxed) != 0,
+            "sample_rate": SHARED_METERS.sample_rate.load(Ordering::Relaxed),
+        }
+    });
+
+    string_to_cstr(&json.to_string())
+}
+
+/// Update shared meters from audio thread (call this instead of individual updates)
+/// This is the main entry point for audio thread meter updates
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_update_shared(
+    peak_l: f64, peak_r: f64,
+    rms_l: f64, rms_r: f64,
+    lufs_s: f64, lufs_i: f64, lufs_m: f64,
+    tp_l: f64, tp_r: f64, tp_max: f64,
+    correlation: f64, balance: f64, width: f64,
+    dyn_range: f64, crest_l: f64, crest_r: f64,
+    psr: f64, gain_red: f64,
+    position: u64, is_playing: u32, sample_rate: u32,
+) {
+    // Master peaks
+    SHARED_METERS.update_master(peak_l, peak_r, rms_l, rms_r);
+
+    // LUFS
+    SHARED_METERS.update_lufs(lufs_s, lufs_i, lufs_m);
+
+    // True Peak
+    SHARED_METERS.update_true_peak(tp_l, tp_r, tp_max);
+
+    // Stereo
+    SharedMeterBuffer::write_f64(&SHARED_METERS.correlation, correlation);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.balance, balance);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.stereo_width, width);
+
+    // Dynamics
+    SharedMeterBuffer::write_f64(&SHARED_METERS.dynamic_range, dyn_range);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.crest_factor_l, crest_l);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.crest_factor_r, crest_r);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.psr, psr);
+    SharedMeterBuffer::write_f64(&SHARED_METERS.gain_reduction, gain_red);
+
+    // Transport
+    SHARED_METERS.playback_position_samples.store(position, Ordering::Relaxed);
+    SHARED_METERS.is_playing.store(is_playing, Ordering::Relaxed);
+    SHARED_METERS.sample_rate.store(sample_rate, Ordering::Relaxed);
+
+    // Increment sequence last (signals update complete)
+    SHARED_METERS.increment_sequence();
+}
+
+/// Update single channel peak (for per-track meters)
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_update_channel(channel: u32, peak_l: f64, peak_r: f64) {
+    SHARED_METERS.update_channel_peak(channel as usize, peak_l, peak_r);
+}
+
+/// Update spectrum band (0-31)
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_update_spectrum_band(band: u32, value: f64) {
+    if band < 32 {
+        SharedMeterBuffer::write_f64(&SHARED_METERS.spectrum_bands[band as usize], value);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEMORY LAYOUT INFO (for Dart FFI struct mapping)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get offset of a field in SharedMeterBuffer
+/// Dart uses this to calculate pointer offsets
+/// field_id:
+///   0 = sequence
+///   1 = master_peak_l, 2 = master_peak_r, 3 = master_rms_l, 4 = master_rms_r
+///   5 = lufs_short, 6 = lufs_integrated, 7 = lufs_momentary
+///   8 = true_peak_l, 9 = true_peak_r, 10 = true_peak_max
+///   11 = correlation, 12 = balance, 13 = stereo_width
+///   14 = dynamic_range, 15 = crest_factor_l, 16 = crest_factor_r
+///   17 = psr, 18 = gain_reduction
+///   19 = playback_position_samples, 20 = is_playing, 21 = sample_rate
+///   22 = channel_peaks (base), 23 = spectrum_bands (base)
+#[unsafe(no_mangle)]
+pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
+    use std::mem::offset_of;
+
+    match field_id {
+        0 => offset_of!(SharedMeterBuffer, sequence) as u64,
+        1 => offset_of!(SharedMeterBuffer, master_peak_l) as u64,
+        2 => offset_of!(SharedMeterBuffer, master_peak_r) as u64,
+        3 => offset_of!(SharedMeterBuffer, master_rms_l) as u64,
+        4 => offset_of!(SharedMeterBuffer, master_rms_r) as u64,
+        5 => offset_of!(SharedMeterBuffer, lufs_short) as u64,
+        6 => offset_of!(SharedMeterBuffer, lufs_integrated) as u64,
+        7 => offset_of!(SharedMeterBuffer, lufs_momentary) as u64,
+        8 => offset_of!(SharedMeterBuffer, true_peak_l) as u64,
+        9 => offset_of!(SharedMeterBuffer, true_peak_r) as u64,
+        10 => offset_of!(SharedMeterBuffer, true_peak_max) as u64,
+        11 => offset_of!(SharedMeterBuffer, correlation) as u64,
+        12 => offset_of!(SharedMeterBuffer, balance) as u64,
+        13 => offset_of!(SharedMeterBuffer, stereo_width) as u64,
+        14 => offset_of!(SharedMeterBuffer, dynamic_range) as u64,
+        15 => offset_of!(SharedMeterBuffer, crest_factor_l) as u64,
+        16 => offset_of!(SharedMeterBuffer, crest_factor_r) as u64,
+        17 => offset_of!(SharedMeterBuffer, psr) as u64,
+        18 => offset_of!(SharedMeterBuffer, gain_reduction) as u64,
+        19 => offset_of!(SharedMeterBuffer, playback_position_samples) as u64,
+        20 => offset_of!(SharedMeterBuffer, is_playing) as u64,
+        21 => offset_of!(SharedMeterBuffer, sample_rate) as u64,
+        22 => offset_of!(SharedMeterBuffer, channel_peaks) as u64,
+        23 => offset_of!(SharedMeterBuffer, spectrum_bands) as u64,
+        _ => u64::MAX, // Invalid field
+    }
 }
