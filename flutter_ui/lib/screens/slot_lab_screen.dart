@@ -74,8 +74,10 @@ import '../widgets/slot_lab/slot_preview_widget.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 // audio_hover_preview.dart prepared for audio browser integration
 import '../widgets/slot_lab/forced_outcome_panel.dart';
+import '../widgets/glass/glass_slot_lab.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
+import '../services/audio_pool.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 
@@ -4439,10 +4441,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         children: [
           // Premium Slot Preview Widget - fills available space
           Expanded(
-            child: SlotPreviewWidget(
-              provider: _slotLabProvider,
-              reels: _reelCount,
-              rows: _rowCount,
+            child: GlassSlotPreviewWrapper(
+              isSpinning: _isSpinning,
+              hasWin: _slotLabProvider.lastResult?.isWin ?? false,
+              child: SlotPreviewWidget(
+                provider: _slotLabProvider,
+                reels: _reelCount,
+                rows: _rowCount,
+              ),
             ),
           ),
           // Compact Controls
@@ -6230,15 +6236,33 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       padding: const EdgeInsets.all(8.0),
       child: Column(
         children: [
-          // Stage trace (animated marker through stages)
-          StageTraceWidget(
-            provider: _slotLabProvider,
-            height: 80,
-            showMiniProgress: true,
+          // Stage trace (animated marker through stages) with Glass wrapper
+          GlassStageTraceWrapper(
+            isPlaying: _slotLabProvider.isPlayingStages,
+            child: StageTraceWidget(
+              provider: _slotLabProvider,
+              height: 80,
+              showMiniProgress: true,
+            ),
           ),
           const SizedBox(height: 4),
-          // Forced Outcome - plain text line
-          QuickOutcomeBar(provider: _slotLabProvider),
+          // Audio Pool Stats + Forced Outcome
+          Row(
+            children: [
+              // Audio Pool performance indicator
+              ListenableBuilder(
+                listenable: AudioPool.instance,
+                builder: (context, _) => GlassAudioPoolStats(
+                  statsString: AudioPool.instance.statsString,
+                  hitRate: AudioPool.instance.hitRate,
+                  activeVoices: AudioPool.instance.activeVoiceCount,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Forced Outcome - plain text line
+              Expanded(child: QuickOutcomeBar(provider: _slotLabProvider)),
+            ],
+          ),
         ],
       ),
     );

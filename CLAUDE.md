@@ -859,6 +859,104 @@ REEL_STOP   → Fallback za sve (ako nema specifičnog)
 - Audio pool, composite events, tracks, event→region mapping
 - Čuva se u Provider, preživljava switch između sekcija
 
+### Audio Pool System (IMPLEMENTED) ✅
+
+Pre-allocated voice pool za rapid-fire evente (cascade, rollup, reel stops).
+
+**Problem:**
+- Kreiranje novih audio player instanci traje 10-50ms
+- Za brze evente (CASCADE_STEP svake 300ms) to uzrokuje latenciju
+
+**Rešenje:**
+- Pre-alocirani pool voice ID-eva po event tipu
+- Pool HIT = instant playback (reuse voice)
+- Pool MISS = nova alokacija (sporije)
+
+**Pooled Events:**
+```
+CASCADE_STEP, ROLLUP_TICK, WIN_LINE_SHOW,
+REEL_STOP, REEL_STOP_0..4
+```
+
+**Konfiguracija:**
+```dart
+// Default config
+AudioPoolConfig.defaultConfig  // 2-8 voices, 30s idle timeout
+
+// Slot Lab optimized
+AudioPoolConfig.slotLabConfig  // 4-12 voices, 60s idle timeout
+```
+
+**API:**
+```dart
+// Acquire voice (plays automatically)
+final voiceId = AudioPool.instance.acquire(
+  eventKey: 'CASCADE_STEP',
+  audioPath: '/path/to/sound.wav',
+  busId: 0,  // SFX bus
+  volume: 0.8,
+);
+
+// Release back to pool
+AudioPool.instance.release(voiceId);
+
+// Stats
+AudioPool.instance.hitRate      // 0.0 - 1.0
+AudioPool.instance.statsString  // Full stats
+```
+
+**Fajlovi:**
+- `flutter_ui/lib/services/audio_pool.dart` — Pool implementacija
+- `flutter_ui/lib/services/event_registry.dart` — Integracija (automatski koristi pool za pooled evente)
+
+### Audio Latency Compensation (IMPLEMENTED) ✅
+
+Fino podešavanje audio-visual sinhronizacije.
+
+**TimingConfig polja:**
+```rust
+audio_latency_compensation_ms: f64,      // Buffer latency (3-8ms typical)
+visual_audio_sync_offset_ms: f64,        // Fine-tune offset
+anticipation_audio_pre_trigger_ms: f64,  // Pre-trigger for anticipation
+reel_stop_audio_pre_trigger_ms: f64,     // Pre-trigger for reel stops
+```
+
+**Profile defaults:**
+| Profile | Latency Comp | Reel Pre-trigger | Anticipation Pre-trigger |
+|---------|-------------|------------------|-------------------------|
+| Normal | 5ms | 20ms | 50ms |
+| Turbo | 3ms | 10ms | 30ms |
+| Mobile | 8ms | 15ms | 40ms |
+| Studio | 3ms | 15ms | 30ms |
+
+**Fajl:** `crates/rf-slot-lab/src/timing.rs`
+
+### Glass Theme Wrappers (IMPLEMENTED) ✅
+
+Premium Glass/Liquid theme za Slot Lab komponente.
+
+**Dostupni wrapperi:**
+```dart
+GlassSlotLabWrapper        // Base wrapper
+GlassSlotPreviewWrapper    // Slot reels (isSpinning, hasWin)
+GlassStageTraceWrapper     // Stage timeline (isPlaying)
+GlassEventLogWrapper       // Event log panel
+GlassForcedOutcomeButtonWrapper  // Test buttons
+GlassWinCelebrationWrapper // Win overlay (winTier 1-4)
+GlassAudioPoolStats        // Pool performance indicator
+```
+
+**Korišćenje:**
+```dart
+GlassSlotPreviewWrapper(
+  isSpinning: _isSpinning,
+  hasWin: result?.isWin ?? false,
+  child: SlotPreviewWidget(...),
+)
+```
+
+**Fajl:** `flutter_ui/lib/widgets/glass/glass_slot_lab.dart`
+
 ### Universal Stage Ingest System (PLANNED)
 
 Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
