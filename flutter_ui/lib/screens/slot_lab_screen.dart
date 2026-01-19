@@ -76,6 +76,7 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
+import '../controllers/slot_lab/timeline_drag_controller.dart';
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -239,6 +240,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // ═══════════════════════════════════════════════════════════════════════════
   // STATE
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // Timeline drag controller (centralized drag state management)
+  TimelineDragController? _dragController;
+  TimelineDragController get dragController => _dragController!;
 
   // FFI instance
   final _ffi = NativeFFI.instance;
@@ -457,10 +462,21 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // When layers are added in Middleware center panel, Slot Lab updates automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // Initialize drag controller with middleware reference
+        _dragController = TimelineDragController(middleware: _middleware);
+        _dragController!.addListener(_onDragControllerChanged);
+
         _middleware.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
       }
     });
+  }
+
+  /// Callback when drag controller state changes
+  void _onDragControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// Callback when MiddlewareProvider changes (bidirectional sync)
@@ -1258,6 +1274,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Remove middleware listener (bidirectional sync)
     _middleware.removeListener(_onMiddlewareChanged);
+
+    // Dispose drag controller
+    _dragController?.removeListener(_onDragControllerChanged);
+    _dragController?.dispose();
 
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
@@ -3608,8 +3628,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       }
 
       // CRITICAL: Sync offset from provider (source of truth)
-      // But only if not currently dragging this layer (by eventLayerId, not audioPath)
-      final isDraggingThisLayer = _draggingLayerEventId == el.id;
+      // But only if not currently dragging this layer (via controller)
+      final isDraggingThisLayer = _dragController?.isDraggingLayer(el.id) ?? false;
       if (!isDraggingThisLayer) {
         existingLayer.offset = relativeOffset.clamp(-region.start, _timelineDuration);
       }
@@ -3699,41 +3719,49 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Build a draggable layer row - can be moved freely across entire timeline
   /// Uses layer.duration for REAL audio file width, not region width
+  /// NOW USES TimelineDragController for centralized drag state management
   Widget _buildDraggableLayerRow(_RegionLayer layer, _AudioRegion region, int layerIndex, Color color, bool muted, double regionWidth) {
-    // Use eventLayerId for drag identity check (survives rebuilds)
-    final isDragging = _draggingLayerEventId == layer.eventLayerId && layer.eventLayerId != null;
+    // Use controller for drag state (survives widget rebuilds)
+    final isDragging = _dragController?.isDraggingLayer(layer.eventLayerId ?? '') ?? false;
     final pixelsPerSecond = regionWidth / region.duration;
-    final offsetPixels = layer.offset * pixelsPerSecond;
+
+    // During drag, use controller's delta; otherwise use layer.offset from provider
+    double currentOffset = layer.offset;
+    if (isDragging) {
+      currentOffset = dragController.getLayerCurrentPosition();
+    }
+
+    final offsetPixels = currentOffset * pixelsPerSecond;
     // Use REAL layer duration for width, not region width
     final layerWidth = layer.duration * pixelsPerSecond;
+
+    // Find parent event ID for controller
+    final parentEvent = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
+    final parentEventId = parentEvent?.id ?? '';
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (details) {
-        setState(() {
-          _draggingLayer = layer;
-          _draggingLayerRegion = region;
-          _draggingLayerEventId = layer.eventLayerId; // ✅ Track by ID, survives rebuilds
-          _layerDragStartOffset = layer.offset;
-          _layerDragDelta = 0;
-        });
+        if (layer.eventLayerId == null) return;
+        // Start drag via controller (no setState needed - controller notifies)
+        dragController.startLayerDrag(
+          layerEventId: layer.eventLayerId!,
+          parentEventId: parentEventId,
+          regionId: region.id,
+          startOffsetSeconds: layer.offset,
+          regionStartSeconds: region.start,
+        );
       },
       onHorizontalDragUpdate: (details) {
-        // Use eventLayerId for identity check (survives rebuilds)
-        if (_draggingLayerEventId != layer.eventLayerId) return;
+        // Check via controller (survives rebuilds)
+        if (!dragController.isDraggingLayer(layer.eventLayerId ?? '')) return;
         final timeDelta = details.delta.dx / pixelsPerSecond;
-        setState(() {
-          _layerDragDelta = (_layerDragDelta ?? 0) + timeDelta;
-          final newOffset = (_layerDragStartOffset ?? 0) + _layerDragDelta!;
-          // No clamping - allow free movement across entire timeline
-          // Limit only to prevent going before timeline start or after timeline end
-          final minOffset = -region.start; // Can't go before 0
-          final maxOffset = _timelineDuration - region.start - 0.1; // Can't go past end
-          layer.offset = newOffset.clamp(minOffset, maxOffset);
-        });
+        // Update via controller (no setState needed)
+        dragController.updateLayerDrag(timeDelta);
       },
       onHorizontalDragEnd: (details) {
-        _clearLayerDrag();
+        // End drag and sync to provider via controller
+        dragController.endLayerDrag();
       },
       child: MouseRegion(
         cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
@@ -3852,41 +3880,42 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LEGACY DRAG METHODS (kept for backward compatibility, prefer controller)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// @deprecated Use TimelineDragController.endLayerDrag() instead
   void _clearLayerDrag() {
-    // Sync layer offset to MiddlewareProvider before clearing
-    if (_draggingLayer != null && _draggingLayerRegion != null) {
-      _syncLayerOffsetToProvider(_draggingLayer!, _draggingLayerRegion!);
+    // Now handled by controller - this is kept for any legacy code paths
+    if (_dragController != null) {
+      _dragController!.cancelLayerDrag();
+      return;
     }
 
+    // Legacy fallback (should not be reached)
     setState(() {
       _draggingLayer = null;
       _draggingLayerRegion = null;
-      _draggingLayerEventId = null; // ✅ Clear eventLayerId tracking
+      _draggingLayerEventId = null;
       _layerDragStartOffset = null;
       _layerDragDelta = null;
     });
   }
 
+  /// @deprecated Use TimelineDragController.endLayerDrag() instead
   /// Sync layer offset from timeline drag to MiddlewareProvider
-  /// This makes the change visible in Middleware Actions table (Delay column)
   void _syncLayerOffsetToProvider(_RegionLayer layer, _AudioRegion region) {
-    // Find event by region name
+    // Now handled by controller - this is kept for any legacy code paths
     final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
     if (event == null) return;
 
-    // Find matching layer by eventLayerId (unique, supports duplicates)
     final eventLayer = layer.eventLayerId != null
         ? event.layers.where((l) => l.id == layer.eventLayerId).firstOrNull
-        : event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull; // fallback
+        : event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull;
     if (eventLayer == null) return;
 
-    // Calculate total offset in milliseconds:
-    // region.start (seconds) + layer.offset (seconds) → milliseconds
     final totalOffsetMs = (region.start + layer.offset) * 1000.0;
-
-    // Update via provider (with undo support)
     _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
-
     debugPrint('[SlotLab] Synced layer "${layer.name}" offset: ${totalOffsetMs.toStringAsFixed(0)}ms');
   }
 
