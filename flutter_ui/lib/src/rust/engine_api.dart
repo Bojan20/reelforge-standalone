@@ -11,6 +11,7 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'native_ffi.dart';
+import '../../services/audio_playback_service.dart';
 
 /// Audio Engine API
 ///
@@ -78,14 +79,16 @@ class EngineApi {
     return true;
   }
 
-  /// Start real audio playback engine
+  /// Start real audio playback engine (DAW timeline)
+  /// Uses AudioPlaybackService for exclusive mode
   Future<void> startAudioPlayback() async {
     if (_audioStarted) return;
 
     try {
       if (!_useMock) {
-        _ffi.startPlayback();
-        print('[Engine] Audio playback started via FFI');
+        // Use unified playback service (stops other sources automatically)
+        AudioPlaybackService.instance.startDAWPlayback();
+        print('[Engine] Audio playback started via AudioPlaybackService');
       } else {
         print('[Engine] Audio playback ready (mock mode)');
       }
@@ -96,14 +99,15 @@ class EngineApi {
     }
   }
 
-  /// Stop real audio playback engine
+  /// Stop real audio playback engine (DAW timeline)
   Future<void> stopAudioPlayback() async {
     if (!_audioStarted) return;
 
     try {
       if (!_useMock) {
-        _ffi.stopPlayback();
-        print('[Engine] Audio playback stopped via FFI');
+        // Use unified playback service
+        AudioPlaybackService.instance.stopDAWPlayback();
+        print('[Engine] Audio playback stopped via AudioPlaybackService');
       }
       _audioStarted = false;
     } catch (e) {

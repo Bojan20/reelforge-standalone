@@ -56,6 +56,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/native_file_picker.dart';
+import '../services/audio_playback_service.dart';
 
 import '../providers/engine_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
@@ -3453,9 +3454,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         if (!_isPreviewingEvent || _previewSessionId != currentSession) return;
 
         try {
-          NativeFFI.instance.previewAudioFile(
+          // Use unified AudioPlaybackService (middleware source)
+          AudioPlaybackService.instance.previewFile(
             filePath,
             volume: layer.volume,
+            source: PlaybackSource.middleware,
           );
         } catch (_) {
           // Ignore playback errors
@@ -3476,11 +3479,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
   void _stopEventPreview() {
     _isPreviewingEvent = false;
-    try {
-      NativeFFI.instance.previewStop();
-    } catch (_) {
-      // Ignore stop errors
-    }
+    // Stop via unified service
+    AudioPlaybackService.instance.stopSource(PlaybackSource.middleware);
     setState(() {});
   }
 

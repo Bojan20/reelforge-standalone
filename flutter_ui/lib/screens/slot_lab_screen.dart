@@ -53,12 +53,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/native_file_picker.dart';
+import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/slot_lab_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
+import '../models/slot_audio_events.dart';
 import '../theme/fluxforge_theme.dart';
 import '../widgets/slot_lab/rtpc_editor_panel.dart';
 import '../widgets/slot_lab/bus_hierarchy_panel.dart';
@@ -74,7 +76,6 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
-import '../models/slot_audio_events.dart'; // SlotCompositeEvent, SlotEventLayer
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -1995,16 +1996,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       });
     } else {
       _playbackTimer?.cancel();
-      // Stop all layer audio
-      _stopAllLayerAudio();
-      // Stop audio engine playback
-      if (_ffi.isLoaded) {
-        try {
-          _ffi.stop();
-        } catch (e) {
-          debugPrint('[SlotLab] FFI stop error: $e');
-        }
-      }
+      // Stop all playback via unified service
+      AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+      _activeLayerIds.clear();
     }
   }
 
@@ -2073,34 +2067,35 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
-  /// Play audio for a specific layer using Rust engine
+  /// Play audio for a specific layer using AudioPlaybackService
   Future<void> _playLayerAudio(_RegionLayer layer, double offsetSeconds) async {
     if (layer.audioPath.isEmpty) return;
 
-    try {
-      // Play via dedicated PreviewEngine (separate from main timeline)
-      final voiceId = NativeFFI.instance.previewAudioFile(
-        layer.audioPath,
-        volume: layer.volume,
-      );
-      if (voiceId >= 0) {
-        _activeLayerIds.add(layer.id);
-      }
+    // Create temporary SlotEventLayer for playback service
+    final eventLayer = SlotEventLayer(
+      id: layer.id,
+      name: layer.name,
+      audioPath: layer.audioPath,
+      volume: layer.volume,
+    );
 
-      debugPrint('[SlotLab] Playing ${layer.name} at offset ${offsetSeconds}s (voice $voiceId)');
-    } catch (e) {
-      debugPrint('[SlotLab] Error playing layer audio: $e');
+    final voiceId = AudioPlaybackService.instance.playLayer(
+      eventLayer,
+      offsetSeconds: offsetSeconds,
+      source: PlaybackSource.slotlab,
+    );
+
+    if (voiceId >= 0) {
+      _activeLayerIds.add(layer.id);
     }
+
+    debugPrint('[SlotLab] Playing ${layer.name} at offset ${offsetSeconds}s (voice $voiceId)');
   }
 
   /// Stop all currently playing layer audio
   Future<void> _stopAllLayerAudio() async {
-    try {
-      NativeFFI.instance.previewStop();
-      _activeLayerIds.clear();
-    } catch (e) {
-      debugPrint('[SlotLab] Error stopping audio: $e');
-    }
+    AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+    _activeLayerIds.clear();
   }
 
   /// Dispose all audio players (cleanup)
@@ -2206,29 +2201,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _previewTimer?.cancel();
     _previewTimer = null;
 
-    final wasPlaying = _isPreviewPlaying;
-
     setState(() {
       _previewingAudioPath = null;
       _isPreviewPlaying = false;
     });
 
-    try {
-      // Stop playback if FFI is loaded
-      if (_ffi.isLoaded && wasPlaying) {
-        _ffi.stop();
-      }
+    // Stop via unified playback service (browser source)
+    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
 
-      // Delete the preview clip to clean up
-      if (_previewClipId != null && _previewClipId! > 0) {
+    // Delete the preview clip to clean up (if using old clip system)
+    if (_previewClipId != null && _previewClipId! > 0) {
+      try {
         _ffi.deleteClip(_previewClipId!);
-        _previewClipId = null;
+      } catch (e) {
+        debugPrint('[SlotLab] Delete clip error: $e');
       }
-
-      debugPrint('[SlotLab] Preview stopped');
-    } catch (e) {
-      debugPrint('[SlotLab] Stop preview error: $e');
+      _previewClipId = null;
     }
+
+    debugPrint('[SlotLab] Preview stopped');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
+import 'audio_playback_service.dart';
 
 // =============================================================================
 // AUDIO LAYER — Pojedinačni zvuk u eventu
@@ -310,15 +311,16 @@ class EventRegistry extends ChangeNotifier {
         volume *= (context['volumeMultiplier'] as num).toDouble();
       }
 
-      // Play via dedicated PreviewEngine (separate from main timeline)
-      final voiceId = NativeFFI.instance.previewAudioFile(
+      // Play via unified AudioPlaybackService (middleware source)
+      final voiceId = AudioPlaybackService.instance.previewFile(
         layer.audioPath,
         volume: volume.clamp(0.0, 1.0),
+        source: PlaybackSource.middleware,
       );
       if (voiceId >= 0) {
         voiceIds.add(voiceId);
       }
-      debugPrint('[EventRegistry] Playing via PreviewEngine: ${layer.name} (voice $voiceId)');
+      debugPrint('[EventRegistry] Playing via AudioPlaybackService: ${layer.name} (voice $voiceId)');
     } catch (e) {
       debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
     }
@@ -352,6 +354,9 @@ class EventRegistry extends ChangeNotifier {
 
   /// Zaustavi sve
   Future<void> stopAll() async {
+    // Stop via unified service
+    AudioPlaybackService.instance.stopSource(PlaybackSource.middleware);
+
     for (final instance in _playingInstances) {
       await instance.stop();
     }
