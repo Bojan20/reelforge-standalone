@@ -95,8 +95,12 @@ class TimelineDragController extends ChangeNotifier {
     _clearRegionDrag();
   }
 
-  /// Cancel region drag without syncing
+  /// Cancel region drag without syncing (keeps original position)
+  /// Call this on ESC key press to revert to original position
   void cancelRegionDrag() {
+    if (_draggingRegionId != null) {
+      debugPrint('[TimelineDragController] Region drag CANCELLED - reverting to original position');
+    }
     _clearRegionDrag();
   }
 
@@ -175,9 +179,27 @@ class TimelineDragController extends ChangeNotifier {
     _clearLayerDrag();
   }
 
-  /// Cancel layer drag without syncing
+  /// Cancel layer drag without syncing (keeps original position)
+  /// Call this on ESC key press to revert to original position
   void cancelLayerDrag() {
+    if (_draggingLayerEventId != null) {
+      debugPrint('[TimelineDragController] Layer drag CANCELLED - reverting to original position');
+    }
     _clearLayerDrag();
+  }
+
+  /// Cancel any active drag (layer or region) - for ESC key handling
+  /// Returns true if a drag was cancelled
+  bool cancelActiveDrag() {
+    if (_draggingLayerEventId != null) {
+      cancelLayerDrag();
+      return true;
+    }
+    if (_draggingRegionId != null) {
+      cancelRegionDrag();
+      return true;
+    }
+    return false;
   }
 
   void _clearLayerDrag() {

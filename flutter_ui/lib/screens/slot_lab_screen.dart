@@ -1577,6 +1577,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
+    // ESC = Cancel active drag (revert to original position)
+    if (key == LogicalKeyboardKey.escape) {
+      if (_dragController?.cancelActiveDrag() == true) {
+        debugPrint('[SlotLab] ESC pressed - drag cancelled, reverted to original position');
+        return KeyEventResult.handled;
+      }
+      // ESC with no active drag - could deselect regions
+      _deselectAllRegions();
+      return KeyEventResult.handled;
+    }
+
     return KeyEventResult.ignored;
   }
 
@@ -1592,6 +1603,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
 
         track.regions.removeWhere((r) => r.isSelected);
+      }
+    });
+  }
+
+  /// Deselect all regions (ESC with no active drag)
+  void _deselectAllRegions() {
+    setState(() {
+      for (final track in _tracks) {
+        for (final region in track.regions) {
+          region.isSelected = false;
+        }
       }
     });
   }
