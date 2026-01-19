@@ -6223,10 +6223,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Widget _buildEventLogContent() {
     final middleware = context.read<MiddlewareProvider>();
-    return EventLogPanel(
-      slotLabProvider: _slotLabProvider,
-      middlewareProvider: middleware,
-      height: _bottomPanelHeight - 8,
+    return GlassEventLogWrapper(
+      child: EventLogPanel(
+        slotLabProvider: _slotLabProvider,
+        middlewareProvider: middleware,
+        height: _bottomPanelHeight - 8,
+      ),
     );
   }
 
