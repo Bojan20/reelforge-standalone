@@ -23,6 +23,9 @@ import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
 import 'audio_pool.dart';
+import 'container_service.dart';
+import 'ducking_service.dart';
+import 'rtpc_modulation_service.dart';
 import 'unified_playback_controller.dart';
 
 // =============================================================================
@@ -365,6 +368,17 @@ class EventRegistry extends ChangeNotifier {
       if (context != null && context.containsKey('volumeMultiplier')) {
         volume *= (context['volumeMultiplier'] as num).toDouble();
       }
+
+      // Apply RTPC modulation if layer/event has bindings
+      final eventId = eventKey ?? layer.id;
+      if (RtpcModulationService.instance.hasMapping(eventId)) {
+        volume = RtpcModulationService.instance.getModulatedVolume(eventId, volume);
+        // Pitch modulation would be applied here if supported by audio engine
+        // final pitch = RtpcModulationService.instance.getModulatedPitch(eventId);
+      }
+
+      // Notify DuckingService that this bus is playing
+      DuckingService.instance.notifyBusActive(layer.busId);
 
       // Determine correct PlaybackSource from active section in UnifiedPlaybackController
       final activeSection = UnifiedPlaybackController.instance.activeSection;

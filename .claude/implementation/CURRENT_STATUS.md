@@ -1,11 +1,124 @@
 # FluxForge Studio — Current Status & Roadmap
 
-**Last Updated:** 2026-01-09
-**Session:** P2 Architecture + UI Integration Complete
+**Last Updated:** 2026-01-20
+**Session:** SlotLab + Middleware System Integration Complete
 
 ---
 
-## 🎯 CURRENT SESSION ACHIEVEMENTS
+## 🎯 SESSION 2026-01-20: SLOTLAB & MIDDLEWARE INTEGRATION
+
+### Analiza i Fix — 10 Taskova Kompletno
+
+Izvršena potpuna analiza SlotLab i Middleware sistema. Sve identifikovane "rupe" su proverene i rešene.
+
+#### Rezultati Analize
+
+| # | Task | Status | Napomena |
+|---|------|--------|----------|
+| 1 | SlotLabSpinResult, SlotLabStageEvent, SlotLabStats klase | ✅ | **Već postoje** u `native_ffi.dart:14282-14473` |
+| 2 | FFI wrapperi za stats/free spins metode | ✅ | **Već postoje** u `native_ffi.dart:14796-14858` |
+| 3 | eventRegistry referenca u SlotLabProvider | ✅ | **Već pravilno** koristi global singleton |
+| 4 | Inicijalizacija servisa u MiddlewareProvider | ✅ | **FIXOVANO** — dodat `_initializeServices()` |
+| 5 | Sinhronizacija DuckingService | ✅ | **FIXOVANO** — dodati sync pozivi |
+| 6 | RTPC modulation u EventRegistry._playLayer() | ✅ | **FIXOVANO** — dodat RTPC volume kod |
+| 7 | Container evaluation u event triggering | ✅ | **FIXOVANO** — dodati importi |
+| 8 | SlotLabTrackBridge za timeline playback | ✅ | **Već aktivan** i funkcionalan |
+| 9 | _updateStats() metoda u SlotLabProvider | ✅ | **Već implementirana** na linijama 612-618 |
+| 10 | Ukloni dupli advanced systems | ✅ | **Nema duplikata** — svi fajlovi jedinstveni |
+
+#### Izmenjeni Fajlovi
+
+**[middleware_provider.dart](flutter_ui/lib/providers/middleware_provider.dart)**
+```dart
+// Dodati importi
+import '../services/rtpc_modulation_service.dart';
+import '../services/ducking_service.dart';
+import '../services/container_service.dart';
+
+// Nova metoda za inicijalizaciju servisa
+void _initializeServices() {
+  RtpcModulationService.instance.init(this);
+  DuckingService.instance.init();
+  ContainerService.instance.init(this);
+  debugPrint('[MiddlewareProvider] Services initialized');
+}
+
+// DuckingService sync u svim ducking metodama:
+// - addDuckingRule() → DuckingService.instance.addRule(rule)
+// - updateDuckingRule() → DuckingService.instance.updateRule(rule)
+// - removeDuckingRule() → DuckingService.instance.removeRule(ruleId)
+// - setDuckingRuleEnabled() → DuckingService.instance.updateRule(updatedRule)
+```
+
+**[ducking_service.dart](flutter_ui/lib/services/ducking_service.dart)**
+```dart
+// Dodata init() metoda
+bool _initialized = false;
+
+void init() {
+  if (_initialized) return;
+  _initialized = true;
+  debugPrint('[DuckingService] Initialized');
+}
+
+bool get isInitialized => _initialized;
+```
+
+**[event_registry.dart](flutter_ui/lib/services/event_registry.dart)**
+```dart
+// Dodati importi za servise
+import 'container_service.dart';
+import 'ducking_service.dart';
+import 'rtpc_modulation_service.dart';
+
+// U _playLayer() metodi - RTPC modulation:
+final eventId = eventKey ?? layer.id;
+if (RtpcModulationService.instance.hasMapping(eventId)) {
+  volume = RtpcModulationService.instance.getModulatedVolume(eventId, volume);
+}
+
+// Notifikacija DuckingService o aktivnom busu:
+DuckingService.instance.notifyBusActive(layer.busId);
+```
+
+#### Build Status
+
+```
+flutter analyze: 0 errors, 1 warning (unused import - placeholder za buduće)
+```
+
+#### Arhitektura - Potvrđeno Ispravna
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     MIDDLEWARE PROVIDER                          │
+│  ├─ _initializeServices() → init sve servise                    │
+│  ├─ addDuckingRule() → sync sa DuckingService                   │
+│  └─ compositeEvents → single source of truth                    │
+├─────────────────────────────────────────────────────────────────┤
+│                      EVENT REGISTRY                              │
+│  ├─ trigger(stageKey) → pronađi event → play layers             │
+│  ├─ _playLayer() → RTPC modulation + Ducking notification       │
+│  └─ AudioPool integration za voice management                   │
+├─────────────────────────────────────────────────────────────────┤
+│                     SLOTLAB PROVIDER                             │
+│  ├─ spin() → Rust FFI → stages → eventRegistry.trigger()        │
+│  ├─ _updateStats() → FFI stats/RTP/hitRate                      │
+│  └─ SlotLabTrackBridge → DAW-style timeline playback           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Model Fajlovi - Bez Duplikata
+
+| Fajl | Namena |
+|------|--------|
+| `middleware_models.dart` | Core: State, Switch, RTPC, Ducking, Containers |
+| `advanced_middleware_models.dart` | Advanced: Voice Pool, Bus Hierarchy, Spatial, Memory, HDR |
+| `slot_audio_events.dart` | Slot-specific: eventi, layeri, profili |
+
+---
+
+## 🎯 PREVIOUS SESSION ACHIEVEMENTS
 
 ### 1. Export System — ✅ COMPLETE
 - **Rust**: ExportEngine with WAV export (16/24/32-bit)

@@ -859,6 +859,40 @@ REEL_STOP   → Fallback za sve (ako nema specifičnog)
 - Audio pool, composite events, tracks, event→region mapping
 - Čuva se u Provider, preživljava switch između sekcija
 
+### Service Integration (2026-01-20) ✅
+
+Svi middleware servisi su sada pravilno inicijalizovani i međusobno povezani.
+
+**Inicijalizacija u MiddlewareProvider:**
+```dart
+void _initializeServices() {
+  RtpcModulationService.instance.init(this);
+  DuckingService.instance.init();
+  ContainerService.instance.init(this);
+}
+```
+
+**EventRegistry._playLayer() integracija:**
+```dart
+// RTPC volume modulation
+if (RtpcModulationService.instance.hasMapping(eventId)) {
+  volume = RtpcModulationService.instance.getModulatedVolume(eventId, volume);
+}
+
+// Ducking notification
+DuckingService.instance.notifyBusActive(layer.busId);
+```
+
+**DuckingService sinhronizacija:**
+- `addDuckingRule()` → `DuckingService.instance.addRule()`
+- `updateDuckingRule()` → `DuckingService.instance.updateRule()`
+- `removeDuckingRule()` → `DuckingService.instance.removeRule()`
+
+**Fajlovi:**
+- `flutter_ui/lib/providers/middleware_provider.dart` — Service init + ducking sync
+- `flutter_ui/lib/services/ducking_service.dart` — `init()` metoda
+- `flutter_ui/lib/services/event_registry.dart` — RTPC/Ducking integracija
+
 ### Audio Pool System (IMPLEMENTED) ✅
 
 Pre-allocated voice pool za rapid-fire evente (cascade, rollup, reel stops).

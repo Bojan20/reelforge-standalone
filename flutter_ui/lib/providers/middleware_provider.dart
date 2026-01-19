@@ -14,6 +14,9 @@ import 'package:flutter/material.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart';
 import '../models/advanced_middleware_models.dart';
+import '../services/rtpc_modulation_service.dart';
+import '../services/ducking_service.dart';
+import '../services/container_service.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -192,6 +195,15 @@ class MiddlewareProvider extends ChangeNotifier {
 
   MiddlewareProvider(this._ffi) {
     _initializeDefaults();
+    _initializeServices();
+  }
+
+  /// Initialize audio services with this provider reference
+  void _initializeServices() {
+    RtpcModulationService.instance.init(this);
+    DuckingService.instance.init();
+    ContainerService.instance.init(this);
+    debugPrint('[MiddlewareProvider] Services initialized (RTPC, Ducking, Container)');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -735,6 +747,9 @@ class MiddlewareProvider extends ChangeNotifier {
     // Register with Rust
     _ffi.middlewareAddDuckingRule(rule);
 
+    // Sync with DuckingService for Dart-side ducking
+    DuckingService.instance.addRule(rule);
+
     notifyListeners();
     return rule;
   }
@@ -749,6 +764,9 @@ class MiddlewareProvider extends ChangeNotifier {
     _ffi.middlewareRemoveDuckingRule(ruleId);
     _ffi.middlewareAddDuckingRule(rule);
 
+    // Sync with DuckingService
+    DuckingService.instance.updateRule(rule);
+
     notifyListeners();
   }
 
@@ -756,6 +774,10 @@ class MiddlewareProvider extends ChangeNotifier {
   void removeDuckingRule(int ruleId) {
     _duckingRules.remove(ruleId);
     _ffi.middlewareRemoveDuckingRule(ruleId);
+
+    // Sync with DuckingService
+    DuckingService.instance.removeRule(ruleId);
+
     notifyListeners();
   }
 
@@ -764,8 +786,13 @@ class MiddlewareProvider extends ChangeNotifier {
     final rule = _duckingRules[ruleId];
     if (rule == null) return;
 
-    _duckingRules[ruleId] = rule.copyWith(enabled: enabled);
+    final updatedRule = rule.copyWith(enabled: enabled);
+    _duckingRules[ruleId] = updatedRule;
     _ffi.middlewareSetDuckingRuleEnabled(ruleId, enabled);
+
+    // Sync with DuckingService
+    DuckingService.instance.updateRule(updatedRule);
+
     notifyListeners();
   }
 
