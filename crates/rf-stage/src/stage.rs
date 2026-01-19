@@ -469,6 +469,187 @@ impl Stage {
                 | Stage::FeatureEnter { .. }
         )
     }
+
+    /// Get all valid stage type names for validation
+    pub fn all_type_names() -> &'static [&'static str] {
+        &[
+            "spin_start",
+            "reel_spinning",
+            "reel_stop",
+            "evaluate_wins",
+            "spin_end",
+            "anticipation_on",
+            "anticipation_off",
+            "win_present",
+            "win_line_show",
+            "rollup_start",
+            "rollup_tick",
+            "rollup_end",
+            "bigwin_tier",
+            "feature_enter",
+            "feature_step",
+            "feature_retrigger",
+            "feature_exit",
+            "cascade_start",
+            "cascade_step",
+            "cascade_end",
+            "bonus_enter",
+            "bonus_choice",
+            "bonus_reveal",
+            "bonus_exit",
+            "gamble_start",
+            "gamble_choice",
+            "gamble_result",
+            "gamble_end",
+            "jackpot_trigger",
+            "jackpot_present",
+            "jackpot_end",
+            "idle_start",
+            "idle_loop",
+            "menu_open",
+            "menu_close",
+            "autoplay_start",
+            "autoplay_stop",
+            "symbol_transform",
+            "wild_expand",
+            "multiplier_change",
+            "custom",
+        ]
+    }
+
+    /// Check if a type name is valid
+    pub fn is_valid_type_name(name: &str) -> bool {
+        Self::all_type_names().contains(&name.to_lowercase().as_str())
+    }
+
+    /// Create a Stage from type name with default values
+    /// Returns None for invalid type names
+    /// For stages with required fields, use serde deserialization instead
+    pub fn from_type_name(name: &str, data: &std::collections::HashMap<String, serde_json::Value>) -> Option<Self> {
+        let name_lower = name.to_lowercase();
+
+        // Helper to extract u8 value
+        let get_u8 = |key: &str| -> u8 {
+            data.get(key)
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u8)
+                .unwrap_or(0)
+        };
+
+        // Helper to extract f64 value
+        let get_f64 = |key: &str| -> f64 {
+            data.get(key)
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0)
+        };
+
+        // Helper to extract optional string
+        let get_string = |key: &str| -> Option<String> {
+            data.get(key)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        };
+
+        match name_lower.as_str() {
+            "spin_start" => Some(Stage::SpinStart),
+            "reel_spinning" => Some(Stage::ReelSpinning {
+                reel_index: get_u8("reel_index"),
+            }),
+            "reel_stop" => Some(Stage::ReelStop {
+                reel_index: get_u8("reel_index"),
+                symbols: Vec::new(),
+            }),
+            "evaluate_wins" => Some(Stage::EvaluateWins),
+            "spin_end" => Some(Stage::SpinEnd),
+            "anticipation_on" => Some(Stage::AnticipationOn {
+                reel_index: get_u8("reel_index"),
+                reason: get_string("reason"),
+            }),
+            "anticipation_off" => Some(Stage::AnticipationOff {
+                reel_index: get_u8("reel_index"),
+            }),
+            "win_present" => Some(Stage::WinPresent {
+                win_amount: get_f64("win_amount"),
+                line_count: get_u8("line_count"),
+            }),
+            "win_line_show" => Some(Stage::WinLineShow {
+                line_index: get_u8("line_index"),
+                line_amount: get_f64("line_amount"),
+            }),
+            "rollup_start" => Some(Stage::RollupStart {
+                target_amount: get_f64("target_amount"),
+                start_amount: get_f64("start_amount"),
+            }),
+            "rollup_tick" => Some(Stage::RollupTick {
+                current_amount: get_f64("current_amount"),
+                progress: get_f64("progress"),
+            }),
+            "rollup_end" => Some(Stage::RollupEnd {
+                final_amount: get_f64("final_amount"),
+            }),
+            "bigwin_tier" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "win" => crate::taxonomy::BigWinTier::Win,
+                    "big_win" | "bigwin" => crate::taxonomy::BigWinTier::BigWin,
+                    "mega_win" | "megawin" => crate::taxonomy::BigWinTier::MegaWin,
+                    "epic_win" | "epicwin" => crate::taxonomy::BigWinTier::EpicWin,
+                    "ultra_win" | "ultrawin" => crate::taxonomy::BigWinTier::UltraWin,
+                    _ => crate::taxonomy::BigWinTier::Win,
+                };
+                Some(Stage::BigWinTier {
+                    tier,
+                    amount: get_f64("amount"),
+                })
+            }
+            "cascade_start" => Some(Stage::CascadeStart),
+            "cascade_step" => Some(Stage::CascadeStep {
+                step_index: data.get("step_index").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                multiplier: get_f64("multiplier"),
+            }),
+            "cascade_end" => Some(Stage::CascadeEnd {
+                total_steps: data.get("total_steps").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                total_win: get_f64("total_win"),
+            }),
+            "jackpot_trigger" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "mini" => crate::taxonomy::JackpotTier::Mini,
+                    "minor" => crate::taxonomy::JackpotTier::Minor,
+                    "major" => crate::taxonomy::JackpotTier::Major,
+                    "grand" => crate::taxonomy::JackpotTier::Grand,
+                    _ => crate::taxonomy::JackpotTier::Mini,
+                };
+                Some(Stage::JackpotTrigger { tier })
+            }
+            "jackpot_present" => {
+                let tier_str = get_string("tier").unwrap_or_default();
+                let tier = match tier_str.to_lowercase().as_str() {
+                    "mini" => crate::taxonomy::JackpotTier::Mini,
+                    "minor" => crate::taxonomy::JackpotTier::Minor,
+                    "major" => crate::taxonomy::JackpotTier::Major,
+                    "grand" => crate::taxonomy::JackpotTier::Grand,
+                    _ => crate::taxonomy::JackpotTier::Mini,
+                };
+                Some(Stage::JackpotPresent {
+                    amount: get_f64("amount"),
+                    tier,
+                })
+            }
+            "jackpot_end" => Some(Stage::JackpotEnd),
+            "idle_start" => Some(Stage::IdleStart),
+            "idle_loop" => Some(Stage::IdleLoop),
+            "menu_open" => Some(Stage::MenuOpen {
+                menu_name: get_string("menu_name"),
+            }),
+            "menu_close" => Some(Stage::MenuClose),
+            "custom" => Some(Stage::Custom {
+                name: get_string("name").unwrap_or_else(|| name.to_string()),
+                id: data.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            }),
+            _ => None,
+        }
+    }
 }
 
 /// Stage category for grouping

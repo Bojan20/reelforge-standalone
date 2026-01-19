@@ -62,6 +62,7 @@ class SlotLabProvider extends ChangeNotifier {
   Timer? _stagePlaybackTimer;
   int _currentStageIndex = 0;
   bool _isPlayingStages = false;
+  int _totalReels = 5; // Default, can be configured
 
   // ─── Persistent UI State (survives screen switches) ───────────────────────
   List<Map<String, dynamic>> persistedAudioPool = [];
@@ -454,10 +455,32 @@ class SlotLabProvider extends ChangeNotifier {
       debugPrint('[SlotLabProvider] Registry trigger: REEL_SPIN (started)');
     }
 
-    // Za poslednji REEL_STOP (reel 4), zaustavi REEL_SPIN
-    if (stageType == 'REEL_STOP' && reelIndex == 4) {
-      eventRegistry.stopEvent('REEL_SPIN');
-      debugPrint('[SlotLabProvider] REEL_SPIN stopped (last reel landed)');
+    // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
+    // Logika: Stop REEL_SPIN ako je ovo poslednji reel (reel_index >= totalReels - 1)
+    // ILI ako nema specifičnog reel indexa (fallback REEL_STOP)
+    if (stageType == 'REEL_STOP') {
+      final bool shouldStopReelSpin;
+      if (reelIndex != null) {
+        // Ako imamo specifičan reel index, stop kad je poslednji
+        shouldStopReelSpin = reelIndex >= _totalReels - 1;
+      } else {
+        // Ako nema reel indexa, ovo je generički REEL_STOP — proveri da li je poslednji
+        // Gledamo da li je sledeći stage nešto drugo osim REEL_STOP
+        final currentIdx = _lastStages.indexWhere((s) =>
+          s.timestampMs == stage.timestampMs && s.stageType.toUpperCase() == 'REEL_STOP');
+        if (currentIdx >= 0 && currentIdx < _lastStages.length - 1) {
+          final nextStage = _lastStages[currentIdx + 1];
+          shouldStopReelSpin = nextStage.stageType.toUpperCase() != 'REEL_STOP';
+        } else {
+          // Poslednji stage u listi
+          shouldStopReelSpin = true;
+        }
+      }
+
+      if (shouldStopReelSpin) {
+        eventRegistry.stopEvent('REEL_SPIN');
+        debugPrint('[SlotLabProvider] REEL_SPIN stopped (last reel landed, index: $reelIndex)');
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -232,6 +232,49 @@ pub extern "C" fn slot_lab_spin() -> u64 {
     spin_id
 }
 
+/// Minimum valid forced outcome value
+pub const FORCED_OUTCOME_MIN: i32 = 0;
+/// Maximum valid forced outcome value
+pub const FORCED_OUTCOME_MAX: i32 = 13;
+
+/// Check if a forced outcome value is valid
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_is_valid_forced_outcome(outcome: i32) -> i32 {
+    if (FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get the name of a forced outcome for debugging
+/// Returns a static string, do NOT free this pointer
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_forced_outcome_name(outcome: i32) -> *const c_char {
+    static NAMES: [&str; 14] = [
+        "Lose\0",
+        "SmallWin\0",
+        "MediumWin\0",
+        "BigWin\0",
+        "MegaWin\0",
+        "EpicWin\0",
+        "UltraWin\0",
+        "FreeSpins\0",
+        "JackpotMini\0",
+        "JackpotMinor\0",
+        "JackpotMajor\0",
+        "JackpotGrand\0",
+        "NearMiss\0",
+        "Cascade\0",
+    ];
+
+    if (FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        NAMES[outcome as usize].as_ptr() as *const c_char
+    } else {
+        "Invalid\0".as_ptr() as *const c_char
+    }
+}
+
 /// Execute a forced spin with specific outcome
 ///
 /// outcome values:
@@ -249,10 +292,28 @@ pub extern "C" fn slot_lab_spin() -> u64 {
 ///  11 = JackpotGrand
 ///  12 = NearMiss
 ///  13 = Cascade
+///
+/// Returns:
+///   - spin_id (> 0) on success
+///   - 0 if engine not initialized or invalid outcome
+///
+/// VALIDATION: Invalid outcome values (< 0 or > 13) return 0 and log a warning.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
+    // Validate outcome range first
+    if !(FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        log::warn!(
+            "slot_lab_spin_forced: Invalid outcome value {} (valid range: {}-{})",
+            outcome,
+            FORCED_OUTCOME_MIN,
+            FORCED_OUTCOME_MAX
+        );
+        return 0;
+    }
+
     let mut guard = SLOT_ENGINE.write();
     let Some(ref mut engine) = *guard else {
+        log::warn!("slot_lab_spin_forced: Engine not initialized");
         return 0;
     };
 
@@ -271,7 +332,11 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
         11 => ForcedOutcome::JackpotGrand,
         12 => ForcedOutcome::NearMiss,
         13 => ForcedOutcome::Cascade,
-        _ => ForcedOutcome::Lose,
+        // This should never be reached due to validation above
+        _ => {
+            log::error!("slot_lab_spin_forced: Unexpected outcome after validation: {}", outcome);
+            return 0;
+        }
     };
 
     let (result, stages) = engine.spin_forced_with_stages(forced);
@@ -280,6 +345,7 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
     *LAST_SPIN_RESULT.write() = Some(result);
     *LAST_STAGES.write() = stages;
 
+    log::debug!("slot_lab_spin_forced: outcome={:?}, spin_id={}", forced, spin_id);
     spin_id
 }
 

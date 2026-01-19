@@ -58,6 +58,31 @@ pub struct TimingConfig {
 
     /// Minimum time between stage events (ms)
     pub min_event_interval_ms: f64,
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDIO LATENCY COMPENSATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// Audio buffer latency compensation (ms)
+    /// Accounts for audio engine buffer size delay
+    /// Typical values: 128 samples @ 44.1kHz ≈ 3ms, 256 samples ≈ 6ms
+    #[serde(default)]
+    pub audio_latency_compensation_ms: f64,
+
+    /// Visual-to-audio sync offset (ms)
+    /// Positive = audio plays later, Negative = audio plays earlier
+    /// Used for fine-tuning when audio should hit relative to visual
+    #[serde(default)]
+    pub visual_audio_sync_offset_ms: f64,
+
+    /// Pre-trigger offset for anticipation audio (ms)
+    /// Audio starts this much before the visual anticipation begins
+    #[serde(default)]
+    pub anticipation_audio_pre_trigger_ms: f64,
+
+    /// Pre-trigger offset for reel stop audio (ms)
+    /// Audio starts this much before the reel visually stops
+    #[serde(default)]
+    pub reel_stop_audio_pre_trigger_ms: f64,
 }
 
 impl TimingConfig {
@@ -75,6 +100,11 @@ impl TimingConfig {
             feature_enter_duration_ms: 2000.0,
             cascade_step_duration_ms: 600.0,
             min_event_interval_ms: 50.0,
+            // Audio latency compensation - normal has conservative defaults
+            audio_latency_compensation_ms: 5.0,
+            visual_audio_sync_offset_ms: 0.0,
+            anticipation_audio_pre_trigger_ms: 50.0,
+            reel_stop_audio_pre_trigger_ms: 20.0,
         }
     }
 
@@ -92,6 +122,11 @@ impl TimingConfig {
             feature_enter_duration_ms: 1000.0,
             cascade_step_duration_ms: 300.0,
             min_event_interval_ms: 25.0,
+            // Turbo mode - tighter timing, less compensation needed
+            audio_latency_compensation_ms: 3.0,
+            visual_audio_sync_offset_ms: 0.0,
+            anticipation_audio_pre_trigger_ms: 30.0,
+            reel_stop_audio_pre_trigger_ms: 10.0,
         }
     }
 
@@ -109,6 +144,11 @@ impl TimingConfig {
             feature_enter_duration_ms: 1500.0,
             cascade_step_duration_ms: 450.0,
             min_event_interval_ms: 30.0,
+            // Mobile - account for potentially higher latency
+            audio_latency_compensation_ms: 8.0,
+            visual_audio_sync_offset_ms: 0.0,
+            anticipation_audio_pre_trigger_ms: 40.0,
+            reel_stop_audio_pre_trigger_ms: 15.0,
         }
     }
 
@@ -126,6 +166,11 @@ impl TimingConfig {
             feature_enter_duration_ms: 500.0,
             cascade_step_duration_ms: 300.0,
             min_event_interval_ms: 50.0,  // Minimum gap za audio playback latency
+            // Studio - precise timing for audio production
+            audio_latency_compensation_ms: 3.0,  // Low latency for pro audio setup
+            visual_audio_sync_offset_ms: 0.0,
+            anticipation_audio_pre_trigger_ms: 30.0,
+            reel_stop_audio_pre_trigger_ms: 15.0,
         }
     }
 
@@ -154,7 +199,33 @@ impl TimingConfig {
             feature_enter_duration_ms: self.feature_enter_duration_ms * factor,
             cascade_step_duration_ms: self.cascade_step_duration_ms * factor,
             min_event_interval_ms: self.min_event_interval_ms * factor,
+            // Audio latency compensation is NOT scaled - it's hardware dependent
+            audio_latency_compensation_ms: self.audio_latency_compensation_ms,
+            visual_audio_sync_offset_ms: self.visual_audio_sync_offset_ms,
+            anticipation_audio_pre_trigger_ms: self.anticipation_audio_pre_trigger_ms,
+            reel_stop_audio_pre_trigger_ms: self.reel_stop_audio_pre_trigger_ms,
         }
+    }
+
+    /// Get total audio latency offset (compensation + sync)
+    pub fn total_audio_offset(&self) -> f64 {
+        self.audio_latency_compensation_ms + self.visual_audio_sync_offset_ms
+    }
+
+    /// Get adjusted timestamp for audio trigger
+    /// Returns the timestamp at which audio should be triggered to hit the visual event
+    pub fn audio_trigger_time(&self, visual_timestamp_ms: f64, pre_trigger_ms: f64) -> f64 {
+        (visual_timestamp_ms - self.total_audio_offset() - pre_trigger_ms).max(0.0)
+    }
+
+    /// Get audio trigger time for reel stop event
+    pub fn reel_stop_audio_time(&self, visual_timestamp_ms: f64) -> f64 {
+        self.audio_trigger_time(visual_timestamp_ms, self.reel_stop_audio_pre_trigger_ms)
+    }
+
+    /// Get audio trigger time for anticipation event
+    pub fn anticipation_audio_time(&self, visual_timestamp_ms: f64) -> f64 {
+        self.audio_trigger_time(visual_timestamp_ms, self.anticipation_audio_pre_trigger_ms)
     }
 
     /// Calculate total spin duration (all reels stopping)

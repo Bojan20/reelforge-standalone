@@ -242,15 +242,104 @@ void stopScrub();                         // End scrub
 
 Middleware i SlotLab koriste one-shot voice sistem u PlaybackEngine koji prolazi kroz DAW buseve.
 
-### Bus IDs
-| ID | Bus | Usage |
-|----|-----|-------|
-| 0 | Sfx | Sound effects, UI clicks |
-| 1 | Music | Background music, loops |
-| 2 | Voice | VO, announcer |
-| 3 | Ambience | Ambient sounds |
-| 4 | Aux | Auxiliary routing |
-| 5 | Master | Direct to master |
+### Standard Bus Configuration (6 buses + Master)
+
+FluxForge koristi **6 audio buseva plus Master** za slot game audio.
+
+| ID | Name | Const | Primary Usage | Slot Lab Usage |
+|----|------|-------|---------------|----------------|
+| 0 | **SFX** | `BUS_SFX` | Sound effects, UI clicks | Reel stops, button clicks |
+| 1 | **MUSIC** | `BUS_MUSIC` | Background music, loops | BGM, win jingles |
+| 2 | **VOICE** | `BUS_VOICE` | VO, announcer | Win callouts, feature announcements |
+| 3 | **AMBIENCE** | `BUS_AMBIENCE` | Ambient sounds | Casino atmosphere, crowd |
+| 4 | **AUX** | `BUS_AUX` | Auxiliary routing | Special effects, stingers |
+| 5 | **MASTER** | `BUS_MASTER` | Direct to master (bypass routing) | Final mixdown |
+
+### Bus Routing Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         BUS ROUTING ARCHITECTURE                         │
+│                                                                          │
+│   SOURCES                    BUSES                      OUTPUT           │
+│   ┌──────────┐              ┌─────────┐                                 │
+│   │ REEL_STOP│───────────▶ │ 0: SFX  │──┐                              │
+│   │ UI_CLICK │───────────▶ │         │  │                              │
+│   └──────────┘              └─────────┘  │                              │
+│                                          │                              │
+│   ┌──────────┐              ┌─────────┐  │                              │
+│   │ BGM_LOOP │───────────▶ │ 1: MUSIC│──┤                              │
+│   │ WIN_MUSIC│───────────▶ │         │  │                              │
+│   └──────────┘              └─────────┘  │                              │
+│                                          │       ┌──────────────┐       │
+│   ┌──────────┐              ┌─────────┐  ├─────▶│    MASTER    │──────▶│
+│   │ CALLOUT  │───────────▶ │ 2: VOICE│──┤       │    OUTPUT    │       │
+│   │ ANNOUNCE │───────────▶ │         │  │       └──────────────┘       │
+│   └──────────┘              └─────────┘  │                              │
+│                                          │                              │
+│   ┌──────────┐              ┌─────────┐  │                              │
+│   │ CROWD    │───────────▶ │3:AMBIENCE──┤                              │
+│   │ CASINO   │───────────▶ │         │  │                              │
+│   └──────────┘              └─────────┘  │                              │
+│                                          │                              │
+│   ┌──────────┐              ┌─────────┐  │                              │
+│   │ STINGER  │───────────▶ │ 4: AUX  │──┘                              │
+│   │ SPECIAL  │───────────▶ │         │                                  │
+│   └──────────┘              └─────────┘                                  │
+│                                                                          │
+│   ┌──────────┐              ┌─────────┐                                 │
+│   │ DIRECT   │───────────▶ │5: MASTER│──────────────────────────────▶  │
+│   │ OUTPUT   │              │(bypass) │                                 │
+│   └──────────┘              └─────────┘                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Ducking Matrix (Slot Lab Default)
+
+| Source Bus | Ducks | Amount | Attack | Release |
+|------------|-------|--------|--------|---------|
+| VOICE | MUSIC | -12dB | 50ms | 300ms |
+| SFX (BigWin) | MUSIC | -18dB | 30ms | 500ms |
+| VOICE | AMBIENCE | -6dB | 100ms | 200ms |
+
+### Dart Constants
+
+```dart
+/// Standard bus IDs for FluxForge audio routing
+class AudioBus {
+  static const int sfx = 0;
+  static const int music = 1;
+  static const int voice = 2;
+  static const int ambience = 3;
+  static const int aux = 4;
+  static const int master = 5;
+
+  static const int count = 6;
+
+  static String name(int id) => switch (id) {
+    0 => 'SFX',
+    1 => 'Music',
+    2 => 'Voice',
+    3 => 'Ambience',
+    4 => 'Aux',
+    5 => 'Master',
+    _ => 'Unknown',
+  };
+}
+```
+
+### Rust Constants
+
+```rust
+/// Standard bus IDs for FluxForge audio routing
+pub const BUS_SFX: u32 = 0;
+pub const BUS_MUSIC: u32 = 1;
+pub const BUS_VOICE: u32 = 2;
+pub const BUS_AMBIENCE: u32 = 3;
+pub const BUS_AUX: u32 = 4;
+pub const BUS_MASTER: u32 = 5;
+pub const BUS_COUNT: u32 = 6;
+```
 
 ### API
 
