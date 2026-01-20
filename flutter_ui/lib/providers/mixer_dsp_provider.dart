@@ -5,9 +5,16 @@
 // - Insert chain management
 // - Parameter updates
 // - Volume/pan/mute control
+//
+// CONNECTED TO RUST ENGINE via NativeFFI:
+// - setBusVolume → engine_set_bus_volume
+// - setBusPan → engine_set_bus_pan
+// - toggleMute → engine_set_bus_mute
+// - toggleSolo → engine_set_bus_solo
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import '../src/rust/native_ffi.dart';
 
 // ============ Types ============
 
@@ -170,6 +177,22 @@ const List<PluginInfo> kAvailablePlugins = [
   ),
 ];
 
+// ============ Bus ID Mapping ============
+
+/// Map string bus ID to engine bus index
+/// Engine buses: 0=SFX, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+int _busIdToEngineIndex(String busId) {
+  return switch (busId) {
+    'sfx' => 0,
+    'music' => 1,
+    'voice' => 2,
+    'ambience' => 3,
+    'aux' => 4,
+    'master' => 5,
+    _ => 0, // Default to SFX
+  };
+}
+
 // ============ Provider ============
 
 class MixerDSPProvider extends ChangeNotifier {
@@ -178,6 +201,9 @@ class MixerDSPProvider extends ChangeNotifier {
   String? _error;
 
   int _insertIdCounter = 0;
+
+  // FFI reference
+  final NativeFFI _ffi = NativeFFI.instance;
 
   List<MixerBus> get buses => _buses;
   bool get isConnected => _isConnected;
@@ -192,16 +218,24 @@ class MixerDSPProvider extends ChangeNotifier {
     }
   }
 
-  /// Connect to audio backend
+  /// Connect to audio backend and sync initial bus state to engine
   Future<void> connect() async {
     try {
-      // In real implementation, this would connect to Rust audio engine
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Sync all bus states to Rust engine
+      for (final bus in _buses) {
+        final engineIdx = _busIdToEngineIndex(bus.id);
+        _ffi.setBusVolume(engineIdx, bus.volume);
+        _ffi.setBusPan(engineIdx, bus.pan);
+        _ffi.setBusMute(engineIdx, bus.muted);
+        _ffi.setBusSolo(engineIdx, bus.solo);
+      }
       _isConnected = true;
       _error = null;
+      debugPrint('[MixerDSPProvider] Connected and synced ${_buses.length} buses to engine');
       notifyListeners();
     } catch (e) {
       _error = e.toString();
+      debugPrint('[MixerDSPProvider] Connection error: $e');
       notifyListeners();
     }
   }
@@ -212,56 +246,86 @@ class MixerDSPProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set bus volume
+  /// Set bus volume — syncs to Rust engine via FFI
   void setBusVolume(String busId, double volume) {
+    final clampedVolume = volume.clamp(0.0, 1.0);
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(volume: volume.clamp(0.0, 1.0));
+        return bus.copyWith(volume: clampedVolume);
       }
       return bus;
     }).toList();
+
+    // Sync to Rust engine
+    final engineIdx = _busIdToEngineIndex(busId);
+    _ffi.setBusVolume(engineIdx, clampedVolume);
+
     notifyListeners();
   }
 
-  /// Set bus pan
+  /// Set bus pan — syncs to Rust engine via FFI
   void setBusPan(String busId, double pan) {
+    final clampedPan = pan.clamp(-1.0, 1.0);
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(pan: pan.clamp(-1.0, 1.0));
+        return bus.copyWith(pan: clampedPan);
       }
       return bus;
     }).toList();
+
+    // Sync to Rust engine
+    final engineIdx = _busIdToEngineIndex(busId);
+    _ffi.setBusPan(engineIdx, clampedPan);
+
     notifyListeners();
   }
 
-  /// Toggle bus mute
+  /// Toggle bus mute — syncs to Rust engine via FFI
   void toggleMute(String busId) {
+    bool newMuted = false;
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(muted: !bus.muted);
+        newMuted = !bus.muted;
+        return bus.copyWith(muted: newMuted);
       }
       return bus;
     }).toList();
+
+    // Sync to Rust engine
+    final engineIdx = _busIdToEngineIndex(busId);
+    _ffi.setBusMute(engineIdx, newMuted);
+
     notifyListeners();
   }
 
-  /// Toggle bus solo
+  /// Toggle bus solo — syncs to Rust engine via FFI
   void toggleSolo(String busId) {
+    bool newSolo = false;
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(solo: !bus.solo);
+        newSolo = !bus.solo;
+        return bus.copyWith(solo: newSolo);
       }
       return bus;
     }).toList();
+
+    // Sync to Rust engine
+    final engineIdx = _busIdToEngineIndex(busId);
+    _ffi.setBusSolo(engineIdx, newSolo);
+
     notifyListeners();
   }
 
-  /// Add insert to bus
+  /// Add insert to bus — creates processor in Rust engine via FFI
   String? addInsert(String busId, String pluginId) {
     final plugin = kAvailablePlugins.where((p) => p.id == pluginId).firstOrNull;
     if (plugin == null) return null;
 
     final insertId = 'insert_${DateTime.now().millisecondsSinceEpoch}_${_insertIdCounter++}';
+
+    // Find slot index (next available slot on this bus)
+    final bus = getBus(busId);
+    final slotIndex = bus?.inserts.length ?? 0;
 
     final newInsert = MixerInsert(
       id: insertId,
@@ -270,66 +334,169 @@ class MixerDSPProvider extends ChangeNotifier {
       params: _getDefaultParams(pluginId),
     );
 
-    _buses = _buses.map((bus) {
-      if (bus.id == busId) {
-        return bus.copyWith(inserts: [...bus.inserts, newInsert]);
+    _buses = _buses.map((b) {
+      if (b.id == busId) {
+        return b.copyWith(inserts: [...b.inserts, newInsert]);
       }
-      return bus;
+      return b;
     }).toList();
+
+    // Create insert chain and load processor in Rust engine
+    final trackId = _busIdToEngineIndex(busId);
+    _ffi.insertCreateChain(trackId);
+
+    final processorName = _pluginIdToProcessorName(pluginId);
+    if (processorName != null) {
+      final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
+      debugPrint('[MixerDSPProvider] Load processor "$processorName" on bus $busId slot $slotIndex -> result: $result');
+    }
 
     notifyListeners();
     return insertId;
   }
 
-  /// Remove insert from bus
+  /// Remove insert from bus — unloads processor in Rust engine via FFI
   void removeInsert(String busId, String insertId) {
-    _buses = _buses.map((bus) {
-      if (bus.id == busId) {
-        return bus.copyWith(
-          inserts: bus.inserts.where((i) => i.id != insertId).toList(),
+    // Find slot index before removing
+    final bus = getBus(busId);
+    final slotIndex = bus?.inserts.indexWhere((i) => i.id == insertId) ?? -1;
+
+    _buses = _buses.map((b) {
+      if (b.id == busId) {
+        return b.copyWith(
+          inserts: b.inserts.where((i) => i.id != insertId).toList(),
         );
       }
-      return bus;
+      return b;
     }).toList();
+
+    // Unload processor from Rust engine
+    if (slotIndex >= 0) {
+      final trackId = _busIdToEngineIndex(busId);
+      _ffi.insertUnloadSlot(trackId, slotIndex);
+      debugPrint('[MixerDSPProvider] Unload processor from bus $busId slot $slotIndex');
+    }
+
     notifyListeners();
   }
 
-  /// Toggle insert bypass
+  /// Toggle insert bypass — syncs to Rust engine via FFI
   void toggleBypass(String busId, String insertId) {
+    int slotIndex = -1;
+    bool newBypassed = false;
+
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(
-          inserts: bus.inserts.map((insert) {
-            if (insert.id == insertId) {
-              return insert.copyWith(bypassed: !insert.bypassed);
-            }
-            return insert;
-          }).toList(),
-        );
+        final newInserts = bus.inserts.asMap().entries.map((entry) {
+          if (entry.value.id == insertId) {
+            slotIndex = entry.key;
+            newBypassed = !entry.value.bypassed;
+            return entry.value.copyWith(bypassed: newBypassed);
+          }
+          return entry.value;
+        }).toList();
+        return bus.copyWith(inserts: newInserts);
       }
       return bus;
     }).toList();
+
+    // Sync bypass state to Rust engine
+    if (slotIndex >= 0) {
+      final trackId = _busIdToEngineIndex(busId);
+      _ffi.insertSetBypass(trackId, slotIndex, newBypassed);
+      debugPrint('[MixerDSPProvider] Set bypass=$newBypassed on bus $busId slot $slotIndex');
+    }
+
     notifyListeners();
   }
 
-  /// Update insert parameters
+  /// Update insert parameters — syncs to Rust engine via FFI
   void updateInsertParams(String busId, String insertId, Map<String, double> params) {
+    int slotIndex = -1;
+    String? pluginId;
+
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
-        return bus.copyWith(
-          inserts: bus.inserts.map((insert) {
-            if (insert.id == insertId) {
-              return insert.copyWith(
-                params: {...insert.params, ...params},
-              );
-            }
-            return insert;
-          }).toList(),
-        );
+        final newInserts = bus.inserts.asMap().entries.map((entry) {
+          if (entry.value.id == insertId) {
+            slotIndex = entry.key;
+            pluginId = entry.value.pluginId;
+            return entry.value.copyWith(
+              params: {...entry.value.params, ...params},
+            );
+          }
+          return entry.value;
+        }).toList();
+        return bus.copyWith(inserts: newInserts);
       }
       return bus;
     }).toList();
+
+    // Sync parameters to Rust engine
+    if (slotIndex >= 0 && pluginId != null) {
+      final trackId = _busIdToEngineIndex(busId);
+      final paramMapping = _getParamIndexMapping(pluginId!);
+
+      for (final entry in params.entries) {
+        final paramIndex = paramMapping[entry.key];
+        if (paramIndex != null) {
+          _ffi.insertSetParam(trackId, slotIndex, paramIndex, entry.value);
+        }
+      }
+      debugPrint('[MixerDSPProvider] Updated ${params.length} params on bus $busId slot $slotIndex');
+    }
+
     notifyListeners();
+  }
+
+  /// Get parameter name to index mapping for a plugin
+  Map<String, int> _getParamIndexMapping(String pluginId) {
+    // These mappings correspond to Rust processor parameter indices
+    switch (pluginId) {
+      case 'rf-eq':
+        return {
+          'lowGain': 0, 'lowFreq': 1,
+          'midGain': 2, 'midFreq': 3, 'midQ': 4,
+          'highGain': 5, 'highFreq': 6,
+        };
+      case 'rf-compressor':
+        return {
+          'threshold': 0, 'ratio': 1,
+          'attack': 2, 'release': 3, 'makeupGain': 4,
+        };
+      case 'rf-limiter':
+        return {'ceiling': 0, 'release': 1};
+      case 'rf-reverb':
+        return {'size': 0, 'decay': 1, 'damping': 2, 'mix': 3};
+      case 'rf-delay':
+        return {
+          'time': 0, 'feedback': 1, 'mix': 2,
+          'lowCut': 3, 'highCut': 4,
+        };
+      case 'rf-gate':
+        return {'threshold': 0, 'attack': 1, 'hold': 2, 'release': 3};
+      case 'rf-saturator':
+        return {'drive': 0, 'mix': 1};
+      case 'rf-deesser':
+        return {'threshold': 0, 'frequency': 1, 'range': 2};
+      default:
+        return {};
+    }
+  }
+
+  /// Map plugin ID to Rust processor name
+  String? _pluginIdToProcessorName(String pluginId) {
+    const mapping = {
+      'rf-eq': 'pro-eq',
+      'rf-compressor': 'compressor',
+      'rf-limiter': 'limiter',
+      'rf-reverb': 'reverb',
+      'rf-delay': 'delay',
+      'rf-gate': 'gate',
+      'rf-saturator': 'saturator',
+      'rf-deesser': 'deesser',
+    };
+    return mapping[pluginId];
   }
 
   /// Reorder inserts within a bus

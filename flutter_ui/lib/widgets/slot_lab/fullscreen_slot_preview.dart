@@ -15,6 +15,7 @@ library;
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -844,29 +845,91 @@ class _BetControls extends StatelessWidget {
     required bool enabled,
     required VoidCallback onTap,
   }) {
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
-      child: GestureDetector(
-        onTap: enabled ? onTap : null,
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: enabled
-                ? FluxForgeTheme.accentBlue.withOpacity(0.3)
-                : Colors.white.withOpacity(0.05),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: enabled
-                  ? FluxForgeTheme.accentBlue.withOpacity(0.6)
-                  : Colors.white.withOpacity(0.1),
-            ),
+    return _FocusableButton(
+      enabled: enabled,
+      onTap: onTap,
+      builder: (context, isFocused) => Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: enabled
+              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
+              : Colors.white.withOpacity(0.05),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isFocused
+                ? Colors.white
+                : enabled
+                    ? FluxForgeTheme.accentBlue.withOpacity(0.6)
+                    : Colors.white.withOpacity(0.1),
+            width: isFocused ? 2 : 1,
           ),
-          child: Icon(
-            icon,
-            color: enabled ? Colors.white : Colors.white24,
-            size: 18,
-          ),
+          boxShadow: isFocused
+              ? [
+                  BoxShadow(
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? Colors.white : Colors.white24,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FOCUSABLE BUTTON WRAPPER (P3 Accessibility - Focus Rings)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Wrapper widget that provides visible focus ring for keyboard navigation
+class _FocusableButton extends StatefulWidget {
+  final bool enabled;
+  final VoidCallback onTap;
+  final Widget Function(BuildContext context, bool isFocused) builder;
+
+  const _FocusableButton({
+    required this.enabled,
+    required this.onTap,
+    required this.builder,
+  });
+
+  @override
+  State<_FocusableButton> createState() => _FocusableButtonState();
+}
+
+class _FocusableButtonState extends State<_FocusableButton> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: widget.enabled,
+      onFocusChange: (focused) {
+        setState(() => _isFocused = focused);
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.space)) {
+          if (widget.enabled) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        child: GestureDetector(
+          onTap: widget.enabled ? widget.onTap : null,
+          child: widget.builder(context, _isFocused),
         ),
       ),
     );
@@ -927,9 +990,21 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
   int _wins = 0;
   int _losses = 0;
   double _currentBet = 1.0;
+  double _previousBalance = 1000.0; // Track for glow effect
+  late AnimationController _balanceGlowController;
+  Color _balanceGlowColor = Colors.transparent;
 
   // Phase 3: Current stage index for mini trace
   int _currentStageIndex = 0;
+
+  // Free spin mode tracking
+  bool _isFreeSpin = false;
+  int _freeSpinsRemaining = 0;
+
+  // Jackpot celebration state
+  bool _isJackpotCelebration = false;
+  String _jackpotTier = ''; // MINI, MINOR, MAJOR, GRAND
+  double _jackpotAmount = 0;
 
   @override
   void initState() {
@@ -938,7 +1013,7 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
     _initializeParticles();
 
     // Auto-hide hints after 5 seconds
-    _hideHintsTimer = Timer(const Duration(seconds: 5), () {
+    _hideHintsTimer = Timer(const Duration(seconds: 10), () {
       if (mounted && _showControlHints) {
         _hintsController.forward();
         setState(() => _showControlHints = false);
@@ -988,6 +1063,12 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
     _spinButtonPulse = Tween<double>(begin: 0.9, end: 1.1).animate(
       CurvedAnimation(parent: _spinButtonPulseController, curve: Curves.easeInOut),
     );
+
+    // Balance glow animation (for win/loss visual feedback)
+    _balanceGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
   }
 
   void _initializeParticles() {
@@ -1027,6 +1108,7 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
     _ambientController.dispose();
     _frameGlowController.dispose();
     _spinButtonPulseController.dispose();
+    _balanceGlowController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -1037,6 +1119,7 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
 
     // Deduct bet
     setState(() {
+      _previousBalance = _sessionBalance;
       _sessionBalance -= _currentBet;
       _totalBet += _currentBet;
       _currentStageIndex = 0;
@@ -1054,6 +1137,8 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
           } else {
             _losses++;
           }
+          // Trigger balance glow effect
+          _triggerBalanceGlow(result.isWin, winAmount);
         });
       }
     });
@@ -1065,6 +1150,7 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
 
     // Deduct bet
     setState(() {
+      _previousBalance = _sessionBalance;
       _sessionBalance -= _currentBet;
       _totalBet += _currentBet;
       _currentStageIndex = 0;
@@ -1082,6 +1168,27 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
           } else {
             _losses++;
           }
+          // Trigger balance glow effect
+          _triggerBalanceGlow(result.isWin, winAmount);
+        });
+      }
+    });
+  }
+
+  /// Trigger balance glow visual feedback on win/loss
+  void _triggerBalanceGlow(bool isWin, double winAmount) {
+    if (isWin && winAmount > 0) {
+      // Green glow for wins, intensity based on win amount
+      final intensity = (winAmount / _currentBet).clamp(0.5, 1.0);
+      _balanceGlowColor = FluxForgeTheme.accentGreen.withOpacity(intensity);
+    } else {
+      // Subtle red pulse for losses
+      _balanceGlowColor = FluxForgeTheme.accentRed.withOpacity(0.3);
+    }
+    _balanceGlowController.forward(from: 0).then((_) {
+      if (mounted) {
+        setState(() {
+          _balanceGlowColor = Colors.transparent;
         });
       }
     });
@@ -1134,37 +1241,38 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
         _adjustBet(-1);
         return KeyEventResult.handled;
 
-      // 1-0 - Forced outcomes
+      // 1-0 - Forced outcomes (only in debug/profile mode for testing)
+      // In release builds, these keys are ignored to prevent manipulation
       case LogicalKeyboardKey.digit1:
-        _handleForcedSpin(provider, ForcedOutcome.lose);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.lose);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit2:
-        _handleForcedSpin(provider, ForcedOutcome.smallWin);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.smallWin);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit3:
-        _handleForcedSpin(provider, ForcedOutcome.bigWin);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.bigWin);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit4:
-        _handleForcedSpin(provider, ForcedOutcome.megaWin);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.megaWin);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit5:
-        _handleForcedSpin(provider, ForcedOutcome.epicWin);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.epicWin);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit6:
-        _handleForcedSpin(provider, ForcedOutcome.freeSpins);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.freeSpins);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit7:
-        _handleForcedSpin(provider, ForcedOutcome.jackpotGrand);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.jackpotGrand);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit8:
-        _handleForcedSpin(provider, ForcedOutcome.nearMiss);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.nearMiss);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit9:
-        _handleForcedSpin(provider, ForcedOutcome.cascade);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.cascade);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.digit0:
-        _handleForcedSpin(provider, ForcedOutcome.ultraWin);
-        return KeyEventResult.handled;
+        if (kDebugMode) _handleForcedSpin(provider, ForcedOutcome.ultraWin);
+        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
 
       default:
         return KeyEventResult.ignored;
@@ -1186,15 +1294,20 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
     }
   }
 
-  // Determine win tier from result
+  /// Determine win tier from result using win-to-bet ratio (industry standard)
+  /// ULTRA: 100x+, EPIC: 50x+, MEGA: 25x+, BIG: 10x+, SMALL: >0x
   String _getWinTier(SlotLabSpinResult? result) {
     if (result == null || !result.isWin) return '';
     final win = result.totalWin;
-    if (win >= 500) return 'ULTRA';
-    if (win >= 200) return 'EPIC';
-    if (win >= 100) return 'MEGA';
-    if (win >= 50) return 'BIG';
-    if (win > 0) return 'SMALL';
+    final bet = _currentBet;
+    if (bet <= 0) return win > 0 ? 'SMALL' : '';
+
+    final ratio = win / bet;
+    if (ratio >= 100) return 'ULTRA';
+    if (ratio >= 50) return 'EPIC';
+    if (ratio >= 25) return 'MEGA';
+    if (ratio >= 10) return 'BIG';
+    if (ratio > 0) return 'SMALL';
     return '';
   }
 
@@ -1223,6 +1336,43 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
       _currentWinTier = '';
     }
 
+    // Detect free spin mode from stages
+    if (stages.isNotEmpty) {
+      final hasFeatureEnter = stages.any((s) =>
+          s.stageType.toLowerCase().contains('feature') &&
+          s.stageType.toLowerCase().contains('enter'));
+      final hasFeatureExit = stages.any((s) =>
+          s.stageType.toLowerCase().contains('feature') &&
+          s.stageType.toLowerCase().contains('exit'));
+      if (hasFeatureEnter && !_isFreeSpin) {
+        _isFreeSpin = true;
+        // Default to 10 free spins (actual count determined by game logic)
+        _freeSpinsRemaining = 10;
+      } else if (hasFeatureExit && _isFreeSpin) {
+        _isFreeSpin = false;
+        _freeSpinsRemaining = 0;
+      }
+
+      // Detect jackpot events
+      final hasJackpotTrigger = stages.any((s) =>
+          s.stageType.toLowerCase().contains('jackpot') &&
+          s.stageType.toLowerCase().contains('trigger'));
+      final hasJackpotEnd = stages.any((s) =>
+          s.stageType.toLowerCase().contains('jackpot') &&
+          s.stageType.toLowerCase().contains('end'));
+      if (hasJackpotTrigger && !_isJackpotCelebration) {
+        _isJackpotCelebration = true;
+        // Determine jackpot tier from bigWinTier or default to GRAND
+        _jackpotTier = result?.bigWinTier?.name.toUpperCase() ?? 'GRAND';
+        // Jackpot amount is total win multiplied by bet
+        _jackpotAmount = (result?.totalWin ?? 5000) * _currentBet;
+      } else if (hasJackpotEnd && _isJackpotCelebration) {
+        _isJackpotCelebration = false;
+        _jackpotTier = '';
+        _jackpotAmount = 0;
+      }
+    }
+
     // Get current stage for event indicator
     SlotLabStageEvent? currentStage;
     if (isSpinning && stages.isNotEmpty && _currentStageIndex < stages.length) {
@@ -1231,6 +1381,9 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
 
     // Calculate RTP for session
     final sessionRtp = _totalBet > 0 ? (_totalWin / _totalBet * 100) : 0.0;
+
+    // Check for reduced motion preference (accessibility)
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return Focus(
       focusNode: _focusNode,
@@ -1243,10 +1396,11 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
             // Background gradient with vignette
             _buildBackground(),
 
-            // Ambient particles layer
-            AnimatedBuilder(
-              animation: _ambientController,
-              builder: (context, _) => CustomPaint(
+            // Ambient particles layer (respects reduced motion preference)
+            if (!reduceMotion)
+              AnimatedBuilder(
+                animation: _ambientController,
+                builder: (context, _) => CustomPaint(
                 size: Size.infinite,
                 painter: _AmbientParticlePainter(
                   particles: _particles,
@@ -1257,14 +1411,17 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
 
             // Centered slot machine with animated frame
             Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.7,
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                ),
-                child: AspectRatio(
-                  aspectRatio: widget.reels / widget.rows * 1.2,
-                  child: _buildSlotFrame(provider),
+              child: Semantics(
+                label: 'Slot machine grid, ${widget.reels} reels by ${widget.rows} rows',
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.7,
+                    maxHeight: MediaQuery.of(context).size.height * 0.65,
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: widget.reels / widget.rows * 1.2,
+                    child: _buildSlotFrame(provider),
+                  ),
                 ),
               ),
             ),
@@ -1275,7 +1432,11 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                 top: MediaQuery.of(context).size.height * 0.12,
                 left: 0,
                 right: 0,
-                child: _buildWinBadge(),
+                child: Semantics(
+                  label: '$_currentWinTier win! ${result?.totalWin.toStringAsFixed(0) ?? 0} credits',
+                  liveRegion: true,
+                  child: _buildWinBadge(),
+                ),
               ),
 
             // Event trigger indicator (Phase 3 - shows current audio event)
@@ -1295,22 +1456,45 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
               left: 0,
               right: 0,
               child: Center(
-                child: _buildBalanceDisplay(),
+                child: Semantics(
+                  label: 'Balance: ${_sessionBalance.toStringAsFixed(0)} credits',
+                  child: _buildBalanceDisplay(),
+                ),
               ),
             ),
 
-            // Bet controls (bottom left of spin button)
+            // Free spin counter badge (shows during free spins)
+            if (_isFreeSpin)
+              Positioned(
+                top: 60,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _buildFreeSpinBadge(),
+                ),
+              ),
+
+            // Bet controls (bottom, responsive positioning next to spin button)
             Positioned(
               bottom: 100,
-              left: MediaQuery.of(context).size.width * 0.5 - 200,
-              child: _BetControls(
-                betAmount: _currentBet,
-                balance: _sessionBalance,
-                isSpinning: isSpinning,
-                onBetChanged: (bet) {
-                  setState(() => _currentBet = bet);
-                  provider.setBetAmount(bet);
-                },
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _BetControls(
+                      betAmount: _currentBet,
+                      balance: _sessionBalance,
+                      isSpinning: isSpinning,
+                      onBetChanged: (bet) {
+                        setState(() => _currentBet = bet);
+                        provider.setBetAmount(bet);
+                      },
+                    ),
+                    const SizedBox(width: 100), // Space for spin button
+                  ],
+                ),
               ),
             ),
 
@@ -1320,7 +1504,14 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
               left: 0,
               right: 0,
               child: Center(
-                child: _buildSpinButton(provider),
+                child: Semantics(
+                  label: isSpinning
+                      ? 'Spinning, please wait'
+                      : 'Spin button. Current bet: ${_currentBet.toStringAsFixed(0)} credits. Press space to spin.',
+                  button: true,
+                  enabled: !isSpinning && _currentBet <= _sessionBalance,
+                  child: _buildSpinButton(provider),
+                ),
               ),
             ),
 
@@ -1368,6 +1559,12 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                 child: _buildDebugOverlay(provider),
               ),
 
+            // Jackpot celebration overlay
+            if (_isJackpotCelebration)
+              Positioned.fill(
+                child: _buildJackpotCelebration(),
+              ),
+
             // Control hints
             Positioned(
               bottom: 20,
@@ -1397,25 +1594,184 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
   }
 
   Widget _buildBalanceDisplay() {
+    return AnimatedBuilder(
+      animation: _balanceGlowController,
+      builder: (context, child) {
+        final glowIntensity = _balanceGlowController.value;
+        final isGlowing = _balanceGlowColor != Colors.transparent && glowIntensity > 0;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isGlowing
+                  ? _balanceGlowColor.withOpacity(0.8 * (1 - glowIntensity))
+                  : const Color(0xFF3a3a48),
+              width: isGlowing ? 2 : 1,
+            ),
+            boxShadow: isGlowing
+                ? [
+                    BoxShadow(
+                      color: _balanceGlowColor.withOpacity(0.5 * (1 - glowIntensity)),
+                      blurRadius: 12 * (1 - glowIntensity),
+                      spreadRadius: 2 * (1 - glowIntensity),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_balance_wallet, color: Colors.white54, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                '\$${_sessionBalance.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildJackpotCelebration() {
+    // Premium jackpot celebration overlay
+    final jackpotColor = switch (_jackpotTier) {
+      'GRAND' => const Color(0xFFFFD700), // Gold
+      'MAJOR' => const Color(0xFFFF4080), // Magenta
+      'MINOR' => const Color(0xFF8B5CF6), // Purple
+      'MINI' => const Color(0xFF4CAF50), // Green
+      _ => const Color(0xFFFFD700),
+    };
+
+    return AnimatedBuilder(
+      animation: _frameGlowController,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 0.8,
+              colors: [
+                jackpotColor.withOpacity(0.3 * _frameGlowAnimation.value),
+                Colors.black.withOpacity(0.7),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Jackpot tier badge
+                Transform.scale(
+                  scale: 0.9 + (_frameGlowAnimation.value * 0.2),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          jackpotColor,
+                          jackpotColor.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: jackpotColor.withOpacity(0.6 * _frameGlowAnimation.value),
+                          blurRadius: 30,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '$_jackpotTier JACKPOT!',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 3,
+                        shadows: [
+                          Shadow(color: Colors.black54, blurRadius: 10),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Jackpot amount
+                Text(
+                  '\$${_jackpotAmount.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 56,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
+                    shadows: [
+                      Shadow(color: jackpotColor, blurRadius: 20),
+                      const Shadow(color: Colors.black54, blurRadius: 10),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFreeSpinBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF8B5CF6), Color(0xFFE040FB)],
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF3a3a48)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE040FB).withOpacity(0.4),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.account_balance_wallet, color: Colors.white54, size: 16),
+          const Icon(Icons.star, color: Colors.white, size: 18),
           const SizedBox(width: 8),
           Text(
-            '\$${_sessionBalance.toStringAsFixed(0)}',
+            'FREE SPINS',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$_freeSpinsRemaining',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -1424,16 +1780,25 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
   }
 
   Widget _buildBackground() {
+    // Purple-tinted background during free spins
+    final bgColors = _isFreeSpin
+        ? [
+            const Color(0xFF2a1a38), // Purple tint
+            const Color(0xFF140a18),
+            const Color(0xFF08050a),
+          ]
+        : [
+            const Color(0xFF1a1a28),
+            const Color(0xFF0a0a12),
+            const Color(0xFF050508),
+          ];
+
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: Alignment.center,
           radius: 1.2,
-          colors: [
-            const Color(0xFF1a1a28),
-            const Color(0xFF0a0a12),
-            const Color(0xFF050508),
-          ],
+          colors: bgColors,
           stops: const [0.0, 0.6, 1.0],
         ),
       ),
@@ -1511,6 +1876,15 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
       _ => [FluxForgeTheme.accentGreen, FluxForgeTheme.accentGreen],
     };
 
+    // Colorblind-friendly icons to distinguish win tiers (in addition to color)
+    final tierIcon = switch (_currentWinTier) {
+      'ULTRA' => Icons.auto_awesome, // Star burst
+      'EPIC' => Icons.bolt,          // Lightning bolt
+      'MEGA' => Icons.stars,         // Stars
+      'BIG' => Icons.celebration,    // Confetti
+      _ => Icons.check_circle,       // Check mark
+    };
+
     return AnimatedBuilder(
       animation: _frameGlowAnimation,
       builder: (context, _) {
@@ -1531,17 +1905,40 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
                   ),
                 ],
               ),
-              child: Text(
-                '$_currentWinTier WIN!',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 4,
-                  shadows: [
-                    Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 2)),
-                  ],
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    tierIcon,
+                    color: Colors.white,
+                    size: 24,
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 2)),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '$_currentWinTier WIN!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 4,
+                      shadows: [
+                        Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 2)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    tierIcon,
+                    color: Colors.white,
+                    size: 24,
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 2)),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -1561,67 +1958,72 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
 
         return Transform.scale(
           scale: scale,
-          child: MouseRegion(
-            cursor: canSpin ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
-            child: GestureDetector(
-              onTap: canSpin ? () => _handleSpin(provider) : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: !canSpin
-                        ? [const Color(0xFF3a3a48), const Color(0xFF2a2a38)]
-                        : [FluxForgeTheme.accentBlue, const Color(0xFF2060CC)],
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: !canSpin
-                        ? const Color(0xFF4a4a58)
-                        : FluxForgeTheme.accentBlue.withOpacity(0.8),
-                    width: 2,
-                  ),
-                  boxShadow: !canSpin
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: FluxForgeTheme.accentBlue.withOpacity(0.4),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
+          child: _FocusableButton(
+            enabled: canSpin,
+            onTap: () => _handleSpin(provider),
+            builder: (context, isFocused) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: !canSpin
+                      ? [const Color(0xFF3a3a48), const Color(0xFF2a2a38)]
+                      : [FluxForgeTheme.accentBlue, const Color(0xFF2060CC)],
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isSpinning) ...[
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Text(
-                      isSpinning
-                          ? 'SPINNING...'
-                          : _sessionBalance < _currentBet
-                              ? 'NO FUNDS'
-                              : 'SPIN',
-                      style: TextStyle(
-                        color: canSpin ? Colors.white : Colors.white54,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 4,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: isFocused
+                      ? Colors.white
+                      : !canSpin
+                          ? const Color(0xFF4a4a58)
+                          : FluxForgeTheme.accentBlue.withOpacity(0.8),
+                  width: isFocused ? 3 : 2,
+                ),
+                boxShadow: [
+                  if (isFocused)
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.5),
+                      blurRadius: 16,
+                      spreadRadius: 4,
+                    ),
+                  if (canSpin && !isFocused)
+                    BoxShadow(
+                      color: FluxForgeTheme.accentBlue.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isSpinning) ...[
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
                       ),
                     ),
+                    const SizedBox(width: 12),
                   ],
-                ),
+                  Text(
+                    isSpinning
+                        ? 'SPINNING...'
+                        : _sessionBalance < _currentBet
+                            ? 'NO FUNDS'
+                            : 'SPIN',
+                    style: TextStyle(
+                      color: canSpin ? Colors.white : Colors.white54,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1811,33 +2213,47 @@ class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview>
   }
 
   Widget _buildExitButton() {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onExit,
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF3a3a48)),
+    return _FocusableButton(
+      enabled: true,
+      onTap: widget.onExit,
+      builder: (context, isFocused) => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isFocused ? Colors.white : const Color(0xFF3a3a48),
+            width: isFocused ? 2 : 1,
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.arrow_back, color: Colors.white54, size: 18),
-              SizedBox(width: 6),
-              Text(
-                'EXIT',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
+          boxShadow: isFocused
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.arrow_back,
+              color: isFocused ? Colors.white : Colors.white54,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'EXIT',
+              style: TextStyle(
+                color: isFocused ? Colors.white : Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

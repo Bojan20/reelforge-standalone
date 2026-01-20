@@ -130,8 +130,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   late AnimationController _symbolBounceController;
   late Animation<double> _symbolBounceAnimation;
 
-  // Particle system
+  // Particle system with object pool (eliminates GC pressure)
   final List<_WinParticle> _particles = [];
+  final _ParticlePool _particlePool = _ParticlePool();
   late AnimationController _particleController;
 
   // Anticipation/Near Miss animations
@@ -139,6 +140,10 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   late Animation<double> _anticipationPulse;
   late AnimationController _nearMissController;
   late Animation<double> _nearMissShake;
+
+  // Cascade animations
+  late AnimationController _cascadePopController;
+  late Animation<double> _cascadePopAnimation;
 
   List<List<int>> _displayGrid = [];
   List<List<int>> _targetGrid = [];
@@ -151,6 +156,11 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _isNearMiss = false;
   Set<int> _anticipationReels = {}; // Reels showing anticipation
   Set<String> _nearMissPositions = {}; // Positions that "just missed"
+
+  // Cascade state
+  bool _isCascading = false;
+  Set<String> _cascadePopPositions = {}; // Positions being popped
+  int _cascadeStep = 0;
 
   // Win display state
   double _displayedWinAmount = 0;
@@ -259,6 +269,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       CurvedAnimation(parent: _nearMissController, curve: Curves.elasticOut),
     );
 
+    // Cascade pop animation (symbols exploding/popping)
+    _cascadePopController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _cascadePopAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _cascadePopController, curve: Curves.easeInBack),
+    );
+
     _spinSymbols = List.generate(
       widget.reels,
       (_) => List.generate(20, (_) => _random.nextInt(10)),
@@ -278,6 +297,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       for (final particle in _particles) {
         particle.update();
       }
+      // Return dead particles to pool before removing
+      final deadParticles = _particles.where((p) => p.isDead).toList();
+      _particlePool.releaseAll(deadParticles);
       _particles.removeWhere((p) => p.isDead);
     });
   }
@@ -304,6 +326,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _particleController.dispose();
     _anticipationController.dispose();
     _nearMissController.dispose();
+    _cascadePopController.dispose();
   }
 
   @override
@@ -348,6 +371,19 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
           s.stageType.toLowerCase().contains('miss'));
       if (nearMiss && !_isNearMiss) {
         _triggerNearMiss(result);
+      }
+
+      // Check for cascade events
+      final cascadeStart = stages.any((s) =>
+          s.stageType.toLowerCase().contains('cascade') &&
+          s.stageType.toLowerCase().contains('start'));
+      final cascadeStep = stages.any((s) =>
+          s.stageType.toLowerCase().contains('cascade') &&
+          s.stageType.toLowerCase().contains('step'));
+      if (cascadeStart && !_isCascading) {
+        _startCascade(result);
+      } else if (cascadeStep && _isCascading) {
+        _cascadeStepAnimation(result);
       }
     }
 
@@ -443,12 +479,20 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     });
   }
 
+  /// Get win tier based on win-to-bet ratio (industry standard)
+  /// ULTRA: 100x+, EPIC: 50x+, MEGA: 25x+, BIG: 10x+, SMALL: >0x
   String _getWinTier(double totalWin) {
-    if (totalWin >= 500) return 'ULTRA';
-    if (totalWin >= 200) return 'EPIC';
-    if (totalWin >= 100) return 'MEGA';
-    if (totalWin >= 50) return 'BIG';
-    return 'SMALL';
+    // Use bet from provider, fallback to 1.0 for ratio calculation
+    final bet = widget.provider.betAmount;
+    if (bet <= 0) return totalWin > 0 ? 'SMALL' : '';
+
+    final ratio = totalWin / bet;
+    if (ratio >= 100) return 'ULTRA';
+    if (ratio >= 50) return 'EPIC';
+    if (ratio >= 25) return 'MEGA';
+    if (ratio >= 10) return 'BIG';
+    if (ratio > 0) return 'SMALL';
+    return '';
   }
 
   /// Format win amount with currency-style thousand separators
@@ -497,6 +541,78 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CASCADE / TUMBLE EFFECTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start cascade/tumble sequence
+  void _startCascade(SlotLabSpinResult? result) {
+    setState(() {
+      _isCascading = true;
+      _cascadeStep = 0;
+      // Mark winning positions for pop animation
+      _cascadePopPositions = Set.from(_winningPositions);
+    });
+  }
+
+  /// Animate a cascade step (symbols popping and new ones falling)
+  void _cascadeStepAnimation(SlotLabSpinResult? result) {
+    setState(() {
+      _cascadeStep++;
+    });
+
+    // Pop animation for winning symbols
+    _cascadePopController.forward(from: 0).then((_) {
+      if (mounted) {
+        // After pop, spawn particles and reset
+        _spawnCascadeParticles();
+        setState(() {
+          _cascadePopPositions = {};
+        });
+        _cascadePopController.reset();
+      }
+    });
+  }
+
+  /// Spawn particles for cascade pop effect
+  void _spawnCascadeParticles() {
+    for (final pos in _cascadePopPositions) {
+      final parts = pos.split(',');
+      if (parts.length != 2) continue;
+      final reelIdx = int.tryParse(parts[0]) ?? 0;
+      final rowIdx = int.tryParse(parts[1]) ?? 0;
+
+      // Calculate normalized position
+      final x = (reelIdx + 0.5) / widget.reels;
+      final y = (rowIdx + 0.5) / widget.rows;
+
+      // Spawn burst of particles at symbol position
+      for (int i = 0; i < 5; i++) {
+        _particles.add(_particlePool.acquire(
+          x: x,
+          y: y,
+          vx: (_random.nextDouble() - 0.5) * 0.03,
+          vy: (_random.nextDouble() - 0.5) * 0.03,
+          size: _random.nextDouble() * 6 + 3,
+          color: const Color(0xFFFFD700),
+          type: _ParticleType.sparkle,
+          rotation: _random.nextDouble() * math.pi * 2,
+          rotationSpeed: (_random.nextDouble() - 0.5) * 0.3,
+        ));
+      }
+    }
+    _particleController.forward(from: 0);
+  }
+
+  /// End cascade sequence
+  void _endCascade() {
+    setState(() {
+      _isCascading = false;
+      _cascadeStep = 0;
+      _cascadePopPositions = {};
+    });
+  }
+
   void _spawnWinParticles(String tier) {
     final particleCount = switch (tier) {
       'ULTRA' => 60,
@@ -506,8 +622,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _ => 10,
     };
 
+    // Use object pool to avoid GC pressure during win animations
     for (int i = 0; i < particleCount; i++) {
-      _particles.add(_WinParticle(
+      _particles.add(_particlePool.acquire(
         x: _random.nextDouble(),
         y: _random.nextDouble() * 0.3 + 0.35, // Spawn around center
         vx: (_random.nextDouble() - 0.5) * 0.02,
@@ -536,6 +653,9 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   @override
   Widget build(BuildContext context) {
+    // Check for reduced motion preference (accessibility)
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final borderColor = _winningReels.isNotEmpty
@@ -576,8 +696,8 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
               ),
 
-              // Particle layer
-              if (_particles.isNotEmpty)
+              // Particle layer (respects reduced motion preference)
+              if (_particles.isNotEmpty && !reduceMotion)
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _ParticlePainter(particles: _particles),
@@ -752,6 +872,7 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final isSpinning = controller.isAnimating;
     final isAnticipationReel = _anticipationReels.contains(reelIndex);
     final isNearMissPosition = _nearMissPositions.contains(posKey);
+    final isCascadePopPosition = _cascadePopPositions.contains(posKey);
 
     return AnimatedBuilder(
       animation: Listenable.merge([
@@ -760,12 +881,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _symbolBounceAnimation,
         _anticipationPulse,
         _nearMissShake,
+        _cascadePopAnimation,
       ]),
       builder: (context, child) {
         // Calculate bounce offset for winning symbols
         double bounceOffset = 0;
         double glowIntensity = 0;
         double shakeOffset = 0;
+        double cascadeScale = 1.0;
+        double cascadeOpacity = 1.0;
 
         if (isWinningPosition && !isSpinning) {
           // Bounce effect - symbols jump up and settle
@@ -778,6 +902,12 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (isNearMissPosition && _isNearMiss) {
           shakeOffset = math.sin(_nearMissShake.value * math.pi * 6) * 4 *
               (1 - _nearMissShake.value); // Dampening shake
+        }
+
+        // Cascade pop effect - symbols shrink and fade when popping
+        if (isCascadePopPosition && _isCascading) {
+          cascadeScale = _cascadePopAnimation.value;
+          cascadeOpacity = _cascadePopAnimation.value;
         }
 
         // Determine border color based on state
@@ -833,29 +963,45 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         return Transform.translate(
           offset: Offset(shakeOffset, bounceOffset),
-          child: Container(
-            width: cellSize,
-            height: cellSize,
-            margin: const EdgeInsets.all(1),
-            decoration: BoxDecoration(
-              color: const Color(0xFF08080C),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: borderColor,
-                width: borderWidth,
-              ),
-              boxShadow: shadows,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: isSpinning
-                ? _buildSpinningSymbolContent(
-                    reelIndex, rowIndex, cellSize, controller.value,
-                    isAnticipation: isAnticipationReel && _isAnticipation,
-                  )
-                : _buildStaticSymbolContent(
-                    reelIndex, rowIndex, cellSize, isWinningPosition,
-                    isNearMiss: isNearMissPosition && _isNearMiss,
+          child: Transform.scale(
+            scale: cascadeScale,
+            child: Opacity(
+              opacity: cascadeOpacity,
+              child: Container(
+                width: cellSize,
+                height: cellSize,
+                margin: const EdgeInsets.all(1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF08080C),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isCascadePopPosition && _isCascading
+                        ? const Color(0xFFFFD700).withOpacity(cascadeOpacity)
+                        : borderColor,
+                    width: borderWidth,
                   ),
+                  boxShadow: isCascadePopPosition && _isCascading
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFFFD700).withOpacity(0.6 * cascadeOpacity),
+                            blurRadius: 16 * cascadeScale,
+                            spreadRadius: 4 * cascadeScale,
+                          ),
+                        ]
+                      : shadows,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: isSpinning
+                    ? _buildSpinningSymbolContent(
+                        reelIndex, rowIndex, cellSize, controller.value,
+                        isAnticipation: isAnticipationReel && _isAnticipation,
+                      )
+                    : _buildStaticSymbolContent(
+                        reelIndex, rowIndex, cellSize, isWinningPosition,
+                        isNearMiss: isNearMissPosition && _isNearMiss,
+                      ),
+              ),
+            ),
           ),
         );
       },
@@ -1104,27 +1250,40 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
 enum _ParticleType { coin, sparkle }
 
 class _WinParticle {
-  double x, y;
-  double vx, vy;
-  double size;
-  Color color;
-  _ParticleType type;
-  double rotation;
-  double rotationSpeed;
+  double x = 0, y = 0;
+  double vx = 0, vy = 0;
+  double size = 4;
+  Color color = const Color(0xFFFFD700);
+  _ParticleType type = _ParticleType.coin;
+  double rotation = 0;
+  double rotationSpeed = 0;
   double life = 1.0;
   double gravity = 0.0005;
 
-  _WinParticle({
-    required this.x,
-    required this.y,
-    required this.vx,
-    required this.vy,
-    required this.size,
-    required this.color,
-    required this.type,
-    required this.rotation,
-    required this.rotationSpeed,
-  });
+  /// Reset particle for reuse from pool
+  void reset({
+    required double x,
+    required double y,
+    required double vx,
+    required double vy,
+    required double size,
+    required Color color,
+    required _ParticleType type,
+    required double rotation,
+    required double rotationSpeed,
+  }) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.size = size;
+    this.color = color;
+    this.type = type;
+    this.rotation = rotation;
+    this.rotationSpeed = rotationSpeed;
+    life = 1.0;
+    gravity = 0.0005;
+  }
 
   void update() {
     x += vx;
@@ -1138,6 +1297,47 @@ class _WinParticle {
   }
 
   bool get isDead => life <= 0 || y > 1.2 || x < -0.1 || x > 1.1;
+}
+
+/// Object pool for particles - eliminates GC pressure during win animations
+class _ParticlePool {
+  final List<_WinParticle> _available = [];
+  static const int maxPoolSize = 100;
+
+  /// Acquire a particle from the pool or create new if pool is empty
+  _WinParticle acquire({
+    required double x,
+    required double y,
+    required double vx,
+    required double vy,
+    required double size,
+    required Color color,
+    required _ParticleType type,
+    required double rotation,
+    required double rotationSpeed,
+  }) {
+    final particle = _available.isNotEmpty ? _available.removeLast() : _WinParticle();
+    particle.reset(
+      x: x, y: y, vx: vx, vy: vy,
+      size: size, color: color, type: type,
+      rotation: rotation, rotationSpeed: rotationSpeed,
+    );
+    return particle;
+  }
+
+  /// Return a particle to the pool for reuse
+  void release(_WinParticle particle) {
+    if (_available.length < maxPoolSize) {
+      _available.add(particle);
+    }
+  }
+
+  /// Release multiple particles
+  void releaseAll(Iterable<_WinParticle> particles) {
+    for (final p in particles) {
+      release(p);
+    }
+  }
 }
 
 class _ParticlePainter extends CustomPainter {

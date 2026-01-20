@@ -793,6 +793,34 @@ All panels accessible via Process group: `fabfilter-eq`, `fabfilter-comp`, `fabf
 - ✅ Atomic channel_count (lock-free FFI query)
 - ⚠️ Routing UI Panel (TODO: visual matrix)
 
+### DAW Audio Routing (2026-01-20) ✅
+
+Dve odvojene mixer arhitekture za različite sektore:
+
+| Provider | Sektor | FFI | Namena |
+|----------|--------|-----|--------|
+| **MixerProvider** | DAW | ✅ | Timeline playback, track routing |
+| **MixerDSPProvider** | Middleware/SlotLab | ✅ | Event-based audio, bus mixing |
+
+**MixerProvider** (`mixer_provider.dart`):
+- Track volume/pan → `NativeFFI.setTrackVolume/Pan()`
+- Bus volume/pan → `engine.setBusVolume/Pan()`
+- Mute/Solo → `NativeFFI.setTrackMute/Solo()`, `mixerSetBusMute/Solo()`
+- Real-time metering integration
+
+**MixerDSPProvider** (`mixer_dsp_provider.dart`) — UPDATED 2026-01-20:
+- Bus volume → `NativeFFI.setBusVolume(engineIdx, volume)`
+- Bus pan → `NativeFFI.setBusPan(engineIdx, pan)`
+- Mute/Solo → `NativeFFI.setBusMute/Solo(engineIdx, state)`
+- `connect()` sinhronizuje sve buseve sa engine-om
+
+**Bus Engine ID Mapping:**
+```
+sfx=0, music=1, voice=2, ambience=3, aux=4, master=5
+```
+
+**Dokumentacija:** `.claude/architecture/DAW_AUDIO_ROUTING.md`
+
 ### Advanced Middleware (Wwise/FMOD-style)
 - ✅ **Ducking Matrix** — Automatic volume ducking (source→target bus matrix, attack/release/curve)
 - ✅ **Blend Containers** — RTPC-based crossfade between sounds (range sliders, curve visualization)
