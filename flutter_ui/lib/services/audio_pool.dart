@@ -65,6 +65,7 @@ class _PooledVoice {
   final int voiceId;
   final String eventKey;
   final int busId;
+  double lastPan; // Track last used pan for potential reuse
   bool isPlaying;
   DateTime lastUsed;
 
@@ -72,6 +73,7 @@ class _PooledVoice {
     required this.voiceId,
     required this.eventKey,
     required this.busId,
+    this.lastPan = 0.0,
     this.isPlaying = false,
   }) : lastUsed = DateTime.now();
 
@@ -139,11 +141,13 @@ class AudioPool extends ChangeNotifier {
   /// Returns voice ID that can be used with FFI.
   /// If pool has available voice, reuses it (fast).
   /// Otherwise creates new voice (slower).
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
   int acquire({
     required String eventKey,
     required String audioPath,
     required int busId,
     double volume = 1.0,
+    double pan = 0.0,
   }) {
     _totalAcquires++;
 
@@ -166,8 +170,9 @@ class AudioPool extends ChangeNotifier {
       // Pool hit - reuse existing voice
       _poolHits++;
       voice.markPlaying();
-      _playVoice(voice.voiceId, audioPath, volume, busId);
-      debugPrint('[AudioPool] HIT: $normalizedKey (voice ${voice.voiceId})');
+      voice.lastPan = pan;
+      _playVoice(voice.voiceId, audioPath, volume, pan, busId);
+      debugPrint('[AudioPool] HIT: $normalizedKey (voice ${voice.voiceId}, pan ${pan.toStringAsFixed(2)})');
       return voice.voiceId;
     }
 
@@ -181,23 +186,25 @@ class AudioPool extends ChangeNotifier {
       for (final v in pool) {
         if (v.isIdle) {
           v.markPlaying();
-          _playVoice(v.voiceId, audioPath, volume, busId);
-          debugPrint('[AudioPool] RECYCLE: $normalizedKey (voice ${v.voiceId})');
+          v.lastPan = pan;
+          _playVoice(v.voiceId, audioPath, volume, pan, busId);
+          debugPrint('[AudioPool] RECYCLE: $normalizedKey (voice ${v.voiceId}, pan ${pan.toStringAsFixed(2)})');
           return v.voiceId;
         }
       }
       // All voices busy - play anyway but don't pool
-      final tempVoiceId = _createAndPlayVoice(audioPath, volume, busId);
+      final tempVoiceId = _createAndPlayVoice(audioPath, volume, pan, busId);
       debugPrint('[AudioPool] OVERFLOW: $normalizedKey (temp voice $tempVoiceId)');
       return tempVoiceId;
     }
 
     // Create new pooled voice
-    final newVoiceId = _createAndPlayVoice(audioPath, volume, busId);
+    final newVoiceId = _createAndPlayVoice(audioPath, volume, pan, busId);
     final newVoice = _PooledVoice(
       voiceId: newVoiceId,
       eventKey: normalizedKey,
       busId: busId,
+      lastPan: pan,
     )..markPlaying();
 
     pool.add(newVoice);
@@ -313,12 +320,13 @@ class AudioPool extends ChangeNotifier {
 
   String _normalizeKey(String key) => key.toUpperCase().trim();
 
-  int _createAndPlayVoice(String audioPath, double volume, int busId) {
+  int _createAndPlayVoice(String audioPath, double volume, double pan, int busId) {
     try {
       // Use Rust PlaybackEngine one-shot system
       final voiceId = NativeFFI.instance.playbackPlayToBus(
         audioPath,
         volume: volume.clamp(0.0, 1.0),
+        pan: pan.clamp(-1.0, 1.0),
         busId: busId,
       );
       return voiceId;
@@ -328,13 +336,14 @@ class AudioPool extends ChangeNotifier {
     }
   }
 
-  void _playVoice(int voiceId, String audioPath, double volume, int busId) {
+  void _playVoice(int voiceId, String audioPath, double volume, double pan, int busId) {
     try {
       // For reused voices, we still need to trigger new playback
       // The engine handles voice reuse internally
       NativeFFI.instance.playbackPlayToBus(
         audioPath,
         volume: volume.clamp(0.0, 1.0),
+        pan: pan.clamp(-1.0, 1.0),
         busId: busId,
       );
     } catch (e) {

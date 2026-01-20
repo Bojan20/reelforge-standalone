@@ -433,8 +433,13 @@ typedef EnginePreviewIsPlayingNative = Int32 Function();
 typedef EnginePreviewIsPlayingDart = int Function();
 
 // One-Shot Bus Playback (for Middleware/SlotLab event preview through buses)
-typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Uint32 busId);
-typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, int busId);
+// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
+typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId);
+typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId);
+
+// P0.2: Looping Bus Playback (for REEL_SPIN, ambience loops, etc.)
+typedef EnginePlaybackPlayLoopingToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId);
+typedef EnginePlaybackPlayLoopingToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId);
 
 typedef EnginePlaybackStopOneShotNative = Void Function(Uint64 voiceId);
 typedef EnginePlaybackStopOneShotDart = void Function(int voiceId);
@@ -1919,6 +1924,7 @@ class NativeFFI {
 
   // One-Shot Bus Playback
   late final EnginePlaybackPlayToBusDart _playbackPlayToBus;
+  late final EnginePlaybackPlayLoopingToBusDart _playbackPlayLoopingToBus;
   late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
 
@@ -2516,6 +2522,7 @@ class NativeFFI {
 
     // One-Shot Bus Playback
     _playbackPlayToBus = _lib.lookupFunction<EnginePlaybackPlayToBusNative, EnginePlaybackPlayToBusDart>('engine_playback_play_to_bus');
+    _playbackPlayLoopingToBus = _lib.lookupFunction<EnginePlaybackPlayLoopingToBusNative, EnginePlaybackPlayLoopingToBusDart>('engine_playback_play_looping_to_bus');
     _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
 
@@ -3900,17 +3907,18 @@ class NativeFFI {
   /// Last error from playback to bus operation
   String lastPlaybackToBusError = '';
 
-  /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+  /// Play one-shot audio through a specific bus with spatial pan (Middleware/SlotLab events)
   /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
   /// Returns voice_id on success (positive number), -1 on error
-  int playbackPlayToBus(String path, {double volume = 1.0, int busId = 0}) {
+  int playbackPlayToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0}) {
     if (!_loaded) {
       lastPlaybackToBusError = 'FFI not loaded';
       return -1;
     }
     final pathPtr = path.toNativeUtf8();
     try {
-      final resultPtr = _playbackPlayToBus(pathPtr, volume, busId);
+      final resultPtr = _playbackPlayToBus(pathPtr, volume, pan, busId);
       if (resultPtr == nullptr) {
         lastPlaybackToBusError = 'null result pointer';
         return -1;
@@ -3920,6 +3928,44 @@ class NativeFFI {
       // Parse JSON result
       if (result.contains('"error"')) {
         // Extract error message
+        final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
+        lastPlaybackToBusError = errorMatch?.group(1) ?? result;
+        return -1;
+      }
+      // Extract voice_id from {"voice_id":123}
+      final match = RegExp(r'"voice_id":(\d+)').firstMatch(result);
+      if (match != null) {
+        lastPlaybackToBusError = '';
+        return int.tryParse(match.group(1)!) ?? -1;
+      }
+      lastPlaybackToBusError = 'invalid response: $result';
+      return -1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
+  /// Loops seamlessly until explicitly stopped with playbackStopOneShot()
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+  /// Returns voice_id on success (positive number), -1 on error
+  int playbackPlayLoopingToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0}) {
+    if (!_loaded) {
+      lastPlaybackToBusError = 'FFI not loaded';
+      return -1;
+    }
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final resultPtr = _playbackPlayLoopingToBus(pathPtr, volume, pan, busId);
+      if (resultPtr == nullptr) {
+        lastPlaybackToBusError = 'null result pointer';
+        return -1;
+      }
+      final result = resultPtr.toDartString();
+      calloc.free(resultPtr);
+      // Parse JSON result
+      if (result.contains('"error"')) {
         final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
         lastPlaybackToBusError = errorMatch?.group(1) ?? result;
         return -1;
@@ -14349,6 +14395,145 @@ class SlotLabStats {
   }
 }
 
+/// Slot Lab timing configuration for audio latency compensation
+class SlotLabTimingConfig {
+  /// Timing profile type (normal, turbo, mobile, studio)
+  final String profile;
+
+  /// Time for each reel to spin before stopping (ms)
+  final double reelSpinDurationMs;
+
+  /// Delay between reel stops (ms)
+  final double reelStopIntervalMs;
+
+  /// Anticipation duration per reel (ms)
+  final double anticipationDurationMs;
+
+  /// Delay before win presentation (ms)
+  final double winRevealDelayMs;
+
+  /// Duration per win line highlight (ms)
+  final double winLineDurationMs;
+
+  /// Rollup speed (credits per second)
+  final double rollupSpeed;
+
+  /// Big win celebration base duration (ms)
+  final double bigWinBaseDurationMs;
+
+  /// Feature enter transition (ms)
+  final double featureEnterDurationMs;
+
+  /// Cascade step duration (ms)
+  final double cascadeStepDurationMs;
+
+  /// Minimum time between stage events (ms)
+  final double minEventIntervalMs;
+
+  // Audio latency compensation parameters
+  /// Audio buffer latency compensation (ms)
+  final double audioLatencyCompensationMs;
+
+  /// Visual-to-audio sync offset (ms)
+  final double visualAudioSyncOffsetMs;
+
+  /// Pre-trigger offset for anticipation audio (ms)
+  final double anticipationAudioPreTriggerMs;
+
+  /// Pre-trigger offset for reel stop audio (ms)
+  final double reelStopAudioPreTriggerMs;
+
+  const SlotLabTimingConfig({
+    required this.profile,
+    required this.reelSpinDurationMs,
+    required this.reelStopIntervalMs,
+    required this.anticipationDurationMs,
+    required this.winRevealDelayMs,
+    required this.winLineDurationMs,
+    required this.rollupSpeed,
+    required this.bigWinBaseDurationMs,
+    required this.featureEnterDurationMs,
+    required this.cascadeStepDurationMs,
+    required this.minEventIntervalMs,
+    required this.audioLatencyCompensationMs,
+    required this.visualAudioSyncOffsetMs,
+    required this.anticipationAudioPreTriggerMs,
+    required this.reelStopAudioPreTriggerMs,
+  });
+
+  /// Total audio offset (compensation + sync)
+  double get totalAudioOffsetMs =>
+      audioLatencyCompensationMs + visualAudioSyncOffsetMs;
+
+  /// Calculate audio trigger time for a visual event
+  double audioTriggerTime(double visualTimestampMs, double preTriggerMs) {
+    return (visualTimestampMs - totalAudioOffsetMs - preTriggerMs).clamp(0.0, double.infinity);
+  }
+
+  /// Calculate audio trigger time for reel stop event
+  double reelStopAudioTime(double visualTimestampMs) {
+    return audioTriggerTime(visualTimestampMs, reelStopAudioPreTriggerMs);
+  }
+
+  /// Calculate audio trigger time for anticipation event
+  double anticipationAudioTime(double visualTimestampMs) {
+    return audioTriggerTime(visualTimestampMs, anticipationAudioPreTriggerMs);
+  }
+
+  factory SlotLabTimingConfig.fromJson(Map<String, dynamic> json) {
+    // Handle profile as either a string or an enum object
+    String profileStr;
+    final profileValue = json['profile'];
+    if (profileValue is String) {
+      profileStr = profileValue;
+    } else if (profileValue is Map) {
+      // Serde serializes enums as {"EnumName": null} or just "EnumName"
+      profileStr = profileValue.keys.first.toString();
+    } else {
+      profileStr = 'Normal';
+    }
+
+    return SlotLabTimingConfig(
+      profile: profileStr,
+      reelSpinDurationMs: (json['reel_spin_duration_ms'] as num?)?.toDouble() ?? 800.0,
+      reelStopIntervalMs: (json['reel_stop_interval_ms'] as num?)?.toDouble() ?? 300.0,
+      anticipationDurationMs: (json['anticipation_duration_ms'] as num?)?.toDouble() ?? 1500.0,
+      winRevealDelayMs: (json['win_reveal_delay_ms'] as num?)?.toDouble() ?? 200.0,
+      winLineDurationMs: (json['win_line_duration_ms'] as num?)?.toDouble() ?? 500.0,
+      rollupSpeed: (json['rollup_speed'] as num?)?.toDouble() ?? 50.0,
+      bigWinBaseDurationMs: (json['big_win_base_duration_ms'] as num?)?.toDouble() ?? 3000.0,
+      featureEnterDurationMs: (json['feature_enter_duration_ms'] as num?)?.toDouble() ?? 2000.0,
+      cascadeStepDurationMs: (json['cascade_step_duration_ms'] as num?)?.toDouble() ?? 600.0,
+      minEventIntervalMs: (json['min_event_interval_ms'] as num?)?.toDouble() ?? 50.0,
+      audioLatencyCompensationMs: (json['audio_latency_compensation_ms'] as num?)?.toDouble() ?? 5.0,
+      visualAudioSyncOffsetMs: (json['visual_audio_sync_offset_ms'] as num?)?.toDouble() ?? 0.0,
+      anticipationAudioPreTriggerMs: (json['anticipation_audio_pre_trigger_ms'] as num?)?.toDouble() ?? 50.0,
+      reelStopAudioPreTriggerMs: (json['reel_stop_audio_pre_trigger_ms'] as num?)?.toDouble() ?? 20.0,
+    );
+  }
+
+  /// Default studio config (optimized for audio production)
+  factory SlotLabTimingConfig.studio() {
+    return const SlotLabTimingConfig(
+      profile: 'Studio',
+      reelSpinDurationMs: 600.0,
+      reelStopIntervalMs: 350.0,
+      anticipationDurationMs: 500.0,
+      winRevealDelayMs: 100.0,
+      winLineDurationMs: 200.0,
+      rollupSpeed: 500.0,
+      bigWinBaseDurationMs: 1000.0,
+      featureEnterDurationMs: 500.0,
+      cascadeStepDurationMs: 300.0,
+      minEventIntervalMs: 50.0,
+      audioLatencyCompensationMs: 3.0,
+      visualAudioSyncOffsetMs: 0.0,
+      anticipationAudioPreTriggerMs: 30.0,
+      reelStopAudioPreTriggerMs: 15.0,
+    );
+  }
+}
+
 /// Line win from spin result
 class LineWin {
   final int lineIndex;
@@ -14995,6 +15180,101 @@ extension SlotLabFFI on NativeFFI {
     } catch (e) {
       print('[SlotLab] slotLabImportConfig error: $e');
       return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TIMING CONFIG - Audio Latency Compensation
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Get full timing config as JSON
+  SlotLabTimingConfig? slotLabGetTimingConfig() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'slot_lab_get_timing_config_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'slot_lab_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      if (json.isEmpty || json == '{}') return null;
+
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      return SlotLabTimingConfig.fromJson(map);
+    } catch (e) {
+      print('[SlotLab] slotLabGetTimingConfig error: $e');
+      return null;
+    }
+  }
+
+  /// Get audio latency compensation in ms
+  double slotLabGetAudioLatencyCompensationMs() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_audio_latency_compensation_ms',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetAudioLatencyCompensationMs error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get visual-audio sync offset in ms
+  double slotLabGetVisualAudioSyncOffsetMs() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_visual_audio_sync_offset_ms',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetVisualAudioSyncOffsetMs error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get anticipation pre-trigger offset in ms
+  double slotLabGetAnticipationPreTriggerMs() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_anticipation_pre_trigger_ms',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetAnticipationPreTriggerMs error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get reel stop pre-trigger offset in ms
+  double slotLabGetReelStopPreTriggerMs() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_reel_stop_pre_trigger_ms',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetReelStopPreTriggerMs error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get cascade step duration in ms
+  double slotLabGetCascadeStepDurationMs() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'slot_lab_get_cascade_step_duration_ms',
+      );
+      return fn();
+    } catch (e) {
+      print('[SlotLab] slotLabGetCascadeStepDurationMs error: $e');
+      return 400.0;
     }
   }
 }

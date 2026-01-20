@@ -175,6 +175,11 @@ impl SyntheticSlotEngine {
         &self.config
     }
 
+    /// Get current timing config
+    pub fn timing_config(&self) -> &TimingConfig {
+        &self.timing_config
+    }
+
     /// Get session stats
     pub fn stats(&self) -> &SessionStats {
         &self.stats

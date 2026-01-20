@@ -15,6 +15,7 @@ import '../models/stage_models.dart';
 import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
+import '../services/rtpc_modulation_service.dart';
 import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
 import 'middleware_provider.dart';
@@ -48,6 +49,20 @@ class SlotLabProvider extends ChangeNotifier {
   double _betAmount = 1.0;
   bool _cascadesEnabled = true;
   bool _freeSpinsEnabled = true;
+
+  // ─── Audio Timing Configuration ─────────────────────────────────────────────
+  /// P0.1: Timing configuration from Rust engine
+  /// Contains audio latency compensation and pre-trigger offsets
+  SlotLabTimingConfig? _timingConfig;
+
+  /// P0.6: Pre-trigger offset for anticipation audio (ms)
+  /// Audio starts this much before the visual anticipation begins
+  /// Configurable via setAnticipationPreTriggerMs()
+  int _anticipationPreTriggerMs = 50;
+
+  /// P0.1: Reel stop pre-trigger offset (ms)
+  /// Audio starts this much before the reel visually stops
+  int _reelStopPreTriggerMs = 20;
   bool _jackpotEnabled = true;
 
   // ─── Free Spins State ──────────────────────────────────────────────────────
@@ -61,6 +76,7 @@ class SlotLabProvider extends ChangeNotifier {
 
   // ─── Stage Event Playback ──────────────────────────────────────────────────
   Timer? _stagePlaybackTimer;
+  Timer? _audioPreTriggerTimer; // P0.6: Separate timer for audio pre-trigger
   int _currentStageIndex = 0;
   bool _isPlayingStages = false;
   int _totalReels = 5; // Default, can be configured
@@ -116,6 +132,18 @@ class SlotLabProvider extends ChangeNotifier {
   bool get isPlayingStages => _isPlayingStages;
   int get currentStageIndex => _currentStageIndex;
 
+  /// P0.6: Anticipation pre-trigger offset in ms
+  int get anticipationPreTriggerMs => _anticipationPreTriggerMs;
+
+  /// P0.1: Reel stop pre-trigger offset in ms
+  int get reelStopPreTriggerMs => _reelStopPreTriggerMs;
+
+  /// P0.1: Get timing configuration (latency compensation values)
+  SlotLabTimingConfig? get timingConfig => _timingConfig;
+
+  /// P0.1: Total audio offset in ms (latency compensation + sync)
+  double get totalAudioOffsetMs => _timingConfig?.totalAudioOffsetMs ?? 5.0;
+
   /// Get the current grid (5x3 symbol IDs)
   List<List<int>>? get currentGrid => _lastResult?.grid;
 
@@ -149,6 +177,7 @@ class SlotLabProvider extends ChangeNotifier {
     if (success) {
       _initialized = true;
       _updateStats();
+      _loadTimingConfig(); // P0.1: Load timing config from Rust
 
       // Configure AudioPool for Slot Lab rapid-fire events
       AudioPool.instance.configure(AudioPoolConfig.slotLabConfig);
@@ -168,6 +197,7 @@ class SlotLabProvider extends ChangeNotifier {
     if (!_initialized) return;
 
     _stagePlaybackTimer?.cancel();
+    _audioPreTriggerTimer?.cancel();
     _ffi.slotLabShutdown();
     _initialized = false;
     _lastResult = null;
@@ -214,8 +244,28 @@ class SlotLabProvider extends ChangeNotifier {
     _timingProfile = profile;
     if (_initialized) {
       _ffi.slotLabSetTimingProfile(profile);
+      _loadTimingConfig(); // P0.1: Reload timing config after profile change
     }
     notifyListeners();
+  }
+
+  /// P0.1: Load timing configuration from Rust engine
+  void _loadTimingConfig() {
+    _timingConfig = _ffi.slotLabGetTimingConfig();
+    if (_timingConfig != null) {
+      // Apply timing config values to local fields
+      _anticipationPreTriggerMs = _timingConfig!.anticipationAudioPreTriggerMs.round();
+      _reelStopPreTriggerMs = _timingConfig!.reelStopAudioPreTriggerMs.round();
+      debugPrint('[SlotLabProvider] P0.1 Timing config loaded: '
+          'latency=${_timingConfig!.audioLatencyCompensationMs}ms, '
+          'syncOffset=${_timingConfig!.visualAudioSyncOffsetMs}ms, '
+          'anticipationPreTrigger=${_anticipationPreTriggerMs}ms, '
+          'reelStopPreTrigger=${_reelStopPreTriggerMs}ms');
+    } else {
+      // Use defaults if config not available
+      _timingConfig = SlotLabTimingConfig.studio();
+      debugPrint('[SlotLabProvider] P0.1 Using default studio timing config');
+    }
   }
 
   /// Set bet amount
@@ -257,6 +307,15 @@ class SlotLabProvider extends ChangeNotifier {
   /// Set auto audio triggering
   void setAutoTriggerAudio(bool enabled) {
     _autoTriggerAudio = enabled;
+    notifyListeners();
+  }
+
+  /// P0.6: Set anticipation pre-trigger offset in ms
+  /// Higher value = audio plays earlier relative to visual
+  /// Typical values: 30-100ms
+  void setAnticipationPreTriggerMs(int ms) {
+    _anticipationPreTriggerMs = ms.clamp(0, 200);
+    debugPrint('[SlotLabProvider] Anticipation pre-trigger: ${_anticipationPreTriggerMs}ms');
     notifyListeners();
   }
 
@@ -379,6 +438,7 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     _stagePlaybackTimer?.cancel();
+    _audioPreTriggerTimer?.cancel();
     _currentStageIndex = 0;
     _isPlayingStages = true;
 
@@ -407,17 +467,222 @@ class SlotLabProvider extends ChangeNotifier {
 
     final currentStage = _lastStages[_currentStageIndex];
     final nextStage = _lastStages[_currentStageIndex + 1];
-    final delayMs = (nextStage.timestampMs - currentStage.timestampMs).toInt();
+    int delayMs = (nextStage.timestampMs - currentStage.timestampMs).toInt();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.5: DYNAMIC ROLLUP SPEED — Apply RTPC multiplier to rollup timing
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Only modify timing for ROLLUP_TICK stages (not START/END)
+    final nextStageType = nextStage.stageType.toUpperCase();
+    if (nextStageType == 'ROLLUP_TICK') {
+      // Get rollup speed multiplier from RTPC (1.0 = normal, >1 = faster, <1 = slower)
+      final speedMultiplier = RtpcModulationService.instance.getRollupSpeedMultiplier();
+      // Apply: higher multiplier = shorter delay (faster rollup)
+      delayMs = (delayMs / speedMultiplier).round();
+      // Clamp to reasonable bounds (min 10ms for audio, max 1000ms for usability)
+      delayMs = delayMs.clamp(10, 1000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.4: DYNAMIC CASCADE TIMING — Sync cascade audio with visual animation
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Use timing config's cascade_step_duration_ms for consistent timing
+    // Apply RTPC multiplier for dynamic speed control (like rollup)
+    if (nextStageType == 'CASCADE_STEP') {
+      final baseDurationMs = _timingConfig?.cascadeStepDurationMs ?? 400.0;
+      // Get cascade speed multiplier from RTPC (1.0 = normal, >1 = faster, <1 = slower)
+      final speedMultiplier = RtpcModulationService.instance.getCascadeSpeedMultiplier();
+      // Apply: higher multiplier = shorter delay (faster cascade)
+      delayMs = (baseDurationMs / speedMultiplier).round();
+      // Clamp to reasonable bounds (min 100ms for animation, max 1000ms for usability)
+      delayMs = delayMs.clamp(100, 1000);
+      debugPrint('[SlotLabProvider] P0.4 CASCADE_STEP timing: ${delayMs}ms (base: ${baseDurationMs.round()}ms, multiplier: ${speedMultiplier.toStringAsFixed(2)})');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.1: AUDIO LATENCY COMPENSATION — Apply timing config offsets
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Calculate total audio offset from timing config
+    final totalAudioOffset = _timingConfig?.totalAudioOffsetMs ?? 5.0;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.6: ANTICIPATION PRE-TRIGGER — Trigger audio earlier than visual
+    // ═══════════════════════════════════════════════════════════════════════════
+    // If next stage is ANTICIPATION_ON, schedule audio trigger earlier
+    if (nextStageType == 'ANTICIPATION_ON' && _anticipationPreTriggerMs > 0) {
+      // P0.1: Include total audio offset in pre-trigger calculation
+      final preTriggerTotal = _anticipationPreTriggerMs + totalAudioOffset.round();
+      final audioDelayMs = (delayMs - preTriggerTotal).clamp(0, delayMs);
+      if (audioDelayMs < delayMs) {
+        // Schedule AUDIO trigger earlier (pre-trigger)
+        _audioPreTriggerTimer?.cancel();
+        _audioPreTriggerTimer = Timer(Duration(milliseconds: audioDelayMs), () {
+          if (!_isPlayingStages) return;
+          // Trigger only the audio for anticipation (not full _triggerStage which includes UI logic)
+          _triggerAudioOnly(nextStage);
+          debugPrint('[SlotLabProvider] P0.1+P0.6 Pre-trigger: ANTICIPATION audio at ${audioDelayMs}ms (${preTriggerTotal}ms early, offset=${totalAudioOffset.toStringAsFixed(1)}ms)');
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P0.1: REEL_STOP PRE-TRIGGER — Trigger reel stop audio earlier than visual
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (nextStageType == 'REEL_STOP' && _reelStopPreTriggerMs > 0) {
+      // Include total audio offset in pre-trigger calculation
+      final preTriggerTotal = _reelStopPreTriggerMs + totalAudioOffset.round();
+      final audioDelayMs = (delayMs - preTriggerTotal).clamp(0, delayMs);
+      if (audioDelayMs < delayMs) {
+        // Schedule AUDIO trigger earlier (pre-trigger)
+        _audioPreTriggerTimer?.cancel();
+        _audioPreTriggerTimer = Timer(Duration(milliseconds: audioDelayMs), () {
+          if (!_isPlayingStages) return;
+          _triggerAudioOnly(nextStage);
+          debugPrint('[SlotLabProvider] P0.1 Pre-trigger: REEL_STOP audio at ${audioDelayMs}ms (${preTriggerTotal}ms early)');
+        });
+      }
+    }
 
     _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
       if (!_isPlayingStages) return;
 
       _currentStageIndex++;
-      _triggerStage(_lastStages[_currentStageIndex]);
+      final stage = _lastStages[_currentStageIndex];
+      final stageType = stage.stageType.toUpperCase();
+
+      // P0.1+P0.6: Check if audio was pre-triggered for this stage
+      final wasPreTriggered = (stageType == 'ANTICIPATION_ON' && _anticipationPreTriggerMs > 0) ||
+                               (stageType == 'REEL_STOP' && _reelStopPreTriggerMs > 0);
+
+      if (wasPreTriggered) {
+        // Audio already played via pre-trigger, only update UI state
+        // Still need to handle REEL_SPIN stop logic for REEL_STOP
+        if (stageType == 'REEL_STOP') {
+          _handleReelStopUIOnly(stage);
+        }
+        debugPrint('[SlotLabProvider] _triggerStage (UI only): $stageType @ ${stage.timestampMs.toStringAsFixed(0)}ms');
+      } else {
+        _triggerStage(stage);
+      }
       notifyListeners();
 
       _scheduleNextStage();
     });
+  }
+
+  /// P0.1: Handle REEL_STOP UI-only logic (when audio was pre-triggered)
+  /// This handles REEL_SPIN stop logic without re-triggering audio
+  void _handleReelStopUIOnly(SlotLabStageEvent stage) {
+    final reelIndex = stage.payload['reel_index'];
+
+    // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
+    final bool shouldStopReelSpin;
+    if (reelIndex != null) {
+      // Ako imamo specifičan reel index, stop kad je poslednji
+      shouldStopReelSpin = reelIndex >= _totalReels - 1;
+    } else {
+      // Ako nema reel indexa, ovo je generički REEL_STOP — proveri da li je poslednji
+      final currentIdx = _lastStages.indexWhere((s) =>
+        s.timestampMs == stage.timestampMs && s.stageType.toUpperCase() == 'REEL_STOP');
+      if (currentIdx >= 0 && currentIdx < _lastStages.length - 1) {
+        final nextStage = _lastStages[currentIdx + 1];
+        shouldStopReelSpin = nextStage.stageType.toUpperCase() != 'REEL_STOP';
+      } else {
+        // Poslednji stage u listi
+        shouldStopReelSpin = true;
+      }
+    }
+
+    if (shouldStopReelSpin) {
+      eventRegistry.stopEvent('REEL_SPIN');
+      debugPrint('[SlotLabProvider] REEL_SPIN stopped (last reel landed, index: $reelIndex)');
+    }
+  }
+
+  /// Trigger only the audio for a stage (no UI state changes)
+  /// Used for P0.6 anticipation pre-trigger
+  void _triggerAudioOnly(SlotLabStageEvent stage) {
+    final stageType = stage.stageType.toUpperCase();
+    final reelIndex = stage.payload['reel_index'];
+
+    String effectiveStage = stageType;
+    Map<String, dynamic> context = Map.from(stage.payload);
+
+    if (stageType == 'REEL_STOP' && reelIndex != null) {
+      effectiveStage = 'REEL_STOP_$reelIndex';
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'ANTICIPATION_ON') {
+      final escalationResult = _calculateAnticipationEscalation(stage);
+      effectiveStage = escalationResult.effectiveStage;
+      context['volumeMultiplier'] = escalationResult.volumeMultiplier;
+      if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
+        debugPrint('[SlotLabProvider] P1.2 Escalation: ${escalationResult.effectiveStage} (vol: ${escalationResult.volumeMultiplier.toStringAsFixed(2)})');
+      }
+    }
+
+    if (eventRegistry.hasEventForStage(effectiveStage)) {
+      eventRegistry.triggerStage(effectiveStage, context: context);
+    } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
+      eventRegistry.triggerStage(stageType, context: context);
+    } else if (eventRegistry.hasEventForStage(stageType)) {
+      eventRegistry.triggerStage(stageType, context: context);
+    }
+  }
+
+  /// P1.2: Calculate anticipation escalation based on near miss info
+  ({String effectiveStage, double volumeMultiplier}) _calculateAnticipationEscalation(SlotLabStageEvent stage) {
+    // Get near miss info from payload
+    final intensity = (stage.payload['intensity'] as num?)?.toDouble() ?? 0.5;
+    final missingSymbols = stage.payload['missing'] as int? ?? 2;
+    final triggerReel = stage.payload['trigger_reel'] as int? ?? 2;
+    final reason = stage.payload['reason'] as String?;
+
+    // Calculate effective intensity
+    // Later reels = more intense (player has seen more potential)
+    final reelFactor = (triggerReel + 1) / _totalReels; // 0.2 to 1.0
+
+    // Fewer missing symbols = closer to win = more intense
+    final missingFactor = switch (missingSymbols) {
+      1 => 1.0,   // One away = maximum tension
+      2 => 0.75,  // Two away = high tension
+      _ => 0.5,   // More = medium tension
+    };
+
+    final combinedIntensity = (intensity * reelFactor * missingFactor).clamp(0.0, 1.0);
+
+    // Select appropriate stage based on intensity
+    String effectiveStage;
+    double volumeMultiplier;
+
+    if (combinedIntensity >= 0.8) {
+      // Maximum tension - try ANTICIPATION_MAX or ANTICIPATION_HIGH
+      if (eventRegistry.hasEventForStage('ANTICIPATION_MAX')) {
+        effectiveStage = 'ANTICIPATION_MAX';
+      } else if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
+        effectiveStage = 'ANTICIPATION_HIGH';
+      } else {
+        effectiveStage = 'ANTICIPATION_ON';
+      }
+      volumeMultiplier = 1.0;
+    } else if (combinedIntensity >= 0.5) {
+      // High tension
+      if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
+        effectiveStage = 'ANTICIPATION_HIGH';
+      } else {
+        effectiveStage = 'ANTICIPATION_ON';
+      }
+      volumeMultiplier = 0.9;
+    } else {
+      // Medium tension - use default
+      effectiveStage = 'ANTICIPATION_ON';
+      volumeMultiplier = 0.7 + (combinedIntensity * 0.3); // 0.7 to 0.85
+    }
+
+    return (effectiveStage: effectiveStage, volumeMultiplier: volumeMultiplier);
   }
 
   /// Trigger audio for a stage event
@@ -425,6 +690,7 @@ class SlotLabProvider extends ChangeNotifier {
   void _triggerStage(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
     final reelIndex = stage.payload['reel_index'];
+    Map<String, dynamic> context = Map.from(stage.payload);
 
     debugPrint('[SlotLabProvider] _triggerStage: $stageType ${reelIndex != null ? "(reel $reelIndex)" : ""} @ ${stage.timestampMs.toStringAsFixed(0)}ms');
 
@@ -436,20 +702,69 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Za REEL_STOP, koristi specifičan stage po reel-u: REEL_STOP_0, REEL_STOP_1, itd.
     String effectiveStage = stageType;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'ANTICIPATION_ON') {
+      final escalationResult = _calculateAnticipationEscalation(stage);
+      effectiveStage = escalationResult.effectiveStage;
+      context['volumeMultiplier'] = escalationResult.volumeMultiplier;
+      if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
+        debugPrint('[SlotLabProvider] P1.2 Escalation: ${escalationResult.effectiveStage} (vol: ${escalationResult.volumeMultiplier.toStringAsFixed(2)})');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P1.3: WIN LINE AUDIO PANNING — Pan based on symbol positions
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'WIN_LINE_SHOW') {
+      final lineIndex = stage.payload['line_index'] as int? ?? 0;
+      final linePan = _calculateWinLinePan(lineIndex);
+      context['pan'] = linePan;
+      debugPrint('[SlotLabProvider] P1.3 Win Line Pan: line $lineIndex → pan ${linePan.toStringAsFixed(2)}');
+    }
+
     if (stageType == 'REEL_STOP' && reelIndex != null) {
       effectiveStage = 'REEL_STOP_$reelIndex';
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // P1.1: SYMBOL-SPECIFIC AUDIO — Different sounds for special symbols
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Check for special symbols in the stopped reel
+      final symbols = stage.payload['symbols'] as List<dynamic>?;
+      final hasWild = stage.payload['has_wild'] as bool? ?? _containsWild(symbols);
+      final hasScatter = stage.payload['has_scatter'] as bool? ?? _containsScatter(symbols);
+      final hasSeven = _containsSeven(symbols);
+
+      // Try symbol-specific stage first (most specific to least specific)
+      // Priority: WILD > SCATTER > SEVEN > generic
+      String? symbolSpecificStage;
+      if (hasWild && eventRegistry.hasEventForStage('${effectiveStage}_WILD')) {
+        symbolSpecificStage = '${effectiveStage}_WILD';
+      } else if (hasScatter && eventRegistry.hasEventForStage('${effectiveStage}_SCATTER')) {
+        symbolSpecificStage = '${effectiveStage}_SCATTER';
+      } else if (hasSeven && eventRegistry.hasEventForStage('${effectiveStage}_SEVEN')) {
+        symbolSpecificStage = '${effectiveStage}_SEVEN';
+      }
+
+      if (symbolSpecificStage != null) {
+        effectiveStage = symbolSpecificStage;
+        debugPrint('[SlotLabProvider] P1.1 Symbol-specific: $symbolSpecificStage');
+      }
     }
 
     // Probaj specifičan stage prvo, pa fallback na generički
+    // P1.2: Koristi `context` umesto `stage.payload` da volumeMultiplier prođe
     if (eventRegistry.hasEventForStage(effectiveStage)) {
-      eventRegistry.triggerStage(effectiveStage, context: stage.payload);
+      eventRegistry.triggerStage(effectiveStage, context: context);
       debugPrint('[SlotLabProvider] Registry trigger: $effectiveStage');
     } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
       // Fallback na generički REEL_STOP ako nema specifičnog
-      eventRegistry.triggerStage(stageType, context: stage.payload);
+      eventRegistry.triggerStage(stageType, context: context);
       debugPrint('[SlotLabProvider] Registry trigger (fallback): $stageType');
     } else if (eventRegistry.hasEventForStage(stageType)) {
-      eventRegistry.triggerStage(stageType, context: stage.payload);
+      eventRegistry.triggerStage(stageType, context: context);
       debugPrint('[SlotLabProvider] Registry trigger: $stageType');
     } else {
       debugPrint('[SlotLabProvider] No registry event for: $effectiveStage');
@@ -457,7 +772,7 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Za SPIN_START, trigeruj i REEL_SPIN (loop audio dok se vrti)
     if (stageType == 'SPIN_START' && eventRegistry.hasEventForStage('REEL_SPIN')) {
-      eventRegistry.triggerStage('REEL_SPIN', context: stage.payload);
+      eventRegistry.triggerStage('REEL_SPIN', context: context);
       debugPrint('[SlotLabProvider] Registry trigger: REEL_SPIN (started)');
     }
 
@@ -592,6 +907,7 @@ class SlotLabProvider extends ChangeNotifier {
   /// Stop stage playback
   void stopStagePlayback() {
     _stagePlaybackTimer?.cancel();
+    _audioPreTriggerTimer?.cancel();
     _isPlayingStages = false;
     // Release SlotLab section
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
@@ -645,12 +961,93 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // P1.1: SYMBOL DETECTION HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Check if symbols list contains a Wild (typically symbol ID 0 or 10)
+  bool _containsWild(List<dynamic>? symbols) {
+    if (symbols == null || symbols.isEmpty) return false;
+    // Wild is typically ID 0 or 10 in standard slot configurations
+    // Check for common wild IDs
+    return symbols.any((s) => s == 0 || s == 10);
+  }
+
+  /// Check if symbols list contains a Scatter (typically symbol ID 9)
+  bool _containsScatter(List<dynamic>? symbols) {
+    if (symbols == null || symbols.isEmpty) return false;
+    // Scatter is typically ID 9 in standard slot configurations
+    return symbols.contains(9);
+  }
+
+  /// Check if symbols list contains a Seven (typically symbol ID 7)
+  bool _containsSeven(List<dynamic>? symbols) {
+    if (symbols == null || symbols.isEmpty) return false;
+    // Seven is typically ID 7 in standard slot configurations
+    return symbols.contains(7);
+  }
+
+  /// Check if symbols list contains a high-paying symbol (7, 8, or wild)
+  bool _containsHighPaySymbol(List<dynamic>? symbols) {
+    if (symbols == null || symbols.isEmpty) return false;
+    return symbols.any((s) => s == 0 || s == 7 || s == 8 || s == 10);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P1.3: WIN LINE AUDIO PANNING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Calculate pan value based on win line positions
+  /// Returns pan from -1.0 (leftmost) to +1.0 (rightmost)
+  /// Uses average X position of winning symbols on the line
+  double _calculateWinLinePan(int lineIndex) {
+    if (_lastResult == null) return 0.0;
+
+    // Find the LineWin with matching lineIndex
+    final lineWin = _lastResult!.lineWins.firstWhere(
+      (lw) => lw.lineIndex == lineIndex,
+      orElse: () => const LineWin(
+        lineIndex: -1,
+        symbolId: 0,
+        symbolName: '',
+        matchCount: 0,
+        winAmount: 0.0,
+        positions: [],
+      ),
+    );
+
+    if (lineWin.lineIndex == -1 || lineWin.positions.isEmpty) {
+      return 0.0; // No line found or no positions, center pan
+    }
+
+    // Calculate average X position (column) across winning positions
+    // positions is List<List<int>> where each element is [col, row]
+    double sumX = 0.0;
+    for (final pos in lineWin.positions) {
+      if (pos.isNotEmpty) {
+        sumX += pos[0].toDouble(); // Column is first element
+      }
+    }
+    final avgX = sumX / lineWin.positions.length;
+
+    // Map to pan: column 0 → -1.0, column (totalReels-1) → +1.0
+    // Formula: pan = (avgX / (totalReels - 1)) * 2.0 - 1.0
+    // For 5-reel: col 0 → -1.0, col 2 → 0.0, col 4 → +1.0
+    if (_totalReels <= 1) return 0.0;
+
+    final normalizedX = avgX / (_totalReels - 1); // 0.0 to 1.0
+    final pan = (normalizedX * 2.0) - 1.0; // -1.0 to +1.0
+
+    return pan.clamp(-1.0, 1.0);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   void dispose() {
     _stagePlaybackTimer?.cancel();
+    _audioPreTriggerTimer?.cancel();
     shutdown();
     super.dispose();
   }

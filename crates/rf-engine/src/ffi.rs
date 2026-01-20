@@ -19366,13 +19366,15 @@ pub extern "C" fn engine_preview_set_volume(volume: f64) {
 // Uses PlaybackEngine with bus routing - audio goes through DAW buses for mixing
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Play one-shot audio through a specific bus (Middleware/SlotLab events)
+/// Play one-shot audio through a specific bus with spatial pan (Middleware/SlotLab events)
 /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
 /// Returns allocated string with voice_id on success, or error message
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_playback_play_to_bus(
     path: *const c_char,
     volume: f64,
+    pan: f64,
     bus_id: u32,
 ) -> *mut c_char {
     // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
@@ -19386,11 +19388,40 @@ pub extern "C" fn engine_playback_play_to_bus(
         Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
     };
 
-    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, bus_id);
+    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, pan as f32, bus_id);
     if voice_id > 0 {
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
         string_to_cstr(r#"{"error":"failed to queue voice"}"#)
+    }
+}
+
+/// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
+/// Loops seamlessly until explicitly stopped with engine_playback_stop_one_shot()
+/// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+/// Returns allocated string with voice_id on success, or error message
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_play_looping_to_bus(
+    path: *const c_char,
+    volume: f64,
+    pan: f64,
+    bus_id: u32,
+) -> *mut c_char {
+    if path.is_null() {
+        return string_to_cstr(r#"{"error":"null path"}"#);
+    }
+
+    let path_str = match unsafe { CStr::from_ptr(path) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
+    };
+
+    let voice_id = PLAYBACK_ENGINE.play_looping_to_bus(path_str, volume as f32, pan as f32, bus_id);
+    if voice_id > 0 {
+        string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
+    } else {
+        string_to_cstr(r#"{"error":"failed to queue looping voice"}"#)
     }
 }
 

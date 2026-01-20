@@ -168,10 +168,12 @@ class AudioPlaybackService extends ChangeNotifier {
 
   /// Play single audio file through a specific bus (uses PlaybackEngine)
   /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
   /// Returns voice_id on success, -1 on error
   int playFileToBus(
     String path, {
     double volume = 1.0,
+    double pan = 0.0,
     int busId = 0,
     PlaybackSource source = PlaybackSource.middleware,
     String? eventId,
@@ -182,7 +184,7 @@ class AudioPlaybackService extends ChangeNotifier {
     _acquirePlayback(source);
 
     try {
-      final voiceId = _ffi.playbackPlayToBus(path, volume: volume, busId: busId);
+      final voiceId = _ffi.playbackPlayToBus(path, volume: volume, pan: pan, busId: busId);
       if (voiceId >= 0) {
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
@@ -202,6 +204,49 @@ class AudioPlaybackService extends ChangeNotifier {
       return voiceId;
     } catch (e) {
       debugPrint('[AudioPlayback] PlayToBus error: $e');
+      return -1;
+    }
+  }
+
+  /// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
+  /// Loops seamlessly until explicitly stopped with stopOneShotVoice()
+  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+  /// Returns voice_id on success, -1 on error
+  int playLoopingToBus(
+    String path, {
+    double volume = 1.0,
+    double pan = 0.0,
+    int busId = 0,
+    PlaybackSource source = PlaybackSource.slotlab,
+    String? eventId,
+    String? layerId,
+  }) {
+    if (path.isEmpty) return -1;
+
+    _acquirePlayback(source);
+
+    try {
+      final voiceId = _ffi.playbackPlayLoopingToBus(path, volume: volume, pan: pan, busId: busId);
+      if (voiceId >= 0) {
+        _activeVoices.add(VoiceInfo(
+          voiceId: voiceId,
+          audioPath: path,
+          source: source,
+          eventId: eventId,
+          layerId: layerId,
+        ));
+
+        // Track by event if provided
+        if (eventId != null) {
+          _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
+        }
+
+        debugPrint('[AudioPlayback] P0.2 PlayLoopingToBus: $path -> bus $busId (voice $voiceId)');
+      }
+      return voiceId;
+    } catch (e) {
+      debugPrint('[AudioPlayback] PlayLoopingToBus error: $e');
       return -1;
     }
   }
@@ -255,6 +300,7 @@ class AudioPlaybackService extends ChangeNotifier {
         voiceId = _ffi.playbackPlayToBus(
           layer.audioPath,
           volume: layer.volume,
+          pan: layer.pan,
           busId: busId,
         );
       }
@@ -334,6 +380,7 @@ class AudioPlaybackService extends ChangeNotifier {
           voiceId = _ffi.playbackPlayToBus(
             layer.audioPath,
             volume: volume.clamp(0.0, 1.0),
+            pan: layer.pan,
             busId: busId,
           );
         }

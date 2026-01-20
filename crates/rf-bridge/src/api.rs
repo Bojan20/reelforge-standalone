@@ -1422,10 +1422,21 @@ pub fn preview_set_volume(volume: f64) {
 
 /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
 /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// pan: -1.0 (left) to +1.0 (right), 0.0 = center
 /// Returns voice ID (0 = failed to queue)
 #[flutter_rust_bridge::frb(sync)]
-pub fn playback_play_to_bus(path: String, volume: f64, bus_id: u32) -> u64 {
-    crate::PLAYBACK.play_one_shot_to_bus(&path, volume as f32, bus_id)
+pub fn playback_play_to_bus(path: String, volume: f64, pan: f64, bus_id: u32) -> u64 {
+    crate::PLAYBACK.play_one_shot_to_bus(&path, volume as f32, pan as f32, bus_id)
+}
+
+/// P0.2: Play looping audio through a specific bus (REEL_SPIN, ambience loops, etc.)
+/// Loops seamlessly until explicitly stopped with playback_stop_one_shot()
+/// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+/// pan: -1.0 (left) to +1.0 (right), 0.0 = center
+/// Returns voice ID (0 = failed to queue)
+#[flutter_rust_bridge::frb(sync)]
+pub fn playback_play_looping_to_bus(path: String, volume: f64, pan: f64, bus_id: u32) -> u64 {
+    crate::PLAYBACK.play_looping_to_bus(&path, volume as f32, pan as f32, bus_id)
 }
 
 /// Stop specific one-shot voice

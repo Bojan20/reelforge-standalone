@@ -567,6 +567,8 @@ pub struct OneShotVoice {
     position: u64,
     /// Volume (0.0 to 1.0)
     volume: f32,
+    /// Pan position (-1.0 = full left, 0.0 = center, +1.0 = full right)
+    pan: f32,
     /// Target bus for routing
     bus: OutputBus,
     /// Is voice active
@@ -577,6 +579,8 @@ pub struct OneShotVoice {
     fade_increment: f32,
     /// Current fade gain
     fade_gain: f32,
+    /// P0.2: Loop playback (seamless, no gap)
+    looping: bool,
 }
 
 impl OneShotVoice {
@@ -596,24 +600,34 @@ impl OneShotVoice {
             }),
             position: 0,
             volume: 1.0,
+            pan: 0.0,
             bus: OutputBus::Sfx,
             active: false,
             fade_samples_remaining: 0,
             fade_increment: 0.0,
             fade_gain: 1.0,
+            looping: false,
         }
     }
 
-    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, bus: OutputBus) {
+    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus) {
         self.id = id;
         self.audio = audio;
         self.position = 0;
         self.volume = volume;
+        self.pan = pan.clamp(-1.0, 1.0);
         self.bus = bus;
         self.active = true;
         self.fade_samples_remaining = 0;
         self.fade_increment = 0.0;
         self.fade_gain = 1.0;
+        self.looping = false;
+    }
+
+    /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
+    fn activate_looping(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus) {
+        self.activate(id, audio, volume, pan, bus);
+        self.looping = true;
     }
 
     fn deactivate(&mut self) {
@@ -632,6 +646,8 @@ impl OneShotVoice {
     }
 
     /// Fill buffer with audio, returns true if still playing
+    /// Applies equal-power panning for spatial positioning
+    /// P0.2: Supports seamless looping for REEL_SPIN and similar events
     #[inline]
     fn fill_buffer(&mut self, left: &mut [f64], right: &mut [f64]) -> bool {
         if !self.active {
@@ -642,10 +658,24 @@ impl OneShotVoice {
         let channels_src = self.audio.channels as usize;
         let total_frames = self.audio.samples.len() / channels_src.max(1);
 
-        if self.position >= total_frames as u64 {
+        if total_frames == 0 {
             self.active = false;
             return false;
         }
+
+        // P0.2: For non-looping, check end condition
+        if !self.looping && self.position >= total_frames as u64 {
+            self.active = false;
+            return false;
+        }
+
+        // Pre-compute equal-power pan gains (constant for this voice)
+        // pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+        // Formula: L = cos(θ), R = sin(θ) where θ = (pan + 1) * π/4
+        // Simplified: L = sqrt((1 - pan) / 2), R = sqrt((1 + pan) / 2)
+        let pan_norm = (self.pan + 1.0) * 0.5; // 0.0 to 1.0
+        let pan_l = ((1.0 - pan_norm) * std::f32::consts::FRAC_PI_2).cos();
+        let pan_r = ((1.0 - pan_norm) * std::f32::consts::FRAC_PI_2).sin();
 
         for frame in 0..frames_needed {
             // Handle fade
@@ -658,20 +688,33 @@ impl OneShotVoice {
                 }
             }
 
-            let src_frame = self.position as usize + frame;
-            if src_frame >= total_frames {
+            // P0.2: Seamless looping - wrap position
+            let src_frame = if self.looping {
+                (self.position as usize + frame) % total_frames
+            } else {
+                self.position as usize + frame
+            };
+
+            // For non-looping: check bounds
+            if !self.looping && src_frame >= total_frames {
                 break;
             }
 
             let gain = self.volume * self.fade_gain;
 
             // Read source (mono or stereo) - samples are f32, convert to f64 for bus mixing
-            let sample_l = (self.audio.samples[src_frame * channels_src] * gain) as f64;
-            let sample_r = if channels_src > 1 {
-                (self.audio.samples[src_frame * channels_src + 1] * gain) as f64
+            let src_l = self.audio.samples[src_frame * channels_src] * gain;
+            let src_r = if channels_src > 1 {
+                self.audio.samples[src_frame * channels_src + 1] * gain
             } else {
-                sample_l // Mono to stereo
+                src_l // Mono source
             };
+
+            // Apply equal-power panning
+            // For stereo source: pan affects balance between L and R
+            // For mono source: pan positions the mono signal in stereo field
+            let sample_l = (src_l * pan_l) as f64;
+            let sample_r = (src_r * pan_r) as f64;
 
             // Add to bus buffers (mixing)
             left[frame] += sample_l;
@@ -679,18 +722,34 @@ impl OneShotVoice {
         }
 
         self.position += frames_needed as u64;
-        self.position < total_frames as u64
+
+        // P0.2: For looping, wrap position for next call
+        if self.looping {
+            self.position %= total_frames as u64;
+            true // Always playing until stopped
+        } else {
+            self.position < total_frames as u64
+        }
     }
 }
 
 /// One-shot voice command for lock-free communication
 #[derive(Debug)]
 pub enum OneShotCommand {
-    /// Play a new one-shot voice
+    /// Play a new one-shot voice with spatial pan
     Play {
         id: u64,
         audio: Arc<ImportedAudio>,
         volume: f32,
+        pan: f32,
+        bus: OutputBus,
+    },
+    /// P0.2: Play a looping voice (seamless loop for REEL_SPIN etc.)
+    PlayLooping {
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        pan: f32,
         bus: OutputBus,
     },
     /// Stop specific voice
@@ -2073,7 +2132,9 @@ impl PlaybackEngine {
     /// - 3 = Voice
     /// - 4 = Ambience
     /// - 5 = Aux
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, bus_id: u32) -> u64 {
+    ///
+    /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
         // Load audio from cache (may block if not cached)
         let audio = match self.cache.load(path) {
             Some(a) => a,
@@ -2103,9 +2164,54 @@ impl PlaybackEngine {
                 id,
                 audio,
                 volume,
+                pan: pan.clamp(-1.0, 1.0),
                 bus,
             });
-            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, bus={:?})", path, id, bus);
+            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, pan={:.2}, bus={:?})", path, id, pan, bus);
+            id
+        } else {
+            log::warn!("[PlaybackEngine] One-shot command queue busy");
+            0
+        }
+    }
+
+    /// P0.2: Play looping audio through a specific bus (Middleware/SlotLab REEL_SPIN etc.)
+    /// Loops seamlessly until explicitly stopped with stop_one_shot()
+    /// Returns voice ID (0 = failed to queue)
+    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+        // Load audio from cache (may block if not cached)
+        let audio = match self.cache.load(path) {
+            Some(a) => a,
+            None => {
+                log::warn!("[PlaybackEngine] Failed to load looping audio: {}", path);
+                return 0;
+            }
+        };
+
+        // Map bus_id to OutputBus
+        let bus = match bus_id {
+            0 => OutputBus::Sfx,
+            1 => OutputBus::Music,
+            2 => OutputBus::Sfx,
+            3 => OutputBus::Voice,
+            4 => OutputBus::Ambience,
+            5 => OutputBus::Aux,
+            _ => OutputBus::Sfx,
+        };
+
+        // Get next voice ID
+        let id = self.next_one_shot_id.fetch_add(1, Ordering::Relaxed);
+
+        // Send command to audio thread (lock-free)
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::PlayLooping {
+                id,
+                audio,
+                volume,
+                pan: pan.clamp(-1.0, 1.0),
+                bus,
+            });
+            log::debug!("[PlaybackEngine] Looping play: {} (id={}, pan={:.2}, bus={:?})", path, id, pan, bus);
             id
         } else {
             log::warn!("[PlaybackEngine] One-shot command queue busy");
@@ -2141,12 +2247,20 @@ impl PlaybackEngine {
 
         while let Ok(cmd) = rx.pop() {
             match cmd {
-                OneShotCommand::Play { id, audio, volume, bus } => {
+                OneShotCommand::Play { id, audio, volume, pan, bus } => {
                     // Find first inactive slot
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
-                        voice.activate(id, audio, volume, bus);
+                        voice.activate(id, audio, volume, pan, bus);
                     } else {
                         log::warn!("[PlaybackEngine] No free one-shot voice slots");
+                    }
+                }
+                OneShotCommand::PlayLooping { id, audio, volume, pan, bus } => {
+                    // P0.2: Seamless looping voice (REEL_SPIN etc.)
+                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                        voice.activate_looping(id, audio, volume, pan, bus);
+                    } else {
+                        log::warn!("[PlaybackEngine] No free one-shot voice slots for looping");
                     }
                 }
                 OneShotCommand::Stop { id } => {

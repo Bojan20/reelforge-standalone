@@ -1547,12 +1547,27 @@ impl PlaybackEngine {
 
     /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
     /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+    /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, bus_id: u32) -> u64 {
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
         if let Some(ref engine) = *self.engine_playback.read() {
-            engine.play_one_shot_to_bus(path, volume, bus_id)
+            engine.play_one_shot_to_bus(path, volume, pan, bus_id)
         } else {
             log::warn!("play_one_shot_to_bus: engine not connected");
+            0
+        }
+    }
+
+    /// P0.2: Play looping audio through a specific bus (Middleware/SlotLab REEL_SPIN etc.)
+    /// Loops seamlessly until explicitly stopped with stop_one_shot()
+    /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+    /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
+    /// Returns voice ID (0 = failed to queue)
+    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.play_looping_to_bus(path, volume, pan, bus_id)
+        } else {
+            log::warn!("play_looping_to_bus: engine not connected");
             0
         }
     }

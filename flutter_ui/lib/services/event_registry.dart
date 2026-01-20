@@ -266,6 +266,12 @@ class EventRegistry extends ChangeNotifier {
       'WIN_BIG' || 'BIG_WIN' => 'WIN_BIG',
       'WIN_MEGA' || 'MEGA_WIN' => 'WIN_MEGA',
       'WIN_EPIC' || 'EPIC_WIN' => 'WIN_EPIC',
+      // P0.7: Big Win tier intents for layered audio
+      'BIGWIN_TIER_NICE' || 'SLOT_BIGWIN_TIER_NICE' => 'WIN_SMALL',
+      'BIGWIN_TIER_SUPER' || 'SLOT_BIGWIN_TIER_SUPER' => 'WIN_BIG',
+      'BIGWIN_TIER_MEGA' || 'SLOT_BIGWIN_TIER_MEGA' => 'WIN_MEGA',
+      'BIGWIN_TIER_EPIC' || 'SLOT_BIGWIN_TIER_EPIC' => 'WIN_EPIC',
+      'BIGWIN_TIER_ULTRA' || 'SLOT_BIGWIN_TIER_ULTRA' => 'JACKPOT_TRIGGER',
       'JACKPOT_TRIGGER' || 'JACKPOT' => 'JACKPOT_TRIGGER',
       'CASCADE_STEP' => 'CASCADE_STEP',
       'FEATURE_ENTER' => 'FEATURE_ENTER',
@@ -415,6 +421,7 @@ class EventRegistry extends ChangeNotifier {
         context,
         usePool: usePool,
         eventKey: event.stage,
+        loop: event.loop, // P0.2: Pass loop flag for seamless looping (REEL_SPIN)
       );
     }
 
@@ -427,6 +434,7 @@ class EventRegistry extends ChangeNotifier {
     Map<String, dynamic>? context, {
     bool usePool = false,
     String? eventKey,
+    bool loop = false, // P0.2: Seamless loop support
   }) async {
     if (layer.audioPath.isEmpty) return;
 
@@ -451,8 +459,14 @@ class EventRegistry extends ChangeNotifier {
 
       // ═══════════════════════════════════════════════════════════════════════
       // SPATIAL AUDIO POSITIONING (AutoSpatialEngine integration)
+      // P1.3: Context pan takes priority over layer pan, spatial engine overrides both
       // ═══════════════════════════════════════════════════════════════════════
       double pan = layer.pan; // Default to layer's configured pan
+
+      // P1.3: Context pan (from win line panning etc.) overrides layer pan
+      if (context != null && context.containsKey('pan')) {
+        pan = (context['pan'] as num).toDouble().clamp(-1.0, 1.0);
+      }
 
       if (_useSpatialAudio && eventKey != null) {
         final spatialEventId = '${eventKey}_${layer.id}_${DateTime.now().millisecondsSinceEpoch}';
@@ -516,13 +530,24 @@ class EventRegistry extends ChangeNotifier {
           audioPath: layer.audioPath,
           busId: layer.busId,
           volume: volume.clamp(0.0, 1.0),
+          pan: pan.clamp(-1.0, 1.0),
         );
         _pooledTriggers++;
+      } else if (loop) {
+        // P0.2: Seamless looping for REEL_SPIN and similar events
+        voiceId = AudioPlaybackService.instance.playLoopingToBus(
+          layer.audioPath,
+          volume: volume.clamp(0.0, 1.0),
+          pan: pan.clamp(-1.0, 1.0),
+          busId: layer.busId,
+          source: source,
+        );
       } else {
         // Standard bus routing through PlaybackEngine
         voiceId = AudioPlaybackService.instance.playFileToBus(
           layer.audioPath,
           volume: volume.clamp(0.0, 1.0),
+          pan: pan.clamp(-1.0, 1.0),
           busId: layer.busId,
           source: source,
         );
@@ -533,8 +558,9 @@ class EventRegistry extends ChangeNotifier {
       }
 
       final poolStr = usePool ? ' [POOLED]' : '';
+      final loopStr = loop ? ' [LOOP]' : '';
       final spatialStr = (_useSpatialAudio && pan != layer.pan) ? ' [SPATIAL pan=${pan.toStringAsFixed(2)}]' : '';
-      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$spatialStr');
+      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$loopStr$spatialStr');
     } catch (e) {
       debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
     }
@@ -599,6 +625,145 @@ class EventRegistry extends ChangeNotifier {
     for (final eventId in _events.keys) {
       await preloadEvent(eventId);
     }
+  }
+
+  // ==========================================================================
+  // P0.7: BIG WIN LAYERED AUDIO TEMPLATES
+  // ==========================================================================
+
+  /// Create a template Big Win event with layered audio structure
+  /// Layers include: Impact, Coin Shower, Music Swell, Voice Over
+  /// Each tier has different timing and intensity
+  static AudioEvent createBigWinTemplate({
+    required String tier, // 'nice', 'super', 'mega', 'epic', 'ultra'
+    required String impactPath,
+    String? coinShowerPath,
+    String? musicSwellPath,
+    String? voiceOverPath,
+  }) {
+    final stageMap = {
+      'nice': 'BIGWIN_TIER_NICE',
+      'super': 'BIGWIN_TIER_SUPER',
+      'mega': 'BIGWIN_TIER_MEGA',
+      'epic': 'BIGWIN_TIER_EPIC',
+      'ultra': 'BIGWIN_TIER_ULTRA',
+    };
+
+    // Tier-specific timing (ms)
+    final timingMap = {
+      'nice': (coinDelay: 100, musicDelay: 0, voDelay: 300),
+      'super': (coinDelay: 150, musicDelay: 0, voDelay: 400),
+      'mega': (coinDelay: 100, musicDelay: 0, voDelay: 500),
+      'epic': (coinDelay: 100, musicDelay: 0, voDelay: 600),
+      'ultra': (coinDelay: 100, musicDelay: 0, voDelay: 700),
+    };
+
+    final timing = timingMap[tier] ?? timingMap['nice']!;
+    final layers = <AudioLayer>[];
+
+    // Layer 1: Impact Hit (immediate)
+    layers.add(AudioLayer(
+      id: '${tier}_impact',
+      audioPath: impactPath,
+      name: 'Impact Hit',
+      volume: 1.0,
+      pan: 0.0,
+      delay: 0,
+      busId: 2, // SFX bus
+    ));
+
+    // Layer 2: Coin Shower (delayed)
+    if (coinShowerPath != null && coinShowerPath.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: '${tier}_coins',
+        audioPath: coinShowerPath,
+        name: 'Coin Shower',
+        volume: 0.8,
+        pan: 0.0,
+        delay: timing.coinDelay.toDouble(),
+        busId: 2, // SFX bus
+      ));
+    }
+
+    // Layer 3: Music Swell (simultaneous or slightly delayed)
+    if (musicSwellPath != null && musicSwellPath.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: '${tier}_music',
+        audioPath: musicSwellPath,
+        name: 'Music Swell',
+        volume: 0.9,
+        pan: 0.0,
+        delay: timing.musicDelay.toDouble(),
+        busId: 1, // Music bus
+      ));
+    }
+
+    // Layer 4: Voice Over (most delayed)
+    if (voiceOverPath != null && voiceOverPath.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: '${tier}_vo',
+        audioPath: voiceOverPath,
+        name: 'Voice Over',
+        volume: 1.0,
+        pan: 0.0,
+        delay: timing.voDelay.toDouble(),
+        busId: 3, // Voice bus
+      ));
+    }
+
+    return AudioEvent(
+      id: 'slot_bigwin_tier_$tier',
+      name: 'Big Win - ${tier[0].toUpperCase()}${tier.substring(1)}',
+      stage: stageMap[tier] ?? 'BIGWIN_TIER',
+      layers: layers,
+      priority: tier == 'ultra' ? 100 : (tier == 'epic' ? 80 : (tier == 'mega' ? 60 : 40)),
+    );
+  }
+
+  /// Register default Big Win events with placeholder paths
+  /// Call this to set up the event structure, then update paths via UI
+  void registerDefaultBigWinEvents() {
+    const tiers = ['nice', 'super', 'mega', 'epic', 'ultra'];
+
+    for (final tier in tiers) {
+      final event = createBigWinTemplate(
+        tier: tier,
+        impactPath: '', // User will fill these via Audio Pool
+        coinShowerPath: '',
+        musicSwellPath: '',
+        voiceOverPath: '',
+      );
+      registerEvent(event);
+      debugPrint('[EventRegistry] P0.7: Registered Big Win template: ${event.id}');
+    }
+  }
+
+  /// Update a Big Win event with actual audio paths
+  void updateBigWinEvent({
+    required String tier,
+    String? impactPath,
+    String? coinShowerPath,
+    String? musicSwellPath,
+    String? voiceOverPath,
+  }) {
+    final eventId = 'slot_bigwin_tier_$tier';
+    final existing = _events[eventId];
+    if (existing == null) {
+      debugPrint('[EventRegistry] Big Win event not found: $eventId');
+      return;
+    }
+
+    // Create new event with updated paths
+    final event = createBigWinTemplate(
+      tier: tier,
+      impactPath: impactPath ?? existing.layers.firstWhere((l) => l.id.contains('impact'), orElse: () => const AudioLayer(id: '', audioPath: '', name: '')).audioPath,
+      coinShowerPath: coinShowerPath ?? existing.layers.where((l) => l.id.contains('coins')).firstOrNull?.audioPath,
+      musicSwellPath: musicSwellPath ?? existing.layers.where((l) => l.id.contains('music')).firstOrNull?.audioPath,
+      voiceOverPath: voiceOverPath ?? existing.layers.where((l) => l.id.contains('vo')).firstOrNull?.audioPath,
+    );
+
+    registerEvent(event);
+    debugPrint('[EventRegistry] P0.7: Updated Big Win event: $eventId');
   }
 
   // ==========================================================================

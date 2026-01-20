@@ -209,6 +209,79 @@ pub extern "C" fn slot_lab_set_jackpot_enabled(enabled: i32) {
     }
 }
 
+/// Get current timing config as JSON
+/// Returns null if engine not initialized
+/// CALLER MUST FREE the returned string using slot_lab_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_timing_config_json() -> *mut c_char {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => {
+            let config = engine.timing_config();
+            match serde_json::to_string(config) {
+                Ok(json) => {
+                    match CString::new(json) {
+                        Ok(c_str) => c_str.into_raw(),
+                        Err(_) => std::ptr::null_mut(),
+                    }
+                }
+                Err(_) => std::ptr::null_mut(),
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Get audio latency compensation in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_audio_latency_compensation_ms() -> f64 {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => engine.timing_config().audio_latency_compensation_ms,
+        None => 5.0, // Default
+    }
+}
+
+/// Get visual-audio sync offset in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_visual_audio_sync_offset_ms() -> f64 {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => engine.timing_config().visual_audio_sync_offset_ms,
+        None => 0.0, // Default
+    }
+}
+
+/// Get anticipation pre-trigger offset in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_anticipation_pre_trigger_ms() -> f64 {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => engine.timing_config().anticipation_audio_pre_trigger_ms,
+        None => 50.0, // Default
+    }
+}
+
+/// Get reel stop pre-trigger offset in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_reel_stop_pre_trigger_ms() -> f64 {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => engine.timing_config().reel_stop_audio_pre_trigger_ms,
+        None => 20.0, // Default
+    }
+}
+
+/// Get cascade step duration in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_cascade_step_duration_ms() -> f64 {
+    let guard = SLOT_ENGINE.read();
+    match &*guard {
+        Some(engine) => engine.timing_config().cascade_step_duration_ms,
+        None => 600.0, // Default
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SPIN EXECUTION
 // ═══════════════════════════════════════════════════════════════════════════════

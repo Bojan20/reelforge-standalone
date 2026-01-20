@@ -830,6 +830,194 @@ await provider.spinForced(ForcedOutcome.nearMiss);
 
 ---
 
+## Implemented Audio Features (P0/P1) — January 2026
+
+### P0.3: Per-Voice Pan in FFI ✅
+
+Omogućava spatial panning za svaki audio voice.
+
+**Promene:**
+- `crates/rf-engine/src/playback.rs`: `OneShotVoice` ima `pan: f32` field, equal-power panning u `fill_buffer()`
+- `crates/rf-engine/src/ffi.rs`: `engine_playback_play_to_bus()` prima pan parametar
+- `flutter_ui/lib/src/rust/native_ffi.dart`: FFI binding ažuriran
+- `flutter_ui/lib/services/audio_playback_service.dart`: `playFileToBus()` ima pan
+- `flutter_ui/lib/services/audio_pool.dart`: `acquire()` ima pan, `lastPan` tracking
+
+**Equal-Power Formula:**
+```rust
+let pan_norm = (pan + 1.0) * 0.5; // -1..+1 → 0..1
+let pan_l = (1.0 - pan_norm) * PI * 0.5).cos();
+let pan_r = (pan_norm * PI * 0.5).sin();
+```
+
+---
+
+### P0.5: Dynamic Rollup Speed ✅
+
+RTPC-kontrolisana brzina rollup-a.
+
+**Promene:**
+- `flutter_ui/lib/services/rtpc_modulation_service.dart`: `getRollupSpeedMultiplier()`
+- `flutter_ui/lib/providers/slot_lab_provider.dart`: `_scheduleNextStage()` primenjuje multiplier
+
+**Formula:**
+```dart
+// RTPC ID 106 = Rollup_Speed (0.0-1.0)
+// 0.0 → 0.25x (slow), 0.5 → 1.0x (normal), 1.0 → 4.0x (fast)
+return 0.25 * pow(16.0, normalizedRtpc);
+```
+
+---
+
+### P0.6: Anticipation Pre-Trigger ✅
+
+Audio anticipation počinje pre vizuala za bolju sinhronizaciju.
+
+**Promene:**
+- `flutter_ui/lib/providers/slot_lab_provider.dart`:
+  - `_anticipationPreTriggerMs` config (default 50ms)
+  - `_audioPreTriggerTimer` za odvojeni audio trigger
+  - Lookahead u `_scheduleNextStage()` za `ANTICIPATION_ON`
+  - `_triggerAudioOnly()` metoda
+
+**Flow:**
+```
+Visual Timeline:    |-------- ANTICIPATION_ON --------|
+Audio Timeline: |-- PRE-TRIGGER (50ms earlier) --|
+```
+
+---
+
+### P0.7: Big Win Layered Audio ✅
+
+Multi-layer audio struktura za Big Win celebracije.
+
+**Promene:**
+- `flutter_ui/lib/services/event_registry.dart`:
+  - `createBigWinTemplate()` — kreira layered event
+  - `registerDefaultBigWinEvents()` — registruje 5 tier-ova
+  - `updateBigWinEvent()` — ažurira audio putanje
+  - `_stageToIntent()` — mapira BIGWIN_TIER na intente
+
+**Layer Structure:**
+```
+Layer 1: Impact Hit (immediate, bus 2/SFX)
+Layer 2: Coin Shower (100-150ms delay, bus 2/SFX)
+Layer 3: Music Swell (0ms, bus 1/Music)
+Layer 4: Voice Over (300-700ms delay, bus 3/Voice)
+```
+
+**Tier Timing:**
+| Tier  | Coin Delay | VO Delay | Priority |
+|-------|------------|----------|----------|
+| nice  | 100ms      | 300ms    | 40       |
+| super | 150ms      | 400ms    | 40       |
+| mega  | 100ms      | 500ms    | 60       |
+| epic  | 100ms      | 600ms    | 80       |
+| ultra | 100ms      | 700ms    | 100      |
+
+---
+
+### P1.1: Symbol-Specific Audio ✅
+
+Različiti zvuci za specijalne simbole (Wild, Scatter, Seven).
+
+**Promene:**
+- `flutter_ui/lib/providers/slot_lab_provider.dart`:
+  - `_containsWild()`, `_containsScatter()`, `_containsSeven()`
+  - `_triggerStage()` dodaje symbol suffix: `REEL_STOP_0_WILD`, `REEL_STOP_0_SCATTER`
+
+**Priority:**
+```
+WILD > SCATTER > SEVEN > generic
+```
+
+**Stage Naming:**
+```
+REEL_STOP_0_WILD     // Reel 0 ima Wild
+REEL_STOP_2_SCATTER  // Reel 2 ima Scatter
+REEL_STOP_4_SEVEN    // Reel 4 ima Seven
+REEL_STOP_0          // Generic (fallback)
+```
+
+---
+
+### P1.2: Near Miss Audio Escalation ✅
+
+Intenzitet anticipation zvuka raste sa blizinom dobitka.
+
+**Promene:**
+- `flutter_ui/lib/providers/slot_lab_provider.dart`:
+  - `_calculateAnticipationEscalation()` — vraća stage i volumeMultiplier
+  - `_triggerStage()` primenjuje escalation za `ANTICIPATION_ON`
+  - Context sadrži `volumeMultiplier`
+
+**Intensity Formula:**
+```dart
+// Faktori:
+// - intensity (0.0-1.0) iz payload-a
+// - reelFactor = (triggerReel + 1) / totalReels
+// - missingFactor = 1.0 za 1 missing, 0.75 za 2, 0.5 za 3+
+combinedIntensity = intensity * reelFactor * missingFactor;
+
+// Stages po intenzitetu:
+// > 0.8 → ANTICIPATION_CRITICAL (vol 1.0)
+// > 0.5 → ANTICIPATION_HIGH (vol 0.9)
+// else  → ANTICIPATION_ON (vol 0.7-0.85)
+```
+
+**EventRegistry podrška:**
+```dart
+// U _playLayer():
+if (context.containsKey('volumeMultiplier')) {
+  volume *= context['volumeMultiplier'];
+}
+```
+
+---
+
+### P1.3: Win Line Audio Panning ✅
+
+Audio pan na osnovu pozicije dobitne linije.
+
+**Promene:**
+- `flutter_ui/lib/providers/slot_lab_provider.dart`:
+  - `_calculateWinLinePan()` — računa pan iz LineWin.positions
+  - `_triggerStage()` dodaje `pan` u context za `WIN_LINE_SHOW`
+- `flutter_ui/lib/services/event_registry.dart`:
+  - `_playLayer()` koristi `context['pan']` ako postoji
+
+**Pan Formula:**
+```dart
+// Prosečna X pozicija dobitnih simbola
+avgX = sum(positions.map(p => p[0])) / positions.length;
+
+// Map na pan: col 0 → -1.0, col (reels-1) → +1.0
+normalizedX = avgX / (totalReels - 1);
+pan = (normalizedX * 2.0) - 1.0;
+```
+
+**Example:**
+```
+5-reel slot:
+Column 0    → pan -1.0 (full left)
+Column 2    → pan  0.0 (center)
+Column 4    → pan +1.0 (full right)
+Columns 1,2 → pan -0.25 (left-center)
+```
+
+---
+
+## Remaining P0 Items (TODO)
+
+| # | Problem | Impact | Status |
+|---|---------|--------|--------|
+| P0.1 | Audio latency hardcoded | Sync off by 10-30ms | ❌ TODO |
+| P0.2 | REEL_SPIN loop nije seamless | Click/gap na loop | ❌ TODO |
+| P0.4 | Cascade timing fiksno | Audio završi pre visual | ❌ TODO |
+
+---
+
 ## Future Enhancements
 
 - [ ] Audio waveform preview in browser

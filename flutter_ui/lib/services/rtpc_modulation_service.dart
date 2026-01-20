@@ -14,8 +14,10 @@
 /// - LPF (20Hz - 20kHz)
 /// - HPF (20Hz - 20kHz)
 /// - Pan (-1.0 to +1.0)
+/// - PlaybackRate (0.25x to 4.0x for rollup speed modulation)
 library;
 
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../models/middleware_models.dart';
 import '../providers/middleware_provider.dart';
@@ -120,6 +122,51 @@ class RtpcModulationService {
   double getModulatedPan(String eventId) {
     final params = getModulatedParameters(eventId);
     return params[RtpcTargetParameter.pan] ?? 0.0;
+  }
+
+  /// Get modulated playback rate (1.0 = normal, 2.0 = 2x speed, 0.5 = half speed)
+  /// Used for dynamic rollup speed, cascade timing, etc.
+  double getModulatedPlaybackRate(String eventId) {
+    final params = getModulatedParameters(eventId);
+    return params[RtpcTargetParameter.playbackRate] ?? 1.0;
+  }
+
+  /// Get rollup speed multiplier from Rollup_Speed RTPC (global, not per-event)
+  /// Returns 1.0 if no RTPC binding or middleware not available
+  /// Higher value = faster rollup (shorter delay between ticks)
+  double getRollupSpeedMultiplier() {
+    if (_middleware == null) return 1.0;
+
+    // Find Rollup_Speed RTPC (ID 106 per SlotRtpcIds)
+    const rollupSpeedRtpcId = 106; // SlotRtpcIds.rollupSpeed
+    final rtpcDef = _middleware!.getRtpc(rollupSpeedRtpcId);
+    if (rtpcDef == null) return 1.0;
+
+    // Rollup_Speed range is typically 0.0-1.0 where 1.0 = fastest
+    // Map to multiplier: 0.0 → 0.25x (slow), 0.5 → 1.0x (normal), 1.0 → 4.0x (fast)
+    // Using exponential curve for perceptual linearity
+    final normalized = rtpcDef.normalizedValue.clamp(0.0, 1.0);
+    // Formula: 0.25 * 16^normalized = 0.25 at 0, 1.0 at 0.5, 4.0 at 1.0
+    return 0.25 * math.pow(16.0, normalized);
+  }
+
+  /// P0.4: Get cascade speed multiplier from Cascade_Speed RTPC (global, not per-event)
+  /// Returns 1.0 if no RTPC binding or middleware not available
+  /// Higher value = faster cascade (shorter delay between steps)
+  double getCascadeSpeedMultiplier() {
+    if (_middleware == null) return 1.0;
+
+    // Find Cascade_Speed RTPC (ID 107 per SlotRtpcIds)
+    const cascadeSpeedRtpcId = 107; // SlotRtpcIds.cascadeSpeed
+    final rtpcDef = _middleware!.getRtpc(cascadeSpeedRtpcId);
+    if (rtpcDef == null) return 1.0;
+
+    // Cascade_Speed range is typically 0.0-1.0 where 1.0 = fastest
+    // Map to multiplier: 0.0 → 0.5x (slow), 0.5 → 1.0x (normal), 1.0 → 2.0x (fast)
+    // Using exponential curve for perceptual linearity
+    final normalized = rtpcDef.normalizedValue.clamp(0.0, 1.0);
+    // Formula: 0.5 * 4^normalized = 0.5 at 0, 1.0 at 0.5, 2.0 at 1.0
+    return 0.5 * math.pow(4.0, normalized);
   }
 
   /// Linear interpolation
