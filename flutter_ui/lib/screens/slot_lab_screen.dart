@@ -72,8 +72,9 @@ import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/stage_trace_widget.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
-// audio_hover_preview.dart prepared for audio browser integration
+import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
+import '../widgets/slot_lab/slot_lab_settings_panel.dart';
 import '../widgets/glass/glass_slot_lab.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
@@ -257,10 +258,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // Focus node for keyboard shortcuts
   final FocusNode _focusNode = FocusNode();
 
-  // Game spec state
-  int _reelCount = 5;
-  int _rowCount = 3;
-  VolatilityLevel _volatilityLevel = VolatilityLevel.medium;
+  // Slot Lab settings
+  SlotLabSettings _slotLabSettings = const SlotLabSettings();
+
+  // Game spec state (derived from settings for backward compatibility)
+  int get _reelCount => _slotLabSettings.reels;
+  int get _rowCount => _slotLabSettings.rows;
+  VolatilityLevel get _volatilityLevel => _slotLabSettings.volatility;
   String get _volatility => _volatilityLevel.label;
   double _balance = 10000.0;
   double _bet = 1.0;
@@ -1781,9 +1785,33 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             tooltip: 'Preview Panel',
             isActive: _showPreviewPanel,
           ),
+          const SizedBox(width: 4),
+          _buildGlassButton(
+            icon: Icons.settings,
+            onTap: _showSettingsDialog,
+            tooltip: 'Settings',
+          ),
 
           const SizedBox(width: 8),
         ],
+      ),
+    );
+  }
+
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: SlotLabSettingsPanel(
+          settings: _slotLabSettings,
+          onSettingsChanged: (newSettings) {
+            setState(() {
+              _slotLabSettings = newSettings;
+            });
+          },
+          onClose: () => Navigator.of(context).pop(),
+        ),
       ),
     );
   }
@@ -2288,7 +2316,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                       size: 100,
                       onChanged: (level) {
                         setState(() {
-                          _volatilityLevel = level;
+                          _slotLabSettings = _slotLabSettings.copyWith(volatility: level);
                         });
                       },
                     ),
@@ -5837,6 +5865,122 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
   }
 
+  /// Handle audio dropped on stage from StageTraceWidget drag & drop
+  /// Creates or updates an AudioEvent for the target stage
+  void _onAudioDroppedOnStage(AudioFileInfo audio, String stageType) {
+    debugPrint('[SlotLab] Audio dropped on stage: ${audio.name} → $stageType');
+
+    // Normalize stage type to uppercase
+    final normalizedStage = stageType.toUpperCase().replaceAll(' ', '_');
+
+    // Check if event already exists for this stage
+    final existingEvent = eventRegistry.getEventForStage(normalizedStage);
+
+    if (existingEvent != null) {
+      // Add as new layer to existing event
+      final newLayer = AudioLayer(
+        id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+        audioPath: audio.path,
+        name: audio.name,
+        volume: 1.0,
+        pan: 0.0,
+        delay: 0.0,
+        busId: _getBusIdForStage(normalizedStage),
+      );
+
+      // Create updated event with new layer
+      final updatedEvent = AudioEvent(
+        id: existingEvent.id,
+        name: existingEvent.name,
+        stage: existingEvent.stage,
+        layers: [...existingEvent.layers, newLayer],
+        duration: existingEvent.duration,
+        loop: existingEvent.loop,
+        priority: existingEvent.priority,
+      );
+
+      eventRegistry.registerEvent(updatedEvent);
+      debugPrint('[SlotLab] Added layer to existing event: ${existingEvent.name}');
+    } else {
+      // Create new event for this stage
+      final eventId = 'event_${normalizedStage.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
+      final newEvent = AudioEvent(
+        id: eventId,
+        name: _formatEventName(normalizedStage),
+        stage: normalizedStage,
+        layers: [
+          AudioLayer(
+            id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
+            audioPath: audio.path,
+            name: audio.name,
+            volume: 1.0,
+            pan: 0.0,
+            delay: 0.0,
+            busId: _getBusIdForStage(normalizedStage),
+          ),
+        ],
+        duration: audio.duration.inMilliseconds / 1000.0,
+        loop: normalizedStage == 'REEL_SPIN', // Loop for reel spin
+        priority: _getPriorityForStage(normalizedStage),
+      );
+
+      eventRegistry.registerEvent(newEvent);
+      debugPrint('[SlotLab] Created new event: ${newEvent.name}');
+    }
+
+    // Trigger visual feedback
+    setState(() {});
+
+    // Show confirmation
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  existingEvent != null
+                      ? 'Added "${audio.name}" to ${_formatEventName(normalizedStage)}'
+                      : 'Created event for $normalizedStage with "${audio.name}"',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: FluxForgeTheme.bgMid,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
+  }
+
+  int _getBusIdForStage(String stage) {
+    if (stage.contains('MUSIC')) return 1;
+    if (stage.contains('VO') || stage.contains('VOICE')) return 3;
+    if (stage.contains('AMBIEN')) return 5;
+    return 2; // Default SFX bus
+  }
+
+  int _getPriorityForStage(String stage) {
+    if (stage.contains('JACKPOT') || stage.contains('ULTRA')) return 100;
+    if (stage.contains('EPIC')) return 90;
+    if (stage.contains('MEGA')) return 80;
+    if (stage.contains('BIG')) return 70;
+    if (stage.contains('WIN')) return 60;
+    return 50;
+  }
+
+  String _formatEventName(String stage) {
+    return stage
+        .split('_')
+        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '')
+        .join(' ');
+  }
+
   /// Delete event from ALL systems (SlotLab, Middleware, EventRegistry)
   /// Call this when deleting an event to ensure full cleanup
   void _deleteEventFromAllSystems(String eventId, String eventName, String stage) {
@@ -6239,12 +6383,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       child: Column(
         children: [
           // Stage trace (animated marker through stages) with Glass wrapper
+          // Supports drag & drop audio assignment to stages
           GlassStageTraceWrapper(
             isPlaying: _slotLabProvider.isPlayingStages,
             child: StageTraceWidget(
               provider: _slotLabProvider,
               height: 80,
               showMiniProgress: true,
+              onAudioDropped: _onAudioDroppedOnStage,
             ),
           ),
           const SizedBox(height: 4),

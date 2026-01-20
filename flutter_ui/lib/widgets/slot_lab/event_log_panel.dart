@@ -136,6 +136,8 @@ class _EventLogPanelState extends State<EventLogPanel> {
   Set<EventLogType> _activeFilters = EventLogType.values.toSet();
   String _searchQuery = '';
   int _lastMiddlewareEventCount = 0;
+  int _lastLoggedStageIndex = -1; // Track last logged stage to avoid duplicates
+  int _lastLoggedSpinCount = -1; // Track spin count to reset on new spin
 
   @override
   void initState() {
@@ -161,8 +163,17 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
     final stages = widget.slotLabProvider.lastStages;
     final currentIndex = widget.slotLabProvider.currentStageIndex;
+    final spinCount = widget.slotLabProvider.spinCount;
 
-    if (currentIndex >= 0 && currentIndex < stages.length) {
+    // Reset tracking on new spin
+    if (spinCount != _lastLoggedSpinCount) {
+      _lastLoggedSpinCount = spinCount;
+      _lastLoggedStageIndex = -1;
+    }
+
+    // Only log if this is a new stage (avoid duplicates from multiple notifyListeners calls)
+    if (currentIndex >= 0 && currentIndex < stages.length && currentIndex != _lastLoggedStageIndex) {
+      _lastLoggedStageIndex = currentIndex;
       final stage = stages[currentIndex];
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),

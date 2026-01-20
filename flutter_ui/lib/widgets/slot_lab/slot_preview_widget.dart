@@ -12,6 +12,7 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -133,16 +134,35 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
   final List<_WinParticle> _particles = [];
   late AnimationController _particleController;
 
+  // Anticipation/Near Miss animations
+  late AnimationController _anticipationController;
+  late Animation<double> _anticipationPulse;
+  late AnimationController _nearMissController;
+  late Animation<double> _nearMissShake;
+
   List<List<int>> _displayGrid = [];
   List<List<int>> _targetGrid = [];
   bool _isSpinning = false;
   Set<int> _winningReels = {};
   Set<String> _winningPositions = {}; // "reel,row" format
 
+  // Anticipation/Near Miss state
+  bool _isAnticipation = false;
+  bool _isNearMiss = false;
+  Set<int> _anticipationReels = {}; // Reels showing anticipation
+  Set<String> _nearMissPositions = {}; // Positions that "just missed"
+
   // Win display state
   double _displayedWinAmount = 0;
   double _targetWinAmount = 0;
   String _winTier = ''; // SMALL, BIG, MEGA, EPIC, ULTRA
+
+  // Currency formatter for win display
+  static final _currencyFormatter = NumberFormat.currency(
+    symbol: '',
+    decimalDigits: 0,
+    locale: 'en_US',
+  );
 
   final _random = math.Random();
   List<List<int>> _spinSymbols = [];
@@ -221,6 +241,24 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       duration: const Duration(milliseconds: 3000),
     )..addListener(_updateParticles);
 
+    // Anticipation animation - glowing pulse effect
+    _anticipationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat(reverse: true);
+    _anticipationPulse = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _anticipationController, curve: Curves.easeInOut),
+    );
+
+    // Near miss shake animation
+    _nearMissController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _nearMissShake = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _nearMissController, curve: Curves.elasticOut),
+    );
+
     _spinSymbols = List.generate(
       widget.reels,
       (_) => List.generate(20, (_) => _random.nextInt(10)),
@@ -264,6 +302,8 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winCounterController.dispose();
     _symbolBounceController.dispose();
     _particleController.dispose();
+    _anticipationController.dispose();
+    _nearMissController.dispose();
   }
 
   @override
@@ -287,6 +327,30 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
+    // Check for anticipation events
+    if (isPlaying && stages.isNotEmpty) {
+      final anticipationOn = stages.any((s) =>
+          s.stageType.toLowerCase().contains('anticipation') &&
+          s.stageType.toLowerCase().contains('on'));
+      final anticipationOff = stages.any((s) =>
+          s.stageType.toLowerCase().contains('anticipation') &&
+          s.stageType.toLowerCase().contains('off'));
+
+      if (anticipationOn && !_isAnticipation) {
+        _startAnticipation(result);
+      } else if (anticipationOff && _isAnticipation) {
+        _stopAnticipation();
+      }
+
+      // Check for near miss events
+      final nearMiss = stages.any((s) =>
+          s.stageType.toLowerCase().contains('near') &&
+          s.stageType.toLowerCase().contains('miss'));
+      if (nearMiss && !_isNearMiss) {
+        _triggerNearMiss(result);
+      }
+    }
+
     if (!isPlaying && result != null && _isSpinning) {
       _finalizeSpin(result);
     }
@@ -303,6 +367,11 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _displayedWinAmount = 0;
       _targetWinAmount = 0;
       _particles.clear();
+      // Reset anticipation/near miss state
+      _isAnticipation = false;
+      _isNearMiss = false;
+      _anticipationReels = {};
+      _nearMissPositions = {};
     });
 
     // Hide win overlay
@@ -380,6 +449,52 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (totalWin >= 100) return 'MEGA';
     if (totalWin >= 50) return 'BIG';
     return 'SMALL';
+  }
+
+  /// Format win amount with currency-style thousand separators
+  /// Examples: 1234 → "1,234" | 50 → "50" | 1234567 → "1,234,567"
+  String _formatWinAmount(double amount) {
+    return _currencyFormatter.format(amount.toInt());
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANTICIPATION / NEAR MISS EFFECTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start anticipation effect - typically on last reel(s) when potential big win
+  void _startAnticipation(SlotLabSpinResult? result) {
+    setState(() {
+      _isAnticipation = true;
+      // Typically anticipation is on the last 1-2 reels
+      _anticipationReels = {widget.reels - 2, widget.reels - 1};
+    });
+  }
+
+  /// Stop anticipation effect
+  void _stopAnticipation() {
+    setState(() {
+      _isAnticipation = false;
+      _anticipationReels = {};
+    });
+  }
+
+  /// Trigger near miss visual effect
+  void _triggerNearMiss(SlotLabSpinResult? result) {
+    setState(() {
+      _isNearMiss = true;
+      // Near miss typically highlights the symbol that "just missed"
+      // Usually the last reel, middle row
+      _nearMissPositions = {'${widget.reels - 1},1'};
+    });
+
+    _nearMissController.forward(from: 0).then((_) {
+      if (mounted) {
+        setState(() {
+          _isNearMiss = false;
+          _nearMissPositions = {};
+        });
+      }
+    });
   }
 
   void _spawnWinParticles(String tier) {
@@ -582,13 +697,13 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
               ),
             ),
           if (_winTier != 'SMALL') const SizedBox(height: 8),
-          // Win amount counter
+          // Win amount counter with currency formatting
           ShaderMask(
             shaderCallback: (bounds) => LinearGradient(
               colors: tierColors,
             ).createShader(bounds),
             child: Text(
-              _displayedWinAmount.toInt().toString(),
+              _formatWinAmount(_displayedWinAmount),
               style: TextStyle(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w900,
@@ -635,13 +750,22 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final isWinningPosition = _winningPositions.contains(posKey);
     final isWinningReel = _winningReels.contains(reelIndex);
     final isSpinning = controller.isAnimating;
+    final isAnticipationReel = _anticipationReels.contains(reelIndex);
+    final isNearMissPosition = _nearMissPositions.contains(posKey);
 
     return AnimatedBuilder(
-      animation: Listenable.merge([controller, _winPulseAnimation, _symbolBounceAnimation]),
+      animation: Listenable.merge([
+        controller,
+        _winPulseAnimation,
+        _symbolBounceAnimation,
+        _anticipationPulse,
+        _nearMissShake,
+      ]),
       builder: (context, child) {
         // Calculate bounce offset for winning symbols
         double bounceOffset = 0;
         double glowIntensity = 0;
+        double shakeOffset = 0;
 
         if (isWinningPosition && !isSpinning) {
           // Bounce effect - symbols jump up and settle
@@ -650,14 +774,65 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
           glowIntensity = _winPulseAnimation.value;
         }
 
-        final borderColor = isWinningPosition
-            ? _getWinGlowColor().withOpacity(_winPulseAnimation.value)
-            : isWinningReel
-                ? FluxForgeTheme.accentGreen.withOpacity(_winPulseAnimation.value * 0.5)
-                : const Color(0xFF2A2A38);
+        // Near miss shake effect
+        if (isNearMissPosition && _isNearMiss) {
+          shakeOffset = math.sin(_nearMissShake.value * math.pi * 6) * 4 *
+              (1 - _nearMissShake.value); // Dampening shake
+        }
+
+        // Determine border color based on state
+        Color borderColor;
+        double borderWidth;
+
+        if (isWinningPosition) {
+          borderColor = _getWinGlowColor().withOpacity(_winPulseAnimation.value);
+          borderWidth = 2.5;
+        } else if (isNearMissPosition && _isNearMiss) {
+          // Near miss - red pulsing border
+          borderColor = const Color(0xFFFF4060).withOpacity(0.8);
+          borderWidth = 2.5;
+        } else if (isAnticipationReel && _isAnticipation && isSpinning) {
+          // Anticipation - golden pulsing border
+          borderColor = const Color(0xFFFFD700).withOpacity(_anticipationPulse.value);
+          borderWidth = 2.0;
+        } else if (isWinningReel) {
+          borderColor = FluxForgeTheme.accentGreen.withOpacity(_winPulseAnimation.value * 0.5);
+          borderWidth = 1.5;
+        } else {
+          borderColor = const Color(0xFF2A2A38);
+          borderWidth = 1;
+        }
+
+        // Build box shadows
+        List<BoxShadow>? shadows;
+        if (isWinningPosition && glowIntensity > 0) {
+          shadows = [
+            BoxShadow(
+              color: _getWinGlowColor().withOpacity(glowIntensity * 0.6),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ];
+        } else if (isNearMissPosition && _isNearMiss) {
+          shadows = [
+            BoxShadow(
+              color: const Color(0xFFFF4060).withOpacity(0.5),
+              blurRadius: 16,
+              spreadRadius: 3,
+            ),
+          ];
+        } else if (isAnticipationReel && _isAnticipation && isSpinning) {
+          shadows = [
+            BoxShadow(
+              color: const Color(0xFFFFD700).withOpacity(_anticipationPulse.value * 0.4),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+          ];
+        }
 
         return Transform.translate(
-          offset: Offset(0, bounceOffset),
+          offset: Offset(shakeOffset, bounceOffset),
           child: Container(
             width: cellSize,
             height: cellSize,
@@ -667,29 +842,33 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: borderColor,
-                width: isWinningPosition ? 2.5 : (isWinningReel ? 1.5 : 1),
+                width: borderWidth,
               ),
-              boxShadow: isWinningPosition && glowIntensity > 0
-                  ? [
-                      BoxShadow(
-                        color: _getWinGlowColor().withOpacity(glowIntensity * 0.6),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
+              boxShadow: shadows,
             ),
             clipBehavior: Clip.antiAlias,
             child: isSpinning
-                ? _buildSpinningSymbolContent(reelIndex, rowIndex, cellSize, controller.value)
-                : _buildStaticSymbolContent(reelIndex, rowIndex, cellSize, isWinningPosition),
+                ? _buildSpinningSymbolContent(
+                    reelIndex, rowIndex, cellSize, controller.value,
+                    isAnticipation: isAnticipationReel && _isAnticipation,
+                  )
+                : _buildStaticSymbolContent(
+                    reelIndex, rowIndex, cellSize, isWinningPosition,
+                    isNearMiss: isNearMissPosition && _isNearMiss,
+                  ),
           ),
         );
       },
     );
   }
 
-  Widget _buildSpinningSymbolContent(int reelIndex, int rowIndex, double cellSize, double animationValue) {
+  Widget _buildSpinningSymbolContent(
+    int reelIndex,
+    int rowIndex,
+    double cellSize,
+    double animationValue, {
+    bool isAnticipation = false,
+  }) {
     final spinSyms = _spinSymbols[reelIndex];
     final totalSymbols = spinSyms.length;
 
@@ -732,8 +911,20 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
               ),
             ),
           ),
-        // Spin glow effect
-        if (animationValue < 0.3)
+        // Anticipation golden glow overlay
+        if (isAnticipation)
+          Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFFFFD700).withOpacity(_anticipationPulse.value * 0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          )
+        // Normal spin glow effect
+        else if (animationValue < 0.3)
           Container(
             decoration: BoxDecoration(
               gradient: RadialGradient(
@@ -748,23 +939,50 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
     );
   }
 
-  Widget _buildStaticSymbolContent(int reelIndex, int rowIndex, double cellSize, bool isWinning) {
+  Widget _buildStaticSymbolContent(
+    int reelIndex,
+    int rowIndex,
+    double cellSize,
+    bool isWinning, {
+    bool isNearMiss = false,
+  }) {
     final symbolId = _displayGrid[reelIndex][rowIndex];
-    return _buildSymbolContent(symbolId, cellSize, isWinning);
+    return _buildSymbolContent(
+      symbolId,
+      cellSize,
+      isWinning,
+      isNearMiss: isNearMiss,
+    );
   }
 
-  Widget _buildSymbolContent(int symbolId, double cellSize, bool isWinning, {bool isSpinning = false}) {
+  Widget _buildSymbolContent(
+    int symbolId,
+    double cellSize,
+    bool isWinning, {
+    bool isSpinning = false,
+    bool isNearMiss = false,
+  }) {
     final symbol = SlotSymbol.getSymbol(symbolId);
     final fontSize = (cellSize * 0.5).clamp(12.0, 60.0);
 
-    // Enhanced glow for winning symbols
-    final glowColors = isWinning
-        ? [
-            symbol.glowColor.withOpacity(0.8),
-            symbol.gradientColors.first,
-            symbol.gradientColors.last,
-          ]
-        : symbol.gradientColors;
+    // Enhanced glow for winning symbols or near miss
+    List<Color> glowColors;
+    if (isNearMiss) {
+      // Near miss - desaturated red tint
+      glowColors = [
+        const Color(0xFFFF4060).withOpacity(0.7),
+        const Color(0xFF802030),
+        const Color(0xFF401020),
+      ];
+    } else if (isWinning) {
+      glowColors = [
+        symbol.glowColor.withOpacity(0.8),
+        symbol.gradientColors.first,
+        symbol.gradientColors.last,
+      ];
+    } else {
+      glowColors = symbol.gradientColors;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -782,7 +1000,15 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   spreadRadius: 1,
                 ),
               ]
-            : null,
+            : isNearMiss
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFF4060).withOpacity(0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : null,
       ),
       child: Stack(
         children: [
@@ -839,6 +1065,26 @@ class _SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     ),
                   );
                 },
+              ),
+            ),
+          // Near miss X overlay
+          if (isNearMiss)
+            Positioned.fill(
+              child: Center(
+                child: Text(
+                  '✕',
+                  style: TextStyle(
+                    fontSize: fontSize * 1.2,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFFFF4060).withOpacity(0.9),
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xFFFF4060),
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],

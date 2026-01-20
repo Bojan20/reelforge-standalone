@@ -80,6 +80,7 @@ class SlotLabProvider extends ChangeNotifier {
   int _currentStageIndex = 0;
   bool _isPlayingStages = false;
   int _totalReels = 5; // Default, can be configured
+  int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
 
   // ─── Persistent UI State (survives screen switches) ───────────────────────
   List<Map<String, dynamic>> persistedAudioPool = [];
@@ -362,9 +363,12 @@ class SlotLabProvider extends ChangeNotifier {
       _updateFreeSpinsState();
       _updateStats();
 
+      // DEBUG: Print all stage types to see what Rust generated
+      final stageTypes = _lastStages.map((s) => s.stageType).toList();
       debugPrint('[SlotLabProvider] Spin #$_spinCount: win=${_lastResult?.isWin}, '
           'amount=${_lastResult?.totalWin.toStringAsFixed(2)}, '
           'stages=${_lastStages.length}');
+      debugPrint('[SlotLabProvider] Stage sequence: $stageTypes');
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -437,12 +441,14 @@ class SlotLabProvider extends ChangeNotifier {
       return;
     }
 
+    // Cancel any existing playback and increment generation to invalidate old timers
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
+    _playbackGeneration++; // Invalidate any pending timer callbacks from previous spin
     _currentStageIndex = 0;
     _isPlayingStages = true;
 
-    debugPrint('[SlotLabProvider] Playing ${_lastStages.length} stages sequentially');
+    debugPrint('[SlotLabProvider] Playing ${_lastStages.length} stages (gen: $_playbackGeneration)');
 
     // Trigeruj prvi stage odmah
     _triggerStage(_lastStages[0]);
@@ -505,6 +511,9 @@ class SlotLabProvider extends ChangeNotifier {
     // Calculate total audio offset from timing config
     final totalAudioOffset = _timingConfig?.totalAudioOffsetMs ?? 5.0;
 
+    // Capture current generation to check if timers are still valid when they fire
+    final generation = _playbackGeneration;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.6: ANTICIPATION PRE-TRIGGER — Trigger audio earlier than visual
     // ═══════════════════════════════════════════════════════════════════════════
@@ -517,7 +526,7 @@ class SlotLabProvider extends ChangeNotifier {
         // Schedule AUDIO trigger earlier (pre-trigger)
         _audioPreTriggerTimer?.cancel();
         _audioPreTriggerTimer = Timer(Duration(milliseconds: audioDelayMs), () {
-          if (!_isPlayingStages) return;
+          if (!_isPlayingStages || _playbackGeneration != generation) return;
           // Trigger only the audio for anticipation (not full _triggerStage which includes UI logic)
           _triggerAudioOnly(nextStage);
           debugPrint('[SlotLabProvider] P0.1+P0.6 Pre-trigger: ANTICIPATION audio at ${audioDelayMs}ms (${preTriggerTotal}ms early, offset=${totalAudioOffset.toStringAsFixed(1)}ms)');
@@ -536,7 +545,7 @@ class SlotLabProvider extends ChangeNotifier {
         // Schedule AUDIO trigger earlier (pre-trigger)
         _audioPreTriggerTimer?.cancel();
         _audioPreTriggerTimer = Timer(Duration(milliseconds: audioDelayMs), () {
-          if (!_isPlayingStages) return;
+          if (!_isPlayingStages || _playbackGeneration != generation) return;
           _triggerAudioOnly(nextStage);
           debugPrint('[SlotLabProvider] P0.1 Pre-trigger: REEL_STOP audio at ${audioDelayMs}ms (${preTriggerTotal}ms early)');
         });
@@ -544,7 +553,11 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     _stagePlaybackTimer = Timer(Duration(milliseconds: delayMs.clamp(10, 5000)), () {
-      if (!_isPlayingStages) return;
+      // Check if this timer belongs to the current playback session
+      if (!_isPlayingStages || _playbackGeneration != generation) {
+        debugPrint('[SlotLabProvider] Ignoring stale timer (gen: $generation, current: $_playbackGeneration)');
+        return;
+      }
 
       _currentStageIndex++;
       final stage = _lastStages[_currentStageIndex];
@@ -624,12 +637,17 @@ class SlotLabProvider extends ChangeNotifier {
       }
     }
 
+    // Debug: Show all registered stages
+    final registeredStages = eventRegistry.allEvents.map((e) => e.stage).toList();
+
     if (eventRegistry.hasEventForStage(effectiveStage)) {
+      debugPrint('[SlotLabProvider] ✅ Triggering audio: $effectiveStage');
       eventRegistry.triggerStage(effectiveStage, context: context);
     } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
+      debugPrint('[SlotLabProvider] ✅ Triggering audio (fallback): $stageType');
       eventRegistry.triggerStage(stageType, context: context);
-    } else if (eventRegistry.hasEventForStage(stageType)) {
-      eventRegistry.triggerStage(stageType, context: context);
+    } else {
+      debugPrint('[SlotLabProvider] ❌ No audio event for: $effectiveStage (registered: $registeredStages)');
     }
   }
 
@@ -692,7 +710,7 @@ class SlotLabProvider extends ChangeNotifier {
     final reelIndex = stage.payload['reel_index'];
     Map<String, dynamic> context = Map.from(stage.payload);
 
-    debugPrint('[SlotLabProvider] _triggerStage: $stageType ${reelIndex != null ? "(reel $reelIndex)" : ""} @ ${stage.timestampMs.toStringAsFixed(0)}ms');
+    debugPrint('[SlotLabProvider] >>> TRIGGER: $stageType (index: $_currentStageIndex/${_lastStages.length}) @ ${stage.timestampMs.toStringAsFixed(0)}ms');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CENTRALNI EVENT REGISTRY — JEDINI izvor audio playback-a
