@@ -445,6 +445,9 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
     let tracks = track_manager.get_all_tracks();
     let all_clips = track_manager.get_all_clips();
 
+    // Use actual session sample rate from engine config
+    let sample_rate = e.config.sample_rate.as_u32() as u64;
+
     e.project.tracks = tracks
         .iter()
         .map(|track| {
@@ -453,8 +456,6 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                 .iter()
                 .filter(|c| c.track_id == track.id)
                 .map(|clip| {
-                    // Convert seconds to samples (48kHz default)
-                    let sample_rate = 48000u64;
                     RegionState {
                         id: clip.id.0.to_string(),
                         name: clip.name.clone(),
@@ -601,7 +602,8 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
     // Clear existing tracks
     track_manager.clear();
 
-    let sample_rate = 48000.0_f64; // Default sample rate for conversion
+    // Use actual session sample rate from engine config
+    let sample_rate = e.config.sample_rate.as_f64();
 
     for track_state in &e.project.tracks {
         // Parse output bus

@@ -715,5 +715,6 @@ class _GrooveGraphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _GrooveGraphPainter oldDelegate) =>
+      oldDelegate.template != template;
 }

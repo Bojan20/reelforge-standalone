@@ -3168,13 +3168,15 @@ class NativeFFI {
   /// Get all track peaks at once (more efficient for UI metering)
   /// Returns map of track_id -> peak value (max of L/R for backward compat)
   Map<int, double> getAllTrackPeaks(int maxTracks) {
-    if (!_loaded) return {};
+    if (!_loaded || maxTracks <= 0) return {};
     final idsPtr = calloc<Uint64>(maxTracks);
     final peaksPtr = calloc<Double>(maxTracks);
     try {
       final count = _getAllTrackPeaks(idsPtr, peaksPtr, maxTracks);
+      // Bounds check: count must be within allocated range
+      final safeCount = count.clamp(0, maxTracks);
       final result = <int, double>{};
-      for (int i = 0; i < count; i++) {
+      for (int i = 0; i < safeCount; i++) {
         result[idsPtr[i]] = peaksPtr[i];
       }
       return result;
@@ -3187,7 +3189,7 @@ class NativeFFI {
   /// Get all track stereo meters at once (most efficient for UI)
   /// Returns map of track_id -> TrackMeterData
   Map<int, ({double peakL, double peakR, double rmsL, double rmsR, double correlation})> getAllTrackMeters(int maxTracks) {
-    if (!_loaded) return {};
+    if (!_loaded || maxTracks <= 0) return {};
     final idsPtr = calloc<Uint64>(maxTracks);
     final peakLPtr = calloc<Double>(maxTracks);
     final peakRPtr = calloc<Double>(maxTracks);
@@ -3196,8 +3198,10 @@ class NativeFFI {
     final corrPtr = calloc<Double>(maxTracks);
     try {
       final count = _getAllTrackMeters(idsPtr, peakLPtr, peakRPtr, rmsLPtr, rmsRPtr, corrPtr, maxTracks);
+      // Bounds check: count must be within allocated range
+      final safeCount = count.clamp(0, maxTracks);
       final result = <int, ({double peakL, double peakR, double rmsL, double rmsR, double correlation})>{};
-      for (int i = 0; i < count; i++) {
+      for (int i = 0; i < safeCount; i++) {
         result[idsPtr[i]] = (
           peakL: peakLPtr[i],
           peakR: peakRPtr[i],
@@ -3347,11 +3351,13 @@ class NativeFFI {
       final count = _queryWaveformPixels(clipId, startFrame, endFrame, numPixels, buffer);
       if (count == 0) return null;
 
-      final mins = Float32List(count);
-      final maxs = Float32List(count);
-      final rms = Float32List(count);
+      // Bounds check: count must not exceed allocated buffer
+      final safeCount = count.clamp(0, numPixels);
+      final mins = Float32List(safeCount);
+      final maxs = Float32List(safeCount);
+      final rms = Float32List(safeCount);
 
-      for (var i = 0; i < count; i++) {
+      for (var i = 0; i < safeCount; i++) {
         mins[i] = buffer[i * 3];
         maxs[i] = buffer[i * 3 + 1];
         rms[i] = buffer[i * 3 + 2];
@@ -3374,14 +3380,16 @@ class NativeFFI {
       final count = _queryWaveformPixelsStereo(clipId, startFrame, endFrame, numPixels, buffer);
       if (count == 0) return null;
 
-      final leftMins = Float32List(count);
-      final leftMaxs = Float32List(count);
-      final leftRms = Float32List(count);
-      final rightMins = Float32List(count);
-      final rightMaxs = Float32List(count);
-      final rightRms = Float32List(count);
+      // Bounds check: count must not exceed allocated buffer
+      final safeCount = count.clamp(0, numPixels);
+      final leftMins = Float32List(safeCount);
+      final leftMaxs = Float32List(safeCount);
+      final leftRms = Float32List(safeCount);
+      final rightMins = Float32List(safeCount);
+      final rightMaxs = Float32List(safeCount);
+      final rightRms = Float32List(safeCount);
 
-      for (var i = 0; i < count; i++) {
+      for (var i = 0; i < safeCount; i++) {
         final idx = i * 6;
         leftMins[i] = buffer[idx];
         leftMaxs[i] = buffer[idx + 1];

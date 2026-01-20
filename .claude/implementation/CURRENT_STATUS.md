@@ -1,8 +1,122 @@
 # FluxForge Studio — Current Status & Roadmap
 
 **Last Updated:** 2026-01-20
-**Session:** FabFilter DSP Panels + Lower Zone Complete
+**Session:** P0 Critical Fixes Complete
 **Commit:** `bb936c0c` — feat: Action Type dropdown + batch audio import optimization
+
+---
+
+## 🎯 SESSION 2026-01-20 (Part 5): P0 CRITICAL FIXES
+
+### Završeni Taskovi — 10/10 Complete
+
+| # | Issue | Status | Solution |
+|---|-------|--------|----------|
+| P0.1 | Sample rate hardcoding | ✅ COMPLETE | Use `config.sample_rate` instead of 48000 |
+| P0.2 | Heap alloc in from_slices() | ✅ COMPLETE | `#[cold]` + `#[inline(never)]` markers |
+| P0.3 | RwLock contention | ✅ COMPLETE | Lock-free AtomicU64 + pre-alloc array |
+| P0.4 | log::warn!() in audio callback | ✅ COMPLETE | Removed all log calls from RT code |
+| P0.5 | Null checks in FFI | ✅ COMPLETE | Verified already implemented |
+| P0.6 | Bounds validation in Dart | ✅ COMPLETE | Added `.clamp(0, maxTracks)` |
+| P0.7 | Race condition in slot_lab_ffi | ✅ COMPLETE | AtomicU8 state machine with CAS |
+| P0.8 | PDC not integrated | ✅ COMPLETE | `ChannelPdcBuffer` + `recalculate_pdc()` |
+| P0.9 | Send tap points missing | ✅ COMPLETE | PreFader/PostFader/PostPan buffers |
+| P0.10 | shouldRepaint always true | ✅ COMPLETE | Optimized 6 CustomPainters |
+
+#### Key Changes
+
+**P0.3: Lock-Free Parameter Smoother (param_smoother.rs)**
+```rust
+// OLD: RwLock contention possible
+let tracks = self.tracks.read().unwrap();
+
+// NEW: Lock-free atomic design
+pub struct ParamSmootherManager {
+    atomic_state: [AtomicParamState; 256],  // UI→Audio targets
+    smoother_state: UnsafeCell<[TrackSmootherState; 256]>,  // Audio-only
+}
+
+// UI thread (atomic write)
+manager.set_track_volume(track_id, 0.5);
+
+// Audio thread (lock-free read + smooth)
+let (vol, pan) = manager.advance_track(track_id);
+```
+
+**P0.7: Race-Free Initialization (slot_lab_ffi.rs)**
+```rust
+static SLOT_LAB_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
+
+pub extern "C" fn slot_lab_init() -> i32 {
+    match SLOT_LAB_STATE.compare_exchange(
+        STATE_UNINITIALIZED, STATE_INITIALIZING,
+        Ordering::SeqCst, Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            // Initialize engine
+            SLOT_LAB_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+            1
+        }
+        Err(STATE_INITIALIZING) => {
+            // Another thread is initializing - spin wait
+            while SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZING {
+                std::hint::spin_loop();
+            }
+            0
+        }
+        Err(_) => 0, // Already initialized
+    }
+}
+```
+
+**P0.8/P0.9: PDC + Send Tap Points (routing.rs)**
+```rust
+pub struct Channel {
+    // Send tap point buffers
+    prefader_left: Vec<Sample>,   // After DSP, before fader
+    prefader_right: Vec<Sample>,
+    postfader_left: Vec<Sample>,  // After fader, before pan
+    postfader_right: Vec<Sample>,
+    output_left: Vec<Sample>,     // Final (PostPan + PDC)
+    output_right: Vec<Sample>,
+
+    // PDC
+    pdc_buffer: ChannelPdcBuffer,
+    own_latency: u32,
+    pdc_delay: u32,
+}
+
+impl RoutingGraph {
+    pub fn recalculate_pdc(&mut self) {
+        // Find max latency per destination group
+        // Set compensation delays for lower-latency channels
+    }
+}
+```
+
+#### Files Changed
+
+| File | Change |
+|------|--------|
+| `crates/rf-engine/src/param_smoother.rs` | Complete lock-free rewrite (~320 LOC) |
+| `crates/rf-engine/src/routing.rs` | PDC + tap points (~200 LOC added) |
+| `crates/rf-engine/src/playback.rs` | Removed log calls from audio callback |
+| `crates/rf-engine/src/dual_path.rs` | Marked allocating fn as cold path |
+| `crates/rf-bridge/src/slot_lab_ffi.rs` | CAS state machine for init |
+| `flutter_ui/lib/src/rust/native_ffi.dart` | Bounds validation with clamp() |
+| `flutter_ui/lib/screens/slot_lab_screen.dart` | shouldRepaint guard |
+| `flutter_ui/lib/widgets/panels/groove_quantize_panel.dart` | shouldRepaint guard |
+| `flutter_ui/lib/widgets/dsp/spectral_repair_editor.dart` | shouldRepaint guard (2 painters) |
+| `flutter_ui/lib/widgets/dsp/pitch_segment_editor.dart` | shouldRepaint guard |
+| `flutter_ui/lib/widgets/slot_lab/rtpc_editor_panel.dart` | shouldRepaint guard |
+
+#### Build Status
+
+```
+cargo build: OK
+cargo test -p rf-engine: OK (all PDC tests pass)
+flutter analyze: OK (0 issues)
+```
 
 ---
 

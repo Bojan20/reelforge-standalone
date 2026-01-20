@@ -717,7 +717,11 @@ class _FrequencyAxisPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_FrequencyAxisPainter oldDelegate) => true;
+  bool shouldRepaint(_FrequencyAxisPainter oldDelegate) =>
+      oldDelegate.minFreq != minFreq ||
+      oldDelegate.maxFreq != maxFreq ||
+      oldDelegate.verticalZoom != verticalZoom ||
+      oldDelegate.scrollOffset != scrollOffset;
 }
 
 /// Spectrogram painter
@@ -837,5 +841,16 @@ class _SpectrogramPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SpectrogramPainter oldDelegate) => true;
+  bool shouldRepaint(_SpectrogramPainter oldDelegate) =>
+      oldDelegate.clipDuration != clipDuration ||
+      oldDelegate.sampleRate != sampleRate ||
+      oldDelegate.minFreq != minFreq ||
+      oldDelegate.maxFreq != maxFreq ||
+      oldDelegate.horizontalZoom != horizontalZoom ||
+      oldDelegate.verticalZoom != verticalZoom ||
+      oldDelegate.scrollOffsetX != scrollOffsetX ||
+      oldDelegate.scrollOffsetY != scrollOffsetY ||
+      oldDelegate.selections != selections ||
+      oldDelegate.selectedId != selectedId ||
+      oldDelegate.currentSelection != currentSelection;
 }

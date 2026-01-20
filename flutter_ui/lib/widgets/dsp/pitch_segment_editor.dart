@@ -579,5 +579,12 @@ class _SegmentCanvasPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SegmentCanvasPainter oldDelegate) => true;
+  bool shouldRepaint(_SegmentCanvasPainter oldDelegate) =>
+      oldDelegate.segments != segments ||
+      oldDelegate.selectedId != selectedId ||
+      oldDelegate.clipDuration != clipDuration ||
+      oldDelegate.minMidiNote != minMidiNote ||
+      oldDelegate.maxMidiNote != maxMidiNote ||
+      oldDelegate.horizontalZoom != horizontalZoom ||
+      oldDelegate.scrollOffset != scrollOffset;
 }

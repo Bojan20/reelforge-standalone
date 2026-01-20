@@ -433,12 +433,13 @@ impl AudioEngine {
         let decay = 0.9995_f64.powf(buffer_size_usize as f64);
 
         // Create EQ instance (moved into callback for lock-free access)
-        let mut eq = ParametricEq::new(sample_rate.as_f64());
+        let sample_rate_f64 = sample_rate.as_f64();
+        let mut eq = ParametricEq::new(sample_rate_f64);
 
         // Enable test band: 1kHz +6dB Bell filter
         eq.set_band(0, 1000.0, 6.0, 1.0, EqFilterType::Bell);
 
-        // Create callback
+        // Create callback (capture sample_rate_f64 for correct audio timing)
         let callback = Box::new(move |input: &[Sample], output: &mut [Sample]| {
             let frames = output.len() / 2;
 
@@ -478,12 +479,12 @@ impl AudioEngine {
 
             // Process audio based on state
             if state == TransportState::Playing {
-                let sample_rate = 48000.0;
+                // Use captured sample_rate_f64 (not hardcoded) for correct playback speed
                 let freq = 440.0;
                 let pos = transport.samples();
 
                 for i in 0..frames {
-                    let t = (pos + i as u64) as f64 / sample_rate;
+                    let t = (pos + i as u64) as f64 / sample_rate_f64;
                     let sample = (2.0 * std::f64::consts::PI * freq * t).sin() * 0.3;
                     left_buf[i] = sample;
                     right_buf[i] = sample;

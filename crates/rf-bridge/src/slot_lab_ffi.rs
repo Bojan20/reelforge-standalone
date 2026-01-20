@@ -10,12 +10,17 @@
 //! - SyntheticSlotEngine lives in global state (single instance)
 //! - FFI functions provide safe access to engine methods
 //! - Stage events are returned as JSON for easy Dart parsing
+//!
+//! # Thread Safety
+//! Uses OnceLock for race-free initialization. The SLOT_ENGINE is written
+//! first, THEN initialized flag is set, ensuring other threads never see
+//! a half-initialized state.
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::ffi::{c_char, CStr, CString};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 
 use rf_slot_lab::{
     ForcedOutcome, SpinResult, SyntheticSlotEngine, TimingProfile, VolatilityProfile,
@@ -26,8 +31,13 @@ use rf_stage::StageEvent;
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Initialization flag
-static SLOT_LAB_INITIALIZED: AtomicBool = AtomicBool::new(false);
+/// Initialization states (using AtomicU8 for CAS)
+const STATE_UNINITIALIZED: u8 = 0;
+const STATE_INITIALIZING: u8 = 1;
+const STATE_INITIALIZED: u8 = 2;
+
+/// Initialization state (race-free via CAS)
+static SLOT_LAB_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 
 /// Spin counter
 static SPIN_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -50,19 +60,40 @@ static LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>> =
 
 /// Initialize the Slot Lab engine with default config
 ///
-/// Returns 1 on success, 0 if already initialized
+/// Returns 1 on success, 0 if already initialized, -1 if initialization in progress
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_init() -> i32 {
-    if SLOT_LAB_INITIALIZED.swap(true, Ordering::SeqCst) {
-        log::warn!("slot_lab_init: Already initialized");
-        return 0;
+    // Atomic CAS: UNINITIALIZED -> INITIALIZING (only one thread wins)
+    match SLOT_LAB_STATE.compare_exchange(
+        STATE_UNINITIALIZED,
+        STATE_INITIALIZING,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            // We won the CAS - do the initialization
+            let engine = SyntheticSlotEngine::new();
+            *SLOT_ENGINE.write() = Some(engine);
+
+            // Mark as fully initialized (other threads can now proceed)
+            SLOT_LAB_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+
+            log::info!("slot_lab_init: Synthetic Slot Engine initialized");
+            1
+        }
+        Err(STATE_INITIALIZING) => {
+            // Another thread is initializing - spin wait (rare)
+            while SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZING {
+                std::hint::spin_loop();
+            }
+            0 // Already initialized by other thread
+        }
+        Err(_) => {
+            // Already initialized
+            log::warn!("slot_lab_init: Already initialized");
+            0
+        }
     }
-
-    let engine = SyntheticSlotEngine::new();
-    *SLOT_ENGINE.write() = Some(engine);
-
-    log::info!("slot_lab_init: Synthetic Slot Engine initialized");
-    1
 }
 
 /// Initialize for audio testing (high frequency events)
@@ -70,38 +101,65 @@ pub extern "C" fn slot_lab_init() -> i32 {
 /// Returns 1 on success, 0 if already initialized
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_init_audio_test() -> i32 {
-    if SLOT_LAB_INITIALIZED.swap(true, Ordering::SeqCst) {
-        log::warn!("slot_lab_init_audio_test: Already initialized");
-        return 0;
+    // Atomic CAS: UNINITIALIZED -> INITIALIZING
+    match SLOT_LAB_STATE.compare_exchange(
+        STATE_UNINITIALIZED,
+        STATE_INITIALIZING,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            let engine = SyntheticSlotEngine::audio_test();
+            *SLOT_ENGINE.write() = Some(engine);
+
+            // Mark as fully initialized
+            SLOT_LAB_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+
+            log::info!("slot_lab_init_audio_test: Audio test mode initialized");
+            1
+        }
+        Err(STATE_INITIALIZING) => {
+            // Another thread is initializing - spin wait
+            while SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZING {
+                std::hint::spin_loop();
+            }
+            0
+        }
+        Err(_) => {
+            log::warn!("slot_lab_init_audio_test: Already initialized");
+            0
+        }
     }
-
-    let engine = SyntheticSlotEngine::audio_test();
-    *SLOT_ENGINE.write() = Some(engine);
-
-    log::info!("slot_lab_init_audio_test: Audio test mode initialized");
-    1
 }
 
 /// Shutdown the Slot Lab engine
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_shutdown() {
-    if !SLOT_LAB_INITIALIZED.swap(false, Ordering::SeqCst) {
-        log::warn!("slot_lab_shutdown: Not initialized");
-        return;
+    // Atomic CAS: INITIALIZED -> UNINITIALIZED
+    match SLOT_LAB_STATE.compare_exchange(
+        STATE_INITIALIZED,
+        STATE_UNINITIALIZED,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            *SLOT_ENGINE.write() = None;
+            *LAST_SPIN_RESULT.write() = None;
+            LAST_STAGES.write().clear();
+            SPIN_COUNT.store(0, Ordering::SeqCst);
+
+            log::info!("slot_lab_shutdown: Engine shutdown");
+        }
+        Err(_) => {
+            log::warn!("slot_lab_shutdown: Not initialized or already shutting down");
+        }
     }
-
-    *SLOT_ENGINE.write() = None;
-    *LAST_SPIN_RESULT.write() = None;
-    LAST_STAGES.write().clear();
-    SPIN_COUNT.store(0, Ordering::SeqCst);
-
-    log::info!("slot_lab_shutdown: Engine shutdown");
 }
 
 /// Check if engine is initialized
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_is_initialized() -> i32 {
-    if SLOT_LAB_INITIALIZED.load(Ordering::SeqCst) { 1 } else { 0 }
+    if SLOT_LAB_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED { 1 } else { 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -6549,7 +6549,8 @@ class _TimelineGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _TimelineGridPainter oldDelegate) =>
+      oldDelegate.zoom != zoom || oldDelegate.duration != duration;
 }
 
 /// Cubase-style waveform painter with min/max/rms layers

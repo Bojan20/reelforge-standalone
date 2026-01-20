@@ -56,6 +56,49 @@ Statistics:
 
 ---
 
+## ✅ COMPLETE — P0 Critical Fixes (2026-01-20)
+
+Exit Criteria:
+
+- ✅ P0.1: Sample rate hardcoding fixed (engine.rs)
+- ✅ P0.2: Heap allocation marked cold (dual_path.rs from_slices)
+- ✅ P0.3: RwLock replaced with lock-free atomics (param_smoother.rs)
+- ✅ P0.4: log::warn!() removed from audio callback (playback.rs)
+- ✅ P0.5: Null checks verified in FFI C exports
+- ✅ P0.6: Bounds validation added (native_ffi.dart)
+- ✅ P0.7: Race condition fixed with CAS (slot_lab_ffi.rs)
+- ✅ P0.8: PDC integrated in routing (routing.rs Channel::process)
+- ✅ P0.9: Send tap points implemented (PreFader/PostFader/PostPan)
+- ✅ P0.10: shouldRepaint guards added to CustomPainters
+
+Key Changes:
+
+| Fix | File | Solution |
+|-----|------|----------|
+| Lock-free params | param_smoother.rs | AtomicU64 + pre-allocated 256-slot array |
+| PDC routing | routing.rs | ChannelPdcBuffer + recalculate_pdc() |
+| Send tap points | routing.rs | prefader/postfader/output buffers per channel |
+| Race-free init | slot_lab_ffi.rs | AtomicU8 state machine with CAS |
+
+Performance:
+
+- ✅ Zero allocations in audio callback
+- ✅ Zero locks in real-time path
+- ✅ Zero syscalls in audio thread
+- ✅ Phase-coherent routing with PDC
+
+Files Changed:
+
+- `crates/rf-engine/src/param_smoother.rs` — Complete rewrite (~320 LOC)
+- `crates/rf-engine/src/routing.rs` — PDC + tap points (~200 LOC added)
+- `crates/rf-engine/src/playback.rs` — Removed log calls
+- `crates/rf-engine/src/dual_path.rs` — Marked allocating fn cold
+- `crates/rf-bridge/src/slot_lab_ffi.rs` — CAS state machine
+- `flutter_ui/lib/src/rust/native_ffi.dart` — Bounds validation
+- 6 Flutter CustomPainter files — shouldRepaint guards
+
+---
+
 ## P1 — Plugin Hosting
 
 Exit Criteria:

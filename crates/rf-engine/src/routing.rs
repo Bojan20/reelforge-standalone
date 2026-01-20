@@ -29,6 +29,102 @@ use rf_dsp::channel::ChannelStrip;
 use rf_plugin::{AudioBuffer as PluginAudioBuffer, ZeroCopyChain};
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CHANNEL-LEVEL PDC (Plugin Delay Compensation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum PDC delay in samples (~1 second at 48kHz)
+const MAX_PDC_DELAY: usize = 48000;
+
+/// Per-channel delay buffer for PDC (Plugin Delay Compensation)
+///
+/// When channels in a routing graph have different latencies (due to plugins),
+/// channels with lower latency need to be delayed to maintain phase coherence.
+///
+/// # Audio Thread Safety
+/// - Pre-allocated circular buffer (no heap allocation during processing)
+/// - O(1) read/write operations
+/// - Zero-copy design
+#[derive(Debug)]
+pub struct ChannelPdcBuffer {
+    /// Circular buffer for left channel
+    buffer_l: Vec<Sample>,
+    /// Circular buffer for right channel
+    buffer_r: Vec<Sample>,
+    /// Write position in circular buffer
+    write_pos: usize,
+    /// Current delay in samples
+    delay: usize,
+    /// Maximum delay capacity
+    capacity: usize,
+}
+
+impl ChannelPdcBuffer {
+    /// Create new PDC buffer with specified capacity
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            buffer_l: vec![0.0; capacity],
+            buffer_r: vec![0.0; capacity],
+            write_pos: 0,
+            delay: 0,
+            capacity,
+        }
+    }
+
+    /// Set delay in samples (clamped to capacity)
+    #[inline]
+    pub fn set_delay(&mut self, delay: usize) {
+        self.delay = delay.min(self.capacity.saturating_sub(1));
+    }
+
+    /// Get current delay
+    #[inline]
+    pub fn delay(&self) -> usize {
+        self.delay
+    }
+
+    /// Process stereo buffer through delay line (IN-PLACE)
+    ///
+    /// # Audio Thread Safety
+    /// - No allocations
+    /// - O(n) where n = buffer length
+    #[inline]
+    pub fn process(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        if self.delay == 0 {
+            return;
+        }
+
+        let len = left.len().min(right.len());
+
+        for i in 0..len {
+            // Calculate read position (wrap around)
+            let read_pos = (self.write_pos + self.capacity - self.delay) % self.capacity;
+
+            // Read delayed samples
+            let delayed_l = self.buffer_l[read_pos];
+            let delayed_r = self.buffer_r[read_pos];
+
+            // Write current samples to buffer
+            self.buffer_l[self.write_pos] = left[i];
+            self.buffer_r[self.write_pos] = right[i];
+
+            // Output delayed samples
+            left[i] = delayed_l;
+            right[i] = delayed_r;
+
+            // Advance write position
+            self.write_pos = (self.write_pos + 1) % self.capacity;
+        }
+    }
+
+    /// Clear buffer (call on transport stop/reset)
+    pub fn clear(&mut self) {
+        self.buffer_l.fill(0.0);
+        self.buffer_r.fill(0.0);
+        self.write_pos = 0;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ROUTING COMMANDS (lock-free UI → Audio thread communication)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -524,6 +620,22 @@ pub struct Channel {
     output_left: Vec<Sample>,
     output_right: Vec<Sample>,
 
+    // Send tap point buffers (for pre-fader, post-fader sends)
+    /// Pre-fader signal (after DSP, before fader gain)
+    prefader_left: Vec<Sample>,
+    prefader_right: Vec<Sample>,
+    /// Post-fader signal (after fader gain, before pan)
+    postfader_left: Vec<Sample>,
+    postfader_right: Vec<Sample>,
+
+    // PDC (Plugin Delay Compensation)
+    /// Per-channel delay buffer for routing-level PDC
+    pdc_buffer: ChannelPdcBuffer,
+    /// Channel's own latency (from plugin chain)
+    own_latency: u32,
+    /// Compensation delay applied to this channel
+    pdc_delay: u32,
+
     // State
     /// Processing order index (computed by topological sort)
     processing_order: u32,
@@ -582,6 +694,15 @@ impl Channel {
             input_right: vec![0.0; block_size],
             output_left: vec![0.0; block_size],
             output_right: vec![0.0; block_size],
+            // Send tap point buffers
+            prefader_left: vec![0.0; block_size],
+            prefader_right: vec![0.0; block_size],
+            postfader_left: vec![0.0; block_size],
+            postfader_right: vec![0.0; block_size],
+            // PDC buffer with max 1 second delay at 48kHz
+            pdc_buffer: ChannelPdcBuffer::new(MAX_PDC_DELAY),
+            own_latency: 0,
+            pdc_delay: 0,
             processing_order: 0,
         }
     }
@@ -711,6 +832,40 @@ impl Channel {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // PDC (Plugin Delay Compensation)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Get this channel's own latency (from plugin chain)
+    pub fn own_latency(&self) -> u32 {
+        if let Some(chain) = &self.plugin_chain {
+            chain.latency()
+        } else {
+            0
+        }
+    }
+
+    /// Update own latency cache (call after plugin changes)
+    pub fn update_own_latency(&mut self) {
+        self.own_latency = self.own_latency();
+    }
+
+    /// Set PDC compensation delay for this channel
+    pub fn set_pdc_delay(&mut self, delay: u32) {
+        self.pdc_delay = delay;
+        self.pdc_buffer.set_delay(delay as usize);
+    }
+
+    /// Get current PDC delay
+    pub fn pdc_delay(&self) -> u32 {
+        self.pdc_delay
+    }
+
+    /// Clear PDC buffer (call on transport stop)
+    pub fn clear_pdc(&mut self) {
+        self.pdc_buffer.clear();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // SENDS
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -747,49 +902,34 @@ impl Channel {
     }
 
     /// Process channel (apply DSP chain, fader, pan, mute)
+    ///
+    /// # Send Tap Points
+    /// This method populates tap point buffers for send routing:
+    /// - `prefader_*`: Signal after DSP/plugins, before fader gain
+    /// - `postfader_*`: Signal after fader gain, before pan
+    /// - `output_*`: Final signal after fader, pan, and PDC (PostPan)
     pub fn process(&mut self, global_solo_active: bool) {
+        let len = self.input_left.len().min(self.output_left.len());
+
         // Check mute/solo
         if self.is_muted() || (global_solo_active && !self.is_soloed()) {
             self.output_left.fill(0.0);
             self.output_right.fill(0.0);
+            self.prefader_left.fill(0.0);
+            self.prefader_right.fill(0.0);
+            self.postfader_left.fill(0.0);
+            self.postfader_right.fill(0.0);
             // Update meters with silence
             self.update_peak(0.0, 0.0);
             self.update_rms(0.0, 0.0);
             return;
         }
 
-        let gain = self.fader_gain();
+        // ═══════════════════════════════════════════════════════════════════════
+        // STAGE 1: Input → Plugin Chain → DSP Strip → prefader_*
+        // ═══════════════════════════════════════════════════════════════════════
 
-        // Calculate pan gains based on pan mode
-        let (left_gain, right_gain) = match self.pan_mode {
-            PanMode::ExternalDualPan => {
-                // Pan already applied externally (Pro Tools dual-pan)
-                // Only apply fader gain, no additional pan
-                (gain, gain)
-            }
-            PanMode::Balance => {
-                // Balance mode: attenuate opposite side
-                // pan -1.0 = full left (R muted), pan +1.0 = full right (L muted)
-                let left_atten = if self.pan > 0.0 { 1.0 - self.pan } else { 1.0 };
-                let right_atten = if self.pan < 0.0 { 1.0 + self.pan } else { 1.0 };
-                (gain * left_atten, gain * right_atten)
-            }
-            PanMode::Standard => {
-                // Standard constant power pan
-                let pan_angle = (self.pan + 1.0) * 0.25 * std::f64::consts::PI;
-                (gain * pan_angle.cos(), gain * pan_angle.sin())
-            }
-        };
-
-        // Track peak and RMS for metering
-        let mut peak_l = 0.0_f64;
-        let mut peak_r = 0.0_f64;
-        let mut sum_sq_l = 0.0_f64;
-        let mut sum_sq_r = 0.0_f64;
-
-        let len = self.input_left.len().min(self.output_left.len());
-
-        // Copy input to output first (for in-place processing)
+        // Copy input to working buffer
         self.output_left[..len].copy_from_slice(&self.input_left[..len]);
         self.output_right[..len].copy_from_slice(&self.input_right[..len]);
 
@@ -815,41 +955,84 @@ impl Channel {
                 }
             }
 
-        // Process with DSP strip after plugins
+        // Process with DSP strip after plugins (if present)
         if let Some(strip) = &mut self.strip {
             use rf_dsp::StereoProcessor;
-
             for i in 0..len {
                 let (l, r) = strip.process_sample(self.output_left[i], self.output_right[i]);
-
-                // Apply fader and pan after DSP
-                let out_l = l * left_gain;
-                let out_r = r * right_gain;
-
-                self.output_left[i] = out_l;
-                self.output_right[i] = out_r;
-
-                // Update metering
-                peak_l = peak_l.max(out_l.abs());
-                peak_r = peak_r.max(out_r.abs());
-                sum_sq_l += out_l * out_l;
-                sum_sq_r += out_r * out_r;
+                self.output_left[i] = l;
+                self.output_right[i] = r;
             }
-        } else {
-            // No DSP strip (VCA or passthrough mode)
-            for i in 0..len {
-                let out_l = self.input_left[i] * left_gain;
-                let out_r = self.input_right[i] * right_gain;
+        }
 
-                self.output_left[i] = out_l;
-                self.output_right[i] = out_r;
+        // *** TAP POINT: PreFader (after DSP, before fader) ***
+        self.prefader_left[..len].copy_from_slice(&self.output_left[..len]);
+        self.prefader_right[..len].copy_from_slice(&self.output_right[..len]);
 
-                // Update metering
-                peak_l = peak_l.max(out_l.abs());
-                peak_r = peak_r.max(out_r.abs());
-                sum_sq_l += out_l * out_l;
-                sum_sq_r += out_r * out_r;
+        // ═══════════════════════════════════════════════════════════════════════
+        // STAGE 2: Apply Fader Gain → postfader_*
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let gain = self.fader_gain();
+
+        for i in 0..len {
+            self.output_left[i] *= gain;
+            self.output_right[i] *= gain;
+        }
+
+        // *** TAP POINT: PostFader (after fader, before pan) ***
+        self.postfader_left[..len].copy_from_slice(&self.output_left[..len]);
+        self.postfader_right[..len].copy_from_slice(&self.output_right[..len]);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // STAGE 3: Apply Pan → output_*
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Calculate pan gains based on pan mode
+        let (pan_left, pan_right) = match self.pan_mode {
+            PanMode::ExternalDualPan => {
+                // Pan already applied externally (Pro Tools dual-pan)
+                (1.0, 1.0)
             }
+            PanMode::Balance => {
+                // Balance mode: attenuate opposite side
+                let left_atten = if self.pan > 0.0 { 1.0 - self.pan } else { 1.0 };
+                let right_atten = if self.pan < 0.0 { 1.0 + self.pan } else { 1.0 };
+                (left_atten, right_atten)
+            }
+            PanMode::Standard => {
+                // Standard constant power pan
+                let pan_angle = (self.pan + 1.0) * 0.25 * std::f64::consts::PI;
+                (pan_angle.cos(), pan_angle.sin())
+            }
+        };
+
+        // Track peak and RMS for metering (after pan, before PDC)
+        let mut peak_l = 0.0_f64;
+        let mut peak_r = 0.0_f64;
+        let mut sum_sq_l = 0.0_f64;
+        let mut sum_sq_r = 0.0_f64;
+
+        for i in 0..len {
+            let out_l = self.output_left[i] * pan_left;
+            let out_r = self.output_right[i] * pan_right;
+
+            self.output_left[i] = out_l;
+            self.output_right[i] = out_r;
+
+            // Update metering
+            peak_l = peak_l.max(out_l.abs());
+            peak_r = peak_r.max(out_r.abs());
+            sum_sq_l += out_l * out_l;
+            sum_sq_r += out_r * out_r;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // STAGE 4: Apply PDC (output_* is now final: PostPan + PDC)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        if self.pdc_delay > 0 {
+            self.pdc_buffer.process(&mut self.output_left, &mut self.output_right);
         }
 
         // Update atomic meters (lock-free)
@@ -862,9 +1045,28 @@ impl Channel {
         }
     }
 
-    /// Get output buffers
+    /// Get output buffers (PostPan + PDC - final signal)
     pub fn output(&self) -> (&[Sample], &[Sample]) {
         (&self.output_left, &self.output_right)
+    }
+
+    /// Get pre-fader tap point (after DSP, before fader)
+    pub fn prefader(&self) -> (&[Sample], &[Sample]) {
+        (&self.prefader_left, &self.prefader_right)
+    }
+
+    /// Get post-fader tap point (after fader, before pan)
+    pub fn postfader(&self) -> (&[Sample], &[Sample]) {
+        (&self.postfader_left, &self.postfader_right)
+    }
+
+    /// Get buffer for specified send tap point
+    pub fn tap_point_buffer(&self, tap_point: SendTapPoint) -> (&[Sample], &[Sample]) {
+        match tap_point {
+            SendTapPoint::PreFader => self.prefader(),
+            SendTapPoint::PostFader => self.postfader(),
+            SendTapPoint::PostPan => self.output(),
+        }
     }
 
     /// Resize buffers
@@ -873,6 +1075,11 @@ impl Channel {
         self.input_right.resize(block_size, 0.0);
         self.output_left.resize(block_size, 0.0);
         self.output_right.resize(block_size, 0.0);
+        // Tap point buffers
+        self.prefader_left.resize(block_size, 0.0);
+        self.prefader_right.resize(block_size, 0.0);
+        self.postfader_left.resize(block_size, 0.0);
+        self.postfader_right.resize(block_size, 0.0);
 
         // Recreate plugin chain with new block size
         if self.plugin_chain.is_some() {
@@ -1356,28 +1563,36 @@ impl RoutingGraph {
                     target.add_to_input(&self.scratch_out_l, &self.scratch_out_r);
                 }
 
-            // Third pass: process sends (need to re-borrow channel for send info)
+            // Third pass: process sends with proper tap points
             if num_sends > 0 {
-                // Collect send destinations and gains (small stack allocation, max ~8 sends typical)
-                let mut send_info: [(ChannelId, f64); 16] = [(ChannelId(0), 0.0); 16];
+                // Collect send info with tap points (small stack allocation, max ~8 sends typical)
+                let mut send_info: [(ChannelId, f64, SendTapPoint); 16] =
+                    [(ChannelId(0), 0.0, SendTapPoint::PostFader); 16];
                 let mut send_count = 0;
 
                 if let Some(channel) = self.channels.get(&id) {
                     for send in channel.sends.iter().filter(|s| s.enabled).take(16) {
-                        send_info[send_count] = (send.destination, send.gain());
+                        send_info[send_count] = (send.destination, send.gain(), send.tap_point);
                         send_count += 1;
                     }
                 }
 
-                // Apply sends using scratch buffers
+                // Apply sends using appropriate tap point buffer
                 for i in 0..send_count {
-                    let (dest_id, gain) = send_info[i];
+                    let (dest_id, gain, tap_point) = send_info[i];
 
-                    // Scale output into send scratch buffer (avoids .collect() allocation)
-                    let len = self.scratch_out_l.len();
+                    // Get source buffer based on tap point
+                    let (src_l, src_r) = if let Some(channel) = self.channels.get(&id) {
+                        channel.tap_point_buffer(tap_point)
+                    } else {
+                        continue;
+                    };
+
+                    // Scale source into send scratch buffer (avoids .collect() allocation)
+                    let len = src_l.len().min(self.scratch_send_l.len());
                     for j in 0..len {
-                        self.scratch_send_l[j] = self.scratch_out_l[j] * gain;
-                        self.scratch_send_r[j] = self.scratch_out_r[j] * gain;
+                        self.scratch_send_l[j] = src_l[j] * gain;
+                        self.scratch_send_r[j] = src_r[j] * gain;
                     }
 
                     if let Some(target) = self.channels.get_mut(&dest_id) {
@@ -1437,6 +1652,95 @@ impl RoutingGraph {
     /// Get current sample rate
     pub fn sample_rate(&self) -> f64 {
         self.sample_rate
+    }
+
+    /// Recalculate PDC (Plugin Delay Compensation) for all channels
+    ///
+    /// This finds the maximum latency across all channels that route to the same
+    /// destination, then sets compensation delays so they all arrive in sync.
+    ///
+    /// Call this after:
+    /// - Adding/removing plugins
+    /// - Changing plugin bypass state
+    /// - Modifying routing
+    pub fn recalculate_pdc(&mut self) {
+        // Step 1: Update own_latency for all channels
+        for channel in self.channels.values_mut() {
+            channel.update_own_latency();
+        }
+
+        // Step 2: For each destination, find max latency of sources
+        // Build destination -> sources map
+        let mut dest_sources: HashMap<ChannelId, Vec<(ChannelId, u32)>> = HashMap::new();
+
+        for (id, channel) in &self.channels {
+            if let Some(dest_id) = channel.output.target_channel() {
+                let latency = channel.own_latency;
+                dest_sources
+                    .entry(dest_id)
+                    .or_insert_with(Vec::new)
+                    .push((*id, latency));
+            }
+        }
+
+        // Step 3: Calculate compensation delays per destination group
+        for (_dest_id, sources) in &dest_sources {
+            if sources.len() <= 1 {
+                continue; // No compensation needed for single source
+            }
+
+            // Find max latency in this group
+            let max_latency = sources.iter().map(|(_, lat)| *lat).max().unwrap_or(0);
+
+            // Set compensation delays
+            for (src_id, own_lat) in sources {
+                let compensation = max_latency.saturating_sub(*own_lat);
+                if let Some(channel) = self.channels.get_mut(src_id) {
+                    channel.set_pdc_delay(compensation);
+                }
+            }
+        }
+    }
+
+    /// Clear all PDC buffers (call on transport stop/reset)
+    pub fn clear_all_pdc(&mut self) {
+        for channel in self.channels.values_mut() {
+            channel.clear_pdc();
+        }
+    }
+
+    /// Recalculate PDC from cached own_latency values (for testing)
+    /// Does NOT call update_own_latency() — uses existing cached values
+    #[cfg(test)]
+    fn recalculate_pdc_from_cached(&mut self) {
+        // Build destination -> sources map
+        let mut dest_sources: HashMap<ChannelId, Vec<(ChannelId, u32)>> = HashMap::new();
+
+        for (id, channel) in &self.channels {
+            if let Some(dest_id) = channel.output.target_channel() {
+                let latency = channel.own_latency;
+                dest_sources
+                    .entry(dest_id)
+                    .or_insert_with(Vec::new)
+                    .push((*id, latency));
+            }
+        }
+
+        // Calculate compensation delays per destination group
+        for (_dest_id, sources) in &dest_sources {
+            if sources.len() <= 1 {
+                continue;
+            }
+
+            let max_latency = sources.iter().map(|(_, lat)| *lat).max().unwrap_or(0);
+
+            for (src_id, own_lat) in sources {
+                let compensation = max_latency.saturating_sub(*own_lat);
+                if let Some(channel) = self.channels.get_mut(src_id) {
+                    channel.set_pdc_delay(compensation);
+                }
+            }
+        }
     }
 
     /// Get bus count
@@ -1535,10 +1839,16 @@ impl RoutingGraphRT {
             }
 
             RoutingCommand::SetOutput { id, destination } => {
-                if let Err(e) = self.graph.set_output(id, destination) {
-                    let _ = self.response_tx.push(RoutingResponse::Error {
-                        message: format!("{:?}", e),
-                    });
+                match self.graph.set_output(id, destination) {
+                    Ok(()) => {
+                        // Routing changed — recalculate PDC for new destination group
+                        self.graph.recalculate_pdc();
+                    }
+                    Err(e) => {
+                        let _ = self.response_tx.push(RoutingResponse::Error {
+                            message: format!("{:?}", e),
+                        });
+                    }
                 }
             }
 
@@ -1762,7 +2072,9 @@ impl RoutingGraphRT {
             }
 
             // Plugin insert chain commands
+            // NOTE: These commands trigger PDC recalculation as plugin latency affects routing
             RoutingCommand::AddInsert { id, plugin_id, slot_index } => {
+                let mut added = false;
                 if let Some(channel) = self.graph.get_mut(id)
                     && let Some(chain) = channel.plugin_chain_mut() {
                         // Load plugin from PLUGIN_HOST
@@ -1772,33 +2084,51 @@ impl RoutingGraphRT {
                                     // Insert at specific index (not supported yet, just add)
                                     let _ = chain.add(plugin);
                                     log::info!("Added plugin {} at slot {} (requested {})", plugin_id, chain.len() - 1, idx);
+                                    added = true;
                                 }
                                 None => {
                                     let _ = chain.add(plugin);
                                     log::info!("Added plugin {} at slot {}", plugin_id, chain.len() - 1);
+                                    added = true;
                                 }
                             }
                         } else {
                             log::error!("Failed to load plugin {} for insert chain", plugin_id);
                         }
                     }
+                // Recalculate PDC after plugin added (latency may have changed)
+                if added {
+                    self.graph.recalculate_pdc();
+                }
             }
 
             RoutingCommand::RemoveInsert { id, slot_index } => {
+                let mut removed = false;
                 if let Some(channel) = self.graph.get_mut(id)
                     && let Some(chain) = channel.plugin_chain_mut()
                     && chain.remove(slot_index).is_some()
                 {
                     log::info!("Removed plugin from slot {} on channel {:?}", slot_index, id);
+                    removed = true;
+                }
+                // Recalculate PDC after plugin removed
+                if removed {
+                    self.graph.recalculate_pdc();
                 }
             }
 
             RoutingCommand::SetInsertBypass { id, slot_index, bypass } => {
+                let mut changed = false;
                 if let Some(channel) = self.graph.get_mut(id)
                     && let Some(chain) = channel.plugin_chain_mut()
                     && let Some(slot) = chain.get(slot_index) {
                         slot.set_bypass(bypass);
+                        changed = true;
                     }
+                // Recalculate PDC after bypass state changed (affects effective latency)
+                if changed {
+                    self.graph.recalculate_pdc();
+                }
             }
 
             RoutingCommand::SetInsertMix { id, slot_index, mix } => {
@@ -2054,5 +2384,136 @@ mod tests {
             graph.delete_channel(*id);
         }
         assert_eq!(graph.bus_count(), 10);
+    }
+
+    #[test]
+    fn test_channel_pdc_buffer() {
+        let mut pdc = ChannelPdcBuffer::new(1024);
+
+        // Initial state: no delay
+        assert_eq!(pdc.delay(), 0);
+
+        // Set delay
+        pdc.set_delay(100);
+        assert_eq!(pdc.delay(), 100);
+
+        // Process with delay
+        let mut left = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let mut right = [0.5, 1.0, 1.5, 2.0, 2.5];
+
+        pdc.process(&mut left, &mut right);
+
+        // First samples should be delayed (zeros from empty buffer)
+        assert_eq!(left[0], 0.0);
+        assert_eq!(right[0], 0.0);
+
+        // Clear buffer
+        pdc.clear();
+        assert_eq!(pdc.delay(), 100); // Delay preserved
+    }
+
+    #[test]
+    fn test_send_tap_points() {
+        let mut graph = RoutingGraph::new(8);
+
+        // Create VCA (no DSP strip) to test pure tap point logic
+        let track = graph.create_channel(ChannelKind::Vca, Some("Test VCA"));
+        let reverb_aux = graph.create_aux("Reverb");
+
+        // Set track fader to -6dB (~0.5 linear gain)
+        if let Some(ch) = graph.get_mut(track) {
+            ch.set_fader(-6.0);
+            // Set pan mode to external to avoid pan affecting signal
+            ch.set_pan_mode(PanMode::ExternalDualPan);
+        }
+
+        // Add pre-fader send via graph method
+        graph.add_send(track, reverb_aux, true).unwrap(); // pre_fader = true
+
+        // Get mutable access to track
+        if let Some(ch) = graph.get_mut(track) {
+            // Manually add input
+            ch.add_to_input(&[1.0; 8], &[1.0; 8]);
+            // Process the channel
+            ch.process(false);
+        }
+
+        // Now check prefader buffer on track
+        let prefader_l = {
+            let ch = graph.get(track).unwrap();
+            let (l, _) = ch.prefader();
+            l[0]
+        };
+        eprintln!("Track prefader[0] = {}", prefader_l);
+
+        // Prefader should be 1.0 (input signal, before fader)
+        // VCA has no DSP strip so input passes through unchanged
+        assert!(
+            (prefader_l - 1.0).abs() < 0.01,
+            "Prefader should be ~1.0 (input signal before fader). Got: {}",
+            prefader_l
+        );
+
+        // Postfader should be ~0.5 (after -6dB fader = 10^(-6/20) ≈ 0.501)
+        let postfader_l = {
+            let ch = graph.get(track).unwrap();
+            let (l, _) = ch.postfader();
+            l[0]
+        };
+        eprintln!("Track postfader[0] = {}", postfader_l);
+
+        let expected_postfader = 10.0_f64.powf(-6.0 / 20.0); // ~0.501
+        assert!(
+            (postfader_l - expected_postfader).abs() < 0.01,
+            "Postfader should be ~{:.3} (after -6dB fader). Got: {}",
+            expected_postfader,
+            postfader_l
+        );
+
+        // Final output should equal postfader since pan mode is ExternalDualPan
+        let output_l = {
+            let ch = graph.get(track).unwrap();
+            let (l, _) = ch.output();
+            l[0]
+        };
+        eprintln!("Track output[0] = {}", output_l);
+
+        assert!(
+            (output_l - expected_postfader).abs() < 0.01,
+            "Output should equal postfader with ExternalDualPan. Got: {}",
+            output_l
+        );
+    }
+
+    #[test]
+    fn test_pdc_recalculation() {
+        let mut graph = RoutingGraph::new(256);
+
+        // Create two audio tracks routing to master
+        let track_a = graph.create_channel(ChannelKind::Audio, Some("Track A"));
+        let track_b = graph.create_channel(ChannelKind::Audio, Some("Track B"));
+
+        // Both route to master (default)
+        assert_eq!(graph.get(track_a).unwrap().output, OutputDestination::Master);
+        assert_eq!(graph.get(track_b).unwrap().output, OutputDestination::Master);
+
+        // Manually set own_latency to simulate plugin latency
+        // Track A: 100 samples, Track B: 0 samples
+        // NOTE: We set own_latency directly and use recalculate_pdc_from_cached()
+        // which doesn't call update_own_latency()
+        if let Some(ch) = graph.get_mut(track_a) {
+            ch.own_latency = 100;
+        }
+        if let Some(ch) = graph.get_mut(track_b) {
+            ch.own_latency = 0;
+        }
+
+        // Recalculate PDC from cached latencies (for testing)
+        graph.recalculate_pdc_from_cached();
+
+        // Track B should have compensation delay of 100 (to match Track A)
+        assert_eq!(graph.get(track_b).unwrap().pdc_delay(), 100);
+        // Track A should have 0 compensation (it has max latency)
+        assert_eq!(graph.get(track_a).unwrap().pdc_delay(), 0);
     }
 }

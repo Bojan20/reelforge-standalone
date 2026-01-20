@@ -1640,18 +1640,19 @@ impl PlaybackEngine {
     ///
     /// Called at the start of each audio block to apply UI-initiated param changes.
     /// This is lock-free on the consumer side (try_lock on mutex wrapping Consumer).
+    ///
+    /// # Lock-Free Guarantee
+    /// - NO logging (system calls forbidden in audio thread)
+    /// - NO allocations
+    /// - try_lock/try_write with immediate return on contention
     fn consume_insert_param_changes(&self) {
         // Try to get consumer - if locked, skip (very rare, means another audio thread access)
         let mut rx = match self.insert_param_rx.try_lock() {
             Some(rx) => rx,
-            None => {
-                log::warn!("[EQ] Could not acquire param_rx lock");
-                return;
-            }
+            None => return, // Skip this block - lock contended
         };
 
         // Check if there are any pending changes to read
-        // Note: slots() returns writable slots, is_empty() checks readable items
         if rx.is_empty() {
             return; // Nothing to consume
         }
@@ -1660,17 +1661,10 @@ impl PlaybackEngine {
         // Use try_write to avoid blocking - if UI is loading a processor, skip this block
         let mut chains = match self.insert_chains.try_write() {
             Some(c) => c,
-            None => {
-                log::warn!("[EQ] Could not acquire insert_chains lock for param consumption");
-                return;
-            }
+            None => return, // Skip this block - lock contended
         };
 
-        // Drain all pending changes (non-blocking)
-        let mut applied = 0;
-        let mut track_ids_seen = [0u64; 16];
-        let mut track_count = 0;
-
+        // Drain all pending changes (non-blocking, no logging)
         while let Ok(change) = rx.pop() {
             if change.track_id == 0 {
                 // Master bus
@@ -1680,7 +1674,6 @@ impl PlaybackEngine {
                         change.param_index as usize,
                         change.value,
                     );
-                    applied += 1;
                 }
             } else if let Some(chain) = chains.get_mut(&change.track_id) {
                 chain.set_slot_param(
@@ -1688,19 +1681,8 @@ impl PlaybackEngine {
                     change.param_index as usize,
                     change.value,
                 );
-                applied += 1;
-                // Track unique track IDs for debug
-                if track_count < 16 && !track_ids_seen[..track_count].contains(&change.track_id) {
-                    track_ids_seen[track_count] = change.track_id;
-                    track_count += 1;
-                }
-            } else {
-                log::warn!("[EQ] No chain found for track {}", change.track_id);
             }
-        }
-
-        if applied > 0 {
-            log::info!("[EQ] Applied {} param changes for {} track(s)", applied, track_count);
+            // Silently ignore changes for non-existent tracks (audio thread cannot log)
         }
     }
 
@@ -2249,19 +2231,18 @@ impl PlaybackEngine {
             match cmd {
                 OneShotCommand::Play { id, audio, volume, pan, bus } => {
                     // Find first inactive slot
+                    // Note: If no slot available, command is silently dropped (audio thread cannot log)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate(id, audio, volume, pan, bus);
-                    } else {
-                        log::warn!("[PlaybackEngine] No free one-shot voice slots");
                     }
+                    // Voice stealing would go here in future (oldest voice eviction)
                 }
                 OneShotCommand::PlayLooping { id, audio, volume, pan, bus } => {
-                    // P0.2: Seamless looping voice (REEL_SPIN etc.)
+                    // Seamless looping voice (REEL_SPIN etc.)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate_looping(id, audio, volume, pan, bus);
-                    } else {
-                        log::warn!("[PlaybackEngine] No free one-shot voice slots for looping");
                     }
+                    // Silent drop if no voice available (audio thread rule: no logging)
                 }
                 OneShotCommand::Stop { id } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
