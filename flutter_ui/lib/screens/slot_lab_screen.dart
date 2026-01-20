@@ -303,6 +303,107 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   final Map<String, bool> _eventExpandedState = {};
   String? _selectedEventId;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALL AVAILABLE STAGES — Complete list for dropdown
+  // ═══════════════════════════════════════════════════════════════════════════
+  static const List<String> _allStageOptions = [
+    // ─── SPIN CYCLE (most common) ───
+    'SPIN_START',
+    'REEL_SPIN',
+    'REEL_STOP',
+    'REEL_STOP_0',
+    'REEL_STOP_1',
+    'REEL_STOP_2',
+    'REEL_STOP_3',
+    'REEL_STOP_4',
+    // ─── WIN STAGES ───
+    'WIN_PRESENT',
+    'WIN_SMALL',
+    'WIN_MEDIUM',
+    'WIN_BIG',
+    'WIN_MEGA',
+    'WIN_EPIC',
+    'WIN_ULTRA',
+    'BIGWIN_TIER',
+    // ─── ROLLUP ───
+    'ROLLUP_START',
+    'ROLLUP_TICK',
+    'ROLLUP_END',
+    // ─── ANTICIPATION ───
+    'ANTICIPATION_ON',
+    'ANTICIPATION_OFF',
+    'ANTICIPATION_REEL_0',
+    'ANTICIPATION_REEL_1',
+    'ANTICIPATION_REEL_2',
+    'ANTICIPATION_REEL_3',
+    'ANTICIPATION_REEL_4',
+    // ─── FEATURES ───
+    'FEATURE_ENTER',
+    'FEATURE_STEP',
+    'FEATURE_EXIT',
+    'FS_TRIGGER',
+    'FS_SPIN',
+    'FS_RETRIGGER',
+    'FS_END',
+    // ─── BONUS ───
+    'BONUS_ENTER',
+    'BONUS_STEP',
+    'BONUS_EXIT',
+    'BONUS_PICK',
+    'BONUS_REVEAL',
+    // ─── CASCADE/TUMBLE ───
+    'CASCADE_START',
+    'CASCADE_STEP',
+    'CASCADE_END',
+    'TUMBLE_DROP',
+    'TUMBLE_LAND',
+    // ─── WILDS & SCATTERS ───
+    'WILD_LAND',
+    'WILD_EXPAND',
+    'WILD_STACK',
+    'SCATTER_LAND',
+    'SCATTER_LAND_3',
+    'SCATTER_LAND_4',
+    'SCATTER_LAND_5',
+    // ─── MULTIPLIERS ───
+    'MULT_INCREASE',
+    'MULT_APPLY',
+    'MULT_RESET',
+    // ─── JACKPOT ───
+    'JACKPOT_TRIGGER',
+    'JACKPOT_MINI',
+    'JACKPOT_MINOR',
+    'JACKPOT_MAJOR',
+    'JACKPOT_GRAND',
+    // ─── HOLD & RESPIN ───
+    'HOLD_TRIGGER',
+    'HOLD_SPIN',
+    'HOLD_LAND',
+    'HOLD_END',
+    // ─── UI EVENTS ───
+    'UI_BUTTON_PRESS',
+    'UI_BET_UP',
+    'UI_BET_DOWN',
+    'UI_SPIN_PRESS',
+    // ─── MUSIC ───
+    'MUSIC_BASE',
+    'MUSIC_WIN',
+    'MUSIC_FEATURE',
+    // ─── AMBIENCE ───
+    'AMBIENT_LOOP',
+    'IDLE_LOOP',
+  ];
+
+  /// Check if stage is commonly used (for highlighting in dropdown)
+  bool _isCommonStage(String stage) {
+    return const {
+      'SPIN_START', 'REEL_SPIN', 'REEL_STOP',
+      'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
+      'WIN_PRESENT', 'WIN_BIG', 'BIGWIN_TIER',
+      'ANTICIPATION_ON', 'FEATURE_ENTER', 'BONUS_ENTER',
+    }.contains(stage);
+  }
+
   /// Get middleware provider (cached per frame for performance)
   MiddlewareProvider get _middleware =>
       Provider.of<MiddlewareProvider>(context, listen: false);
@@ -322,9 +423,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     setState(() => _eventExpandedState[eventId] = expanded);
   }
 
-  /// Get stage for event (first trigger stage)
-  String _getEventStage(SlotCompositeEvent event) =>
-      event.triggerStages.isNotEmpty ? event.triggerStages.first : '';
+  /// Get stage for event (first trigger stage, or derive from category/name)
+  /// CRITICAL: Stage must be non-empty for EventRegistry to work
+  String _getEventStage(SlotCompositeEvent event) {
+    // First try explicit triggerStages
+    if (event.triggerStages.isNotEmpty) {
+      return event.triggerStages.first;
+    }
+
+    // Fallback: derive stage from category
+    final category = event.category.toLowerCase();
+    return switch (category) {
+      'spin' => 'SPIN_START',
+      'reelstop' => 'REEL_STOP',
+      'anticipation' => 'ANTICIPATION_ON',
+      'win' => 'WIN_PRESENT',
+      'bigwin' => 'BIGWIN_TIER',
+      'feature' => 'FEATURE_ENTER',
+      'bonus' => 'BONUS_ENTER',
+      'general' => event.name.toUpperCase().replaceAll(' ', '_'),
+      _ => event.name.toUpperCase().replaceAll(' ', '_'),
+    };
+  }
 
   /// Find event by ID
   SlotCompositeEvent? _findEventById(String id) =>
@@ -513,9 +633,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       // Rebuild region layers to match updated events from MiddlewareProvider
       for (final event in _compositeEvents) {
         _rebuildRegionForEvent(event);
+        // CRITICAL: Also sync to EventRegistry so stages trigger audio
+        _syncEventToRegistry(event);
       }
       setState(() {});
-      debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider');
+      debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry)');
     }
   }
 
@@ -6145,24 +6267,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   dropdownColor: FluxForgeTheme.bgDeep,
                   underline: const SizedBox(),
                   style: const TextStyle(color: Colors.white, fontSize: 12),
-                  items: const [
-                    DropdownMenuItem(value: 'SPIN_START', child: Text('SPIN_START')),
-                    DropdownMenuItem(value: 'REEL_SPIN', child: Text('REEL_SPIN (loop)')),
-                    DropdownMenuItem(value: 'REEL_STOP', child: Text('REEL_STOP (all)')),
-                    DropdownMenuItem(value: 'REEL_STOP_0', child: Text('REEL_STOP_0')),
-                    DropdownMenuItem(value: 'REEL_STOP_1', child: Text('REEL_STOP_1')),
-                    DropdownMenuItem(value: 'REEL_STOP_2', child: Text('REEL_STOP_2')),
-                    DropdownMenuItem(value: 'REEL_STOP_3', child: Text('REEL_STOP_3')),
-                    DropdownMenuItem(value: 'REEL_STOP_4', child: Text('REEL_STOP_4')),
-                    DropdownMenuItem(value: 'ANTICIPATION', child: Text('ANTICIPATION')),
-                    DropdownMenuItem(value: 'WIN_PRESENT', child: Text('WIN_PRESENT')),
-                    DropdownMenuItem(value: 'BIGWIN', child: Text('BIGWIN')),
-                    DropdownMenuItem(value: 'FEATURE_ENTER', child: Text('FEATURE_ENTER')),
-                    DropdownMenuItem(value: 'FEATURE_EXIT', child: Text('FEATURE_EXIT')),
-                    DropdownMenuItem(value: 'JACKPOT', child: Text('JACKPOT')),
-                    DropdownMenuItem(value: 'CASCADE', child: Text('CASCADE')),
-                    DropdownMenuItem(value: 'CUSTOM', child: Text('CUSTOM')),
-                  ],
+                  menuMaxHeight: 400,
+                  items: _allStageOptions.map((stage) => DropdownMenuItem(
+                    value: stage,
+                    child: Text(stage, style: TextStyle(
+                      color: _isCommonStage(stage) ? Colors.white : Colors.white70,
+                      fontWeight: _isCommonStage(stage) ? FontWeight.w600 : FontWeight.normal,
+                    )),
+                  )).toList(),
                   onChanged: (v) => setDialogState(() => selectedStage = v!),
                 ),
               ),

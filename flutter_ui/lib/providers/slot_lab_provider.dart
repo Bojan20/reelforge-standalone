@@ -441,6 +441,10 @@ class SlotLabProvider extends ChangeNotifier {
       return;
     }
 
+    // CRITICAL: Start the audio stream for playback to work
+    // play() ensures cpal audio stream is running before triggering events
+    controller.play();
+
     // Cancel any existing playback and increment generation to invalidate old timers
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
@@ -586,7 +590,8 @@ class SlotLabProvider extends ChangeNotifier {
   /// P0.1: Handle REEL_STOP UI-only logic (when audio was pre-triggered)
   /// This handles REEL_SPIN stop logic without re-triggering audio
   void _handleReelStopUIOnly(SlotLabStageEvent stage) {
-    final reelIndex = stage.payload['reel_index'];
+    // CRITICAL: reel_index is in rawStage, not payload
+    final reelIndex = stage.rawStage['reel_index'];
 
     // REEL_SPIN STOP LOGIC — Stop loop kad poslednji reel stane
     final bool shouldStopReelSpin;
@@ -616,10 +621,11 @@ class SlotLabProvider extends ChangeNotifier {
   /// Used for P0.6 anticipation pre-trigger
   void _triggerAudioOnly(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
-    final reelIndex = stage.payload['reel_index'];
+    // CRITICAL: reel_index is in rawStage, not payload
+    final reelIndex = stage.rawStage['reel_index'];
 
     String effectiveStage = stageType;
-    Map<String, dynamic> context = Map.from(stage.payload);
+    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
 
     if (stageType == 'REEL_STOP' && reelIndex != null) {
       effectiveStage = 'REEL_STOP_$reelIndex';
@@ -653,11 +659,12 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// P1.2: Calculate anticipation escalation based on near miss info
   ({String effectiveStage, double volumeMultiplier}) _calculateAnticipationEscalation(SlotLabStageEvent stage) {
-    // Get near miss info from payload
+    // Get near miss info from both payload and rawStage
     final intensity = (stage.payload['intensity'] as num?)?.toDouble() ?? 0.5;
     final missingSymbols = stage.payload['missing'] as int? ?? 2;
-    final triggerReel = stage.payload['trigger_reel'] as int? ?? 2;
-    final reason = stage.payload['reason'] as String?;
+    // reel_index is in rawStage for anticipation events
+    final triggerReel = stage.rawStage['reel_index'] as int? ?? stage.payload['trigger_reel'] as int? ?? 2;
+    final reason = stage.rawStage['reason'] as String? ?? stage.payload['reason'] as String?;
 
     // Calculate effective intensity
     // Later reels = more intense (player has seen more potential)
@@ -707,8 +714,9 @@ class SlotLabProvider extends ChangeNotifier {
   /// CRITICAL: Uses ONLY EventRegistry. Legacy systems DISABLED to prevent duplicate audio.
   void _triggerStage(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
-    final reelIndex = stage.payload['reel_index'];
-    Map<String, dynamic> context = Map.from(stage.payload);
+    // CRITICAL: reel_index and symbols are in rawStage (from stage JSON), not payload
+    final reelIndex = stage.rawStage['reel_index'];
+    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
 
     debugPrint('[SlotLabProvider] >>> TRIGGER: $stageType (index: $_currentStageIndex/${_lastStages.length}) @ ${stage.timestampMs.toStringAsFixed(0)}ms');
 
@@ -750,9 +758,10 @@ class SlotLabProvider extends ChangeNotifier {
       // P1.1: SYMBOL-SPECIFIC AUDIO — Different sounds for special symbols
       // ═══════════════════════════════════════════════════════════════════════════
       // Check for special symbols in the stopped reel
-      final symbols = stage.payload['symbols'] as List<dynamic>?;
-      final hasWild = stage.payload['has_wild'] as bool? ?? _containsWild(symbols);
-      final hasScatter = stage.payload['has_scatter'] as bool? ?? _containsScatter(symbols);
+      // CRITICAL: symbols are in rawStage (from stage JSON), not payload
+      final symbols = stage.rawStage['symbols'] as List<dynamic>?;
+      final hasWild = stage.rawStage['has_wild'] as bool? ?? _containsWild(symbols);
+      final hasScatter = stage.rawStage['has_scatter'] as bool? ?? _containsScatter(symbols);
       final hasSeven = _containsSeven(symbols);
 
       // Try symbol-specific stage first (most specific to least specific)

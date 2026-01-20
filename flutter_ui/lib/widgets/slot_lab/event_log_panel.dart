@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/slot_lab_provider.dart';
+import '../../services/event_registry.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -138,12 +139,14 @@ class _EventLogPanelState extends State<EventLogPanel> {
   int _lastMiddlewareEventCount = 0;
   int _lastLoggedStageIndex = -1; // Track last logged stage to avoid duplicates
   int _lastLoggedSpinCount = -1; // Track spin count to reset on new spin
+  int _lastTriggerCount = 0; // Track EventRegistry trigger count
 
   @override
   void initState() {
     super.initState();
     widget.slotLabProvider.addListener(_onSlotLabUpdate);
     widget.middlewareProvider.addListener(_onMiddlewareUpdate);
+    eventRegistry.addListener(_onEventRegistryUpdate);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.toLowerCase());
     });
@@ -153,9 +156,34 @@ class _EventLogPanelState extends State<EventLogPanel> {
   void dispose() {
     widget.slotLabProvider.removeListener(_onSlotLabUpdate);
     widget.middlewareProvider.removeListener(_onMiddlewareUpdate);
+    eventRegistry.removeListener(_onEventRegistryUpdate);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onEventRegistryUpdate() {
+    if (_isPaused) return;
+
+    // Check if a new audio was triggered
+    final currentTriggerCount = eventRegistry.triggerCount;
+    if (currentTriggerCount > _lastTriggerCount) {
+      final triggeredCount = currentTriggerCount - _lastTriggerCount;
+      _lastTriggerCount = currentTriggerCount;
+
+      // Log that audio was triggered (even if it failed)
+      // The actual success/failure is logged in EventRegistry._playLayer
+      _addEntry(EventLogEntry(
+        timestamp: DateTime.now(),
+        type: EventLogType.audio,
+        eventName: '🎵 Audio Triggered',
+        details: 'Trigger #$currentTriggerCount | Check console for playback status',
+        data: {'triggerCount': currentTriggerCount},
+      ));
+    }
+
+    // Force rebuild to update registered stages display
+    if (mounted) setState(() {});
   }
 
   void _onSlotLabUpdate() {
@@ -697,8 +725,14 @@ class _EventLogPanelState extends State<EventLogPanel> {
   }
 
   Widget _buildStatusBar() {
+    // Get registered stages from EventRegistry
+    final registeredStages = eventRegistry.allEvents.map((e) => e.stage).toList();
+    final stagesText = registeredStages.isEmpty
+        ? 'No events registered'
+        : 'Registered: ${registeredStages.take(5).join(", ")}${registeredStages.length > 5 ? " +${registeredStages.length - 5}" : ""}';
+
     return Container(
-      height: 20,
+      height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgMid,
@@ -709,9 +743,60 @@ class _EventLogPanelState extends State<EventLogPanel> {
           // Entry count
           Text(
             '${_filteredEntries.length} / ${_entries.length} events',
-            style: TextStyle(color: Colors.white38, fontSize: 9),
+            style: const TextStyle(color: Colors.white38, fontSize: 9),
           ),
-          const Spacer(),
+          const SizedBox(width: 12),
+
+          // Registered stages indicator
+          Expanded(
+            child: Tooltip(
+              message: registeredStages.isEmpty
+                  ? 'Create events with stages to enable audio triggering'
+                  : 'Registered stages: ${registeredStages.join(", ")}',
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: registeredStages.isEmpty
+                      ? FluxForgeTheme.accentRed.withOpacity(0.15)
+                      : FluxForgeTheme.accentGreen.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: registeredStages.isEmpty
+                        ? FluxForgeTheme.accentRed.withOpacity(0.3)
+                        : FluxForgeTheme.accentGreen.withOpacity(0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      registeredStages.isEmpty ? Icons.warning_amber : Icons.check_circle,
+                      size: 10,
+                      color: registeredStages.isEmpty
+                          ? FluxForgeTheme.accentRed
+                          : FluxForgeTheme.accentGreen,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        stagesText,
+                        style: TextStyle(
+                          color: registeredStages.isEmpty
+                              ? FluxForgeTheme.accentRed
+                              : FluxForgeTheme.accentGreen,
+                          fontSize: 8,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
 
           // Status indicators
           if (_isPaused)

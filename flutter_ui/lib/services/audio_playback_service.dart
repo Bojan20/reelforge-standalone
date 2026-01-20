@@ -75,6 +75,9 @@ class AudioPlaybackService extends ChangeNotifier {
   List<VoiceInfo> get activeVoices => List.unmodifiable(_activeVoices);
   int get activeVoiceCount => _activeVoices.length;
 
+  /// Last error from FFI playback operation (for debugging)
+  String get lastPlaybackToBusError => _ffi.lastPlaybackToBusError;
+
   // ===========================================================================
   // DELEGATED MODE — Respects UnifiedPlaybackController
   // ===========================================================================

@@ -872,7 +872,7 @@ Fullscreen audio sandbox za slot game audio dizajn.
 
 ### Event Registry System (IMPLEMENTED) ✅
 
-Wwise/FMOD-style centralni audio event sistem.
+Wwise/FMOD-style centralni audio event sistem sa 490+ stage definicija.
 
 **Arhitektura:**
 ```
@@ -886,27 +886,81 @@ STAGE → EventRegistry → AudioEvent → AudioPlayer(s)
 | Komponenta | Opis |
 |------------|------|
 | `EventRegistry` | Singleton koji mapira stage→event, trigger, stop |
-| `AudioEvent` | Event definicija sa multiple layers |
-| `AudioLayer` | Pojedinačni zvuk sa volume/pan/delay/offset |
+| `AudioEvent` | Event definicija sa `id`, `name`, `stage`, `layers[]`, `duration`, `loop`, `priority` |
+| `AudioLayer` | Pojedinačni zvuk sa `audioPath`, `volume`, `pan`, `delay`, `offset`, `busId` |
+
+**Complete Stage System (2026-01-20):**
+
+| Funkcija | Opis | Status |
+|----------|------|--------|
+| `_pooledEventStages` | Set rapid-fire eventa za voice pooling | ✅ 50+ eventa |
+| `_stageToPriority()` | Vraća prioritet 0-100 za stage | ✅ Kompletan |
+| `_stageToBus()` | Mapira stage na SpatialBus (reels/sfx/music/vo/ui/ambience) | ✅ Kompletan |
+| `_stageToIntent()` | Mapira stage na spatial intent za AutoSpatialEngine | ✅ 300+ mapiranja |
+
+**Priority Levels (0-100):**
+```
+HIGHEST (80-100): JACKPOT_*, WIN_EPIC/ULTRA, FS_TRIGGER, BONUS_TRIGGER
+HIGH (60-79):     SPIN_START, REEL_STOP, WILD_*, SCATTER_*, WIN_BIG
+MEDIUM (40-59):   REEL_SPIN, WIN_SMALL, CASCADE_*, FS_SPIN, HOLD_*
+LOW (20-39):      UI_*, SYMBOL_LAND, ROLLUP_TICK, WIN_EVAL
+LOWEST (0-19):    MUSIC_BASE, AMBIENT_*, ATTRACT_*, IDLE_*
+```
+
+**Voice Pooling (rapid-fire events):**
+```dart
+const _pooledEventStages = {
+  'REEL_STOP', 'REEL_STOP_0'..'REEL_STOP_5',
+  'CASCADE_STEP', 'CASCADE_SYMBOL_POP',
+  'ROLLUP_TICK', 'ROLLUP_TICK_SLOW', 'ROLLUP_TICK_FAST',
+  'WIN_LINE_SHOW', 'WIN_SYMBOL_HIGHLIGHT',
+  'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER',
+  'SYMBOL_LAND', 'WHEEL_TICK', 'TRAIL_MOVE_STEP',
+  // ...50+ total
+};
+```
+
+**Bus Routing:**
+| Bus | Stages |
+|-----|--------|
+| `reels` | REEL_*, SPIN_*, SYMBOL_LAND* |
+| `sfx` | WIN_*, JACKPOT_*, CASCADE_*, WILD_*, SCATTER_*, BONUS_*, MULT_* |
+| `music` | MUSIC_*, FS_MUSIC*, HOLD_MUSIC*, ATTRACT_* |
+| `vo` | *_VOICE, *_VO, ANNOUNCE* |
+| `ui` | UI_*, SYSTEM_*, CONNECTION_*, GAME_* |
+| `ambience` | AMBIENT_*, IDLE_*, DEMO_* |
 
 **Per-Reel REEL_STOP:**
 ```
-REEL_STOP_0 → Zvuk za prvi reel
-REEL_STOP_1 → Zvuk za drugi reel
-REEL_STOP_2 → Zvuk za treći reel
-REEL_STOP_3 → Zvuk za četvrti reel
-REEL_STOP_4 → Zvuk za peti reel
+REEL_STOP_0 → Zvuk za prvi reel (pan: -0.8)
+REEL_STOP_1 → Zvuk za drugi reel (pan: -0.4)
+REEL_STOP_2 → Zvuk za treći reel (pan: 0.0)
+REEL_STOP_3 → Zvuk za četvrti reel (pan: +0.4)
+REEL_STOP_4 → Zvuk za peti reel (pan: +0.8)
 REEL_STOP   → Fallback za sve (ako nema specifičnog)
 ```
 
 **REEL_SPIN Loop:**
 - Trigeruje se automatski na `SPIN_START`
 - Zaustavlja se na `REEL_STOP_4` (poslednji reel)
-- Koristi se za loop audio dok se rilovi vrte
+- Koristi `playLoopingToBus()` za seamless loop
+
+**Flow: Stage → Sound:**
+```
+1. Stage event (npr. REEL_STOP_0) dolazi od SlotLabProvider
+2. EventRegistry.triggerStage('REEL_STOP_0')
+3. Pronađi AudioEvent koji ima stage='REEL_STOP_0'
+4. Za svaki AudioLayer u event.layers:
+   - Čekaj layer.delay ms
+   - Dobij spatial pan iz _stageToIntent()
+   - Dobij bus iz _stageToBus()
+   - Pusti audio preko AudioPlaybackService
+```
 
 **Fajlovi:**
-- `flutter_ui/lib/services/event_registry.dart` — Centralni registry
-- `flutter_ui/lib/providers/slot_lab_provider.dart` — Integracija sa stage playback
+- `flutter_ui/lib/services/event_registry.dart` — Centralni registry (1350 LOC)
+- `flutter_ui/lib/providers/slot_lab_provider.dart` — Stage playback integracija
+- `.claude/domains/slot-audio-events-master.md` — Master katalog 490 eventa
 
 **State Persistence:**
 - Audio pool, composite events, tracks, event→region mapping

@@ -373,8 +373,11 @@ if (_autoTriggerAudio):
     for each stage:
         _triggerStage(stage)
             ↓
-        _middleware.postEvent(eventId, context)
-        _audioMapper.mapAndTrigger(stageEvent)
+        // Read reel_index from rawStage (NOT payload!)
+        reelIndex = stage.rawStage['reel_index']
+        effectiveStage = 'REEL_STOP_$reelIndex'  // e.g. REEL_STOP_0
+            ↓
+        eventRegistry.triggerStage(effectiveStage)
             ↓
         wait for (nextStage.timestamp - currentStage.timestamp)
 ```
@@ -416,9 +419,17 @@ class SlotLabSpinResult {
 class SlotLabStageEvent {
   final String stageType;            // 'spin_start', 'reel_stop', etc.
   final double timestampMs;
-  final Map<String, dynamic> payload;
-  final Map<String, dynamic> rawStage;
+  final Map<String, dynamic> payload;  // win_amount, bet_amount, etc.
+  final Map<String, dynamic> rawStage; // reel_index, symbols, reason, etc.
 }
+
+// CRITICAL: Stage-specific data is in rawStage, NOT payload!
+// - reel_index → stage.rawStage['reel_index']
+// - symbols    → stage.rawStage['symbols']
+// - reason     → stage.rawStage['reason']
+//
+// payload contains general context (win amounts, bet, etc.)
+// rawStage contains stage-type-specific fields from Rust rf-stage
 ```
 
 ### LineWin

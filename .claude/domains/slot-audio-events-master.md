@@ -835,4 +835,156 @@ Sistemski eventi i odgovorno igranje.
 
 ---
 
+## ✅ IMPLEMENTACIJA U EventRegistry (2026-01-20)
+
+Svi eventi iz ovog kataloga su implementirani u `flutter_ui/lib/services/event_registry.dart`.
+
+### Implementirane funkcije:
+
+| Funkcija | Opis | Status |
+|----------|------|--------|
+| `_pooledEventStages` | Set rapid-fire eventa za voice pooling | ✅ 50+ eventa |
+| `_stageToPriority()` | Vraća prioritet 0-100 za stage | ✅ Kompletan |
+| `_stageToBus()` | Mapira stage na SpatialBus | ✅ Kompletan |
+| `_stageToIntent()` | Mapira stage na spatial intent | ✅ 300+ mapiranja |
+
+### Pooled Events (rapid-fire, voice pooling):
+
+```dart
+const _pooledEventStages = {
+  // Reel stops
+  'REEL_STOP', 'REEL_STOP_0-5', 'REEL_STOP_SOFT', 'REEL_QUICK_STOP',
+  // Cascade
+  'CASCADE_STEP', 'CASCADE_SYMBOL_POP', 'TUMBLE_DROP', 'TUMBLE_LAND',
+  // Rollup
+  'ROLLUP_TICK', 'ROLLUP_TICK_SLOW', 'ROLLUP_TICK_FAST',
+  // Win eval
+  'WIN_LINE_FLASH', 'WIN_LINE_TRACE', 'WIN_SYMBOL_HIGHLIGHT',
+  // UI
+  'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER', 'UI_BET_UP', 'UI_BET_DOWN',
+  // Symbol lands
+  'SYMBOL_LAND', 'SYMBOL_LAND_LOW', 'SYMBOL_LAND_MID', 'SYMBOL_LAND_HIGH',
+  // Wheel/Trail
+  'WHEEL_TICK', 'WHEEL_TICK_FAST', 'WHEEL_TICK_SLOW', 'TRAIL_MOVE_STEP',
+  // Progressive
+  'PROGRESSIVE_TICK', 'PROGRESSIVE_CONTRIBUTION',
+};
+```
+
+### Priority Mapping (0-100):
+
+| Range | Level | Examples |
+|-------|-------|----------|
+| 80-100 | HIGHEST | JACKPOT_*, WIN_TIER_6/7, FS_TRIGGER, BONUS_TRIGGER |
+| 60-79 | HIGH | SPIN_START, REEL_STOP, WILD_*, SCATTER_*, WIN_BIG |
+| 40-59 | MEDIUM | REEL_SPIN_LOOP, WIN_SMALL, CASCADE_SYMBOL, FS_SPIN |
+| 20-39 | LOW | UI_*, SYMBOL_LAND, ROLLUP_TICK, WHEEL_TICK |
+| 0-19 | LOWEST | MUSIC_BASE, AMBIENT_*, ATTRACT_*, IDLE_* |
+
+### Bus Routing:
+
+| SpatialBus | Stage Prefixes |
+|------------|----------------|
+| `reels` | REEL_*, SPIN_*, SYMBOL_LAND |
+| `sfx` | WIN_*, JACKPOT_*, CASCADE_*, WILD_*, SCATTER_*, MULT_* |
+| `music` | MUSIC_*, FS_MUSIC, HOLD_MUSIC, ATTRACT_* |
+| `vo` | *_VOICE, *_VO, *_ANNOUNCE |
+| `ui` | UI_*, SYSTEM_*, CONNECTION_* |
+| `ambience` | AMBIENT_*, IDLE_*, DEMO_* |
+
+### Spatial Intent Mapping:
+
+Stage → Intent za AutoSpatialEngine pozicioniranje:
+
+- `REEL_STOP_0-4` → per-reel panning (left to right)
+- `WIN_TIER_*` → WIN_SMALL/MEDIUM/BIG/MEGA/EPIC
+- `SCATTER_LAND_3` → FREE_SPIN_TRIGGER
+- `JACKPOT_*` → JACKPOT_TRIGGER
+- `FS_TRIGGER` → FREE_SPIN_TRIGGER
+- `HOLD_TRIGGER` → FEATURE_ENTER
+- `CASCADE_COMBO_*` → WIN_SMALL → WIN_EPIC (progressive)
+
+---
+
+### ✅ Stage Triggering Fix (2026-01-20)
+
+**Problem:** Eventi nisu trigerovali zvuk jer su `triggerStages` bili prazni.
+
+**Root Cause:**
+1. `SlotCompositeEvent` default ima prazan `triggerStages: []`
+2. `_getEventStage()` je vraćao prazan string `''`
+3. `EventRegistry._stageToEvent['']` nije mogao da pronađe event
+
+**Rešenje u `slot_lab_screen.dart`:**
+
+```dart
+/// _getEventStage sada vraća derived stage iz kategorije ako su triggerStages prazni
+String _getEventStage(SlotCompositeEvent event) {
+  if (event.triggerStages.isNotEmpty) {
+    return event.triggerStages.first;
+  }
+  // Fallback: derive stage from category
+  return switch (event.category.toLowerCase()) {
+    'spin' => 'SPIN_START',
+    'reelstop' => 'REEL_STOP',
+    'anticipation' => 'ANTICIPATION_ON',
+    'win' => 'WIN_PRESENT',
+    'bigwin' => 'BIGWIN_TIER',
+    'feature' => 'FEATURE_ENTER',
+    'bonus' => 'BONUS_ENTER',
+    _ => event.name.toUpperCase().replaceAll(' ', '_'),
+  };
+}
+```
+
+**Dodatno:** `_onMiddlewareChanged()` sada poziva `_syncEventToRegistry()` za svaki event, osiguravajući da se EventRegistry ažurira kad god se layer doda/ukloni.
+
+---
+
+### ✅ Per-Reel REEL_STOP Fix (2026-01-20)
+
+**Problem:** `REEL_STOP_0`, `REEL_STOP_1`, `REEL_STOP_2`, `REEL_STOP_3`, `REEL_STOP_4` nisu radili — trigerovao se samo generički `REEL_STOP`.
+
+**Root Cause:**
+1. Rust `rf-stage` šalje JSON strukturu:
+   ```json
+   {
+     "stage": { "type": "reel_stop", "reel_index": 0, "symbols": [...] },
+     "timestamp_ms": 500,
+     "payload": { "win_amount": null, ... }
+   }
+   ```
+2. `SlotLabStageEvent.fromJson` parsira:
+   - `stageType` → iz `stage.type`
+   - `payload` → iz `json['payload']`
+   - `rawStage` → iz `json['stage']` (sadrži `reel_index`, `symbols`, `reason`)
+3. Kod je čitao `stage.payload['reel_index']` umesto `stage.rawStage['reel_index']`
+
+**Rešenje u `slot_lab_provider.dart`:**
+
+```dart
+// CRITICAL: reel_index and symbols are in rawStage (from stage JSON), not payload
+final reelIndex = stage.rawStage['reel_index'];
+Map<String, dynamic> context = {...stage.payload, ...stage.rawStage};
+
+// Za symbols i has_wild/has_scatter takođe:
+final symbols = stage.rawStage['symbols'] as List<dynamic>?;
+final hasWild = stage.rawStage['has_wild'] as bool? ?? _containsWild(symbols);
+```
+
+**Izmenjene metode:**
+- `_triggerStage()` — čita `reelIndex` i `symbols` iz `rawStage`
+- `_triggerAudioOnly()` — isto
+- `_handleReelStopUIOnly()` — isto
+- `_calculateAnticipationEscalation()` — čita `reel_index` i `reason` iz `rawStage`
+
+**Data Flow:**
+```
+Rust rf-stage → JSON → SlotLabStageEvent.fromJson → rawStage['reel_index']
+                                                  → REEL_STOP_$reelIndex
+                                                  → EventRegistry.triggerStage()
+```
+
+---
+
 *Ovaj katalog služi kao master referenca za FluxForge EventRegistry implementaciju.*
