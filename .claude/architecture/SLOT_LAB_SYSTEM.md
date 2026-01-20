@@ -1019,18 +1019,189 @@ Columns 1,2 → pan -0.25 (left-center)
 
 ---
 
-## Remaining P0 Items (TODO)
+## Adaptive Layer Engine (ALE) Integration
 
-| # | Problem | Impact | Status |
-|---|---------|--------|--------|
-| P0.1 | Audio latency hardcoded | Sync off by 10-30ms | ❌ TODO |
-| P0.2 | REEL_SPIN loop nije seamless | Click/gap na loop | ❌ TODO |
-| P0.4 | Cascade timing fiksno | Audio završi pre visual | ❌ TODO |
+ALE je data-driven, context-aware, metric-reactive music system koji radi sa Slot Lab-om za dinamičko audio layering.
+
+### Arhitektura
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SLOT LAB                                        │
+│  ┌────────────────┐     ┌────────────────┐     ┌────────────────────────┐  │
+│  │ SlotLabProvider │────►│ Signal Updates │────►│ ALE Engine             │  │
+│  │ - spin()        │     │ - winTier       │     │ - evaluate_rules()     │  │
+│  │ - spinForced()  │     │ - winXbet       │     │ - update_transitions() │  │
+│  └────────────────┘     │ - momentum      │     │ - get_layer_volumes()  │  │
+│                          └────────────────┘     └──────────┬─────────────┘  │
+│                                                             │                │
+│                          ┌────────────────────────────────▼───────────────┐ │
+│                          │              Layer Volumes (0.0-1.0)            │ │
+│                          │  L1: 1.0  │  L2: 0.7  │  L3: 0.3  │  L4: 0.0   │ │
+│                          └────────────────────────────────────────────────┘ │
+│                                                             │                │
+│                          ┌────────────────────────────────▼───────────────┐ │
+│                          │           Audio Mixer (per-layer faders)        │ │
+│                          └────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Signal Mapping
+
+| Slot Lab Event | ALE Signal | Value Range |
+|----------------|------------|-------------|
+| Spin result | `winTier` | 0-5 (NONE→ULTRA) |
+| Win amount / bet | `winXbet` | 0.0+ |
+| Consecutive wins | `consecutiveWins` | 0-255 |
+| Consecutive losses | `consecutiveLosses` | 0-255 |
+| Free spins progress | `featureProgress` | 0.0-1.0 |
+| Cascade depth | `cascadeDepth` | 0-255 |
+| Near miss detection | `nearMissIntensity` | 0.0-1.0 |
+
+### Context Mapping
+
+| Slot Lab State | ALE Context |
+|----------------|-------------|
+| Base game | `BASE` |
+| Free spins | `FREESPINS` |
+| Hold & Win | `HOLDWIN` |
+| Pick bonus | `PICKEM` |
+| Wheel feature | `WHEEL` |
+| Cascade mode | `CASCADE` |
+| Jackpot game | `JACKPOT` |
+
+### Integration Code
+
+```dart
+// In SlotLabProvider after spin result:
+void _updateAleSignals(SlotLabSpinResult result) {
+  final ale = AleProvider.instance;
+
+  ale.updateSignal('winTier', result.winTier.toDouble());
+  ale.updateSignal('winXbet', result.winRatio);
+  ale.updateSignal('cascadeDepth', result.cascadeCount.toDouble());
+
+  if (result.isNearMiss) {
+    ale.updateSignal('nearMissIntensity', result.nearMissIntensity);
+  }
+}
+
+// Context transitions
+void _handleFeatureStart(String featureType) {
+  final contextId = switch (featureType) {
+    'FREE_SPINS' => 'FREESPINS',
+    'HOLD_WIN' => 'HOLDWIN',
+    'PICK_BONUS' => 'PICKEM',
+    _ => 'BASE',
+  };
+  AleProvider.instance.enterContext(contextId);
+}
+```
+
+### ALE Rust Crate
+
+**Location:** `crates/rf-ale/` (~4500 LOC)
+
+| Module | Purpose |
+|--------|---------|
+| `signals.rs` | Signal definitions, normalization (linear/sigmoid/asymptotic) |
+| `context.rs` | Context definitions, layers, entry/exit policies |
+| `rules.rs` | Condition/action system, compound conditions |
+| `stability.rs` | 7 stability mechanisms (cooldown, hold, hysteresis, etc.) |
+| `transitions.rs` | Sync modes, fade curves, crossfade overlap |
+| `engine.rs` | Main orchestration, lock-free RT communication |
+| `profile.rs` | JSON profile load/save with versioning |
+
+### FFI Bridge
+
+**Location:** `crates/rf-bridge/src/ale_ffi.rs` (~780 LOC)
+
+```rust
+// Initialization
+ale_init() -> i32
+ale_shutdown()
+
+// Profile management
+ale_load_profile(json: *const c_char) -> i32
+ale_export_profile() -> *mut c_char
+
+// Context control
+ale_enter_context(id: *const c_char, transition: *const c_char) -> i32
+ale_exit_context(transition: *const c_char) -> i32
+
+// Signal updates (from Slot Lab)
+ale_update_signal(id: *const c_char, value: f64)
+ale_get_signal_normalized(id: *const c_char) -> f64
+
+// Level control
+ale_set_level(level: i32) -> i32
+ale_step_up() -> i32
+ale_step_down() -> i32
+
+// Engine state
+ale_get_state() -> *mut c_char
+ale_get_layer_volumes() -> *mut c_char
+ale_tick()
+```
+
+### Dart Provider
+
+**Location:** `flutter_ui/lib/providers/ale_provider.dart` (~745 LOC)
+
+```dart
+class AleProvider extends ChangeNotifier {
+  bool initialize();
+  void shutdown();
+
+  bool loadProfile(String json);
+  String? exportProfile();
+
+  bool enterContext(String contextId, {String? transitionId});
+  bool exitContext({String? transitionId});
+
+  void updateSignal(String signalId, double value);
+  void updateSignals(Map<String, double> signals);
+
+  bool setLevel(int level);
+  bool stepUp();
+  bool stepDown();
+
+  void tick(); // Call from audio callback or timer
+
+  // Getters
+  AleEngineState get state;
+  List<double> get layerVolumes;
+  AleContext? get activeContext;
+}
+```
+
+### Documentation
+
+Full ALE specification: `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
+
+---
+
+## P0/P1 Status (2026-01-21)
+
+| # | Feature | Status |
+|---|---------|--------|
+| P0.1 | Audio latency compensation | ✅ DONE |
+| P0.2 | Seamless REEL_SPIN loop | ✅ DONE |
+| P0.3 | Per-voice pan in FFI | ✅ DONE |
+| P0.4 | Dynamic cascade timing | ✅ DONE |
+| P0.5 | Dynamic rollup speed (RTPC) | ✅ DONE |
+| P0.6 | Anticipation pre-trigger | ✅ DONE |
+| P0.7 | Big win layered audio | ✅ DONE |
+| P1.1 | Symbol-specific audio | ✅ DONE |
+| P1.2 | Near miss audio escalation | ✅ DONE |
+| P1.3 | Win line audio panning | ✅ DONE |
+| ALE | Adaptive Layer Engine | ✅ DONE |
 
 ---
 
 ## Future Enhancements
 
+- [ ] ALE UI widgets (context editor, rule editor, signal monitor)
 - [ ] Audio waveform preview in browser
 - [ ] Drag audio to timeline regions
 - [ ] Custom timing profile editor
@@ -1046,6 +1217,7 @@ Columns 1,2 → pan -0.25 (left-center)
 
 ## Related Documentation
 
+- [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification
 - [STAGE_INGEST_SYSTEM.md](.claude/architecture/STAGE_INGEST_SYSTEM.md) — Universal stage language
 - [ENGINE_INTEGRATION_SYSTEM.md](.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md) — Game engine integration
 - [fluxforge-studio.md](.claude/project/fluxforge-studio.md) — Full project spec

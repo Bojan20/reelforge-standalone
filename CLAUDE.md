@@ -488,6 +488,23 @@ Professional video for post-production:
 
 **Frame Cache:** LRU cache with background preloading
 
+### rf-ale — Adaptive Layer Engine (4,500 LOC) ✅ NEW
+
+Data-driven, context-aware, metric-reactive music system for dynamic audio layering.
+
+| Component | Description |
+|-----------|-------------|
+| **Signal System** | 18+ built-in signals (winTier, momentum, etc.), normalization modes (linear, sigmoid, asymptotic) |
+| **Context System** | Game chapters (BASE, FREESPINS, HOLDWIN...) with layers, entry/exit policies, narrative arcs |
+| **Rule System** | 16 comparison operators, compound conditions (AND/OR/NOT/HELD_FOR), 6 action types |
+| **Stability System** | 7 mechanisms: cooldown, hold, hysteresis, level_inertia, decay, momentum_buffer, prediction |
+| **Transition System** | 6 sync modes (immediate, beat, bar, phrase), 10 fade curves, crossfade overlap |
+| **Profile System** | JSON serialization, version migration, validation |
+
+**FFI:** `crates/rf-bridge/src/ale_ffi.rs` (~780 LOC)
+**Dart Provider:** `flutter_ui/lib/providers/ale_provider.dart` (~745 LOC)
+**Documentation:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
+
 ---
 
 ## DSP Pravila (KRITIČNO)
@@ -983,6 +1000,54 @@ Fullscreen audio sandbox za slot game audio dizajn.
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_SYSTEM.md`
 
+### Adaptive Layer Engine (ALE) v2.0 — IMPLEMENTED ✅
+
+Data-driven, context-aware, metric-reactive music system za dinamičko audio layering u slot igrama.
+
+**Rust Crate:** `crates/rf-ale/` (~4500 LOC)
+- `signals.rs` — Signal system sa normalizacijom (linear/sigmoid/asymptotic)
+- `context.rs` — Context definicije, layers, entry/exit policies, narrative arcs
+- `rules.rs` — 16 comparison operatora, compound conditions, 6 action tipova
+- `stability.rs` — 7 mehanizama stabilnosti (cooldown, hold, hysteresis, decay, prediction)
+- `transitions.rs` — 6 sync modova, 10 fade curves, crossfade overlap
+- `engine.rs` — Main engine orchestration, lock-free RT communication
+- `profile.rs` — JSON profile load/save sa verzionisanjem
+
+**FFI Bridge:** `crates/rf-bridge/src/ale_ffi.rs` (~780 LOC)
+- `ale_init()` / `ale_shutdown()` / `ale_tick()`
+- `ale_load_profile()` / `ale_export_profile()`
+- `ale_enter_context()` / `ale_exit_context()`
+- `ale_update_signal()` / `ale_get_signal_normalized()`
+- `ale_set_level()` / `ale_step_up()` / `ale_step_down()`
+- `ale_get_state()` / `ale_get_layer_volumes()`
+
+**Flutter Provider:** `flutter_ui/lib/providers/ale_provider.dart` (~745 LOC)
+- ChangeNotifier state management
+- Dart models za signals, contexts, rules, transitions
+- Automatic tick loop za engine updates
+
+**Built-in Signals (18+):**
+```
+winTier, winXbet, consecutiveWins, consecutiveLosses,
+winStreakLength, lossStreakLength, balanceTrend, sessionProfit,
+featureProgress, multiplier, nearMissIntensity, anticipationLevel,
+cascadeDepth, respinsRemaining, spinsInFeature, totalFeatureSpins,
+jackpotProximity, turboMode, momentum (derived), velocity (derived)
+```
+
+**Stability Mechanisms (7):**
+| Mechanism | Opis |
+|-----------|------|
+| **Global Cooldown** | Minimum time between any level changes |
+| **Rule Cooldown** | Per-rule cooldown after firing |
+| **Level Hold** | Lock level for duration after change |
+| **Hysteresis** | Different thresholds for up vs down |
+| **Level Inertia** | Higher levels resist change more |
+| **Decay** | Auto-decrease level after inactivity |
+| **Prediction** | Anticipate player behavior |
+
+**Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md`
+
 ### Event Registry System (IMPLEMENTED) ✅
 
 Wwise/FMOD-style centralni audio event sistem sa 490+ stage definicija.
@@ -1239,11 +1304,20 @@ Critical (P0) i High-Priority (P1) audio poboljšanja za Slot Lab.
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` (kompletni tehnički detalji)
 
-### Adaptive Layer Engine (ARCHITECTURE COMPLETE) ✅
+### Adaptive Layer Engine (FULLY IMPLEMENTED) ✅ 2026-01-21
 
-Universal, data-driven layer engine za dinamičnu game muziku.
+Universal, data-driven layer engine za dinamičnu game muziku — **KOMPLETNO IMPLEMENTIRANO**.
 
 **Filozofija:** Od "pusti zvuk X" do "igra je u emotivnom stanju Y".
+
+**Implementacija:**
+
+| Komponenta | Lokacija | LOC | Status |
+|------------|----------|-----|--------|
+| **rf-ale crate** | `crates/rf-ale/` | ~4500 | ✅ Done |
+| **FFI Bridge** | `crates/rf-bridge/src/ale_ffi.rs` | ~780 | ✅ Done |
+| **Dart Provider** | `flutter_ui/lib/providers/ale_provider.dart` | ~745 | ✅ Done |
+| **UI Widgets** | `flutter_ui/lib/widgets/ale/` | — | ⏳ Pending |
 
 **Core Concepts:**
 
@@ -1251,33 +1325,56 @@ Universal, data-driven layer engine za dinamičnu game muziku.
 |---------|------|
 | **Context** | Game chapter (BASE, FREESPINS, HOLDWIN, etc.) — definiše dostupne layere |
 | **Layer** | Intensity level L1-L5 — energetski stepen, ne konkretni audio fajl |
-| **Metrics** | Runtime signali (winTier, winXbet, momentum, etc.) koji pokreću tranzicije |
+| **Signals** | Runtime metrike (winTier, winXbet, momentum, etc.) koje pokreću tranzicije |
 | **Rules** | Uslovi za promenu levela (npr. "if winXbet > 10 → step_up") |
+| **Stability** | 7 mehanizama za stabilne, predvidljive tranzicije |
+| **Transitions** | Beat/bar/phrase sync, 10 fade curves, crossfade overlap |
 
-**Metric Signals:**
+**Built-in Signals (18+):**
 ```
-winTier          0-5     (NONE, SMALL, BIG, MEGA, EPIC, ULTRA)
-winXbet          0.0+    Win amount / bet size
-consecutiveWins  0-255   Win streak counter
-spinsSinceWin    0-255   Lose streak counter
-featureProgress  0.0-1.0 Progress through bonus
-momentum         0.0-1.0 Trending win intensity
-playerSpeedMode  enum    NORMAL, TURBO, AUTO
+winTier, winXbet, consecutiveWins, consecutiveLosses,
+winStreakLength, lossStreakLength, balanceTrend, sessionProfit,
+featureProgress, multiplier, nearMissIntensity, anticipationLevel,
+cascadeDepth, respinsRemaining, spinsInFeature, totalFeatureSpins,
+jackpotProximity, turboMode, momentum (derived), velocity (derived)
 ```
 
-**Stability Mechanisms:**
-- **Cooldown** — Minimum vreme između promena levela
-- **Hysteresis** — Različiti thresholds za up vs down
-- **Hold Time** — Uslov mora trajati N ms pre tranzicije
-- **Level Inertia** — Viši nivoi su "lepljiviji" (teže padaju)
+**Stability Mechanisms (7):**
+| Mechanism | Opis |
+|-----------|------|
+| **Global Cooldown** | Minimum vreme između bilo kojih promena levela |
+| **Rule Cooldown** | Per-rule cooldown posle aktivacije |
+| **Level Hold** | Zaključaj level na određeno vreme posle promene |
+| **Hysteresis** | Različiti pragovi za gore vs dole |
+| **Level Inertia** | Viši nivoi su "lepljiviji" (teže padaju) |
+| **Decay** | Auto-smanjenje levela posle neaktivnosti |
+| **Prediction** | Anticipacija ponašanja igrača |
 
 **Transition Profiles:**
 - `immediate` — Instant switch (za urgentne evente)
-- `beat_sync` — Na sledećem beat-u
-- `phrase_sync` — Na sledećoj muzičkoj frazi
-- `crossfade` — Smooth blend između nivoa
+- `beat` — Na sledećem beat-u
+- `bar` — Na sledećem taktu
+- `phrase` — Na sledećoj muzičkoj frazi (4 takta)
+- `next_downbeat` — Na sledećem downbeat-u
+- `custom` — Custom grid pozicija
 
-**Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md`
+**Fade Curves (10):**
+`linear`, `ease_in_quad`, `ease_out_quad`, `ease_in_out_quad`,
+`ease_in_cubic`, `ease_out_cubic`, `ease_in_out_cubic`,
+`ease_in_expo`, `ease_out_expo`, `s_curve`
+
+**FFI API:**
+```rust
+ale_init() / ale_shutdown() / ale_tick()
+ale_load_profile() / ale_export_profile()
+ale_enter_context() / ale_exit_context()
+ale_update_signal() / ale_get_signal_normalized()
+ale_set_level() / ale_step_up() / ale_step_down()
+ale_get_state() / ale_get_layer_volumes()
+ale_set_tempo() / ale_set_time_signature()
+```
+
+**Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
 
 ---
 
