@@ -438,6 +438,49 @@ impl UltimateScanner {
         }
     }
 
+    /// Compute FNV-1a hash of first 4KB of file (fast cache validation)
+    fn compute_file_hash(path: &Path) -> u64 {
+        use std::io::Read;
+        const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+        const FNV_PRIME: u64 = 0x100000001b3;
+        const HASH_SIZE: usize = 4096;
+
+        let mut hash = FNV_OFFSET;
+
+        // For bundles (directories), hash the main binary
+        let target_path = if path.is_dir() {
+            // VST3/AU bundles: Contents/MacOS/<name>
+            #[cfg(target_os = "macos")]
+            {
+                let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("plugin");
+                let binary = path.join("Contents/MacOS").join(name);
+                if binary.exists() {
+                    binary
+                } else {
+                    return 0;
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                path.to_path_buf()
+            }
+        } else {
+            path.to_path_buf()
+        };
+
+        if let Ok(mut file) = std::fs::File::open(&target_path) {
+            let mut buffer = [0u8; HASH_SIZE];
+            if let Ok(n) = file.read(&mut buffer) {
+                for byte in &buffer[..n] {
+                    hash ^= *byte as u64;
+                    hash = hash.wrapping_mul(FNV_PRIME);
+                }
+            }
+        }
+
+        hash
+    }
+
     fn scan_single_plugin(
         path: &Path,
         plugin_type: PluginType,
@@ -486,7 +529,7 @@ impl UltimateScanner {
                     info: info.clone(),
                     mtime,
                     size: meta.len(),
-                    hash: 0, // TODO: compute hash
+                    hash: Self::compute_file_hash(path),
                     validation: result.validation,
                     last_scan: SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)

@@ -35,6 +35,7 @@ import '../dsp/time_stretch_panel.dart';
 import '../dsp/transient_panel.dart';
 import '../dsp/ultra_eq_panel.dart';
 import '../dsp/wavelet_panel.dart';
+import '../fabfilter/fabfilter.dart';
 
 // ==============================================================================
 // GLASS PANEL WRAPPER
@@ -1206,5 +1207,124 @@ class GlassToggleButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ==============================================================================
+// FABFILTER-STYLE PANELS - THEME-AWARE WRAPPERS
+// ==============================================================================
+
+/// Theme-aware FabFilter EQ Panel (Pro-Q style)
+class ThemeAwareFabFilterEqPanel extends StatelessWidget {
+  final int trackId;
+
+  const ThemeAwareFabFilterEqPanel({
+    super.key,
+    required this.trackId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    final panel = FabFilterEqPanel(trackId: trackId);
+
+    if (isGlassMode) {
+      return GlassDspPanelWrapper(child: panel);
+    }
+
+    return panel;
+  }
+}
+
+/// Theme-aware FabFilter Compressor Panel (Pro-C style)
+class ThemeAwareFabFilterCompressorPanel extends StatelessWidget {
+  final int trackId;
+
+  const ThemeAwareFabFilterCompressorPanel({
+    super.key,
+    required this.trackId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    final panel = FabFilterCompressorPanel(trackId: trackId);
+
+    if (isGlassMode) {
+      return GlassDspPanelWrapper(child: panel);
+    }
+
+    return panel;
+  }
+}
+
+/// Theme-aware FabFilter Limiter Panel (Pro-L style)
+class ThemeAwareFabFilterLimiterPanel extends StatelessWidget {
+  final int trackId;
+
+  const ThemeAwareFabFilterLimiterPanel({
+    super.key,
+    required this.trackId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    final panel = FabFilterLimiterPanel(trackId: trackId);
+
+    if (isGlassMode) {
+      return GlassDspPanelWrapper(child: panel);
+    }
+
+    return panel;
+  }
+}
+
+/// Theme-aware FabFilter Reverb Panel (Pro-R style)
+class ThemeAwareFabFilterReverbPanel extends StatelessWidget {
+  final int trackId;
+
+  const ThemeAwareFabFilterReverbPanel({
+    super.key,
+    required this.trackId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    final panel = FabFilterReverbPanel(trackId: trackId);
+
+    if (isGlassMode) {
+      return GlassDspPanelWrapper(child: panel);
+    }
+
+    return panel;
+  }
+}
+
+/// Theme-aware FabFilter Gate Panel (Pro-G style)
+class ThemeAwareFabFilterGatePanel extends StatelessWidget {
+  final int trackId;
+
+  const ThemeAwareFabFilterGatePanel({
+    super.key,
+    required this.trackId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlassMode = context.watch<ThemeModeProvider>().isGlassMode;
+
+    final panel = FabFilterGatePanel(trackId: trackId);
+
+    if (isGlassMode) {
+      return GlassDspPanelWrapper(child: panel);
+    }
+
+    return panel;
   }
 }

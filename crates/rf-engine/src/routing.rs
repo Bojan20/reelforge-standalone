@@ -920,6 +920,8 @@ pub struct RoutingGraph {
     processing_order: Vec<ChannelId>,
     /// Next channel ID
     next_id: AtomicU32,
+    /// Channel count (atomic for lock-free FFI queries, excludes master)
+    channel_count: AtomicU32,
     /// Global solo state
     global_solo_active: AtomicBool,
     /// Graph is dirty (needs re-sorting)
@@ -1046,6 +1048,7 @@ impl RoutingGraph {
             channels,
             processing_order: vec![ChannelId::MASTER],
             next_id: AtomicU32::new(1), // Master is 0, start at 1
+            channel_count: AtomicU32::new(0), // Excludes master
             global_solo_active: AtomicBool::new(false),
             dirty: AtomicBool::new(false),
             block_size,
@@ -1068,6 +1071,7 @@ impl RoutingGraph {
         let channel =
             Channel::with_sample_rate(id, kind, &auto_name, self.block_size, self.sample_rate);
         self.channels.insert(id, channel);
+        self.channel_count.fetch_add(1, Ordering::Release);
         self.dirty.store(true, Ordering::Release);
 
         id
@@ -1098,6 +1102,7 @@ impl RoutingGraph {
                 // Remove sends to this channel
                 channel.sends.retain(|s| s.destination != id);
             }
+            self.channel_count.fetch_sub(1, Ordering::Release);
             self.dirty.store(true, Ordering::Release);
             true
         } else {
@@ -1401,6 +1406,11 @@ impl RoutingGraph {
     /// Get channel count (excluding master)
     pub fn channel_count(&self) -> usize {
         self.channels.len() - 1 // Exclude master
+    }
+
+    /// Get channel count (atomic, lock-free for FFI)
+    pub fn channel_count_atomic(&self) -> u32 {
+        self.channel_count.load(Ordering::Acquire)
     }
 
     /// Set block size for all channels

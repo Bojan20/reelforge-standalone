@@ -112,6 +112,7 @@ import '../widgets/dsp/channel_strip_panel.dart';
 import '../widgets/dsp/ml_processor_panel.dart';
 import '../widgets/dsp/mastering_panel.dart';
 import '../widgets/dsp/restoration_panel.dart';
+import '../widgets/fabfilter/fabfilter.dart';
 import '../widgets/midi/piano_roll_widget.dart';
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 import '../widgets/mixer/control_room_panel.dart' as control_room;
@@ -140,6 +141,7 @@ import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/middleware/events_folder_panel.dart';
+import '../widgets/middleware/event_editor_panel.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -7077,6 +7079,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         isStereo: ch.isStereo,
         muted: ch.muted,
         soloed: ch.soloed,
+        armed: ch.armed,
         inserts: inserts,
         peakL: hasClips && isPlaying ? peakL : 0,
         peakR: hasClips && isPlaying ? peakR : 0,
@@ -7155,6 +7158,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           _onBusSoloToggle(id);
         } else {
           mixerProvider.toggleSolo(id);
+        }
+      },
+      onArmToggle: (id) {
+        if (id != 'master') {
+          mixerProvider.toggleChannelArm(id);
         }
       },
       onInsertClick: (channelId, insertIndex) {
@@ -9400,6 +9408,45 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       ),
 
       // ══════════════════════════════════════════════════════════════════════
+      // FABFILTER-STYLE PANELS — Premium DSP interfaces
+      // ══════════════════════════════════════════════════════════════════════
+      LowerZoneTab(
+        id: 'fabfilter-eq',
+        label: 'Pro-Q EQ',
+        icon: Icons.equalizer,
+        content: FabFilterEqPanel(trackId: 0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'fabfilter-comp',
+        label: 'Pro-C Comp',
+        icon: Icons.compress,
+        content: FabFilterCompressorPanel(trackId: 0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'fabfilter-limiter',
+        label: 'Pro-L Limiter',
+        icon: Icons.trending_flat,
+        content: FabFilterLimiterPanel(trackId: 0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'fabfilter-reverb',
+        label: 'Pro-R Reverb',
+        icon: Icons.waves,
+        content: FabFilterReverbPanel(trackId: 0),
+        groupId: 'process',
+      ),
+      LowerZoneTab(
+        id: 'fabfilter-gate',
+        label: 'Pro-G Gate',
+        icon: Icons.door_sliding,
+        content: FabFilterGatePanel(trackId: 0),
+        groupId: 'process',
+      ),
+
+      // ══════════════════════════════════════════════════════════════════════
       // GROUP 5: MEDIA — Browser, pool, templates
       // ══════════════════════════════════════════════════════════════════════
       LowerZoneTab(
@@ -9512,6 +9559,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: const EventsFolderPanel(),
         groupId: 'middleware',
       ),
+      LowerZoneTab(
+        id: 'event-editor',
+        label: 'Event Editor',
+        icon: Icons.edit_note,
+        content: const EventEditorPanel(),
+        groupId: 'middleware',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -9545,11 +9599,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         label: 'Analyze',
         tabs: ['meters', 'loudness', 'spectrum'],
       ),
-      // GROUP 4: PROCESS — DSP processors (consolidated)
+      // GROUP 4: PROCESS — DSP processors (consolidated + FabFilter premium)
       const TabGroup(
         id: 'process',
         label: 'Process',
-        tabs: ['eq', 'dynamics', 'spatial', 'reverb', 'delay', 'pitch', 'spectral', 'saturation', 'transient'],
+        tabs: [
+          'eq', 'dynamics', 'spatial', 'reverb', 'delay', 'pitch', 'spectral', 'saturation', 'transient',
+          // FabFilter-style premium panels
+          'fabfilter-eq', 'fabfilter-comp', 'fabfilter-limiter', 'fabfilter-reverb', 'fabfilter-gate',
+        ],
       ),
       // GROUP 5: MEDIA — Browser, pool, plugins, templates
       const TabGroup(

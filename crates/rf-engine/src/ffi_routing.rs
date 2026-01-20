@@ -22,6 +22,8 @@ lazy_static::lazy_static! {
     /// Routing sender pointer (NOT thread-safe, managed externally)
     static ref ROUTING_SENDER_PTR: std::sync::atomic::AtomicPtr<RoutingCommandSender> =
         std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+    /// Channel count (atomic, updated by FFI create/delete responses)
+    static ref CHANNEL_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 }
 
 #[cfg(feature = "unified_routing")]
@@ -124,15 +126,20 @@ pub extern "C" fn routing_poll_response(callback_id: u32) -> i32 {
                     callback_id: resp_id,
                     channel_id,
                 } => {
+                    // Increment channel count
+                    CHANNEL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Release);
                     if resp_id == callback_id {
                         return channel_id.0 as i32;
                     }
+                }
+                crate::routing::RoutingResponse::ChannelDeleted { .. } => {
+                    // Decrement channel count
+                    CHANNEL_COUNT.fetch_sub(1, std::sync::atomic::Ordering::Release);
                 }
                 crate::routing::RoutingResponse::Error { message } => {
                     log::error!("Routing error: {}", message);
                     return -1;
                 }
-                _ => {}
             }
         }
         0 // No response yet
@@ -285,12 +292,10 @@ pub extern "C" fn routing_set_solo(channel_id: u32, solo: i32) -> i32 {
 
 #[cfg(feature = "unified_routing")]
 /// Get total number of routing channels (excluding master)
-/// Returns: Channel count
+/// Returns: Channel count (tracked via FFI create/delete responses)
 #[unsafe(no_mangle)]
 pub extern "C" fn routing_get_channel_count() -> u32 {
-    // TODO: Need to add query capability to RoutingGraphRT
-    // For now, return 0 as placeholder
-    0
+    CHANNEL_COUNT.load(std::sync::atomic::Ordering::Acquire)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

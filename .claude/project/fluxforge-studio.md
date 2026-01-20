@@ -99,6 +99,24 @@ crates/
 | **Delay** | Tempo sync, ping-pong, modulation |
 | **Saturator** | Tape, tube, transistor models |
 
+### FabFilter-Style Premium Panels
+
+Location: `flutter_ui/lib/widgets/fabfilter/`
+
+| Panel | Inspiration | Features |
+|-------|-------------|----------|
+| **EQ** | Pro-Q 3 | 64-band, spectrum analyzer, phase modes, dynamic EQ |
+| **Compressor** | Pro-C 2 | Knee display, 14 styles, sidechain EQ, lookahead |
+| **Limiter** | Pro-L 2 | LUFS metering, 8 styles, true peak, attack modes |
+| **Reverb** | Pro-R | Decay display, pre-delay, brightness, space dial |
+| **Gate** | Pro-G | Threshold viz, sidechain filter, range, hysteresis |
+
+Shared components:
+- `fabfilter_theme.dart` — Pro audio color palette, gradients
+- `fabfilter_knob.dart` — Rotary knob with modulation ring
+- `fabfilter_panel_base.dart` — A/B, undo/redo, bypass, fullscreen
+- `fabfilter_preset_browser.dart` — Categories, favorites, search
+
 ### Plugin System
 
 - **Format Support**
