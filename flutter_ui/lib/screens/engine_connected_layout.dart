@@ -1669,9 +1669,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color, channels: channelCount);
 
-    // DEBUG: Show import details
-    final debugInfo = 'trackId=$nativeTrackId, clipId=$clipId, dur=${clipInfo?.duration ?? 'null'}, peaks=${waveform?.length ?? 0}';
-    _showSnackBar('Import: $debugInfo');
     _updateActiveBuses();
 
     // Auto-zoom to fit clip in timeline (zoom out to show entire clip)
@@ -8277,10 +8274,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                           NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + paramOffset, value);
                         }
                       }
-
-                      // DEBUG: Log EQ band changes
-                      debugPrint('[EQ] Band change: channel=$channelId (isBus=$isBus), slot=$slotIndex, band=$bandIndex');
-                      debugPrint('[EQ]   freq=$freq, gain=$gain, q=$q, enabled=$enabled, filterType=$filterType');
 
                       if (freq != null) setParam(0, freq);
                       if (gain != null) setParam(1, gain);
