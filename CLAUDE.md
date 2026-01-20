@@ -780,6 +780,27 @@ flutter run --profile          # UI performance
 - `music_system_panel.dart` — Music segments + stingers
 - `attenuation_curve_panel.dart` — Curve shape editor
 
+### Advanced Audio Systems (MiddlewareProvider Integration)
+
+Svi advanced sistemi su potpuno integrisani u MiddlewareProvider (linije 3017-3455):
+
+| Sistem | Metode | Opis |
+|--------|--------|------|
+| **VoicePool** | `requestVoice()`, `releaseVoice()`, `getVoicePoolStats()` | Polyphony management (48 voices, stealing modes) |
+| **BusHierarchy** | `getBus()`, `setBusVolume/Mute/Solo()`, `addBusPreInsert()` | Bus routing sa effects |
+| **AuxSendManager** | 14 metoda (createAuxSend, setAuxSendLevel, etc.) | Send/Return routing (Reverb A/B, Delay, Slapback) |
+| **MemoryManager** | `registerSoundbank()`, `loadSoundbank()`, `getMemoryStats()` | Bank loading, memory budget |
+| **ReelSpatial** | `updateReelSpatialConfig()`, `getReelPosition()` | Per-reel stereo positioning |
+| **CascadeAudio** | `getCascadeAudioParams()`, `getActiveCascadeLayers()` | Cascade escalation (pitch, reverb, tension) |
+| **HdrAudio** | `setHdrProfile()`, `updateHdrConfig()` | Platform-specific audio (Desktop/Mobile/Broadcast) |
+| **Streaming** | `updateStreamingConfig()` | Streaming buffer config |
+| **EventProfiler** | `recordProfilerEvent()`, `getProfilerStats()` | Latency tracking, voice stats |
+| **AutoSpatial** | `registerSpatialAnchor()`, `emitSpatialEvent()` | UI-driven spatial positioning |
+
+**Model fajlovi:**
+- `middleware_models.dart` — Core: State, Switch, RTPC, Ducking, Containers
+- `advanced_middleware_models.dart` — Advanced: VoicePool, BusHierarchy, AuxSend, Spatial, Memory, HDR
+
 ### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
 
 Fullscreen audio sandbox za slot game audio dizajn.
