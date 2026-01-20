@@ -403,6 +403,10 @@ typedef EngineGetPlaybackPositionSecondsDart = double Function();
 typedef EngineGetPlaybackPositionSamplesNative = Uint64 Function();
 typedef EngineGetPlaybackPositionSamplesDart = int Function();
 
+// Playback debug info (returns string with track/clip/stream status)
+typedef EngineGetPlaybackDebugInfoNative = Pointer<Utf8> Function();
+typedef EngineGetPlaybackDebugInfoDart = Pointer<Utf8> Function();
+
 typedef EnginePreloadAllNative = Void Function();
 typedef EnginePreloadAllDart = void Function();
 
@@ -589,6 +593,13 @@ typedef EngineTrackDuplicateDart = int Function(int trackId);
 
 typedef EngineTrackSetColorNative = Int32 Function(Uint64 trackId, Uint32 color);
 typedef EngineTrackSetColorDart = int Function(int trackId, int color);
+
+// Phase invert (polarity flip)
+typedef TrackSetPhaseInvertNative = Void Function(Uint64 trackId, Int32 inverted);
+typedef TrackSetPhaseInvertDart = void Function(int trackId, int inverted);
+
+typedef TrackGetPhaseInvertNative = Int32 Function(Uint64 trackId);
+typedef TrackGetPhaseInvertDart = int Function(int trackId);
 
 // VCA functions
 typedef EngineVcaCreateNative = Uint64 Function(Pointer<Utf8> name);
@@ -863,6 +874,28 @@ typedef InsertIsLoadedDart = int Function(int trackId, int slotIndex);
 
 typedef InsertOpenEditorNative = Int32 Function(Uint32 trackId, Uint32 slotIndex);
 typedef InsertOpenEditorDart = int Function(int trackId, int slotIndex);
+
+// Bus Insert Chain FFI (Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
+typedef BusInsertLoadProcessorNative = Int32 Function(Uint32 busId, Uint32 slotIndex, Pointer<Utf8> processorName);
+typedef BusInsertLoadProcessorDart = int Function(int busId, int slotIndex, Pointer<Utf8> processorName);
+
+typedef BusInsertUnloadSlotNative = Int32 Function(Uint32 busId, Uint32 slotIndex);
+typedef BusInsertUnloadSlotDart = int Function(int busId, int slotIndex);
+
+typedef BusInsertSetParamNative = Int32 Function(Uint32 busId, Uint32 slotIndex, Uint32 paramIndex, Double value);
+typedef BusInsertSetParamDart = int Function(int busId, int slotIndex, int paramIndex, double value);
+
+typedef BusInsertGetParamNative = Double Function(Uint32 busId, Uint32 slotIndex, Uint32 paramIndex);
+typedef BusInsertGetParamDart = double Function(int busId, int slotIndex, int paramIndex);
+
+typedef BusInsertSetBypassNative = Int32 Function(Uint32 busId, Uint32 slotIndex, Int32 bypass);
+typedef BusInsertSetBypassDart = int Function(int busId, int slotIndex, int bypass);
+
+typedef BusInsertSetMixNative = Int32 Function(Uint32 busId, Uint32 slotIndex, Double mix);
+typedef BusInsertSetMixDart = int Function(int busId, int slotIndex, double mix);
+
+typedef BusInsertIsLoadedNative = Int32 Function(Uint32 busId, Uint32 slotIndex);
+typedef BusInsertIsLoadedDart = int Function(int busId, int slotIndex);
 
 // Plugin State/Preset
 typedef PluginGetStateNative = Int32 Function(Pointer<Utf8> instanceId, Pointer<Uint8> outData, Uint32 maxLen);
@@ -1908,6 +1941,7 @@ class NativeFFI {
 
   late final EngineGetPlaybackPositionSecondsDart _getPlaybackPositionSeconds;
   late final EngineGetPlaybackPositionSamplesDart _getPlaybackPositionSamples;
+  late final EngineGetPlaybackDebugInfoDart _getPlaybackDebugInfo;
   late final EnginePreloadAllDart _preloadAll;
   late final EnginePreloadRangeDart _preloadRange;
   late final EngineSyncLoopFromRegionDart _syncLoopFromRegion;
@@ -1989,6 +2023,8 @@ class NativeFFI {
   late final EngineTrackRenameDart _trackRename;
   late final EngineTrackDuplicateDart _trackDuplicate;
   late final EngineTrackSetColorDart _trackSetColor;
+  late final TrackSetPhaseInvertDart _trackSetPhaseInvert;
+  late final TrackGetPhaseInvertDart _trackGetPhaseInvert;
 
   // VCA
   late final EngineVcaCreateDart _vcaCreate;
@@ -2097,6 +2133,15 @@ class NativeFFI {
   late final InsertGetParamDart _insertGetParam;
   late final InsertIsLoadedDart _insertIsLoaded;
   late final InsertOpenEditorDart _insertOpenEditor;
+
+  // Bus Insert Effects (Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
+  late final BusInsertLoadProcessorDart _busInsertLoadProcessor;
+  late final BusInsertUnloadSlotDart _busInsertUnloadSlot;
+  late final BusInsertSetParamDart _busInsertSetParam;
+  late final BusInsertGetParamDart _busInsertGetParam;
+  late final BusInsertSetBypassDart _busInsertSetBypass;
+  late final BusInsertSetMixDart _busInsertSetMix;
+  late final BusInsertIsLoadedDart _busInsertIsLoaded;
 
   // Plugin State/Preset
   late final PluginGetStateDart _pluginGetState;
@@ -2506,6 +2551,7 @@ class NativeFFI {
 
     _getPlaybackPositionSeconds = _lib.lookupFunction<EngineGetPlaybackPositionSecondsNative, EngineGetPlaybackPositionSecondsDart>('engine_get_playback_position_seconds');
     _getPlaybackPositionSamples = _lib.lookupFunction<EngineGetPlaybackPositionSamplesNative, EngineGetPlaybackPositionSamplesDart>('engine_get_playback_position_samples');
+    _getPlaybackDebugInfo = _lib.lookupFunction<EngineGetPlaybackDebugInfoNative, EngineGetPlaybackDebugInfoDart>('engine_get_playback_debug_info');
     _preloadAll = _lib.lookupFunction<EnginePreloadAllNative, EnginePreloadAllDart>('engine_preload_all');
     _preloadRange = _lib.lookupFunction<EnginePreloadRangeNative, EnginePreloadRangeDart>('engine_preload_range');
     _syncLoopFromRegion = _lib.lookupFunction<EngineSyncLoopFromRegionNative, EngineSyncLoopFromRegionDart>('engine_sync_loop_from_region');
@@ -2587,6 +2633,8 @@ class NativeFFI {
     _trackRename = _lib.lookupFunction<EngineTrackRenameNative, EngineTrackRenameDart>('track_rename');
     _trackDuplicate = _lib.lookupFunction<EngineTrackDuplicateNative, EngineTrackDuplicateDart>('track_duplicate');
     _trackSetColor = _lib.lookupFunction<EngineTrackSetColorNative, EngineTrackSetColorDart>('track_set_color');
+    _trackSetPhaseInvert = _lib.lookupFunction<TrackSetPhaseInvertNative, TrackSetPhaseInvertDart>('track_set_phase_invert');
+    _trackGetPhaseInvert = _lib.lookupFunction<TrackGetPhaseInvertNative, TrackGetPhaseInvertDart>('track_get_phase_invert');
 
     // VCA
     _vcaCreate = _lib.lookupFunction<EngineVcaCreateNative, EngineVcaCreateDart>('vca_create');
@@ -2695,6 +2743,15 @@ class NativeFFI {
     _insertGetParam = _lib.lookupFunction<InsertGetParamNative, InsertGetParamDart>('insert_get_param');
     _insertIsLoaded = _lib.lookupFunction<InsertIsLoadedNative, InsertIsLoadedDart>('insert_is_loaded');
     _insertOpenEditor = _lib.lookupFunction<InsertOpenEditorNative, InsertOpenEditorDart>('insert_open_editor');
+
+    // Bus Insert Effects (Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
+    _busInsertLoadProcessor = _lib.lookupFunction<BusInsertLoadProcessorNative, BusInsertLoadProcessorDart>('bus_insert_load_processor');
+    _busInsertUnloadSlot = _lib.lookupFunction<BusInsertUnloadSlotNative, BusInsertUnloadSlotDart>('bus_insert_unload_slot');
+    _busInsertSetParam = _lib.lookupFunction<BusInsertSetParamNative, BusInsertSetParamDart>('bus_insert_set_param');
+    _busInsertGetParam = _lib.lookupFunction<BusInsertGetParamNative, BusInsertGetParamDart>('bus_insert_get_param');
+    _busInsertSetBypass = _lib.lookupFunction<BusInsertSetBypassNative, BusInsertSetBypassDart>('bus_insert_set_bypass');
+    _busInsertSetMix = _lib.lookupFunction<BusInsertSetMixNative, BusInsertSetMixDart>('bus_insert_set_mix');
+    _busInsertIsLoaded = _lib.lookupFunction<BusInsertIsLoadedNative, BusInsertIsLoadedDart>('bus_insert_is_loaded');
 
     // Transient Detection
     _transientDetect = _lib.lookupFunction<TransientDetectNative, TransientDetectDart>('transient_detect');
@@ -3813,6 +3870,16 @@ class NativeFFI {
     return _getPlaybackPositionSamples();
   }
 
+  /// Get playback debug info (track count, clip count, stream status)
+  String getPlaybackDebugInfo() {
+    if (!_loaded) return 'not loaded';
+    final ptr = _getPlaybackDebugInfo();
+    if (ptr == nullptr) return 'null';
+    final str = ptr.toDartString();
+    calloc.free(ptr);
+    return str;
+  }
+
   /// Preload all audio files for playback
   void preloadAll() {
     if (!_loaded) return;
@@ -4430,6 +4497,19 @@ class NativeFFI {
   bool trackSetColor(int trackId, int color) {
     if (!_loaded) return false;
     return _trackSetColor(trackId, color) != 0;
+  }
+
+  /// Set track phase invert (polarity flip)
+  /// When enabled, the audio signal is multiplied by -1
+  void trackSetPhaseInvert(int trackId, bool inverted) {
+    if (!_loaded) return;
+    _trackSetPhaseInvert(trackId, inverted ? 1 : 0);
+  }
+
+  /// Get track phase invert state
+  bool trackGetPhaseInvert(int trackId) {
+    if (!_loaded) return false;
+    return _trackGetPhaseInvert(trackId) != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -5104,6 +5184,67 @@ class NativeFFI {
   int insertOpenEditor(int trackId, int slotIndex) {
     if (!_loaded) return -1;
     return _insertOpenEditor(trackId, slotIndex);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUS INSERT CHAIN API
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Bus IDs: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux (0=Master routing bus)
+  // These functions manage InsertChains on OUTPUT BUSES (not tracks).
+  // Audio flow: Tracks → Bus InsertChain → Bus Volume → Master InsertChain → Output
+
+  /// Load processor into bus insert slot
+  /// busId: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
+  /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
+  /// Returns 1 on success, 0 on error
+  int busInsertLoadProcessor(int busId, int slotIndex, String processorName) {
+    if (!_loaded) return 0;
+    final namePtr = processorName.toNativeUtf8();
+    try {
+      print('[NativeFFI] busInsertLoadProcessor: bus=$busId, slot=$slotIndex, processor=$processorName');
+      return _busInsertLoadProcessor(busId, slotIndex, namePtr);
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Unload processor from bus insert slot
+  /// Returns 1 on success, 0 on error
+  int busInsertUnloadSlot(int busId, int slotIndex) {
+    if (!_loaded) return 0;
+    return _busInsertUnloadSlot(busId, slotIndex);
+  }
+
+  /// Set parameter on bus insert processor (lock-free)
+  /// Returns 1 on success
+  int busInsertSetParam(int busId, int slotIndex, int paramIndex, double value) {
+    if (!_loaded) return 0;
+    return _busInsertSetParam(busId, slotIndex, paramIndex, value);
+  }
+
+  /// Get parameter from bus insert processor
+  double busInsertGetParam(int busId, int slotIndex, int paramIndex) {
+    if (!_loaded) return 0.0;
+    return _busInsertGetParam(busId, slotIndex, paramIndex);
+  }
+
+  /// Set bypass on bus insert slot
+  void busInsertSetBypass(int busId, int slotIndex, bool bypass) {
+    if (!_loaded) return;
+    _busInsertSetBypass(busId, slotIndex, bypass ? 1 : 0);
+  }
+
+  /// Set wet/dry mix on bus insert slot
+  void busInsertSetMix(int busId, int slotIndex, double mix) {
+    if (!_loaded) return;
+    _busInsertSetMix(busId, slotIndex, mix);
+  }
+
+  /// Check if bus slot has a processor loaded
+  bool busInsertIsLoaded(int busId, int slotIndex) {
+    if (!_loaded) return false;
+    return _busInsertIsLoaded(busId, slotIndex) != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -7763,6 +7904,12 @@ enum CompressorType {
   fet,   // 2 - Aggressive, punchy
 }
 
+/// De-esser modes
+enum DeEsserMode {
+  wideband,   // 0 - Reduce entire signal when sibilance detected
+  splitBand,  // 1 - Only reduce the sibilant frequency range
+}
+
 /// Extension to add Dynamics API to NativeFFI
 extension DynamicsAPI on NativeFFI {
   // ============================================================
@@ -7896,6 +8043,124 @@ extension DynamicsAPI on NativeFFI {
   bool expanderSetKnee(int trackId, double db) => _expanderSetKnee(trackId, db.clamp(0.0, 24.0)) == 1;
   bool expanderSetTimes(int trackId, double attackMs, double releaseMs) => _expanderSetTimes(trackId, attackMs, releaseMs) == 1;
   bool expanderReset(int trackId) => _expanderReset(trackId) == 1;
+
+  // ============================================================
+  // DE-ESSER
+  // ============================================================
+
+  static final _deesserCreate = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_create');
+  static final _deesserRemove = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('deesser_remove');
+  static final _deesserSetFrequency = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_frequency');
+  static final _deesserGetFrequency = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_frequency');
+  static final _deesserSetBandwidth = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_bandwidth');
+  static final _deesserGetBandwidth = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_bandwidth');
+  static final _deesserSetThreshold = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_threshold');
+  static final _deesserGetThreshold = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_threshold');
+  static final _deesserSetRange = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_range');
+  static final _deesserGetRange = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_range');
+  static final _deesserSetMode = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint32), int Function(int, int)>('deesser_set_mode');
+  static final _deesserGetMode = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Uint32), int Function(int)>('deesser_get_mode');
+  static final _deesserSetAttack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_attack');
+  static final _deesserGetAttack = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_attack');
+  static final _deesserSetRelease = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('deesser_set_release');
+  static final _deesserGetRelease = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_release');
+  static final _deesserSetListen = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('deesser_set_listen');
+  static final _deesserGetListen = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('deesser_get_listen');
+  static final _deesserSetBypass = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('deesser_set_bypass');
+  static final _deesserGetBypass = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('deesser_get_bypass');
+  static final _deesserGetGainReduction = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32), double Function(int)>('deesser_get_gain_reduction');
+  static final _deesserReset = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('deesser_reset');
+
+  /// Create a de-esser for track
+  bool deesserCreate(int trackId, {double sampleRate = 48000.0}) => _deesserCreate(trackId, sampleRate) == 1;
+
+  /// Remove de-esser from track
+  bool deesserRemove(int trackId) => _deesserRemove(trackId) == 1;
+
+  /// Set detection frequency (2000-16000 Hz)
+  bool deesserSetFrequency(int trackId, double hz) => _deesserSetFrequency(trackId, hz.clamp(2000.0, 16000.0)) == 1;
+
+  /// Get detection frequency
+  double deesserGetFrequency(int trackId) => _deesserGetFrequency(trackId);
+
+  /// Set detection bandwidth in octaves (0.25-4.0)
+  bool deesserSetBandwidth(int trackId, double octaves) => _deesserSetBandwidth(trackId, octaves.clamp(0.25, 4.0)) == 1;
+
+  /// Get detection bandwidth
+  double deesserGetBandwidth(int trackId) => _deesserGetBandwidth(trackId);
+
+  /// Set threshold in dB (-60 to 0)
+  bool deesserSetThreshold(int trackId, double db) => _deesserSetThreshold(trackId, db.clamp(-60.0, 0.0)) == 1;
+
+  /// Get threshold in dB
+  double deesserGetThreshold(int trackId) => _deesserGetThreshold(trackId);
+
+  /// Set range (max gain reduction) in dB (0-24)
+  bool deesserSetRange(int trackId, double db) => _deesserSetRange(trackId, db.clamp(0.0, 24.0)) == 1;
+
+  /// Get range in dB
+  double deesserGetRange(int trackId) => _deesserGetRange(trackId);
+
+  /// Set mode (0=Wideband, 1=SplitBand)
+  bool deesserSetMode(int trackId, DeEsserMode mode) => _deesserSetMode(trackId, mode.index) == 1;
+
+  /// Get mode
+  DeEsserMode deesserGetMode(int trackId) {
+    final mode = _deesserGetMode(trackId);
+    return mode == 0 ? DeEsserMode.wideband : DeEsserMode.splitBand;
+  }
+
+  /// Set attack time in ms (0.1-50)
+  bool deesserSetAttack(int trackId, double ms) => _deesserSetAttack(trackId, ms.clamp(0.1, 50.0)) == 1;
+
+  /// Get attack time in ms
+  double deesserGetAttack(int trackId) => _deesserGetAttack(trackId);
+
+  /// Set release time in ms (10-500)
+  bool deesserSetRelease(int trackId, double ms) => _deesserSetRelease(trackId, ms.clamp(10.0, 500.0)) == 1;
+
+  /// Get release time in ms
+  double deesserGetRelease(int trackId) => _deesserGetRelease(trackId);
+
+  /// Set listen mode (monitor sidechain for tuning)
+  bool deesserSetListen(int trackId, bool listen) => _deesserSetListen(trackId, listen ? 1 : 0) == 1;
+
+  /// Get listen state
+  bool deesserGetListen(int trackId) => _deesserGetListen(trackId) == 1;
+
+  /// Set bypass
+  bool deesserSetBypass(int trackId, bool bypass) => _deesserSetBypass(trackId, bypass ? 1 : 0) == 1;
+
+  /// Get bypass state
+  bool deesserGetBypass(int trackId) => _deesserGetBypass(trackId) == 1;
+
+  /// Get current gain reduction in dB
+  double deesserGetGainReduction(int trackId) => _deesserGetGainReduction(trackId);
+
+  /// Reset de-esser state
+  bool deesserReset(int trackId) => _deesserReset(trackId) == 1;
 }
 
 // ============================================================================

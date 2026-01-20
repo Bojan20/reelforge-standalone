@@ -5473,6 +5473,179 @@ pub extern "C" fn insert_is_loaded(track_id: u32, slot_index: u32) -> i32 {
     })
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BUS INSERT CHAIN FFI
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Bus IDs: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux (0=Master routing bus)
+// These functions manage InsertChains on OUTPUT BUSES (not tracks).
+// Audio flow: Tracks → Bus InsertChain → Bus Volume → Master InsertChain → Output
+
+/// Load processor by name into bus insert slot
+/// bus_id: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
+/// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_load_processor(bus_id: u32, slot_index: u32, processor_name: *const c_char) -> i32 {
+    ffi_panic_guard!(0, {
+        let name = match unsafe { cstr_to_string(processor_name) } {
+            Some(n) => n,
+            None => return 0,
+        };
+
+        // Validate slot index
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            log::warn!("[BusInsert FFI] Invalid bus_id: {}", bus_id);
+            return 0;
+        }
+
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+
+        log::info!("[BusInsert FFI] bus_insert_load_processor: bus={}, slot={}, processor='{}'", bus_id, slot_index, name);
+
+        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+            let success = PLAYBACK_ENGINE.load_bus_insert(bus_id, slot_index, processor);
+            log::info!("[BusInsert FFI] Loaded '{}' into bus {} slot {} -> success={}",
+                name, bus_id, slot_index, success);
+            if success { 1 } else { 0 }
+        } else {
+            log::warn!("[BusInsert FFI] Unknown processor: {}", name);
+            0
+        }
+    })
+}
+
+/// Unload processor from bus insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_unload_slot(bus_id: u32, slot_index: u32) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0;
+        }
+
+        let result = PLAYBACK_ENGINE.unload_bus_insert(bus_id, slot_index).is_some();
+        if result {
+            log::info!("[BusInsert FFI] Unloaded processor from bus {} slot {}", bus_id, slot_index);
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Set parameter on bus insert slot (lock-free)
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_set_param(bus_id: u32, slot_index: u32, param_index: u32, value: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        let param_index = match validate_param_index(param_index) {
+            Some(p) => p as usize,
+            None => return 0,
+        };
+        let value = if !value.is_finite() { 0.0 } else { value };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0;
+        }
+
+        PLAYBACK_ENGINE.set_bus_insert_param(bus_id, slot_index, param_index, value);
+        1
+    })
+}
+
+/// Get parameter from bus insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_get_param(bus_id: u32, slot_index: u32, param_index: u32) -> f64 {
+    ffi_panic_guard!(0.0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0.0,
+        };
+        let param_index = match validate_param_index(param_index) {
+            Some(p) => p as usize,
+            None => return 0.0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0.0;
+        }
+
+        PLAYBACK_ENGINE.get_bus_insert_param(bus_id, slot_index, param_index)
+    })
+}
+
+/// Set bypass on bus insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_set_bypass(bus_id: u32, slot_index: u32, bypass: i32) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0;
+        }
+
+        PLAYBACK_ENGINE.set_bus_insert_bypass(bus_id, slot_index, bypass != 0);
+        1
+    })
+}
+
+/// Set wet/dry mix on bus insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_set_mix(bus_id: u32, slot_index: u32, mix: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0;
+        }
+
+        PLAYBACK_ENGINE.set_bus_insert_mix(bus_id, slot_index, mix.clamp(0.0, 1.0));
+        1
+    })
+}
+
+/// Check if bus slot has a processor loaded
+#[unsafe(no_mangle)]
+pub extern "C" fn bus_insert_is_loaded(bus_id: u32, slot_index: u32) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let bus_id = bus_id as usize;
+        if bus_id >= 6 {
+            return 0;
+        }
+
+        if PLAYBACK_ENGINE.has_bus_insert(bus_id, slot_index) { 1 } else { 0 }
+    })
+}
+
 /// Open plugin editor window for insert slot
 /// Returns 0 on success, -1 if slot is empty or doesn't support editor
 /// track_id=0 means master bus, others are audio track IDs
@@ -8049,6 +8222,8 @@ lazy_static::lazy_static! {
         parking_lot::RwLock::new(std::collections::HashMap::new());
     static ref EXPANDERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::dynamics::Expander>> =
         parking_lot::RwLock::new(std::collections::HashMap::new());
+    static ref DEESSERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::DeEsser>> =
+        parking_lot::RwLock::new(std::collections::HashMap::new());
 }
 
 // --- Stereo Compressor ---
@@ -8470,6 +8645,218 @@ pub extern "C" fn expander_reset(track_id: u32) -> i32 {
     let mut expanders = EXPANDERS.write();
     if let Some(exp) = expanders.get_mut(&track_id) {
         exp.reset();
+        1
+    } else {
+        0
+    }
+}
+
+// --- De-Esser ---
+
+/// Create de-esser for track
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_create(track_id: u32, sample_rate: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    deessers.insert(track_id, rf_dsp::DeEsser::new(sample_rate));
+    1
+}
+
+/// Remove de-esser
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_remove(track_id: u32) -> i32 {
+    DEESSERS.write().remove(&track_id);
+    1
+}
+
+/// Set de-esser frequency (2000-16000 Hz)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_frequency(track_id: u32, hz: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_frequency(hz);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser frequency
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_frequency(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.frequency()).unwrap_or(6000.0)
+}
+
+/// Set de-esser bandwidth in octaves (0.25-4.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_bandwidth(track_id: u32, octaves: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_bandwidth(octaves);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser bandwidth
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_bandwidth(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.bandwidth()).unwrap_or(1.0)
+}
+
+/// Set de-esser threshold in dB (-60 to 0)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_threshold(track_id: u32, db: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_threshold(db);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser threshold
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_threshold(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.threshold()).unwrap_or(-20.0)
+}
+
+/// Set de-esser range (max gain reduction) in dB (0-24)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_range(track_id: u32, db: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_range(db);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser range
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_range(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.range()).unwrap_or(12.0)
+}
+
+/// Set de-esser mode (0=Wideband, 1=SplitBand)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_mode(track_id: u32, mode: u32) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        let m = if mode == 0 {
+            rf_dsp::DeEsserMode::Wideband
+        } else {
+            rf_dsp::DeEsserMode::SplitBand
+        };
+        de.set_mode(m);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser mode (0=Wideband, 1=SplitBand)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_mode(track_id: u32) -> u32 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.mode() as u32).unwrap_or(0)
+}
+
+/// Set de-esser attack in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_attack(track_id: u32, ms: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_attack(ms);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser attack
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_attack(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.attack()).unwrap_or(0.5)
+}
+
+/// Set de-esser release in ms
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_release(track_id: u32, ms: f64) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_release(ms);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser release
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_release(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.release()).unwrap_or(50.0)
+}
+
+/// Set de-esser listen mode (monitor sidechain)
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_listen(track_id: u32, listen: i32) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_listen(listen != 0);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser listen state
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_listen(track_id: u32) -> i32 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| if d.listen() { 1 } else { 0 }).unwrap_or(0)
+}
+
+/// Set de-esser bypass
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_set_bypass(track_id: u32, bypass: i32) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.set_bypass(bypass != 0);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get de-esser bypass state
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_bypass(track_id: u32) -> i32 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| if d.bypassed() { 1 } else { 0 }).unwrap_or(0)
+}
+
+/// Get de-esser gain reduction in dB
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_get_gain_reduction(track_id: u32) -> f64 {
+    let deessers = DEESSERS.read();
+    deessers.get(&track_id).map(|d| d.gain_reduction_db()).unwrap_or(0.0)
+}
+
+/// Reset de-esser
+#[unsafe(no_mangle)]
+pub extern "C" fn deesser_reset(track_id: u32) -> i32 {
+    let mut deessers = DEESSERS.write();
+    if let Some(de) = deessers.get_mut(&track_id) {
+        de.reset();
         1
     } else {
         0
@@ -15210,6 +15597,27 @@ pub extern "C" fn track_get_monitor_mode(track_id: u64) -> i32 {
             crate::input_bus::MonitorMode::Manual => 1,
             crate::input_bus::MonitorMode::Off => 2,
         })
+        .unwrap_or(0)
+}
+
+/// Set track phase invert (polarity flip)
+/// When enabled, the audio signal is multiplied by -1
+#[unsafe(no_mangle)]
+pub extern "C" fn track_set_phase_invert(track_id: u64, inverted: i32) {
+    if let Some(mut track) = TRACK_MANAGER.tracks.get_mut(&TrackId(track_id)) {
+        track.phase_inverted = inverted != 0;
+        PROJECT_STATE.mark_dirty();
+    }
+}
+
+/// Get track phase invert state
+/// Returns: 0=Normal, 1=Inverted
+#[unsafe(no_mangle)]
+pub extern "C" fn track_get_phase_invert(track_id: u64) -> i32 {
+    TRACK_MANAGER
+        .tracks
+        .get(&TrackId(track_id))
+        .map(|track| if track.phase_inverted { 1 } else { 0 })
         .unwrap_or(0)
 }
 

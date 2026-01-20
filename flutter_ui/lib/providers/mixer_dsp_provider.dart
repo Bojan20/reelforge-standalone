@@ -119,6 +119,7 @@ const List<MixerBus> kDefaultBuses = [
 // ============ Available Plugins ============
 
 const List<PluginInfo> kAvailablePlugins = [
+  // === Modern Digital EQ ===
   PluginInfo(
     id: 'rf-eq',
     name: 'FluxForge Studio EQ',
@@ -126,6 +127,31 @@ const List<PluginInfo> kAvailablePlugins = [
     icon: '📊',
     description: '64-band parametric EQ with linear phase',
   ),
+
+  // === Vintage Analog EQs ===
+  PluginInfo(
+    id: 'rf-pultec',
+    name: 'Pultec EQP-1A',
+    category: 'EQ',
+    icon: '🎚️',
+    description: 'Passive tube EQ with boost+cut, 12AX7 saturation',
+  ),
+  PluginInfo(
+    id: 'rf-api550',
+    name: 'API 550A',
+    category: 'EQ',
+    icon: '🔷',
+    description: '3-band discrete EQ with proportional Q',
+  ),
+  PluginInfo(
+    id: 'rf-neve1073',
+    name: 'Neve 1073',
+    category: 'EQ',
+    icon: '🔶',
+    description: 'Inductor-based EQ with transformer saturation',
+  ),
+
+  // === Dynamics ===
   PluginInfo(
     id: 'rf-compressor',
     name: 'FluxForge Studio Compressor',
@@ -141,6 +167,22 @@ const List<PluginInfo> kAvailablePlugins = [
     description: 'True peak brickwall limiter',
   ),
   PluginInfo(
+    id: 'rf-gate',
+    name: 'FluxForge Studio Gate',
+    category: 'Dynamics',
+    icon: '🚪',
+    description: 'Noise gate with sidechain',
+  ),
+  PluginInfo(
+    id: 'rf-deesser',
+    name: 'FluxForge Studio De-Esser',
+    category: 'Dynamics',
+    icon: '🔇',
+    description: 'Sibilance control for vocals',
+  ),
+
+  // === Time-Based ===
+  PluginInfo(
     id: 'rf-reverb',
     name: 'FluxForge Studio Reverb',
     category: 'Time',
@@ -154,26 +196,14 @@ const List<PluginInfo> kAvailablePlugins = [
     icon: '⏱️',
     description: 'Tempo-synced delay with filtering',
   ),
-  PluginInfo(
-    id: 'rf-gate',
-    name: 'FluxForge Studio Gate',
-    category: 'Dynamics',
-    icon: '🚪',
-    description: 'Noise gate with sidechain',
-  ),
+
+  // === Distortion ===
   PluginInfo(
     id: 'rf-saturator',
     name: 'FluxForge Studio Saturator',
     category: 'Distortion',
     icon: '🔥',
     description: 'Analog-style tape saturation',
-  ),
-  PluginInfo(
-    id: 'rf-deesser',
-    name: 'FluxForge Studio De-Esser',
-    category: 'Dynamics',
-    icon: '🔇',
-    description: 'Sibilance control for vocals',
   ),
 ];
 
@@ -450,9 +480,10 @@ class MixerDSPProvider extends ChangeNotifier {
   }
 
   /// Get parameter name to index mapping for a plugin
+  /// These mappings correspond to Rust processor parameter indices in dsp_wrappers.rs
   Map<String, int> _getParamIndexMapping(String pluginId) {
-    // These mappings correspond to Rust processor parameter indices
     switch (pluginId) {
+      // === Modern Digital ===
       case 'rf-eq':
         return {
           'lowGain': 0, 'lowFreq': 1,
@@ -479,14 +510,43 @@ class MixerDSPProvider extends ChangeNotifier {
         return {'drive': 0, 'mix': 1};
       case 'rf-deesser':
         return {'threshold': 0, 'frequency': 1, 'range': 2};
+
+      // === Vintage Analog EQs ===
+      // Pultec EQP-1A: Passive tube EQ (4 params)
+      case 'rf-pultec':
+        return {
+          'lowBoost': 0,   // Low frequency boost (0-10 dB)
+          'lowAtten': 1,   // Low frequency attenuation (0-10 dB)
+          'highBoost': 2,  // High frequency boost (0-10 dB)
+          'highAtten': 3,  // High frequency attenuation (0-10 dB)
+        };
+
+      // API 550A: 3-band discrete EQ (3 params - gain only)
+      case 'rf-api550':
+        return {
+          'lowGain': 0,   // Low band gain (-12 to +12 dB)
+          'midGain': 1,   // Mid band gain (-12 to +12 dB)
+          'highGain': 2,  // High band gain (-12 to +12 dB)
+        };
+
+      // Neve 1073: Inductor-based EQ (3 params)
+      case 'rf-neve1073':
+        return {
+          'hpEnabled': 0,  // High-pass filter enabled (0/1)
+          'lowGain': 1,    // Low shelf gain (-16 to +16 dB)
+          'highGain': 2,   // High shelf gain (-16 to +16 dB)
+        };
+
       default:
         return {};
     }
   }
 
   /// Map plugin ID to Rust processor name
+  /// These names must match create_processor() in dsp_wrappers.rs
   String? _pluginIdToProcessorName(String pluginId) {
     const mapping = {
+      // Modern digital
       'rf-eq': 'pro-eq',
       'rf-compressor': 'compressor',
       'rf-limiter': 'limiter',
@@ -495,6 +555,10 @@ class MixerDSPProvider extends ChangeNotifier {
       'rf-gate': 'gate',
       'rf-saturator': 'saturator',
       'rf-deesser': 'deesser',
+      // Vintage analog EQs
+      'rf-pultec': 'pultec',
+      'rf-api550': 'api550',
+      'rf-neve1073': 'neve1073',
     };
     return mapping[pluginId];
   }
@@ -520,8 +584,10 @@ class MixerDSPProvider extends ChangeNotifier {
   }
 
   /// Get default parameters for a plugin
+  /// Values match Rust DSP defaults from eq_analog.rs and dsp_wrappers.rs
   Map<String, double> _getDefaultParams(String pluginId) {
     switch (pluginId) {
+      // === Modern Digital ===
       case 'rf-eq':
         return {
           'lowGain': 0,
@@ -578,6 +644,33 @@ class MixerDSPProvider extends ChangeNotifier {
           'frequency': 6000,
           'range': 6,
         };
+
+      // === Vintage Analog EQs ===
+      // Pultec EQP-1A: All at 0 = transparent pass-through
+      case 'rf-pultec':
+        return {
+          'lowBoost': 0,   // No boost (0-10 range)
+          'lowAtten': 0,   // No attenuation (0-10 range)
+          'highBoost': 0,  // No boost (0-10 range)
+          'highAtten': 0,  // No attenuation (0-10 range)
+        };
+
+      // API 550A: All gains at 0 = flat response
+      case 'rf-api550':
+        return {
+          'lowGain': 0,   // 0 dB (-12 to +12 range)
+          'midGain': 0,   // 0 dB (-12 to +12 range)
+          'highGain': 0,  // 0 dB (-12 to +12 range)
+        };
+
+      // Neve 1073: HP off, gains at 0 = flat response
+      case 'rf-neve1073':
+        return {
+          'hpEnabled': 0,  // HP filter off
+          'lowGain': 0,    // 0 dB (-16 to +16 range)
+          'highGain': 0,   // 0 dB (-16 to +16 range)
+        };
+
       default:
         return {};
     }

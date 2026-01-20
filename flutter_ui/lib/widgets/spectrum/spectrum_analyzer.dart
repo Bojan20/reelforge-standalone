@@ -1284,73 +1284,48 @@ class _SpectrogramPainter extends CustomPainter {
   }
 }
 
-// ============ Demo/Test Widget ============
+// ============ Spectrum Analyzer Placeholder ============
+//
+// NOTE: This widget shows an EMPTY spectrum analyzer.
+// Real spectrum data must come from PLAYBACK_ENGINE FFT analysis.
+// NO FAKE/SIMULATED DATA is generated.
+//
+// To connect to real audio:
+// 1. Get FFT data from PLAYBACK_ENGINE via FFI
+// 2. Pass Float64List to SpectrumAnalyzer.data parameter
+// 3. Data flows: Audio Callback → FFT → DspStorage → FFI → Flutter
 
-class SpectrumAnalyzerDemo extends StatefulWidget {
+class SpectrumAnalyzerDemo extends StatelessWidget {
   const SpectrumAnalyzerDemo({super.key});
 
   @override
-  State<SpectrumAnalyzerDemo> createState() => _SpectrumAnalyzerDemoState();
-}
-
-class _SpectrumAnalyzerDemoState extends State<SpectrumAnalyzerDemo>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  Float64List _demoData = Float64List(512);
-  final _random = math.Random();
-  double _noiseLevel = 0.5;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 16),
-    )..addListener(_generateDemoData);
-    _controller.repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _generateDemoData() {
-    // Random walk for noise level
-    _noiseLevel += (_random.nextDouble() - 0.5) * 0.1;
-    _noiseLevel = _noiseLevel.clamp(0.2, 0.8);
-
-    // Generate simulated spectrum
-    for (int i = 0; i < _demoData.length; i++) {
-      // Base noise
-      double value = -60 + _random.nextDouble() * 20 * _noiseLevel;
-
-      // Add some peaks
-      if (i > 10 && i < 50) value += 10; // Low freq bump
-      if (i > 100 && i < 150) value += 15; // Mid peak
-      if (i > 300 && i < 400) value += 8; // High range
-
-      // Roll off at extremes
-      if (i < 10) value -= (10 - i) * 3;
-      if (i > 450) value -= (i - 450) * 0.5;
-
-      _demoData[i] = value.clamp(-60, 0);
-    }
-
-    setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // NO FAKE DATA: Empty spectrum until connected to real audio
+    // TODO: Connect to PLAYBACK_ENGINE FFT metering via FFI
     return Container(
       color: FluxForgeTheme.bgDeepest,
-      child: SpectrumAnalyzer(
-        data: _demoData,
-        sampleRate: 48000,
-        config: const SpectrumConfig(
-          mode: SpectrumMode.both,
-          binCount: 64,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SpectrumAnalyzer(
+              data: null, // No fake data - empty analyzer
+              sampleRate: 48000,
+              config: SpectrumConfig(
+                mode: SpectrumMode.both,
+                binCount: 64,
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Spectrum Analyzer\nAwaiting audio signal from playback',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF707078),
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );

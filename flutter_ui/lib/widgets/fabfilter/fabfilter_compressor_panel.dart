@@ -240,33 +240,36 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   void _updateMeters() {
     setState(() {
-      // Get real gain reduction from FFI
+      // Get real gain reduction from FFI when processor is in audio path
+      // NOTE: COMPRESSORS HashMap is NOT connected to audio callback yet
+      // Processor shows real data only when connected to InsertChain
       if (_initialized) {
         _currentGainReduction = _ffi.compressorGetGainReduction(widget.trackId);
       }
 
-      // Simulate input level (would come from metering FFI in real impl)
-      _currentInputLevel = -20 + (math.Random().nextDouble() - 0.5) * 10;
+      // NO FAKE DATA: Levels must come from real metering
+      // Show silence until connected to PLAYBACK_ENGINE InsertChain
+      // TODO: Connect to real metering when processor is active
+      _currentInputLevel = -60.0;
+      _currentOutputLevel = -60.0;
 
-      // Output level
-      _currentOutputLevel = _currentInputLevel + _currentGainReduction + _output;
-
-      // Track peak GR
-      if (_currentGainReduction.abs() > _peakGainReduction.abs()) {
+      // Track peak GR only if real data present
+      if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
         _peakGainReduction = _currentGainReduction;
       }
 
-      // Add to history
-      _levelHistory.add(LevelSample(
-        input: _currentInputLevel,
-        output: _currentOutputLevel,
-        gainReduction: _currentGainReduction,
-        timestamp: DateTime.now(),
-      ));
+      // Add to history only with real activity
+      if (_currentGainReduction.abs() > 0.01) {
+        _levelHistory.add(LevelSample(
+          input: _currentInputLevel,
+          output: _currentOutputLevel,
+          gainReduction: _currentGainReduction,
+          timestamp: DateTime.now(),
+        ));
 
-      // Trim history
-      while (_levelHistory.length > _maxHistorySamples) {
-        _levelHistory.removeAt(0);
+        while (_levelHistory.length > _maxHistorySamples) {
+          _levelHistory.removeAt(0);
+        }
       }
     });
   }

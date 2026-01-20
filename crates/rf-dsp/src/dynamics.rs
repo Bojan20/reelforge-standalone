@@ -1514,6 +1514,348 @@ impl ProcessorConfig for Expander {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DE-ESSER — Sibilance control processor
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// De-esser mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DeEsserMode {
+    /// Wideband: Reduce entire signal when sibilance detected
+    #[default]
+    Wideband,
+    /// Split-band: Only reduce the sibilant frequency range
+    SplitBand,
+}
+
+/// Professional de-esser for sibilance control
+///
+/// Features:
+/// - Variable frequency detection (2-16 kHz)
+/// - Wideband or split-band modes
+/// - Adjustable range (gain reduction limit)
+/// - Listen mode for sidechain monitoring
+/// - Smooth envelope following
+#[derive(Debug, Clone)]
+pub struct DeEsser {
+    sample_rate: f64,
+    /// Detection frequency center (Hz)
+    frequency: f64,
+    /// Detection bandwidth in octaves
+    bandwidth: f64,
+    /// Threshold in dB
+    threshold_db: f64,
+    /// Maximum gain reduction in dB
+    range_db: f64,
+    /// Processing mode
+    mode: DeEsserMode,
+    /// Attack time in ms
+    attack_ms: f64,
+    /// Release time in ms
+    release_ms: f64,
+    /// Listen to sidechain (for tuning)
+    listen: bool,
+    /// Bypassed
+    bypassed: bool,
+
+    // Internal state
+    /// Bandpass filter for sidechain (state-variable filter)
+    bp_ic1eq_l: f64,
+    bp_ic2eq_l: f64,
+    bp_ic1eq_r: f64,
+    bp_ic2eq_r: f64,
+    /// Bandpass coefficients
+    bp_g: f64,
+    bp_k: f64,
+    bp_a1: f64,
+    bp_a2: f64,
+    bp_a3: f64,
+
+    /// Envelope follower
+    envelope: f64,
+    /// Attack coefficient
+    attack_coeff: f64,
+    /// Release coefficient
+    release_coeff: f64,
+
+    /// Current gain reduction in dB (for metering)
+    current_gr_db: f64,
+}
+
+impl DeEsser {
+    pub fn new(sample_rate: f64) -> Self {
+        let mut deesser = Self {
+            sample_rate,
+            frequency: 6000.0,
+            bandwidth: 1.0,
+            threshold_db: -20.0,
+            range_db: 12.0,
+            mode: DeEsserMode::Wideband,
+            attack_ms: 0.5,
+            release_ms: 50.0,
+            listen: false,
+            bypassed: false,
+
+            bp_ic1eq_l: 0.0,
+            bp_ic2eq_l: 0.0,
+            bp_ic1eq_r: 0.0,
+            bp_ic2eq_r: 0.0,
+            bp_g: 0.0,
+            bp_k: 0.0,
+            bp_a1: 0.0,
+            bp_a2: 0.0,
+            bp_a3: 0.0,
+
+            envelope: 0.0,
+            attack_coeff: 0.0,
+            release_coeff: 0.0,
+
+            current_gr_db: 0.0,
+        };
+        deesser.update_filter_coeffs();
+        deesser.update_envelope_coeffs();
+        deesser
+    }
+
+    /// Set detection frequency (2000-16000 Hz)
+    pub fn set_frequency(&mut self, hz: f64) {
+        self.frequency = hz.clamp(2000.0, 16000.0);
+        self.update_filter_coeffs();
+    }
+
+    /// Get detection frequency
+    pub fn frequency(&self) -> f64 {
+        self.frequency
+    }
+
+    /// Set detection bandwidth in octaves (0.25-4.0)
+    pub fn set_bandwidth(&mut self, octaves: f64) {
+        self.bandwidth = octaves.clamp(0.25, 4.0);
+        self.update_filter_coeffs();
+    }
+
+    /// Get bandwidth
+    pub fn bandwidth(&self) -> f64 {
+        self.bandwidth
+    }
+
+    /// Set threshold in dB (-60 to 0)
+    pub fn set_threshold(&mut self, db: f64) {
+        self.threshold_db = db.clamp(-60.0, 0.0);
+    }
+
+    /// Get threshold
+    pub fn threshold(&self) -> f64 {
+        self.threshold_db
+    }
+
+    /// Set maximum gain reduction in dB (0-24)
+    pub fn set_range(&mut self, db: f64) {
+        self.range_db = db.clamp(0.0, 24.0);
+    }
+
+    /// Get range
+    pub fn range(&self) -> f64 {
+        self.range_db
+    }
+
+    /// Set processing mode
+    pub fn set_mode(&mut self, mode: DeEsserMode) {
+        self.mode = mode;
+    }
+
+    /// Get mode
+    pub fn mode(&self) -> DeEsserMode {
+        self.mode
+    }
+
+    /// Set attack time in ms
+    pub fn set_attack(&mut self, ms: f64) {
+        self.attack_ms = ms.clamp(0.1, 50.0);
+        self.update_envelope_coeffs();
+    }
+
+    /// Get attack time in ms
+    pub fn attack(&self) -> f64 {
+        self.attack_ms
+    }
+
+    /// Set release time in ms
+    pub fn set_release(&mut self, ms: f64) {
+        self.release_ms = ms.clamp(10.0, 500.0);
+        self.update_envelope_coeffs();
+    }
+
+    /// Get release time in ms
+    pub fn release(&self) -> f64 {
+        self.release_ms
+    }
+
+    /// Enable/disable listen mode (hear sidechain)
+    pub fn set_listen(&mut self, listen: bool) {
+        self.listen = listen;
+    }
+
+    /// Get listen state
+    pub fn listen(&self) -> bool {
+        self.listen
+    }
+
+    /// Set bypass state
+    pub fn set_bypass(&mut self, bypass: bool) {
+        self.bypassed = bypass;
+    }
+
+    /// Get bypass state
+    pub fn bypassed(&self) -> bool {
+        self.bypassed
+    }
+
+    /// Get current gain reduction in dB (for metering)
+    pub fn gain_reduction_db(&self) -> f64 {
+        self.current_gr_db
+    }
+
+    /// Update bandpass filter coefficients (SVF implementation)
+    fn update_filter_coeffs(&mut self) {
+        // Q from bandwidth (Q = freq / bandwidth_hz)
+        // bandwidth_hz = freq * (2^(bw/2) - 2^(-bw/2))
+        let bw_factor = 2.0_f64.powf(self.bandwidth / 2.0) - 2.0_f64.powf(-self.bandwidth / 2.0);
+        let q = 1.0 / bw_factor;
+
+        // SVF coefficients
+        let w0 = std::f64::consts::PI * self.frequency / self.sample_rate;
+        self.bp_g = w0.tan();
+        self.bp_k = 1.0 / q;
+        self.bp_a1 = 1.0 / (1.0 + self.bp_g * (self.bp_g + self.bp_k));
+        self.bp_a2 = self.bp_g * self.bp_a1;
+        self.bp_a3 = self.bp_g * self.bp_a2;
+    }
+
+    /// Update envelope follower coefficients
+    fn update_envelope_coeffs(&mut self) {
+        // Time constants for envelope
+        self.attack_coeff = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate)).exp();
+        self.release_coeff = (-1.0 / (self.release_ms * 0.001 * self.sample_rate)).exp();
+    }
+
+    /// Process bandpass filter (SVF) - returns bandpass output
+    #[inline(always)]
+    fn process_bandpass(&mut self, input_l: f64, input_r: f64) -> (f64, f64) {
+        // Left channel
+        let v3_l = input_l - self.bp_ic2eq_l;
+        let v1_l = self.bp_a1 * self.bp_ic1eq_l + self.bp_a2 * v3_l;
+        let v2_l = self.bp_ic2eq_l + self.bp_a2 * self.bp_ic1eq_l + self.bp_a3 * v3_l;
+        self.bp_ic1eq_l = 2.0 * v1_l - self.bp_ic1eq_l;
+        self.bp_ic2eq_l = 2.0 * v2_l - self.bp_ic2eq_l;
+        let bp_l = self.bp_k * v1_l; // Bandpass output
+
+        // Right channel
+        let v3_r = input_r - self.bp_ic2eq_r;
+        let v1_r = self.bp_a1 * self.bp_ic1eq_r + self.bp_a2 * v3_r;
+        let v2_r = self.bp_ic2eq_r + self.bp_a2 * self.bp_ic1eq_r + self.bp_a3 * v3_r;
+        self.bp_ic1eq_r = 2.0 * v1_r - self.bp_ic1eq_r;
+        self.bp_ic2eq_r = 2.0 * v2_r - self.bp_ic2eq_r;
+        let bp_r = self.bp_k * v1_r;
+
+        (bp_l, bp_r)
+    }
+
+    /// Process stereo de-essing
+    #[inline(always)]
+    pub fn process_stereo(&mut self, left: f64, right: f64) -> (f64, f64) {
+        if self.bypassed {
+            return (left, right);
+        }
+
+        // 1. Extract sibilant frequencies with bandpass filter
+        let (bp_l, bp_r) = self.process_bandpass(left, right);
+
+        // Listen mode - output sidechain for tuning
+        if self.listen {
+            return (bp_l, bp_r);
+        }
+
+        // 2. Measure sidechain level (RMS-ish: use max of L/R for stereo linking)
+        let sidechain_level = (bp_l.abs()).max(bp_r.abs());
+
+        // 3. Envelope follower (attack/release)
+        let coeff = if sidechain_level > self.envelope {
+            self.attack_coeff
+        } else {
+            self.release_coeff
+        };
+        self.envelope = coeff * self.envelope + (1.0 - coeff) * sidechain_level;
+
+        // 4. Calculate gain reduction
+        let env_db = if self.envelope > 1e-10 {
+            linear_to_db_fast(self.envelope)
+        } else {
+            -120.0
+        };
+
+        let gain_reduction_db = if env_db > self.threshold_db {
+            // Above threshold: reduce proportionally
+            let over_db = env_db - self.threshold_db;
+            // Soft ratio of ~2:1 for natural sounding de-essing
+            (over_db * 0.5).min(self.range_db)
+        } else {
+            0.0
+        };
+
+        self.current_gr_db = gain_reduction_db;
+
+        // 5. Apply gain reduction based on mode
+        let gain = db_to_linear_fast(-gain_reduction_db);
+
+        match self.mode {
+            DeEsserMode::Wideband => {
+                // Reduce entire signal
+                (left * gain, right * gain)
+            }
+            DeEsserMode::SplitBand => {
+                // Only reduce the sibilant frequencies
+                // Output = input - (bandpass * (1 - gain))
+                // This subtracts only the reduced portion of sibilant frequencies
+                let reduction_l = bp_l * (1.0 - gain);
+                let reduction_r = bp_r * (1.0 - gain);
+                (left - reduction_l, right - reduction_r)
+            }
+        }
+    }
+
+    /// Reset internal state
+    pub fn reset(&mut self) {
+        self.bp_ic1eq_l = 0.0;
+        self.bp_ic2eq_l = 0.0;
+        self.bp_ic1eq_r = 0.0;
+        self.bp_ic2eq_r = 0.0;
+        self.envelope = 0.0;
+        self.current_gr_db = 0.0;
+    }
+}
+
+impl Processor for DeEsser {
+    fn reset(&mut self) {
+        self.reset();
+    }
+}
+
+impl StereoProcessor for DeEsser {
+    #[inline(always)]
+    fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        self.process_stereo(left, right)
+    }
+}
+
+impl ProcessorConfig for DeEsser {
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.update_filter_coeffs();
+        self.update_envelope_coeffs();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -151,6 +151,9 @@ pub use wavelet::{
     WaveletDecomposition, WaveletFilter, WaveletType,
 };
 
+// Re-export De-Esser
+pub use dynamics::{DeEsser, DeEsserMode};
+
 // Re-export Elastic Pro (Ultimate Time Stretching)
 pub use elastic_pro::{
     ElasticPro, ElasticProConfig, FormantPreserver, MultiResolutionStretcher, NoiseMorpher,

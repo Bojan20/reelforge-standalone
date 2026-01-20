@@ -779,7 +779,7 @@ pub fn create_processor(name: &str, sample_rate: f64) -> Option<Box<dyn InsertPr
 
 use rf_dsp::MonoProcessor;
 use rf_dsp::dynamics::{
-    CompressorType, Expander, Gate, Oversampling, StereoCompressor, TruePeakLimiter,
+    CompressorType, DeEsser, DeEsserMode, Expander, Gate, Oversampling, StereoCompressor, TruePeakLimiter,
 };
 
 /// Compressor wrapper for insert chain
@@ -1173,6 +1173,142 @@ impl InsertProcessor for ExpanderWrapper {
     }
 }
 
+// ============ De-Esser Wrapper ============
+
+/// Professional de-esser wrapper for insert chain
+pub struct DeEsserWrapper {
+    deesser: DeEsser,
+    sample_rate: f64,
+}
+
+impl DeEsserWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            deesser: DeEsser::new(sample_rate),
+            sample_rate,
+        }
+    }
+
+    pub fn set_frequency(&mut self, hz: f64) {
+        self.deesser.set_frequency(hz);
+    }
+
+    pub fn set_bandwidth(&mut self, octaves: f64) {
+        self.deesser.set_bandwidth(octaves);
+    }
+
+    pub fn set_threshold(&mut self, db: f64) {
+        self.deesser.set_threshold(db);
+    }
+
+    pub fn set_range(&mut self, db: f64) {
+        self.deesser.set_range(db);
+    }
+
+    pub fn set_mode(&mut self, mode: DeEsserMode) {
+        self.deesser.set_mode(mode);
+    }
+
+    pub fn set_attack(&mut self, ms: f64) {
+        self.deesser.set_attack(ms);
+    }
+
+    pub fn set_release(&mut self, ms: f64) {
+        self.deesser.set_release(ms);
+    }
+
+    pub fn set_listen(&mut self, listen: bool) {
+        self.deesser.set_listen(listen);
+    }
+
+    pub fn set_bypass(&mut self, bypass: bool) {
+        self.deesser.set_bypass(bypass);
+    }
+
+    pub fn gain_reduction_db(&self) -> f64 {
+        self.deesser.gain_reduction_db()
+    }
+}
+
+impl InsertProcessor for DeEsserWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Studio De-Esser"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.deesser.process_stereo(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn reset(&mut self) {
+        self.deesser.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.deesser = DeEsser::new(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        9 // frequency, bandwidth, threshold, range, mode, attack, release, listen, bypass
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        match index {
+            0 => self.deesser.frequency(),
+            1 => self.deesser.bandwidth(),
+            2 => self.deesser.threshold(),
+            3 => self.deesser.range(),
+            4 => self.deesser.mode() as u8 as f64,
+            5 => self.deesser.attack(),
+            6 => self.deesser.release(),
+            7 => if self.deesser.listen() { 1.0 } else { 0.0 },
+            8 => if self.deesser.bypassed() { 1.0 } else { 0.0 },
+            _ => 0.0,
+        }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        match index {
+            0 => self.set_frequency(value),
+            1 => self.set_bandwidth(value),
+            2 => self.set_threshold(value),
+            3 => self.set_range(value),
+            4 => {
+                let mode = if value < 0.5 {
+                    DeEsserMode::Wideband
+                } else {
+                    DeEsserMode::SplitBand
+                };
+                self.set_mode(mode);
+            }
+            5 => self.set_attack(value),
+            6 => self.set_release(value),
+            7 => self.set_listen(value > 0.5),
+            8 => self.set_bypass(value > 0.5),
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Frequency",
+            1 => "Bandwidth",
+            2 => "Threshold",
+            3 => "Range",
+            4 => "Mode",
+            5 => "Attack",
+            6 => "Release",
+            7 => "Listen",
+            8 => "Bypass",
+            _ => "",
+        }
+    }
+}
+
 // ============ Linear Phase EQ Wrapper ============
 
 /// True linear phase EQ wrapper
@@ -1301,6 +1437,9 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
         }
         "gate" | "noise-gate" => Some(Box::new(GateWrapper::new(sample_rate))),
         "expander" | "exp" => Some(Box::new(ExpanderWrapper::new(sample_rate))),
+        "deesser" | "de-esser" | "de_esser" | "DeEsser" => {
+            Some(Box::new(DeEsserWrapper::new(sample_rate)))
+        }
         "linear-phase-eq" | "linear_phase_eq" | "linearphase" => {
             Some(Box::new(LinearPhaseEqWrapper::new(sample_rate)))
         }
@@ -1324,6 +1463,7 @@ pub fn available_processors() -> Vec<&'static str> {
         "limiter",
         "gate",
         "expander",
+        "deesser",
     ]
 }
 

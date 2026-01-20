@@ -63,16 +63,33 @@ if [ "$RUN_ONLY" = false ]; then
         build
 
     echo ""
-    echo "Copying native library to app bundle..."
+    echo "Copying native libraries to app bundle..."
     FRAMEWORKS_DIR="$DERIVED_DATA/Build/Products/Debug/FluxForge Studio.app/Contents/Frameworks"
-    DYLIB_SRC="$PROJECT_ROOT/target/release/librf_bridge.dylib"
-    if [ -f "$DYLIB_SRC" ]; then
-        cp "$DYLIB_SRC" "$FRAMEWORKS_DIR/"
-        echo "Copied librf_bridge.dylib to Frameworks"
+
+    # Copy librf_bridge.dylib
+    DYLIB_BRIDGE="$PROJECT_ROOT/target/release/librf_bridge.dylib"
+    if [ -f "$DYLIB_BRIDGE" ]; then
+        cp "$DYLIB_BRIDGE" "$FRAMEWORKS_DIR/"
+        echo "✓ Copied librf_bridge.dylib"
     else
-        echo "WARNING: librf_bridge.dylib not found at $DYLIB_SRC"
-        echo "Run 'cargo build --release -p rf-bridge' first"
+        echo "⚠ WARNING: librf_bridge.dylib not found at $DYLIB_BRIDGE"
+        echo "  Run 'cargo build --release' first"
     fi
+
+    # Copy librf_engine.dylib (CRITICAL for audio playback!)
+    DYLIB_ENGINE="$PROJECT_ROOT/target/release/librf_engine.dylib"
+    if [ -f "$DYLIB_ENGINE" ]; then
+        cp "$DYLIB_ENGINE" "$FRAMEWORKS_DIR/"
+        echo "✓ Copied librf_engine.dylib"
+    else
+        echo "⚠ WARNING: librf_engine.dylib not found at $DYLIB_ENGINE"
+        echo "  Run 'cargo build --release' first"
+    fi
+
+    # Verify both exist in app bundle
+    echo ""
+    echo "Verifying app bundle Frameworks:"
+    ls -la "$FRAMEWORKS_DIR/"*.dylib 2>/dev/null || echo "No dylibs found!"
 
     echo ""
     echo "Build completed!"

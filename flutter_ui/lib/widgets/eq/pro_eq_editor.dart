@@ -406,39 +406,15 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
       return;
     }
 
-    // FALLBACK: Generate simulated spectrum (only when no real data)
-    const n = 256;
-    if (_spectrum.length != n) _spectrum = List.filled(n, -100.0);
-
-    // Convert linear signal level to dB-ish scale for spectrum base
-    // widget.signalLevel is 0.0-1.0 linear, map to spectrum intensity
-    final signalDb = widget.signalLevel > 0.001
-        ? 20 * math.log(widget.signalLevel) / math.ln10
-        : -60.0;
-
-    for (int i = 0; i < n; i++) {
-      final t = i / (n - 1);
-      final f = (20 * math.pow(1000, t)).toDouble();
-
-      // Base spectrum scaled by actual signal level (pink noise slope: -3dB/octave)
-      double db = signalDb - t * 15;
-
-      // Musical content: bass bump + presence (scaled by signal)
-      final signalScale = widget.signalLevel.clamp(0.0, 1.0);
-      if (f > 50 && f < 180) db += 10 * signalScale * math.exp(-math.pow((f - 90) / 40, 2));
-      if (f > 1500 && f < 5000) db += 6 * signalScale * math.exp(-math.pow((f - 2500) / 800, 2));
-
-      // Apply EQ curve to spectrum
-      for (final b in _bands) {
-        if (!b.enabled || b.bypassed) continue;
-        db += _getFilterResponse(b, f) * 0.4;
-      }
-
-      // Smooth interpolation
-      _spectrum[i] = _spectrum[i] * 0.82 + db * 0.18;
+    // NO REAL SPECTRUM DATA: Clear everything, show nothing
+    // We do NOT generate fake/simulated spectrum - only real data from engine
+    if (_spectrum.isNotEmpty || _smoothedSpectrum.isNotEmpty) {
+      _spectrum.clear();
+      _smoothedSpectrum.clear();
+      _peakHold.clear();
+      _peakHoldTime.clear();
+      if (mounted) setState(() {});
     }
-
-    if (mounted) setState(() {});
   }
 
   double _getFilterResponse(_Band b, double f) {

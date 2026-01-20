@@ -420,16 +420,14 @@ class AudioPlaybackService extends ChangeNotifier {
   /// Start DAW timeline playback
   /// DEPRECATED: Use UnifiedPlaybackController.instance.play() instead
   /// Kept for backward compatibility
+  ///
+  /// NOTE: This method does NOT call play() - it only prepares the audio stream.
+  /// Playback starts only when user explicitly triggers transport (Space bar, Play button).
   bool startDAWPlayback() {
-    final controller = UnifiedPlaybackController.instance;
-    if (!controller.acquireSection(PlaybackSection.daw)) {
-      debugPrint('[AudioPlayback] Failed to acquire DAW section');
-      return false;
-    }
-
-    _acquirePlayback(PlaybackSource.daw);
-    controller.play();
-    debugPrint('[AudioPlayback] DAW playback started via UnifiedPlaybackController');
+    // Just prepare DAW source, don't acquire section or start playback
+    // Actual playback is triggered via UnifiedPlaybackController.play()
+    // which is called from TimelinePlaybackProvider.play() when user presses Space/Play
+    debugPrint('[AudioPlayback] DAW audio stream ready (no auto-play)');
     return true;
   }
 

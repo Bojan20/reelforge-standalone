@@ -19,6 +19,91 @@
 
 ---
 
+## 🔴 KRITIČNO — FULL BUILD PROCEDURA 🔴
+
+**PRE SVAKOG POKRETANJA APLIKACIJE — OBAVEZNO URADI SVE KORAKE:**
+
+### Kompletna Build Sekvenca (COPY-PASTE READY)
+
+```bash
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 1: KILL PRETHODNE PROCESE
+# ══════════════════════════════════════════════════════════════════════════════
+pkill -f "FluxForge" 2>/dev/null || true
+pkill -f "flutter run" 2>/dev/null || true
+sleep 1
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 2: BUILD RUST BIBLIOTEKE
+# ══════════════════════════════════════════════════════════════════════════════
+cd "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio"
+cargo build --release
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 3: KOPIRAJ DYLIB-ove (KRITIČNO!)
+# ══════════════════════════════════════════════════════════════════════════════
+cp target/release/librf_bridge.dylib flutter_ui/macos/Frameworks/
+cp target/release/librf_engine.dylib flutter_ui/macos/Frameworks/
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 4: FLUTTER ANALYZE (MORA PROĆI)
+# ══════════════════════════════════════════════════════════════════════════════
+cd flutter_ui
+flutter analyze
+# MORA biti "No issues found!" — ako ima errors, POPRAVI PRE NASTAVKA
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 5: BUILD MACOS APP (xcodebuild, NE flutter run)
+# ══════════════════════════════════════════════════════════════════════════════
+cd macos
+find Pods -name '._*' -type f -delete 2>/dev/null || true
+xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug \
+    -derivedDataPath ~/Library/Developer/Xcode/DerivedData/FluxForge-macos build
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 5.5: KOPIRAJ DYLIB-ove U APP BUNDLE (KRITIČNO! xcodebuild NE KOPIRA!)
+# ══════════════════════════════════════════════════════════════════════════════
+cp "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos/Frameworks/librf_bridge.dylib" \
+   ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app/Contents/Frameworks/
+cp "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos/Frameworks/librf_engine.dylib" \
+   ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app/Contents/Frameworks/
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KORAK 6: POKRENI APLIKACIJU
+# ══════════════════════════════════════════════════════════════════════════════
+open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app
+```
+
+### ZAŠTO JE OVO KRITIČNO
+
+| Problem | Simptomi |
+|---------|----------|
+| Stari dylib-ovi u Frameworks | Audio import ne radi, waveform prazan, playback ne radi |
+| Stari dylib-ovi u APP BUNDLE | "Lib: NOT LOADED" u debug overlay, FFI ne radi |
+| flutter run na ext. disku | codesign greške, AppleDouble fajlovi |
+| Preskočen flutter analyze | Runtime crash, null errors |
+
+### VERIFIKACIJA (pre pokretanja)
+
+```bash
+# Proveri da su dylib datumi DANAS u SVE TRI LOKACIJE:
+ls -la "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/target/release/"*.dylib
+ls -la "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos/Frameworks/"*.dylib
+ls -la ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app/Contents/Frameworks/*.dylib
+
+# SVE TRI LOKACIJE MORAJU IMATI ISTI TIMESTAMP!
+# Ako APP BUNDLE ima stariji datum → KOPIRAJ PONOVO (Korak 5.5)
+```
+
+### NIKADA NE RADI
+
+- ❌ `flutter run` direktno (codesign fail na ext. disku)
+- ❌ Pokretanje bez kopiranja dylib-ova
+- ❌ Pokretanje bez `cargo build --release`
+- ❌ Pokretanje ako `flutter analyze` ima errors
+
+---
+
 ## CORE REFERENCES (must-read, in this order)
 
 1. .claude/00_AUTHORITY.md

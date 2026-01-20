@@ -57,6 +57,7 @@ class MixerChannel {
   bool soloed;
   bool armed;         // Record arm
   bool monitorInput;  // Input monitoring
+  bool phaseInverted; // Phase/polarity invert (Ø)
 
   // Routing
   String? outputBus;  // Target bus ID (null = master)
@@ -91,6 +92,7 @@ class MixerChannel {
     this.soloed = false,
     this.armed = false,
     this.monitorInput = false,
+    this.phaseInverted = false,
     this.outputBus,
     this.inputSource,
     this.sends = const [],
@@ -130,6 +132,7 @@ class MixerChannel {
     bool? soloed,
     bool? armed,
     bool? monitorInput,
+    bool? phaseInverted,
     String? outputBus,
     String? inputSource,
     List<AuxSend>? sends,
@@ -156,6 +159,7 @@ class MixerChannel {
       soloed: soloed ?? this.soloed,
       armed: armed ?? this.armed,
       monitorInput: monitorInput ?? this.monitorInput,
+      phaseInverted: phaseInverted ?? this.phaseInverted,
       outputBus: outputBus ?? this.outputBus,
       inputSource: inputSource ?? this.inputSource,
       sends: sends ?? this.sends,
@@ -265,6 +269,14 @@ class VcaFader {
 enum GroupLinkMode {
   relative,   // Maintain relative levels
   absolute,   // All move to same position
+}
+
+/// Parameters that can be linked in a group
+enum GroupLinkParameter {
+  volume,  // 0
+  pan,     // 1
+  mute,    // 2
+  solo,    // 3
 }
 
 class MixerGroup {
@@ -606,6 +618,27 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Toggle channel phase invert (polarity flip)
+  void togglePhaseInvert(String id) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+
+    channel.phaseInverted = !channel.phaseInverted;
+
+    // Send to engine if track channel
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.trackSetPhaseInvert(channel.trackIndex!, channel.phaseInverted);
+    }
+
+    notifyListeners();
+  }
+
+  /// Get channel phase invert state
+  bool getPhaseInvert(String id) {
+    final channel = _channels[id] ?? _buses[id];
+    return channel?.phaseInverted ?? false;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // BUS MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
@@ -771,11 +804,16 @@ class MixerProvider extends ChangeNotifier {
   // GROUP MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Map group UI ID to engine ID
+  final Map<String, int> _groupEngineIds = {};
+
   /// Create a group
   MixerGroup createGroup({required String name, Color? color}) {
     final id = 'grp_${DateTime.now().millisecondsSinceEpoch}';
 
-    NativeFFI.instance.groupCreate(name);
+    // Create in engine and store mapping
+    final engineId = NativeFFI.instance.groupCreate(name);
+    _groupEngineIds[id] = engineId;
 
     final group = MixerGroup(
       id: id,
@@ -784,6 +822,10 @@ class MixerProvider extends ChangeNotifier {
     );
 
     _groups[id] = group;
+
+    // Set initial link states in engine
+    _syncGroupToEngine(group, engineId);
+
     notifyListeners();
     return group;
   }
@@ -792,6 +834,13 @@ class MixerProvider extends ChangeNotifier {
   void deleteGroup(String id) {
     final group = _groups[id];
     if (group == null) return;
+
+    // Delete from engine
+    final engineId = _groupEngineIds[id];
+    if (engineId != null) {
+      NativeFFI.instance.groupDelete(engineId);
+      _groupEngineIds.remove(id);
+    }
 
     // Remove group assignment from channels
     for (final channel in _channels.values) {
@@ -804,15 +853,247 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Add a channel to a group
+  void addChannelToGroup(String channelId, String groupId) {
+    final group = _groups[groupId];
+    final channel = _channels[channelId];
+    if (group == null || channel == null) return;
+
+    // Update channel
+    _channels[channelId] = channel.copyWith(groupId: groupId);
+
+    // Update group member list
+    if (!group.memberIds.contains(channelId)) {
+      group.memberIds = [...group.memberIds, channelId];
+    }
+
+    // Sync to engine
+    final engineGroupId = _groupEngineIds[groupId];
+    if (engineGroupId != null && channel.trackIndex != null) {
+      NativeFFI.instance.groupAddTrack(engineGroupId, channel.trackIndex!);
+    }
+
+    notifyListeners();
+  }
+
+  /// Remove a channel from a group
+  void removeChannelFromGroup(String channelId, String groupId) {
+    final group = _groups[groupId];
+    final channel = _channels[channelId];
+    if (group == null || channel == null) return;
+
+    // Update channel
+    _channels[channelId] = channel.copyWith(groupId: null);
+
+    // Update group member list
+    group.memberIds = group.memberIds.where((id) => id != channelId).toList();
+
+    // Sync to engine
+    final engineGroupId = _groupEngineIds[groupId];
+    if (engineGroupId != null && channel.trackIndex != null) {
+      NativeFFI.instance.groupRemoveTrack(engineGroupId, channel.trackIndex!);
+    }
+
+    notifyListeners();
+  }
+
+  /// Set group link mode (relative/absolute)
+  void setGroupLinkMode(String groupId, GroupLinkMode mode) {
+    final group = _groups[groupId];
+    if (group == null) return;
+
+    group.linkMode = mode;
+
+    // Sync to engine (0 = relative, 1 = absolute)
+    final engineId = _groupEngineIds[groupId];
+    if (engineId != null) {
+      NativeFFI.instance.groupSetLinkMode(engineId, mode == GroupLinkMode.absolute ? 1 : 0);
+    }
+
+    notifyListeners();
+  }
+
+  /// Toggle link for a specific parameter
+  void toggleGroupLink(String groupId, GroupLinkParameter param) {
+    final group = _groups[groupId];
+    if (group == null) return;
+
+    switch (param) {
+      case GroupLinkParameter.volume:
+        group.linkVolume = !group.linkVolume;
+        break;
+      case GroupLinkParameter.pan:
+        group.linkPan = !group.linkPan;
+        break;
+      case GroupLinkParameter.mute:
+        group.linkMute = !group.linkMute;
+        break;
+      case GroupLinkParameter.solo:
+        group.linkSolo = !group.linkSolo;
+        break;
+    }
+
+    // Sync to engine
+    final engineId = _groupEngineIds[groupId];
+    if (engineId != null) {
+      NativeFFI.instance.groupToggleLink(engineId, param.index);
+    }
+
+    notifyListeners();
+  }
+
+  /// Set group color
+  void setGroupColor(String groupId, Color color) {
+    final group = _groups[groupId];
+    if (group == null) return;
+
+    // Create new group with updated color
+    _groups[groupId] = MixerGroup(
+      id: group.id,
+      name: group.name,
+      color: color,
+      linkMode: group.linkMode,
+      linkVolume: group.linkVolume,
+      linkPan: group.linkPan,
+      linkMute: group.linkMute,
+      linkSolo: group.linkSolo,
+      memberIds: group.memberIds,
+    );
+
+    // Sync to engine (convert color to u32)
+    final engineId = _groupEngineIds[groupId];
+    if (engineId != null) {
+      NativeFFI.instance.groupSetColor(engineId, color.value);
+    }
+
+    notifyListeners();
+  }
+
+  /// Get channels belonging to a group
+  List<MixerChannel> getGroupMembers(String groupId) {
+    final group = _groups[groupId];
+    if (group == null) return [];
+
+    return group.memberIds
+        .map((id) => _channels[id])
+        .whereType<MixerChannel>()
+        .toList();
+  }
+
+  /// Propagate parameter change to all group members (called from setChannelXxx methods)
+  void _propagateGroupParameter(String channelId, GroupLinkParameter param, double value) {
+    final channel = _channels[channelId];
+    if (channel == null || channel.groupId == null) return;
+
+    final group = _groups[channel.groupId];
+    if (group == null) return;
+
+    // Check if parameter is linked
+    bool isLinked = false;
+    switch (param) {
+      case GroupLinkParameter.volume:
+        isLinked = group.linkVolume;
+        break;
+      case GroupLinkParameter.pan:
+        isLinked = group.linkPan;
+        break;
+      case GroupLinkParameter.mute:
+      case GroupLinkParameter.solo:
+        isLinked = false; // Mute/solo handled separately
+        break;
+    }
+
+    if (!isLinked) return;
+
+    // Get original value for relative mode
+    final originalValue = switch (param) {
+      GroupLinkParameter.volume => channel.volume,
+      GroupLinkParameter.pan => channel.pan,
+      _ => 0.0,
+    };
+
+    final delta = value - originalValue;
+
+    // Apply to all group members
+    for (final memberId in group.memberIds) {
+      if (memberId == channelId) continue; // Skip source channel
+
+      final member = _channels[memberId];
+      if (member == null) continue;
+
+      double newValue;
+      if (group.linkMode == GroupLinkMode.absolute) {
+        newValue = value;
+      } else {
+        // Relative mode - add delta
+        newValue = switch (param) {
+          GroupLinkParameter.volume => (member.volume + delta).clamp(0.0, 1.5),
+          GroupLinkParameter.pan => (member.pan + delta).clamp(-1.0, 1.0),
+          _ => value,
+        };
+      }
+
+      // Update member without recursion (direct update)
+      switch (param) {
+        case GroupLinkParameter.volume:
+          _channels[memberId] = member.copyWith(volume: newValue);
+          if (member.trackIndex != null) {
+            engine.setTrackVolume(member.trackIndex!, newValue);
+          }
+          break;
+        case GroupLinkParameter.pan:
+          _channels[memberId] = member.copyWith(pan: newValue);
+          if (member.trackIndex != null) {
+            engine.setTrackPan(member.trackIndex!, newValue);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  /// Sync group state to engine
+  void _syncGroupToEngine(MixerGroup group, int engineId) {
+    // Set link mode
+    NativeFFI.instance.groupSetLinkMode(
+      engineId,
+      group.linkMode == GroupLinkMode.absolute ? 1 : 0,
+    );
+
+    // Set linked parameters (engine tracks which params are linked)
+    // Note: engine starts with all unlinked, toggle to enable
+    if (group.linkVolume) {
+      NativeFFI.instance.groupToggleLink(engineId, GroupLinkParameter.volume.index);
+    }
+    if (group.linkPan) {
+      NativeFFI.instance.groupToggleLink(engineId, GroupLinkParameter.pan.index);
+    }
+    if (group.linkMute) {
+      NativeFFI.instance.groupToggleLink(engineId, GroupLinkParameter.mute.index);
+    }
+    if (group.linkSolo) {
+      NativeFFI.instance.groupToggleLink(engineId, GroupLinkParameter.solo.index);
+    }
+
+    // Set color
+    NativeFFI.instance.groupSetColor(engineId, group.color.value);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CHANNEL CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  void setChannelVolume(String id, double volume) {
+  void setChannelVolume(String id, double volume, {bool propagateGroup = true}) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
 
     final clampedVolume = volume.clamp(0.0, 1.5);
+
+    // Propagate to group members first (before updating this channel)
+    if (propagateGroup && _channels.containsKey(id)) {
+      _propagateGroupParameter(id, GroupLinkParameter.volume, clampedVolume);
+    }
 
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(volume: clampedVolume);
@@ -829,11 +1110,16 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setChannelPan(String id, double pan) {
+  void setChannelPan(String id, double pan, {bool propagateGroup = true}) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
 
     final clampedPan = pan.clamp(-1.0, 1.0);
+
+    // Propagate to group members first (before updating this channel)
+    if (propagateGroup && _channels.containsKey(id)) {
+      _propagateGroupParameter(id, GroupLinkParameter.pan, clampedPan);
+    }
 
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(pan: clampedPan);
@@ -1102,6 +1388,14 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
+    // Get track ID for FFI
+    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+
+    // Send bypass state to Rust engine
+    NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
+    debugPrint('[MixerProvider] Set bypass=$bypassed on track $trackId slot $slotIndex');
+
+    // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
     inserts[slotIndex] = inserts[slotIndex].copyWith(bypassed: bypassed);
     _channels[channelId] = channel.copyWith(inserts: inserts);
@@ -1114,8 +1408,16 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
+    // Get track ID for FFI
+    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+
+    // Send wet/dry mix to Rust engine
+    final clampedMix = wetDry.clamp(0.0, 1.0);
+    NativeFFI.instance.insertSetMix(trackId, slotIndex, clampedMix);
+
+    // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
-    inserts[slotIndex] = inserts[slotIndex].copyWith(wetDry: wetDry.clamp(0.0, 1.0));
+    inserts[slotIndex] = inserts[slotIndex].copyWith(wetDry: clampedMix);
     _channels[channelId] = channel.copyWith(inserts: inserts);
     notifyListeners();
   }
@@ -1126,6 +1428,14 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
+    // Get track ID for FFI
+    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+
+    // Unload processor from Rust engine
+    NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
+    debugPrint('[MixerProvider] Unloaded processor from track $trackId slot $slotIndex');
+
+    // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
     final isPreFader = slotIndex < 4;
     inserts[slotIndex] = InsertSlot.empty(slotIndex, isPreFader: isPreFader);
@@ -1134,11 +1444,35 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Load plugin into insert slot
+  /// This connects to the Rust engine via FFI to actually process audio
   void loadInsert(String channelId, int slotIndex, String pluginId, String pluginName, String pluginType) {
     final channel = _channels[channelId];
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
+    // Get track ID for FFI (strip 'ch_' prefix if present)
+    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+
+    // Map plugin ID to Rust processor name
+    final processorName = _pluginIdToProcessorName(pluginId);
+    if (processorName == null) {
+      debugPrint('[MixerProvider] Unknown plugin ID: $pluginId');
+      return;
+    }
+
+    // Create insert chain if needed (idempotent in Rust)
+    NativeFFI.instance.insertCreateChain(trackId);
+
+    // Load processor into the slot
+    final result = NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, processorName);
+    if (result < 0) {
+      debugPrint('[MixerProvider] Failed to load processor $processorName into track $trackId slot $slotIndex (error: $result)');
+      return;
+    }
+
+    debugPrint('[MixerProvider] Loaded $processorName into track $trackId slot $slotIndex');
+
+    // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
     final isPreFader = slotIndex < 4;
     inserts[slotIndex] = InsertSlot(
@@ -1151,6 +1485,27 @@ class MixerProvider extends ChangeNotifier {
     );
     _channels[channelId] = channel.copyWith(inserts: inserts);
     notifyListeners();
+  }
+
+  /// Map plugin ID to Rust processor name
+  /// Must match create_processor() in dsp_wrappers.rs
+  String? _pluginIdToProcessorName(String pluginId) {
+    const mapping = {
+      // Modern digital
+      'rf-eq': 'pro-eq',
+      'rf-compressor': 'compressor',
+      'rf-limiter': 'limiter',
+      'rf-reverb': 'reverb',
+      'rf-delay': 'delay',
+      'rf-gate': 'gate',
+      'rf-saturator': 'saturator',
+      'rf-deesser': 'deesser',
+      // Vintage analog EQs
+      'rf-pultec': 'pultec',
+      'rf-api550': 'api550',
+      'rf-neve1073': 'neve1073',
+    };
+    return mapping[pluginId];
   }
 
   /// Reorder inserts within same section (pre or post fader)

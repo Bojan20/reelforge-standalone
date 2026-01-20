@@ -1673,7 +1673,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.createChannelFromTrack(nativeTrackId, trackName, color, channels: channelCount);
 
-    _showSnackBar('Created track "$trackName" with ${poolFile.name}');
+    // DEBUG: Show import details
+    final debugInfo = 'trackId=$nativeTrackId, clipId=$clipId, dur=${clipInfo?.duration ?? 'null'}, peaks=${waveform?.length ?? 0}';
+    _showSnackBar('Import: $debugInfo');
     _updateActiveBuses();
 
     // Auto-zoom to fit clip in timeline (zoom out to show entire clip)
@@ -6792,17 +6794,45 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     }
   }
 
-  /// Convert bus/channel ID to numeric track ID for FFI
-  /// Uses MixerProvider to get actual engine track ID for audio channels
-  int _busIdToTrackId(String busId) {
-    // Map bus IDs to numeric track IDs (buses use fixed IDs)
+  /// Check if busId is an OUTPUT BUS (not an audio track)
+  /// Output buses: master, sfx, music, voice, amb, ui
+  /// Audio tracks: ch_xxx (use track InsertChain)
+  bool _isBusChannel(String busId) {
+    return busId == 'master' || busId == 'sfx' || busId == 'music' ||
+           busId == 'voice' || busId == 'amb' || busId == 'ui';
+  }
+
+  /// Get bus ID for Bus InsertChain FFI
+  /// 0=Master routing, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux/UI
+  int _getBusId(String busId) {
     switch (busId) {
       case 'master': return 0;
-      case 'sfx': return 1;
-      case 'music': return 2;
+      case 'music': return 1;
+      case 'sfx': return 2;
       case 'voice': return 3;
       case 'amb': return 4;
       case 'ui': return 5;
+      default: return 0;
+    }
+  }
+
+  /// Convert bus/channel ID to numeric track ID for FFI
+  /// Uses MixerProvider to get actual engine track ID for audio channels
+  /// NOTE: For OUTPUT BUSES (master, sfx, music, voice, amb, ui) use busInsertXxx functions!
+  int _busIdToTrackId(String busId) {
+    // NOTE: For buses, use _getBusId() with busInsertXxx FFI functions
+    // This function is for AUDIO TRACKS only now
+    switch (busId) {
+      case 'master': return 0; // Master uses master_insert, not bus_inserts
+      case 'sfx':
+      case 'music':
+      case 'voice':
+      case 'amb':
+      case 'ui':
+        // WARNING: Buses should use busInsertXxx functions, not insertXxx
+        // Return bus ID for backwards compatibility but log warning
+        debugPrint('[WARN] _busIdToTrackId called for bus "$busId" - use _getBusId + busInsertXxx instead');
+        return _getBusId(busId);
       default:
         // For audio channels (ch_xxx), get trackIndex from MixerProvider
         // This is the actual engine track ID from createTrack() FFI call
@@ -7080,6 +7110,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         muted: ch.muted,
         soloed: ch.soloed,
         armed: ch.armed,
+        input: ultimate.InputSection(phaseInvert: ch.phaseInverted),
         inserts: inserts,
         peakL: hasClips && isPlaying ? peakL : 0,
         peakR: hasClips && isPlaying ? peakR : 0,
@@ -7184,6 +7215,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       onSendDestChange: (channelId, sendIndex, destination) {
         debugPrint('[UltimateMixer] Send destination: channel=$channelId, send=$sendIndex, dest=$destination');
         engine.setSendDestinationById(channelId, sendIndex, destination);
+      },
+      onPhaseToggle: (id) {
+        if (id != 'master') {
+          mixerProvider.togglePhaseInvert(id);
+        }
       },
     );
   }
@@ -8091,10 +8127,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         });
 
         // Load EQ into Rust engine insert chain
-        final trackId = _busIdToTrackId(channelId);
-        NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro-eq');
-
-        debugPrint('[EQ] Auto-created Pro EQ in slot $i for $channelId (trackId: $trackId)');
+        // Use correct FFI based on whether it's a bus or track
+        if (_isBusChannel(channelId)) {
+          final busId = _getBusId(channelId);
+          NativeFFI.instance.busInsertLoadProcessor(busId, i, 'pro-eq');
+          debugPrint('[EQ] Auto-created Pro EQ in bus $busId slot $i for $channelId');
+        } else {
+          final trackId = _busIdToTrackId(channelId);
+          NativeFFI.instance.insertLoadProcessor(trackId, i, 'pro-eq');
+          debugPrint('[EQ] Auto-created Pro EQ in track $trackId slot $i for $channelId');
+        }
         return i;
       }
     }
@@ -8211,9 +8253,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                       dynamicEnabled, dynamicThreshold, dynamicRatio,
                       dynamicAttack, dynamicRelease, dynamicKnee,
                     }) {
-                      // UNIFIED EQ ROUTING: All EQ params go through insert chain
+                      // UNIFIED EQ ROUTING: Buses use busInsertXxx, Tracks use insertXxx
                       // Find which slot has the EQ for this channel, or auto-create one
                       var slotIndex = _findEqSlotForChannel(channelId);
+                      final isBus = _isBusChannel(channelId);
 
                       if (slotIndex < 0) {
                         // Auto-create EQ in first empty insert slot
@@ -8224,58 +8267,54 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
                         }
                       } else {
                         // Slot exists in UI state but processor may not be loaded in engine
-                        // Only load if not already loaded (check first)
-                        final trackId = _busIdToTrackId(channelId);
-                        if (!NativeFFI.instance.insertIsLoaded(trackId, slotIndex)) {
-                          debugPrint('[EQ] Processor not loaded in engine, loading now...');
-                          NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
+                        // Use correct FFI based on whether it's a bus or track
+                        if (isBus) {
+                          final busId = _getBusId(channelId);
+                          if (!NativeFFI.instance.busInsertIsLoaded(busId, slotIndex)) {
+                            debugPrint('[EQ] Bus processor not loaded in engine, loading now...');
+                            NativeFFI.instance.busInsertLoadProcessor(busId, slotIndex, 'pro-eq');
+                          }
+                        } else {
+                          final trackId = _busIdToTrackId(channelId);
+                          if (!NativeFFI.instance.insertIsLoaded(trackId, slotIndex)) {
+                            debugPrint('[EQ] Track processor not loaded in engine, loading now...');
+                            NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
+                          }
                         }
                       }
 
                       // Use insert chain params: per band = 11
                       // (freq=0, gain=1, q=2, enabled=3, shape=4,
                       //  dynEnabled=5, dynThreshold=6, dynRatio=7, dynAttack=8, dynRelease=9, dynKnee=10)
-                      final trackId = _busIdToTrackId(channelId);
                       final baseParam = bandIndex * 11;
 
+                      // Use correct FFI based on whether it's a bus or track
+                      void setParam(int paramOffset, double value) {
+                        if (isBus) {
+                          final busId = _getBusId(channelId);
+                          NativeFFI.instance.busInsertSetParam(busId, slotIndex, baseParam + paramOffset, value);
+                        } else {
+                          final trackId = _busIdToTrackId(channelId);
+                          NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + paramOffset, value);
+                        }
+                      }
+
                       // DEBUG: Log EQ band changes
-                      debugPrint('[EQ] Band change: channel=$channelId -> trackId=$trackId, slot=$slotIndex, band=$bandIndex');
+                      debugPrint('[EQ] Band change: channel=$channelId (isBus=$isBus), slot=$slotIndex, band=$bandIndex');
                       debugPrint('[EQ]   freq=$freq, gain=$gain, q=$q, enabled=$enabled, filterType=$filterType');
-                      if (freq != null) {
-                        final result = NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 0, freq);
-                        debugPrint('[EQ] insertSetParam(track=$trackId, slot=$slotIndex, param=${baseParam + 0}, value=$freq) -> result=$result');
-                      }
-                      if (gain != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 1, gain);
-                      }
-                      if (q != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 2, q);
-                      }
-                      if (enabled != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 3, enabled ? 1.0 : 0.0);
-                      }
-                      if (filterType != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 4, filterType.toDouble());
-                      }
+
+                      if (freq != null) setParam(0, freq);
+                      if (gain != null) setParam(1, gain);
+                      if (q != null) setParam(2, q);
+                      if (enabled != null) setParam(3, enabled ? 1.0 : 0.0);
+                      if (filterType != null) setParam(4, filterType.toDouble());
                       // Dynamic EQ parameters
-                      if (dynamicEnabled != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 5, dynamicEnabled ? 1.0 : 0.0);
-                      }
-                      if (dynamicThreshold != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 6, dynamicThreshold);
-                      }
-                      if (dynamicRatio != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 7, dynamicRatio);
-                      }
-                      if (dynamicAttack != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 8, dynamicAttack);
-                      }
-                      if (dynamicRelease != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 9, dynamicRelease);
-                      }
-                      if (dynamicKnee != null) {
-                        NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + 10, dynamicKnee);
-                      }
+                      if (dynamicEnabled != null) setParam(5, dynamicEnabled ? 1.0 : 0.0);
+                      if (dynamicThreshold != null) setParam(6, dynamicThreshold);
+                      if (dynamicRatio != null) setParam(7, dynamicRatio);
+                      if (dynamicAttack != null) setParam(8, dynamicAttack);
+                      if (dynamicRelease != null) setParam(9, dynamicRelease);
+                      if (dynamicKnee != null) setParam(10, dynamicKnee);
                     },
                     onBypassChange: (bypass) {
                       if (bypass) {
@@ -8310,17 +8349,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   /// Build Pro EQ content - RF-EQ 64 (64-Band Parametric Equalizer)
+  /// Uses DspCommand queue for real-time audio processing (NOT PRO_EQS HashMap!)
   Widget _buildProEqContent(dynamic metering, bool isPlaying) {
-    // Convert dB metering to linear for EQ signal level
+    // Signal level for EQ analyzer
+    // ONLY show signal when actively playing AND real signal present
+    // Use strict threshold to avoid showing noise floor
     double signalLevel = 0.0;
     if (isPlaying) {
-      // Use master peak as signal indicator
       final peakDb = (metering.masterPeakL + metering.masterPeakR) / 2;
-      signalLevel = peakDb > -60 ? _dbToLinear(peakDb) : 0.0;
+      // -40dB threshold: ignore noise floor, only show real signal
+      signalLevel = peakDb > -40 ? _dbToLinear(peakDb) : 0.0;
     }
 
-    // Use global engine instance from engine_api.dart
-    final engineApi = EngineApi.instance;
+    // Use NativeFFI for real-time DSP command queue
+    // IMPORTANT: eqSetBand* goes through DspCommand queue → audio callback
+    // vs proEqSetBand* which goes to PRO_EQS HashMap (never processed!)
+    final ffi = NativeFFI.instance;
 
     // Use RF-EQ 64 - the professional FabFilter-style EQ with Pro EQ DSP
     return LayoutBuilder(
@@ -8335,50 +8379,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             dynamicEnabled, dynamicThreshold, dynamicRatio,
             dynamicAttack, dynamicRelease, dynamicKnee,
           }) {
-            // Send EQ band changes to Pro EQ DSP engine (64-band SVF)
-            const trackId = 'master';
+            // Send EQ band changes via DspCommand queue (processes audio!)
+            // trackId 0 = master in DspStorage
+            const trackId = 0;
             if (enabled != null) {
-              engineApi.proEqSetBandEnabled(trackId, bandIndex, enabled);
+              ffi.eqSetBandEnabled(trackId, bandIndex, enabled);
             }
             if (freq != null) {
-              engineApi.proEqSetBandFrequency(trackId, bandIndex, freq);
+              ffi.eqSetBandFrequency(trackId, bandIndex, freq);
             }
             if (gain != null) {
-              engineApi.proEqSetBandGain(trackId, bandIndex, gain);
+              ffi.eqSetBandGain(trackId, bandIndex, gain);
             }
             if (q != null) {
-              engineApi.proEqSetBandQ(trackId, bandIndex, q);
+              ffi.eqSetBandQ(trackId, bandIndex, q);
             }
             if (filterType != null) {
-              // Map UI filter type to Pro EQ filter shape
-              final shape = ProEqFilterShape.values[filterType.clamp(0, ProEqFilterShape.values.length - 1)];
-              engineApi.proEqSetBandShape(trackId, bandIndex, shape);
+              // Map UI filter type to EQ filter shape (0-9)
+              ffi.eqSetBandShape(trackId, bandIndex, filterType.clamp(0, 9));
             }
-            // Dynamic EQ parameters - send to engine
-            if (dynamicEnabled != null) {
-              engineApi.proEqSetBandDynamicEnabled(trackId, bandIndex, dynamicEnabled);
-            }
-            if (dynamicThreshold != null || dynamicRatio != null ||
-                dynamicAttack != null || dynamicRelease != null || dynamicKnee != null) {
-              engineApi.proEqSetBandDynamicParams(
-                trackId, bandIndex,
-                threshold: dynamicThreshold,
-                ratio: dynamicRatio,
-                attackMs: dynamicAttack,
-                releaseMs: dynamicRelease,
-                kneeDb: dynamicKnee,
-              );
-            }
+            // Dynamic EQ parameters - TODO: add DspCommand support
+            // Currently dynamic EQ is UI-only, needs DspCommand extension
           },
           onBypassChange: (bypass) {
-            // Pro EQ doesn't have global bypass, reset all bands instead
-            if (bypass) {
-              engineApi.proEqReset('master');
-            }
+            // Global EQ bypass via DspCommand
+            ffi.eqSetBypass(0, bypass);
           },
           onPhaseModeChange: (mode) {
+            // Phase mode - TODO: add DspCommand support
             // 0=ZeroLatency, 1=Natural, 2=Linear
-            engineApi.proEqSetPhaseMode('master', mode);
           },
         );
       },

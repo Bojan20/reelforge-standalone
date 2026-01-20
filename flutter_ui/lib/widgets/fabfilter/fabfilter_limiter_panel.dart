@@ -192,53 +192,44 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   void _updateMeters() {
     setState(() {
-      // Get real data from FFI when available
+      // Get real data from FFI when processor is in audio path
+      // NOTE: LIMITERS HashMap is NOT connected to audio callback yet
+      // Processor shows real data only when connected to InsertChain
       if (_initialized) {
         _currentGainReduction = _ffi.limiterGetGainReduction(widget.trackId);
         _currentTruePeak = _ffi.limiterGetTruePeak(widget.trackId);
       }
 
-      // Simulate input meter movement (would come from metering FFI)
-      final random = math.Random();
-      _currentInputPeak = -20 + _gain + (random.nextDouble() - 0.5) * 10;
+      // NO FAKE DATA: All levels must come from real metering
+      // Show silence until connected to PLAYBACK_ENGINE InsertChain
+      _currentInputPeak = -60.0;
+      _currentOutputPeak = -60.0;
 
-      // Calculate gain reduction for simulation when not initialized
-      if (!_initialized) {
-        final excess = (_currentInputPeak - _output).clamp(0.0, 40.0);
-        _currentGainReduction = -excess * 0.95;
-        _currentTruePeak = _currentOutputPeak + random.nextDouble() * 0.5;
-      }
+      // True peak clipping detection (only with real data)
+      _truePeakClipping = _initialized && _currentTruePeak > _output;
 
-      // Output peak (limited)
-      _currentOutputPeak =
-          math.min(_currentInputPeak + _currentGainReduction, _output);
-
-      // True peak clipping detection
-      _truePeakClipping = _currentTruePeak > _output;
-
-      // Track peak GR
-      if (_currentGainReduction.abs() > _peakGainReduction.abs()) {
+      // Track peak GR only if real data present
+      if (_currentGainReduction.abs() > 0.01 && _currentGainReduction.abs() > _peakGainReduction.abs()) {
         _peakGainReduction = _currentGainReduction;
       }
 
-      // Simulate LUFS (would come from real analyzer)
-      _lufsMomentary += (random.nextDouble() - 0.5) * 2;
-      _lufsMomentary = _lufsMomentary.clamp(-60.0, 0.0);
-      _lufsShortTerm = _lufsShortTerm * 0.99 + _lufsMomentary * 0.01;
-      _lufsIntegrated = _lufsIntegrated * 0.999 + _lufsMomentary * 0.001;
+      // NO FAKE LUFS: Must come from real loudness analyzer
+      // TODO: Connect to PLAYBACK_ENGINE loudness metering
+      // _lufsMomentary, _lufsShortTerm, _lufsIntegrated stay at init values
 
-      // Add to history
-      _levelHistory.add(LimiterLevelSample(
-        inputPeak: _currentInputPeak,
-        outputPeak: _currentOutputPeak,
-        gainReduction: _currentGainReduction,
-        truePeak: _currentTruePeak,
-        timestamp: DateTime.now(),
-      ));
+      // Add to history only with real activity
+      if (_currentGainReduction.abs() > 0.01) {
+        _levelHistory.add(LimiterLevelSample(
+          inputPeak: _currentInputPeak,
+          outputPeak: _currentOutputPeak,
+          gainReduction: _currentGainReduction,
+          truePeak: _currentTruePeak,
+          timestamp: DateTime.now(),
+        ));
 
-      // Trim history
-      while (_levelHistory.length > _maxHistorySamples) {
-        _levelHistory.removeAt(0);
+        while (_levelHistory.length > _maxHistorySamples) {
+          _levelHistory.removeAt(0);
+        }
       }
     });
   }

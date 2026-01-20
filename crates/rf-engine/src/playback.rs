@@ -1024,6 +1024,10 @@ pub struct PlaybackEngine {
     insert_chains: RwLock<HashMap<u64, InsertChain>>,
     /// Master insert chain
     master_insert: RwLock<InsertChain>,
+    /// Bus insert chains (6 buses: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux)
+    /// NOTE: Master bus inserts are processed BEFORE master_insert (bus 0 is pre-master)
+    /// Actual flow: Tracks → Bus InsertChain → Bus Volume → Sum to Master → master_insert → Output
+    bus_inserts: RwLock<[InsertChain; 6]>,
     /// Lock-free ring buffer for insert parameter changes (UI → Audio)
     /// Producer is used by UI thread (via set_track_insert_param)
     /// Consumer is used by audio thread (at start of each block)
@@ -1122,6 +1126,8 @@ impl PlaybackEngine {
             vca_assignments: RwLock::new(HashMap::new()),
             insert_chains: RwLock::new(HashMap::new()),
             master_insert: RwLock::new(InsertChain::new(sample_rate as f64)),
+            // Bus insert chains (6 buses: 0=Master routing bus, 1-5 = Music/Sfx/Voice/Amb/Aux)
+            bus_inserts: RwLock::new(std::array::from_fn(|_| InsertChain::new(sample_rate as f64))),
             // Lock-free ring buffer for insert params (4096 = ~85ms at 60fps UI updates)
             insert_param_tx: parking_lot::Mutex::new(insert_param_tx),
             insert_param_rx: parking_lot::Mutex::new(insert_param_rx),
@@ -1548,6 +1554,115 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // BUS INSERT CHAINS (Music, Sfx, Voice, Ambience, Aux)
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Bus IDs: 0=Master routing, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
+    // Audio flow: Tracks → Bus InsertChain → Bus Volume → Sum to Master → master_insert
+
+    /// Load processor into bus insert slot
+    /// bus_id: 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux (0=Master routing bus)
+    pub fn load_bus_insert(
+        &self,
+        bus_id: usize,
+        slot_index: usize,
+        processor: Box<dyn crate::insert_chain::InsertProcessor>,
+    ) -> bool {
+        if bus_id >= 6 {
+            log::warn!("[BusInsert] Invalid bus_id: {}", bus_id);
+            return false;
+        }
+        let mut bus_inserts = self.bus_inserts.write();
+        let result = bus_inserts[bus_id].load(slot_index, processor);
+        log::info!("[BusInsert] Loaded processor into bus {} slot {} -> {}", bus_id, slot_index, result);
+        result
+    }
+
+    /// Unload processor from bus insert slot
+    pub fn unload_bus_insert(
+        &self,
+        bus_id: usize,
+        slot_index: usize,
+    ) -> Option<Box<dyn crate::insert_chain::InsertProcessor>> {
+        if bus_id >= 6 {
+            return None;
+        }
+        let mut bus_inserts = self.bus_inserts.write();
+        bus_inserts[bus_id].unload(slot_index)
+    }
+
+    /// Set bypass for bus insert slot
+    pub fn set_bus_insert_bypass(&self, bus_id: usize, slot_index: usize, bypass: bool) {
+        if bus_id >= 6 {
+            return;
+        }
+        if let Some(slot) = self.bus_inserts.read()[bus_id].slot(slot_index) {
+            slot.set_bypass(bypass);
+        }
+    }
+
+    /// Set wet/dry mix for bus insert slot
+    pub fn set_bus_insert_mix(&self, bus_id: usize, slot_index: usize, mix: f64) {
+        if bus_id >= 6 {
+            return;
+        }
+        if let Some(slot) = self.bus_inserts.read()[bus_id].slot(slot_index) {
+            slot.set_mix(mix);
+        }
+    }
+
+    /// Get bus insert slot wet/dry mix
+    pub fn get_bus_insert_mix(&self, bus_id: usize, slot_index: usize) -> f64 {
+        if bus_id >= 6 {
+            return 1.0;
+        }
+        if let Some(slot) = self.bus_inserts.read()[bus_id].slot(slot_index) {
+            return slot.mix();
+        }
+        1.0
+    }
+
+    /// Check if bus has insert loaded in slot
+    pub fn has_bus_insert(&self, bus_id: usize, slot_index: usize) -> bool {
+        if bus_id >= 6 {
+            return false;
+        }
+        self.bus_inserts.read()[bus_id].slot(slot_index)
+            .map(|s| s.is_loaded())
+            .unwrap_or(false)
+    }
+
+    /// Set parameter on bus insert processor (lock-free via ring buffer)
+    pub fn set_bus_insert_param(&self, bus_id: usize, slot_index: usize, param_index: usize, value: f64) {
+        if bus_id >= 6 {
+            return;
+        }
+        // Use special track_id encoding for buses: track_id = 0xFFFF_0000 | bus_id
+        // This distinguishes bus params from track params in the ring buffer
+        let bus_track_id = 0xFFFF_0000_u64 | (bus_id as u64);
+        let change = InsertParamChange::new(bus_track_id, slot_index, param_index, value);
+        if let Some(mut tx) = self.insert_param_tx.try_lock() {
+            let _ = tx.push(change);
+        }
+    }
+
+    /// Get parameter from bus insert processor
+    pub fn get_bus_insert_param(&self, bus_id: usize, slot_index: usize, param_index: usize) -> f64 {
+        if bus_id >= 6 {
+            return 0.0;
+        }
+        self.bus_inserts.read()[bus_id].get_slot_param(slot_index, param_index)
+    }
+
+    /// Get total bus insert latency
+    pub fn get_bus_insert_latency(&self, bus_id: usize) -> usize {
+        if bus_id >= 6 {
+            return 0;
+        }
+        self.bus_inserts.read()[bus_id].total_latency()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // DELAY COMPENSATION
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1666,7 +1781,20 @@ impl PlaybackEngine {
 
         // Drain all pending changes (non-blocking, no logging)
         while let Ok(change) = rx.pop() {
-            if change.track_id == 0 {
+            // Check if this is a bus insert param (encoded as 0xFFFF_0000 | bus_id)
+            if change.track_id & 0xFFFF_0000 == 0xFFFF_0000 {
+                // Bus insert param change
+                let bus_id = (change.track_id & 0x0000_FFFF) as usize;
+                if bus_id < 6 {
+                    if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
+                        bus_inserts[bus_id].set_slot_param(
+                            change.slot_index as usize,
+                            change.param_index as usize,
+                            change.value,
+                        );
+                    }
+                }
+            } else if change.track_id == 0 {
                 // Master bus
                 if let Some(mut master) = self.master_insert.try_write() {
                     master.set_slot_param(
@@ -2784,9 +2912,21 @@ impl PlaybackEngine {
             bus_buffers.add_to_bus(track.output_bus, track_l, track_r);
         }
 
-        // Process buses → sum to master
+        // ═══════════════════════════════════════════════════════════════════════
+        // BUS INSERT CHAINS + SUMMING TO MASTER
+        // ═══════════════════════════════════════════════════════════════════════
+        //
+        // Audio flow: Bus buffers → Bus InsertChain → Bus Volume/Pan → Sum to Master
+        //
+        // Bus IDs: 0=Master routing, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
+        // Each bus gets its own pre/post-fader InsertChain processing.
+
         let bus_states = self.bus_states.read();
         let any_solo = self.any_solo.load(Ordering::Relaxed);
+
+        // Process each bus's InsertChain before summing to master
+        // Use try_write to avoid blocking audio thread
+        let mut bus_inserts = self.bus_inserts.try_write();
 
         for (bus_idx, state) in bus_states.iter().enumerate() {
             // Skip if muted, or if solo is active and this bus isn't soloed
@@ -2804,9 +2944,16 @@ impl PlaybackEngine {
                 _ => continue,
             };
 
-            let (bus_l, bus_r) = bus_buffers.get_bus(bus);
+            // Get mutable bus buffer for InsertChain processing
+            let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
 
-            // Apply bus volume and pan
+            // ═══ BUS INSERT CHAIN (PRE-FADER) ═══
+            // Process inserts BEFORE bus fader — affects sends, allows gain staging
+            if let Some(ref mut inserts) = bus_inserts {
+                inserts[bus_idx].process_pre_fader(bus_l, bus_r);
+            }
+
+            // Apply bus volume and pan (fader stage)
             let volume = state.volume;
             let pan = state.pan;
             // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
@@ -2814,9 +2961,24 @@ impl PlaybackEngine {
             let pan_l = pan_angle.cos();
             let pan_r = pan_angle.sin();
 
+            // Apply volume and pan in-place
             for i in 0..frames {
-                output_l[i] += bus_l[i] * volume * pan_l;
-                output_r[i] += bus_r[i] * volume * pan_r;
+                let l = bus_l[i] * volume;
+                let r = bus_r[i] * volume;
+                bus_l[i] = l * pan_l;
+                bus_r[i] = r * pan_r;
+            }
+
+            // ═══ BUS INSERT CHAIN (POST-FADER) ═══
+            // Process inserts AFTER bus fader — typical EQ/Compressor placement
+            if let Some(ref mut inserts) = bus_inserts {
+                inserts[bus_idx].process_post_fader(bus_l, bus_r);
+            }
+
+            // Sum processed bus to master output
+            for i in 0..frames {
+                output_l[i] += bus_l[i];
+                output_r[i] += bus_r[i];
             }
         }
 
@@ -3513,6 +3675,10 @@ impl PlaybackEngine {
         let vca_gain = self.get_vca_gain(track.id.0);
         let final_volume = track_volume * vca_gain;
 
+        // Apply phase invert (polarity flip) if enabled
+        // This multiplies the signal by -1, flipping the polarity
+        let phase_mult = if track.phase_inverted { -1.0 } else { 1.0 };
+
         if track.is_stereo() {
             let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
             let pan_l_l = pan_l_angle.cos();
@@ -3523,8 +3689,8 @@ impl PlaybackEngine {
             let pan_r_r = pan_r_angle.sin();
 
             for i in 0..frames {
-                let l_sample = output_l[i];
-                let r_sample = output_r[i];
+                let l_sample = output_l[i] * phase_mult;
+                let r_sample = output_r[i] * phase_mult;
                 output_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
                 output_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
             }
@@ -3534,8 +3700,8 @@ impl PlaybackEngine {
             let pan_r = pan_angle.sin();
 
             for i in 0..frames {
-                output_l[i] *= final_volume * pan_l;
-                output_r[i] *= final_volume * pan_r;
+                output_l[i] *= final_volume * pan_l * phase_mult;
+                output_r[i] *= final_volume * pan_r * phase_mult;
             }
         }
 

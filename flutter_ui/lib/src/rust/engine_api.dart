@@ -45,6 +45,7 @@ class EngineApi {
 
   Timer? _updateTimer;
   int _meteringFrameCounter = 0; // For 20Hz metering (every 3rd frame @ 60fps)
+  int _debugFrameCount = 0; // For debug logging (every 60 frames = ~1s)
 
   EngineApi._();
 
@@ -286,7 +287,14 @@ class EngineApi {
   /// Start playback
   void play() {
     if (!_useMock) {
+      // CRITICAL: Start audio stream BEFORE setting transport to playing
+      // Without this, audio thread won't be running and position won't advance
+      final streamStarted = _ffi.startPlayback();
+      if (!streamStarted) {
+        print('[EngineApi] WARNING: Failed to start audio stream');
+      }
       _ffi.play();
+      print('[EngineApi] play() called - stream: $streamStarted, debugInfo: ${_ffi.getPlaybackDebugInfo()}');
     }
     _transport = TransportState(
       isPlaying: true,
@@ -2430,6 +2438,13 @@ class EngineApi {
 
     // Read actual playback state from FFI (supports external callers like UnifiedPlaybackController)
     final actuallyPlaying = !_useMock ? _ffi.isPlaying() : _transport.isPlaying;
+
+    // DEBUG: Log state periodically (every 60 frames = ~1 second)
+    _debugFrameCount++;
+    if (_debugFrameCount % 60 == 0 && actuallyPlaying) {
+      final pos = !_useMock ? _ffi.getPosition() : _transport.positionSeconds;
+      print('[EngineApi] _updateState: isPlaying=$actuallyPlaying, position=$pos');
+    }
 
     // Update transport position when playing
     if (actuallyPlaying) {

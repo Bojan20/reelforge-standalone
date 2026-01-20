@@ -140,6 +140,9 @@ pub struct Track {
     /// Input monitoring mode (Auto/Manual/Off)
     #[serde(default)]
     pub monitor_mode: MonitorMode,
+    /// Phase invert (polarity flip)
+    #[serde(default)]
+    pub phase_inverted: bool,
 }
 
 /// Default channel count for serde
@@ -185,6 +188,7 @@ impl Track {
             sends: Default::default(),
             input_bus: None,
             monitor_mode: MonitorMode::Auto,
+            phase_inverted: false,
         }
     }
 
@@ -256,6 +260,7 @@ impl Track {
             sends: Default::default(),
             input_bus: None,
             monitor_mode: MonitorMode::Auto,
+            phase_inverted: false,
         }
     }
 }
