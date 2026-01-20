@@ -23,7 +23,6 @@ import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
 import 'audio_pool.dart';
-import 'container_service.dart';
 import 'ducking_service.dart';
 import 'rtpc_modulation_service.dart';
 import 'unified_playback_controller.dart';

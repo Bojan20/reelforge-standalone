@@ -112,6 +112,9 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Bus hierarchy with effects
   final BusHierarchy _busHierarchy = BusHierarchy();
 
+  /// Aux send routing manager
+  final AuxSendManager _auxSendManager = AuxSendManager();
+
   /// Memory budget manager
   final MemoryBudgetManager _memoryManager = MemoryBudgetManager(
     config: const MemoryBudgetConfig(
@@ -230,6 +233,7 @@ class MiddlewareProvider extends ChangeNotifier {
   // Advanced systems getters
   VoicePool get voicePool => _voicePool;
   BusHierarchy get busHierarchy => _busHierarchy;
+  AuxSendManager get auxSendManager => _auxSendManager;
   MemoryBudgetManager get memoryManager => _memoryManager;
   EventProfiler get eventProfiler => _eventProfiler;
   ReelSpatialConfig get reelSpatialConfig => _reelSpatialConfig;
@@ -3115,6 +3119,120 @@ class MiddlewareProvider extends ChangeNotifier {
       bus.addPostInsert(effect);
       notifyListeners();
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED AUDIO SYSTEMS - AUX SEND ROUTING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get all aux buses
+  List<AuxBus> getAllAuxBuses() => _auxSendManager.allAuxBuses;
+
+  /// Get all aux sends
+  List<AuxSend> getAllAuxSends() => _auxSendManager.allSends;
+
+  /// Get an aux bus by ID
+  AuxBus? getAuxBus(int auxBusId) => _auxSendManager.getAuxBus(auxBusId);
+
+  /// Get sends from a specific source bus
+  List<AuxSend> getSendsFromBus(int sourceBusId) {
+    return _auxSendManager.getSendsFromBus(sourceBusId);
+  }
+
+  /// Get sends to a specific aux bus
+  List<AuxSend> getSendsToAux(int auxBusId) {
+    return _auxSendManager.getSendsToAux(auxBusId);
+  }
+
+  /// Create a new aux send
+  AuxSend createAuxSend({
+    required int sourceBusId,
+    required int auxBusId,
+    double sendLevel = 0.0,
+    SendPosition position = SendPosition.postFader,
+  }) {
+    final send = _auxSendManager.createSend(
+      sourceBusId: sourceBusId,
+      auxBusId: auxBusId,
+      sendLevel: sendLevel,
+      position: position,
+    );
+    _eventProfiler.record(
+      type: ProfilerEventType.eventTrigger,
+      description: 'Aux send created: ${send.sendId} (bus $sourceBusId → aux $auxBusId)',
+    );
+    notifyListeners();
+    return send;
+  }
+
+  /// Set aux send level
+  void setAuxSendLevel(int sendId, double level) {
+    _auxSendManager.setSendLevel(sendId, level);
+    notifyListeners();
+  }
+
+  /// Toggle aux send enabled
+  void toggleAuxSendEnabled(int sendId) {
+    _auxSendManager.toggleSendEnabled(sendId);
+    notifyListeners();
+  }
+
+  /// Set aux send position (pre/post fader)
+  void setAuxSendPosition(int sendId, SendPosition position) {
+    _auxSendManager.setSendPosition(sendId, position);
+    notifyListeners();
+  }
+
+  /// Remove an aux send
+  void removeAuxSend(int sendId) {
+    _auxSendManager.removeSend(sendId);
+    notifyListeners();
+  }
+
+  /// Add a new aux bus
+  AuxBus addAuxBus({
+    required String name,
+    required EffectType effectType,
+  }) {
+    final auxBus = _auxSendManager.addAuxBus(
+      name: name,
+      effectType: effectType,
+    );
+    _eventProfiler.record(
+      type: ProfilerEventType.eventTrigger,
+      description: 'Aux bus created: ${auxBus.auxBusId} ($name)',
+    );
+    notifyListeners();
+    return auxBus;
+  }
+
+  /// Set aux bus return level
+  void setAuxReturnLevel(int auxBusId, double level) {
+    _auxSendManager.setAuxReturnLevel(auxBusId, level);
+    notifyListeners();
+  }
+
+  /// Toggle aux bus mute
+  void toggleAuxMute(int auxBusId) {
+    _auxSendManager.toggleAuxMute(auxBusId);
+    notifyListeners();
+  }
+
+  /// Toggle aux bus solo
+  void toggleAuxSolo(int auxBusId) {
+    _auxSendManager.toggleAuxSolo(auxBusId);
+    notifyListeners();
+  }
+
+  /// Set aux effect parameter
+  void setAuxEffectParam(int auxBusId, String param, double value) {
+    _auxSendManager.setAuxEffectParam(auxBusId, param, value);
+    notifyListeners();
+  }
+
+  /// Calculate total send contribution to an aux bus
+  double calculateAuxInput(int auxBusId, Map<int, double> busLevels) {
+    return _auxSendManager.calculateAuxInput(auxBusId, busLevels);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
