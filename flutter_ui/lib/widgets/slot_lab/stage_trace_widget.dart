@@ -6,6 +6,7 @@
 /// - Color-coded stage zones
 /// - Pulse effects on active stages
 /// - Mini progress indicator
+/// - Drag & drop audio assignment to stages
 library;
 
 import 'dart:async';
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../providers/slot_lab_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
+import 'audio_hover_preview.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STAGE TRACE WIDGET
@@ -22,12 +24,14 @@ class StageTraceWidget extends StatefulWidget {
   final SlotLabProvider provider;
   final double height;
   final bool showMiniProgress;
+  final Function(AudioFileInfo audio, String stageType)? onAudioDropped;
 
   const StageTraceWidget({
     super.key,
     required this.provider,
     this.height = 80,
     this.showMiniProgress = true,
+    this.onAudioDropped,
   });
 
   @override
@@ -45,6 +49,10 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   double _playheadPosition = 0.0;
   bool _isPlaying = false;
   Timer? _playbackTimer;
+
+  // Drag & drop state
+  int? _hoveredStageIndex;
+  bool _isDraggingOver = false;
 
   // Stage colors by type
   static const Map<String, Color> _stageColors = {
@@ -251,19 +259,55 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
   Widget _buildTimeline() {
     if (_stages.isEmpty) {
-      return Center(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.hourglass_empty, size: 16, color: Colors.white24),
-            const SizedBox(width: 6),
-            Text(
-              'Spin to see stage trace',
-              style: TextStyle(color: Colors.white38, fontSize: 10),
+      // Empty state - but still accept drops for pre-assignment
+      return DragTarget<AudioFileInfo>(
+        onWillAcceptWithDetails: (details) {
+          setState(() => _isDraggingOver = true);
+          return true;
+        },
+        onLeave: (_) => setState(() => _isDraggingOver = false),
+        onAcceptWithDetails: (details) {
+          setState(() => _isDraggingOver = false);
+          // Show stage selection dialog for empty timeline
+          _showStageSelectionDialog(details.data);
+        },
+        builder: (context, candidateData, rejectedData) {
+          return Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _isDraggingOver
+                    ? FluxForgeTheme.accentBlue.withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: _isDraggingOver
+                    ? Border.all(color: FluxForgeTheme.accentBlue, width: 2)
+                    : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isDraggingOver ? Icons.add_circle : Icons.hourglass_empty,
+                    size: 16,
+                    color: _isDraggingOver ? FluxForgeTheme.accentBlue : Colors.white24,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isDraggingOver ? 'Drop to assign audio' : 'Spin to see stage trace',
+                    style: TextStyle(
+                      color: _isDraggingOver ? FluxForgeTheme.accentBlue : Colors.white38,
+                      fontSize: 10,
+                      fontWeight: _isDraggingOver ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       );
     }
 
@@ -274,7 +318,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
         return Stack(
           children: [
-            // Background track
+            // Background track with global drop zone
             Positioned(
               left: 8,
               right: 8,
@@ -288,7 +332,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               ),
             ),
 
-            // Stage markers
+            // Stage markers with individual drop targets
             ..._stages.asMap().entries.map((entry) {
               final index = entry.key;
               final stage = entry.value;
@@ -298,64 +342,120 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               final x = 8 + (totalWidth * position);
               final isActive = index == _currentStageIndex;
               final isPast = index < _currentStageIndex;
+              final isHovered = _hoveredStageIndex == index;
               final color = _getStageColor(stage.stageType);
 
               return Positioned(
-                left: x - 10,
-                top: 8,
-                child: GestureDetector(
-                  onTap: () => widget.provider.triggerStageManually(index),
-                  child: AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      final scale = isActive ? (0.9 + 0.2 * _pulseAnimation.value) : 1.0;
-                      final opacity = isPast ? 0.5 : 1.0;
+                left: x - 16,
+                top: 4,
+                child: DragTarget<AudioFileInfo>(
+                  onWillAcceptWithDetails: (details) {
+                    setState(() => _hoveredStageIndex = index);
+                    return true;
+                  },
+                  onLeave: (_) => setState(() {
+                    if (_hoveredStageIndex == index) _hoveredStageIndex = null;
+                  }),
+                  onAcceptWithDetails: (details) {
+                    setState(() => _hoveredStageIndex = null);
+                    widget.onAudioDropped?.call(details.data, stage.stageType);
+                    _showDropFeedback(stage.stageType, details.data.name);
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isDragTarget = candidateData.isNotEmpty;
 
-                      return Transform.scale(
-                        scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: Column(
-                            children: [
-                              // Stage dot/icon
-                              Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: isActive ? color : color.withOpacity(0.3),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: color,
-                                    width: isActive ? 2 : 1,
+                    return GestureDetector(
+                      onTap: () => widget.provider.triggerStageManually(index),
+                      child: AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          final scale = isActive
+                              ? (0.9 + 0.2 * _pulseAnimation.value)
+                              : isDragTarget
+                                  ? 1.2
+                                  : 1.0;
+                          final opacity = isPast ? 0.5 : 1.0;
+
+                          return Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: Column(
+                                children: [
+                                  // Stage dot/icon with drop indicator
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    width: isDragTarget ? 28 : 20,
+                                    height: isDragTarget ? 28 : 20,
+                                    decoration: BoxDecoration(
+                                      color: isDragTarget
+                                          ? FluxForgeTheme.accentGreen.withOpacity(0.8)
+                                          : isActive
+                                              ? color
+                                              : color.withOpacity(0.3),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isDragTarget ? FluxForgeTheme.accentGreen : color,
+                                        width: isDragTarget ? 3 : (isActive ? 2 : 1),
+                                      ),
+                                      boxShadow: (isActive || isDragTarget)
+                                          ? [
+                                              BoxShadow(
+                                                color: (isDragTarget
+                                                        ? FluxForgeTheme.accentGreen
+                                                        : color)
+                                                    .withOpacity(0.6),
+                                                blurRadius: isDragTarget ? 12 : 8,
+                                                spreadRadius: isDragTarget ? 4 : 2,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Icon(
+                                      isDragTarget
+                                          ? Icons.add
+                                          : _getStageIcon(stage.stageType),
+                                      size: isDragTarget ? 14 : 10,
+                                      color: isDragTarget
+                                          ? Colors.white
+                                          : (isActive ? Colors.white : color),
+                                    ),
                                   ),
-                                  boxShadow: isActive
-                                      ? [
-                                          BoxShadow(
-                                            color: color.withOpacity(0.5),
-                                            blurRadius: 8,
-                                            spreadRadius: 2,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Icon(
-                                  _getStageIcon(stage.stageType),
-                                  size: 10,
-                                  color: isActive ? Colors.white : color,
-                                ),
+                                  // Connector line
+                                  Container(
+                                    width: 1,
+                                    height: isDragTarget ? 8 : 6,
+                                    color: (isDragTarget ? FluxForgeTheme.accentGreen : color)
+                                        .withOpacity(isDragTarget ? 0.8 : 0.5),
+                                  ),
+                                  // Drop hint label
+                                  if (isDragTarget)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: FluxForgeTheme.accentGreen,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        _formatStageName(stage.stageType),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 7,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              // Connector line
-                              Container(
-                                width: 1,
-                                height: 6,
-                                color: color.withOpacity(0.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               );
             }),
@@ -383,6 +483,129 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
           ],
         );
       },
+    );
+  }
+
+  void _showDropFeedback(String stageType, String audioName) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Assigned "$audioName" to ${_formatStageName(stageType)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: FluxForgeTheme.bgMid,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showStageSelectionDialog(AudioFileInfo audio) {
+    if (!mounted) return;
+
+    // Common stage types for pre-assignment
+    final commonStages = [
+      'spin_start',
+      'reel_stop',
+      'win_present',
+      'bigwin_tier',
+      'rollup_start',
+      'feature_enter',
+      'jackpot_trigger',
+      'anticipation_on',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgMid,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.audiotrack, color: FluxForgeTheme.accentBlue),
+            const SizedBox(width: 8),
+            Text(
+              'Assign Audio',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Assign "${audio.name}" to stage:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: commonStages.map((stage) {
+                  final color = _getStageColor(stage);
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onAudioDropped?.call(audio, stage);
+                      _showDropFeedback(stage, audio.name);
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: color, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_getStageIcon(stage), size: 12, color: color),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatStageName(stage),
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
