@@ -55,6 +55,26 @@ const int kMaxTrackedEvents = 128;
 /// Minimum confidence threshold
 const double kMinConfidence = 0.05;
 
+/// Maximum events per second (rate limiting)
+const int kMaxEventsPerSecond = 500;
+
+/// Event fade-out duration (ms) for smooth spatial→center transition
+const int kEventFadeOutMs = 50;
+
+/// Air absorption frequency bands (Hz)
+const List<double> kAirAbsorptionBands = [250, 500, 1000, 2000, 4000, 8000, 16000];
+
+/// Air absorption coefficients per band (dB/m at 20°C, 50% humidity)
+const List<double> kAirAbsorptionPerBand = [
+  0.0003, // 250 Hz
+  0.0006, // 500 Hz
+  0.0012, // 1 kHz
+  0.0025, // 2 kHz
+  0.0050, // 4 kHz
+  0.0090, // 8 kHz
+  0.0150, // 16 kHz
+];
+
 // =============================================================================
 // SPATIAL BUS TYPES
 // =============================================================================
@@ -1501,6 +1521,37 @@ class SpatialMixer {
     return -kAirAbsorptionCoeff * distance * 1000; // dB
   }
 
+  /// Calculate frequency-dependent air absorption (P2.5)
+  /// Returns LPF cutoff and overall gain based on distance
+  /// Higher frequencies attenuate more over distance (realistic)
+  static FrequencyAbsorption frequencyDependentAbsorption(double distance) {
+    if (distance <= 0) return FrequencyAbsorption.none;
+
+    // Calculate absorption for each band
+    // Use highest band that's still above -12dB threshold
+    double lpfHz = 20000.0;
+    double totalDb = 0.0;
+
+    for (int i = kAirAbsorptionBands.length - 1; i >= 0; i--) {
+      final bandDb = -kAirAbsorptionPerBand[i] * distance * 1000;
+      if (bandDb < -12.0) {
+        // This band is too attenuated, set LPF just below it
+        if (i < kAirAbsorptionBands.length - 1) {
+          lpfHz = kAirAbsorptionBands[i + 1];
+        }
+      }
+      // Use mid-band (1kHz) for overall gain
+      if (i == 2) {
+        totalDb = bandDb;
+      }
+    }
+
+    return FrequencyAbsorption(
+      lpfHz: lpfHz.clamp(500.0, 20000.0),
+      gainDb: totalDb.clamp(-24.0, 0.0),
+    );
+  }
+
   /// Calculate occlusion parameters
   static ({double gain, double lpfHz}) occlusionParams(OcclusionState state) {
     return switch (state) {
@@ -1529,13 +1580,36 @@ class SpatialMixer {
   }
 
   /// Generate complete spatial output
+  /// Supports listener position offset and frequency-dependent air absorption
   static SpatialOutput generateOutput({
     required SpatialTarget target,
     required IntentRule rule,
     required BusPolicy policy,
     OcclusionState occlusion = OcclusionState.none,
+    ListenerPosition listener = ListenerPosition.center,
+    bool useFrequencyAbsorption = true,
+    double fadeOutFactor = 1.0, // 1.0 = full spatial, 0.0 = center
+    SpatialRenderMode renderMode = SpatialRenderMode.stereo,
   }) {
-    final pos = target.position;
+    // Apply listener position offset (P2.2)
+    final relativePos = SpatialPosition(
+      x: target.position.x - listener.x,
+      y: target.position.y - listener.y,
+      z: target.position.z - listener.z,
+    );
+
+    // Apply listener rotation if non-zero
+    SpatialPosition pos = relativePos;
+    if (listener.rotationRad != 0) {
+      final cos = math.cos(-listener.rotationRad);
+      final sin = math.sin(-listener.rotationRad);
+      pos = SpatialPosition(
+        x: relativePos.x * cos - relativePos.y * sin,
+        y: relativePos.x * sin + relativePos.y * cos,
+        z: relativePos.z,
+      );
+    }
+
     final vel = target.velocity;
 
     // Apply bus policy modifiers
@@ -1543,7 +1617,12 @@ class SpatialMixer {
     final effectiveWidth = (target.width * policy.widthMul).clamp(0.0, 1.0);
 
     // === STEREO ===
-    final pan = positionToPan(pos, rule.deadzone, effectiveMaxPan);
+    double pan = positionToPan(pos, rule.deadzone, effectiveMaxPan);
+
+    // Apply fade-out factor (P2.3) - blend spatial to center
+    pan = pan * fadeOutFactor;
+    final width = effectiveWidth * fadeOutFactor;
+
     final gains = equalPowerGains(pan);
 
     // === DISTANCE ===
@@ -1555,7 +1634,18 @@ class SpatialMixer {
       maxDistance: rule.maxDistance,
       rolloff: rule.rolloffFactor,
     );
-    final airDb = airAbsorption(distance);
+
+    // === AIR ABSORPTION (P2.5) ===
+    double airDb;
+    double? airLpfHz;
+    if (useFrequencyAbsorption) {
+      final freqAbs = frequencyDependentAbsorption(distance);
+      airDb = freqAbs.gainDb;
+      airLpfHz = freqAbs.lpfHz < 20000 ? freqAbs.lpfHz : null;
+    } else {
+      airDb = airAbsorption(distance);
+      airLpfHz = null;
+    }
 
     // === DOPPLER ===
     double doppler = 1.0;
@@ -1583,6 +1673,10 @@ class SpatialMixer {
       );
       lpfHz = lpfHz != null ? math.min(lpfHz, distLpf) : distLpf;
     }
+    // Apply air absorption LPF
+    if (airLpfHz != null) {
+      lpfHz = lpfHz != null ? math.min(lpfHz, airLpfHz) : airLpfHz;
+    }
     // Apply occlusion LPF
     lpfHz = lpfHz != null
         ? math.min(lpfHz, occParams.lpfHz)
@@ -1600,7 +1694,7 @@ class SpatialMixer {
 
     // === HRTF ===
     int? hrtfIndex;
-    if (policy.enableHRTF) {
+    if (policy.enableHRTF || renderMode == SpatialRenderMode.binaural) {
       // Quantize azimuth/elevation to HRTF table index
       // Assuming 360° azimuth x 180° elevation, 5° resolution
       final azDeg = (pos.azimuth * 180 / math.pi + 180) % 360;
@@ -1610,7 +1704,7 @@ class SpatialMixer {
 
     return SpatialOutput(
       pan: pan,
-      width: effectiveWidth,
+      width: width,
       gains: gains,
       position: pos,
       distance: distance,
@@ -1805,6 +1899,23 @@ class EventTrackerPool {
 // AUTO SPATIAL ENGINE
 // =============================================================================
 
+/// Listener position for non-center listening point
+class ListenerPosition {
+  final double x; // -1..+1 (left..right)
+  final double y; // -1..+1 (back..front)
+  final double z; // -1..+1 (down..up)
+  final double rotationRad; // Head rotation in radians
+
+  const ListenerPosition({
+    this.x = 0.0,
+    this.y = 0.0,
+    this.z = 0.0,
+    this.rotationRad = 0.0,
+  });
+
+  static const center = ListenerPosition();
+}
+
 /// Configuration for AutoSpatialEngine
 class AutoSpatialConfig {
   final SpatialRenderMode renderMode;
@@ -1813,9 +1924,13 @@ class AutoSpatialConfig {
   final bool enableOcclusion;
   final bool enableReverb;
   final bool enableHRTF;
+  final bool enableFrequencyDependentAbsorption;
+  final bool enableEventFadeOut;
   final int maxTrackedEvents;
+  final int maxEventsPerSecond;
   final double globalPanScale;
   final double globalWidthScale;
+  final ListenerPosition listenerPosition;
 
   const AutoSpatialConfig({
     this.renderMode = SpatialRenderMode.stereo,
@@ -1824,10 +1939,47 @@ class AutoSpatialConfig {
     this.enableOcclusion = true,
     this.enableReverb = true,
     this.enableHRTF = false,
+    this.enableFrequencyDependentAbsorption = true,
+    this.enableEventFadeOut = true,
     this.maxTrackedEvents = kMaxTrackedEvents,
+    this.maxEventsPerSecond = kMaxEventsPerSecond,
     this.globalPanScale = 1.0,
     this.globalWidthScale = 1.0,
+    this.listenerPosition = ListenerPosition.center,
   });
+
+  /// Copy with modified values
+  AutoSpatialConfig copyWith({
+    SpatialRenderMode? renderMode,
+    bool? enableDoppler,
+    bool? enableDistanceAttenuation,
+    bool? enableOcclusion,
+    bool? enableReverb,
+    bool? enableHRTF,
+    bool? enableFrequencyDependentAbsorption,
+    bool? enableEventFadeOut,
+    int? maxTrackedEvents,
+    int? maxEventsPerSecond,
+    double? globalPanScale,
+    double? globalWidthScale,
+    ListenerPosition? listenerPosition,
+  }) {
+    return AutoSpatialConfig(
+      renderMode: renderMode ?? this.renderMode,
+      enableDoppler: enableDoppler ?? this.enableDoppler,
+      enableDistanceAttenuation: enableDistanceAttenuation ?? this.enableDistanceAttenuation,
+      enableOcclusion: enableOcclusion ?? this.enableOcclusion,
+      enableReverb: enableReverb ?? this.enableReverb,
+      enableHRTF: enableHRTF ?? this.enableHRTF,
+      enableFrequencyDependentAbsorption: enableFrequencyDependentAbsorption ?? this.enableFrequencyDependentAbsorption,
+      enableEventFadeOut: enableEventFadeOut ?? this.enableEventFadeOut,
+      maxTrackedEvents: maxTrackedEvents ?? this.maxTrackedEvents,
+      maxEventsPerSecond: maxEventsPerSecond ?? this.maxEventsPerSecond,
+      globalPanScale: globalPanScale ?? this.globalPanScale,
+      globalWidthScale: globalWidthScale ?? this.globalWidthScale,
+      listenerPosition: listenerPosition ?? this.listenerPosition,
+    );
+  }
 }
 
 /// Statistics for monitoring
@@ -1835,18 +1987,37 @@ class AutoSpatialStats {
   final int activeEvents;
   final int totalEventsProcessed;
   final int droppedEvents;
+  final int rateLimitedEvents;
   final double avgProcessingTimeUs;
   final double peakProcessingTimeUs;
   final int poolUtilization;
+  final int eventsThisSecond;
+  final SpatialRenderMode renderMode;
 
   const AutoSpatialStats({
     this.activeEvents = 0,
     this.totalEventsProcessed = 0,
     this.droppedEvents = 0,
+    this.rateLimitedEvents = 0,
     this.avgProcessingTimeUs = 0,
     this.peakProcessingTimeUs = 0,
     this.poolUtilization = 0,
+    this.eventsThisSecond = 0,
+    this.renderMode = SpatialRenderMode.stereo,
   });
+}
+
+/// Frequency-dependent air absorption result
+class FrequencyAbsorption {
+  final double lpfHz; // Low-pass filter cutoff
+  final double gainDb; // Overall attenuation
+
+  const FrequencyAbsorption({
+    required this.lpfHz,
+    required this.gainDb,
+  });
+
+  static const none = FrequencyAbsorption(lpfHz: 20000.0, gainDb: 0.0);
 }
 
 /// Main orchestrator for automatic spatial audio positioning
@@ -1859,8 +2030,17 @@ class AutoSpatialEngine {
   // Statistics (atomic would be better, but Dart doesn't have them)
   int _totalEventsProcessed = 0;
   int _droppedEvents = 0;
+  int _rateLimitedEvents = 0;
   double _avgProcessingTimeUs = 0;
   double _peakProcessingTimeUs = 0;
+
+  // Cached timestamp (P1.2 optimization)
+  int _cachedNowMs = 0;
+  int _cachedNowUs = 0;
+
+  // Rate limiting (P2.6)
+  int _eventsThisSecond = 0;
+  int _rateLimitResetMs = 0;
 
   int _lastUpdateMs = 0;
 
@@ -1874,19 +2054,50 @@ class AutoSpatialEngine {
     for (final r in rules) {
       _rules[r.intent] = r;
     }
+    _updateTimestamp();
   }
 
   AnchorRegistry get anchorRegistry => _registry;
 
+  /// Update cached timestamp (call once per frame, not per operation)
+  void _updateTimestamp() {
+    final now = DateTime.now();
+    _cachedNowMs = now.millisecondsSinceEpoch;
+    _cachedNowUs = now.microsecondsSinceEpoch;
+  }
+
+  /// Check if value is finite (not NaN or Infinity)
+  static bool _isValidFloat(double? value) {
+    if (value == null) return true; // null is OK (optional)
+    return value.isFinite;
+  }
+
   /// Register a spatial event
   void onEvent(SpatialEvent event) {
-    // Input validation
+    // Input validation — strings
     if (event.id.isEmpty || event.id.length > 256) return;
     if (event.intent.isEmpty || event.intent.length > 256) return;
 
+    // Input validation — NaN/Infinity checks (P1.3)
+    if (!_isValidFloat(event.xNorm)) return;
+    if (!_isValidFloat(event.yNorm)) return;
+    if (!_isValidFloat(event.zNorm)) return;
+    if (!_isValidFloat(event.progress01)) return;
+    if (!_isValidFloat(event.importance)) return;
+
+    // Rate limiting (P2.6)
+    if (_cachedNowMs > _rateLimitResetMs) {
+      _eventsThisSecond = 0;
+      _rateLimitResetMs = _cachedNowMs + 1000;
+    }
+    if (_eventsThisSecond >= config.maxEventsPerSecond) {
+      _rateLimitedEvents++;
+      return;
+    }
+    _eventsThisSecond++;
+
     final rule = _rules[event.intent] ?? _rules['DEFAULT']!;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final expiresAt = nowMs + event.lifetimeMs;
+    final expiresAt = _cachedNowMs + event.lifetimeMs;
 
     final tracker = _pool.acquire(
       event: event,
@@ -1906,9 +2117,10 @@ class AutoSpatialEngine {
 
   /// Update all tracked events
   Map<String, SpatialOutput> update() {
-    final startUs = DateTime.now().microsecondsSinceEpoch;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    _lastUpdateMs = nowMs;
+    // Use cached timestamp (P1.2 optimization)
+    _updateTimestamp();
+    final startUs = _cachedNowUs;
+    _lastUpdateMs = _cachedNowMs;
 
     // Cleanup expired first
     _pool.cleanup();
@@ -1921,6 +2133,17 @@ class AutoSpatialEngine {
 
       final rule = tracker.rule!;
       final policy = BusPolicies.getPolicy(event.bus);
+
+      // === 0. CALCULATE FADE-OUT FACTOR (P2.3) ===
+      double fadeOutFactor = 1.0;
+      if (config.enableEventFadeOut) {
+        final remainingMs = tracker.expiresAtMs - _cachedNowMs;
+        if (remainingMs < kEventFadeOutMs && remainingMs > 0) {
+          fadeOutFactor = remainingMs / kEventFadeOutMs;
+        } else if (remainingMs <= 0) {
+          fadeOutFactor = 0.0;
+        }
+      }
 
       // === 1. RESOLVE ANCHORS ===
       final anchorId = event.anchorId ?? rule.defaultAnchorId;
@@ -1950,7 +2173,7 @@ class AutoSpatialEngine {
           ),
           velocity: SpatialVelocity.zero,
           confidence: 0.95,
-          timestampMs: nowMs,
+          timestampMs: _cachedNowMs,
         );
       } else if (event.progress01 != null && startAnchor != null && endAnchor != null) {
         motion = MotionField.fromProgress(
@@ -1993,7 +2216,7 @@ class AutoSpatialEngine {
         predictLeadSec: leadSec,
       );
 
-      // === 6. GENERATE OUTPUT ===
+      // === 6. GENERATE OUTPUT (with all new features) ===
       final smoothedTarget = SpatialTarget(
         position: filtered.position,
         velocity: filtered.velocity,
@@ -2006,6 +2229,10 @@ class AutoSpatialEngine {
         rule: rule,
         policy: policy,
         occlusion: event.occlusionState ?? OcclusionState.none,
+        listener: config.listenerPosition,
+        useFrequencyAbsorption: config.enableFrequencyDependentAbsorption,
+        fadeOutFactor: fadeOutFactor,
+        renderMode: config.renderMode,
       );
 
       tracker.lastOutput = output;
@@ -2013,7 +2240,7 @@ class AutoSpatialEngine {
       _totalEventsProcessed++;
     }
 
-    // Update stats
+    // Update stats (using cached end timestamp)
     final endUs = DateTime.now().microsecondsSinceEpoch;
     final processingUs = (endUs - startUs).toDouble();
     _avgProcessingTimeUs = 0.95 * _avgProcessingTimeUs + 0.05 * processingUs;
@@ -2029,15 +2256,28 @@ class AutoSpatialEngine {
     return _pool.get(eventId)?.lastOutput;
   }
 
+  /// Update listener position at runtime
+  void setListenerPosition(ListenerPosition position) {
+    config = config.copyWith(listenerPosition: position);
+  }
+
+  /// Update render mode at runtime
+  void setRenderMode(SpatialRenderMode mode) {
+    config = config.copyWith(renderMode: mode);
+  }
+
   /// Get engine statistics
   AutoSpatialStats getStats() {
     return AutoSpatialStats(
       activeEvents: _pool.activeCount,
       totalEventsProcessed: _totalEventsProcessed,
       droppedEvents: _droppedEvents,
+      rateLimitedEvents: _rateLimitedEvents,
       avgProcessingTimeUs: _avgProcessingTimeUs,
       peakProcessingTimeUs: _peakProcessingTimeUs,
       poolUtilization: (_pool.activeCount * 100 / kMaxTrackedEvents).round(),
+      eventsThisSecond: _eventsThisSecond,
+      renderMode: config.renderMode,
     );
   }
 

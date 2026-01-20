@@ -20,6 +20,7 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
 import 'audio_pool.dart';
@@ -181,11 +182,31 @@ class EventRegistry extends ChangeNotifier {
   // Audio pool for rapid-fire events
   bool _useAudioPool = true;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO SPATIAL ENGINE — UI-driven spatial audio positioning
+  // ═══════════════════════════════════════════════════════════════════════════
+  final AutoSpatialEngine _spatialEngine = AutoSpatialEngine();
+  bool _useSpatialAudio = true;
+
+  /// Get spatial engine for external anchor registration
+  AutoSpatialEngine get spatialEngine => _spatialEngine;
+
+  /// Enable/disable spatial audio positioning
+  void setUseSpatialAudio(bool enabled) {
+    _useSpatialAudio = enabled;
+    debugPrint('[EventRegistry] Spatial audio: ${enabled ? "ENABLED" : "DISABLED"}');
+  }
+
+  /// Check if spatial audio is enabled
+  bool get useSpatialAudio => _useSpatialAudio;
+
   // Stats
   int _triggerCount = 0;
   int _pooledTriggers = 0;
+  int _spatialTriggers = 0;
   int get triggerCount => _triggerCount;
   int get pooledTriggers => _pooledTriggers;
+  int get spatialTriggers => _spatialTriggers;
 
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
@@ -198,6 +219,60 @@ class EventRegistry extends ChangeNotifier {
     if (!_useAudioPool) return false;
     final normalized = stage.toUpperCase().trim();
     return _pooledEventStages.contains(normalized);
+  }
+
+  /// Map stage name to SpatialBus
+  SpatialBus _stageToBus(String stage, int busId) {
+    final normalized = stage.toUpperCase();
+
+    // Check stage name patterns
+    if (normalized.contains('REEL')) return SpatialBus.reels;
+    if (normalized.contains('WIN') || normalized.contains('JACKPOT')) return SpatialBus.sfx;
+    if (normalized.contains('UI') || normalized.contains('BUTTON') || normalized.contains('CLICK')) return SpatialBus.ui;
+    if (normalized.contains('MUSIC')) return SpatialBus.music;
+    if (normalized.contains('VO') || normalized.contains('VOICE') || normalized.contains('NARRATOR')) return SpatialBus.vo;
+    if (normalized.contains('AMBIEN')) return SpatialBus.ambience;
+
+    // Fallback based on busId
+    return switch (busId) {
+      0 => SpatialBus.sfx,      // Master/default
+      1 => SpatialBus.music,    // Music bus
+      2 => SpatialBus.sfx,      // SFX bus
+      3 => SpatialBus.vo,       // VO bus
+      4 => SpatialBus.ui,       // UI bus
+      5 => SpatialBus.ambience, // Ambience bus
+      _ => SpatialBus.sfx,
+    };
+  }
+
+  /// Get spatial intent from stage name (maps to SlotIntentRules)
+  String _stageToIntent(String stage) {
+    // Normalize and return - SlotIntentRules uses uppercase names
+    final normalized = stage.toUpperCase().trim();
+
+    // Direct mapping for common stages
+    return switch (normalized) {
+      'SPIN_START' => 'SPIN_START',
+      'REEL_SPIN' => 'REEL_SPIN',
+      'REEL_STOP' => 'REEL_STOP_2',  // Default to center if no index
+      'REEL_STOP_0' => 'REEL_STOP_0',
+      'REEL_STOP_1' => 'REEL_STOP_1',
+      'REEL_STOP_2' => 'REEL_STOP_2',
+      'REEL_STOP_3' => 'REEL_STOP_3',
+      'REEL_STOP_4' => 'REEL_STOP_4',
+      'ANTICIPATION' || 'ANTICIPATION_ON' => 'ANTICIPATION',
+      'WIN_SMALL' || 'SMALL_WIN' => 'WIN_SMALL',
+      'WIN_MEDIUM' || 'MEDIUM_WIN' => 'WIN_MEDIUM',
+      'WIN_BIG' || 'BIG_WIN' => 'WIN_BIG',
+      'WIN_MEGA' || 'MEGA_WIN' => 'WIN_MEGA',
+      'WIN_EPIC' || 'EPIC_WIN' => 'WIN_EPIC',
+      'JACKPOT_TRIGGER' || 'JACKPOT' => 'JACKPOT_TRIGGER',
+      'CASCADE_STEP' => 'CASCADE_STEP',
+      'FEATURE_ENTER' => 'FEATURE_ENTER',
+      'FEATURE_EXIT' => 'FEATURE_EXIT',
+      'FREE_SPIN_TRIGGER' || 'FREE_SPINS' => 'FREE_SPIN_TRIGGER',
+      _ => 'DEFAULT',  // Fallback to default intent
+    };
   }
 
   // ==========================================================================
@@ -372,8 +447,43 @@ class EventRegistry extends ChangeNotifier {
       final eventId = eventKey ?? layer.id;
       if (RtpcModulationService.instance.hasMapping(eventId)) {
         volume = RtpcModulationService.instance.getModulatedVolume(eventId, volume);
-        // Pitch modulation would be applied here if supported by audio engine
-        // final pitch = RtpcModulationService.instance.getModulatedPitch(eventId);
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // SPATIAL AUDIO POSITIONING (AutoSpatialEngine integration)
+      // ═══════════════════════════════════════════════════════════════════════
+      double pan = layer.pan; // Default to layer's configured pan
+
+      if (_useSpatialAudio && eventKey != null) {
+        final spatialEventId = '${eventKey}_${layer.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final intent = _stageToIntent(eventKey);
+        final bus = _stageToBus(eventKey, layer.busId);
+
+        // Create spatial event
+        final spatialEvent = SpatialEvent(
+          id: spatialEventId,
+          name: layer.name,
+          intent: intent,
+          bus: bus,
+          timeMs: DateTime.now().millisecondsSinceEpoch,
+          lifetimeMs: 500, // Track for 500ms
+          importance: 0.8,
+        );
+
+        // Register with spatial engine
+        _spatialEngine.onEvent(spatialEvent);
+
+        // Update engine and get output
+        final outputs = _spatialEngine.update();
+        final spatialOutput = outputs[spatialEventId];
+
+        if (spatialOutput != null) {
+          // Apply spatial pan (overrides layer pan)
+          pan = spatialOutput.pan;
+          // Could also apply volume attenuation from distance
+          // volume *= spatialOutput.distanceGain;
+          _spatialTriggers++;
+        }
       }
 
       // Notify DuckingService that this bus is playing
@@ -423,7 +533,8 @@ class EventRegistry extends ChangeNotifier {
       }
 
       final poolStr = usePool ? ' [POOLED]' : '';
-      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr');
+      final spatialStr = (_useSpatialAudio && pan != layer.pan) ? ' [SPATIAL pan=${pan.toStringAsFixed(2)}]' : '';
+      debugPrint('[EventRegistry] Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$spatialStr');
     } catch (e) {
       debugPrint('[EventRegistry] Error playing layer ${layer.name}: $e');
     }
@@ -510,20 +621,27 @@ class EventRegistry extends ChangeNotifier {
   }
 
   // ==========================================================================
-  // POOL STATS
+  // POOL & SPATIAL STATS
   // ==========================================================================
 
-  /// Get combined stats from EventRegistry and AudioPool
+  /// Get combined stats from EventRegistry, AudioPool, and SpatialEngine
   String get statsString {
     final poolStats = AudioPool.instance.statsString;
-    return 'EventRegistry: triggers=$_triggerCount, pooled=$_pooledTriggers | $poolStats';
+    final spatialStats = _spatialEngine.getStats();
+    return 'EventRegistry: triggers=$_triggerCount, pooled=$_pooledTriggers, spatial=$_spatialTriggers | '
+        '$poolStats | Spatial: active=${spatialStats.activeEvents}, processed=${spatialStats.totalEventsProcessed}';
   }
+
+  /// Get spatial engine stats directly
+  AutoSpatialStats get spatialStats => _spatialEngine.getStats();
 
   /// Reset all stats
   void resetStats() {
     _triggerCount = 0;
     _pooledTriggers = 0;
+    _spatialTriggers = 0;
     AudioPool.instance.reset();
+    _spatialEngine.clear();
   }
 
   // ==========================================================================
@@ -534,6 +652,7 @@ class EventRegistry extends ChangeNotifier {
   void dispose() {
     stopAll();
     _preloadedPaths.clear();
+    _spatialEngine.dispose();
     super.dispose();
   }
 }
