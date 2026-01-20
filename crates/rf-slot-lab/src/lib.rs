@@ -10,20 +10,47 @@
 //! - **Feature Simulation**: Free spins, cascades, jackpots, bonus games
 //! - **Stage Generation**: Automatic STAGE event generation for audio triggering
 //! - **Timing Profiles**: Normal, Turbo, Studio (instant) timing modes
+//! - **Game Model**: Central game definition from GDD documents
+//! - **Feature Registry**: Modular feature chapter system
+//! - **Scenario System**: Demo sequences for presentations
 //!
 //! ## Architecture
 //!
 //! ```text
-//! SyntheticSlotEngine
-//!     │
-//!     ├── GridSpec (reels × rows configuration)
-//!     ├── PayTable (symbol values, line patterns)
-//!     ├── VolatilityProfile (win distribution)
-//!     └── FeatureConfig (bonus frequencies)
-//!           │
-//!           v
-//!     SpinResult → Vec<StageEvent>
+//! ┌─────────────────────────────────────────────────────────┐
+//! │                      GameModel                          │
+//! │  (from GDD or programmatic)                             │
+//! └────────────────────────┬────────────────────────────────┘
+//!                          │
+//!                          ▼
+//! ┌─────────────────────────────────────────────────────────┐
+//! │              SyntheticSlotEngine                        │
+//! │                                                         │
+//! │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+//! │  │ GridSpec    │  │ PayTable    │  │ Volatility  │    │
+//! │  └─────────────┘  └─────────────┘  └─────────────┘    │
+//! │                                                         │
+//! │  ┌─────────────────────────────────────────────────┐   │
+//! │  │           Feature Registry                       │   │
+//! │  │  ├── FreeSpinsChapter                           │   │
+//! │  │  ├── CascadesChapter                            │   │
+//! │  │  ├── HoldAndWinChapter                          │   │
+//! │  │  └── JackpotChapter                             │   │
+//! │  └─────────────────────────────────────────────────┘   │
+//! └────────────────────────┬────────────────────────────────┘
+//!                          │
+//!                          ▼
+//!                   SpinResult → Vec<StageEvent>
 //! ```
+//!
+//! ## Modes
+//!
+//! - **GDD-Only**: Scripted outcomes for demos (no RNG)
+//! - **Math-Driven**: Real probability distribution with RTP targeting
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORE MODULES (existing)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 pub mod config;
 pub mod engine;
@@ -32,9 +59,35 @@ pub mod spin;
 pub mod symbols;
 pub mod timing;
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW MODULES (Slot Lab Ultimate)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Game Model — Central game definition
+pub mod model;
+
+/// Feature System — Modular feature chapters
+pub mod features;
+
+/// Scenario System — Demo sequences
+pub mod scenario;
+
+/// GDD Parser — Parse Game Design Documents
+pub mod parser;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RE-EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
 pub use config::*;
 pub use engine::*;
 pub use paytable::*;
 pub use spin::*;
 pub use symbols::*;
 pub use timing::*;
+
+// New module re-exports
+pub use model::{GameInfo, GameMode, GameModel, Volatility, WinMechanism, WinTierConfig};
+pub use features::{FeatureCategory, FeatureChapter, FeatureId, FeatureRegistry};
+pub use scenario::{DemoScenario, LoopMode, ScenarioPlayback, ScriptedOutcome};
+pub use parser::{GddParser, GddParseError};
