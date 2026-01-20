@@ -71,6 +71,7 @@ import '../widgets/slot_lab/resources_panel.dart';
 import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/stage_trace_widget.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
+import '../widgets/slot_lab/fullscreen_slot_preview.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
@@ -378,6 +379,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   _BottomPanelTab _selectedBottomTab = _BottomPanelTab.timeline;
   double _bottomPanelHeight = 280.0;
   bool _bottomPanelCollapsed = false;
+
+  // Fullscreen preview mode
+  bool _isPreviewMode = false;
 
   // Audio browser
   bool _showAudioBrowser = true;
@@ -1363,6 +1367,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final middleware = context.watch<MiddlewareProvider>();
     _checkMiddlewareChangesAndSync(middleware);
 
+    // Fullscreen preview mode - immersive slot testing
+    if (_isPreviewMode) {
+      return FullscreenSlotPreview(
+        onExit: () => setState(() => _isPreviewMode = false),
+        reels: _reelCount,
+        rows: _rowCount,
+      );
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _focusNode.requestFocus(),
@@ -1587,6 +1600,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
+    // F11 = Toggle fullscreen preview mode
+    if (key == LogicalKeyboardKey.f11) {
+      setState(() => _isPreviewMode = true);
+      return KeyEventResult.handled;
+    }
+
     // ESC = Cancel active drag (revert to original position)
     if (key == LogicalKeyboardKey.escape) {
       if (_dragController?.cancelActiveDrag() == true) {
@@ -1768,6 +1787,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             provider: _slotLabProvider,
             size: 90,
           ),
+
+          const SizedBox(width: 8),
+
+          // Fullscreen preview button
+          _buildPreviewButton(),
 
           const SizedBox(width: 8),
 
@@ -6476,6 +6500,53 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           fontSize: 9,
           fontWeight: FontWeight.w600,
           letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  /// Preview button - enters fullscreen slot preview mode (F11)
+  Widget _buildPreviewButton() {
+    return Tooltip(
+      message: 'Fullscreen Preview (F11)',
+      child: GestureDetector(
+        onTap: () => setState(() => _isPreviewMode = true),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                FluxForgeTheme.accentBlue.withOpacity(0.3),
+                FluxForgeTheme.accentBlue.withOpacity(0.1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.play_circle_filled,
+                color: FluxForgeTheme.accentBlue,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'PREVIEW',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
