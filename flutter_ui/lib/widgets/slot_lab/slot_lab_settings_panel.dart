@@ -9,7 +9,9 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../services/session_persistence_service.dart';
 import 'volatility_dial.dart' show VolatilityLevel;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -186,6 +188,12 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
                   _buildSectionHeader('Debug'),
                   const SizedBox(height: 12),
                   _buildDebugSettings(),
+                  const SizedBox(height: 20),
+
+                  // Export/Import
+                  _buildSectionHeader('Session'),
+                  const SizedBox(height: 12),
+                  _buildExportImportSettings(),
                 ],
               ),
             ),
@@ -597,6 +605,167 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
         ),
       ],
     );
+  }
+
+  Widget _buildExportImportSettings() {
+    return Column(
+      children: [
+        // Export JSON
+        _buildActionButton(
+          label: 'Export Session (JSON)',
+          icon: Icons.file_download_outlined,
+          description: 'Full session with events and audio pool',
+          onTap: _exportSessionJson,
+        ),
+        const SizedBox(height: 8),
+        // Export CSV
+        _buildActionButton(
+          label: 'Export Session (CSV)',
+          icon: Icons.table_chart_outlined,
+          description: 'Spreadsheet format for analysis',
+          onTap: _exportSessionCsv,
+        ),
+        const SizedBox(height: 8),
+        // Import JSON
+        _buildActionButton(
+          label: 'Import Session',
+          icon: Icons.file_upload_outlined,
+          description: 'Load session from JSON file',
+          onTap: _importSession,
+        ),
+        const SizedBox(height: 8),
+        // Save now
+        _buildActionButton(
+          label: 'Save Session Now',
+          icon: Icons.save_outlined,
+          description: 'Force save to default location',
+          onTap: () async {
+            final success = await SessionPersistenceService.instance.saveSession();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(success ? 'Session saved' : 'Save failed'),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.surfaceDark,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: FluxForgeTheme.accentBlue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: FluxForgeTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: FluxForgeTheme.textTertiary,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: FluxForgeTheme.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportSessionJson() async {
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export Session',
+      fileName: 'slotlab_session_${DateTime.now().toIso8601String().split('T').first}.json',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+
+    if (result != null) {
+      final success = await SessionPersistenceService.instance.exportSessionToFile(result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Exported to $result' : 'Export failed'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportSessionCsv() async {
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export Session as CSV',
+      fileName: 'slotlab_session_${DateTime.now().toIso8601String().split('T').first}.csv',
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result != null) {
+      final success = await SessionPersistenceService.instance.exportSessionToCsv(result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Exported to $result' : 'Export failed'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importSession() async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Import Session',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final success = await SessionPersistenceService.instance.importSessionFromFile(
+        result.files.single.path!,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Session imported' : 'Import failed'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

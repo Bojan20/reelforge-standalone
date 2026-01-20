@@ -1472,6 +1472,14 @@ enum IngestLayer {
     _ => null,
   };
 
+  /// Create from FFI int value (0=DirectEvent, 1=SnapshotDiff, 2=RuleBased)
+  static IngestLayer fromInt(int value) => switch (value) {
+    0 => IngestLayer.directEvent,
+    1 => IngestLayer.snapshotDiff,
+    2 => IngestLayer.ruleBased,
+    _ => IngestLayer.directEvent,
+  };
+
   String toJson() => switch (this) {
     directEvent => 'direct_event',
     snapshotDiff => 'snapshot_diff',

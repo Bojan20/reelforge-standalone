@@ -7,12 +7,15 @@
 /// - Duration display
 /// - Format/sample rate info
 /// - Drag to timeline support
+///
+/// INTEGRATION: Uses AudioPlaybackService.previewFile() for playback
 library;
 
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../services/audio_playback_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO FILE INFO MODEL
@@ -91,9 +94,12 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   Timer? _hoverPreviewTimer;
+  Timer? _progressTimer;
   bool _showPreview = false;
   late AnimationController _playbackController;
   double _playbackProgress = 0.0;
+  int _currentVoiceId = -1;
+  DateTime? _playbackStartTime;
 
   @override
   void initState() {
@@ -110,7 +116,9 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
   @override
   void dispose() {
     _hoverPreviewTimer?.cancel();
+    _progressTimer?.cancel();
     _playbackController.dispose();
+    _stopPlayback();
     super.dispose();
   }
 
@@ -121,8 +129,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
     _hoverPreviewTimer = Timer(const Duration(milliseconds: 500), () {
       if (_isHovered && mounted) {
         setState(() => _showPreview = true);
-        widget.onPlay?.call();
-        _playbackController.forward(from: 0);
+        _startPlayback();
       }
     });
   }
@@ -133,12 +140,52 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
       _showPreview = false;
     });
     _hoverPreviewTimer?.cancel();
+    _stopPlayback();
+  }
 
-    if (widget.isPlaying) {
-      widget.onStop?.call();
-      _playbackController.stop();
-      _playbackController.reset();
+  /// Start playback via AudioPlaybackService
+  void _startPlayback() {
+    // Use AudioPlaybackService for actual audio playback
+    _currentVoiceId = AudioPlaybackService.instance.previewFile(
+      widget.audioInfo.path,
+      source: PlaybackSource.browser,
+    );
+
+    if (_currentVoiceId >= 0) {
+      _playbackStartTime = DateTime.now();
+      _playbackController.forward(from: 0);
+
+      // Start progress tracking timer (syncs with audio)
+      _progressTimer?.cancel();
+      _progressTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+        if (!mounted || _playbackStartTime == null) return;
+
+        final elapsed = DateTime.now().difference(_playbackStartTime!);
+        final progress = elapsed.inMilliseconds / widget.audioInfo.duration.inMilliseconds;
+
+        if (progress >= 1.0) {
+          _stopPlayback();
+        }
+      });
+
+      widget.onPlay?.call();
     }
+  }
+
+  /// Stop playback via AudioPlaybackService
+  void _stopPlayback() {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    _playbackStartTime = null;
+
+    if (_currentVoiceId >= 0) {
+      AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
+      _currentVoiceId = -1;
+    }
+
+    _playbackController.stop();
+    _playbackController.reset();
+    widget.onStop?.call();
   }
 
   @override
@@ -309,14 +356,14 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
   }
 
   Widget _buildPlayButton() {
+    final isActuallyPlaying = _currentVoiceId >= 0 || widget.isPlaying;
+
     return InkWell(
       onTap: () {
-        if (widget.isPlaying) {
-          widget.onStop?.call();
-          _playbackController.stop();
+        if (isActuallyPlaying) {
+          _stopPlayback();
         } else {
-          widget.onPlay?.call();
-          _playbackController.forward(from: 0);
+          _startPlayback();
         }
       },
       borderRadius: BorderRadius.circular(12),
@@ -324,21 +371,21 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: widget.isPlaying
+          color: isActuallyPlaying
               ? FluxForgeTheme.accentGreen.withOpacity(0.2)
               : FluxForgeTheme.accentBlue.withOpacity(0.2),
           shape: BoxShape.circle,
           border: Border.all(
-            color: widget.isPlaying
+            color: isActuallyPlaying
                 ? FluxForgeTheme.accentGreen
                 : FluxForgeTheme.accentBlue,
             width: 1,
           ),
         ),
         child: Icon(
-          widget.isPlaying ? Icons.stop : Icons.play_arrow,
+          isActuallyPlaying ? Icons.stop : Icons.play_arrow,
           size: 14,
-          color: widget.isPlaying
+          color: isActuallyPlaying
               ? FluxForgeTheme.accentGreen
               : FluxForgeTheme.accentBlue,
         ),
@@ -347,6 +394,8 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
   }
 
   Widget _buildHoverPreview() {
+    final isActuallyPlaying = _currentVoiceId >= 0 || widget.isPlaying;
+
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -354,79 +403,82 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: FluxForgeTheme.borderSubtle, width: 0.5),
       ),
-      child: Stack(
-        children: [
-          // Waveform
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: CustomPaint(
-              size: const Size(double.infinity, 40),
-              painter: _MiniWaveformPainter(
-                waveformData: widget.audioInfo.waveformData,
-                progress: _playbackProgress,
-                isPlaying: widget.isPlaying,
-              ),
-            ),
-          ),
-
-          // Playback progress overlay
-          if (widget.isPlaying)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 50),
-                width: _playbackProgress *
-                    (MediaQuery.of(context).size.width * 0.2), // Approximate width
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(3),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              // Waveform
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: CustomPaint(
+                  size: Size(constraints.maxWidth, 40),
+                  painter: _MiniWaveformPainter(
+                    waveformData: widget.audioInfo.waveformData,
+                    progress: _playbackProgress,
+                    isPlaying: isActuallyPlaying,
+                  ),
                 ),
               ),
-            ),
 
-          // Info overlay
-          Positioned(
-            right: 4,
-            bottom: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                widget.audioInfo.qualityLabel,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 8,
-                ),
-              ),
-            ),
-          ),
-
-          // Playing indicator
-          if (widget.isPlaying)
-            Positioned(
-              left: 4,
-              top: 4,
-              child: Row(
-                children: [
-                  _PlayingIndicator(),
-                  const SizedBox(width: 4),
-                  Text(
-                    'PLAYING',
-                    style: TextStyle(
-                      color: FluxForgeTheme.accentGreen,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+              // Playback progress overlay
+              if (isActuallyPlaying)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 50),
+                    width: _playbackProgress * constraints.maxWidth,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentGreen.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
-                ],
+                ),
+
+              // Info overlay
+              Positioned(
+                right: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    widget.audioInfo.qualityLabel,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 8,
+                    ),
+                  ),
+                ),
               ),
-            ),
-        ],
+
+              // Playing indicator
+              if (isActuallyPlaying)
+                Positioned(
+                  left: 4,
+                  top: 4,
+                  child: Row(
+                    children: [
+                      _PlayingIndicator(),
+                      const SizedBox(width: 4),
+                      Text(
+                        'PLAYING',
+                        style: TextStyle(
+                          color: FluxForgeTheme.accentGreen,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

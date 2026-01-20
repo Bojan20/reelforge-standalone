@@ -21,6 +21,7 @@ rf-file = { path = "../rf-file" }
 rf-plugin = { path = "../rf-plugin" }
 rf-event = { path = "../rf-event" }
 rf-stage = { path = "../rf-stage" }
+rf-ingest = { path = "../rf-ingest" }
 rf-slot-lab = { path = "../rf-slot-lab" }
 
 # Audio I/O
@@ -43,6 +44,9 @@ crossbeam-channel.workspace = true
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
+
+# Config
+toml = "0.8"
 
 # Utilities
 log.workspace = true

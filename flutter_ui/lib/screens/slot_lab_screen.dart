@@ -81,7 +81,9 @@ import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
 import '../services/slotlab_track_bridge.dart';
+import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
+import '../providers/undo_manager.dart';
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -413,6 +415,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   double? _layerDragStartOffset;
   double? _layerDragDelta;
 
+  // Multi-selection state
+  _AudioRegion? _lastClickedRegion; // For shift-click range selection
+  int? _lastClickedTrackIndex;
+  bool _isBoxSelecting = false;
+  Offset? _boxSelectStart;
+  Offset? _boxSelectEnd;
+
+  // Undo/redo - original positions before drag
+  Map<String, ({double start, double end})>? _dragStartPositions;
+
   // Event → Region mapping (for auto-update when layer added to event)
   final Map<String, String> _eventToRegionMap = {}; // eventId → regionId
 
@@ -471,6 +483,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _loadAudioPool();
     _initializeSlotEngine();
     _restorePersistedState();
+    _initWaveformCache();
 
     // Listen to MiddlewareProvider for bidirectional sync
     // When layers are added in Middleware center panel, Slot Lab updates automatically
@@ -516,6 +529,43 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         if (!mounted || !_hasSlotLabProvider) return;
         _doRestorePersistedState();
       });
+    });
+  }
+
+  /// Initialize waveform disk cache and restore any cached waveforms
+  void _initWaveformCache() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      // Initialize disk cache service
+      await WaveformCacheService.instance.init();
+
+      // If provider has waveform cache, save it to disk
+      if (_hasSlotLabProvider && _slotLabProvider.waveformCache.isNotEmpty) {
+        await WaveformCacheService.instance.importFromProvider(_slotLabProvider.waveformCache);
+      }
+
+      // Preload waveforms for current audio pool
+      final audioPaths = _audioPool
+          .map((item) => item['path'] as String?)
+          .where((path) => path != null && path.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      if (audioPaths.isNotEmpty) {
+        await WaveformCacheService.instance.preload(audioPaths);
+
+        // Load any found disk cache entries into provider
+        for (final path in audioPaths) {
+          final waveform = await WaveformCacheService.instance.get(path);
+          if (waveform != null && _hasSlotLabProvider) {
+            _slotLabProvider.waveformCache[path] = waveform;
+          }
+        }
+
+        if (mounted) setState(() {});
+        debugPrint('[SlotLab] Waveform cache initialized (${audioPaths.length} paths)');
+      }
     });
   }
 
@@ -1600,6 +1650,96 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
+    // M = Toggle mute on selected regions
+    if (key == LogicalKeyboardKey.keyM && !HardwareKeyboard.instance.isMetaPressed) {
+      _toggleMuteSelectedRegions();
+      return KeyEventResult.handled;
+    }
+
+    // T = Add new track
+    if (key == LogicalKeyboardKey.keyT &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      _addTrack();
+      return KeyEventResult.handled;
+    }
+
+    // ] = Zoom in timeline
+    if (key == LogicalKeyboardKey.bracketRight) {
+      setState(() {
+        _timelineZoom = (_timelineZoom * 1.2).clamp(0.1, 10.0);
+      });
+      return KeyEventResult.handled;
+    }
+
+    // [ = Zoom out timeline
+    if (key == LogicalKeyboardKey.bracketLeft) {
+      setState(() {
+        _timelineZoom = (_timelineZoom * 0.8).clamp(0.1, 10.0);
+      });
+      return KeyEventResult.handled;
+    }
+
+    // 0 = Reset zoom to 1.0
+    if (key == LogicalKeyboardKey.digit0 &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      setState(() {
+        _timelineZoom = 1.0;
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+Z = Undo
+    if (key == LogicalKeyboardKey.keyZ &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
+        !HardwareKeyboard.instance.isShiftPressed) {
+      if (UiUndoManager.instance.undo()) {
+        setState(() {});
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+Shift+Z = Redo
+    if (key == LogicalKeyboardKey.keyZ &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
+        HardwareKeyboard.instance.isShiftPressed) {
+      if (UiUndoManager.instance.redo()) {
+        setState(() {});
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+Y = Redo (alternate)
+    if (key == LogicalKeyboardKey.keyY &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      if (UiUndoManager.instance.redo()) {
+        setState(() {});
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+A = Select All regions
+    if (key == LogicalKeyboardKey.keyA &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      _selectAllRegions();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+D = Deselect All
+    if (key == LogicalKeyboardKey.keyD &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      _clearAllRegionSelections();
+      setState(() {});
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+Shift+A = Invert Selection
+    if (key == LogicalKeyboardKey.keyA &&
+        HardwareKeyboard.instance.isShiftPressed &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      _invertRegionSelection();
+      return KeyEventResult.handled;
+    }
+
     // F11 = Toggle fullscreen preview mode
     if (key == LogicalKeyboardKey.f11) {
       setState(() => _isPreviewMode = true);
@@ -1612,8 +1752,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         debugPrint('[SlotLab] ESC pressed - drag cancelled, reverted to original position');
         return KeyEventResult.handled;
       }
-      // ESC with no active drag - could deselect regions
-      _deselectAllRegions();
+      // ESC with no active drag - deselect regions
+      _clearAllRegionSelections();
+      setState(() {});
       return KeyEventResult.handled;
     }
 
@@ -2226,12 +2367,6 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   int? _previewClipId;
 
   void _startAudioPreview(String path) {
-    // Check if FFI is loaded
-    if (!_ffi.isLoaded) {
-      debugPrint('[SlotLab] FFI not loaded, cannot preview');
-      return;
-    }
-
     // Stop any existing preview first
     _stopAudioPreview();
 
@@ -2241,29 +2376,25 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
 
     try {
-      // Find the audio info
+      // Find the audio info for duration
       final audioInfo = _audioPool.firstWhere(
         (a) => a['path'] == path,
         orElse: () => {'path': path, 'name': path.split('/').last, 'duration': 1.0},
       );
       final duration = (audioInfo['duration'] as num?)?.toDouble() ?? 1.0;
 
-      // Create preview track if not exists
-      if (_previewTrackId == null || _previewTrackId == 0) {
-        _previewTrackId = _ffi.createTrack('_preview', 0xFF808080, 2); // Hidden preview track
-        debugPrint('[SlotLab] Created preview track: $_previewTrackId');
-      }
+      // Use AudioPlaybackService for preview (uses PreviewEngine - isolated)
+      final voiceId = AudioPlaybackService.instance.previewFile(
+        path,
+        source: PlaybackSource.browser,
+      );
 
-      if (_previewTrackId != null && _previewTrackId! > 0) {
-        // Import audio file and play
-        _previewClipId = _ffi.importAudio(path, _previewTrackId!, 0.0);
-        debugPrint('[SlotLab] Imported audio clip: $_previewClipId');
-
-        if (_previewClipId != null && _previewClipId! > 0) {
-          _ffi.seek(0.0);
-          _ffi.play();
-          debugPrint('[SlotLab] Playing preview: $path (${duration}s)');
-        }
+      if (voiceId >= 0) {
+        debugPrint('[SlotLab] Playing preview via AudioPlaybackService: $path (voice: $voiceId, ${duration}s)');
+      } else {
+        debugPrint('[SlotLab] Preview failed to start for: $path');
+        _stopAudioPreview();
+        return;
       }
 
       // Auto-stop after duration
@@ -2288,19 +2419,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _isPreviewPlaying = false;
     });
 
-    // Stop via unified playback service (browser source)
+    // Stop via AudioPlaybackService (browser source uses PreviewEngine)
     AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
-
-    // Delete the preview clip to clean up (if using old clip system)
-    if (_previewClipId != null && _previewClipId! > 0) {
-      try {
-        _ffi.deleteClip(_previewClipId!);
-      } catch (e) {
-        debugPrint('[SlotLab] Delete clip error: $e');
-      }
-      _previewClipId = null;
-    }
-
     debugPrint('[SlotLab] Preview stopped');
   }
 
@@ -3529,17 +3649,30 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return GestureDetector(
         behavior: HitTestBehavior.translucent,
         // Only tap/double-tap for selection/collapse
-        onTap: () => setState(() => region.isSelected = !region.isSelected),
+        onTap: () => _handleRegionTap(region, trackIndex),
         onDoubleTap: () => setState(() => region.isExpanded = false),
         onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
         child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
       );
     }
 
-    // When collapsed, drag the whole region
+    // When collapsed, drag the whole region (multi-select drag support)
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (details) {
+        // If dragging an unselected region, select only it first
+        if (!region.isSelected) {
+          _clearAllRegionSelections();
+          region.isSelected = true;
+        }
+
+        // Store original positions for undo
+        final selectedRegions = _getAllSelectedRegions();
+        _dragStartPositions = {};
+        for (final sr in selectedRegions) {
+          _dragStartPositions![sr.id] = (start: sr.start, end: sr.end);
+        }
+
         setState(() {
           _regionDragStartX = region.start;
           _regionDragOffsetX = 0;
@@ -3551,22 +3684,150 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         final timeDelta = (details.delta.dx / totalWidth) * _timelineDuration;
         setState(() {
           _regionDragOffsetX = (_regionDragOffsetX ?? 0) + timeDelta;
-          final newStart = (_regionDragStartX ?? region.start) + _regionDragOffsetX!;
-          final clampedStart = newStart.clamp(0.0, _timelineDuration - duration);
-          region.start = clampedStart;
-          region.end = clampedStart + duration;
+
+          // Move ALL selected regions together
+          final selectedRegions = _getAllSelectedRegions();
+          if (selectedRegions.isNotEmpty) {
+            for (final sr in selectedRegions) {
+              final newStart = sr.start + timeDelta;
+              final clampedStart = newStart.clamp(0.0, _timelineDuration - sr.duration);
+              sr.start = clampedStart;
+              sr.end = clampedStart + sr.duration;
+            }
+          } else {
+            // Fallback: move just the dragging region
+            final newStart = (_regionDragStartX ?? region.start) + _regionDragOffsetX!;
+            final clampedStart = newStart.clamp(0.0, _timelineDuration - duration);
+            region.start = clampedStart;
+            region.end = clampedStart + duration;
+          }
         });
       },
       onPanEnd: (details) {
-        _clearRegionDrag();
+        _clearRegionDragWithUndo();
       },
-      onTap: () => setState(() => region.isSelected = !region.isSelected),
+      onTap: () => _handleRegionTap(region, trackIndex),
       onDoubleTap: region.layers.length > 1
           ? () => setState(() => region.isExpanded = !region.isExpanded)
           : null,
       onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
       child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
     );
+  }
+
+  /// Handle region tap with multi-select support (Cmd/Ctrl, Shift)
+  void _handleRegionTap(_AudioRegion region, int trackIndex) {
+    setState(() {
+      final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                          HardwareKeyboard.instance.isControlPressed;
+      final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+      if (isShift && _lastClickedRegion != null && _lastClickedTrackIndex != null) {
+        // Shift+click: Select range
+        _selectRegionRange(_lastClickedRegion!, _lastClickedTrackIndex!, region, trackIndex);
+      } else if (isCtrlOrCmd) {
+        // Cmd/Ctrl+click: Toggle selection
+        region.isSelected = !region.isSelected;
+      } else {
+        // Normal click: Select only this region
+        _clearAllRegionSelections();
+        region.isSelected = true;
+      }
+
+      // Remember last clicked for shift-select
+      _lastClickedRegion = region;
+      _lastClickedTrackIndex = trackIndex;
+    });
+  }
+
+  /// Clear all region selections across all tracks
+  void _clearAllRegionSelections() {
+    for (final track in _tracks) {
+      for (final region in track.regions) {
+        region.isSelected = false;
+      }
+    }
+  }
+
+  /// Get all selected regions across all tracks
+  List<_AudioRegion> _getAllSelectedRegions() {
+    final selected = <_AudioRegion>[];
+    for (final track in _tracks) {
+      selected.addAll(track.regions.where((r) => r.isSelected));
+    }
+    return selected;
+  }
+
+  /// Select a range of regions (for shift+click)
+  void _selectRegionRange(_AudioRegion startRegion, int startTrackIndex,
+                          _AudioRegion endRegion, int endTrackIndex) {
+    // Get all regions in order
+    final allRegions = <({_AudioRegion region, int trackIndex})>[];
+    for (int ti = 0; ti < _tracks.length; ti++) {
+      for (final region in _tracks[ti].regions) {
+        allRegions.add((region: region, trackIndex: ti));
+      }
+    }
+
+    // Sort by track index, then by start time
+    allRegions.sort((a, b) {
+      final trackCmp = a.trackIndex.compareTo(b.trackIndex);
+      if (trackCmp != 0) return trackCmp;
+      return a.region.start.compareTo(b.region.start);
+    });
+
+    // Find indices of start and end
+    final startIdx = allRegions.indexWhere((r) => r.region == startRegion);
+    final endIdx = allRegions.indexWhere((r) => r.region == endRegion);
+
+    if (startIdx < 0 || endIdx < 0) return;
+
+    // Select range (inclusive)
+    final fromIdx = startIdx < endIdx ? startIdx : endIdx;
+    final toIdx = startIdx < endIdx ? endIdx : startIdx;
+
+    for (int i = fromIdx; i <= toIdx; i++) {
+      allRegions[i].region.isSelected = true;
+    }
+  }
+
+  /// Select all regions across all tracks
+  void _selectAllRegions() {
+    setState(() {
+      for (final track in _tracks) {
+        for (final region in track.regions) {
+          region.isSelected = true;
+        }
+      }
+    });
+    debugPrint('[SlotLab] Selected all regions');
+  }
+
+  /// Invert current region selection
+  void _invertRegionSelection() {
+    setState(() {
+      for (final track in _tracks) {
+        for (final region in track.regions) {
+          region.isSelected = !region.isSelected;
+        }
+      }
+    });
+    debugPrint('[SlotLab] Inverted region selection');
+  }
+
+  /// Toggle mute on all selected regions
+  void _toggleMuteSelectedRegions() {
+    final selected = _getAllSelectedRegions();
+    if (selected.isEmpty) return;
+
+    // If any are unmuted, mute all. Otherwise unmute all.
+    final anyUnmuted = selected.any((r) => !r.isMuted);
+    setState(() {
+      for (final region in selected) {
+        region.isMuted = anyUnmuted;
+      }
+    });
+    debugPrint('[SlotLab] ${anyUnmuted ? "Muted" : "Unmuted"} ${selected.length} regions');
   }
 
   void _clearRegionDrag() {
@@ -3580,6 +3841,75 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _draggingRegionTrackIndex = null;
       _regionDragStartX = null;
       _regionDragOffsetX = null;
+      _dragStartPositions = null;
+    });
+  }
+
+  /// Clear region drag with undo recording
+  void _clearRegionDragWithUndo() {
+    if (_draggingRegion == null || _dragStartPositions == null) {
+      _clearRegionDrag();
+      return;
+    }
+
+    // Sync to provider first
+    _syncRegionOffsetToProvider(_draggingRegion!);
+
+    // Check if anything actually moved
+    final selectedRegions = _getAllSelectedRegions();
+    bool hasMoved = false;
+    for (final sr in selectedRegions) {
+      final original = _dragStartPositions![sr.id];
+      if (original != null && (sr.start != original.start || sr.end != original.end)) {
+        hasMoved = true;
+        break;
+      }
+    }
+
+    // Record undo action if moved
+    if (hasMoved) {
+      final oldPositions = Map<String, ({double start, double end})>.from(_dragStartPositions!);
+      final newPositions = <String, ({double start, double end})>{};
+      for (final sr in selectedRegions) {
+        newPositions[sr.id] = (start: sr.start, end: sr.end);
+      }
+
+      UiUndoManager.instance.record(GenericUndoAction(
+        description: selectedRegions.length > 1
+            ? 'Move ${selectedRegions.length} regions'
+            : 'Move region',
+        onExecute: () {
+          setState(() {
+            for (final sr in selectedRegions) {
+              final pos = newPositions[sr.id];
+              if (pos != null) {
+                sr.start = pos.start;
+                sr.end = pos.end;
+              }
+            }
+          });
+        },
+        onUndo: () {
+          setState(() {
+            for (final sr in selectedRegions) {
+              final pos = oldPositions[sr.id];
+              if (pos != null) {
+                sr.start = pos.start;
+                sr.end = pos.end;
+                _syncRegionOffsetToProvider(sr);
+              }
+            }
+          });
+        },
+      ));
+    }
+
+    setState(() {
+      _draggingRegion = null;
+      _draggingRegionTrackIndex = null;
+      _regionDragStartX = null;
+      _regionDragOffsetX = null;
+      _dragStartPositions = null;
     });
   }
 
@@ -4109,32 +4439,35 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   List<double>? _getWaveformForPath(String audioPath) {
     if (audioPath.isEmpty) return null;
 
-    // Check cache first
+    // 1. Check memory cache first (fastest)
     if (_waveformCache.containsKey(audioPath)) {
       return _waveformCache[audioPath];
     }
 
-    // Try audio pool
+    // 2. Check disk cache (async, but start loading)
+    _checkDiskCacheAsync(audioPath);
+
+    // 3. Try audio pool
     for (final item in _audioPool) {
       final path = item['path'] as String? ?? '';
       if (path == audioPath || path.endsWith(audioPath.split('/').last)) {
         final waveform = item['waveform'];
         if (waveform is List && waveform.isNotEmpty) {
           final data = waveform.map((e) => (e as num).toDouble()).toList();
-          _waveformCache[audioPath] = data;
+          _cacheWaveform(audioPath, data);
           return data;
         }
       }
     }
 
-    // Try to find clip ID in existing regions
+    // 4. Try to find clip ID in existing regions
     for (final track in _tracks) {
       for (final region in track.regions) {
         for (final layer in region.layers) {
           if (layer.audioPath == audioPath && layer.ffiClipId != null && layer.ffiClipId! > 0) {
             final data = _loadWaveformForClip(layer.ffiClipId!);
             if (data != null) {
-              _waveformCache[audioPath] = data;
+              _cacheWaveform(audioPath, data);
               return data;
             }
           }
@@ -4142,25 +4475,65 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       }
     }
 
-    // Check clip ID cache
+    // 5. Check clip ID cache
     if (_clipIdCache.containsKey(audioPath)) {
       final clipId = _clipIdCache[audioPath]!;
       final data = _loadWaveformForClip(clipId);
       if (data != null) {
-        _waveformCache[audioPath] = data;
+        _cacheWaveform(audioPath, data);
         return data;
       }
     }
 
-    // Try to load waveform asynchronously (will be available on next rebuild)
+    // 6. Try to load waveform asynchronously (will be available on next rebuild)
     _loadWaveformAsync(audioPath);
 
     return null;
   }
 
+  /// Check disk cache for waveform asynchronously
+  void _checkDiskCacheAsync(String audioPath) async {
+    // Don't re-check if already in memory cache
+    if (_waveformCache.containsKey(audioPath)) return;
+
+    try {
+      final waveform = await WaveformCacheService.instance.get(audioPath);
+      if (waveform != null && waveform.isNotEmpty) {
+        // Found in disk cache - add to memory cache
+        _waveformCache[audioPath] = waveform;
+        if (mounted) setState(() {});
+        debugPrint('[SlotLab] Loaded waveform from disk cache: $audioPath');
+      }
+    } catch (e) {
+      // Ignore disk cache errors
+    }
+  }
+
+  /// Cache waveform in both memory and disk
+  void _cacheWaveform(String audioPath, List<double> waveform) {
+    // Memory cache
+    _waveformCache[audioPath] = waveform;
+
+    // Disk cache (async, fire and forget)
+    WaveformCacheService.instance.put(audioPath, waveform);
+  }
+
   /// Asynchronously load waveform for a path
   void _loadWaveformAsync(String audioPath) async {
     if (_clipIdCache.containsKey(audioPath) || !_ffi.isLoaded) return;
+
+    // First check disk cache before doing expensive FFI import
+    try {
+      final diskWaveform = await WaveformCacheService.instance.get(audioPath);
+      if (diskWaveform != null && diskWaveform.isNotEmpty) {
+        _waveformCache[audioPath] = diskWaveform;
+        if (mounted) setState(() {});
+        debugPrint('[SlotLab] Loaded waveform from disk: $audioPath (${diskWaveform.length} peaks)');
+        return;
+      }
+    } catch (_) {
+      // Disk cache miss, continue with FFI load
+    }
 
     try {
       // Import audio to get clip ID (use track 0 temporarily)
@@ -4169,10 +4542,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         _clipIdCache[audioPath] = clipId;
         final waveform = _loadWaveformForClip(clipId);
         if (waveform != null && waveform.isNotEmpty) {
-          _waveformCache[audioPath] = waveform;
+          // Cache in memory and disk
+          _cacheWaveform(audioPath, waveform);
           // Trigger rebuild to show waveform
           if (mounted) setState(() {});
-          debugPrint('[SlotLab] Loaded waveform for $audioPath (${waveform.length} peaks)');
+          debugPrint('[SlotLab] Loaded waveform via FFI: $audioPath (${waveform.length} peaks)');
         }
       }
     } catch (e) {

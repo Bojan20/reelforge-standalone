@@ -100,9 +100,9 @@ class StageProvider extends ChangeNotifier {
   /// Import JSON data and run wizard analysis
   Future<WizardResult?> analyzeJson(String jsonString) async {
     try {
-      // Call FFI wizard
-      final success = _ffi.wizardAnalyzeJson(jsonString);
-      if (!success) {
+      // Call FFI wizard - returns JSON result string or null
+      final resultJson = _ffi.wizardAnalyzeJson(jsonString);
+      if (resultJson == null || resultJson.isEmpty) {
         debugPrint('[Stage] Wizard analysis failed');
         return null;
       }
@@ -175,7 +175,7 @@ class StageProvider extends ChangeNotifier {
   /// Get wizard result from FFI
   WizardResult _getWizardResult() {
     final confidence = _ffi.wizardGetConfidence();
-    final layerStr = _ffi.wizardGetRecommendedLayer();
+    final layerInt = _ffi.wizardGetRecommendedLayer();
     final company = _ffi.wizardGetDetectedCompany();
     final engine = _ffi.wizardGetDetectedEngine();
     final configToml = _ffi.wizardGetConfigToml();
@@ -197,7 +197,7 @@ class StageProvider extends ChangeNotifier {
     return WizardResult(
       detectedCompany: company,
       detectedEngine: engine,
-      recommendedLayer: IngestLayer.fromJson(layerStr) ?? IngestLayer.directEvent,
+      recommendedLayer: IngestLayer.fromInt(layerInt),
       confidence: confidence,
       detectedEvents: events,
       configToml: configToml,
@@ -360,7 +360,11 @@ class StageProvider extends ChangeNotifier {
     _adapters = [];
 
     for (var i = 0; i < count; i++) {
-      final infoJson = _ffi.adapterGetInfoJson(i);
+      // Get adapter ID first, then get info by ID
+      final adapterId = _ffi.adapterGetIdAt(i);
+      if (adapterId == null) continue;
+
+      final infoJson = _ffi.adapterGetInfoJson(adapterId);
       if (infoJson != null) {
         try {
           final map = jsonDecode(infoJson) as Map<String, dynamic>;

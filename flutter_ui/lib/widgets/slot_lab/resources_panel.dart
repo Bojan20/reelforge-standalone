@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../widgets/browser/audio_pool_panel.dart';
+import '../../services/waveform_cache_service.dart';
 
 /// Resources Panel Widget
 class ResourcesPanel extends StatefulWidget {
@@ -33,12 +34,31 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
   String _selectedCategory = 'All';
   String? _selectedResourceId;
 
+  // Waveform cache stats
+  Map<String, dynamic> _cacheStats = {};
+  int _diskCacheSize = 0;
+  int _diskCacheCount = 0;
+
   final _categories = ['All', 'SFX', 'Music', 'Voice', 'UI', 'Ambience'];
 
   @override
   void initState() {
     super.initState();
     _loadResources();
+    _loadCacheStats();
+  }
+
+  Future<void> _loadCacheStats() async {
+    final stats = WaveformCacheService.instance.getStats();
+    final size = await WaveformCacheService.instance.getDiskCacheSize();
+    final count = await WaveformCacheService.instance.getDiskCacheCount();
+    if (mounted) {
+      setState(() {
+        _cacheStats = stats;
+        _diskCacheSize = size;
+        _diskCacheCount = count;
+      });
+    }
   }
 
   @override
@@ -344,18 +364,115 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
         : null;
 
     if (selectedResource == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.audio_file, size: 40, color: Colors.white.withOpacity(0.2)),
-            const SizedBox(height: 8),
-            const Text(
-              'Select a resource',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+      // Show cache stats when no resource selected
+      return Column(
+        children: [
+          // Header
+          Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            color: FluxForgeTheme.bgMid,
+            child: const Row(
+              children: [
+                Icon(Icons.cached, size: 14, color: FluxForgeTheme.accentCyan),
+                SizedBox(width: 8),
+                Text(
+                  'WAVEFORM CACHE',
+                  style: TextStyle(
+                    color: FluxForgeTheme.accentCyan,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cache stats
+                  _buildDetailRow('Memory Cache', '${_cacheStats['memorySize'] ?? 0} waveforms'),
+                  _buildDetailRow('Disk Cache', '$_diskCacheCount files'),
+                  _buildDetailRow('Disk Size', _formatBytes(_diskCacheSize)),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('Memory Hits', '${_cacheStats['memoryHits'] ?? 0}'),
+                  _buildDetailRow('Disk Hits', '${_cacheStats['diskHits'] ?? 0}'),
+                  _buildDetailRow('Disk Misses', '${_cacheStats['diskMisses'] ?? 0}'),
+                  _buildDetailRow('Hit Rate', '${_cacheStats['hitRate'] ?? '0.0'}%'),
+                  const SizedBox(height: 16),
+                  // Clear cache button
+                  GestureDetector(
+                    onTap: () async {
+                      await WaveformCacheService.instance.clearAll();
+                      _loadCacheStats();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF4040).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFFF4040).withOpacity(0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4040)),
+                          SizedBox(width: 6),
+                          Text(
+                            'Clear Cache',
+                            style: TextStyle(
+                              color: Color(0xFFFF4040),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Refresh stats
+                  GestureDetector(
+                    onTap: _loadCacheStats,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentBlue.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.refresh, size: 14, color: FluxForgeTheme.accentBlue),
+                          SizedBox(width: 6),
+                          Text(
+                            'Refresh Stats',
+                            style: TextStyle(
+                              color: FluxForgeTheme.accentBlue,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Select a resource for details',
+                    style: TextStyle(color: Colors.white38, fontSize: 10),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 

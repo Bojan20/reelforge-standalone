@@ -111,6 +111,115 @@ class GenericUndoAction extends UndoableAction {
   void undo() => onUndo();
 }
 
+/// Region move action (Slot Lab timeline)
+class RegionMoveAction extends UndoableAction {
+  final String regionId;
+  final double oldStart;
+  final double oldEnd;
+  final double newStart;
+  final double newEnd;
+  final VoidCallback onExecute;
+  final VoidCallback onUndo;
+
+  RegionMoveAction({
+    required this.regionId,
+    required this.oldStart,
+    required this.oldEnd,
+    required this.newStart,
+    required this.newEnd,
+    required this.onExecute,
+    required this.onUndo,
+  });
+
+  @override
+  String get description => 'Move region';
+
+  @override
+  void execute() => onExecute();
+
+  @override
+  void undo() => onUndo();
+}
+
+/// Region delete action (Slot Lab timeline)
+class RegionDeleteAction extends UndoableAction {
+  final String regionId;
+  final Map<String, dynamic> regionData; // Serialized region data for restore
+  final int trackIndex;
+  final VoidCallback onExecute;
+  final VoidCallback onUndo;
+
+  RegionDeleteAction({
+    required this.regionId,
+    required this.regionData,
+    required this.trackIndex,
+    required this.onExecute,
+    required this.onUndo,
+  });
+
+  @override
+  String get description => 'Delete region';
+
+  @override
+  void execute() => onExecute();
+
+  @override
+  void undo() => onUndo();
+}
+
+/// Region add action (Slot Lab timeline)
+class RegionAddAction extends UndoableAction {
+  final String regionId;
+  final int trackIndex;
+  final VoidCallback onExecute;
+  final VoidCallback onUndo;
+
+  RegionAddAction({
+    required this.regionId,
+    required this.trackIndex,
+    required this.onExecute,
+    required this.onUndo,
+  });
+
+  @override
+  String get description => 'Add region';
+
+  @override
+  void execute() => onExecute();
+
+  @override
+  void undo() => onUndo();
+}
+
+/// Batch action for multiple operations (e.g., delete multiple regions)
+class BatchUndoAction extends UndoableAction {
+  final String _description;
+  final List<UndoableAction> actions;
+
+  BatchUndoAction({
+    required String description,
+    required this.actions,
+  }) : _description = description;
+
+  @override
+  String get description => _description;
+
+  @override
+  void execute() {
+    for (final action in actions) {
+      action.execute();
+    }
+  }
+
+  @override
+  void undo() {
+    // Undo in reverse order
+    for (final action in actions.reversed) {
+      action.undo();
+    }
+  }
+}
+
 /// Undo Manager - manages undo/redo stack
 class UiUndoManager extends ChangeNotifier {
   static final UiUndoManager _instance = UiUndoManager._internal();

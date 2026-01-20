@@ -1767,12 +1767,12 @@ typedef StageGetEventsAtTimeNative = Pointer<Utf8> Function(Double timeMs);
 typedef StageGetEventsAtTimeDart = Pointer<Utf8> Function(double timeMs);
 
 // Wizard
-typedef WizardAnalyzeJsonNative = Bool Function(Pointer<Utf8> json);
-typedef WizardAnalyzeJsonDart = bool Function(Pointer<Utf8> json);
+typedef WizardAnalyzeJsonNative = Pointer<Utf8> Function(Pointer<Utf8> json);
+typedef WizardAnalyzeJsonDart = Pointer<Utf8> Function(Pointer<Utf8> json);
 typedef WizardGetConfidenceNative = Double Function();
 typedef WizardGetConfidenceDart = double Function();
-typedef WizardGetRecommendedLayerNative = Pointer<Utf8> Function();
-typedef WizardGetRecommendedLayerDart = Pointer<Utf8> Function();
+typedef WizardGetRecommendedLayerNative = Uint8 Function();
+typedef WizardGetRecommendedLayerDart = int Function();
 typedef WizardGetDetectedCompanyNative = Pointer<Utf8> Function();
 typedef WizardGetDetectedCompanyDart = Pointer<Utf8> Function();
 typedef WizardGetDetectedEngineNative = Pointer<Utf8> Function();
@@ -1791,8 +1791,8 @@ typedef AdapterGetCountNative = Uint32 Function();
 typedef AdapterGetCountDart = int Function();
 typedef AdapterGetIdAtNative = Pointer<Utf8> Function(Uint32 index);
 typedef AdapterGetIdAtDart = Pointer<Utf8> Function(int index);
-typedef AdapterGetInfoJsonNative = Pointer<Utf8> Function(Uint32 index);
-typedef AdapterGetInfoJsonDart = Pointer<Utf8> Function(int index);
+typedef AdapterGetInfoJsonNative = Pointer<Utf8> Function(Pointer<Utf8> adapterId);
+typedef AdapterGetInfoJsonDart = Pointer<Utf8> Function(Pointer<Utf8> adapterId);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // NATIVE FFI CLASS
@@ -13208,13 +13208,17 @@ extension ControlRoomAPI on NativeFFI {
   }
 
   /// Analyze JSON with wizard
-  bool wizardAnalyzeJson(String json) {
-    if (!_loaded) return false;
-    final ptr = json.toNativeUtf8();
+  /// Returns JSON string with result or null on failure
+  String? wizardAnalyzeJson(String json) {
+    if (!_loaded) return null;
+    final inputPtr = json.toNativeUtf8();
     try {
-      return _wizardAnalyzeJson(ptr);
+      final resultPtr = _wizardAnalyzeJson(inputPtr);
+      if (resultPtr == nullptr) return null;
+      final result = resultPtr.toDartString();
+      return result.isEmpty ? null : result;
     } finally {
-      calloc.free(ptr);
+      calloc.free(inputPtr);
     }
   }
 
@@ -13225,12 +13229,10 @@ extension ControlRoomAPI on NativeFFI {
   }
 
   /// Get recommended ingest layer
-  String? wizardGetRecommendedLayer() {
-    if (!_loaded) return null;
-    final ptr = _wizardGetRecommendedLayer();
-    if (ptr == nullptr) return null;
-    final str = ptr.toDartString();
-    return str.isEmpty ? null : str;
+  /// Returns: 0=DirectEvent, 1=SnapshotDiff, 2=RuleBased
+  int wizardGetRecommendedLayer() {
+    if (!_loaded) return 0;
+    return _wizardGetRecommendedLayer();
   }
 
   /// Get detected company name
@@ -13301,13 +13303,18 @@ extension ControlRoomAPI on NativeFFI {
     return str.isEmpty ? null : str;
   }
 
-  /// Get adapter info at index as JSON
-  String? adapterGetInfoJson(int index) {
+  /// Get adapter info by ID as JSON
+  String? adapterGetInfoJson(String adapterId) {
     if (!_loaded) return null;
-    final ptr = _adapterGetInfoJson(index);
-    if (ptr == nullptr) return null;
-    final str = ptr.toDartString();
-    return str.isEmpty ? null : str;
+    final idPtr = adapterId.toNativeUtf8();
+    try {
+      final ptr = _adapterGetInfoJson(idPtr);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      return str.isEmpty ? null : str;
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
