@@ -23,6 +23,7 @@ rf-event = { path = "../rf-event" }
 rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-slot-lab = { path = "../rf-slot-lab" }
+rf-ale = { path = "../rf-ale" }
 
 # Audio I/O
 cpal.workspace = true

@@ -43,6 +43,7 @@ mod midi_ffi;
 pub mod middleware_ffi;
 mod playback;
 pub mod slot_lab_ffi;
+pub mod ale_ffi;
 mod project;
 pub mod timestretch;
 mod transport;
@@ -309,3 +310,6 @@ pub use middleware_ffi::*;
 
 // Re-export slot lab FFI
 pub use slot_lab_ffi::*;
+
+// Re-export ALE FFI
+pub use ale_ffi::*;

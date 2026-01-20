@@ -1239,6 +1239,48 @@ Critical (P0) i High-Priority (P1) audio poboljšanja za Slot Lab.
 
 **Dokumentacija:** `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` (kompletni tehnički detalji)
 
+### Adaptive Layer Engine (ARCHITECTURE COMPLETE) ✅
+
+Universal, data-driven layer engine za dinamičnu game muziku.
+
+**Filozofija:** Od "pusti zvuk X" do "igra je u emotivnom stanju Y".
+
+**Core Concepts:**
+
+| Koncept | Opis |
+|---------|------|
+| **Context** | Game chapter (BASE, FREESPINS, HOLDWIN, etc.) — definiše dostupne layere |
+| **Layer** | Intensity level L1-L5 — energetski stepen, ne konkretni audio fajl |
+| **Metrics** | Runtime signali (winTier, winXbet, momentum, etc.) koji pokreću tranzicije |
+| **Rules** | Uslovi za promenu levela (npr. "if winXbet > 10 → step_up") |
+
+**Metric Signals:**
+```
+winTier          0-5     (NONE, SMALL, BIG, MEGA, EPIC, ULTRA)
+winXbet          0.0+    Win amount / bet size
+consecutiveWins  0-255   Win streak counter
+spinsSinceWin    0-255   Lose streak counter
+featureProgress  0.0-1.0 Progress through bonus
+momentum         0.0-1.0 Trending win intensity
+playerSpeedMode  enum    NORMAL, TURBO, AUTO
+```
+
+**Stability Mechanisms:**
+- **Cooldown** — Minimum vreme između promena levela
+- **Hysteresis** — Različiti thresholds za up vs down
+- **Hold Time** — Uslov mora trajati N ms pre tranzicije
+- **Level Inertia** — Viši nivoi su "lepljiviji" (teže padaju)
+
+**Transition Profiles:**
+- `immediate` — Instant switch (za urgentne evente)
+- `beat_sync` — Na sledećem beat-u
+- `phrase_sync` — Na sledećoj muzičkoj frazi
+- `crossfade` — Smooth blend između nivoa
+
+**Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md`
+
+---
+
 ### Universal Stage Ingest System (PLANNED)
 
 Slot-agnostički sistem za integraciju sa bilo kojim game engine-om.
@@ -1277,6 +1319,7 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 - `.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md`
 - `.claude/architecture/SLOT_LAB_SYSTEM.md`
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — **KRITIČNO: Unified playback across DAW/Middleware/SlotLab**
+- `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` — **Universal Layer Engine: context-aware, metric-reactive music system**
 
 ---
 

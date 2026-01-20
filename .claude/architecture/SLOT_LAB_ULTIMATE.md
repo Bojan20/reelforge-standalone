@@ -554,3 +554,61 @@ All planned features implemented:
 - ✅ GDD Import Panel
 - ✅ SlotLabProvider integration
 - ✅ Slot Lab Screen tabs
+
+---
+
+## Related Architecture Documents
+
+| Document | Description |
+|----------|-------------|
+| [ADAPTIVE_LAYER_ENGINE.md](ADAPTIVE_LAYER_ENGINE.md) | Data-driven, context-aware, metric-reactive music layer system |
+| [SLOT_LAB_AUDIO_FEATURES.md](SLOT_LAB_AUDIO_FEATURES.md) | P0-P1 audio improvements (latency, panning, cascades, RTPC) |
+| [SLOT_LAB_SYSTEM.md](SLOT_LAB_SYSTEM.md) | Core Slot Lab architecture and stage events |
+
+---
+
+## Phase 8 — Adaptive Layer Engine (PLANNED)
+
+Universal, data-driven layer engine for dynamic game music.
+
+**Core Concepts:**
+
+| Concept | Description |
+|---------|-------------|
+| **Context** | Game chapter (BASE, FREESPINS, HOLDWIN, etc.) — defines which layers are available |
+| **Layer** | Intensity level L1-L5 — energy degree, not a specific audio file |
+| **Metrics** | Runtime signals (winTier, winXbet, momentum, etc.) that drive layer transitions |
+| **Rules** | Conditions that trigger layer changes (e.g., "if winXbet > 10 → step_up") |
+
+**Key Benefits:**
+
+- **Game-agnostic** — Works with any slot, no hardcoded logic
+- **Data-driven** — All behavior defined in JSON, not code
+- **Metric-reactive** — Responds to game state changes in real-time
+- **Smooth transitions** — Beat-synced, phrase-synced, or immediate
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Adaptive Layer Engine                        │
+├─────────────────────────────────────────────────────────────────┤
+│  INPUTS (Metrics)              OUTPUTS (Audio State)            │
+│  ├── winTier: u8               ├── currentContext: String       │
+│  ├── winXbet: f64              ├── currentLevel: u8             │
+│  ├── consecutiveWins: u8       ├── targetLevel: u8              │
+│  ├── spinsSinceWin: u8         ├── transitionProgress: f64      │
+│  ├── featureProgress: f64      └── activeLayerAudioPaths: []    │
+│  ├── momentum: f64                                               │
+│  └── playerSpeedMode: enum                                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Stability Mechanisms:**
+
+- **Cooldown** — Minimum time between level changes
+- **Hysteresis** — Different thresholds for up vs down
+- **Hold Time** — Condition must persist for N ms before transition
+- **Level Inertia** — Higher levels are "stickier" (harder to drop)
+
+**See:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` for complete specification

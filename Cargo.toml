@@ -24,6 +24,8 @@ members = [
     "crates/rf-ingest",
     "crates/rf-connector",
     "crates/rf-slot-lab",
+    # Adaptive Layer Engine
+    "crates/rf-ale",
 ]
 
 [workspace.package]
@@ -57,6 +59,7 @@ rf-stage = { path = "crates/rf-stage" }
 rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
+rf-ale = { path = "crates/rf-ale" }
 
 # Plugin hosting
 vst3 = "0.3"

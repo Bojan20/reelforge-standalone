@@ -1,0 +1,27 @@
+[package]
+name = "rf-ale"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Adaptive Layer Engine - Data-driven, context-aware, metric-reactive music system"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+rf-core = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+rtrb = { workspace = true }
+
+# [dev-dependencies]
+# criterion = { workspace = true }
+
+# [[bench]]
+# name = "ale_bench"
+# harness = false

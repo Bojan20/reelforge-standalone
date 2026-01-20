@@ -15560,4 +15560,324 @@ extension SlotLabFFI on NativeFFI {
       return 400.0;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADAPTIVE LAYER ENGINE (ALE)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize ALE engine
+  bool aleInit() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'ale_init',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[ALE] aleInit error: $e');
+      return false;
+    }
+  }
+
+  /// Shutdown ALE engine
+  void aleShutdown() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'ale_shutdown',
+      );
+      fn();
+    } catch (e) {
+      print('[ALE] aleShutdown error: $e');
+    }
+  }
+
+  /// Load ALE profile from JSON
+  bool aleLoadProfile(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('ale_load_profile');
+
+      final jsonPtr = json.toNativeUtf8();
+      final result = fn(jsonPtr);
+      calloc.free(jsonPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[ALE] aleLoadProfile error: $e');
+      return false;
+    }
+  }
+
+  /// Export current ALE profile as JSON
+  String? aleExportProfile() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'ale_export_profile',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'ale_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[ALE] aleExportProfile error: $e');
+      return null;
+    }
+  }
+
+  /// Enter a context
+  bool aleEnterContext(String contextId, String? transitionId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ale_enter_context');
+
+      final contextPtr = contextId.toNativeUtf8();
+      final transitionPtr = (transitionId ?? '').toNativeUtf8();
+      final result = fn(contextPtr, transitionPtr);
+      calloc.free(contextPtr);
+      calloc.free(transitionPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[ALE] aleEnterContext error: $e');
+      return false;
+    }
+  }
+
+  /// Exit current context
+  bool aleExitContext(String? transitionId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('ale_exit_context');
+
+      final transitionPtr = (transitionId ?? '').toNativeUtf8();
+      final result = fn(transitionPtr);
+      calloc.free(transitionPtr);
+
+      return result == 1;
+    } catch (e) {
+      print('[ALE] aleExitContext error: $e');
+      return false;
+    }
+  }
+
+  /// Update a signal value
+  void aleUpdateSignal(String signalId, double value) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>, Double),
+          void Function(Pointer<Utf8>, double)
+      >('ale_update_signal');
+
+      final signalPtr = signalId.toNativeUtf8();
+      fn(signalPtr, value);
+      calloc.free(signalPtr);
+    } catch (e) {
+      print('[ALE] aleUpdateSignal error: $e');
+    }
+  }
+
+  /// Get normalized signal value (0.0-1.0)
+  double aleGetSignalNormalized(String signalId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Pointer<Utf8>),
+          double Function(Pointer<Utf8>)
+      >('ale_get_signal_normalized');
+
+      final signalPtr = signalId.toNativeUtf8();
+      final result = fn(signalPtr);
+      calloc.free(signalPtr);
+
+      return result;
+    } catch (e) {
+      print('[ALE] aleGetSignalNormalized error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Set level manually
+  bool aleSetLevel(int level) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Int32),
+          int Function(int)
+      >('ale_set_level');
+
+      return fn(level) == 1;
+    } catch (e) {
+      print('[ALE] aleSetLevel error: $e');
+      return false;
+    }
+  }
+
+  /// Step up one level
+  bool aleStepUp() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'ale_step_up',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[ALE] aleStepUp error: $e');
+      return false;
+    }
+  }
+
+  /// Step down one level
+  bool aleStepDown() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'ale_step_down',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[ALE] aleStepDown error: $e');
+      return false;
+    }
+  }
+
+  /// Set tempo (BPM)
+  void aleSetTempo(double bpm) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Double),
+          void Function(double)
+      >('ale_set_tempo');
+      fn(bpm);
+    } catch (e) {
+      print('[ALE] aleSetTempo error: $e');
+    }
+  }
+
+  /// Set time signature
+  void aleSetTimeSignature(int numerator, int denominator) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int32, Int32),
+          void Function(int, int)
+      >('ale_set_time_signature');
+      fn(numerator, denominator);
+    } catch (e) {
+      print('[ALE] aleSetTimeSignature error: $e');
+    }
+  }
+
+  /// Tick the engine (call from audio callback or timer)
+  void aleTick() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'ale_tick',
+      );
+      fn();
+    } catch (e) {
+      print('[ALE] aleTick error: $e');
+    }
+  }
+
+  /// Get engine state as JSON
+  String? aleGetState() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'ale_get_state',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'ale_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[ALE] aleGetState error: $e');
+      return null;
+    }
+  }
+
+  /// Get layer volumes as JSON array
+  String? aleGetLayerVolumes() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'ale_get_layer_volumes',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'ale_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[ALE] aleGetLayerVolumes error: $e');
+      return null;
+    }
+  }
+
+  /// Get current level
+  int aleGetLevel() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'ale_get_level',
+      );
+      return fn();
+    } catch (e) {
+      print('[ALE] aleGetLevel error: $e');
+      return 0;
+    }
+  }
+
+  /// Get active context ID
+  String? aleGetActiveContext() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'ale_get_active_context',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'ale_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final str = ptr.toDartString();
+      freeFn(ptr);
+
+      return str.isEmpty ? null : str;
+    } catch (e) {
+      print('[ALE] aleGetActiveContext error: $e');
+      return null;
+    }
+  }
+
+  /// Check if engine is in transition
+  bool aleInTransition() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'ale_in_transition',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[ALE] aleInTransition error: $e');
+      return false;
+    }
+  }
 }
