@@ -54,6 +54,7 @@
 
 pub mod config;
 pub mod engine;
+pub mod engine_v2;
 pub mod paytable;
 pub mod spin;
 pub mod symbols;
@@ -81,6 +82,7 @@ pub mod parser;
 
 pub use config::*;
 pub use engine::*;
+pub use engine_v2::SlotEngineV2;
 pub use paytable::*;
 pub use spin::*;
 pub use symbols::*;

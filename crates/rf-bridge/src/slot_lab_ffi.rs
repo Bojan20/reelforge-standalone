@@ -23,7 +23,10 @@ use std::ptr;
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 
 use rf_slot_lab::{
-    ForcedOutcome, SpinResult, SyntheticSlotEngine, TimingProfile, VolatilityProfile,
+    ForcedOutcome, GameModel, SlotEngineV2, SpinResult, SyntheticSlotEngine,
+    TimingProfile, VolatilityProfile,
+    parser::GddParser,
+    scenario::{ScenarioPlayback, ScenarioRegistry},
 };
 use rf_stage::StageEvent;
 
@@ -788,6 +791,601 @@ pub extern "C" fn slot_lab_last_spin_cascade_count() -> i32 {
     match &*guard {
         Some(result) => result.cascades.len() as i32,
         None => 0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENGINE V2 — GameModel-driven engine
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Engine V2 initialization state
+static ENGINE_V2_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
+
+/// Global Engine V2 instance
+static ENGINE_V2: Lazy<RwLock<Option<SlotEngineV2>>> = Lazy::new(|| RwLock::new(None));
+
+/// Last Engine V2 spin result
+static LAST_V2_RESULT: Lazy<RwLock<Option<SpinResult>>> = Lazy::new(|| RwLock::new(None));
+
+/// Last Engine V2 stages
+static LAST_V2_STAGES: Lazy<RwLock<Vec<StageEvent>>> = Lazy::new(|| RwLock::new(Vec::new()));
+
+/// Initialize Engine V2 with default 5x3 game model
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_init() -> i32 {
+    match ENGINE_V2_STATE.compare_exchange(
+        STATE_UNINITIALIZED,
+        STATE_INITIALIZING,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            let engine = SlotEngineV2::new();
+            *ENGINE_V2.write() = Some(engine);
+            ENGINE_V2_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+            log::info!("slot_lab_v2_init: Engine V2 initialized with default model");
+            1
+        }
+        Err(STATE_INITIALIZING) => {
+            while ENGINE_V2_STATE.load(Ordering::SeqCst) == STATE_INITIALIZING {
+                std::hint::spin_loop();
+            }
+            0
+        }
+        Err(_) => {
+            log::warn!("slot_lab_v2_init: Already initialized");
+            0
+        }
+    }
+}
+
+/// Initialize Engine V2 with a GameModel from JSON
+///
+/// Returns 1 on success, 0 on failure or already initialized
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_init_with_model_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        return 0;
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(json).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    match ENGINE_V2_STATE.compare_exchange(
+        STATE_UNINITIALIZED,
+        STATE_INITIALIZING,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            // Parse the JSON as GameModel
+            match serde_json::from_str::<GameModel>(json_str) {
+                Ok(model) => {
+                    let engine = SlotEngineV2::from_model(model);
+                    *ENGINE_V2.write() = Some(engine);
+                    ENGINE_V2_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+                    log::info!("slot_lab_v2_init_with_model_json: Engine V2 initialized with custom model");
+                    1
+                }
+                Err(e) => {
+                    log::error!("slot_lab_v2_init_with_model_json: Failed to parse model: {}", e);
+                    ENGINE_V2_STATE.store(STATE_UNINITIALIZED, Ordering::SeqCst);
+                    0
+                }
+            }
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Initialize Engine V2 from a GDD (Game Design Document) JSON
+///
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_init_from_gdd(gdd_json: *const c_char) -> i32 {
+    if gdd_json.is_null() {
+        return 0;
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(gdd_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    match ENGINE_V2_STATE.compare_exchange(
+        STATE_UNINITIALIZED,
+        STATE_INITIALIZING,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            // Parse GDD and convert to GameModel
+            let parser = GddParser::new();
+            match parser.parse_json(json_str) {
+                Ok(model) => {
+                    let engine = SlotEngineV2::from_model(model);
+                    *ENGINE_V2.write() = Some(engine);
+                    ENGINE_V2_STATE.store(STATE_INITIALIZED, Ordering::SeqCst);
+                    log::info!("slot_lab_v2_init_from_gdd: Engine V2 initialized from GDD");
+                    1
+                }
+                Err(e) => {
+                    log::error!("slot_lab_v2_init_from_gdd: Failed to parse GDD: {:?}", e);
+                    ENGINE_V2_STATE.store(STATE_UNINITIALIZED, Ordering::SeqCst);
+                    0
+                }
+            }
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Shutdown Engine V2
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_shutdown() {
+    match ENGINE_V2_STATE.compare_exchange(
+        STATE_INITIALIZED,
+        STATE_UNINITIALIZED,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+    ) {
+        Ok(_) => {
+            *ENGINE_V2.write() = None;
+            *LAST_V2_RESULT.write() = None;
+            LAST_V2_STAGES.write().clear();
+            log::info!("slot_lab_v2_shutdown: Engine V2 shutdown");
+        }
+        Err(_) => {
+            log::warn!("slot_lab_v2_shutdown: Not initialized");
+        }
+    }
+}
+
+/// Check if Engine V2 is initialized
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_is_initialized() -> i32 {
+    if ENGINE_V2_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED {
+        1
+    } else {
+        0
+    }
+}
+
+/// Execute a spin with Engine V2
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_spin() -> u64 {
+    let mut guard = ENGINE_V2.write();
+    let Some(ref mut engine) = *guard else {
+        return 0;
+    };
+
+    let (result, stages) = engine.spin_with_stages();
+    let spin_id = SPIN_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    *LAST_V2_RESULT.write() = Some(result);
+    *LAST_V2_STAGES.write() = stages;
+
+    spin_id
+}
+
+/// Execute a forced spin with Engine V2
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_spin_forced(outcome: i32) -> u64 {
+    if !(FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
+        return 0;
+    }
+
+    let mut guard = ENGINE_V2.write();
+    let Some(ref mut engine) = *guard else {
+        return 0;
+    };
+
+    let forced = match outcome {
+        0 => ForcedOutcome::Lose,
+        1 => ForcedOutcome::SmallWin,
+        2 => ForcedOutcome::MediumWin,
+        3 => ForcedOutcome::BigWin,
+        4 => ForcedOutcome::MegaWin,
+        5 => ForcedOutcome::EpicWin,
+        6 => ForcedOutcome::UltraWin,
+        7 => ForcedOutcome::FreeSpins,
+        8 => ForcedOutcome::JackpotMini,
+        9 => ForcedOutcome::JackpotMinor,
+        10 => ForcedOutcome::JackpotMajor,
+        11 => ForcedOutcome::JackpotGrand,
+        12 => ForcedOutcome::NearMiss,
+        13 => ForcedOutcome::Cascade,
+        _ => return 0,
+    };
+
+    let (result, stages) = engine.spin_forced_with_stages(forced);
+    let spin_id = SPIN_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    *LAST_V2_RESULT.write() = Some(result);
+    *LAST_V2_STAGES.write() = stages;
+
+    spin_id
+}
+
+/// Get Engine V2 spin result as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_get_spin_result_json() -> *mut c_char {
+    let guard = LAST_V2_RESULT.read();
+    let json = match &*guard {
+        Some(result) => serde_json::to_string(result).unwrap_or_else(|_| "{}".to_string()),
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get Engine V2 stages as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_get_stages_json() -> *mut c_char {
+    let guard = LAST_V2_STAGES.read();
+    let json = serde_json::to_string(&*guard).unwrap_or_else(|_| "[]".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get Engine V2 game model as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_get_model_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    let json = match &*guard {
+        Some(engine) => {
+            serde_json::to_string(engine.model()).unwrap_or_else(|_| "{}".to_string())
+        }
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get Engine V2 stats as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_get_stats_json() -> *mut c_char {
+    let guard = ENGINE_V2.read();
+    let json = match &*guard {
+        Some(engine) => {
+            serde_json::to_string(engine.stats()).unwrap_or_else(|_| "{}".to_string())
+        }
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Set Engine V2 game mode (0 = GddOnly, 1 = MathDriven)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_set_mode(mode: i32) {
+    let mut guard = ENGINE_V2.write();
+    if let Some(ref mut engine) = *guard {
+        let game_mode = match mode {
+            0 => rf_slot_lab::model::GameMode::GddOnly,
+            1 => rf_slot_lab::model::GameMode::MathDriven,
+            _ => rf_slot_lab::model::GameMode::GddOnly,
+        };
+        engine.set_mode(game_mode);
+    }
+}
+
+/// Set Engine V2 bet amount
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_set_bet(bet: f64) {
+    let mut guard = ENGINE_V2.write();
+    if let Some(ref mut engine) = *guard {
+        engine.set_bet(bet);
+    }
+}
+
+/// Seed Engine V2 RNG
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_seed(seed: u64) {
+    let mut guard = ENGINE_V2.write();
+    if let Some(ref mut engine) = *guard {
+        engine.seed(seed);
+    }
+}
+
+/// Reset Engine V2 stats
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_reset_stats() {
+    let mut guard = ENGINE_V2.write();
+    if let Some(ref mut engine) = *guard {
+        engine.reset_stats();
+    }
+}
+
+/// Get win tier name from last V2 spin
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_v2_last_win_tier() -> *mut c_char {
+    let guard = LAST_V2_RESULT.read();
+    let name = match &*guard {
+        Some(result) => result.win_tier_name.clone().unwrap_or_default(),
+        None => String::new(),
+    };
+
+    match CString::new(name) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCENARIO SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Global scenario registry
+static SCENARIO_REGISTRY: Lazy<RwLock<ScenarioRegistry>> =
+    Lazy::new(|| RwLock::new(ScenarioRegistry::new()));
+
+/// Active playback state
+static ACTIVE_PLAYBACK: Lazy<RwLock<Option<ScenarioPlayback>>> =
+    Lazy::new(|| RwLock::new(None));
+
+/// List all available scenarios as JSON array
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_list_json() -> *mut c_char {
+    let registry = SCENARIO_REGISTRY.read();
+    let info = registry.list_with_info();
+    let json = serde_json::to_string(&info).unwrap_or_else(|_| "[]".to_string());
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Load a scenario by ID for playback
+///
+/// Returns 1 on success, 0 if scenario not found
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_load(id: *const c_char) -> i32 {
+    if id.is_null() {
+        return 0;
+    }
+
+    let id_str = unsafe {
+        match CStr::from_ptr(id).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let registry = SCENARIO_REGISTRY.read();
+    match registry.create_playback(id_str) {
+        Some(playback) => {
+            *ACTIVE_PLAYBACK.write() = Some(playback);
+            log::info!("slot_lab_scenario_load: Loaded scenario '{}'", id_str);
+            1
+        }
+        None => {
+            log::warn!("slot_lab_scenario_load: Scenario '{}' not found", id_str);
+            0
+        }
+    }
+}
+
+/// Check if a scenario is currently loaded
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_is_loaded() -> i32 {
+    if ACTIVE_PLAYBACK.read().is_some() { 1 } else { 0 }
+}
+
+/// Get the next spin from the loaded scenario
+///
+/// Returns the scripted spin as JSON, or empty object if no more spins
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_next_spin_json() -> *mut c_char {
+    let mut playback = ACTIVE_PLAYBACK.write();
+    let json = match &mut *playback {
+        Some(pb) => match pb.next() {
+            Some(spin) => serde_json::to_string(spin).unwrap_or_else(|_| "{}".to_string()),
+            None => "{}".to_string(),
+        },
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get current playback progress (current_index, total_spins)
+///
+/// Returns as "current,total" string
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_progress() -> *mut c_char {
+    let playback = ACTIVE_PLAYBACK.read();
+    let progress_str = match &*playback {
+        Some(pb) => {
+            let (current, total) = pb.progress();
+            format!("{},{}", current, total)
+        }
+        None => "0,0".to_string(),
+    };
+
+    match CString::new(progress_str) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Check if scenario playback is complete
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_is_complete() -> i32 {
+    let playback = ACTIVE_PLAYBACK.read();
+    match &*playback {
+        Some(pb) => if pb.is_complete() { 1 } else { 0 },
+        None => 1, // No playback = complete
+    }
+}
+
+/// Reset scenario playback to beginning
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_reset() {
+    let mut playback = ACTIVE_PLAYBACK.write();
+    if let Some(pb) = &mut *playback {
+        pb.reset();
+    }
+}
+
+/// Unload the current scenario
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_unload() {
+    *ACTIVE_PLAYBACK.write() = None;
+}
+
+/// Register a custom scenario from JSON
+///
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_register_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        return 0;
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(json).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    match serde_json::from_str::<rf_slot_lab::DemoScenario>(json_str) {
+        Ok(scenario) => {
+            let mut registry = SCENARIO_REGISTRY.write();
+            log::info!("slot_lab_scenario_register_json: Registered scenario '{}'", scenario.id);
+            registry.register(scenario);
+            1
+        }
+        Err(e) => {
+            log::error!("slot_lab_scenario_register_json: Failed to parse: {}", e);
+            0
+        }
+    }
+}
+
+/// Get a scenario by ID as JSON
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_scenario_get_json(id: *const c_char) -> *mut c_char {
+    if id.is_null() {
+        return ptr::null_mut();
+    }
+
+    let id_str = unsafe {
+        match CStr::from_ptr(id).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let registry = SCENARIO_REGISTRY.read();
+    let json = match registry.get(id_str) {
+        Some(scenario) => serde_json::to_string(scenario).unwrap_or_else(|_| "{}".to_string()),
+        None => "{}".to_string(),
+    };
+
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GDD PARSER — Parse Game Design Documents
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Parse a GDD JSON and validate it
+///
+/// Returns validation result as JSON with errors array
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gdd_validate(gdd_json: *const c_char) -> *mut c_char {
+    if gdd_json.is_null() {
+        let error_json = r#"{"valid":false,"errors":["Null input"]}"#;
+        return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(gdd_json).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                let error_json = r#"{"valid":false,"errors":["Invalid UTF-8"]}"#;
+                return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+            }
+        }
+    };
+
+    let parser = GddParser::new();
+    match parser.parse_json(json_str) {
+        Ok(_model) => {
+            // Successfully parsed and validated
+            let result = serde_json::json!({
+                "valid": true,
+                "errors": serde_json::Value::Array(vec![]),
+            });
+            let json = serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":true}"#.to_string());
+            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
+        Err(e) => {
+            let result = serde_json::json!({
+                "valid": false,
+                "errors": [format!("Parse error: {:?}", e)],
+            });
+            let json = serde_json::to_string(&result).unwrap_or_else(|_| r#"{"valid":false}"#.to_string());
+            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
+    }
+}
+
+/// Convert a GDD JSON to a GameModel JSON
+///
+/// Returns the GameModel as JSON, or error JSON on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_gdd_to_model(gdd_json: *const c_char) -> *mut c_char {
+    if gdd_json.is_null() {
+        let error_json = r#"{"error":"Null input"}"#;
+        return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+    }
+
+    let json_str = unsafe {
+        match CStr::from_ptr(gdd_json).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                let error_json = r#"{"error":"Invalid UTF-8"}"#;
+                return CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut());
+            }
+        }
+    };
+
+    let parser = GddParser::new();
+    match parser.parse_json(json_str) {
+        Ok(model) => {
+            let json = serde_json::to_string(&model).unwrap_or_else(|_| "{}".to_string());
+            CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
+        Err(e) => {
+            let error_json = format!(r#"{{"error":"Parse error: {:?}"}}"#, e);
+            CString::new(error_json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+        }
     }
 }
 

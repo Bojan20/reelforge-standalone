@@ -9,6 +9,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../models/stage_models.dart';
@@ -18,6 +19,7 @@ import '../services/audio_pool.dart';
 import '../services/rtpc_modulation_service.dart';
 import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
+import '../src/rust/slot_lab_v2_ffi.dart';
 import 'middleware_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,6 +161,17 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Get big win tier from last spin
   SlotLabWinTier? get lastBigWinTier => _lastResult?.bigWinTier;
+
+  // ─── Engine V2 State ──────────────────────────────────────────────────────
+  bool _engineV2Initialized = false;
+  Map<String, dynamic>? _currentGameModel;
+  List<ScenarioInfo> _availableScenarios = [];
+  String? _loadedScenarioId;
+
+  bool get engineV2Initialized => _engineV2Initialized;
+  Map<String, dynamic>? get currentGameModel => _currentGameModel;
+  List<ScenarioInfo> get availableScenarios => _availableScenarios;
+  String? get loadedScenarioId => _loadedScenarioId;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION
@@ -1068,6 +1081,135 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ENGINE V2 — GameModel-driven engine
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize Engine V2 with default model
+  bool initEngineV2() {
+    if (_engineV2Initialized) return true;
+
+    final success = _ffi.slotLabV2Init();
+    if (success) {
+      _engineV2Initialized = true;
+      _currentGameModel = _ffi.slotLabV2GetModel();
+      _refreshScenarioList();
+      debugPrint('[SlotLabProvider] Engine V2 initialized');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Initialize Engine V2 from GDD JSON
+  bool initEngineFromGdd(String gddJson) {
+    // Shutdown existing engine first
+    if (_engineV2Initialized) {
+      _ffi.slotLabV2Shutdown();
+      _engineV2Initialized = false;
+    }
+
+    final success = _ffi.slotLabV2InitFromGdd(gddJson);
+    if (success) {
+      _engineV2Initialized = true;
+      _currentGameModel = _ffi.slotLabV2GetModel();
+      _refreshScenarioList();
+      debugPrint('[SlotLabProvider] Engine V2 initialized from GDD');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Update game model (re-initializes engine)
+  bool updateGameModel(Map<String, dynamic> model) {
+    // Shutdown existing engine
+    if (_engineV2Initialized) {
+      _ffi.slotLabV2Shutdown();
+      _engineV2Initialized = false;
+    }
+
+    // Convert model to JSON and initialize
+    final modelJson = model.toString(); // Will be proper JSON in real impl
+    final success = _ffi.slotLabV2InitWithModelJson(modelJson);
+    if (success) {
+      _engineV2Initialized = true;
+      _currentGameModel = _ffi.slotLabV2GetModel();
+      debugPrint('[SlotLabProvider] Game model updated');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Shutdown Engine V2
+  void shutdownEngineV2() {
+    if (!_engineV2Initialized) return;
+    _ffi.slotLabV2Shutdown();
+    _engineV2Initialized = false;
+    _currentGameModel = null;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCENARIO SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _refreshScenarioList() {
+    _availableScenarios = _ffi.slotLabScenarioList();
+  }
+
+  /// Load a scenario for playback
+  bool loadScenario(String scenarioId) {
+    final success = _ffi.slotLabScenarioLoad(scenarioId);
+    if (success) {
+      _loadedScenarioId = scenarioId;
+      debugPrint('[SlotLabProvider] Loaded scenario: $scenarioId');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Unload current scenario
+  void unloadScenario() {
+    _ffi.slotLabScenarioUnload();
+    _loadedScenarioId = null;
+    notifyListeners();
+  }
+
+  /// Register a custom scenario from Map
+  bool registerScenario(Map<String, dynamic> scenarioJson) {
+    final jsonStr = scenarioJson.toString(); // Will be proper JSON
+    final success = _ffi.slotLabScenarioRegister(jsonStr);
+    if (success) {
+      _refreshScenarioList();
+      debugPrint('[SlotLabProvider] Registered custom scenario');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Register a custom scenario from DemoScenario object
+  bool registerScenarioFromDemoScenario(DemoScenario scenario) {
+    final jsonStr = jsonEncode(scenario.toJson());
+    final success = _ffi.slotLabScenarioRegister(jsonStr);
+    if (success) {
+      _refreshScenarioList();
+      debugPrint('[SlotLabProvider] Registered scenario: ${scenario.id}');
+      notifyListeners();
+    }
+    return success;
+  }
+
+  /// Get scenario progress (current, total)
+  (int, int) get scenarioProgress => _ffi.slotLabScenarioProgress();
+
+  /// Check if scenario is complete
+  bool get scenarioIsComplete => _ffi.slotLabScenarioIsComplete();
+
+  /// Reset scenario to beginning
+  void resetScenario() {
+    _ffi.slotLabScenarioReset();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1075,6 +1217,7 @@ class SlotLabProvider extends ChangeNotifier {
   void dispose() {
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
+    shutdownEngineV2();
     shutdown();
     super.dispose();
   }

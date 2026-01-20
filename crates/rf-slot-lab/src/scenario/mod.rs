@@ -8,6 +8,7 @@
 //! - `DemoScenario` — A sequence of scripted spins
 //! - `ScriptedOutcome` — A single scripted outcome
 //! - `ScenarioPlayback` — Playback engine for scenarios
+//! - `ScenarioPresets` — Built-in demo scenarios
 //!
 //! ## Built-in Presets
 //!
@@ -17,16 +18,7 @@
 //! - `jackpot_demo` — Jackpot wheel sequence
 //! - `stress_test` — Rapid fire for testing
 
-// TODO: Implement in Phase 3
-// mod demo;
-// mod outcome;
-// mod playback;
-// mod presets;
-
-// pub use demo::*;
-// pub use outcome::*;
-// pub use playback::*;
-// pub use presets::*;
+mod presets;
 
 // Placeholder types for now
 use serde::{Deserialize, Serialize};
@@ -216,5 +208,165 @@ impl ScenarioPlayback {
         self.current_index = 0;
         self.loop_count = 0;
         self.direction = 1;
+    }
+
+    /// Get scenario reference
+    pub fn scenario(&self) -> &DemoScenario {
+        &self.scenario
+    }
+
+    /// Get current spin without advancing
+    pub fn current(&self) -> Option<&ScriptedSpin> {
+        self.scenario.sequence.get(self.current_index)
+    }
+
+    /// Skip to specific index
+    pub fn skip_to(&mut self, index: usize) {
+        if index < self.scenario.sequence.len() {
+            self.current_index = index;
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCENARIO REGISTRY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Registry of available scenarios
+#[derive(Debug, Default)]
+pub struct ScenarioRegistry {
+    scenarios: std::collections::HashMap<String, DemoScenario>,
+}
+
+impl ScenarioRegistry {
+    /// Create new registry with built-in presets
+    pub fn new() -> Self {
+        let mut registry = Self::default();
+        registry.register_presets();
+        registry
+    }
+
+    /// Create empty registry (no presets)
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Register built-in presets
+    pub fn register_presets(&mut self) {
+        for scenario in presets::all_presets() {
+            self.register(scenario);
+        }
+    }
+
+    /// Register a scenario
+    pub fn register(&mut self, scenario: DemoScenario) {
+        self.scenarios.insert(scenario.id.clone(), scenario);
+    }
+
+    /// Get scenario by ID
+    pub fn get(&self, id: &str) -> Option<&DemoScenario> {
+        self.scenarios.get(id)
+    }
+
+    /// List all scenario IDs
+    pub fn list(&self) -> Vec<&str> {
+        self.scenarios.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// List all scenarios with info
+    pub fn list_with_info(&self) -> Vec<ScenarioInfo> {
+        self.scenarios
+            .values()
+            .map(|s| ScenarioInfo {
+                id: s.id.clone(),
+                name: s.name.clone(),
+                description: s.description.clone(),
+                spin_count: s.sequence.len(),
+                loop_mode: s.loop_mode,
+            })
+            .collect()
+    }
+
+    /// Create playback for a scenario
+    pub fn create_playback(&self, id: &str) -> Option<ScenarioPlayback> {
+        self.get(id).map(|s| ScenarioPlayback::new(s.clone()))
+    }
+}
+
+/// Scenario info for listing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenarioInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub spin_count: usize,
+    pub loop_mode: LoopMode,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scenario_creation() {
+        let mut scenario = DemoScenario::new("test", "Test Scenario");
+        scenario.add_spin(ScriptedOutcome::Lose);
+        scenario.add_spin(ScriptedOutcome::SmallWin { ratio: 5.0 });
+        assert_eq!(scenario.len(), 2);
+    }
+
+    #[test]
+    fn test_playback_once() {
+        let mut scenario = DemoScenario::new("test", "Test");
+        scenario.add_spin(ScriptedOutcome::Lose);
+        scenario.add_spin(ScriptedOutcome::SmallWin { ratio: 2.0 });
+        scenario.loop_mode = LoopMode::Once;
+
+        let mut playback = ScenarioPlayback::new(scenario);
+
+        assert!(playback.next().is_some());
+        assert!(playback.next().is_some());
+        assert!(playback.next().is_none());
+        assert!(playback.is_complete());
+    }
+
+    #[test]
+    fn test_playback_loop() {
+        let mut scenario = DemoScenario::new("test", "Test");
+        scenario.add_spin(ScriptedOutcome::Lose);
+        scenario.loop_mode = LoopMode::Count(3);
+
+        let mut playback = ScenarioPlayback::new(scenario);
+
+        // Should loop 3 times
+        for _ in 0..3 {
+            assert!(playback.next().is_some());
+        }
+        assert!(playback.is_complete());
+    }
+
+    #[test]
+    fn test_registry_presets() {
+        let registry = ScenarioRegistry::new();
+        let presets = registry.list();
+
+        // Should have built-in presets
+        assert!(presets.contains(&"win_showcase"));
+        assert!(presets.contains(&"free_spins_demo"));
+        assert!(presets.contains(&"cascade_demo"));
+    }
+
+    #[test]
+    fn test_registry_playback() {
+        let registry = ScenarioRegistry::new();
+        let playback = registry.create_playback("win_showcase");
+
+        assert!(playback.is_some());
+        let playback = playback.unwrap();
+        assert!(!playback.scenario().is_empty());
     }
 }

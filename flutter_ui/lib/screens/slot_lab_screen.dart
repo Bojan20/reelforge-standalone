@@ -84,6 +84,9 @@ import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 import '../providers/undo_manager.dart';
+import '../widgets/slot_lab/game_model_editor.dart';
+import '../widgets/slot_lab/scenario_editor.dart';
+import '../widgets/slot_lab/gdd_import_panel.dart';
 
 // =============================================================================
 // RTPC IDS FOR SLOT AUDIO
@@ -222,6 +225,9 @@ enum _BottomPanelTab {
   resources,
   auxSends,
   eventLog,
+  gameModel,
+  scenarios,
+  gddImport,
 }
 
 // =============================================================================
@@ -6807,6 +6813,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               _BottomPanelTab.resources => 'Resources',
               _BottomPanelTab.auxSends => 'Aux Sends',
               _BottomPanelTab.eventLog => 'Event Log',
+              _BottomPanelTab.gameModel => 'Game Model',
+              _BottomPanelTab.scenarios => 'Scenarios',
+              _BottomPanelTab.gddImport => 'GDD Import',
             };
 
             return InkWell(
@@ -6872,6 +6881,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _buildAuxSendsContent();
       case _BottomPanelTab.eventLog:
         return _buildEventLogContent();
+      case _BottomPanelTab.gameModel:
+        return _buildGameModelContent();
+      case _BottomPanelTab.scenarios:
+        return _buildScenariosContent();
+      case _BottomPanelTab.gddImport:
+        return _buildGddImportContent();
     }
   }
 
@@ -6944,6 +6959,43 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   Widget _buildAuxSendsContent() {
     return const AuxSendsPanel();
+  }
+
+  Widget _buildGameModelContent() {
+    return GameModelEditor(
+      initialModel: _slotLabProvider.currentGameModel,
+      onModelChanged: (model) {
+        _slotLabProvider.updateGameModel(model);
+      },
+      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+    );
+  }
+
+  Widget _buildScenariosContent() {
+    return ScenarioEditorPanel(
+      onScenarioSelected: (scenario) {
+        _slotLabProvider.loadScenario(scenario.id);
+      },
+      onScenarioChanged: (scenario) {
+        _slotLabProvider.registerScenarioFromDemoScenario(scenario);
+      },
+      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+    );
+  }
+
+  Widget _buildGddImportContent() {
+    return GddImportPanel(
+      onModelImported: (model) {
+        // Model is already imported via FFI in the panel
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('GDD imported: ${model['info']?['name'] ?? 'Unknown'}'),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      },
+      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

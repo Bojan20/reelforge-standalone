@@ -121,37 +121,154 @@ impl GddParser {
     /// Convert GDD document to GameModel
     fn to_game_model(&self, doc: GddDocument) -> Result<GameModel, GddParseError> {
         use crate::config::GridSpec;
-        use crate::model::{GameInfo, GameMode, Volatility, WinMechanism};
+        use crate::model::{GameInfo, GameMode, SymbolSetConfig, Volatility, WinMechanism};
+        use crate::timing::TimingConfig;
 
+        // Build game info
         let info = GameInfo::new(&doc.game.name, &doc.game.id)
             .with_volatility(
-                doc.game.volatility
+                doc.game
+                    .volatility
                     .as_deref()
                     .and_then(Volatility::from_str)
-                    .unwrap_or_default()
+                    .unwrap_or_default(),
             )
             .with_rtp(doc.game.target_rtp.unwrap_or(0.965));
 
+        // Build grid spec
         let grid = GridSpec {
             reels: doc.grid.reels,
             rows: doc.grid.rows,
             paylines: doc.grid.paylines.unwrap_or(20),
         };
 
+        // Build win mechanism
         let win_mechanism = match doc.win_mechanism.as_str() {
-            "ways" => WinMechanism::ways_243(),
+            "ways" | "ways_243" => WinMechanism::ways_243(),
+            "ways_1024" => WinMechanism::ways_1024(),
             "cluster" => WinMechanism::cluster_5(),
             "megaways" => WinMechanism::megaways_standard(),
-            _ => WinMechanism::standard_20_paylines(),
+            "paylines" | _ => WinMechanism::standard_20_paylines(),
+        };
+
+        // Build win tiers
+        let win_tiers = self.build_win_tiers(&doc.win_tiers);
+
+        // Build feature refs
+        let features = self.build_feature_refs(&doc.features);
+
+        // Build math model if present
+        let math = doc.math.map(|m| self.build_math_model(m, &doc.symbols));
+
+        // Build symbols
+        let symbols = if doc.symbols.is_empty() {
+            SymbolSetConfig::Standard
+        } else {
+            SymbolSetConfig::Custom {
+                symbols: doc
+                    .symbols
+                    .iter()
+                    .map(|s| crate::model::SymbolDef {
+                        id: s.id,
+                        name: s.name.clone(),
+                        symbol_type: s.symbol_type.clone(),
+                        pays: s.pays.clone(),
+                        tier: s.tier,
+                    })
+                    .collect(),
+            }
         };
 
         Ok(GameModel {
             info,
             grid,
+            symbols,
             win_mechanism,
+            features,
+            win_tiers,
+            timing: TimingConfig::normal(),
             mode: GameMode::GddOnly,
-            ..Default::default()
+            math,
         })
+    }
+
+    /// Build win tier config from GDD
+    fn build_win_tiers(&self, tiers: &[GddWinTier]) -> crate::model::WinTierConfig {
+        use crate::model::{WinTier, WinTierConfig};
+
+        if tiers.is_empty() {
+            // Use defaults
+            return WinTierConfig::standard();
+        }
+
+        WinTierConfig {
+            tiers: tiers
+                .iter()
+                .map(|t| {
+                    WinTier::new(
+                        &t.name,
+                        t.min_ratio.unwrap_or(1.0),
+                        t.max_ratio.unwrap_or(f64::MAX),
+                    )
+                })
+                .collect(),
+            display_threshold: 1.0,
+        }
+    }
+
+    /// Build feature refs from GDD
+    fn build_feature_refs(&self, features: &[GddFeature]) -> Vec<crate::model::FeatureRef> {
+        features
+            .iter()
+            .map(|f| {
+                let id = f
+                    .params
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+                    .unwrap_or_else(|| f.feature_type.clone());
+
+                // Convert params to serde_json::Value (excluding id and trigger)
+                let config: std::collections::HashMap<String, serde_json::Value> = f
+                    .params
+                    .iter()
+                    .filter(|(k, _)| *k != "id" && *k != "type")
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                let config_value = if config.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::Value::Object(
+                        config.into_iter().collect(),
+                    ))
+                };
+
+                crate::model::FeatureRef {
+                    id,
+                    config: config_value,
+                    builtin: is_builtin_feature(&f.feature_type),
+                }
+            })
+            .collect()
+    }
+
+    /// Build math model from GDD
+    fn build_math_model(&self, math: GddMath, symbols: &[GddSymbol]) -> crate::model::MathModel {
+        let mut model = crate::model::MathModel::new(math.target_rtp);
+
+        // Build symbol weights
+        for (symbol_name, weights) in math.symbol_weights {
+            let symbol_id = symbols
+                .iter()
+                .find(|s| s.name == symbol_name)
+                .map(|s| s.id)
+                .unwrap_or(0);
+
+            model.symbol_weights.set(symbol_id, weights);
+        }
+
+        model
     }
 }
 
@@ -268,6 +385,20 @@ pub enum GddParseError {
 
     #[error("Invalid value: {0}")]
     InvalidValue(String),
+}
+
+/// Check if feature type is a built-in feature
+fn is_builtin_feature(feature_type: &str) -> bool {
+    matches!(
+        feature_type.to_lowercase().as_str(),
+        "free_spins" | "freespins" | "cascades" | "cascade" | "tumble" | "avalanche"
+            | "hold_and_win" | "holdandwin" | "hold_and_spin"
+            | "jackpot" | "jackpots"
+            | "gamble" | "risk"
+            | "multiplier" | "wild_multiplier"
+            | "expanding_wild" | "sticky_wild"
+            | "bonus" | "pick_bonus"
+    )
 }
 
 #[cfg(test)]

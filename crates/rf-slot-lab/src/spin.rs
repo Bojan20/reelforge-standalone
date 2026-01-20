@@ -28,6 +28,9 @@ pub struct SpinResult {
     pub scatter_win: Option<ScatterWin>,
     /// Big win tier (if applicable)
     pub big_win_tier: Option<BigWinTier>,
+    /// Win tier name from GameModel (e.g., "small", "big", "mega")
+    #[serde(default)]
+    pub win_tier_name: Option<String>,
     /// Feature triggered
     pub feature_triggered: Option<TriggeredFeature>,
     /// Jackpot won
@@ -91,6 +94,7 @@ impl SpinResult {
             line_wins: Vec::new(),
             scatter_win: None,
             big_win_tier: None,
+            win_tier_name: None,
             feature_triggered: None,
             jackpot_won: None,
             cascades: Vec::new(),

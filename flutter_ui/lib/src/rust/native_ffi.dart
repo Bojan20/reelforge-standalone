@@ -1844,6 +1844,9 @@ class NativeFFI {
   late final DynamicLibrary _lib;
   bool _loaded = false;
 
+  /// Public getter for native library (used by FFI extensions in other files)
+  DynamicLibrary get lib => _lib;
+
   /// Last preview error message (for debugging)
   static String lastPreviewError = '';
 

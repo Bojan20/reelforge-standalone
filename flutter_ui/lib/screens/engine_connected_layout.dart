@@ -90,7 +90,6 @@ import '../widgets/meters/loudness_meter.dart';
 import '../widgets/meters/pro_metering_panel.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
-import '../widgets/debug/debug_console.dart';
 import '../widgets/eq/neve1073_eq.dart';
 import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart' as clip_editor;
@@ -203,9 +202,6 @@ class EngineConnectedLayout extends StatefulWidget {
 class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   // Native menu channel
   static const _menuChannel = MethodChannel('fluxforge/menu');
-
-  // Debug console state
-  bool _showDebugConsole = false;
 
   // Zone state
   bool _leftVisible = true;
@@ -3615,21 +3611,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         const SingleActivator(LogicalKeyboardKey.keyI, meta: true, shift: true): const _ImportAudioIntent(),
         // Also support Ctrl+Shift+I for non-Mac
         const SingleActivator(LogicalKeyboardKey.keyI, control: true, shift: true): const _ImportAudioIntent(),
-        // Ctrl+Shift+D toggles debug console
-        const SingleActivator(LogicalKeyboardKey.keyD, meta: true, shift: true): const _ToggleDebugIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyD, control: true, shift: true): const _ToggleDebugIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
           _ImportAudioIntent: CallbackAction<_ImportAudioIntent>(
             onInvoke: (_) {
               _openFilePicker();
-              return null;
-            },
-          ),
-          _ToggleDebugIntent: CallbackAction<_ToggleDebugIntent>(
-            onInvoke: (_) {
-              setState(() => _showDebugConsole = !_showDebugConsole);
               return null;
             },
           ),
@@ -3900,14 +3887,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
           ),
           // Floating EQ windows - optimized
           ..._buildFloatingEqWindowsOptimized(),
-
-          // Debug Console (toggle with Ctrl+Shift+D)
-          if (_showDebugConsole)
-            Positioned.fill(
-              child: DebugConsole(
-                onClose: () => setState(() => _showDebugConsole = false),
-              ),
-            ),
         ],
       ),
           ),
@@ -11200,11 +11179,6 @@ class _AudioEditorDialogState extends State<_AudioEditorDialog> {
 /// Intent for importing audio files (Shift+Cmd+I)
 class _ImportAudioIntent extends Intent {
   const _ImportAudioIntent();
-}
-
-/// Intent for toggling debug console (Shift+Cmd+D)
-class _ToggleDebugIntent extends Intent {
-  const _ToggleDebugIntent();
 }
 
 /// Dropdown row for dialogs

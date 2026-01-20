@@ -22,6 +22,13 @@ pub struct ActivationContext {
 }
 
 impl ActivationContext {
+    /// Get scatter count (alias for trigger_count)
+    pub fn scatter_count(&self) -> u8 {
+        self.trigger_count
+    }
+}
+
+impl ActivationContext {
     /// Create a new activation context
     pub fn new(trigger_count: u8, bet: f64) -> Self {
         Self {

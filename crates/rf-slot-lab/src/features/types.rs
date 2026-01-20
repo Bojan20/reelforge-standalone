@@ -134,6 +134,17 @@ pub struct FeatureResult {
 }
 
 impl FeatureResult {
+    /// Create a result for inactive feature (no-op)
+    pub fn inactive() -> Self {
+        Self {
+            continue_feature: false,
+            win_amount: 0.0,
+            multiplier: 1.0,
+            trigger_feature: None,
+            data: Default::default(),
+        }
+    }
+
     /// Create a result indicating feature should continue
     pub fn continue_with(win: f64) -> Self {
         Self {
@@ -156,9 +167,20 @@ impl FeatureResult {
         }
     }
 
+    /// Check if feature continues
+    pub fn continues(&self) -> bool {
+        self.continue_feature
+    }
+
     /// Builder: set multiplier
     pub fn with_multiplier(mut self, mult: f64) -> Self {
         self.multiplier = mult;
+        self
+    }
+
+    /// Builder: add data
+    pub fn with_data(mut self, key: &str, value: serde_json::Value) -> Self {
+        self.data.insert(key.to_string(), value);
         self
     }
 
