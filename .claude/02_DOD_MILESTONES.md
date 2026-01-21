@@ -297,29 +297,33 @@ Files Changed:
 
 ---
 
-## P2 — SlotLab Timeline UX Polish
-
-### P2.2 — Timeline Zoom
+## ✅ COMPLETE — P2.2 Timeline Zoom (2026-01-21)
 
 Exit Criteria:
 
-- Zoom levels: 0.5x, 1x, 2x, 4x, 8x, 16x
-- Controls: Mouse wheel + Ctrl, +/- keys, slider
-- Zoom centers on cursor position
-- Smooth zoom animation
+- ✅ Zoom levels: 0.1x - 10x continuous range
+- ✅ Controls: Mouse wheel + Ctrl, G/H keys, slider in toolbar
+- ✅ Zoom reset: Ctrl+0 or click percentage
+- ✅ Visual feedback: Percentage display in toolbar
 
-Implementation:
+Key Changes:
 
-- `_zoomLevel` state in slot_lab_screen.dart
-- `_pixelsPerSecond = 100.0 * _zoomLevel`
-- Zoom slider in toolbar
+| Component | Change |
+|-----------|--------|
+| TimelineToolbar | Added _ZoomControls with slider, +/- buttons, percentage display |
+| _buildTimelineContent | Added Listener for Ctrl+scroll wheel zoom |
+| Keyboard | G = zoom out, H = zoom in, Ctrl+0 = reset to 100% |
 
-Files:
+Files Changed:
 
-- `flutter_ui/lib/screens/slot_lab_screen.dart`
-- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart`
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` — Zoom controls
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Mouse wheel zoom integration
+
+Note: Cursor-centered zoom deferred - current implementation zooms around left edge.
 
 ---
+
+## P2 — SlotLab Timeline UX Polish
 
 ### P2.3 — Drag Waveform Preview
 

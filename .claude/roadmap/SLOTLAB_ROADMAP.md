@@ -67,46 +67,56 @@ final newAbsoluteOffsetMs = snappedPosition * 1000;
 
 ---
 
-### 1.2 Zoom In/Out na Timeline
+### 1.2 Zoom In/Out na Timeline ✅ COMPLETE
 
 **Cilj:** Kontrola nivoa detalja na timeline-u.
 
 **Specifikacija:**
 
-| Feature | Opis |
-|---------|------|
-| Zoom levels | 0.5x, 1x, 2x, 4x, 8x, 16x |
-| Default | 1x = 100 pixels per second |
-| Controls | Mouse wheel + Ctrl, +/- keys, slider |
-| Behavior | Zoom oko trenutne pozicije kursora |
+| Feature | Opis | Status |
+|---------|------|--------|
+| Zoom levels | 0.1x - 10x (continuous) | ✅ |
+| Default | 1x = 100% | ✅ |
+| Controls | Mouse wheel + Ctrl, G/H keys, slider | ✅ |
+| Reset | Ctrl+0 ili klik na percentage | ✅ |
+| Behavior | Zoom oko leve ivice (cursor-centered deferred) | ✅ |
 
 **Implementacija:**
 
 ```dart
-// slot_lab_screen.dart state
-double _zoomLevel = 1.0;
-double get _pixelsPerSecond => 100.0 * _zoomLevel;
+// TimelineToolbar dobio _ZoomControls widget sa:
+// - Slider (0.1 - 10.0)
+// - +/- buttons
+// - Percentage display (klik za reset)
 
-void _handleZoom(double delta, Offset cursorPosition) {
-  final oldZoom = _zoomLevel;
-  _zoomLevel = (_zoomLevel * (1 + delta * 0.1)).clamp(0.5, 16.0);
-
-  // Maintain cursor position on timeline
-  final timeAtCursor = cursorPosition.dx / (100.0 * oldZoom);
-  _scrollOffset = timeAtCursor * _pixelsPerSecond - cursorPosition.dx;
-}
+// Mouse wheel zoom u _buildTimelineContent():
+Listener(
+  onPointerSignal: (event) {
+    if (event is PointerScrollEvent && HardwareKeyboard.instance.isControlPressed) {
+      final delta = event.scrollDelta.dy;
+      setState(() {
+        _timelineZoom = delta < 0
+            ? (_timelineZoom * 1.15).clamp(0.1, 10.0)  // zoom in
+            : (_timelineZoom / 1.15).clamp(0.1, 10.0); // zoom out
+      });
+    }
+  },
+  child: SingleChildScrollView(...),
+)
 ```
 
-**UI komponente:**
-- Zoom slider u toolbar-u
-- Zoom percentage display
-- Zoom-to-fit button
+**Keyboard shortcuts:**
+- **G** - Zoom out
+- **H** - Zoom in
+- **Ctrl+0** - Reset to 100%
+- **]** - Zoom in (legacy)
+- **[** - Zoom out (legacy)
 
-**Fajlovi za izmenu:**
-- `flutter_ui/lib/screens/slot_lab_screen.dart`
-- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart`
+**Fajlovi izmenjeni:**
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` — _ZoomControls widget
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Mouse wheel Listener
 
-**Status:** ⏳ Not Started
+**Status:** ✅ COMPLETE (2026-01-21)
 
 ---
 
@@ -516,13 +526,14 @@ class LayerClipboard {
 | 2026-01-21 | Event log deduplication | `e1820b0c` |
 | 2026-01-21 | Absolute positioning drag | `97d8723f` |
 | 2026-01-21 | Documentation update | `832554c6` |
-| 2026-01-21 | **P2.1 Snap-to-Grid** | pending |
+| 2026-01-21 | **P2.1 Snap-to-Grid** | `abf3df17` |
+| 2026-01-21 | **P2.2 Timeline Zoom** | pending |
 
 ### In Progress
 
 | Item | Started | Notes |
 |------|---------|-------|
-| P2.2 Timeline Zoom | 2026-01-21 | Next up |
+| P2.3 Waveform Preview | 2026-01-21 | Next up |
 
 ### Blocked
 

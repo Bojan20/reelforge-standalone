@@ -3113,7 +3113,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           _buildTimelineHeader(),
 
           // Timeline toolbar (snap, zoom, etc.)
-          TimelineToolbar(dragController: dragController),
+          TimelineToolbar(
+            dragController: dragController,
+            zoomLevel: _timelineZoom,
+            onZoomChanged: (zoom) => setState(() => _timelineZoom = zoom),
+          ),
 
           // Stage markers ruler
           _buildStageMarkersRuler(),
@@ -3671,7 +3675,23 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             // Apply zoom to timeline width
             final zoomedWidth = constraints.maxWidth * _timelineZoom;
 
-            return SingleChildScrollView(
+            // Mouse wheel zoom (Ctrl + scroll)
+            return Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent && HardwareKeyboard.instance.isControlPressed) {
+                  final delta = event.scrollDelta.dy;
+                  setState(() {
+                    if (delta < 0) {
+                      // Scroll up = zoom in
+                      _timelineZoom = (_timelineZoom * 1.15).clamp(0.1, 10.0);
+                    } else {
+                      // Scroll down = zoom out
+                      _timelineZoom = (_timelineZoom / 1.15).clamp(0.1, 10.0);
+                    }
+                  });
+                }
+              },
+              child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
                 width: zoomedWidth,
@@ -3799,7 +3819,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                   ],
                 ),
               ),
-            );
+              ), // Close SingleChildScrollView
+            ); // Close Listener
           },
         );
       },
