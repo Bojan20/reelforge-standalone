@@ -10,6 +10,7 @@ import '../models/stage_models.dart';
 import '../models/slot_audio_events.dart';
 import '../models/middleware_models.dart';
 import '../providers/middleware_provider.dart';
+import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20,6 +21,10 @@ import '../src/rust/native_ffi.dart';
 class StageAudioMapper {
   final MiddlewareProvider _middleware;
   final NativeFFI _ffi;
+
+  /// Playback source - determines which section acquires playback control
+  /// Defaults to slotLab since this mapper is primarily used by SlotLab
+  PlaybackSection _source = PlaybackSection.slotLab;
 
   // ─── Tracking State ──────────────────────────────────────────────────────
   int _currentReelIndex = 0;
@@ -38,9 +43,13 @@ class StageAudioMapper {
   // ─── Registered Events ───────────────────────────────────────────────────
   final Map<String, MiddlewareEvent> _slotEvents = {};
 
-  StageAudioMapper(this._middleware, this._ffi) {
+  StageAudioMapper(this._middleware, this._ffi, {PlaybackSection source = PlaybackSection.slotLab})
+      : _source = source {
     _initializeSlotEvents();
   }
+
+  /// Set playback source section (slotLab or middleware)
+  set source(PlaybackSection value) => _source = value;
 
   /// Initialize all slot audio events
   void _initializeSlotEvents() {
@@ -96,16 +105,53 @@ class StageAudioMapper {
     if (payload.betAmount != null) _lastBetAmount = payload.betAmount!;
     if (payload.winAmount != null) _lastWinAmount = payload.winAmount!;
 
-    // Map stage to event ID(s)
-    final eventIds = _mapStageToEvents(stage, payload);
-
     // Update RTPCs based on payload
     _updateRtpcsFromPayload(payload);
 
-    // Trigger each mapped event
-    for (final eventId in eventIds) {
-      _triggerEvent(eventId, stage, payload);
+    // Get stage type name for matching triggerStages
+    final stageTypeName = stage.typeName.toUpperCase();
+
+    // 1. Trigger USER-DEFINED composite events that have this stage in triggerStages
+    final userEvents = _middleware.compositeEvents
+        .where((e) => e.triggerStages.any((s) => s.toUpperCase() == stageTypeName))
+        .toList();
+
+    for (final compositeEvent in userEvents) {
+      _triggerCompositeEvent(compositeEvent, stage, payload);
     }
+
+    // 2. Also trigger built-in slot events (for fallback/defaults)
+    final builtinEventIds = _mapStageToEvents(stage, payload);
+    for (final eventId in builtinEventIds) {
+      // Only trigger if no user event matched (avoid double-triggering)
+      if (userEvents.isEmpty || !_slotEvents.containsKey(eventId)) {
+        _triggerEvent(eventId, stage, payload);
+      }
+    }
+
+    if (userEvents.isNotEmpty) {
+      debugPrint('[StageAudioMapper] Stage ${stage.typeName} triggered ${userEvents.length} user events');
+    }
+  }
+
+  /// Trigger a user-defined composite event directly
+  void _triggerCompositeEvent(SlotCompositeEvent compositeEvent, Stage stage, StagePayload payload) {
+    // Build context parameters
+    final context = <String, dynamic>{
+      'stage_type': stage.typeName,
+      'reel_index': _currentReelIndex,
+      'cascade_depth': _cascadeDepth,
+      'in_feature': _inFeature,
+      'in_anticipation': _inAnticipation,
+      if (payload.winAmount != null) 'win_amount': payload.winAmount,
+      if (payload.betAmount != null) 'bet_amount': payload.betAmount,
+      if (payload.multiplier != null) 'multiplier': payload.multiplier,
+    };
+
+    // Trigger via middleware - use composite event ID directly
+    final playingId = _middleware.playCompositeEvent(compositeEvent.id, source: _source);
+
+    debugPrint('[StageAudioMapper] Triggered composite: ${compositeEvent.name} (id: ${compositeEvent.id}, playingId: $playingId) for ${stage.typeName}');
   }
 
   /// Map a Stage to one or more event IDs
@@ -404,8 +450,8 @@ class StageAudioMapper {
       if (payload.multiplier != null) 'multiplier': payload.multiplier,
     };
 
-    // Post event via middleware
-    final playingId = _middleware.postEvent(eventId, gameObjectId: 0, context: context);
+    // Post event via middleware with correct source section
+    final playingId = _middleware.postEvent(eventId, gameObjectId: 0, context: context, source: _source);
 
     // Track looping events for later stop
     if (_isLoopingEvent(eventId) && playingId > 0) {

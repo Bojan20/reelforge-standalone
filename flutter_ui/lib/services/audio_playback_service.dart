@@ -468,20 +468,42 @@ class AudioPlaybackService extends ChangeNotifier {
 
   /// Stop specific voice by ID
   void stopVoice(int voiceId) {
+    // Stop in engine first
+    _ffi.playbackStopOneShot(voiceId);
     _activeVoices.removeWhere((v) => v.voiceId == voiceId);
-    // Note: PreviewEngine doesn't support stopping individual voices yet
-    // This just removes from tracking
     _checkAndReleasePlayback();
+    debugPrint('[AudioPlayback] Stopped voice: $voiceId');
   }
 
   /// Stop all voices for a specific event
   void stopEvent(String eventId) {
     final voices = _eventVoices.remove(eventId);
     if (voices != null) {
+      // Stop each voice in engine
+      for (final voiceId in voices) {
+        _ffi.playbackStopOneShot(voiceId);
+      }
       _activeVoices.removeWhere((v) => v.eventId == eventId);
       debugPrint('[AudioPlayback] Stopped event: $eventId (${voices.length} voices)');
     }
     _checkAndReleasePlayback();
+  }
+
+  /// Stop all voices for a specific layer
+  void stopLayer(String layerId) {
+    final voicesToStop = _activeVoices.where((v) => v.layerId == layerId).toList();
+    for (final voice in voicesToStop) {
+      _ffi.playbackStopOneShot(voice.voiceId);
+      // Remove from event tracking
+      _eventVoices.forEach((eventId, voices) {
+        voices.remove(voice.voiceId);
+      });
+    }
+    _activeVoices.removeWhere((v) => v.layerId == layerId);
+    _checkAndReleasePlayback();
+    if (voicesToStop.isNotEmpty) {
+      debugPrint('[AudioPlayback] Stopped layer: $layerId (${voicesToStop.length} voices)');
+    }
   }
 
   /// Stop all voices from a specific source
@@ -489,6 +511,12 @@ class AudioPlaybackService extends ChangeNotifier {
     if (source == PlaybackSource.daw) {
       stopDAWPlayback();
       return;
+    }
+
+    // Stop all one-shot voices for this source in engine
+    final voicesToStop = _activeVoices.where((v) => v.source == source).toList();
+    for (final voice in voicesToStop) {
+      _ffi.playbackStopOneShot(voice.voiceId);
     }
 
     _activeVoices.removeWhere((v) => v.source == source);
@@ -504,7 +532,7 @@ class AudioPlaybackService extends ChangeNotifier {
       _releasePlayback(source);
     }
 
-    debugPrint('[AudioPlayback] Stopped source: $source');
+    debugPrint('[AudioPlayback] Stopped source: $source (${voicesToStop.length} voices)');
   }
 
   /// Stop ALL playback (all sources)

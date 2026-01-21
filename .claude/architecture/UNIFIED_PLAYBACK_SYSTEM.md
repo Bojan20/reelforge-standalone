@@ -392,6 +392,34 @@ engine_playback_stop_all_one_shots()
 | **Waveform cache invalidation** | ✅ Complete | EditorModeProvider.waveformGeneration |
 | **Engine-level source filtering** | ✅ Complete | One-shot voices filtered by active section |
 | **PlaybackSource in Rust** | ✅ Complete | Daw/SlotLab/Middleware/Browser enum |
+| **Multi-stage event registration** | ✅ Complete | Events registered under ALL triggerStages |
+
+---
+
+## Known Issues / TODO
+
+### Playback Overlap Between Sections (PENDING)
+
+**Status:** 🔴 Needs Investigation
+
+**Problem:** Audio from different sections (DAW, SlotLab, Middleware) may overlap when switching between them, despite engine-level source filtering.
+
+**Symptoms:**
+- Audio from previous section continues playing after switching
+- Voices not properly stopped when section changes
+- Possible race condition in acquireSection/releaseSection
+
+**Potential Causes:**
+1. `acquireSection()` not being called before playback in all code paths
+2. `releaseSection()` not stopping all voices from previous section
+3. EventRegistry triggering voices without proper section acquisition
+4. Timer-based stage playback continuing after section switch
+
+**Investigation Areas:**
+- `SlotLabProvider._playStageAudio()` - check section acquisition
+- `EventRegistry.triggerEvent()` - verify source parameter
+- `UnifiedPlaybackController._stopCurrentSection()` - check completeness
+- `AudioPlaybackService.stopSource()` - verify all voices stopped
 
 ---
 

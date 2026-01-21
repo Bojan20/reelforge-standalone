@@ -169,27 +169,48 @@ void _addLayerToMiddlewareEvent(String eventId, String audioPath, String name) {
 
 EventRegistry is a separate singleton that maps stages to audio events. It must be kept in sync for stage-based audio triggers during slot spins.
 
+**CRITICAL (2026-01-21):** Events are now registered under ALL `triggerStages`, not just the first one. This allows one composite event to be triggered by multiple stages.
+
 ```dart
 void _syncEventToRegistry(SlotCompositeEvent? event) {
   if (event == null) return;
 
-  final audioEvent = AudioEvent(
-    id: event.id,
-    name: event.name,
-    stage: _getEventStage(event),
-    layers: event.layers.map((l) => AudioLayer(
-      id: l.id,
-      audioPath: l.audioPath,
-      name: l.name,
-      volume: l.volume,
-      pan: l.pan,
-      delay: l.offsetMs,
-      busId: l.busId ?? 2,
-    )).toList(),
-    // ...
-  );
+  // Get ALL trigger stages (or derive from category if empty)
+  final stages = event.triggerStages.isNotEmpty
+      ? event.triggerStages
+      : [_getEventStage(event)];
 
-  EventRegistry.instance.registerEvent(audioEvent);
+  final layers = event.layers.map((l) => AudioLayer(...)).toList();
+
+  // Register under EACH trigger stage with unique ID
+  for (int i = 0; i < stages.length; i++) {
+    final stage = stages[i];
+    final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
+
+    final audioEvent = AudioEvent(
+      id: eventId,
+      name: event.name,
+      stage: stage,
+      layers: layers,
+    );
+    eventRegistry.registerEvent(audioEvent);
+  }
+}
+```
+
+When deleting events, ALL stage variants must be unregistered:
+
+```dart
+void _deleteMiddlewareEvent(String eventId) {
+  final event = _findEventById(eventId);
+  final stageCount = event?.triggerStages.length ?? 1;
+
+  // Unregister base event + all stage variants
+  eventRegistry.unregisterEvent(eventId);
+  for (int i = 1; i < stageCount; i++) {
+    eventRegistry.unregisterEvent('${eventId}_stage_$i');
+  }
+  _middleware.deleteCompositeEvent(eventId);
 }
 ```
 
@@ -247,6 +268,8 @@ debugPrint('[DAW] Building tree with ${compositeEvents.length} events');
 2. **Stale data:** Ensure sync happens AFTER provider update, not before
 3. **UI not updating:** Verify Consumer/watch is used correctly
 4. **EventRegistry out of sync:** Check `_syncEventToRegistry` is called
+5. **Stage not triggering audio:** Ensure event is registered under correct stage name (case-insensitive match via `.toUpperCase()`)
+6. **Multiple stages not working:** Verify all stages are registered (check debug log for "Registered X under N stages")
 
 ---
 

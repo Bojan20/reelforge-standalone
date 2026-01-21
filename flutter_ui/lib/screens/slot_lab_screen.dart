@@ -520,8 +520,18 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Delete composite event via MiddlewareProvider
+  /// CRITICAL: Unregisters ALL stage-variants of this event from EventRegistry
   void _deleteMiddlewareEvent(String eventId) {
+    // Find the event to get its triggerStages count
+    final event = _findEventById(eventId);
+    final stageCount = event?.triggerStages.length ?? 1;
+
+    // Unregister base event and all stage variants
     eventRegistry.unregisterEvent(eventId);
+    for (int i = 1; i < stageCount; i++) {
+      eventRegistry.unregisterEvent('${eventId}_stage_$i');
+    }
+
     _middleware.deleteCompositeEvent(eventId);
   }
 
@@ -6395,26 +6405,46 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Sinhronizuj composite event sa centralnim Event Registry
-  /// MiddlewareProvider is already the source of truth, so no need to sync back
+  /// CRITICAL: Registers event under ALL triggerStages, not just the first one
+  /// This allows one event to be triggered by multiple stages (e.g., SPIN_START and REEL_STOP)
   void _syncEventToRegistry(SlotCompositeEvent? event) {
     if (event == null) return;
 
-    final audioEvent = AudioEvent(
-      id: event.id,
-      name: event.name,
-      stage: _getEventStage(event),
-      layers: event.layers.map((l) => AudioLayer(
-        id: l.id,
-        audioPath: l.audioPath,
-        name: l.name,
-        volume: l.volume,
-        pan: l.pan,
-        delay: l.offsetMs,
-        busId: l.busId ?? 2,
-      )).toList(),
-    );
+    // Get all trigger stages (or derive from category if empty)
+    final stages = event.triggerStages.isNotEmpty
+        ? event.triggerStages
+        : [_getEventStage(event)];
 
-    eventRegistry.registerEvent(audioEvent);
+    // Build base layers list once
+    final layers = event.layers.map((l) => AudioLayer(
+      id: l.id,
+      audioPath: l.audioPath,
+      name: l.name,
+      volume: l.volume,
+      pan: l.pan,
+      delay: l.offsetMs,
+      busId: l.busId ?? 2,
+    )).toList();
+
+    // Register event under EACH trigger stage
+    // Each registration uses a unique ID to avoid conflicts
+    for (int i = 0; i < stages.length; i++) {
+      final stage = stages[i];
+      final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
+
+      final audioEvent = AudioEvent(
+        id: eventId,
+        name: event.name,
+        stage: stage,
+        layers: layers,
+      );
+
+      eventRegistry.registerEvent(audioEvent);
+    }
+
+    if (stages.length > 1) {
+      debugPrint('[SlotLab] Registered "${event.name}" under ${stages.length} stages: ${stages.join(", ")}');
+    }
   }
 
   // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is now the single source of truth
@@ -6572,12 +6602,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   /// Delete event from ALL systems (SlotLab, Middleware, EventRegistry)
   /// Call this when deleting an event to ensure full cleanup
+  /// CRITICAL: Unregisters ALL stage-variants of this event from EventRegistry
   void _deleteEventFromAllSystems(String eventId, String eventName, String stage) {
     debugPrint('[SlotLab] _deleteEventFromAllSystems: $eventName (id: $eventId, stage: $stage)');
 
-    // 1. Remove from EventRegistry
+    // Get event to find all trigger stages before deletion
+    final event = _findEventById(eventId);
+    final stageCount = event?.triggerStages.length ?? 1;
+
+    // 1. Remove from EventRegistry (base event + all stage variants)
     eventRegistry.unregisterEvent(eventId);
-    debugPrint('[SlotLab] Unregistered from EventRegistry: $eventName');
+    for (int i = 1; i < stageCount; i++) {
+      eventRegistry.unregisterEvent('${eventId}_stage_$i');
+    }
+    debugPrint('[SlotLab] Unregistered from EventRegistry: $eventName ($stageCount stage variants)');
 
     // 2. Remove from MiddlewareProvider
     if (mounted) {

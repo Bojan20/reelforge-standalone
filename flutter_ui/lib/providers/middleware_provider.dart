@@ -18,6 +18,7 @@ import '../services/rtpc_modulation_service.dart';
 import '../services/ducking_service.dart';
 import '../services/container_service.dart';
 import '../services/audio_asset_manager.dart';
+import '../services/audio_playback_service.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/unified_playback_controller.dart';
@@ -2418,9 +2419,14 @@ class MiddlewareProvider extends ChangeNotifier {
   /// [eventId] - The event identifier
   /// [gameObjectId] - Optional game object for scoped audio
   /// [context] - Optional context data for RTPC/switch evaluation
+  /// [source] - Playback section source (defaults to middleware, use slotLab for SlotLab calls)
   ///
   /// Returns playing ID (0 if failed)
-  int postEvent(String eventId, {int gameObjectId = 0, Map<String, dynamic>? context}) {
+  int postEvent(String eventId, {
+    int gameObjectId = 0,
+    Map<String, dynamic>? context,
+    PlaybackSection source = PlaybackSection.middleware,
+  }) {
     final event = _events[eventId];
     if (event == null) {
       debugPrint('[Middleware] Event not found: $eventId');
@@ -2433,13 +2439,13 @@ class MiddlewareProvider extends ChangeNotifier {
       final newId = _nextEventNumericId++;
       _eventNameToId[event.name] = newId;
       _syncEventToEngine(event, newId);
-      return postEvent(eventId, gameObjectId: gameObjectId, context: context);
+      return postEvent(eventId, gameObjectId: gameObjectId, context: context, source: source);
     }
 
-    // Acquire Middleware section before playback (blocks DAW/SlotLab)
+    // Acquire the specified section before playback
     final controller = UnifiedPlaybackController.instance;
-    if (!controller.acquireSection(PlaybackSection.middleware)) {
-      debugPrint('[Middleware] Failed to acquire playback section');
+    if (!controller.acquireSection(source)) {
+      debugPrint('[Middleware] Failed to acquire playback section: ${source.name}');
       return 0;
     }
 
@@ -2499,6 +2505,71 @@ class MiddlewareProvider extends ChangeNotifier {
     final event = getEventByName(eventName);
     if (event == null) return 0;
     return postEvent(event.id, gameObjectId: gameObjectId);
+  }
+
+  /// Play a composite event by ID (triggers all layers with their audio files)
+  ///
+  /// This directly plays the audio layers in a composite event, bypassing
+  /// the middleware event system. Used for stage-triggered user-defined events.
+  ///
+  /// [compositeEventId] - The composite event ID
+  /// [source] - Playback section source (slotLab or middleware)
+  ///
+  /// Returns number of voices started
+  int playCompositeEvent(String compositeEventId, {PlaybackSection source = PlaybackSection.slotLab}) {
+    final event = _compositeEvents[compositeEventId];
+    if (event == null) {
+      debugPrint('[Middleware] playCompositeEvent: Event not found: $compositeEventId');
+      return 0;
+    }
+
+    if (event.layers.isEmpty) {
+      debugPrint('[Middleware] playCompositeEvent: Event "${event.name}" has no layers');
+      return 0;
+    }
+
+    // Acquire the specified section before playback
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(source)) {
+      debugPrint('[Middleware] playCompositeEvent: Failed to acquire playback section: ${source.name}');
+      return 0;
+    }
+
+    // Ensure audio stream is running
+    controller.ensureStreamRunning();
+
+    // Play all layers via AudioPlaybackService
+    final playbackService = AudioPlaybackService.instance;
+    int voicesStarted = 0;
+
+    for (final layer in event.layers) {
+      if (layer.muted) continue;
+
+      // Convert PlaybackSection to PlaybackSource
+      final playbackSource = switch (source) {
+        PlaybackSection.daw => PlaybackSource.daw,
+        PlaybackSection.slotLab => PlaybackSource.slotlab,
+        PlaybackSection.middleware => PlaybackSource.middleware,
+        PlaybackSection.browser => PlaybackSource.browser,
+      };
+
+      final voiceId = playbackService.playFileToBus(
+        layer.audioPath,
+        volume: layer.volume * event.masterVolume,
+        pan: layer.pan,
+        busId: layer.busId ?? 0,
+        source: playbackSource,
+        eventId: compositeEventId,
+        layerId: layer.id,
+      );
+
+      if (voiceId >= 0) {
+        voicesStarted++;
+      }
+    }
+
+    debugPrint('[Middleware] playCompositeEvent: "${event.name}" started $voicesStarted/${event.layers.length} voices');
+    return voicesStarted;
   }
 
   /// Stop a playing instance
@@ -4305,11 +4376,16 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Delete a composite event
   void deleteCompositeEvent(String eventId) {
     _pushUndoState();
+
+    // Stop any playing voices for this event
+    AudioPlaybackService.instance.stopEvent(eventId);
+
     _compositeEvents.remove(eventId);
     _removeMiddlewareEventForComposite(eventId); // Real-time sync
     if (_selectedCompositeEventId == eventId) {
       _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
     }
+    debugPrint('[Middleware] deleteCompositeEvent: removed event $eventId');
     notifyListeners();
   }
 
@@ -4403,12 +4479,16 @@ class MiddlewareProvider extends ChangeNotifier {
     if (event == null) return;
     _pushUndoState();
 
+    // Stop any playing voices for this layer
+    AudioPlaybackService.instance.stopLayer(layerId);
+
     final updated = event.copyWith(
       layers: event.layers.where((l) => l.id != layerId).toList(),
       modifiedAt: DateTime.now(),
     );
     _compositeEvents[eventId] = updated;
     _syncCompositeToMiddleware(updated); // Real-time sync
+    debugPrint('[Middleware] removeLayerFromEvent: removed layer $layerId from "${event.name}"');
     notifyListeners();
   }
 
