@@ -91,6 +91,11 @@ import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
+import '../controllers/slot_lab/lower_zone_controller.dart';
+import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
+import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
+import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
+import '../providers/auto_event_builder_provider.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -256,6 +261,10 @@ enum _BottomPanelTab {
   gameModel,
   scenarios,
   gddImport,
+  // Auto Event Builder tabs
+  commandBuilder,
+  eventList,
+  meters,
 }
 
 // =============================================================================
@@ -565,10 +574,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _middleware.deleteCompositeEvent(eventId);
   }
 
-  // Bottom panel
+  // Bottom panel (legacy)
   _BottomPanelTab _selectedBottomTab = _BottomPanelTab.timeline;
   double _bottomPanelHeight = 280.0;
   bool _bottomPanelCollapsed = false;
+
+  // Lower Zone Controller (new unified bottom panel system)
+  late final LowerZoneController _lowerZoneController;
+
+  // Auto Event Builder Provider
+  late final AutoEventBuilderProvider _autoEventBuilderProvider;
 
   // Fullscreen preview mode
   bool _isPreviewMode = false;
@@ -666,6 +681,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+
+    // Initialize Lower Zone Controller for unified bottom panel
+    _lowerZoneController = LowerZoneController();
+    _autoEventBuilderProvider = AutoEventBuilderProvider();
 
     _initializeTracks();
     _loadAudioPool();
@@ -1605,6 +1624,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _dragCurrentOffsetNotifier.dispose();  // Dispose drag notifier
     _draggingLayerIdNotifier.dispose();    // Dispose drag ID notifier
     _disposeLayerPlayers(); // Dispose audio players
+    _lowerZoneController.dispose();  // Dispose lower zone controller
+    _autoEventBuilderProvider.dispose();  // Dispose auto event builder provider
     super.dispose();
   }
 
@@ -1681,14 +1702,19 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       );
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _focusNode.requestFocus(),
-      child: Focus(
-        focusNode: _focusNode,
-        autofocus: true,
-        onKeyEvent: _handleKeyEvent,
-        child: Scaffold(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LowerZoneController>.value(value: _lowerZoneController),
+        ChangeNotifierProvider<AutoEventBuilderProvider>(create: (_) => AutoEventBuilderProvider()),
+      ],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _focusNode.requestFocus(),
+        child: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          onKeyEvent: _handleKeyEvent,
+          child: Scaffold(
           backgroundColor: const Color(0xFF0A0A0C),
           body: Stack(
           children: [
@@ -1821,6 +1847,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           ],
         ),
         ),
+      ),
       ),
     );
   }
@@ -2054,6 +2081,82 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _clearAllRegionSelections();
       setState(() {});
       return KeyEventResult.handled;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOWER ZONE SHORTCUTS (1-4 for tabs, backtick for toggle)
+    // Only process without modifiers to avoid conflicts with Cmd+1/2/etc.
+    // ═══════════════════════════════════════════════════════════════════════════
+    final hasModifier = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isShiftPressed;
+
+    if (!hasModifier) {
+      // Backtick = Toggle bottom panel expand/collapse
+      if (key == LogicalKeyboardKey.backquote) {
+        setState(() => _bottomPanelCollapsed = !_bottomPanelCollapsed);
+        return KeyEventResult.handled;
+      }
+
+      // Note: digit1-4 shortcuts intentionally NOT added here to avoid
+      // conflict with ForcedOutcome buttons in QuickOutcomeBar.
+      // Users can click tabs or use backtick to toggle.
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BOTTOM PANEL TAB SHORTCUTS (Ctrl+Shift+Letter)
+    // Switch between bottom panel tabs
+    // ═══════════════════════════════════════════════════════════════════════════
+    final isCtrlShift = (HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed) &&
+        HardwareKeyboard.instance.isShiftPressed;
+
+    if (isCtrlShift) {
+      // Ctrl+Shift+C = Command Builder tab
+      if (key == LogicalKeyboardKey.keyC) {
+        setState(() {
+          _selectedBottomTab = _BottomPanelTab.commandBuilder;
+          _bottomPanelCollapsed = false;
+        });
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+E = Events tab
+      if (key == LogicalKeyboardKey.keyE) {
+        setState(() {
+          _selectedBottomTab = _BottomPanelTab.eventList;
+          _bottomPanelCollapsed = false;
+        });
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+M = Meters tab
+      if (key == LogicalKeyboardKey.keyM) {
+        setState(() {
+          _selectedBottomTab = _BottomPanelTab.meters;
+          _bottomPanelCollapsed = false;
+        });
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+T = Timeline tab
+      if (key == LogicalKeyboardKey.keyT) {
+        setState(() {
+          _selectedBottomTab = _BottomPanelTab.timeline;
+          _bottomPanelCollapsed = false;
+        });
+        return KeyEventResult.handled;
+      }
+
+      // Ctrl+Shift+L = Event Log tab
+      if (key == LogicalKeyboardKey.keyL) {
+        setState(() {
+          _selectedBottomTab = _BottomPanelTab.eventLog;
+          _bottomPanelCollapsed = false;
+        });
+        return KeyEventResult.handled;
+      }
     }
 
     return KeyEventResult.ignored;
@@ -7315,6 +7418,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               _BottomPanelTab.gameModel => 'Game Model',
               _BottomPanelTab.scenarios => 'Scenarios',
               _BottomPanelTab.gddImport => 'GDD Import',
+              _BottomPanelTab.commandBuilder => 'Command Builder',
+              _BottomPanelTab.eventList => 'Events',
+              _BottomPanelTab.meters => 'Meters',
             };
 
             return InkWell(
@@ -7386,6 +7492,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _buildScenariosContent();
       case _BottomPanelTab.gddImport:
         return _buildGddImportContent();
+      case _BottomPanelTab.commandBuilder:
+        return _buildCommandBuilderContent();
+      case _BottomPanelTab.eventList:
+        return _buildEventListContent();
+      case _BottomPanelTab.meters:
+        return _buildMetersContent();
     }
   }
 
@@ -7495,6 +7607,28 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       },
       onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO EVENT BUILDER TABS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCommandBuilderContent() {
+    return ChangeNotifierProvider.value(
+      value: _autoEventBuilderProvider,
+      child: const CommandBuilderPanel(),
+    );
+  }
+
+  Widget _buildEventListContent() {
+    return ChangeNotifierProvider.value(
+      value: _autoEventBuilderProvider,
+      child: const EventListPanel(),
+    );
+  }
+
+  Widget _buildMetersContent() {
+    return const BusMetersPanel();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

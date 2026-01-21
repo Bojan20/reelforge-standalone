@@ -35,8 +35,4 @@ class ThemeModeProvider extends ChangeNotifier {
   void setGlassMode() => setMode(AppThemeMode.liquidGlass);
   void setClassicMode() => setMode(AppThemeMode.classic);
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

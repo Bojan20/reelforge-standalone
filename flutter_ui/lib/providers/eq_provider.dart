@@ -412,8 +412,4 @@ class EqProvider extends ChangeNotifier {
     return preset;
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

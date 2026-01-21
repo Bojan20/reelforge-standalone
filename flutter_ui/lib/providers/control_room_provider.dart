@@ -394,8 +394,4 @@ class ControlRoomProvider extends ChangeNotifier {
     updateMetering();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

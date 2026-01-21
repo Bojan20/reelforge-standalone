@@ -1195,8 +1195,4 @@ class MidiProvider extends ChangeNotifier {
 
   static int _idCounter = 0;
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
