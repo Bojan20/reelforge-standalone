@@ -2,7 +2,49 @@
 
 These are production gates. "Works" is not "Done".
 
-**Last Updated:** 2026-01-20
+**Last Updated:** 2026-01-21
+
+---
+
+## ✅ COMPLETE — SlotLab Timeline Layer Drag (2026-01-21)
+
+Exit Criteria:
+
+- ✅ Layer drag works on first attempt
+- ✅ Layer drag works on second+ attempt (no position jump)
+- ✅ Event log shows one entry per stage (no duplicates)
+- ✅ Stages without audio show warning icon
+- ✅ No lag during drag operations
+
+Root Cause Fixed:
+
+- **Problem:** Layer jumped to timeline start on second drag
+- **Cause:** Relative offset calculation used stale `region.start` value
+- **Solution:** Switched to absolute positioning - read `offsetMs` directly from provider
+
+Key Changes:
+
+| Component | Change |
+|-----------|--------|
+| TimelineDragController | Stores `_absoluteStartSeconds` instead of relative offset |
+| onHorizontalDragStart | Reads `offsetMs` from provider, converts to seconds |
+| getAbsolutePosition() | Returns `_absoluteStartSeconds + _layerDragDelta` |
+| Visual position | Computed as `absolutePosition - region.start` |
+
+Files Changed:
+
+- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart` — Absolute positioning
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Fresh values from provider
+- `flutter_ui/lib/services/event_registry.dart` — triggerStage notifies for all stages
+- `flutter_ui/lib/widgets/slot_lab/event_log_panel.dart` — Deduplication
+
+Commits:
+
+| Hash | Description |
+|------|-------------|
+| `e1820b0c` | Event log deduplication + captured values pattern |
+| `97d8723f` | Absolute positioning za layer drag |
+| `832554c6` | Documentation update |
 
 ---
 
@@ -222,3 +264,259 @@ Failure Conditions:
 - Realtime-only path
 - Drift vs live playback
 - Non-repeatable exports
+
+---
+
+## P2 — SlotLab Timeline UX Polish
+
+### P2.1 — Snap-to-Grid
+
+Exit Criteria:
+
+- Grid intervals: 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
+- Toggle via keyboard (G) or toolbar button
+- Visual grid lines when snap enabled
+- Layer snaps to nearest grid point on release
+
+Implementation:
+
+- `TimelineDragController._snapToGrid(position, interval)`
+- Grid interval dropdown in toolbar
+- Grid lines overlay widget
+
+Files:
+
+- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart`
+- `flutter_ui/lib/screens/slot_lab_screen.dart`
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` (new)
+
+---
+
+### P2.2 — Timeline Zoom
+
+Exit Criteria:
+
+- Zoom levels: 0.5x, 1x, 2x, 4x, 8x, 16x
+- Controls: Mouse wheel + Ctrl, +/- keys, slider
+- Zoom centers on cursor position
+- Smooth zoom animation
+
+Implementation:
+
+- `_zoomLevel` state in slot_lab_screen.dart
+- `_pixelsPerSecond = 100.0 * _zoomLevel`
+- Zoom slider in toolbar
+
+Files:
+
+- `flutter_ui/lib/screens/slot_lab_screen.dart`
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart`
+
+---
+
+### P2.3 — Drag Waveform Preview
+
+Exit Criteria:
+
+- Ghost outline at original position during drag
+- Semi-transparent waveform at current position
+- Time tooltip showing position in ms
+
+Implementation:
+
+- Stack with ghost + dragging layer
+- Positioned tooltip above layer
+
+Files:
+
+- `flutter_ui/lib/screens/slot_lab_screen.dart` (_buildDraggableLayerRow)
+
+---
+
+## P2 — SlotLab Audio Preview
+
+### P2.4 — Hover Audio Preview
+
+Exit Criteria:
+
+- 500ms hover delay before playback
+- Play first 3 seconds of audio
+- Stop on mouse leave
+- Respects preview volume setting
+
+Implementation:
+
+- `AudioHoverPreview` widget with Timer
+- `AudioPlaybackService.playPreview()` method
+
+Files:
+
+- `flutter_ui/lib/widgets/slot_lab/audio_hover_preview.dart`
+- `flutter_ui/lib/services/audio_playback_service.dart`
+
+---
+
+### P2.5 — Waveform Thumbnails
+
+Exit Criteria:
+
+- 80x24px mini waveform in file browser
+- Cached by file path
+- Async generation with placeholder
+- Rust FFI for fast generation
+
+Implementation:
+
+- `WaveformThumbnailCache` singleton
+- `NativeFFI.generateWaveformThumbnail()` FFI call
+
+Files:
+
+- `flutter_ui/lib/services/waveform_thumbnail_cache.dart` (new)
+- `crates/rf-bridge/src/waveform_ffi.rs` (new)
+
+---
+
+## P2 — SlotLab Event Editor
+
+### P2.6 — Multi-Select Layers
+
+Exit Criteria:
+
+- Ctrl+click toggles selection
+- Shift+click selects range
+- Visual highlight on selected
+- Bulk delete/move/copy operations
+
+Implementation:
+
+- `Set<String> _selectedLayerIds` state
+- `_handleLayerClick()` with modifier detection
+
+Files:
+
+- `flutter_ui/lib/screens/slot_lab_screen.dart`
+
+---
+
+### P2.7 — Copy/Paste Layers
+
+Exit Criteria:
+
+- Ctrl+C copies selected layers
+- Ctrl+V pastes into current event
+- New IDs generated for pasted layers
+- Preserves all layer properties
+
+Implementation:
+
+- `LayerClipboard` singleton
+- Keyboard shortcuts in slot_lab_screen
+
+Files:
+
+- `flutter_ui/lib/services/layer_clipboard.dart` (new)
+- `flutter_ui/lib/screens/slot_lab_screen.dart`
+
+---
+
+### P2.8 — Fade Controls
+
+Exit Criteria:
+
+- Fade In: 0-5000ms slider
+- Fade Out: 0-5000ms slider
+- Visual curve overlay on waveform
+- Applied during playback
+
+Implementation:
+
+- Sliders in layer detail panel
+- Fade curve painter widget
+- Apply in AudioPlaybackService
+
+Files:
+
+- `flutter_ui/lib/screens/slot_lab_screen.dart`
+- `flutter_ui/lib/widgets/slot_lab/fade_curve_overlay.dart` (new)
+
+---
+
+## P3 — Middleware Integration
+
+### P3.1 — RTPC Visualization
+
+Exit Criteria:
+
+- Sparkline graphs for each RTPC
+- 60fps update during spin
+- 5-second history buffer
+- Numeric current value display
+
+Files:
+
+- `flutter_ui/lib/widgets/middleware/rtpc_monitor_widget.dart` (new)
+
+---
+
+### P3.2 — Ducking Matrix UI
+
+Exit Criteria:
+
+- Grid matrix (sources × targets)
+- Per-cell: amount, attack, release
+- Color intensity = ducking amount
+- Real-time highlight during playback
+
+Files:
+
+- `flutter_ui/lib/widgets/middleware/ducking_matrix_panel.dart`
+
+---
+
+### P3.3 — ALE Integration
+
+Exit Criteria:
+
+- Spin results → ALE signals (winTier, winXbet, etc.)
+- Auto context switch (BASE → FREESPINS → BIGWIN)
+- Real-time layer volume bars
+- Profile editor in SlotLab
+
+Files:
+
+- `flutter_ui/lib/providers/ale_provider.dart`
+- `flutter_ui/lib/providers/slot_lab_provider.dart`
+- `flutter_ui/lib/widgets/ale/`
+
+---
+
+## P4 — Production Export
+
+### P4.1 — Event Export
+
+Exit Criteria:
+
+- JSON format for web/Unity
+- XML format for Wwise compatibility
+- Includes: events, buses, RTPCs, ducking rules
+
+Files:
+
+- `flutter_ui/lib/services/event_export_service.dart` (new)
+
+---
+
+### P4.2 — Audio Pack Export
+
+Exit Criteria:
+
+- WAV 48kHz/24bit, MP3, OGG formats
+- Apply volume, pan, fades in render
+- Configurable naming convention
+- Flat or folder-per-event structure
+
+Files:
+
+- `flutter_ui/lib/services/audio_pack_export_service.dart` (new)
+- `crates/rf-bridge/src/export_ffi.rs` (new)
