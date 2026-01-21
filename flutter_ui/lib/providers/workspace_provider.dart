@@ -534,4 +534,9 @@ class WorkspaceProvider extends ChangeNotifier {
     _currentLayout = _currentLayout.copyWith(trackHeightMode: mode);
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

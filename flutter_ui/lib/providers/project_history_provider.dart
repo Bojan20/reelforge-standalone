@@ -111,4 +111,9 @@ class ProjectHistoryProvider extends ChangeNotifier {
     notifyListeners();
     return _history[_historyIndex].data;
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

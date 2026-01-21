@@ -980,4 +980,9 @@ class ScaleAssistantProvider extends ChangeNotifier {
     _noteHistogram.clear();
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

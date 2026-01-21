@@ -893,4 +893,9 @@ class LogicalEditorProvider extends ChangeNotifier {
     _initFactoryPresets();
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

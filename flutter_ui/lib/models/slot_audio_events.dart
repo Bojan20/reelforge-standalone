@@ -1573,6 +1573,14 @@ class SlotCompositeEvent {
   /// Optional RTPC conditions for triggering (e.g., {'win_multiplier': '>= 10'})
   final Map<String, String> triggerConditions;
 
+  /// Timeline position in milliseconds (for SlotLab timeline display)
+  /// This is the absolute position where the event starts on the timeline.
+  /// Layer offsetMs values are relative to this position.
+  final double timelinePositionMs;
+
+  /// Track index on the SlotLab timeline (0-based)
+  final int trackIndex;
+
   const SlotCompositeEvent({
     required this.id,
     required this.name,
@@ -1587,6 +1595,8 @@ class SlotCompositeEvent {
     required this.modifiedAt,
     this.triggerStages = const [],
     this.triggerConditions = const {},
+    this.timelinePositionMs = 0.0,
+    this.trackIndex = 0,
   });
 
   SlotCompositeEvent copyWith({
@@ -1603,6 +1613,8 @@ class SlotCompositeEvent {
     DateTime? modifiedAt,
     List<String>? triggerStages,
     Map<String, String>? triggerConditions,
+    double? timelinePositionMs,
+    int? trackIndex,
   }) {
     return SlotCompositeEvent(
       id: id ?? this.id,
@@ -1618,8 +1630,13 @@ class SlotCompositeEvent {
       modifiedAt: modifiedAt ?? this.modifiedAt,
       triggerStages: triggerStages ?? this.triggerStages,
       triggerConditions: triggerConditions ?? this.triggerConditions,
+      timelinePositionMs: timelinePositionMs ?? this.timelinePositionMs,
+      trackIndex: trackIndex ?? this.trackIndex,
     );
   }
+
+  /// Timeline position in seconds (convenience getter)
+  double get timelinePositionSeconds => timelinePositionMs / 1000.0;
 
   /// Total duration of event (longest layer including offset)
   double get totalDurationMs {
@@ -1658,6 +1675,8 @@ class SlotCompositeEvent {
     'modifiedAt': modifiedAt.toIso8601String(),
     'triggerStages': triggerStages,
     'triggerConditions': triggerConditions,
+    'timelinePositionMs': timelinePositionMs,
+    'trackIndex': trackIndex,
   };
 
   /// Create from JSON
@@ -1685,6 +1704,8 @@ class SlotCompositeEvent {
           .toList() ?? [],
       triggerConditions: (json['triggerConditions'] as Map<String, dynamic>?)
           ?.map((k, v) => MapEntry(k, v as String)) ?? {},
+      timelinePositionMs: (json['timelinePositionMs'] as num?)?.toDouble() ?? 0.0,
+      trackIndex: json['trackIndex'] as int? ?? 0,
     );
   }
 }

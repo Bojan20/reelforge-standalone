@@ -668,4 +668,9 @@ class ClipGainEnvelopeProvider extends ChangeNotifier {
     _clipboard = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

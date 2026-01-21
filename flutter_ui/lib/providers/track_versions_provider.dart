@@ -767,4 +767,9 @@ class TrackVersionsProvider extends ChangeNotifier {
     _versionCounter = 1;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

@@ -1458,10 +1458,10 @@ impl RoutingGraph {
         // Count incoming edges
         for channel in self.channels.values() {
             if let Some(target) = channel.output.target_channel() {
-                *in_degree.get_mut(&target).unwrap() += 1;
+                *in_degree.entry(target).or_insert(0) += 1;
             }
             for send in &channel.sends {
-                *in_degree.get_mut(&send.destination).unwrap() += 1;
+                *in_degree.entry(send.destination).or_insert(0) += 1;
             }
         }
 
@@ -1481,19 +1481,21 @@ impl RoutingGraph {
             if let Some(channel) = self.channels.get(&id) {
                 // Process output
                 if let Some(target) = channel.output.target_channel() {
-                    let deg = in_degree.get_mut(&target).unwrap();
-                    *deg -= 1;
-                    if *deg == 0 {
-                        queue.push_back(target);
+                    if let Some(deg) = in_degree.get_mut(&target) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(target);
+                        }
                     }
                 }
 
                 // Process sends
                 for send in &channel.sends {
-                    let deg = in_degree.get_mut(&send.destination).unwrap();
-                    *deg -= 1;
-                    if *deg == 0 {
-                        queue.push_back(send.destination);
+                    if let Some(deg) = in_degree.get_mut(&send.destination) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(send.destination);
+                        }
                     }
                 }
             }

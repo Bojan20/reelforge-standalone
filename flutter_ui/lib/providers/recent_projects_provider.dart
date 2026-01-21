@@ -118,4 +118,9 @@ class RecentProjectsProvider extends ChangeNotifier {
     if (index < 0 || index >= _projects.length) return null;
     return _projects[index];
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

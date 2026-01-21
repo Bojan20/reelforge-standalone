@@ -654,4 +654,10 @@ class TrackProvider extends ChangeNotifier {
     notifyListeners();
     debugPrint('[TrackProvider] Refresh: $armedCount armed, $recordingCount recording');
   }
+
+  @override
+  void dispose() {
+    // No resources to clean up currently
+    super.dispose();
+  }
 }

@@ -411,4 +411,9 @@ class EqProvider extends ChangeNotifier {
     notifyListeners();
     return preset;
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

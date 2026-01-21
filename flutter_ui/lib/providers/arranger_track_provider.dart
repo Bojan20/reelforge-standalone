@@ -859,4 +859,9 @@ class ArrangerTrackProvider extends ChangeNotifier {
     _sectionCounts.clear();
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

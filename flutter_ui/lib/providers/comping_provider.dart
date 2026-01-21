@@ -1037,4 +1037,9 @@ class CompingProvider extends ChangeNotifier {
     _compStates.remove(trackId);
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

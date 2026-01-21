@@ -812,4 +812,9 @@ class MacroControlProvider extends ChangeNotifier {
     _enabled = true;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

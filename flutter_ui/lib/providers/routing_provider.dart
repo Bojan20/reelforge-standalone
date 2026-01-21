@@ -201,4 +201,9 @@ class RoutingProvider extends ChangeNotifier {
       await pollChannelCreation(callbackId);
     }
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

@@ -549,4 +549,9 @@ class VideoProvider extends ChangeNotifier {
     _loadError = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

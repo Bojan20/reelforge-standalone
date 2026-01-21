@@ -548,8 +548,14 @@ impl DualPathEngine {
         let stats = Arc::new(DualPathStats::default());
 
         // Pre-acquire blocks for realtime and fallback processing
-        let realtime_idx = shared_pool.acquire().expect("Pool should have blocks");
-        let fallback_idx = shared_pool.acquire().expect("Pool should have blocks");
+        // Note: Pool is sized for lookahead + realtime + fallback + headroom,
+        // so these acquire() calls should never fail. If they do, it's a bug.
+        let realtime_idx = shared_pool
+            .acquire()
+            .expect("BUG: Audio pool exhausted at init - pool_size calculation is wrong");
+        let fallback_idx = shared_pool
+            .acquire()
+            .expect("BUG: Audio pool exhausted at init - pool_size calculation is wrong");
 
         // Create lookahead index buffer (atomic for lock-free access)
         let lookahead_indices: Vec<AtomicUsize> = (0..lookahead_blocks)
@@ -615,10 +621,11 @@ impl DualPathEngine {
 
         running.store(true, Ordering::SeqCst);
 
+        let thread_running = Arc::clone(&running);
         let handle = thread::Builder::new()
             .name("rf-guard".into())
             .spawn(move || {
-                while running.load(Ordering::Relaxed) {
+                while thread_running.load(Ordering::Relaxed) {
                     // Try to pop from input ring buffer
                     match input_rx.pop() {
                         Ok(msg) => {
@@ -649,11 +656,18 @@ impl DualPathEngine {
                 }
 
                 log::info!("Guard thread exiting");
-            })
-            .expect("Failed to spawn guard thread");
+            });
 
-        self.guard_thread = Some(handle);
-        log::info!("Guard thread started (lock-free mode)");
+        match handle {
+            Ok(h) => {
+                self.guard_thread = Some(h);
+                log::info!("Guard thread started (lock-free mode)");
+            }
+            Err(e) => {
+                log::error!("Failed to spawn guard thread: {}. Audio will use fallback path only.", e);
+                running.store(false, Ordering::SeqCst);
+            }
+        }
     }
 
     /// Stop the guard thread

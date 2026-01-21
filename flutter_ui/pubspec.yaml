@@ -38,6 +38,7 @@ dependencies:
 
   # WebSocket for live engine connection
   web_socket_channel: ^3.0.3
+  get_it: ^9.2.0
 
 dev_dependencies:
   flutter_test:

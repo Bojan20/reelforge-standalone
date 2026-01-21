@@ -805,4 +805,9 @@ class AudioAlignmentProvider extends ChangeNotifier {
     _processingMessage = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

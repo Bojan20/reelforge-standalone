@@ -19,9 +19,14 @@ import '../services/ducking_service.dart';
 import '../services/container_service.dart';
 import '../services/audio_asset_manager.dart';
 import '../services/audio_playback_service.dart';
+import '../services/service_locator.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 import '../services/unified_playback_controller.dart';
+import 'subsystems/state_groups_provider.dart';
+import 'subsystems/switch_groups_provider.dart';
+import 'subsystems/rtpc_system_provider.dart';
+import 'subsystems/ducking_system_provider.dart';
 
 // ============ Change Types ============
 
@@ -41,30 +46,25 @@ enum CompositeEventChangeType {
 class MiddlewareProvider extends ChangeNotifier {
   final NativeFFI _ffi;
 
-  // State Groups
-  final Map<int, StateGroup> _stateGroups = {};
-
-  // Switch Groups
-  final Map<int, SwitchGroup> _switchGroups = {};
-
-  // Per-object switch values: gameObjectId -> (groupId -> switchId)
-  final Map<int, Map<int, int>> _objectSwitches = {};
-
-  // RTPC Definitions
-  final Map<int, RtpcDefinition> _rtpcDefs = {};
-
-  // Per-object RTPC values: gameObjectId -> (rtpcId -> value)
-  final Map<int, Map<int, double>> _objectRtpcs = {};
-
-  // RTPC Bindings (RTPC → parameter mappings)
-  final Map<int, RtpcBinding> _rtpcBindings = {};
-
   // ═══════════════════════════════════════════════════════════════════════════
-  // ADVANCED FEATURES
+  // EXTRACTED SUBSYSTEM PROVIDERS (P0.2 decomposition)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Ducking Rules
-  final Map<int, DuckingRule> _duckingRules = {};
+  /// State Groups subsystem (extracted)
+  late final StateGroupsProvider _stateGroupsProvider;
+
+  /// Switch Groups subsystem (extracted)
+  late final SwitchGroupsProvider _switchGroupsProvider;
+
+  /// RTPC subsystem (extracted)
+  late final RtpcSystemProvider _rtpcSystemProvider;
+
+  /// Ducking subsystem (extracted)
+  late final DuckingSystemProvider _duckingSystemProvider;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADVANCED FEATURES (remaining, to be extracted in future phases)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // Blend Containers
   final Map<int, BlendContainer> _blendContainers = {};
@@ -201,12 +201,7 @@ class MiddlewareProvider extends ChangeNotifier {
   // Change listeners for bidirectional sync
   final List<void Function(String eventId, CompositeEventChangeType type)> _compositeChangeListeners = [];
 
-  // ID counters for new groups
-  int _nextStateGroupId = 100;
-  int _nextSwitchGroupId = 100;
-  int _nextRtpcId = 100;
-  int _nextBindingId = 1;
-  int _nextDuckingRuleId = 1;
+  // ID counters for new groups (State/Switch/RTPC/Ducking moved to subsystem providers)
   int _nextBlendContainerId = 1;
   int _nextRandomContainerId = 1;
   int _nextSequenceContainerId = 1;
@@ -215,6 +210,18 @@ class MiddlewareProvider extends ChangeNotifier {
   int _nextAttenuationCurveId = 1;
 
   MiddlewareProvider(this._ffi) {
+    // Initialize extracted subsystem providers via GetIt
+    _stateGroupsProvider = sl<StateGroupsProvider>();
+    _switchGroupsProvider = sl<SwitchGroupsProvider>();
+    _rtpcSystemProvider = sl<RtpcSystemProvider>();
+    _duckingSystemProvider = sl<DuckingSystemProvider>();
+
+    // Forward notifications from subsystem providers
+    _stateGroupsProvider.addListener(notifyListeners);
+    _switchGroupsProvider.addListener(notifyListeners);
+    _rtpcSystemProvider.addListener(notifyListeners);
+    _duckingSystemProvider.addListener(notifyListeners);
+
     _initializeDefaults();
     _initializeServices();
   }
@@ -231,13 +238,13 @@ class MiddlewareProvider extends ChangeNotifier {
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  List<StateGroup> get stateGroups => _stateGroups.values.toList();
-  List<SwitchGroup> get switchGroups => _switchGroups.values.toList();
-  List<RtpcDefinition> get rtpcDefinitions => _rtpcDefs.values.toList();
-  List<RtpcBinding> get rtpcBindings => _rtpcBindings.values.toList();
+  List<StateGroup> get stateGroups => _stateGroupsProvider.stateGroups.values.toList();
+  List<SwitchGroup> get switchGroups => _switchGroupsProvider.switchGroups.values.toList();
+  List<RtpcDefinition> get rtpcDefinitions => _rtpcSystemProvider.rtpcDefinitions;
+  List<RtpcBinding> get rtpcBindings => _rtpcSystemProvider.rtpcBindings;
 
   // Advanced features getters
-  List<DuckingRule> get duckingRules => _duckingRules.values.toList();
+  List<DuckingRule> get duckingRules => _duckingSystemProvider.duckingRules;
   List<BlendContainer> get blendContainers => _blendContainers.values.toList();
   List<RandomContainer> get randomContainers => _randomContainers.values.toList();
   List<SequenceContainer> get sequenceContainers => _sequenceContainers.values.toList();
@@ -314,430 +321,147 @@ class MiddlewareProvider extends ChangeNotifier {
     }
   }
 
-  StateGroup? getStateGroup(int groupId) => _stateGroups[groupId];
-  SwitchGroup? getSwitchGroup(int groupId) => _switchGroups[groupId];
-  RtpcDefinition? getRtpc(int rtpcId) => _rtpcDefs[rtpcId];
-  RtpcBinding? getRtpcBinding(int bindingId) => _rtpcBindings[bindingId];
+  StateGroup? getStateGroup(int groupId) => _stateGroupsProvider.getStateGroup(groupId);
+  SwitchGroup? getSwitchGroup(int groupId) => _switchGroupsProvider.getSwitchGroup(groupId);
+  RtpcDefinition? getRtpc(int rtpcId) => _rtpcSystemProvider.getRtpc(rtpcId);
+  RtpcBinding? getRtpcBinding(int bindingId) => _rtpcSystemProvider.getBinding(bindingId);
 
   /// Get current state for a group
   int getCurrentState(int groupId) {
-    return _stateGroups[groupId]?.currentStateId ?? 0;
+    return _stateGroupsProvider.getCurrentState(groupId) ?? 0;
   }
 
   /// Get current state name for a group
   String getCurrentStateName(int groupId) {
-    return _stateGroups[groupId]?.currentStateName ?? 'None';
+    return _stateGroupsProvider.getStateGroup(groupId)?.currentStateName ?? 'None';
   }
 
   /// Get switch value for a game object
   int getSwitch(int gameObjectId, int groupId) {
-    return _objectSwitches[gameObjectId]?[groupId] ??
-        _switchGroups[groupId]?.defaultSwitchId ?? 0;
+    return _switchGroupsProvider.getSwitch(gameObjectId, groupId) ??
+        _switchGroupsProvider.getSwitchGroup(groupId)?.defaultSwitchId ?? 0;
   }
 
   /// Get switch name for a game object
   String? getSwitchName(int gameObjectId, int groupId) {
     final switchId = getSwitch(gameObjectId, groupId);
-    return _switchGroups[groupId]?.switchName(switchId);
+    return _switchGroupsProvider.getSwitchGroup(groupId)?.switchName(switchId);
   }
 
   /// Get RTPC value (global)
-  double getRtpcValue(int rtpcId) {
-    return _rtpcDefs[rtpcId]?.currentValue ?? 0.0;
-  }
+  double getRtpcValue(int rtpcId) => _rtpcSystemProvider.getRtpcValue(rtpcId);
 
   /// Get RTPC value for specific object (falls back to global)
-  double getRtpcValueForObject(int gameObjectId, int rtpcId) {
-    return _objectRtpcs[gameObjectId]?[rtpcId] ?? getRtpcValue(rtpcId);
-  }
+  double getRtpcValueForObject(int gameObjectId, int rtpcId) =>
+      _rtpcSystemProvider.getRtpcValueForObject(gameObjectId, rtpcId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STATE GROUPS
+  // STATE GROUPS (delegated to StateGroupsProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Register a state group from predefined constants
-  void registerStateGroupFromPreset(String name, List<String> stateNames) {
-    final groupId = _nextStateGroupId++;
-
-    final states = <StateDefinition>[];
-    for (int i = 0; i < stateNames.length; i++) {
-      states.add(StateDefinition(id: i, name: stateNames[i]));
-    }
-
-    final group = StateGroup(
-      id: groupId,
-      name: name,
-      states: states,
-      currentStateId: 0,
-      defaultStateId: 0,
-    );
-
-    _stateGroups[groupId] = group;
-
-    // Register with Rust
-    _ffi.middlewareRegisterStateGroup(groupId, name, defaultState: 0);
-    for (final state in states) {
-      _ffi.middlewareAddState(groupId, state.id, state.name);
-    }
-
-    notifyListeners();
-  }
+  void registerStateGroupFromPreset(String name, List<String> stateNames) =>
+      _stateGroupsProvider.registerStateGroupFromPreset(name, stateNames);
 
   /// Register a custom state group
-  void registerStateGroup(StateGroup group) {
-    _stateGroups[group.id] = group;
-
-    // Register with Rust
-    _ffi.middlewareRegisterStateGroup(group.id, group.name, defaultState: group.defaultStateId);
-    for (final state in group.states) {
-      _ffi.middlewareAddState(group.id, state.id, state.name);
-    }
-
-    notifyListeners();
-  }
+  void registerStateGroup(StateGroup group) =>
+      _stateGroupsProvider.registerStateGroup(group);
 
   /// Set current state (global)
-  void setState(int groupId, int stateId) {
-    final group = _stateGroups[groupId];
-    if (group == null) return;
-
-    _stateGroups[groupId] = group.copyWith(currentStateId: stateId);
-
-    // Send to Rust
-    _ffi.middlewareSetState(groupId, stateId);
-
-    notifyListeners();
-  }
+  void setState(int groupId, int stateId) =>
+      _stateGroupsProvider.setState(groupId, stateId);
 
   /// Set state by name
-  void setStateByName(int groupId, String stateName) {
-    final group = _stateGroups[groupId];
-    if (group == null) return;
-
-    final state = group.states.where((s) => s.name == stateName).firstOrNull;
-    if (state != null) {
-      setState(groupId, state.id);
-    }
-  }
+  void setStateByName(int groupId, String stateName) =>
+      _stateGroupsProvider.setStateByName(groupId, stateName);
 
   /// Reset state to default
-  void resetState(int groupId) {
-    final group = _stateGroups[groupId];
-    if (group == null) return;
+  void resetState(int groupId) =>
+      _stateGroupsProvider.resetState(groupId);
 
-    setState(groupId, group.defaultStateId);
-  }
+  /// Unregister a state group
+  void unregisterStateGroup(int groupId) =>
+      _stateGroupsProvider.unregisterStateGroup(groupId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SWITCH GROUPS
+  // SWITCH GROUPS (delegated to SwitchGroupsProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Register a switch group
-  void registerSwitchGroup(SwitchGroup group) {
-    _switchGroups[group.id] = group;
-
-    // Register with Rust
-    _ffi.middlewareRegisterSwitchGroup(group.id, group.name);
-    for (final sw in group.switches) {
-      _ffi.middlewareAddSwitch(group.id, sw.id, sw.name);
-    }
-
-    notifyListeners();
-  }
+  void registerSwitchGroup(SwitchGroup group) =>
+      _switchGroupsProvider.registerSwitchGroup(group);
 
   /// Register switch group from name and switch names
-  void registerSwitchGroupFromPreset(String name, List<String> switchNames) {
-    final groupId = _nextSwitchGroupId++;
-
-    final switches = <SwitchDefinition>[];
-    for (int i = 0; i < switchNames.length; i++) {
-      switches.add(SwitchDefinition(id: i, name: switchNames[i]));
-    }
-
-    final group = SwitchGroup(
-      id: groupId,
-      name: name,
-      switches: switches,
-      defaultSwitchId: 0,
-    );
-
-    registerSwitchGroup(group);
-  }
+  void registerSwitchGroupFromPreset(String name, List<String> switchNames) =>
+      _switchGroupsProvider.registerSwitchGroupFromPreset(name, switchNames);
 
   /// Set switch for a game object
-  void setSwitch(int gameObjectId, int groupId, int switchId) {
-    _objectSwitches[gameObjectId] ??= {};
-    _objectSwitches[gameObjectId]![groupId] = switchId;
-
-    // Send to Rust
-    _ffi.middlewareSetSwitch(gameObjectId, groupId, switchId);
-
-    notifyListeners();
-  }
+  void setSwitch(int gameObjectId, int groupId, int switchId) =>
+      _switchGroupsProvider.setSwitch(gameObjectId, groupId, switchId);
 
   /// Set switch by name
-  void setSwitchByName(int gameObjectId, int groupId, String switchName) {
-    final group = _switchGroups[groupId];
-    if (group == null) return;
-
-    final sw = group.switches.where((s) => s.name == switchName).firstOrNull;
-    if (sw != null) {
-      setSwitch(gameObjectId, groupId, sw.id);
-    }
-  }
+  void setSwitchByName(int gameObjectId, int groupId, String switchName) =>
+      _switchGroupsProvider.setSwitchByName(gameObjectId, groupId, switchName);
 
   /// Reset switch to default for a game object
-  void resetSwitch(int gameObjectId, int groupId) {
-    final group = _switchGroups[groupId];
-    if (group == null) return;
-
-    setSwitch(gameObjectId, groupId, group.defaultSwitchId);
-  }
+  void resetSwitch(int gameObjectId, int groupId) =>
+      _switchGroupsProvider.resetSwitch(gameObjectId, groupId);
 
   /// Clear all switches for a game object
-  void clearObjectSwitches(int gameObjectId) {
-    _objectSwitches.remove(gameObjectId);
-    notifyListeners();
-  }
-
-  /// Unregister a state group
-  ///
-  /// Note: Rust FFI currently doesn't support unregister - group remains
-  /// in engine but is removed from UI tracking. IDs are never reused.
-  void unregisterStateGroup(int groupId) {
-    _stateGroups.remove(groupId);
-    notifyListeners();
-  }
+  void clearObjectSwitches(int gameObjectId) =>
+      _switchGroupsProvider.clearObjectSwitches(gameObjectId);
 
   /// Unregister a switch group
-  ///
-  /// Note: Rust FFI currently doesn't support unregister - group remains
-  /// in engine but is removed from UI tracking. IDs are never reused.
-  void unregisterSwitchGroup(int groupId) {
-    _switchGroups.remove(groupId);
-    // Remove from all objects
-    for (final objectSwitches in _objectSwitches.values) {
-      objectSwitches.remove(groupId);
-    }
-    notifyListeners();
-  }
-
-  /// Unregister an RTPC
-  ///
-  /// Note: Rust FFI currently doesn't support unregister - RTPC remains
-  /// in engine but is removed from UI tracking. IDs are never reused.
-  void unregisterRtpc(int rtpcId) {
-    _rtpcDefs.remove(rtpcId);
-    // Remove from all objects
-    for (final objectRtpcs in _objectRtpcs.values) {
-      objectRtpcs.remove(rtpcId);
-    }
-    // Remove bindings that use this RTPC
-    _rtpcBindings.removeWhere((_, binding) => binding.rtpcId == rtpcId);
-    notifyListeners();
-  }
+  void unregisterSwitchGroup(int groupId) =>
+      _switchGroupsProvider.unregisterSwitchGroup(groupId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RTPC
+  // RTPC (delegated to RtpcSystemProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Register an RTPC parameter
-  void registerRtpc(RtpcDefinition rtpc) {
-    _rtpcDefs[rtpc.id] = rtpc;
-
-    // Register with Rust
-    _ffi.middlewareRegisterRtpc(
-      rtpc.id,
-      rtpc.name,
-      rtpc.min,
-      rtpc.max,
-      rtpc.defaultValue,
-    );
-
-    notifyListeners();
-  }
-
-  /// Register RTPC from preset data
-  void registerRtpcFromPreset(Map<String, dynamic> preset) {
-    final rtpc = RtpcDefinition(
-      id: preset['id'] as int,
-      name: preset['name'] as String,
-      min: (preset['min'] as num).toDouble(),
-      max: (preset['max'] as num).toDouble(),
-      defaultValue: (preset['default'] as num).toDouble(),
-      currentValue: (preset['default'] as num).toDouble(),
-    );
-
-    registerRtpc(rtpc);
-  }
-
-  /// Set RTPC value globally
-  void setRtpc(int rtpcId, double value, {int interpolationMs = 0}) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null) return;
-
-    final clampedValue = rtpc.clamp(value);
-    _rtpcDefs[rtpcId] = rtpc.copyWith(currentValue: clampedValue);
-
-    // Send to Rust
-    _ffi.middlewareSetRtpc(rtpcId, clampedValue, interpolationMs: interpolationMs);
-
-    notifyListeners();
-  }
-
-  /// Set RTPC value for specific game object
-  void setRtpcOnObject(int gameObjectId, int rtpcId, double value, {int interpolationMs = 0}) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null) return;
-
-    final clampedValue = rtpc.clamp(value);
-    _objectRtpcs[gameObjectId] ??= {};
-    _objectRtpcs[gameObjectId]![rtpcId] = clampedValue;
-
-    // Send to Rust
-    _ffi.middlewareSetRtpcOnObject(gameObjectId, rtpcId, clampedValue, interpolationMs: interpolationMs);
-
-    notifyListeners();
-  }
-
-  /// Reset RTPC to default value
-  void resetRtpc(int rtpcId, {int interpolationMs = 100}) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null) return;
-
-    setRtpc(rtpcId, rtpc.defaultValue, interpolationMs: interpolationMs);
-  }
-
-  /// Clear all RTPC overrides for a game object
-  void clearObjectRtpcs(int gameObjectId) {
-    _objectRtpcs.remove(gameObjectId);
-    notifyListeners();
-  }
-
-  /// Update RTPC curve
-  void updateRtpcCurve(int rtpcId, RtpcCurve curve) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null) return;
-
-    _rtpcDefs[rtpcId] = rtpc.copyWith(curve: curve);
-    notifyListeners();
-  }
-
-  /// Add point to RTPC curve
-  void addRtpcCurvePoint(int rtpcId, RtpcCurvePoint point) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null) return;
-
-    final currentPoints = rtpc.curve?.points.toList() ?? [];
-    currentPoints.add(point);
-    currentPoints.sort((a, b) => a.x.compareTo(b.x));
-
-    _rtpcDefs[rtpcId] = rtpc.copyWith(curve: RtpcCurve(points: currentPoints));
-    notifyListeners();
-  }
-
-  /// Remove point from RTPC curve
-  void removeRtpcCurvePoint(int rtpcId, int pointIndex) {
-    final rtpc = _rtpcDefs[rtpcId];
-    if (rtpc == null || rtpc.curve == null) return;
-
-    final currentPoints = rtpc.curve!.points.toList();
-    if (pointIndex >= 0 && pointIndex < currentPoints.length) {
-      currentPoints.removeAt(pointIndex);
-      _rtpcDefs[rtpcId] = rtpc.copyWith(curve: RtpcCurve(points: currentPoints));
-      notifyListeners();
-    }
-  }
+  void unregisterRtpc(int rtpcId) => _rtpcSystemProvider.unregisterRtpc(rtpcId);
+  void registerRtpc(RtpcDefinition rtpc) => _rtpcSystemProvider.registerRtpc(rtpc);
+  void registerRtpcFromPreset(Map<String, dynamic> preset) =>
+      _rtpcSystemProvider.registerRtpcFromPreset(preset);
+  void setRtpc(int rtpcId, double value, {int interpolationMs = 0}) =>
+      _rtpcSystemProvider.setRtpc(rtpcId, value, interpolationMs: interpolationMs);
+  void setRtpcOnObject(int gameObjectId, int rtpcId, double value, {int interpolationMs = 0}) =>
+      _rtpcSystemProvider.setRtpcOnObject(gameObjectId, rtpcId, value, interpolationMs: interpolationMs);
+  void resetRtpc(int rtpcId, {int interpolationMs = 100}) =>
+      _rtpcSystemProvider.resetRtpc(rtpcId, interpolationMs: interpolationMs);
+  void clearObjectRtpcs(int gameObjectId) =>
+      _rtpcSystemProvider.clearObjectRtpcs(gameObjectId);
+  void updateRtpcCurve(int rtpcId, RtpcCurve curve) =>
+      _rtpcSystemProvider.updateRtpcCurve(rtpcId, curve);
+  void addRtpcCurvePoint(int rtpcId, RtpcCurvePoint point) =>
+      _rtpcSystemProvider.addRtpcCurvePoint(rtpcId, point);
+  void removeRtpcCurvePoint(int rtpcId, int pointIndex) =>
+      _rtpcSystemProvider.removeRtpcCurvePoint(rtpcId, pointIndex);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RTPC BINDINGS
+  // RTPC BINDINGS (delegated to RtpcSystemProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Create an RTPC binding
-  RtpcBinding createBinding(int rtpcId, RtpcTargetParameter target, {int? busId, int? eventId}) {
-    final bindingId = _nextBindingId++;
-
-    RtpcBinding binding;
-    if (busId != null) {
-      binding = RtpcBinding.forBus(bindingId, rtpcId, target, busId);
-    } else {
-      binding = RtpcBinding.linear(bindingId, rtpcId, target);
-      if (eventId != null) {
-        binding = binding.copyWith(targetEventId: eventId);
-      }
-    }
-
-    _rtpcBindings[bindingId] = binding;
-    notifyListeners();
-    return binding;
-  }
-
-  /// Update a binding's curve
-  void updateBindingCurve(int bindingId, RtpcCurve curve) {
-    final binding = _rtpcBindings[bindingId];
-    if (binding == null) return;
-
-    _rtpcBindings[bindingId] = binding.copyWith(curve: curve);
-    notifyListeners();
-  }
-
-  /// Enable/disable a binding
-  void setBindingEnabled(int bindingId, bool enabled) {
-    final binding = _rtpcBindings[bindingId];
-    if (binding == null) return;
-
-    _rtpcBindings[bindingId] = binding.copyWith(enabled: enabled);
-    notifyListeners();
-  }
-
-  /// Delete a binding
-  void deleteBinding(int bindingId) {
-    _rtpcBindings.remove(bindingId);
-    notifyListeners();
-  }
-
-  /// Get all bindings for an RTPC
-  List<RtpcBinding> getBindingsForRtpc(int rtpcId) {
-    return _rtpcBindings.values.where((b) => b.rtpcId == rtpcId).toList();
-  }
-
-  /// Get all bindings for a target parameter type
-  List<RtpcBinding> getBindingsForTarget(RtpcTargetParameter target) {
-    return _rtpcBindings.values.where((b) => b.target == target).toList();
-  }
-
-  /// Get all bindings for a bus
-  List<RtpcBinding> getBindingsForBus(int busId) {
-    return _rtpcBindings.values.where((b) => b.targetBusId == busId).toList();
-  }
-
-  /// Evaluate all bindings for current RTPC values
-  /// Returns map of (target, busId?) -> evaluated value
-  Map<(RtpcTargetParameter, int?), double> evaluateAllBindings() {
-    final results = <(RtpcTargetParameter, int?), double>{};
-
-    for (final binding in _rtpcBindings.values) {
-      if (!binding.enabled) continue;
-
-      final rtpcValue = getRtpcValue(binding.rtpcId);
-      final rtpcDef = _rtpcDefs[binding.rtpcId];
-      if (rtpcDef == null) continue;
-
-      // Normalize RTPC value to 0-1 for curve evaluation
-      final normalized = rtpcDef.normalizedValue;
-      final outputValue = binding.curve.evaluate(normalized);
-
-      results[(binding.target, binding.targetBusId)] = outputValue;
-    }
-
-    return results;
-  }
+  RtpcBinding createBinding(int rtpcId, RtpcTargetParameter target, {int? busId, int? eventId}) =>
+      _rtpcSystemProvider.createBinding(rtpcId, target, busId: busId, eventId: eventId);
+  void updateBindingCurve(int bindingId, RtpcCurve curve) =>
+      _rtpcSystemProvider.updateBindingCurve(bindingId, curve);
+  void setBindingEnabled(int bindingId, bool enabled) =>
+      _rtpcSystemProvider.setBindingEnabled(bindingId, enabled);
+  void deleteBinding(int bindingId) => _rtpcSystemProvider.deleteBinding(bindingId);
+  List<RtpcBinding> getBindingsForRtpc(int rtpcId) =>
+      _rtpcSystemProvider.getBindingsForRtpc(rtpcId);
+  List<RtpcBinding> getBindingsForTarget(RtpcTargetParameter target) =>
+      _rtpcSystemProvider.getBindingsForTarget(target);
+  List<RtpcBinding> getBindingsForBus(int busId) =>
+      _rtpcSystemProvider.getBindingsForBus(busId);
+  Map<(RtpcTargetParameter, int?), double> evaluateAllBindings() =>
+      _rtpcSystemProvider.evaluateAllBindings();
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DUCKING MATRIX
+  // DUCKING MATRIX (delegated to DuckingSystemProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Add a ducking rule
   DuckingRule addDuckingRule({
     required String sourceBus,
     required int sourceBusId,
@@ -748,78 +472,24 @@ class MiddlewareProvider extends ChangeNotifier {
     double releaseMs = 500.0,
     double threshold = 0.01,
     DuckingCurve curve = DuckingCurve.linear,
-  }) {
-    final id = _nextDuckingRuleId++;
+  }) => _duckingSystemProvider.addRule(
+    sourceBus: sourceBus,
+    sourceBusId: sourceBusId,
+    targetBus: targetBus,
+    targetBusId: targetBusId,
+    duckAmountDb: duckAmountDb,
+    attackMs: attackMs,
+    releaseMs: releaseMs,
+    threshold: threshold,
+    curve: curve,
+  );
 
-    final rule = DuckingRule(
-      id: id,
-      sourceBus: sourceBus,
-      sourceBusId: sourceBusId,
-      targetBus: targetBus,
-      targetBusId: targetBusId,
-      duckAmountDb: duckAmountDb,
-      attackMs: attackMs,
-      releaseMs: releaseMs,
-      threshold: threshold,
-      curve: curve,
-    );
-
-    _duckingRules[id] = rule;
-
-    // Register with Rust
-    _ffi.middlewareAddDuckingRule(rule);
-
-    // Sync with DuckingService for Dart-side ducking
-    DuckingService.instance.addRule(rule);
-
-    notifyListeners();
-    return rule;
-  }
-
-  /// Update a ducking rule
-  void updateDuckingRule(int ruleId, DuckingRule rule) {
-    if (!_duckingRules.containsKey(ruleId)) return;
-
-    _duckingRules[ruleId] = rule;
-
-    // Re-register (remove + add)
-    _ffi.middlewareRemoveDuckingRule(ruleId);
-    _ffi.middlewareAddDuckingRule(rule);
-
-    // Sync with DuckingService
-    DuckingService.instance.updateRule(rule);
-
-    notifyListeners();
-  }
-
-  /// Remove a ducking rule
-  void removeDuckingRule(int ruleId) {
-    _duckingRules.remove(ruleId);
-    _ffi.middlewareRemoveDuckingRule(ruleId);
-
-    // Sync with DuckingService
-    DuckingService.instance.removeRule(ruleId);
-
-    notifyListeners();
-  }
-
-  /// Enable/disable a ducking rule
-  void setDuckingRuleEnabled(int ruleId, bool enabled) {
-    final rule = _duckingRules[ruleId];
-    if (rule == null) return;
-
-    final updatedRule = rule.copyWith(enabled: enabled);
-    _duckingRules[ruleId] = updatedRule;
-    _ffi.middlewareSetDuckingRuleEnabled(ruleId, enabled);
-
-    // Sync with DuckingService
-    DuckingService.instance.updateRule(updatedRule);
-
-    notifyListeners();
-  }
-
-  /// Get ducking rule by ID
-  DuckingRule? getDuckingRule(int ruleId) => _duckingRules[ruleId];
+  void updateDuckingRule(int ruleId, DuckingRule rule) =>
+      _duckingSystemProvider.updateRule(ruleId, rule);
+  void removeDuckingRule(int ruleId) => _duckingSystemProvider.removeRule(ruleId);
+  void setDuckingRuleEnabled(int ruleId, bool enabled) =>
+      _duckingSystemProvider.setRuleEnabled(ruleId, enabled);
+  DuckingRule? getDuckingRule(int ruleId) => _duckingSystemProvider.getRule(ruleId);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BLEND CONTAINERS
@@ -1238,8 +908,8 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Unregister a game object (clears all its switches/RTPCs)
   void unregisterGameObject(int gameObjectId) {
-    _objectSwitches.remove(gameObjectId);
-    _objectRtpcs.remove(gameObjectId);
+    _switchGroupsProvider.clearObjectSwitches(gameObjectId);
+    _rtpcSystemProvider.clearObjectRtpcs(gameObjectId);
     _ffi.middlewareUnregisterGameObject(gameObjectId);
     notifyListeners();
   }
@@ -1250,64 +920,62 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Export all state to JSON
   Map<String, dynamic> toJson() => {
-    'stateGroups': _stateGroups.values.map((g) => g.toJson()).toList(),
-    'switchGroups': _switchGroups.values.map((g) => g.toJson()).toList(),
-    'rtpcDefs': _rtpcDefs.values.map((r) => r.toJson()).toList(),
-    'rtpcBindings': _rtpcBindings.values.map((b) => b.toJson()).toList(),
-    'objectSwitches': _objectSwitches.map(
-      (k, v) => MapEntry(k.toString(), v.map((gk, sv) => MapEntry(gk.toString(), sv))),
-    ),
-    'objectRtpcs': _objectRtpcs.map(
-      (k, v) => MapEntry(k.toString(), v.map((rk, rv) => MapEntry(rk.toString(), rv))),
-    ),
+    'stateGroups': _stateGroupsProvider.toJson(),
+    'switchGroups': _switchGroupsProvider.toJson(),
+    'rtpcDefs': _rtpcSystemProvider.rtpcDefsToJson(),
+    'rtpcBindings': _rtpcSystemProvider.bindingsToJson(),
+    'objectSwitches': _switchGroupsProvider.objectSwitchesToJson(),
+    'objectRtpcs': _rtpcSystemProvider.objectRtpcsToJson(),
+    'duckingRules': _duckingSystemProvider.toJson(),
   };
 
   /// Load state from JSON
   void fromJson(Map<String, dynamic> json) {
-    _stateGroups.clear();
-    _switchGroups.clear();
-    _rtpcDefs.clear();
-    _rtpcBindings.clear();
-    _objectSwitches.clear();
-    _objectRtpcs.clear();
+    _stateGroupsProvider.clear();
+    _switchGroupsProvider.clear();
+    _rtpcSystemProvider.clear();
+    _duckingSystemProvider.clear();
 
     // Load state groups
     final stateGroupsList = json['stateGroups'] as List<dynamic>?;
     if (stateGroupsList != null) {
-      for (final g in stateGroupsList) {
-        final group = StateGroup.fromJson(g as Map<String, dynamic>);
-        registerStateGroup(group);
-      }
+      _stateGroupsProvider.fromJson(stateGroupsList);
     }
 
     // Load switch groups
     final switchGroupsList = json['switchGroups'] as List<dynamic>?;
     if (switchGroupsList != null) {
-      for (final g in switchGroupsList) {
-        final group = SwitchGroup.fromJson(g as Map<String, dynamic>);
-        registerSwitchGroup(group);
-      }
+      _switchGroupsProvider.fromJson(switchGroupsList);
+    }
+
+    // Load object switches
+    final objectSwitchesJson = json['objectSwitches'] as Map<String, dynamic>?;
+    if (objectSwitchesJson != null) {
+      _switchGroupsProvider.objectSwitchesFromJson(objectSwitchesJson);
     }
 
     // Load RTPCs
     final rtpcList = json['rtpcDefs'] as List<dynamic>?;
     if (rtpcList != null) {
-      for (final r in rtpcList) {
-        final rtpc = RtpcDefinition.fromJson(r as Map<String, dynamic>);
-        registerRtpc(rtpc);
-      }
+      _rtpcSystemProvider.rtpcDefsFromJson(rtpcList);
     }
 
     // Load RTPC bindings
     final bindingsList = json['rtpcBindings'] as List<dynamic>?;
     if (bindingsList != null) {
-      for (final b in bindingsList) {
-        final binding = RtpcBinding.fromJson(b as Map<String, dynamic>);
-        _rtpcBindings[binding.id] = binding;
-        if (binding.id >= _nextBindingId) {
-          _nextBindingId = binding.id + 1;
-        }
-      }
+      _rtpcSystemProvider.bindingsFromJson(bindingsList);
+    }
+
+    // Load object RTPCs
+    final objectRtpcsJson = json['objectRtpcs'] as Map<String, dynamic>?;
+    if (objectRtpcsJson != null) {
+      _rtpcSystemProvider.objectRtpcsFromJson(objectRtpcsJson);
+    }
+
+    // Load ducking rules
+    final duckingRulesList = json['duckingRules'] as List<dynamic>?;
+    if (duckingRulesList != null) {
+      _duckingSystemProvider.fromJson(duckingRulesList);
     }
 
     notifyListeners();
@@ -1352,12 +1020,12 @@ class MiddlewareProvider extends ChangeNotifier {
     int attenuationCurves,
   }) get stats {
     return (
-      stateGroups: _stateGroups.length,
-      switchGroups: _switchGroups.length,
-      rtpcs: _rtpcDefs.length,
-      objectsWithSwitches: _objectSwitches.length,
-      objectsWithRtpcs: _objectRtpcs.length,
-      duckingRules: _duckingRules.length,
+      stateGroups: _stateGroupsProvider.stateGroups.length,
+      switchGroups: _switchGroupsProvider.switchGroups.length,
+      rtpcs: _rtpcSystemProvider.rtpcCount,
+      objectsWithSwitches: _switchGroupsProvider.objectSwitchesCount,
+      objectsWithRtpcs: _rtpcSystemProvider.objectsWithRtpcsCount,
+      duckingRules: _duckingSystemProvider.ruleCount,
       blendContainers: _blendContainers.length,
       randomContainers: _randomContainers.length,
       sequenceContainers: _sequenceContainers.length,
@@ -2092,13 +1760,10 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Clear all middleware data
   void _clearAll() {
-    _stateGroups.clear();
-    _switchGroups.clear();
-    _rtpcDefs.clear();
-    _rtpcBindings.clear();
-    _objectSwitches.clear();
-    _objectRtpcs.clear();
-    _duckingRules.clear();
+    _stateGroupsProvider.clear();
+    _switchGroupsProvider.clear();
+    _rtpcSystemProvider.clear();
+    _duckingSystemProvider.clear();
     _blendContainers.clear();
     _randomContainers.clear();
     _sequenceContainers.clear();
@@ -2108,12 +1773,7 @@ class MiddlewareProvider extends ChangeNotifier {
     _currentMusicSegmentId = null;
     _nextMusicSegmentId = null;
 
-    // Reset ID counters
-    _nextStateGroupId = 100;
-    _nextSwitchGroupId = 100;
-    _nextRtpcId = 100;
-    _nextBindingId = 1;
-    _nextDuckingRuleId = 1;
+    // Reset ID counters (subsystem providers manage their own)
     _nextBlendContainerId = 1;
     _nextRandomContainerId = 1;
     _nextSequenceContainerId = 1;
@@ -2477,7 +2137,7 @@ class MiddlewareProvider extends ChangeNotifier {
       if (betAmount > 0) {
         final ratio = winAmount / betAmount;
         // Find win multiplier RTPC (ID 100 by convention)
-        final rtpc = _rtpcDefs[100];
+        final rtpc = _rtpcSystemProvider.getRtpc(100);
         if (rtpc != null) {
           setRtpc(100, ratio.clamp(rtpc.min, rtpc.max));
         }
@@ -2487,7 +2147,7 @@ class MiddlewareProvider extends ChangeNotifier {
     // Cascade depth
     if (context.containsKey('cascade_depth')) {
       final depth = (context['cascade_depth'] as num).toDouble();
-      final rtpc = _rtpcDefs[104]; // Cascade depth RTPC
+      final rtpc = _rtpcSystemProvider.getRtpc(104); // Cascade depth RTPC
       if (rtpc != null) {
         setRtpc(104, depth.clamp(rtpc.min, rtpc.max));
       }
@@ -3035,8 +2695,7 @@ class MiddlewareProvider extends ChangeNotifier {
 
     // Add ducking rules
     for (final rule in profile.duckingRules) {
-      _duckingRules[rule.id] = rule;
-      _ffi.middlewareAddDuckingRule(rule);
+      _duckingSystemProvider.registerRule(rule);
     }
 
     // Add music segments
@@ -5153,5 +4812,11 @@ class MiddlewareProvider extends ChangeNotifier {
       }
     }
     return counts;
+  }
+
+  @override
+  void dispose() {
+    // MiddlewareProvider cleanup
+    super.dispose();
   }
 }

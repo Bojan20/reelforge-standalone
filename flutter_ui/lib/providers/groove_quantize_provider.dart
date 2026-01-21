@@ -724,4 +724,9 @@ class GrooveQuantizeProvider extends ChangeNotifier {
     _initFactoryGrooves();
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

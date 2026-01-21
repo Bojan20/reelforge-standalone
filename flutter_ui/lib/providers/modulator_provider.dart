@@ -1055,4 +1055,9 @@ class ModulatorProvider extends ChangeNotifier {
     _selectedId = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

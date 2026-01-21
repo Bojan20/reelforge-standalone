@@ -390,4 +390,9 @@ class MasteringProvider extends ChangeNotifier {
         return 'Speech';
     }
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

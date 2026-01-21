@@ -298,4 +298,9 @@ class UiUndoManager extends ChangeNotifier {
     _redoStack.clear();
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

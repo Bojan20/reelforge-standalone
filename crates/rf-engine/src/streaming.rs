@@ -584,14 +584,17 @@ impl DiskReaderPool {
             let assets = Arc::clone(&assets);
             let streams = Arc::clone(&streams);
 
-            let handle = thread::Builder::new()
+            match thread::Builder::new()
                 .name(format!("disk-reader-{}", i))
                 .spawn(move || {
                     Self::worker_loop(queue, flag, assets, streams);
                 })
-                .expect("Failed to spawn disk reader thread");
-
-            workers.push(handle);
+            {
+                Ok(handle) => workers.push(handle),
+                Err(e) => {
+                    log::error!("Failed to spawn disk reader thread {}: {}. Streaming may be degraded.", i, e);
+                }
+            }
         }
 
         Self {

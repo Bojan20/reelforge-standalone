@@ -1096,4 +1096,9 @@ class ChordTrackProvider extends ChangeNotifier {
     _currentEventId = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

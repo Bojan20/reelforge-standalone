@@ -56,10 +56,15 @@ import 'providers/stage_provider.dart';
 import 'providers/slot_lab_provider.dart';
 import 'providers/ale_provider.dart';
 import 'services/audio_asset_manager.dart';
+import 'services/service_locator.dart';
 import 'src/rust/native_ffi.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize dependency injection (GetIt)
+  await ServiceLocator.init();
+
   runApp(const FluxForgeApp());
 }
 

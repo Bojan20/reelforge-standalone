@@ -923,7 +923,30 @@ class EventRegistry extends ChangeNotifier {
 
   /// Trigeruj event po stage-u
   /// FIXED: Case-insensitive lookup — normalizes stage to UPPERCASE
+  ///
+  /// Input validation:
+  /// - Max 128 characters
+  /// - Only A-Z, 0-9, underscore allowed
+  /// - Empty strings rejected
   Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INPUT VALIDATION (P1.2 Security Fix)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stage.isEmpty) {
+      debugPrint('[EventRegistry] ⚠️ Empty stage name rejected');
+      return;
+    }
+    if (stage.length > 128) {
+      debugPrint('[EventRegistry] ⚠️ Stage name too long (${stage.length} > 128): "${stage.substring(0, 32)}..."');
+      return;
+    }
+    // Allow only alphanumeric + underscore (prevent injection)
+    final validChars = RegExp(r'^[A-Za-z0-9_]+$');
+    if (!validChars.hasMatch(stage)) {
+      debugPrint('[EventRegistry] ⚠️ Stage name contains invalid characters: "$stage"');
+      return;
+    }
+
     final normalizedStage = stage.toUpperCase().trim();
 
     // Try exact match first, then normalized
@@ -962,6 +985,12 @@ class EventRegistry extends ChangeNotifier {
 
   /// Trigeruj event po ID-u
   Future<void> triggerEvent(String eventId, {Map<String, dynamic>? context}) async {
+    // Input validation
+    if (eventId.isEmpty || eventId.length > 256) {
+      debugPrint('[EventRegistry] ⚠️ Invalid eventId length');
+      return;
+    }
+
     final event = _events[eventId];
     if (event == null) {
       debugPrint('[EventRegistry] Event not found: $eventId');

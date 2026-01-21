@@ -818,6 +818,68 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## 🏗️ DEPENDENCY INJECTION — GetIt Service Locator
+
+**Status:** ✅ IMPLEMENTED (2026-01-21)
+
+### Service Locator Pattern
+
+```dart
+// Global instance
+final GetIt sl = GetIt.instance;
+
+// Access services anywhere
+final ffi = sl<NativeFFI>();
+final pool = sl<AudioPool>();
+final stateGroups = sl<StateGroupsProvider>();
+```
+
+### Registered Services (by layer)
+
+| Layer | Service | Type |
+|-------|---------|------|
+| 1 | `NativeFFI` | Core FFI |
+| 2 | `SharedMeterReader`, `WaveformCacheService`, `AudioAssetManager`, `LiveEngineService` | Low-level |
+| 3 | `UnifiedPlaybackController`, `AudioPlaybackService`, `AudioPool`, `SlotLabTrackBridge`, `SessionPersistenceService` | Playback |
+| 4 | `DuckingService`, `RtpcModulationService`, `ContainerService` | Audio processing |
+| 5 | `StateGroupsProvider`, `SwitchGroupsProvider`, `RtpcSystemProvider`, `DuckingSystemProvider` | Middleware subsystems |
+
+### Subsystem Providers (extracted from MiddlewareProvider)
+
+| Provider | File | LOC | Manages |
+|----------|------|-----|---------|
+| `StateGroupsProvider` | `providers/subsystems/state_groups_provider.dart` | ~185 | Global state groups (Wwise-style) |
+| `SwitchGroupsProvider` | `providers/subsystems/switch_groups_provider.dart` | ~210 | Per-object switches |
+| `RtpcSystemProvider` | `providers/subsystems/rtpc_system_provider.dart` | ~350 | RTPC definitions, bindings, curves |
+| `DuckingSystemProvider` | `providers/subsystems/ducking_system_provider.dart` | ~190 | Ducking rules (sidechain matrix) |
+
+**Decomposition Progress:**
+- Phase 1 ✅: StateGroups + SwitchGroups
+- Phase 2 ✅: RTPC + Ducking
+- Phase 3 ⏳: Containers + Music (pending)
+
+**Usage in MiddlewareProvider:**
+```dart
+MiddlewareProvider(this._ffi) {
+  _stateGroupsProvider = sl<StateGroupsProvider>();
+  _switchGroupsProvider = sl<SwitchGroupsProvider>();
+  _rtpcSystemProvider = sl<RtpcSystemProvider>();
+  _duckingSystemProvider = sl<DuckingSystemProvider>();
+
+  // Forward notifications from subsystems
+  _stateGroupsProvider.addListener(notifyListeners);
+  _switchGroupsProvider.addListener(notifyListeners);
+  _rtpcSystemProvider.addListener(notifyListeners);
+  _duckingSystemProvider.addListener(notifyListeners);
+}
+```
+
+**Dokumentacija:**
+- `.claude/SYSTEM_AUDIT_2026_01_21.md` — P0.2 progress
+- `.claude/architecture/MIDDLEWARE_DECOMPOSITION.md` — Full decomposition plan
+
+---
+
 ## 🚀 PERFORMANCE OPTIMIZATION — ✅ ALL PHASES COMPLETED
 
 **Detaljna analiza:** `.claude/performance/OPTIMIZATION_GUIDE.md`

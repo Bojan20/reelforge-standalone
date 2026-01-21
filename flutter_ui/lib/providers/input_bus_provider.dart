@@ -145,4 +145,9 @@ class InputBusProvider extends ChangeNotifier {
 
   /// Get bus by ID
   InputBusInfo? getBus(int busId) => _buses[busId];
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }
