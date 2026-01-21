@@ -61,6 +61,10 @@ class LeftZone extends StatefulWidget {
   final timeline.TimelineTrack? selectedClipTrack;
   final ValueChanged<timeline.TimelineClip>? onClipChanged;
 
+  // External folder expansion state (from AudioAssetManager)
+  final Set<String>? expandedFolderIds;
+  final void Function(String id)? onToggleFolderExpanded;
+
   const LeftZone({
     super.key,
     this.editorMode = EditorMode.daw,
@@ -96,6 +100,8 @@ class LeftZone extends StatefulWidget {
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
+    this.expandedFolderIds,
+    this.onToggleFolderExpanded,
   });
 
   @override
@@ -224,6 +230,8 @@ class _LeftZoneState extends State<LeftZone> {
                 onSelect: widget.onSelect,
                 onDoubleClick: widget.onDoubleClick,
                 onAdd: widget.onAdd,
+                externalExpandedIds: widget.expandedFolderIds,
+                onToggleExpanded: widget.onToggleFolderExpanded,
               ),
         ),
       ],

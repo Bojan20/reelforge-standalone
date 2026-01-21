@@ -381,6 +381,7 @@ engine_playback_stop_all_one_shots()
 | UnifiedPlaybackController | ✅ Complete | Singleton, all transport ops |
 | TimelinePlaybackProvider integration | ✅ Complete | Uses acquireSection |
 | SlotLabProvider integration | ✅ Complete | Uses acquireSection |
+| **MiddlewareProvider integration** | ✅ Complete | Uses acquireSection for postEvent |
 | EventRegistry source routing | ✅ Complete | Reads active section |
 | AudioPlaybackService delegated mode | ✅ Complete | Respects controller |
 | PlaybackSectionIndicator widget | ✅ Complete | Status + interruption UI |
@@ -388,6 +389,7 @@ engine_playback_stop_all_one_shots()
 | **One-shot bus routing** | ✅ Complete | Middleware/SlotLab through DAW buses |
 | **playFileToBus API** | ✅ Complete | FFI + Dart bindings |
 | **OneShotVoice in PlaybackEngine** | ✅ Complete | Lock-free voice system |
+| **Waveform cache invalidation** | ✅ Complete | EditorModeProvider.waveformGeneration |
 
 ---
 
@@ -457,6 +459,80 @@ Future<void> _playLayer(AudioLayer layer, ...) async {
   AudioPlaybackService.instance.previewFile(path, source: source);
 }
 ```
+
+### Middleware Event Playback
+
+```dart
+class MiddlewareProvider {
+  int postEvent(String eventId, {...}) {
+    // Acquire Middleware section before playback
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(PlaybackSection.middleware)) {
+      return 0; // Failed to acquire (DAW or SlotLab is playing)
+    }
+    controller.play(); // Ensure audio stream is running
+
+    // ... trigger event via FFI
+    return playingId;
+  }
+
+  void stopAllEvents({int fadeMs = 100}) {
+    _ffi.middlewareStopAll(fadeMs: fadeMs);
+    _playingInstances.clear();
+
+    // Release section when all events stopped
+    UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
+  }
+}
+```
+
+---
+
+## Waveform Cache Invalidation
+
+When switching between DAW and SlotLab/Middleware modes, waveform caches can become stale due to shared FFI clip IDs. The system uses a generation counter to force cache invalidation.
+
+### Problem
+
+SlotLab imports audio to a temporary track for waveform preview. If it used track 0 (same as DAW), Rust engine could overwrite DAW clip data, corrupting waveforms.
+
+### Solution
+
+1. **SlotLab uses dedicated preview track (ID 99999)**
+   - Prevents collision with DAW tracks (0, 1, 2...)
+   - Waveform data remains isolated
+
+2. **Waveform generation counter**
+   - `EditorModeProvider.waveformGeneration` increments when returning to DAW
+   - `_UltimateClipWaveformState` checks generation and reloads if changed
+
+```dart
+// EditorModeProvider
+void setMode(EditorMode newMode) {
+  if (newMode == EditorMode.daw && _mode != EditorMode.daw) {
+    _waveformGeneration++; // Force DAW waveform cache refresh
+  }
+  _mode = newMode;
+  notifyListeners();
+}
+
+// _UltimateClipWaveformState
+void _loadCacheOnce() {
+  final currentGeneration = context.read<EditorModeProvider>().waveformGeneration;
+  if (_cachedWaveformGeneration != currentGeneration) {
+    _cachedWaveformGeneration = currentGeneration;
+    // Force reload from FFI...
+  }
+}
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `lib/providers/editor_mode_provider.dart` | `waveformGeneration` counter |
+| `lib/widgets/timeline/clip_widget.dart` | `_cachedWaveformGeneration` check |
+| `lib/screens/slot_lab_screen.dart` | Uses track 99999 for waveform import |
 
 ---
 

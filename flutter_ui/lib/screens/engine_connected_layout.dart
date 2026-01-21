@@ -66,6 +66,7 @@ import '../providers/mixer_provider.dart';
 import '../providers/recording_provider.dart';
 import '../providers/slot_lab_provider.dart';
 import '../providers/stage_provider.dart';
+import '../services/audio_asset_manager.dart';
 import '../models/stage_models.dart' as stage;
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
@@ -141,6 +142,7 @@ import '../widgets/browser/audio_pool_panel.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/middleware/events_folder_panel.dart';
 import '../widgets/middleware/event_editor_panel.dart';
+import '../widgets/ale/ale_panel.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -2805,6 +2807,54 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // UNIFIED AUDIO ASSET MANAGER SYNC (SINGLE SOURCE OF TRUTH)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sync from AudioAssetManager (central source of truth) to local _audioPool
+  /// This ensures all modes (DAW, Middleware, SlotLab) share the same assets
+  void _syncFromAssetManager(AudioAssetManager assetManager) {
+    final assets = assetManager.assets;
+
+    // Sync: AssetManager → local _audioPool
+    for (final asset in assets) {
+      final exists = _audioPool.any((f) => f.path == asset.path);
+      if (exists) continue;
+
+      // Generate waveform for visualization
+      final waveform = timeline.generateDemoWaveform(samples: 2000);
+
+      _audioPool.add(timeline.PoolAudioFile(
+        id: asset.id,
+        path: asset.path,
+        name: asset.name,
+        duration: asset.duration,
+        sampleRate: asset.sampleRate,
+        channels: asset.channels,
+        format: asset.format,
+        waveform: waveform,
+        importedAt: asset.importedAt,
+        defaultBus: timeline.OutputBus.master,
+      ));
+    }
+
+    // Reverse sync: local _audioPool → AssetManager (for assets added elsewhere)
+    for (final poolFile in _audioPool) {
+      if (!assetManager.hasAsset(poolFile.path)) {
+        assetManager.addAssetFromPoolFile(
+          id: poolFile.id,
+          path: poolFile.path,
+          name: poolFile.name,
+          duration: poolFile.duration,
+          sampleRate: poolFile.sampleRate,
+          channels: poolFile.channels,
+          format: poolFile.format,
+          folder: 'Audio Pool',
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // MIDDLEWARE CRUD OPERATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -3602,6 +3652,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     final slotLabProvider = context.watch<SlotLabProvider>();
     _syncAudioPoolFromSlotLab(slotLabProvider);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UNIFIED AUDIO ASSET MANAGER SYNC
+    // All modes share the same audio assets via AudioAssetManager
+    // ═══════════════════════════════════════════════════════════════════════════
+    final assetManager = context.watch<AudioAssetManager>();
+    _syncFromAssetManager(assetManager);
+
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // Shift+Cmd+I - Import Audio Files
@@ -3706,6 +3763,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
             onProjectSelect: _handlePoolItemClick,
             onProjectDoubleClick: _handlePoolItemDoubleClick,
+            // External folder expansion from AudioAssetManager
+            expandedFolderIds: assetManager.expandedFolderIds,
+            onToggleFolderExpanded: assetManager.toggleFolder,
 
             // Channel tab data (DAW mode)
             channelData: _getSelectedChannelData(),
@@ -9567,6 +9627,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
         content: const EventEditorPanel(),
         groupId: 'middleware',
       ),
+      LowerZoneTab(
+        id: 'ale',
+        label: 'ALE',
+        icon: Icons.auto_awesome,
+        content: const AlePanel(),
+        groupId: 'middleware',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -9626,7 +9693,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       const TabGroup(
         id: 'middleware',
         label: 'Middleware',
-        tabs: ['events-folder', 'event-editor'],
+        tabs: ['events-folder', 'event-editor', 'ale'],
       ),
     ];
 

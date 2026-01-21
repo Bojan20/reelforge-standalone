@@ -16,11 +16,13 @@ import '../models/stage_models.dart';
 import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
+import '../services/audio_asset_manager.dart';
 import '../services/rtpc_modulation_service.dart';
 import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/slot_lab_v2_ffi.dart';
 import 'middleware_provider.dart';
+import 'ale_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLOT LAB PROVIDER
@@ -76,6 +78,10 @@ class SlotLabProvider extends ChangeNotifier {
   StageAudioMapper? _audioMapper;
   bool _autoTriggerAudio = true;
 
+  // ─── ALE Integration ──────────────────────────────────────────────────────
+  AleProvider? _aleProvider;
+  bool _aleAutoSync = true;
+
   // ─── Stage Event Playback ──────────────────────────────────────────────────
   Timer? _stagePlaybackTimer;
   Timer? _audioPreTriggerTimer; // P0.6: Separate timer for audio pre-trigger
@@ -85,7 +91,18 @@ class SlotLabProvider extends ChangeNotifier {
   int _playbackGeneration = 0; // Incremented on each new spin to invalidate old timers
 
   // ─── Persistent UI State (survives screen switches) ───────────────────────
-  List<Map<String, dynamic>> persistedAudioPool = [];
+  /// Audio pool now comes from AudioAssetManager (single source of truth)
+  /// This getter provides backwards compatibility for existing code
+  List<Map<String, dynamic>> get persistedAudioPool =>
+      AudioAssetManager.instance.toMapList();
+
+  /// Legacy setter - now syncs to AudioAssetManager
+  set persistedAudioPool(List<Map<String, dynamic>> value) {
+    for (final map in value) {
+      AudioAssetManager.instance.addFromMap(map);
+    }
+  }
+
   List<Map<String, dynamic>> persistedCompositeEvents = [];
   List<Map<String, dynamic>> persistedTracks = [];
   Map<String, String> persistedEventToRegionMap = {};
@@ -98,7 +115,8 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Clear all persisted UI state (use when data is corrupted)
   void clearPersistedState() {
-    persistedAudioPool.clear();
+    // Audio pool is now in AudioAssetManager - clear it there
+    AudioAssetManager.instance.clear();
     persistedCompositeEvents.clear();
     persistedTracks.clear();
     persistedEventToRegionMap.clear();
@@ -134,6 +152,7 @@ class SlotLabProvider extends ChangeNotifier {
   bool get autoTriggerAudio => _autoTriggerAudio;
   bool get isPlayingStages => _isPlayingStages;
   int get currentStageIndex => _currentStageIndex;
+  bool get aleAutoSync => _aleAutoSync;
 
   /// P0.6: Anticipation pre-trigger offset in ms
   int get anticipationPreTriggerMs => _anticipationPreTriggerMs;
@@ -227,6 +246,18 @@ class SlotLabProvider extends ChangeNotifier {
     _middleware = middleware;
     _audioMapper = StageAudioMapper(middleware, _ffi);
     debugPrint('[SlotLabProvider] Middleware connected');
+  }
+
+  /// Connect ALE provider for signal sync
+  void connectAle(AleProvider ale) {
+    _aleProvider = ale;
+    debugPrint('[SlotLabProvider] ALE provider connected');
+  }
+
+  /// Set ALE auto sync
+  void setAleAutoSync(bool enabled) {
+    _aleAutoSync = enabled;
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -388,6 +419,9 @@ class SlotLabProvider extends ChangeNotifier {
         _playStagesSequentially();
       }
 
+      // Sync ALE signals
+      _syncAleSignals();
+
       _isSpinning = false;
       notifyListeners();
       return _lastResult;
@@ -428,6 +462,9 @@ class SlotLabProvider extends ChangeNotifier {
         _playStagesSequentially();
       }
 
+      // Sync ALE signals
+      _syncAleSignals();
+
       _isSpinning = false;
       notifyListeners();
       return _lastResult;
@@ -436,6 +473,121 @@ class SlotLabProvider extends ChangeNotifier {
       _isSpinning = false;
       notifyListeners();
       return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALE SIGNAL SYNC
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sync Slot Lab state to ALE signals
+  /// Maps game state metrics to ALE signal names for dynamic music layering
+  void _syncAleSignals() {
+    if (!_aleAutoSync || _aleProvider == null || !_aleProvider!.initialized) {
+      return;
+    }
+
+    final result = _lastResult;
+    if (result == null) return;
+
+    // Calculate signals from current game state
+    final signals = <String, double>{
+      // Win tier (0-5 scale based on win ratio)
+      'winTier': _calculateWinTier(result.winRatio),
+
+      // Momentum (based on recent wins and volatility)
+      'momentum': _calculateMomentum(),
+
+      // Volatility (from current slider setting)
+      'volatility': _volatilitySlider,
+
+      // Session progress (normalized spin count)
+      'sessionProgress': (_spinCount / 100.0).clamp(0.0, 1.0),
+
+      // Feature progress (free spins progress if active)
+      'featureProgress': _inFreeSpins
+          ? 1.0 - (_freeSpinsRemaining / 15.0).clamp(0.0, 1.0)
+          : 0.0,
+
+      // Bet multiplier (normalized)
+      'betMultiplier': (_betAmount / 10.0).clamp(0.0, 1.0),
+
+      // Recent win rate (from stats)
+      'recentWinRate': _hitRate,
+
+      // Time since win (simulated - higher if no recent wins)
+      'timeSinceWin': result.isWin ? 0.0 : 5000.0,
+
+      // Combo count (cascade count if applicable)
+      'comboCount': _countCascades().toDouble(),
+
+      // Near miss rate (from anticipation events)
+      'nearMissRate': _calculateNearMissRate(),
+    };
+
+    // Send all signals to ALE
+    _aleProvider!.updateSignals(signals);
+
+    // Handle context switching based on game state
+    _syncAleContext();
+
+    debugPrint('[SlotLabProvider] ALE signals synced: winTier=${signals['winTier']?.toStringAsFixed(2)}, momentum=${signals['momentum']?.toStringAsFixed(2)}');
+  }
+
+  /// Calculate win tier (0-5) from win ratio
+  double _calculateWinTier(double winRatio) {
+    if (winRatio <= 0) return 0.0;
+    if (winRatio < 2) return 1.0;    // Small win
+    if (winRatio < 5) return 2.0;    // Nice win
+    if (winRatio < 15) return 3.0;   // Big win
+    if (winRatio < 50) return 4.0;   // Mega win
+    return 5.0;                       // Epic/Ultra win
+  }
+
+  /// Calculate momentum from recent activity
+  double _calculateMomentum() {
+    // Simple momentum based on hit rate and recent wins
+    final baseMomentum = _hitRate;
+    final winBoost = _lastResult?.isWin == true ? 0.3 : 0.0;
+    final featureBoost = _inFreeSpins ? 0.2 : 0.0;
+    return (baseMomentum + winBoost + featureBoost).clamp(0.0, 1.0);
+  }
+
+  /// Count cascade events in last stages
+  int _countCascades() {
+    return _lastStages.where((s) =>
+        s.stageType.toUpperCase() == 'CASCADE_STEP').length;
+  }
+
+  /// Calculate near miss rate from stages
+  double _calculateNearMissRate() {
+    final anticipations = _lastStages.where((s) =>
+        s.stageType.toUpperCase() == 'ANTICIPATION_ON').length;
+    // More anticipations = higher near miss rate
+    return (anticipations / 5.0).clamp(0.0, 1.0);
+  }
+
+  /// Sync ALE context based on game state
+  void _syncAleContext() {
+    if (_aleProvider == null) return;
+
+    final currentContext = _aleProvider!.state.activeContextId;
+
+    // Determine appropriate context
+    String targetContext;
+    if (_inFreeSpins) {
+      targetContext = 'FREESPINS';
+    } else if (_lastResult?.bigWinTier != null &&
+               _lastResult!.bigWinTier != SlotLabWinTier.none) {
+      targetContext = 'BIGWIN';
+    } else {
+      targetContext = 'BASE';
+    }
+
+    // Switch context if different
+    if (currentContext != targetContext) {
+      _aleProvider!.enterContext(targetContext);
+      debugPrint('[SlotLabProvider] ALE context switched: $currentContext → $targetContext');
     }
   }
 

@@ -137,8 +137,8 @@ enum ComparisonOp {
   changed, stable,
 }
 
-/// Rule action type
-enum ActionType {
+/// Rule action type (prefixed to avoid conflict with middleware ActionType)
+enum AleActionType {
   stepUp,
   stepDown,
   setLevel,
@@ -154,7 +154,7 @@ class AleRule {
   final String? signalId;
   final ComparisonOp? op;
   final double? value;
-  final ActionType action;
+  final AleActionType action;
   final int? actionValue;
   final List<String> contexts;
   final int priority;
@@ -166,7 +166,7 @@ class AleRule {
     this.signalId,
     this.op,
     this.value,
-    this.action = ActionType.stepUp,
+    this.action = AleActionType.stepUp,
     this.actionValue,
     this.contexts = const [],
     this.priority = 0,
@@ -211,17 +211,17 @@ class AleRule {
     };
   }
 
-  static ActionType _parseAction(dynamic value) {
-    if (value == null) return ActionType.stepUp;
+  static AleActionType _parseAction(dynamic value) {
+    if (value == null) return AleActionType.stepUp;
     final str = value.toString().toLowerCase();
     return switch (str) {
-      'step_up' => ActionType.stepUp,
-      'step_down' => ActionType.stepDown,
-      'set_level' => ActionType.setLevel,
-      'hold' => ActionType.hold,
-      'release' => ActionType.release,
-      'pulse' => ActionType.pulse,
-      _ => ActionType.stepUp,
+      'step_up' => AleActionType.stepUp,
+      'step_down' => AleActionType.stepDown,
+      'set_level' => AleActionType.setLevel,
+      'hold' => AleActionType.hold,
+      'release' => AleActionType.release,
+      'pulse' => AleActionType.pulse,
+      _ => AleActionType.stepUp,
     };
   }
 }

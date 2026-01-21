@@ -78,6 +78,13 @@ class ProjectTree extends StatefulWidget {
   final void Function(String id, TreeItemType type, dynamic data)? onDoubleClick;
   final void Function(TreeItemType type)? onAdd;
 
+  /// External expanded IDs (from AudioAssetManager)
+  /// If provided, these will be used instead of local state
+  final Set<String>? externalExpandedIds;
+
+  /// Callback when folder is toggled (for external state management)
+  final void Function(String id)? onToggleExpanded;
+
   const ProjectTree({
     super.key,
     required this.nodes,
@@ -86,6 +93,8 @@ class ProjectTree extends StatefulWidget {
     this.onSelect,
     this.onDoubleClick,
     this.onAdd,
+    this.externalExpandedIds,
+    this.onToggleExpanded,
   });
 
   @override
@@ -93,14 +102,17 @@ class ProjectTree extends StatefulWidget {
 }
 
 class _ProjectTreeState extends State<ProjectTree> {
-  final Set<String> _expandedIds = {};
+  final Set<String> _localExpandedIds = {};
   bool _initialized = false;
+
+  /// Get the active expanded IDs (external or local)
+  Set<String> get _expandedIds => widget.externalExpandedIds ?? _localExpandedIds;
 
   @override
   void didUpdateWidget(ProjectTree oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-expand all folders when nodes change (first load)
-    if (!_initialized && widget.nodes.isNotEmpty) {
+    // Auto-expand all folders when nodes change (first load) - only for local state
+    if (widget.externalExpandedIds == null && !_initialized && widget.nodes.isNotEmpty) {
       _expandAllFolders(widget.nodes);
       _initialized = true;
     }
@@ -110,26 +122,33 @@ class _ProjectTreeState extends State<ProjectTree> {
   void _expandAllFolders(List<ProjectTreeNode> nodes) {
     for (final node in nodes) {
       if (node.children.isNotEmpty) {
-        _expandedIds.add(node.id);
+        _localExpandedIds.add(node.id);
         _expandAllFolders(node.children);
       }
     }
   }
 
   void _toggleExpanded(String id) {
+    // If external callback is provided, use it
+    if (widget.onToggleExpanded != null) {
+      widget.onToggleExpanded!(id);
+      return;
+    }
+
+    // Otherwise manage locally
     setState(() {
-      if (_expandedIds.contains(id)) {
-        _expandedIds.remove(id);
+      if (_localExpandedIds.contains(id)) {
+        _localExpandedIds.remove(id);
       } else {
-        _expandedIds.add(id);
+        _localExpandedIds.add(id);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Auto-expand all folders on first build with nodes
-    if (!_initialized && widget.nodes.isNotEmpty) {
+    // Auto-expand all folders on first build with nodes (only for local state)
+    if (widget.externalExpandedIds == null && !_initialized && widget.nodes.isNotEmpty) {
       _expandAllFolders(widget.nodes);
       _initialized = true;
     }

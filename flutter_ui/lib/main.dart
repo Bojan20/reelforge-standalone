@@ -54,6 +54,8 @@ import 'providers/control_room_provider.dart';
 import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
 import 'providers/slot_lab_provider.dart';
+import 'providers/ale_provider.dart';
+import 'services/audio_asset_manager.dart';
 import 'src/rust/native_ffi.dart';
 
 void main() {
@@ -181,6 +183,12 @@ class FluxForgeApp extends StatelessWidget {
 
         // Slot Lab (Synthetic Slot Engine)
         ChangeNotifierProvider(create: (_) => SlotLabProvider()),
+
+        // Adaptive Layer Engine (ALE)
+        ChangeNotifierProvider(create: (_) => AleProvider()),
+
+        // Unified Audio Asset Manager (SINGLE SOURCE OF TRUTH)
+        ChangeNotifierProvider.value(value: AudioAssetManager.instance),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

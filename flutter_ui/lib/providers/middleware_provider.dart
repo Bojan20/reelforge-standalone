@@ -17,8 +17,10 @@ import '../models/advanced_middleware_models.dart';
 import '../services/rtpc_modulation_service.dart';
 import '../services/ducking_service.dart';
 import '../services/container_service.dart';
+import '../services/audio_asset_manager.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
+import '../services/unified_playback_controller.dart';
 
 // ============ Change Types ============
 
@@ -146,9 +148,24 @@ class MiddlewareProvider extends ChangeNotifier {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED AUDIO POOL (accessible from DAW, Middleware, and Slot Mode)
+  // Now delegates to AudioAssetManager (single source of truth)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  final List<SharedPoolAudioFile> _sharedAudioPool = [];
+  /// @deprecated Use AudioAssetManager.instance.assets instead
+  /// Kept for backwards compatibility - converts from UnifiedAudioAsset
+  List<SharedPoolAudioFile> get _sharedAudioPool {
+    return AudioAssetManager.instance.assets.map((a) => SharedPoolAudioFile(
+      id: a.id,
+      path: a.path,
+      name: a.name,
+      duration: a.duration,
+      sampleRate: a.sampleRate,
+      channels: a.channels,
+      format: a.format,
+      waveform: a.waveform,
+      importedAt: a.importedAt,
+    )).toList();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SLOT MODE STATE (persistent across mode switches)
@@ -2419,6 +2436,16 @@ class MiddlewareProvider extends ChangeNotifier {
       return postEvent(eventId, gameObjectId: gameObjectId, context: context);
     }
 
+    // Acquire Middleware section before playback (blocks DAW/SlotLab)
+    final controller = UnifiedPlaybackController.instance;
+    if (!controller.acquireSection(PlaybackSection.middleware)) {
+      debugPrint('[Middleware] Failed to acquire playback section');
+      return 0;
+    }
+
+    // Ensure audio stream is running
+    controller.play();
+
     // Apply context to RTPCs if provided
     if (context != null) {
       _applyContextToRtpcs(context);
@@ -2477,6 +2504,12 @@ class MiddlewareProvider extends ChangeNotifier {
   void stopPlayingId(int playingId, {int fadeMs = 100}) {
     _ffi.middlewareStopPlayingId(playingId, fadeMs: fadeMs);
     _playingInstances.remove(playingId);
+
+    // Release Middleware section when no more playing instances
+    if (_playingInstances.isEmpty) {
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
+    }
+
     notifyListeners();
   }
 
@@ -2492,6 +2525,12 @@ class MiddlewareProvider extends ChangeNotifier {
 
     // Remove from playing instances
     _playingInstances.removeWhere((_, v) => v == eventId);
+
+    // Release Middleware section when no more playing instances
+    if (_playingInstances.isEmpty) {
+      UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
+    }
+
     notifyListeners();
   }
 
@@ -2499,6 +2538,10 @@ class MiddlewareProvider extends ChangeNotifier {
   void stopAllEvents({int fadeMs = 100}) {
     _ffi.middlewareStopAll(fadeMs: fadeMs);
     _playingInstances.clear();
+
+    // Release Middleware section when all events stopped
+    UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
+
     notifyListeners();
   }
 
@@ -3615,32 +3658,56 @@ class MiddlewareProvider extends ChangeNotifier {
   // SHARED AUDIO POOL METHODS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Add audio file to shared pool
+  /// Add audio file to shared pool (now delegates to AudioAssetManager)
   void addToSharedPool(SharedPoolAudioFile file) {
+    final manager = AudioAssetManager.instance;
     // Avoid duplicates by path
-    if (_sharedAudioPool.any((f) => f.path == file.path)) return;
-    _sharedAudioPool.add(file);
+    if (manager.hasAsset(file.path)) return;
+
+    manager.addAssetFromPoolFile(
+      id: file.id,
+      path: file.path,
+      name: file.name,
+      duration: file.duration,
+      sampleRate: file.sampleRate,
+      channels: file.channels,
+      format: file.format,
+    );
     notifyListeners();
   }
 
-  /// Remove audio file from shared pool
+  /// Remove audio file from shared pool (now delegates to AudioAssetManager)
   void removeFromSharedPool(String fileId) {
-    _sharedAudioPool.removeWhere((f) => f.id == fileId);
+    final manager = AudioAssetManager.instance;
+    try {
+      manager.removeById(fileId);
+    } catch (_) {
+      // Asset may not exist, ignore
+    }
     notifyListeners();
   }
 
   /// Get audio file from pool by path
   SharedPoolAudioFile? getPoolFileByPath(String path) {
-    try {
-      return _sharedAudioPool.firstWhere((f) => f.path == path);
-    } catch (_) {
-      return null;
-    }
+    final asset = AudioAssetManager.instance.getByPath(path);
+    if (asset == null) return null;
+
+    return SharedPoolAudioFile(
+      id: asset.id,
+      path: asset.path,
+      name: asset.name,
+      duration: asset.duration,
+      sampleRate: asset.sampleRate,
+      channels: asset.channels,
+      format: asset.format,
+      waveform: asset.waveform,
+      importedAt: asset.importedAt,
+    );
   }
 
-  /// Clear entire audio pool
+  /// Clear entire audio pool (now delegates to AudioAssetManager)
   void clearSharedPool() {
-    _sharedAudioPool.clear();
+    AudioAssetManager.instance.clear();
     notifyListeners();
   }
 

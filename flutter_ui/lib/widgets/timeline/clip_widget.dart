@@ -13,9 +13,11 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
+import '../../providers/editor_mode_provider.dart';
 import '../editors/clip_fx_editor.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -865,6 +867,10 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   double _cachedSourceOffset = -1;
   double _cachedDuration = -1;
 
+  // Waveform generation tracking - invalidates cache when switching back to DAW
+  // This prevents stale waveform rendering after SlotLab/Middleware usage
+  int _cachedWaveformGeneration = -1;
+
   // PRE-COMPUTED combined L+R (avoids allocation in build())
   Float32List? _combinedMins;
   Float32List? _combinedMaxs;
@@ -893,12 +899,22 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final clipIdNum = int.tryParse(widget.clipId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     if (clipIdNum <= 0 || widget.duration <= 0) return;
 
-    // Skip if already cached for this clip
-    if (_cachedClipId == clipIdNum &&
+    // Check waveform generation to detect mode switch invalidation
+    // When user returns to DAW from SlotLab/Middleware, generation increases
+    // which forces waveform cache refresh to prevent stale rendering
+    final currentGeneration = context.read<EditorModeProvider>().waveformGeneration;
+    final generationChanged = _cachedWaveformGeneration != currentGeneration;
+
+    // Skip if already cached for this clip AND generation hasn't changed
+    if (!generationChanged &&
+        _cachedClipId == clipIdNum &&
         (_cachedSourceOffset - widget.sourceOffset).abs() < 0.01 &&
         (_cachedDuration - widget.duration).abs() < 0.01) {
       return;
     }
+
+    // Update cached generation
+    _cachedWaveformGeneration = currentGeneration;
 
     final sampleRate = NativeFFI.instance.getWaveformSampleRate(clipIdNum);
     final totalSamples = NativeFFI.instance.getWaveformTotalSamples(clipIdNum);

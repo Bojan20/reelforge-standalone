@@ -61,6 +61,11 @@ class EditorModeProvider extends ChangeNotifier {
   EditorMode _mode;
   final FocusNode _focusNode = FocusNode();
 
+  /// Waveform generation counter - increments when returning to DAW mode
+  /// to force timeline waveform cache invalidation.
+  /// This prevents stale waveform rendering after SlotLab/Middleware usage.
+  int _waveformGeneration = 0;
+
   EditorModeProvider({EditorMode initialMode = EditorMode.daw})
       : _mode = initialMode;
 
@@ -69,11 +74,23 @@ class EditorModeProvider extends ChangeNotifier {
   List<EditorModeConfig> get modes => kModeConfigs.values.toList();
   FocusNode get focusNode => _focusNode;
 
+  /// Current waveform generation - compare with cached value to detect invalidation
+  int get waveformGeneration => _waveformGeneration;
+
   bool isMode(EditorMode checkMode) => _mode == checkMode;
 
   void setMode(EditorMode newMode) {
     if (_mode != newMode) {
+      final wasDAW = _mode == EditorMode.daw;
       _mode = newMode;
+
+      // When returning TO DAW mode, increment waveform generation
+      // to force timeline clips to refresh their waveform cache.
+      // This ensures waveforms render correctly after SlotLab usage.
+      if (newMode == EditorMode.daw && !wasDAW) {
+        _waveformGeneration++;
+      }
+
       notifyListeners();
     }
   }

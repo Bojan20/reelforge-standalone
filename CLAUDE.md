@@ -104,6 +104,33 @@ ls -la ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debu
 
 ---
 
+## ⚡ QUICK RUN COMMAND — "pokreni"
+
+**Kada korisnik napiše "pokreni", "run", "start app" → ODMAH pokreni CELU SEKVENCU:**
+
+```bash
+# KILL existing
+pkill -f "FluxForge" 2>/dev/null || true
+
+# BUILD + COPY + RUN (sve u jednom)
+cd "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos" && \
+find Pods -name '._*' -type f -delete 2>/dev/null || true && \
+xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug \
+    -derivedDataPath ~/Library/Developer/Xcode/DerivedData/FluxForge-macos build && \
+cp "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos/Frameworks/librf_bridge.dylib" \
+   ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app/Contents/Frameworks/ && \
+cp "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio/flutter_ui/macos/Frameworks/librf_engine.dylib" \
+   ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app/Contents/Frameworks/ && \
+open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app
+```
+
+**KRITIČNO:**
+- UVEK koristi `~/Library/Developer/Xcode/DerivedData/` (HOME path)
+- NIKADA `/Library/Developer/` (nema permisije)
+- NIKADA `$HOME/FluxForge-DerivedData` (čudan path)
+
+---
+
 ## CORE REFERENCES (must-read, in this order)
 
 1. .claude/00_AUTHORITY.md
@@ -923,6 +950,30 @@ sfx=0, music=1, voice=2, ambience=3, aux=4, master=5
 
 **Dokumentacija:** `.claude/architecture/DAW_AUDIO_ROUTING.md`
 
+### Unified Playback System (2026-01-21) ✅
+
+Section-based playback isolation — svaka sekcija blokira ostale tokom playback-a.
+
+| Sekcija | Behavior kad krene playback |
+|---------|----------------------------|
+| **DAW** | SlotLab i Middleware se pauziraju |
+| **SlotLab** | DAW i Middleware se pauziraju |
+| **Middleware** | DAW i SlotLab se pauziraju |
+| **Browser** | Izolovan (PREVIEW_ENGINE) |
+
+**Ključne komponente:**
+- `UnifiedPlaybackController` — singleton koji kontroliše `acquireSection` / `releaseSection`
+- `TimelinePlaybackProvider` — koristi `acquireSection(PlaybackSection.daw)`
+- `SlotLabProvider` — koristi `acquireSection(PlaybackSection.slotLab)`
+- `MiddlewareProvider` — koristi `acquireSection(PlaybackSection.middleware)` u `postEvent()`
+
+**Waveform Cache Invalidation:**
+- SlotLab koristi dedicirani track ID 99999 za waveform preview (sprečava koliziju sa DAW track-ovima)
+- `EditorModeProvider.waveformGeneration` se inkrementira kad se vrati u DAW mode
+- `_UltimateClipWaveformState` proverava generation i reload-uje cache ako se promenio
+
+**Dokumentacija:** `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md`
+
 ### Advanced Middleware (Wwise/FMOD-style)
 - ✅ **Ducking Matrix** — Automatic volume ducking (source→target bus matrix, attack/release/curve)
 - ✅ **Blend Containers** — RTPC-based crossfade between sounds (range sliders, curve visualization)
@@ -1317,7 +1368,7 @@ Universal, data-driven layer engine za dinamičnu game muziku — **KOMPLETNO IM
 | **rf-ale crate** | `crates/rf-ale/` | ~4500 | ✅ Done |
 | **FFI Bridge** | `crates/rf-bridge/src/ale_ffi.rs` | ~780 | ✅ Done |
 | **Dart Provider** | `flutter_ui/lib/providers/ale_provider.dart` | ~745 | ✅ Done |
-| **UI Widgets** | `flutter_ui/lib/widgets/ale/` | — | ⏳ Pending |
+| **UI Widgets** | `flutter_ui/lib/widgets/ale/` | ~3000 | ✅ Done |
 
 **Core Concepts:**
 
@@ -1373,6 +1424,24 @@ ale_set_level() / ale_step_up() / ale_step_down()
 ale_get_state() / ale_get_layer_volumes()
 ale_set_tempo() / ale_set_time_signature()
 ```
+
+**UI Widgets:** `flutter_ui/lib/widgets/ale/`
+
+| Widget | Fajl | LOC | Opis |
+|--------|------|-----|------|
+| **AlePanel** | `ale_panel.dart` | ~600 | Glavni panel sa 4 taba (Contexts, Rules, Transitions, Stability) |
+| **SignalMonitor** | `signal_monitor.dart` | ~350 | Real-time signal vizualizacija sa sparkline graficima |
+| **LayerVisualizer** | `layer_visualizer.dart` | ~400 | Audio layer bars sa volume kontrolama |
+| **ContextEditor** | `context_editor.dart` | ~350 | Context lista sa enter/exit akcijama |
+| **RuleEditor** | `rule_editor.dart` | ~630 | Rule lista sa filterima, uslovima i akcijama |
+| **TransitionEditor** | `transition_editor.dart` | ~450 | Transition profili sa sync mode i fade curve preview |
+| **StabilityConfigPanel** | `stability_config_panel.dart` | ~300 | Stability konfiguracija (timing, hysteresis, inertia, decay) |
+
+**Slot Lab Integration:**
+- `SlotLabProvider.connectAle()` — Povezuje ALE provider
+- `_syncAleSignals()` — Automatski sync spin rezultata na ALE signale
+- `_syncAleContext()` — Automatsko prebacivanje konteksta (BASE/FREESPINS/BIGWIN)
+- ALE tab u middleware lower zone (uz Events Folder i Event Editor)
 
 **Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
 

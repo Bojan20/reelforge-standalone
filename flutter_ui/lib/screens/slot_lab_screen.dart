@@ -57,6 +57,7 @@ import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/slot_lab_provider.dart';
+import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
@@ -968,7 +969,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         if (_ffi.isLoaded && audioPath.isNotEmpty) {
           try {
             // Import audio to get real clipId
-            clipId = _ffi.importAudio(audioPath, ffiTrackId > 0 ? ffiTrackId : 0, action.delay);
+            // CRITICAL: Use SlotLab preview track (99999) if no FFI track assigned
+            // to avoid conflicting with DAW tracks (0, 1, 2...)
+            const slotLabPreviewTrack = 99999;
+            clipId = _ffi.importAudio(audioPath, ffiTrackId > 0 ? ffiTrackId : slotLabPreviewTrack, action.delay);
             if (clipId > 0) {
               _clipIdCache[audioPath] = clipId;
               debugPrint('[SlotLab] FFI imported: clipId=$clipId');
@@ -1184,6 +1188,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           // Connect to middleware for audio triggering
           final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
           _slotLabProvider.connectMiddleware(middleware);
+
+          // Connect to ALE for signal sync
+          try {
+            final ale = Provider.of<AleProvider>(context, listen: false);
+            _slotLabProvider.connectAle(ale);
+          } catch (e) {
+            debugPrint('[SlotLab] ALE not available: $e');
+          }
 
           // Set bet amount from UI
           _slotLabProvider.setBetAmount(_bet);
@@ -4664,8 +4676,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     }
 
     try {
-      // Import audio to get clip ID (use track 0 temporarily)
-      final clipId = _ffi.importAudio(audioPath, 0, 0.0);
+      // Import audio to get clip ID
+      // CRITICAL: Use dedicated SlotLab preview track (ID 99999) to avoid
+      // conflicting with DAW tracks (0, 1, 2...). This prevents waveform
+      // corruption when switching between DAW and SlotLab.
+      const slotLabPreviewTrack = 99999;
+      final clipId = _ffi.importAudio(audioPath, slotLabPreviewTrack, 0.0);
       if (clipId > 0) {
         _clipIdCache[audioPath] = clipId;
         final waveform = _loadWaveformForClip(clipId);

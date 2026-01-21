@@ -25,7 +25,6 @@ import '../../providers/theme_mode_provider.dart';
 import '../../models/timeline_models.dart';
 import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
-import '../../src/rust/native_ffi.dart';
 import 'time_ruler.dart';
 import 'track_header_simple.dart';
 // import 'track_header_fluxforge.dart'; // Alternative: richer track headers
@@ -2167,15 +2166,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         },
                       ),
 
-                    // DEBUG OVERLAY - Engine status (remove after debugging)
-                    Positioned(
-                      top: _rulerHeight + 4,
-                      right: 8,
-                      child: _DebugOverlay(
-                        isPlaying: widget.isPlaying,
-                        playheadPosition: widget.playheadPosition,
-                      ),
-                    ),
                   ],
                 ), // Stack
               );
@@ -2620,100 +2610,3 @@ class _PlayheadOverlayState extends State<PlayheadOverlay> {
   }
 }
 
-/// Debug overlay showing engine status (TEMPORARY - remove after debugging)
-class _DebugOverlay extends StatefulWidget {
-  final bool isPlaying;
-  final double playheadPosition;
-
-  const _DebugOverlay({
-    required this.isPlaying,
-    required this.playheadPosition,
-  });
-
-  @override
-  State<_DebugOverlay> createState() => _DebugOverlayState();
-}
-
-class _DebugOverlayState extends State<_DebugOverlay> {
-  String _debugInfo = 'Loading...';
-  bool _isLibLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateDebugInfo();
-  }
-
-  @override
-  void didUpdateWidget(_DebugOverlay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Update on every frame when playing
-    if (widget.isPlaying || oldWidget.isPlaying != widget.isPlaying) {
-      _updateDebugInfo();
-    }
-  }
-
-  void _updateDebugInfo() {
-    final ffi = NativeFFI.instance;
-    _isLibLoaded = ffi.isLoaded;
-    if (_isLibLoaded) {
-      _debugInfo = ffi.getPlaybackDebugInfo();
-    } else {
-      _debugInfo = 'Library NOT loaded';
-    }
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: _isLibLoaded ? Colors.green : Colors.red,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'DEBUG: Engine Status',
-            style: FluxForgeTheme.monoSmall.copyWith(
-              color: Colors.yellow,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Lib: ${_isLibLoaded ? "LOADED" : "NOT LOADED"}',
-            style: FluxForgeTheme.monoSmall.copyWith(
-              color: _isLibLoaded ? Colors.green : Colors.red,
-            ),
-          ),
-          Text(
-            'Playing: ${widget.isPlaying}',
-            style: FluxForgeTheme.monoSmall.copyWith(
-              color: widget.isPlaying ? Colors.green : Colors.grey,
-            ),
-          ),
-          Text(
-            'Pos: ${widget.playheadPosition.toStringAsFixed(3)}s',
-            style: FluxForgeTheme.monoSmall.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _debugInfo,
-            style: FluxForgeTheme.monoSmall.copyWith(
-              color: Colors.cyan,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

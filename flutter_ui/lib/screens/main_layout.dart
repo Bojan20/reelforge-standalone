@@ -76,6 +76,8 @@ class MainLayout extends StatefulWidget {
   final void Function(TreeItemType type)? onProjectAdd;
   final LeftZoneTab activeLeftTab;
   final ValueChanged<LeftZoneTab>? onLeftTabChange;
+  final Set<String>? expandedFolderIds;
+  final void Function(String id)? onToggleFolderExpanded;
   final ChannelStripData? channelData;
   final void Function(String channelId, double volume)? onChannelVolumeChange;
   final void Function(String channelId, double pan)? onChannelPanChange;
@@ -167,6 +169,8 @@ class MainLayout extends StatefulWidget {
     this.onProjectAdd,
     this.activeLeftTab = LeftZoneTab.project,
     this.onLeftTabChange,
+    this.expandedFolderIds,
+    this.onToggleFolderExpanded,
     this.channelData,
     this.onChannelVolumeChange,
     this.onChannelPanChange,
@@ -577,6 +581,9 @@ class _MainLayoutState extends State<MainLayout>
                 selectedClip: widget.selectedClip,
                 selectedClipTrack: widget.selectedClipTrack,
                 onClipChanged: widget.onClipChanged,
+                // External folder expansion state (from AudioAssetManager)
+                expandedFolderIds: widget.expandedFolderIds,
+                onToggleFolderExpanded: widget.onToggleFolderExpanded,
               ),
 
               // Center Zone + Lower Zone Container
