@@ -123,45 +123,32 @@ class TimelineDragController extends ChangeNotifier {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LAYER DRAG STATE (individual layer within expanded region)
+  // Uses ABSOLUTE positioning to avoid relative offset calculation bugs
   // ═══════════════════════════════════════════════════════════════════════════
 
   String? _draggingLayerEventId; // SlotEventLayer.id (unique)
   String? _draggingLayerParentEventId; // Parent SlotCompositeEvent.id
   String? _draggingLayerRegionId; // Parent region ID (for visual state)
-  double _layerDragStartOffset = 0; // Start offset in seconds (relative to region)
+  double _absoluteStartSeconds = 0; // ABSOLUTE start position (from provider)
   double _layerDragDelta = 0; // Accumulated drag delta in seconds
-  double _regionStartSeconds = 0; // Region start position for absolute calculation
   double _regionDurationAtStart = 0; // CAPTURED at drag start - for stable visual
   double _layerDurationAtStart = 0; // CAPTURED at drag start - for stable width
 
   /// Start dragging a layer
-  /// CRITICAL: Captures region duration and layer duration at start
-  /// These values are used for visual calculations during drag to prevent
-  /// size/position changes when region bounds get recalculated
+  /// NOW USES ABSOLUTE positioning - pass the absolute offset from provider directly
   void startLayerDrag({
     required String layerEventId,
     required String parentEventId,
     required String regionId,
-    required double startOffsetSeconds,
-    required double regionStartSeconds,
+    required double absoluteOffsetSeconds, // ABSOLUTE position from provider (offsetMs/1000)
     required double regionDuration, // CAPTURE for stable visual
     required double layerDuration, // CAPTURE for stable width
   }) {
-    debugPrint('[DRAG-CTRL] ▶▶▶ START LAYER DRAG ▶▶▶');
-    debugPrint('[DRAG-CTRL] layerEventId: $layerEventId');
-    debugPrint('[DRAG-CTRL] parentEventId: $parentEventId');
-    debugPrint('[DRAG-CTRL] regionId: $regionId');
-    debugPrint('[DRAG-CTRL] startOffsetSeconds: ${startOffsetSeconds.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL] regionStartSeconds: ${regionStartSeconds.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL] regionDuration: ${regionDuration.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL] layerDuration: ${layerDuration.toStringAsFixed(4)}s');
-
     _draggingLayerEventId = layerEventId;
     _draggingLayerParentEventId = parentEventId;
     _draggingLayerRegionId = regionId;
-    _layerDragStartOffset = startOffsetSeconds;
+    _absoluteStartSeconds = absoluteOffsetSeconds;
     _layerDragDelta = 0;
-    _regionStartSeconds = regionStartSeconds;
     _regionDurationAtStart = regionDuration;
     _layerDurationAtStart = layerDuration;
     notifyListeners();
@@ -172,63 +159,49 @@ class TimelineDragController extends ChangeNotifier {
   void updateLayerDrag(double deltaSeconds) {
     if (_draggingLayerEventId == null) return;
     _layerDragDelta += deltaSeconds;
-    // Only log occasionally to avoid spam
-    if (_layerDragDelta.abs() > 0.1) {
-      debugPrint('[DRAG-CTRL] updateLayerDrag: delta=${_layerDragDelta.toStringAsFixed(4)}s, currentPos=${getLayerCurrentPosition().toStringAsFixed(4)}s');
-    }
     notifyListeners();
   }
 
+  /// Get current ABSOLUTE position during drag (in seconds)
+  double getAbsolutePosition() {
+    return (_absoluteStartSeconds + _layerDragDelta).clamp(0.0, double.infinity);
+  }
+
   /// Get current layer offset during drag (for visual feedback)
-  /// Returns the offset relative to region start
+  /// Returns the offset relative to region start (DEPRECATED - use getAbsolutePosition)
   double getLayerDragCurrentOffset() {
-    return _layerDragStartOffset + _layerDragDelta;
+    return _layerDragDelta; // Just the delta now
+  }
+
+  /// Get current layer position during drag (relative to region, in seconds)
+  double getLayerCurrentPosition() {
+    return _layerDragDelta; // Just the delta for backward compat
   }
 
   /// End layer drag and sync to provider
   void endLayerDrag() {
-    debugPrint('[DRAG-CTRL] ◼◼◼ END LAYER DRAG ◼◼◼');
-    debugPrint('[DRAG-CTRL] _draggingLayerEventId: $_draggingLayerEventId');
-    debugPrint('[DRAG-CTRL] _draggingLayerParentEventId: $_draggingLayerParentEventId');
-
     if (_draggingLayerEventId == null || _draggingLayerParentEventId == null) {
-      debugPrint('[DRAG-CTRL] ABORT: missing IDs');
       _clearLayerDrag();
       return;
     }
 
-    // Calculate new absolute offset in milliseconds
-    // Absolute offset = region start + layer offset within region
-    final newRelativeOffset = _layerDragStartOffset + _layerDragDelta;
-    final newAbsoluteOffsetMs = (_regionStartSeconds + newRelativeOffset) * 1000;
-    final clampedOffsetMs = newAbsoluteOffsetMs.clamp(0.0, double.infinity);
-
-    debugPrint('[DRAG-CTRL] Calculation:');
-    debugPrint('[DRAG-CTRL]   _layerDragStartOffset: ${_layerDragStartOffset.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL]   _layerDragDelta: ${_layerDragDelta.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL]   newRelativeOffset: ${newRelativeOffset.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL]   _regionStartSeconds: ${_regionStartSeconds.toStringAsFixed(4)}s');
-    debugPrint('[DRAG-CTRL]   newAbsoluteOffsetMs: ${newAbsoluteOffsetMs.toStringAsFixed(2)}ms');
-    debugPrint('[DRAG-CTRL]   clampedOffsetMs: ${clampedOffsetMs.toStringAsFixed(2)}ms');
-    debugPrint('[DRAG-CTRL] Calling setLayerOffset(${_draggingLayerParentEventId!}, ${_draggingLayerEventId!}, $clampedOffsetMs)');
+    // Calculate new absolute offset in milliseconds - SIMPLE now
+    final newAbsoluteOffsetMs = getAbsolutePosition() * 1000;
 
     // Sync to provider
     _middleware.setLayerOffset(
       _draggingLayerParentEventId!,
       _draggingLayerEventId!,
-      clampedOffsetMs,
+      newAbsoluteOffsetMs,
     );
 
     // CRITICAL: Keep reporting isDragging=true until AFTER the rebuild triggered by setLayerOffset
-    // This prevents the sync logic from overwriting the position we just set
     _justEndedLayerId = _draggingLayerEventId;
-    debugPrint('[DRAG-CTRL] Set _justEndedLayerId=$_justEndedLayerId (will clear next frame)');
 
     _clearLayerDrag();
 
     // Clear the just-ended flag after the next frame (when rebuild is complete)
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      debugPrint('[DRAG-CTRL] PostFrameCallback: clearing _justEndedLayerId');
       _justEndedLayerId = null;
     });
   }
@@ -260,9 +233,8 @@ class TimelineDragController extends ChangeNotifier {
     _draggingLayerEventId = null;
     _draggingLayerParentEventId = null;
     _draggingLayerRegionId = null;
-    _layerDragStartOffset = 0;
+    _absoluteStartSeconds = 0;
     _layerDragDelta = 0;
-    _regionStartSeconds = 0;
     _regionDurationAtStart = 0;
     _layerDurationAtStart = 0;
     notifyListeners();
@@ -317,11 +289,6 @@ class TimelineDragController extends ChangeNotifier {
   /// Get current region position during drag (in seconds)
   double getRegionCurrentPosition() {
     return _regionDragStartSeconds + _regionDragDelta;
-  }
-
-  /// Get current layer position during drag (relative to region, in seconds)
-  double getLayerCurrentPosition() {
-    return _layerDragStartOffset + _layerDragDelta;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

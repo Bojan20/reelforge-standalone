@@ -3853,8 +3853,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // region.layers may be stale or not synced yet
     final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
     final hasLayers = event != null && event.layers.isNotEmpty;
-    // FIXED: Allow single layer to be expanded/draggable too (1+ layers)
-    final isExpanded = region.isExpanded && hasLayers;
+    // FIXED: Always expand if has layers - enables individual layer drag for all regions
+    // This matches the logic in _buildAudioRegionVisual and ensures layers are always draggable
+    final isExpanded = hasLayers;
 
     // When expanded, don't handle region drag - let individual layers handle it
     if (isExpanded) {
@@ -4197,13 +4198,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final anyLayerDragging = event.layers.any((l) =>
           _dragController?.isDraggingLayer(l.id) ?? false);
 
-      debugPrint('[BOUNDS-DEBUG] _buildAudioRegionVisual: anyLayerDragging=$anyLayerDragging, _draggingRegion=${_draggingRegion == region}');
-
       // Only update region bounds if not dragging region AND no layer is being dragged
       if (_draggingRegion != region && !anyLayerDragging) {
         final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
         final regionStartFromProvider = minOffsetMs / 1000.0;
-        debugPrint('[BOUNDS-DEBUG] Updating region.start: ${region.start.toStringAsFixed(4)}s → ${regionStartFromProvider.toStringAsFixed(4)}s');
         region.start = regionStartFromProvider;
         // Recalculate end based on max layer end
         double maxEnd = region.start + 0.5; // Minimum 0.5s
@@ -4213,10 +4211,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           final layerEnd = layerStart + layerDur;
           if (layerEnd > maxEnd) maxEnd = layerEnd;
         }
-        debugPrint('[BOUNDS-DEBUG] Updating region.end: ${region.end.toStringAsFixed(4)}s → ${maxEnd.toStringAsFixed(4)}s');
         region.end = maxEnd;
-      } else {
-        debugPrint('[BOUNDS-DEBUG] SKIPPING region bounds update (drag active)');
       }
     }
 
@@ -4384,11 +4379,22 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final pixelsPerSecond = regionWidth / effectiveRegionDuration;
     final layerWidth = (effectiveLayerDuration * pixelsPerSecond).clamp(30.0, double.infinity);
 
-    // Calculate position - during drag use controller, otherwise use layer.offset
-    final currentOffset = isDragging
-        ? dragController.getLayerCurrentPosition()
-        : layer.offset;
-    final offsetPixels = (currentOffset * pixelsPerSecond).clamp(0.0, double.infinity);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // POSITION CALCULATION - Use ABSOLUTE offset from provider for stability
+    // This avoids all the relative offset complexity that was causing bugs
+    // During drag: use controller's absolute position
+    // When not dragging: use provider's offsetMs directly
+    // ═══════════════════════════════════════════════════════════════════════════
+    double currentOffsetSeconds;
+    if (isDragging) {
+      // During drag: controller tracks absolute position
+      currentOffsetSeconds = dragController.getAbsolutePosition() - region.start;
+    } else {
+      // Not dragging: read absolute offset from provider, convert to relative for display
+      final providerOffsetMs = eventLayer?.offsetMs ?? 0.0;
+      currentOffsetSeconds = (providerOffsetMs / 1000.0) - region.start;
+    }
+    final offsetPixels = (currentOffsetSeconds * pixelsPerSecond).clamp(0.0, double.infinity);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DAW-STYLE ARCHITECTURE:
@@ -4416,52 +4422,23 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             child: GestureDetector(
               behavior: HitTestBehavior.opaque, // Catch all events on this widget
               onHorizontalDragStart: (details) {
-                // Get FRESH values from provider at drag start (source of truth)
+                if (layerId.isEmpty) return;
+
+                // Get FRESH ABSOLUTE offset from provider (source of truth)
                 final freshEvent = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
                 final freshLayer = freshEvent?.layers.where((l) => l.id == layerId).firstOrNull;
-                final freshOffsetMs = freshLayer?.offsetMs ?? 0.0;
+                final freshAbsoluteOffsetMs = freshLayer?.offsetMs ?? 0.0;
+                final freshAbsoluteOffsetSeconds = freshAbsoluteOffsetMs / 1000.0;
 
-                // Calculate fresh region start from provider
-                double freshRegionStart = region.start;
-                if (freshEvent != null && freshEvent.layers.isNotEmpty) {
-                  final minOffsetMs = freshEvent.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
-                  freshRegionStart = minOffsetMs / 1000.0;
-                }
-
-                // Calculate fresh relative offset
-                final freshRelativeOffset = (freshOffsetMs / 1000.0) - freshRegionStart;
-
-                debugPrint('[DRAG-START] ═══════════════════════════════════════════════════');
-                debugPrint('[DRAG-START] layerId: "$layerId"');
-                debugPrint('[DRAG-START] parentEventId: "$parentEventId"');
-                debugPrint('[DRAG-START] region.id: "${region.id}"');
-                debugPrint('[DRAG-START] OLD layer.offset: ${layer.offset}');
-                debugPrint('[DRAG-START] OLD region.start: ${region.start}');
-                debugPrint('[DRAG-START] FRESH freshOffsetMs: $freshOffsetMs');
-                debugPrint('[DRAG-START] FRESH freshRegionStart: $freshRegionStart');
-                debugPrint('[DRAG-START] FRESH freshRelativeOffset: $freshRelativeOffset');
-                debugPrint('[DRAG-START] region.duration: ${region.duration}');
-                debugPrint('[DRAG-START] realDuration: $realDuration');
-                if (layerId.isEmpty) {
-                  debugPrint('[DRAG-START] ABORT: layerId is empty!');
-                  return;
-                }
-                if (parentEventId.isEmpty) {
-                  debugPrint('[DRAG-START] WARNING: parentEventId is empty!');
-                }
-                // CRITICAL: Use FRESH values from provider, not potentially stale widget state
-                // This fixes the "second drag jumps to start" bug
+                // Start drag with ABSOLUTE position - no relative calculations needed
                 dragController.startLayerDrag(
                   layerEventId: layerId,
                   parentEventId: parentEventId,
                   regionId: region.id,
-                  startOffsetSeconds: freshRelativeOffset, // USE FRESH calculated offset
-                  regionStartSeconds: freshRegionStart,    // USE FRESH region start
-                  regionDuration: region.duration, // CAPTURE for stable visual
-                  layerDuration: realDuration, // CAPTURE for stable width
+                  absoluteOffsetSeconds: freshAbsoluteOffsetSeconds,
+                  regionDuration: region.duration,
+                  layerDuration: realDuration,
                 );
-                debugPrint('[DRAG-START] ✅ Drag started via controller with FRESH values');
-                // DON'T call setState here - controller.notifyListeners() handles rebuild
               },
               onHorizontalDragUpdate: (details) {
                 if (!dragController.isDraggingLayer(layerId)) return;
