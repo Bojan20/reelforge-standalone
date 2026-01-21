@@ -1792,3 +1792,178 @@ Event Log prikazuje **jedan entry po stage-u**:
 ---
 
 Za detalje: `.claude/project/fluxforge-studio.md`
+
+---
+
+## 🔬 KOMPLET ANALIZA SISTEMA — Ultimate System Review
+
+**Trigger:** Kada korisnik kaže "komplet analiza sistema", "full system review", "ultimate analysis"
+
+**Uloga:** Principal Engine Architect + Audio Middleware Architect + Slot Systems Designer + UX Lead
+
+**Cilj:** Potpuna, ultimativna analiza FluxForge Studio kao:
+- Profesionalni slot-audio middleware
+- Authoring alat za dizajnere
+- Runtime engine
+- Offline DSP pipeline
+- Simulacioni alat za slot igre
+- Kreativni alat za audio dizajnere
+- Produkcioni alat za studije
+
+---
+
+### FAZA 1: Analiza po ulogama (9 uloga)
+
+Za SVAKU ulogu izvršiti:
+
+| # | Uloga | Fokus |
+|---|-------|-------|
+| 1 | 🎮 Slot Game Designer | Slot layout, math, GDD, feature flow |
+| 2 | 🎵 Audio Designer / Composer | Layering, states, events, mixing |
+| 3 | 🧠 Audio Middleware Architect | Event model, state machines, runtime |
+| 4 | 🛠 Engine / Runtime Developer | FFI, playback, memory, latency |
+| 5 | 🧩 Tooling / Editor Developer | UI, workflows, batch processing |
+| 6 | 🎨 UX / UI Designer | Mental models, discoverability, friction |
+| 7 | 🧪 QA / Determinism Engineer | Reproducibility, validation, testing |
+| 8 | 🧬 DSP / Audio Processing Engineer | Filters, dynamics, offline processing |
+| 9 | 🧭 Producer / Product Owner | Roadmap, priorities, market fit |
+
+**Za svaku ulogu odgovoriti:**
+
+```
+1. SEKCIJE: Koje delove FluxForge ta uloga koristi?
+2. INPUTS: Koje podatke unosi?
+3. OUTPUTS: Šta očekuje kao rezultat?
+4. DECISIONS: Koje odluke donosi?
+5. FRICTION: Gde se sudara sa sistemom?
+6. GAPS: Šta nedostaje toj ulozi?
+7. PROPOSAL: Kako poboljšati iskustvo te uloge?
+```
+
+---
+
+### FAZA 2: Analiza po sekcijama (15+ sekcija)
+
+Za SVAKU sekciju:
+
+| Sekcija | Ključna pitanja |
+|---------|-----------------|
+| Project / Game Setup | Kako se definiše igra? Koji metapodaci? |
+| Slot Layout / Mockup | Vizuelni prikaz grida, reels, simbola |
+| Math & GDD Layer | Volatility, RTP, paytable integracija |
+| Audio Layering System | Kako rade layer levels L1-L5? |
+| Event Graph / Triggers | Stage→Event mapiranje, priority |
+| Music State System | Contexts, transitions, sync modes |
+| Feature Modules | FS, Bonus, Hold&Win, Cascade, Jackpot |
+| Asset Manager | Import, tagging, variants, banks |
+| DSP / Offline Processing | Loudness, peak limiting, format conversion |
+| Runtime Adapter | Howler, Unity, Unreal, native export |
+| Simulation / Preview | Synthetic engine, forced outcomes |
+| Export / Manifest | JSON, binary, package structure |
+| QA / Validation | Determinism, coverage, regression |
+| Versioning / Profiles | Platform profiles, A/B testing |
+| Automation / Batch | Scripting, CI/CD integration |
+
+**Za svaku sekciju:**
+
+```
+1. PURPOSE: Koja je svrha?
+2. INPUT: Šta prima?
+3. OUTPUT: Šta proizvodi?
+4. DEPENDENCIES: Od čega zavisi?
+5. DEPENDENTS: Ko zavisi od nje?
+6. ERRORS: Koje greške su moguće?
+7. CROSS-IMPACT: Kako utiče na druge sekcije?
+```
+
+---
+
+### FAZA 3: Horizontalna sistemska analiza
+
+**Data Flow Analysis:**
+```
+Designer → FluxForge → Runtime Engine
+    ↓           ↓           ↓
+  Inputs    Processing   Outputs
+```
+
+**Identifikovati:**
+- Gde se GUBI informacija?
+- Gde se DUPLIRA logika?
+- Gde se KRŠI determinizam?
+- Gde je hard-coded umesto data-driven?
+- Gde nedostaje "single source of truth"?
+
+**Preporučiti:**
+- Pure state machines
+- Declarative layer logic
+- Data-driven rule systems
+- Eliminiacija if/else odluka u runtime-u
+
+---
+
+### FAZA 4: Obavezni deliverables
+
+| # | Deliverable | Format |
+|---|-------------|--------|
+| 1 | 📐 Sistem mapa | ASCII dijagram + opis |
+| 2 | 🧩 Idealna arhitektura | Authoring → Pipeline → Runtime |
+| 3 | 🎛 Ultimate Layering Model | Slot-specifičan L1-L5 sistem |
+| 4 | 🧠 Unified Event Model | Stage → Event → Audio chain |
+| 5 | 🧪 Determinism & QA Layer | Validation, reproducibility |
+| 6 | 🧭 Roadmap (M-milestones) | Prioritized phases |
+| 7 | 🔥 Critical Weaknesses | Top 10 pain points |
+| 8 | 🚀 Vision Statement | FluxForge kao Wwise/FMOD za slots |
+
+---
+
+### FAZA 5: Benchmark standardi
+
+FluxForge mora nadmašiti:
+- **Wwise** — Event model, state groups, RTPC
+- **FMOD** — Layering, music system, runtime efficiency
+- **Unity** — Authoring UX, preview, prototyping
+- **iZotope** — DSP quality, offline processing
+
+---
+
+### Pravila izvršenja
+
+1. **Ništa ne preskači** — svaka uloga, svaka sekcija
+2. **Ništa ne pojednostavljuj** — inženjerski dokument, ne marketing
+3. **Budi kritičan** — identifikuj slabosti bez diplomatije
+4. **Budi konstruktivan** — svaka kritika ima predlog
+5. **Output format:**
+   - Markdown dokument u `.claude/reviews/`
+   - Naziv: `SYSTEM_REVIEW_YYYY_MM_DD.md`
+   - Commit nakon završetka
+
+---
+
+### Quick Reference — Fajlovi za analizu
+
+```
+# Core Providers
+flutter_ui/lib/providers/middleware_provider.dart
+flutter_ui/lib/providers/slot_lab_provider.dart
+flutter_ui/lib/providers/ale_provider.dart
+
+# Services
+flutter_ui/lib/services/event_registry.dart
+flutter_ui/lib/services/audio_playback_service.dart
+flutter_ui/lib/services/service_locator.dart
+
+# Rust Engine
+crates/rf-engine/src/
+crates/rf-bridge/src/
+crates/rf-ale/src/
+crates/rf-slot-lab/src/
+
+# Architecture Docs
+.claude/architecture/
+.claude/domains/
+```
+
+---
+
+**VAŽNO:** Ova analiza može trajati dugo. Koristiti Task tool za paralelizaciju gde je moguće. Rezultat mora biti production-ready dokument koji služi kao osnova za roadmap.
