@@ -1645,4 +1645,88 @@ cp target/release/*.dylib flutter_ui/macos/Frameworks/
 
 ---
 
+## 🎯 SLOTLAB TIMELINE DRAG SYSTEM (2026-01-21) ✅
+
+### Arhitektura
+
+SlotLab timeline koristi **apsolutno pozicioniranje** za layer drag operacije.
+
+**Ključne komponente:**
+
+| Komponenta | Fajl | Opis |
+|------------|------|------|
+| **TimelineDragController** | `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart` | Centralizovani state machine za drag operacije |
+| **SlotLabScreen** | `flutter_ui/lib/screens/slot_lab_screen.dart` | Timeline UI sa layer renderingom |
+| **MiddlewareProvider** | `flutter_ui/lib/providers/middleware_provider.dart` | Source of truth za layer.offsetMs |
+
+### Drag Flow (Apsolutno Pozicioniranje)
+
+```
+1. onHorizontalDragStart:
+   - Čita offsetMs direktno iz providera (source of truth)
+   - Pretvara u sekunde: absoluteOffsetSeconds = offsetMs / 1000
+   - Poziva controller.startLayerDrag(absoluteOffsetSeconds)
+
+2. onHorizontalDragUpdate:
+   - Računa timeDelta = dx / pixelsPerSecond
+   - Poziva controller.updateLayerDrag(timeDelta)
+   - Controller akumulira: _layerDragDelta += timeDelta
+
+3. Vizualizacija tokom drag-a:
+   - controller.getAbsolutePosition() vraća apsolutnu poziciju
+   - Relativna pozicija za prikaz = absolutePosition - region.start
+   - offsetPixels = relativePosition * pixelsPerSecond
+
+4. onHorizontalDragEnd:
+   - newAbsoluteOffsetMs = controller.getAbsolutePosition() * 1000
+   - provider.setLayerOffset(eventId, layerId, newAbsoluteOffsetMs)
+```
+
+### Controller State
+
+```dart
+class TimelineDragController {
+  double _absoluteStartSeconds;  // Apsolutna pozicija na početku drag-a
+  double _layerDragDelta;        // Akumulirani delta tokom drag-a
+
+  double getAbsolutePosition() {
+    return (_absoluteStartSeconds + _layerDragDelta).clamp(0.0, infinity);
+  }
+}
+```
+
+### Zašto Apsolutno Pozicioniranje?
+
+**Problem sa relativnim offsetom:**
+- `layer.offset` = pozicija relativno na `region.start`
+- `region.start` se dinamički menja (prati najraniji layer)
+- Pri drugom drag-u, `region.start` može biti drugačiji
+- Rezultat: layer "skače" na pogrešnu poziciju
+
+**Rešenje:**
+- Uvek čitaj `offsetMs` direktno iz providera
+- Controller čuva apsolutnu poziciju
+- Relativni offset se računa samo za vizualizaciju
+- `region.start` nije uključen u drag kalkulacije
+
+### Event Log Deduplikacija
+
+Event Log prikazuje **jedan entry po stage-u**:
+- 🎵 za stage-ove sa audio eventom
+- ⚠️ za stage-ove bez audio eventa
+
+**Implementacija:**
+- `EventRegistry.triggerStage()` uvek poziva `notifyListeners()`
+- Event Log sluša EventRegistry, ne SlotLabProvider direktno
+- Sprečava duple entries kad se stage i audio trigeruju istovremeno
+
+### Commits (2026-01-21)
+
+| Commit | Opis |
+|--------|------|
+| `e1820b0c` | Event log deduplication + captured values pattern |
+| `97d8723f` | Absolute positioning za layer drag |
+
+---
+
 Za detalje: `.claude/project/fluxforge-studio.md`

@@ -450,6 +450,105 @@ SlotLab uses TWO audio systems:
 
 ---
 
+## SLOTLAB TIMELINE LAYER DRAG (2026-01-21) ✅
+
+### Problem: Layer Jumps to Start on Second Drag
+
+**Simptomi:**
+- Prvi drag radi normalno
+- Drugi drag — layer skače na početak timeline-a
+
+**Root Cause:**
+Kompleksna relativna kalkulacija offseta:
+- `layer.offset` = pozicija relativno na `region.start`
+- `region.start` se dinamički menja (prati najraniji layer)
+- Između drag-ova, `region.start` bi se promenio
+- `freshRelativeOffset` bi se pogrešno izračunao
+
+### Rešenje: Apsolutno Pozicioniranje
+
+Controller sada koristi **apsolutnu poziciju** umesto relativne:
+
+```dart
+// BEFORE (broken)
+void startLayerDrag({
+  required double startOffsetSeconds,      // Relative to region
+  required double regionStartSeconds,      // For absolute calculation
+}) {
+  _layerDragStartOffset = startOffsetSeconds;
+  _regionStartSeconds = regionStartSeconds;
+}
+
+double getLayerCurrentPosition() {
+  return _layerDragStartOffset + _layerDragDelta;
+}
+
+void endLayerDrag() {
+  final newAbsolute = (_regionStartSeconds + _layerDragStartOffset + _layerDragDelta) * 1000;
+  provider.setLayerOffset(eventId, layerId, newAbsolute);
+}
+
+// AFTER (fixed)
+void startLayerDrag({
+  required double absoluteOffsetSeconds,   // Direct from provider.offsetMs / 1000
+}) {
+  _absoluteStartSeconds = absoluteOffsetSeconds;
+}
+
+double getAbsolutePosition() {
+  return (_absoluteStartSeconds + _layerDragDelta).clamp(0.0, infinity);
+}
+
+void endLayerDrag() {
+  final newAbsolute = getAbsolutePosition() * 1000;
+  provider.setLayerOffset(eventId, layerId, newAbsolute);
+}
+```
+
+### Drag Start (slot_lab_screen.dart)
+
+```dart
+onHorizontalDragStart: (details) {
+  // Get FRESH ABSOLUTE offset from provider
+  final freshLayer = freshEvent?.layers.where((l) => l.id == layerId).firstOrNull;
+  final freshAbsoluteOffsetSeconds = (freshLayer?.offsetMs ?? 0.0) / 1000.0;
+
+  // Start drag with ABSOLUTE position - no relative calculations
+  dragController.startLayerDrag(
+    layerEventId: layerId,
+    parentEventId: parentEventId,
+    regionId: region.id,
+    absoluteOffsetSeconds: freshAbsoluteOffsetSeconds,
+    regionDuration: region.duration,
+    layerDuration: realDuration,
+  );
+}
+```
+
+### Visual Position During Drag
+
+```dart
+double currentOffsetSeconds;
+if (isDragging) {
+  // Controller tracks absolute position
+  currentOffsetSeconds = dragController.getAbsolutePosition() - region.start;
+} else {
+  // Read from provider, convert to relative for display
+  final providerOffsetMs = eventLayer?.offsetMs ?? 0.0;
+  currentOffsetSeconds = (providerOffsetMs / 1000.0) - region.start;
+}
+final offsetPixels = (currentOffsetSeconds * pixelsPerSecond).clamp(0.0, infinity);
+```
+
+### Commits
+
+| Commit | Opis |
+|--------|------|
+| `e1820b0c` | Event log deduplication + captured values pattern |
+| `97d8723f` | Absolute positioning za layer drag |
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
