@@ -450,14 +450,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Get stage for event (first trigger stage, or derive from category/name)
-  /// CRITICAL: Stage must be non-empty for EventRegistry to work
+  /// CRITICAL: Stage must be non-empty and UPPERCASE for EventRegistry to work
   String _getEventStage(SlotCompositeEvent event) {
-    // First try explicit triggerStages
+    // First try explicit triggerStages (normalize to UPPERCASE)
     if (event.triggerStages.isNotEmpty) {
-      return event.triggerStages.first;
+      return event.triggerStages.first.toUpperCase();
     }
 
-    // Fallback: derive stage from category
+    // Fallback: derive stage from category (already UPPERCASE)
     final category = event.category.toLowerCase();
     return switch (category) {
       'spin' => 'SPIN_START',
@@ -6411,9 +6411,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (event == null) return;
 
     // Get all trigger stages (or derive from category if empty)
+    // CRITICAL: Normalize to UPPERCASE — SlotLabProvider triggers with .toUpperCase()
     final stages = event.triggerStages.isNotEmpty
-        ? event.triggerStages
-        : [_getEventStage(event)];
+        ? event.triggerStages.map((s) => s.toUpperCase()).toList()
+        : [_getEventStage(event).toUpperCase()];
+
+    // Skip if no layers (nothing to play)
+    if (event.layers.isEmpty) {
+      debugPrint('[SlotLab] Skipping registry for "${event.name}" — no layers');
+      return;
+    }
 
     // Build base layers list once
     final layers = event.layers.map((l) => AudioLayer(
@@ -6442,9 +6449,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       eventRegistry.registerEvent(audioEvent);
     }
 
-    if (stages.length > 1) {
-      debugPrint('[SlotLab] Registered "${event.name}" under ${stages.length} stages: ${stages.join(", ")}');
-    }
+    debugPrint('[SlotLab] ✅ Registered "${event.name}" under ${stages.length} stage(s): ${stages.join(", ")} (${layers.length} layers)');
   }
 
   // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is now the single source of truth
