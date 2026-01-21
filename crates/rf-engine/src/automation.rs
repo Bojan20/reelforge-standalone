@@ -248,9 +248,13 @@ impl AutomationLane {
             return self.points[0].value;
         }
 
-        // After last point
-        if time_samples >= self.points.last().unwrap().time_samples {
-            return self.points.last().unwrap().value;
+        // After last point (SAFETY: is_empty() check above guarantees last() is Some)
+        let last = self
+            .points
+            .last()
+            .expect("points checked non-empty above");
+        if time_samples >= last.time_samples {
+            return last.value;
         }
 
         // Find surrounding points
@@ -1003,8 +1007,14 @@ impl AutomationBlock {
             return self.changes[0].1;
         }
 
-        if offset >= self.changes.last().unwrap().0 {
-            return self.changes.last().unwrap().1;
+        // SAFETY: is_empty() check above guarantees last() is Some
+        let last = self
+            .changes
+            .last()
+            .expect("changes checked non-empty above");
+
+        if offset >= last.0 {
+            return last.1;
         }
 
         // Find surrounding points and interpolate
@@ -1017,7 +1027,8 @@ impl AutomationBlock {
             }
         }
 
-        self.changes.last().unwrap().1
+        // Fallback (should never reach here due to bounds check above)
+        last.1
     }
 
     /// Apply automation to a value buffer

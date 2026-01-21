@@ -189,6 +189,63 @@ Documentation:
 
 ---
 
+## ✅ COMPLETE — System Review Fixes (2026-01-21)
+
+Four tasks from system weakness review all resolved.
+
+### W1: MiddlewareProvider Decomposition Phase 3
+
+Exit Criteria:
+- ✅ BlendContainersProvider extracted (~350 LOC)
+- ✅ RandomContainersProvider extracted (~300 LOC)
+- ✅ SequenceContainersProvider extracted (~400 LOC)
+- ✅ GetIt registration for all 3 providers
+- ✅ MiddlewareProvider delegation methods
+
+### W2: api.rs Module Splitting
+
+Exit Criteria:
+- ✅ api_engine.rs created (~60 LOC)
+- ✅ api_transport.rs created (~100 LOC)
+- ✅ api_metering.rs created (~70 LOC)
+- ✅ api_mixer.rs created (~130 LOC)
+- ✅ api_project.rs created (~540 LOC)
+- ✅ api.rs reduced from 6594 to 5695 LOC
+- ✅ All re-exports working
+
+### W4: Sprint 2 unwrap() Fixes
+
+Exit Criteria:
+- ✅ command_queue.rs: `.unwrap()` → `.expect()` with SAFETY comments
+- ✅ automation.rs: Extracted to named variables with safety invariants
+- ✅ export.rs: Extracted to named variables with safety invariants
+- ✅ cargo build passes
+- ✅ No new clippy warnings
+
+### W5: Compressor/Limiter InsertChain Integration
+
+Exit Criteria:
+- ✅ ALREADY IMPLEMENTED via existing FFI
+- ✅ `ensure_compressor_loaded()` auto-loads CompressorWrapper at slot 1
+- ✅ `ensure_limiter_loaded()` auto-loads TruePeakLimiterWrapper at slot 2
+- ✅ 14 FFI functions expose all parameters
+- ✅ Flutter bindings in native_ffi.dart
+
+Files Changed:
+- `crates/rf-bridge/src/api_*.rs` — 5 new module files
+- `crates/rf-bridge/src/lib.rs` — Module registration
+- `crates/rf-bridge/src/command_queue.rs` — Safety fixes
+- `crates/rf-engine/src/automation.rs` — Safety fixes
+- `crates/rf-engine/src/export.rs` — Safety fixes
+- `flutter_ui/lib/providers/subsystems/*_provider.dart` — 3 new container providers
+- `flutter_ui/lib/services/service_locator.dart` — GetIt registrations
+
+Documentation:
+- `.claude/architecture/SYSTEM_REVIEW_FIXES_2026_01_21.md` (comprehensive)
+- `.claude/architecture/MIDDLEWARE_DECOMPOSITION.md` (updated)
+
+---
+
 ## P1 — Plugin Hosting
 
 Exit Criteria:

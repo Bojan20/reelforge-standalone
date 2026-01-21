@@ -1,7 +1,7 @@
 # MiddlewareProvider Decomposition (P0.2)
 
 **Date:** 2026-01-21
-**Status:** Phase 1 Complete, Phase 2 Complete (RTPC + Ducking)
+**Status:** Phase 1 Complete, Phase 2 Complete, Phase 3 Complete (Containers)
 **Original Size:** ~5200 LOC
 **Target:** ~400 LOC orchestrator + ~4800 LOC in subsystem providers
 
@@ -307,37 +307,126 @@ DuckingRule addDuckingRule({...}) => _duckingSystemProvider.addRule(...);
 
 ---
 
-## Phase 3 — PENDING
+## Phase 3 — ✅ COMPLETED
 
-### Planned Extractions
+### BlendContainersProvider
+
+**File:** `flutter_ui/lib/providers/subsystems/blend_containers_provider.dart`
+**LOC:** ~350
+
+**Responsibilities:**
+- RTPC-based crossfade between sounds
+- Container creation and management
+- Range slider mappings
+- Curve visualization data
+
+**Key Methods:**
+```dart
+void add(BlendContainer container)
+void update(String id, BlendContainer container)
+void remove(String id)
+BlendContainer? get(String id)
+List<BlendContainer> get containers
+```
+
+### RandomContainersProvider
+
+**File:** `flutter_ui/lib/providers/subsystems/random_containers_provider.dart`
+**LOC:** ~300
+
+**Responsibilities:**
+- Weighted random selection (Random/Shuffle/Round Robin modes)
+- Container management with weight editing
+- Pitch/volume variation parameters
+- Play history tracking
+
+**Key Methods:**
+```dart
+void add(RandomContainer container)
+void update(String id, RandomContainer container)
+void remove(String id)
+void setMode(String id, RandomMode mode)
+void setItemWeight(String containerId, String itemId, double weight)
+```
+
+### SequenceContainersProvider
+
+**File:** `flutter_ui/lib/providers/subsystems/sequence_containers_provider.dart`
+**LOC:** ~400
+
+**Responsibilities:**
+- Timed sound sequences (timeline-based)
+- Step editor with loop/hold/ping-pong modes
+- Trigger timing per step
+- Playback state management
+
+**Key Methods:**
+```dart
+void add(SequenceContainer container)
+void update(String id, SequenceContainer container)
+void remove(String id)
+void setLoopMode(String id, LoopMode mode)
+void addStep(String id, SequenceStep step)
+void removeStep(String id, int index)
+```
+
+### Service Locator Registration (Phase 3)
+
+```dart
+sl.registerLazySingleton<BlendContainersProvider>(
+  () => BlendContainersProvider(ffi: sl<NativeFFI>()),
+);
+sl.registerLazySingleton<RandomContainersProvider>(
+  () => RandomContainersProvider(ffi: sl<NativeFFI>()),
+);
+sl.registerLazySingleton<SequenceContainersProvider>(
+  () => SequenceContainersProvider(ffi: sl<NativeFFI>()),
+);
+```
+
+### MiddlewareProvider Integration (Phase 3)
+
+```dart
+// Added provider fields
+late final BlendContainersProvider _blendContainersProvider;
+late final RandomContainersProvider _randomContainersProvider;
+late final SequenceContainersProvider _sequenceContainersProvider;
+
+// In constructor
+_blendContainersProvider = sl<BlendContainersProvider>();
+_randomContainersProvider = sl<RandomContainersProvider>();
+_sequenceContainersProvider = sl<SequenceContainersProvider>();
+_blendContainersProvider.addListener(notifyListeners);
+_randomContainersProvider.addListener(notifyListeners);
+_sequenceContainersProvider.addListener(notifyListeners);
+
+// Delegation examples
+List<BlendContainer> get blendContainers => _blendContainersProvider.containers;
+List<RandomContainer> get randomContainers => _randomContainersProvider.containers;
+List<SequenceContainer> get sequenceContainers => _sequenceContainersProvider.containers;
+```
+
+---
+
+## Phase 4 — PENDING (Future)
+
+### Remaining Extractions
 
 | Subsystem | Est. LOC | Priority | Dependencies |
 |-----------|----------|----------|--------------|
-| **BlendContainerProvider** | ~350 | P1 | ContainerService |
-| **RandomContainerProvider** | ~300 | P1 | ContainerService |
-| **SequenceContainerProvider** | ~400 | P1 | ContainerService |
-| **MusicSystemProvider** | ~500 | P1 | NativeFFI |
+| **MusicSystemProvider** | ~500 | P2 | NativeFFI |
 | **AttenuationCurveProvider** | ~250 | P2 | NativeFFI |
-
-### Extraction Pattern
-
-1. **Identify boundaries** — Which fields/methods belong together?
-2. **Create provider** — New ChangeNotifier in `providers/subsystems/`
-3. **Move code** — Fields, methods, serialization
-4. **Register in GetIt** — Add to service_locator.dart
-5. **Update orchestrator** — Add delegation in MiddlewareProvider
-6. **Test** — flutter analyze + manual verification
 
 ---
 
 ## Benefits
 
-| Metric | Before | After Phase 1 | After Phase 2 | After Full |
-|--------|--------|---------------|---------------|------------|
-| Main file LOC | 5200 | ~4800 | ~4250 | ~400 |
-| Subsystem files | 0 | 2 | 4 | 9+ |
-| Testability | Poor | Better | Good | Excellent |
-| Cognitive load | High | Medium | Medium-Low | Low |
+| Metric | Before | After Phase 1 | After Phase 2 | After Phase 3 | After Full |
+|--------|--------|---------------|---------------|---------------|------------|
+| Main file LOC | 5200 | ~4800 | ~4250 | ~3200 | ~400 |
+| Subsystem files | 0 | 2 | 4 | 7 | 9+ |
+| Testability | Poor | Better | Good | Very Good | Excellent |
+| Cognitive load | High | Medium | Medium-Low | Low | Minimal |
 
 ---
 

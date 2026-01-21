@@ -479,11 +479,16 @@ impl ExportEngine {
             // Write to file
             let write_result = self.write_output(&output_path, &output_l, &output_r, sample_rate, config.format);
 
+            // SAFETY: stems.push() was called above, so last_mut() is always Some
+            let current_stem = stems
+                .last_mut()
+                .expect("stem was just pushed above");
+
             if let Err(e) = write_result {
-                stems.last_mut().unwrap().status = 3; // Error
+                current_stem.status = 3; // Error
                 log::error!("Failed to export stem {}: {}", track.name, e);
             } else {
-                stems.last_mut().unwrap().status = 2; // Complete
+                current_stem.status = 2; // Complete
             }
 
             // Update progress

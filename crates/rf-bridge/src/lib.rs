@@ -32,6 +32,11 @@
 
 pub mod advanced_metering;
 mod api;
+mod api_engine;
+mod api_metering;
+mod api_mixer;
+mod api_project;
+mod api_transport;
 mod audio_io;
 pub mod autosave_ffi;
 pub mod command_queue;

@@ -31,6 +31,9 @@ import '../providers/subsystems/state_groups_provider.dart';
 import '../providers/subsystems/switch_groups_provider.dart';
 import '../providers/subsystems/rtpc_system_provider.dart';
 import '../providers/subsystems/ducking_system_provider.dart';
+import '../providers/subsystems/blend_containers_provider.dart';
+import '../providers/subsystems/random_containers_provider.dart';
+import '../providers/subsystems/sequence_containers_provider.dart';
 import 'audio_pool.dart';
 import 'audio_playback_service.dart';
 import 'unified_playback_controller.dart';
@@ -120,6 +123,15 @@ class ServiceLocator {
     );
     sl.registerLazySingleton<DuckingSystemProvider>(
       () => DuckingSystemProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<BlendContainersProvider>(
+      () => BlendContainersProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<RandomContainersProvider>(
+      () => RandomContainersProvider(ffi: sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SequenceContainersProvider>(
+      () => SequenceContainersProvider(ffi: sl<NativeFFI>()),
     );
 
     // NOTE: EventRegistry is a ChangeNotifier created per-screen via Provider,

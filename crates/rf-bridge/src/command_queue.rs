@@ -332,13 +332,21 @@ pub fn init_command_queue() {
 /// Get UI command handle (for sending commands from UI thread)
 pub fn ui_command_handle() -> &'static parking_lot::Mutex<UiCommandHandle> {
     init_command_queue();
-    &COMMAND_QUEUE.get().unwrap().0
+    // SAFETY: init_command_queue() guarantees COMMAND_QUEUE is initialized
+    &COMMAND_QUEUE
+        .get()
+        .expect("COMMAND_QUEUE must be initialized by init_command_queue()")
+        .0
 }
 
 /// Get audio command handle (for receiving commands in audio thread)
 pub fn audio_command_handle() -> &'static parking_lot::Mutex<AudioCommandHandle> {
     init_command_queue();
-    &COMMAND_QUEUE.get().unwrap().1
+    // SAFETY: init_command_queue() guarantees COMMAND_QUEUE is initialized
+    &COMMAND_QUEUE
+        .get()
+        .expect("COMMAND_QUEUE must be initialized by init_command_queue()")
+        .1
 }
 
 // ============================================================================

@@ -27,6 +27,9 @@ import 'subsystems/state_groups_provider.dart';
 import 'subsystems/switch_groups_provider.dart';
 import 'subsystems/rtpc_system_provider.dart';
 import 'subsystems/ducking_system_provider.dart';
+import 'subsystems/blend_containers_provider.dart';
+import 'subsystems/random_containers_provider.dart';
+import 'subsystems/sequence_containers_provider.dart';
 
 // ============ Change Types ============
 
@@ -62,18 +65,18 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Ducking subsystem (extracted)
   late final DuckingSystemProvider _duckingSystemProvider;
 
+  /// Blend Containers subsystem (extracted Phase 3)
+  late final BlendContainersProvider _blendContainersProvider;
+
+  /// Random Containers subsystem (extracted Phase 3)
+  late final RandomContainersProvider _randomContainersProvider;
+
+  /// Sequence Containers subsystem (extracted Phase 3)
+  late final SequenceContainersProvider _sequenceContainersProvider;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ADVANCED FEATURES (remaining, to be extracted in future phases)
   // ═══════════════════════════════════════════════════════════════════════════
-
-  // Blend Containers
-  final Map<int, BlendContainer> _blendContainers = {};
-
-  // Random Containers
-  final Map<int, RandomContainer> _randomContainers = {};
-
-  // Sequence Containers
-  final Map<int, SequenceContainer> _sequenceContainers = {};
 
   // Music Segments
   final Map<int, MusicSegment> _musicSegments = {};
@@ -201,10 +204,7 @@ class MiddlewareProvider extends ChangeNotifier {
   // Change listeners for bidirectional sync
   final List<void Function(String eventId, CompositeEventChangeType type)> _compositeChangeListeners = [];
 
-  // ID counters for new groups (State/Switch/RTPC/Ducking moved to subsystem providers)
-  int _nextBlendContainerId = 1;
-  int _nextRandomContainerId = 1;
-  int _nextSequenceContainerId = 1;
+  // ID counters for remaining groups (Blend/Random/Sequence moved to Phase 3 providers)
   int _nextMusicSegmentIdCounter = 1;
   int _nextStingerId = 1;
   int _nextAttenuationCurveId = 1;
@@ -215,12 +215,18 @@ class MiddlewareProvider extends ChangeNotifier {
     _switchGroupsProvider = sl<SwitchGroupsProvider>();
     _rtpcSystemProvider = sl<RtpcSystemProvider>();
     _duckingSystemProvider = sl<DuckingSystemProvider>();
+    _blendContainersProvider = sl<BlendContainersProvider>();
+    _randomContainersProvider = sl<RandomContainersProvider>();
+    _sequenceContainersProvider = sl<SequenceContainersProvider>();
 
     // Forward notifications from subsystem providers
     _stateGroupsProvider.addListener(notifyListeners);
     _switchGroupsProvider.addListener(notifyListeners);
     _rtpcSystemProvider.addListener(notifyListeners);
     _duckingSystemProvider.addListener(notifyListeners);
+    _blendContainersProvider.addListener(notifyListeners);
+    _randomContainersProvider.addListener(notifyListeners);
+    _sequenceContainersProvider.addListener(notifyListeners);
 
     _initializeDefaults();
     _initializeServices();
@@ -243,11 +249,11 @@ class MiddlewareProvider extends ChangeNotifier {
   List<RtpcDefinition> get rtpcDefinitions => _rtpcSystemProvider.rtpcDefinitions;
   List<RtpcBinding> get rtpcBindings => _rtpcSystemProvider.rtpcBindings;
 
-  // Advanced features getters
+  // Advanced features getters (delegating to extracted providers)
   List<DuckingRule> get duckingRules => _duckingSystemProvider.duckingRules;
-  List<BlendContainer> get blendContainers => _blendContainers.values.toList();
-  List<RandomContainer> get randomContainers => _randomContainers.values.toList();
-  List<SequenceContainer> get sequenceContainers => _sequenceContainers.values.toList();
+  List<BlendContainer> get blendContainers => _blendContainersProvider.blendContainers;
+  List<RandomContainer> get randomContainers => _randomContainersProvider.randomContainers;
+  List<SequenceContainer> get sequenceContainers => _sequenceContainersProvider.sequenceContainers;
   List<MusicSegment> get musicSegments => _musicSegments.values.toList();
   List<Stinger> get stingers => _stingers.values.toList();
   List<AttenuationCurve> get attenuationCurves => _attenuationCurves.values.toList();
@@ -492,7 +498,7 @@ class MiddlewareProvider extends ChangeNotifier {
   DuckingRule? getDuckingRule(int ruleId) => _duckingSystemProvider.getRule(ruleId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BLEND CONTAINERS
+  // BLEND CONTAINERS (delegates to BlendContainersProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Create a blend container
@@ -500,59 +506,34 @@ class MiddlewareProvider extends ChangeNotifier {
     required String name,
     required int rtpcId,
     CrossfadeCurve crossfadeCurve = CrossfadeCurve.equalPower,
-  }) {
-    final id = _nextBlendContainerId++;
-
-    final container = BlendContainer(
-      id: id,
-      name: name,
-      rtpcId: rtpcId,
-      crossfadeCurve: crossfadeCurve,
-    );
-
-    _blendContainers[id] = container;
-    _ffi.middlewareCreateBlendContainer(container);
-
-    notifyListeners();
-    return container;
-  }
+  }) => _blendContainersProvider.createContainer(
+    name: name,
+    rtpcId: rtpcId,
+    crossfadeCurve: crossfadeCurve,
+  );
 
   /// Add child to blend container
-  void blendContainerAddChild(int containerId, BlendChild child) {
-    final container = _blendContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = List<BlendChild>.from(container.children)..add(child);
-    _blendContainers[containerId] = container.copyWith(children: updatedChildren);
-
-    _ffi.middlewareBlendAddChild(containerId, child);
-    notifyListeners();
-  }
+  void blendContainerAddChild(int containerId, BlendChild child) =>
+      _blendContainersProvider.addChild(containerId, child);
 
   /// Remove child from blend container
-  void blendContainerRemoveChild(int containerId, int childId) {
-    final container = _blendContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = container.children.where((c) => c.id != childId).toList();
-    _blendContainers[containerId] = container.copyWith(children: updatedChildren);
-
-    _ffi.middlewareBlendRemoveChild(containerId, childId);
-    notifyListeners();
-  }
+  void blendContainerRemoveChild(int containerId, int childId) =>
+      _blendContainersProvider.removeChild(containerId, childId);
 
   /// Remove blend container
-  void removeBlendContainer(int containerId) {
-    _blendContainers.remove(containerId);
-    _ffi.middlewareRemoveBlendContainer(containerId);
-    notifyListeners();
-  }
+  void removeBlendContainer(int containerId) =>
+      _blendContainersProvider.removeContainer(containerId);
 
   /// Get blend container by ID
-  BlendContainer? getBlendContainer(int containerId) => _blendContainers[containerId];
+  BlendContainer? getBlendContainer(int containerId) =>
+      _blendContainersProvider.getContainer(containerId);
+
+  /// Evaluate blend weights for RTPC value
+  Map<int, double> evaluateBlend(int containerId, double rtpcValue) =>
+      _blendContainersProvider.evaluateBlend(containerId, rtpcValue);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RANDOM CONTAINERS
+  // RANDOM CONTAINERS (delegates to RandomContainersProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Create a random container
@@ -560,46 +541,19 @@ class MiddlewareProvider extends ChangeNotifier {
     required String name,
     RandomMode mode = RandomMode.random,
     int avoidRepeatCount = 2,
-  }) {
-    final id = _nextRandomContainerId++;
-
-    final container = RandomContainer(
-      id: id,
-      name: name,
-      mode: mode,
-      avoidRepeatCount: avoidRepeatCount,
-    );
-
-    _randomContainers[id] = container;
-    _ffi.middlewareCreateRandomContainer(container);
-
-    notifyListeners();
-    return container;
-  }
+  }) => _randomContainersProvider.createContainer(
+    name: name,
+    mode: mode,
+    avoidRepeatCount: avoidRepeatCount,
+  );
 
   /// Add child to random container
-  void randomContainerAddChild(int containerId, RandomChild child) {
-    final container = _randomContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = List<RandomChild>.from(container.children)..add(child);
-    _randomContainers[containerId] = container.copyWith(children: updatedChildren);
-
-    _ffi.middlewareRandomAddChild(containerId, child);
-    notifyListeners();
-  }
+  void randomContainerAddChild(int containerId, RandomChild child) =>
+      _randomContainersProvider.addChild(containerId, child);
 
   /// Remove child from random container
-  void randomContainerRemoveChild(int containerId, int childId) {
-    final container = _randomContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = container.children.where((c) => c.id != childId).toList();
-    _randomContainers[containerId] = container.copyWith(children: updatedChildren);
-
-    _ffi.middlewareRandomRemoveChild(containerId, childId);
-    notifyListeners();
-  }
+  void randomContainerRemoveChild(int containerId, int childId) =>
+      _randomContainersProvider.removeChild(containerId, childId);
 
   /// Update global variation for random container
   void randomContainerSetGlobalVariation(
@@ -608,39 +562,28 @@ class MiddlewareProvider extends ChangeNotifier {
     double pitchMax = 0.0,
     double volumeMin = 0.0,
     double volumeMax = 0.0,
-  }) {
-    final container = _randomContainers[containerId];
-    if (container == null) return;
-
-    _randomContainers[containerId] = container.copyWith(
-      globalPitchMin: pitchMin,
-      globalPitchMax: pitchMax,
-      globalVolumeMin: volumeMin,
-      globalVolumeMax: volumeMax,
-    );
-
-    _ffi.middlewareRandomSetGlobalVariation(
-      containerId,
-      pitchMin: pitchMin,
-      pitchMax: pitchMax,
-      volumeMin: volumeMin,
-      volumeMax: volumeMax,
-    );
-    notifyListeners();
-  }
+  }) => _randomContainersProvider.setGlobalVariation(
+    containerId,
+    pitchMin: pitchMin,
+    pitchMax: pitchMax,
+    volumeMin: volumeMin,
+    volumeMax: volumeMax,
+  );
 
   /// Remove random container
-  void removeRandomContainer(int containerId) {
-    _randomContainers.remove(containerId);
-    _ffi.middlewareRemoveRandomContainer(containerId);
-    notifyListeners();
-  }
+  void removeRandomContainer(int containerId) =>
+      _randomContainersProvider.removeContainer(containerId);
 
   /// Get random container by ID
-  RandomContainer? getRandomContainer(int containerId) => _randomContainers[containerId];
+  RandomContainer? getRandomContainer(int containerId) =>
+      _randomContainersProvider.getContainer(containerId);
+
+  /// Select random child with avoid-repeat logic
+  RandomChildSelection? selectRandomChild(int containerId) =>
+      _randomContainersProvider.selectChild(containerId);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SEQUENCE CONTAINERS
+  // SEQUENCE CONTAINERS (delegates to SequenceContainersProvider)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Create a sequence container
@@ -648,57 +591,39 @@ class MiddlewareProvider extends ChangeNotifier {
     required String name,
     SequenceEndBehavior endBehavior = SequenceEndBehavior.stop,
     double speed = 1.0,
-  }) {
-    final id = _nextSequenceContainerId++;
-
-    final container = SequenceContainer(
-      id: id,
-      name: name,
-      endBehavior: endBehavior,
-      speed: speed,
-    );
-
-    _sequenceContainers[id] = container;
-    _ffi.middlewareCreateSequenceContainer(container);
-
-    notifyListeners();
-    return container;
-  }
+  }) => _sequenceContainersProvider.createContainer(
+    name: name,
+    endBehavior: endBehavior,
+    speed: speed,
+  );
 
   /// Add step to sequence container
-  void sequenceContainerAddStep(int containerId, SequenceStep step) {
-    final container = _sequenceContainers[containerId];
-    if (container == null) return;
-
-    final updatedSteps = List<SequenceStep>.from(container.steps)..add(step);
-    updatedSteps.sort((a, b) => a.index.compareTo(b.index));
-    _sequenceContainers[containerId] = container.copyWith(steps: updatedSteps);
-
-    _ffi.middlewareSequenceAddStep(containerId, step);
-    notifyListeners();
-  }
+  void sequenceContainerAddStep(int containerId, SequenceStep step) =>
+      _sequenceContainersProvider.addStep(containerId, step);
 
   /// Remove step from sequence container
-  void sequenceContainerRemoveStep(int containerId, int stepIndex) {
-    final container = _sequenceContainers[containerId];
-    if (container == null) return;
-
-    final updatedSteps = container.steps.where((s) => s.index != stepIndex).toList();
-    _sequenceContainers[containerId] = container.copyWith(steps: updatedSteps);
-
-    _ffi.middlewareSequenceRemoveStep(containerId, stepIndex);
-    notifyListeners();
-  }
+  void sequenceContainerRemoveStep(int containerId, int stepIndex) =>
+      _sequenceContainersProvider.removeStep(containerId, stepIndex);
 
   /// Remove sequence container
-  void removeSequenceContainer(int containerId) {
-    _sequenceContainers.remove(containerId);
-    _ffi.middlewareRemoveSequenceContainer(containerId);
-    notifyListeners();
-  }
+  void removeSequenceContainer(int containerId) =>
+      _sequenceContainersProvider.removeContainer(containerId);
 
   /// Get sequence container by ID
-  SequenceContainer? getSequenceContainer(int containerId) => _sequenceContainers[containerId];
+  SequenceContainer? getSequenceContainer(int containerId) =>
+      _sequenceContainersProvider.getContainer(containerId);
+
+  /// Play sequence (with optional step callback)
+  void playSequence(int containerId, {void Function(SequenceStep, int)? onStep}) =>
+      _sequenceContainersProvider.play(containerId, onStep: onStep);
+
+  /// Stop sequence
+  void stopSequence(int containerId) =>
+      _sequenceContainersProvider.stop(containerId);
+
+  /// Check if sequence is playing
+  bool isSequencePlaying(int containerId) =>
+      _sequenceContainersProvider.isPlaying(containerId);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MUSIC SYSTEM
@@ -1026,9 +951,9 @@ class MiddlewareProvider extends ChangeNotifier {
       objectsWithSwitches: _switchGroupsProvider.objectSwitchesCount,
       objectsWithRtpcs: _rtpcSystemProvider.objectsWithRtpcsCount,
       duckingRules: _duckingSystemProvider.ruleCount,
-      blendContainers: _blendContainers.length,
-      randomContainers: _randomContainers.length,
-      sequenceContainers: _sequenceContainers.length,
+      blendContainers: _blendContainersProvider.containerCount,
+      randomContainers: _randomContainersProvider.containerCount,
+      sequenceContainers: _sequenceContainersProvider.containerCount,
       musicSegments: _musicSegments.length,
       stingers: _stingers.length,
       attenuationCurves: _attenuationCurves.length,
@@ -1045,100 +970,70 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Add blend container (convenience)
-  BlendContainer addBlendContainer({required String name, required int rtpcId}) {
-    return createBlendContainer(name: name, rtpcId: rtpcId);
-  }
+  BlendContainer addBlendContainer({required String name, required int rtpcId}) =>
+      createBlendContainer(name: name, rtpcId: rtpcId);
 
   /// Update blend container
-  void updateBlendContainer(BlendContainer container) {
-    _blendContainers[container.id] = container;
-    notifyListeners();
-  }
+  void updateBlendContainer(BlendContainer container) =>
+      _blendContainersProvider.updateContainer(container);
 
   /// Add blend child
   void addBlendChild(int containerId, {required String name, required double rtpcStart, required double rtpcEnd}) {
-    final nextId = (_blendContainers[containerId]?.children.length ?? 0) + 1;
+    final nextId = (_blendContainersProvider.getContainer(containerId)?.children.length ?? 0) + 1;
     blendContainerAddChild(containerId, BlendChild(id: nextId, name: name, rtpcStart: rtpcStart, rtpcEnd: rtpcEnd));
   }
 
   /// Update blend child
-  void updateBlendChild(int containerId, BlendChild child) {
-    final container = _blendContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = container.children.map((c) => c.id == child.id ? child : c).toList();
-    _blendContainers[containerId] = container.copyWith(children: updatedChildren);
-    notifyListeners();
-  }
+  void updateBlendChild(int containerId, BlendChild child) =>
+      _blendContainersProvider.updateChild(containerId, child);
 
   /// Remove blend child
-  void removeBlendChild(int containerId, int childId) {
-    blendContainerRemoveChild(containerId, childId);
-  }
+  void removeBlendChild(int containerId, int childId) =>
+      blendContainerRemoveChild(containerId, childId);
 
   /// Add random container (convenience)
-  RandomContainer addRandomContainer({required String name}) {
-    return createRandomContainer(name: name);
-  }
+  RandomContainer addRandomContainer({required String name}) =>
+      createRandomContainer(name: name);
 
   /// Update random container
-  void updateRandomContainer(RandomContainer container) {
-    _randomContainers[container.id] = container;
-    notifyListeners();
-  }
+  void updateRandomContainer(RandomContainer container) =>
+      _randomContainersProvider.updateContainer(container);
 
   /// Add random child
   void addRandomChild(int containerId, {required String name, required double weight}) {
-    final nextId = (_randomContainers[containerId]?.children.length ?? 0) + 1;
+    final nextId = (_randomContainersProvider.getContainer(containerId)?.children.length ?? 0) + 1;
     randomContainerAddChild(containerId, RandomChild(id: nextId, name: name, weight: weight));
   }
 
   /// Update random child
-  void updateRandomChild(int containerId, RandomChild child) {
-    final container = _randomContainers[containerId];
-    if (container == null) return;
-
-    final updatedChildren = container.children.map((c) => c.id == child.id ? child : c).toList();
-    _randomContainers[containerId] = container.copyWith(children: updatedChildren);
-    notifyListeners();
-  }
+  void updateRandomChild(int containerId, RandomChild child) =>
+      _randomContainersProvider.updateChild(containerId, child);
 
   /// Remove random child
-  void removeRandomChild(int containerId, int childId) {
-    randomContainerRemoveChild(containerId, childId);
-  }
+  void removeRandomChild(int containerId, int childId) =>
+      randomContainerRemoveChild(containerId, childId);
 
   /// Add sequence container (convenience)
-  SequenceContainer addSequenceContainer({required String name}) {
-    return createSequenceContainer(name: name);
-  }
+  SequenceContainer addSequenceContainer({required String name}) =>
+      createSequenceContainer(name: name);
 
   /// Update sequence container
-  void updateSequenceContainer(SequenceContainer container) {
-    _sequenceContainers[container.id] = container;
-    notifyListeners();
-  }
+  void updateSequenceContainer(SequenceContainer container) =>
+      _sequenceContainersProvider.updateContainer(container);
 
   /// Add sequence step
   void addSequenceStep(int containerId, {required int childId, required String childName, required double delayMs, required double durationMs}) {
-    final nextIndex = (_sequenceContainers[containerId]?.steps.length ?? 0);
+    final nextIndex = (_sequenceContainersProvider.getContainer(containerId)?.steps.length ?? 0);
     sequenceContainerAddStep(containerId, SequenceStep(index: nextIndex, childId: childId, childName: childName, delayMs: delayMs, durationMs: durationMs));
   }
 
   /// Update sequence step
-  void updateSequenceStep(int containerId, int stepIndex, SequenceStep step) {
-    final container = _sequenceContainers[containerId];
-    if (container == null) return;
-
-    final updatedSteps = container.steps.map((s) => s.index == stepIndex ? step : s).toList();
-    _sequenceContainers[containerId] = container.copyWith(steps: updatedSteps);
-    notifyListeners();
-  }
+  void updateSequenceStep(int containerId, int stepIndex, SequenceStep step) =>
+      _sequenceContainersProvider.updateStep(containerId, stepIndex, step);
 
   /// Remove sequence step
-  void removeSequenceStep(int containerId, int stepIndex) {
-    sequenceContainerRemoveStep(containerId, stepIndex);
-  }
+  void removeSequenceStep(int containerId, int stepIndex) =>
+      sequenceContainerRemoveStep(containerId, stepIndex);
 
   /// Update music segment
   void updateMusicSegment(MusicSegment segment) {
@@ -1764,9 +1659,9 @@ class MiddlewareProvider extends ChangeNotifier {
     _switchGroupsProvider.clear();
     _rtpcSystemProvider.clear();
     _duckingSystemProvider.clear();
-    _blendContainers.clear();
-    _randomContainers.clear();
-    _sequenceContainers.clear();
+    _blendContainersProvider.clear();
+    _randomContainersProvider.clear();
+    _sequenceContainersProvider.clear();
     _musicSegments.clear();
     _stingers.clear();
     _attenuationCurves.clear();
@@ -1774,9 +1669,6 @@ class MiddlewareProvider extends ChangeNotifier {
     _nextMusicSegmentId = null;
 
     // Reset ID counters (subsystem providers manage their own)
-    _nextBlendContainerId = 1;
-    _nextRandomContainerId = 1;
-    _nextSequenceContainerId = 1;
     _nextMusicSegmentIdCounter = 1;
     _nextStingerId = 1;
     _nextAttenuationCurveId = 1;
