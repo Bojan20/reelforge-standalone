@@ -653,6 +653,15 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
         _middleware.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
+
+        // CRITICAL FIX: Sync existing events from MiddlewareProvider to EventRegistry
+        // This ensures audio works immediately when SlotLab is opened, even if no
+        // persisted state exists. Without this, EventRegistry stays empty until
+        // _onMiddlewareChanged is triggered by a provider update.
+        if (_compositeEvents.isNotEmpty) {
+          _syncAllEventsToRegistry();
+          debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
+        }
       }
     });
   }
@@ -5725,6 +5734,19 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                 style: const TextStyle(color: Colors.white38, fontSize: 9),
               ),
               const SizedBox(width: 8),
+              // Rename event button
+              InkWell(
+                onTap: () => _showRenameEventDialog(event),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF4A9EFF)),
+                ),
+              ),
+              const SizedBox(width: 4),
               // Delete event button
               InkWell(
                 onTap: () => _deleteCompositeEvent(event),
@@ -6292,6 +6314,104 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // _onMiddlewareChanged listener handles region rebuild and EventRegistry sync
     _removeLayerFromMiddlewareEvent(event.id, layer.id);
     _persistState();
+  }
+
+  /// Show rename dialog for event
+  void _showRenameEventDialog(SlotCompositeEvent event) {
+    final controller = TextEditingController(text: event.name);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgMid,
+        title: const Text('Rename Event', style: TextStyle(color: Colors.white, fontSize: 14)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('New name:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'Enter new name...',
+                hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+              onSubmitted: (_) {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty && newName != event.name) {
+                  _renameEvent(event.id, newName);
+                }
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Current stage: ${_getEventStage(event)}',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && newName != event.name) {
+                _renameEvent(event.id, newName);
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text('Rename', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Rename event in MiddlewareProvider and re-sync to EventRegistry
+  void _renameEvent(String eventId, String newName) {
+    // Rename in MiddlewareProvider (single source of truth)
+    _middleware.renameCompositeEvent(eventId, newName);
+
+    // Also rename the associated track if it exists
+    final trackIndex = _tracks.indexWhere((t) => t.id == eventId || t.name == _findEventById(eventId)?.name);
+    if (trackIndex >= 0) {
+      setState(() {
+        _tracks[trackIndex] = _SlotAudioTrack(
+          id: _tracks[trackIndex].id,
+          name: newName,
+          color: _tracks[trackIndex].color,
+          isMuted: _tracks[trackIndex].isMuted,
+          isSolo: _tracks[trackIndex].isSolo,
+        );
+      });
+    }
+
+    // Re-sync to EventRegistry (will be handled by _onMiddlewareChanged)
+    _persistState();
+
+    debugPrint('[SlotLab] Renamed event $eventId to "$newName"');
   }
 
   void _createCompositeEvent() {

@@ -2590,13 +2590,48 @@ impl PlaybackEngine {
         output_l.fill(0.0);
         output_r.fill(0.0);
 
+        // === ONE-SHOT VOICES (Middleware/SlotLab) ===
+        // CRITICAL: Process one-shot voices BEFORE is_playing() check!
+        // SlotLab/Middleware use ensureStreamRunning() WITHOUT transport play(),
+        // so one-shot voices must play even when transport is stopped.
+        // Get bus buffers first (needed for one-shot mixing)
+        {
+            let mut bus_buffers = match self.bus_buffers.try_write() {
+                Some(b) => b,
+                None => return,
+            };
+
+            // Ensure buffer size matches
+            if bus_buffers.block_size != frames {
+                *bus_buffers = BusBuffers::new(frames);
+            }
+
+            // Clear bus buffers
+            bus_buffers.clear();
+
+            // Process one-shot commands (may activate/deactivate voices)
+            self.process_one_shot_commands();
+            // Mix one-shot voices into bus buffers
+            self.process_one_shot_voices(&mut bus_buffers, frames);
+
+            // Mix ALL bus outputs to main output (for one-shot when transport stopped)
+            // One-shot voices can route to any bus (0=Sfx, 1=Music, 2=Voice, etc.)
+            for (bus_l, bus_r) in bus_buffers.buffers.iter() {
+                for i in 0..frames {
+                    output_l[i] += bus_l[i];
+                    output_r[i] += bus_r[i];
+                }
+            }
+        }
+
         // === LOCK-FREE PARAM CONSUMPTION ===
         // Drain all pending insert param changes BEFORE processing tracks
         // This acquires insert_chains lock once, applies all params, then releases
         // Track processing below will re-acquire the lock for actual processing
         self.consume_insert_param_changes();
 
-        // Check if playing
+        // Check if playing (for DAW timeline tracks)
+        // One-shot voices already processed above, so transport-stopped still outputs them
         if !self.position.is_playing() {
             return;
         }
@@ -2622,25 +2657,15 @@ impl PlaybackEngine {
         // Decay factor for meters (60dB in ~300ms at 48kHz, 256 block size)
         let decay = 0.9995_f64.powf(frames as f64 / 8.0);
 
-        // Get bus buffers (try lock)
+        // Get bus buffers (try lock) - already processed one-shots above
         let mut bus_buffers = match self.bus_buffers.try_write() {
             Some(b) => b,
             None => return,
         };
 
-        // Ensure buffer size matches
-        if bus_buffers.block_size != frames {
-            *bus_buffers = BusBuffers::new(frames);
-        }
-
-        // Clear bus buffers
-        bus_buffers.clear();
-
-        // === ONE-SHOT VOICES (Middleware/SlotLab) ===
-        // Process commands first (may activate/deactivate voices)
-        self.process_one_shot_commands();
-        // Mix one-shot voices into bus buffers
-        self.process_one_shot_voices(&mut bus_buffers, frames);
+        // NOTE: One-shot voices already processed BEFORE is_playing() check
+        // Bus buffers already contain one-shot audio, don't clear them here
+        // Only tracks will be mixed INTO existing bus content
 
         // Clear control room buffers (solo bus, cue mixes)
         self.control_room.clear_all_buffers();

@@ -1552,4 +1552,97 @@ Engine JSON/Events → Adapter → STAGES → FluxForge Audio
 
 ---
 
+## 🔧 TROUBLESHOOTING — SLOTLAB AUDIO NE RADI
+
+### Problem: Spin ne proizvodi zvuk
+
+**Simptomi:**
+- Stage-vi se prikazuju u Event Log
+- Ali nema audio output-a
+- Event Log pokazuje `⚠️ STAGE_NAME (no audio)`
+
+**Root Causes i Rešenja:**
+
+#### 1. EventRegistry je prazan
+
+**Provera:** Event Log status bar pokazuje "No events registered"
+
+**Uzrok:** `_syncAllEventsToRegistry()` nije pozvan pri mount-u SlotLab screen-a
+
+**Fix (2026-01-21):** Dodato u `slot_lab_screen.dart` initState:
+```dart
+if (_compositeEvents.isNotEmpty) {
+  _syncAllEventsToRegistry();
+}
+```
+
+**Verifikacija:** Debug log treba da pokaže:
+```
+[SlotLab] Initial sync: X events → EventRegistry
+[SlotLab] ✅ Registered "Event Name" under N stage(s)
+```
+
+#### 2. Case-sensitivity mismatch
+
+**Uzrok:** SlotLabProvider šalje `"SPIN_START"`, EventRegistry traži `"spin_start"`
+
+**Fix (2026-01-21):** `event_registry.dart` triggerStage() sada radi case-insensitive lookup:
+```dart
+final normalizedStage = stage.toUpperCase().trim();
+// Tries: exact match → normalized → case-insensitive search
+```
+
+#### 3. FFI nije učitan
+
+**Simptom:** Event Log pokazuje `FAILED: FFI not loaded`
+
+**Rešenje:** Full rebuild po CLAUDE.md proceduri:
+```bash
+cargo build --release
+cp target/release/*.dylib flutter_ui/macos/Frameworks/
+# + xcodebuild + copy to App Bundle
+```
+
+#### 4. Nema kreiranih eventa
+
+**Simptom:** Event Log pokazuje `⚠️ SPIN_START (no audio)` za SVE stage-ove
+
+**Rešenje:** Kreiraj AudioEvent-e u SlotLab UI:
+1. Events Folder → Create Event
+2. Dodeli stage (npr. `SPIN_START`)
+3. Dodaj audio layer sa `.wav` fajlom
+4. Save
+
+### Event Log Format (2026-01-21)
+
+**Sa audio-om:**
+```
+12:34:56.789  🎵 Spin Sound → SPIN_START [spin.wav, whoosh.wav]
+              voice=5, bus=2, section=slotLab
+```
+
+**Bez audio-a (upozorava da nedostaje event):**
+```
+12:34:56.789  ⚠️ REEL_STOP_3 (no audio)
+              Create event for this stage to hear audio
+```
+
+### Debug Log Patterns
+
+| Log Pattern | Značenje |
+|-------------|----------|
+| `[SlotLab] Initial sync: X events` | EventRegistry uspešno popunjen |
+| `[SlotLab] ✅ Registered "..."` | Event registrovan za stage |
+| `[EventRegistry] ❌ No event for stage` | Stage nema registrovan event |
+| `[EventRegistry] ✅ Playing: ...` | Audio uspešno pokrenut |
+| `FAILED: FFI not loaded` | Dylib-ovi nisu kopirani |
+
+### Relevantna dokumentacija
+
+- `.claude/architecture/EVENT_SYNC_SYSTEM.md` — Detalji sync sistema
+- `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback sekcije
+- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab arhitektura
+
+---
+
 Za detalje: `.claude/project/fluxforge-studio.md`

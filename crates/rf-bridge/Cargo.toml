@@ -58,3 +58,5 @@ lazy_static = "1.5"
 rayon.workspace = true
 dirs = "5.0"
 
+# No dev-dependencies needed - tests use internal TEST_MUTEX for isolation
+

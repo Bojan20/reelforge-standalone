@@ -168,17 +168,38 @@ class _EventLogPanelState extends State<EventLogPanel> {
     // Check if a new audio was triggered
     final currentTriggerCount = eventRegistry.triggerCount;
     if (currentTriggerCount > _lastTriggerCount) {
-      final triggeredCount = currentTriggerCount - _lastTriggerCount;
       _lastTriggerCount = currentTriggerCount;
 
-      // Log that audio was triggered (even if it failed)
-      // The actual success/failure is logged in EventRegistry._playLayer
+      // Get actual event name and stage from EventRegistry
+      final eventName = eventRegistry.lastTriggeredEventName;
+      final stageName = eventRegistry.lastTriggeredStage;
+      final layers = eventRegistry.lastTriggeredLayers;
+      final success = eventRegistry.lastTriggerSuccess;
+      final error = eventRegistry.lastTriggerError;
+
+      // COMPACT FORMAT: "Event Name → STAGE [files]"
+      // Example: "Spin Sound → SPIN_START [spin.wav, whoosh.wav]"
+      final layerList = layers.isNotEmpty ? ' [${layers.join(", ")}]' : '';
+      final displayName = '$eventName → $stageName$layerList';
+
+      // Details only show error info or voice/bus debug
+      String? details;
+      if (!success && error.isNotEmpty) {
+        details = error;
+      } else if (!success && layers.isEmpty) {
+        details = 'No audio layers configured';
+      } else if (error.isNotEmpty) {
+        // Success but has debug info (voice=X, bus=Y, section=Z)
+        details = error;
+      }
+
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),
-        type: EventLogType.audio,
-        eventName: '🎵 Audio Triggered',
-        details: 'Trigger #$currentTriggerCount | Check console for playback status',
-        data: {'triggerCount': currentTriggerCount},
+        type: success ? EventLogType.audio : EventLogType.error,
+        eventName: displayName,
+        details: details,
+        data: {'triggerCount': currentTriggerCount, 'stage': stageName, 'event': eventName, 'layers': layers, 'success': success, 'error': error},
+        isError: !success,
       ));
     }
 
@@ -203,11 +224,22 @@ class _EventLogPanelState extends State<EventLogPanel> {
     if (currentIndex >= 0 && currentIndex < stages.length && currentIndex != _lastLoggedStageIndex) {
       _lastLoggedStageIndex = currentIndex;
       final stage = stages[currentIndex];
+      final stageType = stage.stageType.toUpperCase();
+
+      // Check if this stage has a registered audio event
+      // If yes, skip the STAGE log — AUDIO log will show the combined info
+      final hasAudioEvent = eventRegistry.hasEventForStage(stageType);
+      if (hasAudioEvent) {
+        // Skip — _onEventRegistryUpdate will log "Event → STAGE [files]"
+        return;
+      }
+
+      // No audio event registered — log as STAGE (helps user see what's missing)
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),
         type: EventLogType.stage,
-        eventName: stage.stageType.toUpperCase().replaceAll('_', ' '),
-        details: stage.payload.isNotEmpty ? stage.payload.toString() : null,
+        eventName: '⚠️ $stageType (no audio)',
+        details: 'Create event for this stage to hear audio',
         data: stage.payload,
       ));
     }
@@ -636,87 +668,121 @@ class _EventLogPanelState extends State<EventLogPanel> {
   }
 
   Widget _buildLogEntry(EventLogEntry entry, int index) {
+    // Determine visual style based on entry type and success
+    final isAudioSuccess = entry.type == EventLogType.audio && !entry.isError;
+    final isAudioMissing = entry.type == EventLogType.stage; // Stage without audio
+    final isError = entry.isError;
+
+    // Color coding for maximum clarity
+    final Color leftBorderColor;
+    final Color bgColor;
+    final Color textColor;
+    final IconData statusIcon;
+
+    if (isAudioSuccess) {
+      // SUCCESS: Green — audio played correctly
+      leftBorderColor = const Color(0xFF40FF90);
+      bgColor = const Color(0xFF40FF90).withOpacity(0.08);
+      textColor = const Color(0xFF40FF90);
+      statusIcon = Icons.volume_up;
+    } else if (isAudioMissing) {
+      // WARNING: Orange — stage fired but no audio configured
+      leftBorderColor = const Color(0xFFFF9040);
+      bgColor = const Color(0xFFFF9040).withOpacity(0.08);
+      textColor = const Color(0xFFFF9040);
+      statusIcon = Icons.volume_off;
+    } else if (isError) {
+      // ERROR: Red — something failed
+      leftBorderColor = const Color(0xFFFF4040);
+      bgColor = const Color(0xFFFF4040).withOpacity(0.08);
+      textColor = const Color(0xFFFF4040);
+      statusIcon = Icons.error_outline;
+    } else {
+      // DEFAULT: Use entry's type color
+      leftBorderColor = entry.typeColor;
+      bgColor = index.isEven ? Colors.transparent : Colors.white.withOpacity(0.02);
+      textColor = Colors.white70;
+      statusIcon = entry.typeIcon;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: index.isEven ? Colors.transparent : Colors.white.withOpacity(0.02),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
         border: Border(
           left: BorderSide(
-            color: entry.typeColor,
-            width: 3,
+            color: leftBorderColor,
+            width: 4,
           ),
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timestamp
-          SizedBox(
-            width: 70,
-            child: Text(
-              entry.formattedTime,
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-
-          // Type badge
+          // Status icon (prominent)
           Container(
-            width: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            width: 24,
+            height: 24,
             decoration: BoxDecoration(
-              color: entry.typeColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(2),
+              color: leftBorderColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(entry.typeIcon, size: 8, color: entry.typeColor),
-                const SizedBox(width: 2),
-                Text(
-                  entry.typeLabel,
-                  style: TextStyle(
-                    color: entry.typeColor,
-                    fontSize: 7,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            child: Icon(
+              statusIcon,
+              size: 14,
+              color: leftBorderColor,
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
 
-          // Event name and details
+          // Main content (single line when possible)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Event name — bold, colored
                 Text(
                   entry.eventName,
                   style: TextStyle(
-                    color: entry.isError ? FluxForgeTheme.accentRed : Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                // Details — smaller, dimmed
                 if (entry.details != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       entry.details!,
                       style: TextStyle(
-                        color: Colors.white38,
+                        color: textColor.withOpacity(0.6),
                         fontSize: 9,
+                        fontFamily: 'monospace',
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
               ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Timestamp (right-aligned, compact)
+          Text(
+            entry.formattedTime.substring(0, 8), // HH:MM:SS without ms
+            style: TextStyle(
+              color: Colors.white24,
+              fontSize: 9,
+              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -726,13 +792,31 @@ class _EventLogPanelState extends State<EventLogPanel> {
 
   Widget _buildStatusBar() {
     // Get registered stages from EventRegistry
-    final registeredStages = eventRegistry.allEvents.map((e) => e.stage).toList();
-    final stagesText = registeredStages.isEmpty
-        ? 'No events registered'
-        : 'Registered: ${registeredStages.take(5).join(", ")}${registeredStages.length > 5 ? " +${registeredStages.length - 5}" : ""}';
+    final registeredEvents = eventRegistry.allEvents;
+    final registeredCount = registeredEvents.length;
+    final hasAudio = registeredEvents.any((e) => e.layers.isNotEmpty);
+
+    // Status indicator
+    final Color statusColor;
+    final IconData statusIcon;
+    final String statusText;
+
+    if (registeredCount == 0) {
+      statusColor = const Color(0xFFFF4040); // Red
+      statusIcon = Icons.warning_amber;
+      statusText = 'No events — create events to hear audio';
+    } else if (!hasAudio) {
+      statusColor = const Color(0xFFFF9040); // Orange
+      statusIcon = Icons.volume_off;
+      statusText = '$registeredCount events (no audio files assigned)';
+    } else {
+      statusColor = const Color(0xFF40FF90); // Green
+      statusIcon = Icons.check_circle;
+      statusText = '$registeredCount events ready';
+    }
 
     return Container(
-      height: 24,
+      height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgMid,
@@ -740,59 +824,43 @@ class _EventLogPanelState extends State<EventLogPanel> {
       ),
       child: Row(
         children: [
-          // Entry count
+          // Entry count (dimmed)
           Text(
-            '${_filteredEntries.length} / ${_entries.length} events',
-            style: const TextStyle(color: Colors.white38, fontSize: 9),
+            '${_filteredEntries.length} log entries',
+            style: const TextStyle(color: Colors.white30, fontSize: 9),
           ),
-          const SizedBox(width: 12),
 
-          // Registered stages indicator
-          Expanded(
-            child: Tooltip(
-              message: registeredStages.isEmpty
-                  ? 'Create events with stages to enable audio triggering'
-                  : 'Registered stages: ${registeredStages.join(", ")}',
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: registeredStages.isEmpty
-                      ? FluxForgeTheme.accentRed.withOpacity(0.15)
-                      : FluxForgeTheme.accentGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: registeredStages.isEmpty
-                        ? FluxForgeTheme.accentRed.withOpacity(0.3)
-                        : FluxForgeTheme.accentGreen.withOpacity(0.3),
-                    width: 0.5,
+          const Spacer(),
+
+          // Main status indicator (prominent)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: statusColor.withOpacity(0.4),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  statusIcon,
+                  size: 12,
+                  color: statusColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      registeredStages.isEmpty ? Icons.warning_amber : Icons.check_circle,
-                      size: 10,
-                      color: registeredStages.isEmpty
-                          ? FluxForgeTheme.accentRed
-                          : FluxForgeTheme.accentGreen,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        stagesText,
-                        style: TextStyle(
-                          color: registeredStages.isEmpty
-                              ? FluxForgeTheme.accentRed
-                              : FluxForgeTheme.accentGreen,
-                          fontSize: 8,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ),
           ),
 

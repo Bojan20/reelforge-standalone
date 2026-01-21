@@ -273,6 +273,126 @@ debugPrint('[DAW] Building tree with ${compositeEvents.length} events');
 
 ---
 
+## CRITICAL FIX: SlotLab Audio Not Playing (2026-01-21)
+
+### Problem
+
+When pressing Spin in SlotLab, no audio was heard even though stages were being triggered.
+
+### Root Causes
+
+1. **EventRegistry was empty on SlotLab mount**
+   - `_syncAllEventsToRegistry()` was only called from `_restorePersistedState()`
+   - If no persisted state existed, EventRegistry stayed empty
+   - Stages triggered but found no matching events
+
+2. **Case-sensitivity mismatch**
+   - SlotLabProvider sent stages as uppercase: `"SPIN_START"`
+   - EventRegistry lookup was case-sensitive
+   - Minor case differences caused silent failures
+
+### Solutions Implemented
+
+#### Fix 1: Initial Sync on Mount (slot_lab_screen.dart)
+
+```dart
+// In initState postFrameCallback:
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (mounted) {
+    _middleware.addListener(_onMiddlewareChanged);
+
+    // CRITICAL FIX: Sync existing events from MiddlewareProvider to EventRegistry
+    // This ensures audio works immediately when SlotLab is opened
+    if (_compositeEvents.isNotEmpty) {
+      _syncAllEventsToRegistry();
+      debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
+    }
+  }
+});
+```
+
+#### Fix 2: Case-Insensitive Lookup (event_registry.dart)
+
+```dart
+Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
+  final normalizedStage = stage.toUpperCase().trim();
+
+  // Try exact match first, then normalized
+  var event = _stageToEvent[stage];
+  event ??= _stageToEvent[normalizedStage];
+
+  // If still not found, try case-insensitive search through all keys
+  if (event == null) {
+    for (final key in _stageToEvent.keys) {
+      if (key.toUpperCase() == normalizedStage) {
+        event = _stageToEvent[key];
+        break;
+      }
+    }
+  }
+
+  if (event == null) {
+    // Detailed logging for debugging
+    final registeredStages = _stageToEvent.keys.take(10).join(', ');
+    debugPrint('[EventRegistry] ❌ No event for stage: "$stage"');
+    debugPrint('[EventRegistry] 📋 Registered stages: $registeredStages');
+    return;
+  }
+  await triggerEvent(event.id, context: context);
+}
+```
+
+### Verification Checklist
+
+When SlotLab audio doesn't play:
+
+1. **Check EventRegistry has events:**
+   ```
+   Debug log should show:
+   [SlotLab] Initial sync: X events → EventRegistry
+   [SlotLab] ✅ Registered "Event Name" under N stage(s): STAGE1, STAGE2
+   ```
+
+2. **Check stage lookup succeeds:**
+   ```
+   Debug log should show:
+   [EventRegistry] Triggering: Event Name (N layers)
+   [EventRegistry] ✅ Playing: layer.wav (voice X, source: slotlab, bus: Y)
+
+   NOT:
+   [EventRegistry] ❌ No event for stage: "SPIN_START"
+   ```
+
+3. **Check FFI is loaded:**
+   ```
+   If you see "FAILED: FFI not loaded":
+   → Rebuild Rust: cargo build --release
+   → Copy dylibs to Frameworks AND App Bundle (see CLAUDE.md)
+   ```
+
+4. **Check playback section is acquired:**
+   ```
+   [UnifiedPlayback] Section acquired: slotLab
+   ```
+
+### Event Log Panel Improvements (2026-01-21)
+
+Compact single-line format per trigger:
+
+**With audio:**
+```
+12:34:56.789  🎵 Spin Sound → SPIN_START [spin.wav, whoosh.wav]
+              voice=5, bus=2, section=slotLab
+```
+
+**Without audio (helps identify missing events):**
+```
+12:34:56.789  ⚠️ REEL_STOP_3 (no audio)
+              Create event for this stage to hear audio
+```
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

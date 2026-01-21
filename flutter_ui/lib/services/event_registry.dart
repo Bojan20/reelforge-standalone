@@ -251,6 +251,18 @@ class EventRegistry extends ChangeNotifier {
   int get pooledTriggers => _pooledTriggers;
   int get spatialTriggers => _spatialTriggers;
 
+  // Last triggered event info (for Event Log display)
+  String _lastTriggeredEventName = '';
+  String _lastTriggeredStage = '';
+  List<String> _lastTriggeredLayers = [];
+  bool _lastTriggerSuccess = false;
+  String _lastTriggerError = '';
+  String get lastTriggeredEventName => _lastTriggeredEventName;
+  String get lastTriggeredStage => _lastTriggeredStage;
+  List<String> get lastTriggeredLayers => _lastTriggeredLayers;
+  bool get lastTriggerSuccess => _lastTriggerSuccess;
+  String get lastTriggerError => _lastTriggerError;
+
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
     _useAudioPool = enabled;
@@ -910,10 +922,30 @@ class EventRegistry extends ChangeNotifier {
   // ==========================================================================
 
   /// Trigeruj event po stage-u
+  /// FIXED: Case-insensitive lookup — normalizes stage to UPPERCASE
   Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
-    final event = _stageToEvent[stage];
+    final normalizedStage = stage.toUpperCase().trim();
+
+    // Try exact match first, then normalized
+    var event = _stageToEvent[stage];
+    event ??= _stageToEvent[normalizedStage];
+
+    // If still not found, try case-insensitive search through all keys
     if (event == null) {
-      debugPrint('[EventRegistry] No event for stage: $stage');
+      for (final key in _stageToEvent.keys) {
+        if (key.toUpperCase() == normalizedStage) {
+          event = _stageToEvent[key];
+          break;
+        }
+      }
+    }
+
+    if (event == null) {
+      // More detailed logging for debugging
+      final registeredStages = _stageToEvent.keys.take(10).join(', ');
+      final suffix = _stageToEvent.length > 10 ? '...(+${_stageToEvent.length - 10} more)' : '';
+      debugPrint('[EventRegistry] ❌ No event for stage: "$stage" (normalized: "$normalizedStage")');
+      debugPrint('[EventRegistry] 📋 Registered stages (${_stageToEvent.length}): $registeredStages$suffix');
       return;
     }
     await triggerEvent(event.id, context: context);
@@ -929,10 +961,35 @@ class EventRegistry extends ChangeNotifier {
 
     _triggerCount++;
 
+    // Store last triggered event info for Event Log display
+    _lastTriggeredEventName = event.name;
+    _lastTriggeredStage = event.stage;
+    _lastTriggeredLayers = event.layers
+        .where((l) => l.audioPath.isNotEmpty)
+        .map((l) => l.audioPath.split('/').last) // Just filename
+        .toList();
+
+    // Check if event has playable layers
+    if (_lastTriggeredLayers.isEmpty) {
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'No audio layers';
+      debugPrint('[EventRegistry] ⚠️ Event "${event.name}" has no playable audio layers!');
+      notifyListeners();
+      return;
+    }
+
     // Check if this event should use pooling
     final usePool = _shouldUsePool(event.stage);
     final poolStr = usePool ? ' [POOLED]' : '';
+
+    // Debug: Log all layer paths
+    final layerPaths = event.layers.map((l) => l.audioPath).toList();
     debugPrint('[EventRegistry] Triggering: ${event.name} (${event.layers.length} layers)$poolStr');
+    debugPrint('[EventRegistry] Layer paths: $layerPaths');
+
+    // Reset success tracking
+    _lastTriggerSuccess = true;
+    _lastTriggerError = '';
 
     // Kreiraj playing instance
     final voiceIds = <int>[];
@@ -966,7 +1023,11 @@ class EventRegistry extends ChangeNotifier {
     String? eventKey,
     bool loop = false, // P0.2: Seamless loop support
   }) async {
-    if (layer.audioPath.isEmpty) return;
+    if (layer.audioPath.isEmpty) {
+      debugPrint('[EventRegistry] ⚠️ Skipping layer "${layer.name}" — empty audioPath');
+      return;
+    }
+    debugPrint('[EventRegistry] 🔊 Playing layer "${layer.name}" | path: ${layer.audioPath}');
 
     // Delay pre početka
     final totalDelayMs = (layer.delay + layer.offset * 1000).round();
@@ -1040,8 +1101,10 @@ class EventRegistry extends ChangeNotifier {
         PlaybackSection.slotLab => PlaybackSource.slotlab,
         PlaybackSection.middleware => PlaybackSource.middleware,
         PlaybackSection.browser => PlaybackSource.browser,
-        null => PlaybackSource.middleware, // Default fallback
+        null => PlaybackSource.slotlab, // Default to slotlab for EventRegistry
       };
+
+      debugPrint('[EventRegistry] _playLayer: activeSection=$activeSection, source=$source, path=${layer.audioPath}');
 
       int voiceId;
 
@@ -1088,10 +1151,14 @@ class EventRegistry extends ChangeNotifier {
         final poolStr = usePool ? ' [POOLED]' : '';
         final loopStr = loop ? ' [LOOP]' : '';
         final spatialStr = (_useSpatialAudio && pan != layer.pan) ? ' [SPATIAL pan=${pan.toStringAsFixed(2)}]' : '';
+        // Store voice info for debug display
+        _lastTriggerError = 'voice=$voiceId, bus=${layer.busId}, section=$activeSection';
         debugPrint('[EventRegistry] ✅ Playing: ${layer.name} (voice $voiceId, source: $source, bus: ${layer.busId})$poolStr$loopStr$spatialStr');
       } else {
         // Voice ID -1 means playback failed - get error from AudioPlaybackService
         final ffiError = AudioPlaybackService.instance.lastPlaybackToBusError;
+        _lastTriggerSuccess = false;
+        _lastTriggerError = 'FAILED: $ffiError';
         debugPrint('[EventRegistry] ❌ FAILED to play: ${layer.name} | path: ${layer.audioPath} | error: $ffiError');
       }
     } catch (e) {

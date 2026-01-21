@@ -1264,11 +1264,92 @@ Full documentation: [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MOD
 
 ---
 
+## Troubleshooting: SlotLab Audio Not Playing
+
+### Problem: Spin ne proizvodi zvuk
+
+**Simptomi:**
+- Stage-vi se prikazuju u Event Log (npr. SPIN_START, REEL_STOP)
+- Ali nema audio output-a
+
+### Root Causes i Rešenja
+
+#### 1. EventRegistry je prazan pri mount-u
+
+**Uzrok:** `_syncAllEventsToRegistry()` se nije pozivao pri prvom otvaranju SlotLab-a
+
+**Fix (2026-01-21):** `slot_lab_screen.dart` initState sada eksplicitno sinhronizuje:
+```dart
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (mounted && _compositeEvents.isNotEmpty) {
+    _syncAllEventsToRegistry();
+    debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
+  }
+});
+```
+
+#### 2. Case-sensitivity mismatch
+
+**Uzrok:** Stage names nisu konsistentni (uppercase vs lowercase)
+
+**Fix (2026-01-21):** `event_registry.dart` triggerStage() radi case-insensitive lookup:
+```dart
+final normalizedStage = stage.toUpperCase().trim();
+// Tries: exact → normalized → full scan
+```
+
+#### 3. Nema kreiranih AudioEvent-a
+
+**Simptom:** Event Log pokazuje `⚠️ SPIN_START (no audio)`
+
+**Rešenje:** Kreiraj eventi u SlotLab UI:
+1. Events Folder panel → "+" button
+2. Ime: "Spin Start", Stage: "SPIN_START"
+3. Drag & drop .wav fajl na event
+4. Event je automatski registrovan
+
+#### 4. FFI not loaded
+
+**Simptom:** `FAILED: FFI not loaded` u Event Log
+
+**Rešenje:** Full rebuild:
+```bash
+cargo build --release
+cp target/release/*.dylib flutter_ui/macos/Frameworks/
+# + xcodebuild + copy to App Bundle (see CLAUDE.md)
+```
+
+### Event Log Format (2026-01-21)
+
+Kompaktan format — jedan red po triggeru:
+
+```
+12:34:56.789  🎵 Spin Sound → SPIN_START [spin.wav]
+              voice=5, bus=2, section=slotLab
+
+12:34:57.123  ⚠️ REEL_STOP_3 (no audio)
+              Create event for this stage to hear audio
+```
+
+### Debug Verification
+
+```
+✅ [SlotLab] Initial sync: 5 events → EventRegistry
+✅ [SlotLab] ✅ Registered "Spin" under 1 stage(s): SPIN_START
+✅ [EventRegistry] Triggering: Spin (1 layers)
+✅ [EventRegistry] ✅ Playing: spin.wav (voice 5, source: slotlab, bus: 2)
+
+❌ [EventRegistry] ❌ No event for stage: "SPIN_START"
+❌ [EventRegistry] 📋 Registered stages (0):
+```
+
+---
+
 ## Related Documentation
 
 - [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md) — Premium fullscreen preview UI
 - [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
-- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections
+- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections (includes full fix details)
 - [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification
 - [STAGE_INGEST_SYSTEM.md](.claude/architecture/STAGE_INGEST_SYSTEM.md) — Universal stage language
 - [ENGINE_INTEGRATION_SYSTEM.md](.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md) — Game engine integration

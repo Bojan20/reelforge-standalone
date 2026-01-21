@@ -79,6 +79,11 @@ static CURRENT_RTPCS: Lazy<RwLock<HashMap<u32, f32>>> =
 /// Active instance count
 static ACTIVE_INSTANCES: AtomicU64 = AtomicU64::new(0);
 
+/// Test synchronization mutex - ensures only one test accesses global state at a time
+/// This is the ONLY correct way to test code with global mutable state in Rust
+#[cfg(test)]
+static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ADVANCED FEATURE GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -164,6 +169,41 @@ pub extern "C" fn middleware_shutdown() {
 #[unsafe(no_mangle)]
 pub extern "C" fn middleware_is_initialized() -> i32 {
     if INITIALIZED.load(Ordering::Relaxed) { 1 } else { 0 }
+}
+
+/// Full reset of ALL global state - used for testing
+/// Unlike middleware_shutdown(), this resets EVERYTHING including:
+/// - Advanced features (ducking, containers, music system, attenuation)
+/// - Atomic counters
+/// - Does NOT require INITIALIZED flag to be set
+#[cfg(test)]
+fn full_reset_for_testing() {
+    // Force uninitialize
+    INITIALIZED.store(false, Ordering::SeqCst);
+
+    // Reset atomic counters
+    NEXT_PLAYING_ID.store(1, Ordering::SeqCst);
+    ACTIVE_INSTANCES.store(0, Ordering::SeqCst);
+
+    // Clear command producer
+    *COMMAND_TX.lock() = None;
+
+    // Clear core registrations
+    EVENTS.write().clear();
+    EVENT_NAMES.write().clear();
+    STATE_GROUPS.write().clear();
+    SWITCH_GROUPS.write().clear();
+    RTPC_DEFS.write().clear();
+    CURRENT_STATES.write().clear();
+    CURRENT_RTPCS.write().clear();
+
+    // Clear advanced features
+    *DUCKING_MATRIX.write() = DuckingMatrix::new();
+    BLEND_CONTAINERS.write().clear();
+    RANDOM_CONTAINERS.write().clear();
+    SEQUENCE_CONTAINERS.write().clear();
+    *MUSIC_SYSTEM.write() = MusicSystem::new();
+    *ATTENUATION_SYSTEM.write() = AttenuationSystem::new();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1380,22 +1420,82 @@ pub extern "C" fn middleware_clear_attenuation_curves() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use parking_lot::MutexGuard;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RAII TEST GUARD — Ensures exclusive access and automatic cleanup
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// RAII guard that:
+    /// 1. Acquires exclusive lock on global test mutex (prevents parallel test interference)
+    /// 2. Resets ALL global state before test runs
+    /// 3. Initializes middleware and stores consumer pointer
+    /// 4. On drop: shuts down, resets state, frees consumer, releases lock
+    struct MiddlewareTestGuard {
+        _lock: MutexGuard<'static, ()>,
+        consumer_ptr: *mut std::ffi::c_void,
+    }
+
+    impl MiddlewareTestGuard {
+        fn new() -> Self {
+            // Step 1: Acquire exclusive lock (blocks other tests)
+            let lock = TEST_MUTEX.lock();
+
+            // Step 2: Full reset of ALL global state
+            full_reset_for_testing();
+
+            // Step 3: Initialize middleware
+            let ptr = middleware_init();
+            assert!(!ptr.is_null(), "middleware_init() returned null");
+            assert_eq!(middleware_is_initialized(), 1);
+
+            Self {
+                _lock: lock,
+                consumer_ptr: ptr,
+            }
+        }
+    }
+
+    impl Drop for MiddlewareTestGuard {
+        fn drop(&mut self) {
+            // Step 1: Shutdown middleware properly
+            if middleware_is_initialized() == 1 {
+                middleware_shutdown();
+            }
+
+            // Step 2: Full reset for next test
+            full_reset_for_testing();
+
+            // Step 3: Free the leaked consumer
+            if !self.consumer_ptr.is_null() {
+                unsafe {
+                    drop(Box::from_raw(self.consumer_ptr as *mut rtrb::Consumer<EventCommand>));
+                }
+            }
+            // Step 4: Lock is automatically released when _lock drops
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TESTS — All use MiddlewareTestGuard for isolation
+    // ═══════════════════════════════════════════════════════════════════════════
 
     #[test]
     fn test_init_shutdown() {
-        // Ensure clean state from previous tests
-        if middleware_is_initialized() == 1 {
-            middleware_shutdown();
-        }
-
-        let ptr = middleware_init();
-        assert!(!ptr.is_null());
+        let guard = MiddlewareTestGuard::new();
         assert_eq!(middleware_is_initialized(), 1);
 
         middleware_shutdown();
         assert_eq!(middleware_is_initialized(), 0);
 
-        // Clean up the leaked consumer
+        // Re-init to satisfy guard's drop (which expects initialized state or handles it)
+        let ptr = middleware_init();
+        assert!(!ptr.is_null());
+
+        // Guard will handle final cleanup
+        drop(guard);
+
+        // Clean up the second consumer
         if !ptr.is_null() {
             unsafe {
                 drop(Box::from_raw(ptr as *mut rtrb::Consumer<EventCommand>));
@@ -1405,12 +1505,7 @@ mod tests {
 
     #[test]
     fn test_register_event() {
-        // Ensure clean state from previous tests
-        if middleware_is_initialized() == 1 {
-            middleware_shutdown();
-        }
-
-        let ptr = middleware_init();
+        let _guard = MiddlewareTestGuard::new();
 
         let name = std::ffi::CString::new("TestEvent").unwrap();
         let category = std::ffi::CString::new("SFX").unwrap();
@@ -1420,24 +1515,11 @@ mod tests {
             1
         );
         assert_eq!(middleware_get_event_count(), 1);
-
-        middleware_shutdown();
-
-        if !ptr.is_null() {
-            unsafe {
-                drop(Box::from_raw(ptr as *mut rtrb::Consumer<EventCommand>));
-            }
-        }
     }
 
     #[test]
     fn test_state_management() {
-        // Ensure clean state from previous tests
-        if middleware_is_initialized() == 1 {
-            middleware_shutdown();
-        }
-
-        let ptr = middleware_init();
+        let _guard = MiddlewareTestGuard::new();
 
         let group_name = std::ffi::CString::new("GameState").unwrap();
         let state_name = std::ffi::CString::new("Playing").unwrap();
@@ -1446,24 +1528,11 @@ mod tests {
         assert_eq!(middleware_add_state(1, 1, state_name.as_ptr()), 1);
         assert_eq!(middleware_set_state(1, 1), 1);
         assert_eq!(middleware_get_state(1), 1);
-
-        middleware_shutdown();
-
-        if !ptr.is_null() {
-            unsafe {
-                drop(Box::from_raw(ptr as *mut rtrb::Consumer<EventCommand>));
-            }
-        }
     }
 
     #[test]
     fn test_rtpc() {
-        // Ensure clean state from previous tests
-        if middleware_is_initialized() == 1 {
-            middleware_shutdown();
-        }
-
-        let ptr = middleware_init();
+        let _guard = MiddlewareTestGuard::new();
 
         let name = std::ffi::CString::new("Volume").unwrap();
 
@@ -1473,13 +1542,5 @@ mod tests {
         );
         assert_eq!(middleware_set_rtpc(1, 0.75, 0), 1);
         assert!((middleware_get_rtpc(1) - 0.75).abs() < 0.001);
-
-        middleware_shutdown();
-
-        if !ptr.is_null() {
-            unsafe {
-                drop(Box::from_raw(ptr as *mut rtrb::Consumer<EventCommand>));
-            }
-        }
     }
 }
