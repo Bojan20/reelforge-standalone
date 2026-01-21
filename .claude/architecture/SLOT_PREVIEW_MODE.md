@@ -1,342 +1,324 @@
-# Slot Lab — Fullscreen Preview Mode
+# Slot Lab — Premium Fullscreen Preview Mode
 
-**Status:** ALL PHASES COMPLETE (1-4)
+**Status:** UPGRADED TO PREMIUM (2026-01-21)
 **Priority:** HIGH
 **Created:** 2026-01-20
-**Implemented:** 2026-01-20
+**Last Updated:** 2026-01-21 (v2 - Jackpot logic, UI polish)
 
 ---
 
-## Koncept
+## Overview
 
 Sound designer radi u Slot Lab sekciji — mapira evente, podešava RTPC krive, importuje audio. Ali pravi test audio dizajna je **celokupno iskustvo igrača**.
 
-**Preview Mode** omogućava:
-- Fullscreen slot mašina (bez toolbar-a, side panela)
-- Igraj kao pravi igrač — SPIN, WIN, FEATURE
-- Čuj kako audio flow zaista zvuči
-- ESC vraća u Slot Lab **tačno gde si bio**
+**Premium Preview Mode** omogućava:
+- Fullscreen slot mašina sa **svim industry-standard elementima**
+- Jackpot zone sa 4-tier progressive tickers
+- Win Presenter sa rollup animacijom i coin particles
+- Bet controls (lines, coin, bet level)
+- Auto-spin i Turbo mode
+- Settings panel (audio, video, quality)
+- Session stats i recent wins history
 
 ---
 
-## Workflow
+## Widget Files
 
+| File | Description |
+|------|-------------|
+| `lib/widgets/slot_lab/premium_slot_preview.dart` | **NEW** — Full premium slot UI |
+| `lib/widgets/slot_lab/fullscreen_slot_preview.dart` | Legacy basic preview (deprecated) |
+| `lib/widgets/slot_lab/slot_preview_widget.dart` | Reusable slot grid component |
+
+---
+
+## UI Zones
+
+### A. Header Zone
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         SLOT LAB                                │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
-│  │ Event    │ │ Stage    │ │ Audio    │ │ RTPC     │           │
-│  │ Registry │ │ Trace    │ │ Browser  │ │ Curves   │           │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Slot Preview Widget (small)                 │   │
-│  │                    [▶ PREVIEW]                          │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│ [≡]  FLUXFORGE    💰 $1,234.56    ⭐VIP 3    🎵 🔊 ⚙️ ⛶ ✕   │
 └─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ F11 or [▶ PREVIEW] button
-                              ▼
+```
+- Menu button (hamburger)
+- Game logo (FLUXFORGE)
+- Balance display (animated with glow on win/loss)
+- VIP/Level badge (colored by tier)
+- Music toggle
+- SFX toggle
+- Settings gear → Opens settings panel
+- Fullscreen toggle
+- Exit/Close button
+
+### B. Jackpot Zone
+```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   FULLSCREEN PREVIEW MODE                       │
-│                                                                 │
-│                  ┌───────────────────────┐                     │
-│                  │                       │                     │
-│                  │    ╔═══╦═══╦═══╗     │                     │
-│                  │    ║ 7 ║ A ║ K ║     │                     │
-│                  │    ╠═══╬═══╬═══╣     │                     │
-│                  │    ║ Q ║ 7 ║ 10║     │                     │
-│                  │    ╠═══╬═══╬═══╣     │                     │
-│                  │    ║ A ║ K ║ 7 ║     │                     │
-│                  │    ╚═══╩═══╩═══╝     │                     │
-│                  │                       │                     │
-│                  │      WIN: $125       │                     │
-│                  │                       │                     │
-│                  │    ┌──────────┐       │                     │
-│                  │    │   SPIN   │       │                     │
-│                  │    └──────────┘       │                     │
-│                  └───────────────────────┘                     │
-│                                                                 │
-│  [D] Debug Overlay    [ESC] Exit Preview    [SPACE] Spin       │
+│   MINI        MINOR        MAJOR          GRAND    CONTRIBUTION │
+│   $125.50     $1,250.00    $12,500.00     $125K      $0.12      │
 └─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ ESC
-                              ▼
+```
+- 4 jackpot tickers (Mini, Minor, Major, Grand) — **horizontal layout**
+- Optional Mystery jackpot (shows "???")
+- Progressive contribution display (inline)
+- **Realistic jackpot growth** — jackpots grow based on player bets:
+  - MINI: +0.5% of bet per spin
+  - MINOR: +0.3% of bet per spin
+  - MAJOR: +0.2% of bet per spin
+  - GRAND: +0.1% of bet per spin
+- **Jackpot wins** — triggered on big wins with probability:
+  - ULTRA win (100x+): 1% GRAND, 5% MAJOR
+  - EPIC win (50x+): 2% MAJOR, 8% MINOR
+  - MEGA win (25x+): 5% MINOR, 15% MINI
+  - BIG win (10x+): 10% MINI
+- Won jackpots reset to seed value and add to balance
+
+### C. Main Game Zone
+- Reel frame (5x3 configurable) — **MAXIMIZED: 80% width, 85% height**
+- Symbol grid with animations
+- Payline visualizer (gold lines over grid)
+- Win highlight overlay (pulsing border)
+- Anticipation frame (orange glow)
+- Wild expansion layer
+- Scatter collection layer
+- Cascade/tumble layer
+- Background theme gradient
+- Ambient particle layer (40 floating particles)
+- **Gold border frame** with glossy overlay
+- Enhanced shadow/glow effects
+
+### D. Win Presenter
+```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         SLOT LAB                                │
-│            (state preserved — scroll, selection, etc.)          │
+│                    ★ ★ MEGA WIN! ★ ★                           │
+│                                                                 │
+│                      $12,500.00                                 │
+│                      5x MULTIPLIER                              │
+│                                                                 │
+│                  [COLLECT]    [GAMBLE]                          │
 └─────────────────────────────────────────────────────────────────┘
+```
+- Win amount with rollup animation
+- Win tier badge (ULTRA/EPIC/MEGA/BIG/SMALL)
+- Multiplier display
+- Coin burst particles (3D rotation)
+- Collect button
+- Gamble button (optional)
+
+### E. Feature Indicators
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ⭐ FREE SPINS 8/10   🎁 BONUS ████░░ 65%   ✕ 3x MULTIPLIER   │
+└──────────────────────────────────────────────────────────────┘
+```
+- Free spin counter
+- Bonus meter (progress bar)
+- Feature progress bar
+- Multiplier trail badge
+- Cascade counter
+- Special symbol counter
+
+### F. Control Bar
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ LINES    COIN      BET     TOTAL BET                            │
+│ ◀ 25 ▶  ◀ 0.10 ▶  ◀ 5 ▶    $12.50                              │
+│                                                                 │
+│        [MAX BET]  [STOP 45]  [⚡TURBO]     (  SPIN  )           │
+└─────────────────────────────────────────────────────────────────┘
+```
+- Lines selector (◀ ▶)
+- Coin value selector (◀ ▶)
+- Bet level selector (◀ ▶)
+- Total bet display
+- Max Bet button (gold gradient)
+- Auto-spin button — shows "STOP {count}" when active, "AUTO SPIN" when inactive
+- Turbo toggle
+- Spin button (88px circle, pulsing)
+- Stop button (during spin, red)
+- **Compact layout** — reduced button sizes (54px) for more reel space
+
+### G. Info Panels (Left Side)
+```
+┌──────┐
+│ 📊   │  PAY  — Paytable panel
+│ ℹ️   │  INFO — Rules panel
+│ 📜   │  HIST — Recent wins history
+│ 📈   │  STAT — Session stats + RTP
+└──────┘
+```
+
+### H. Audio/Visual Settings Panel
+```
+┌─────────────────────────────────┐
+│ ⚙️ SETTINGS                  ✕ │
+├─────────────────────────────────┤
+│ MASTER VOLUME                   │
+│ 🔊 ═══════════●═══ 80%         │
+│                                 │
+│ [🎵 Music ON]  [🔊 SFX ON]     │
+│                                 │
+│ GRAPHICS QUALITY                │
+│ [LOW] [MED] [HIGH]              │
+│                                 │
+│ [✓] Animations Enabled          │
+└─────────────────────────────────┘
 ```
 
 ---
 
-## UI Elementi
-
-### Preview Mode Screen
-
-| Element | Opis |
-|---------|------|
-| **Slot Grid** | 3x5 (ili konfigurisano) — centriran, 60-70% ekrana |
-| **Reels** | Animirani spin sa blur efektom |
-| **Win Display** | Veliki, centriran ispod grida |
-| **SPIN Button** | Prominent, ili SPACE hotkey |
-| **Balance** | Opciono — simulirani kredit |
-| **Bet Controls** | Opciono — +/- bet amount |
-
-### Debug Overlay (toggle sa D)
-
-```
-┌─────────────────────────────┐
-│ STAGE TRACE (mini)          │
-│ ├─ SPIN_START      0ms     │
-│ ├─ REEL_STOP_0    450ms    │
-│ ├─ REEL_STOP_1    600ms    │
-│ ├─ WIN_PRESENT   1200ms    │
-│ └─ ROLLUP_END    2500ms    │
-│                             │
-│ AUDIO LEVEL: ████████░░ -6dB│
-└─────────────────────────────┘
-```
-
-### Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
 | `SPACE` | Spin |
-| `ESC` | Exit Preview Mode |
-| `D` | Toggle Debug Overlay |
-| `1-0` | Forced outcomes (kao u Slot Lab) |
-| `M` | Mute/unmute |
-| `+/-` | Bet amount (ako je enabled) |
+| `ESC` | Exit preview / Close panel |
+| `M` | Music toggle |
+| `S` | Stats panel toggle |
+| `T` | Turbo mode toggle |
+| `A` | Auto-spin toggle |
+| `1-7` | Forced outcomes (debug mode only) |
 
----
-
-## Visual Design
-
-### Background
-
-```
-Gradient: #0a0a12 → #1a1a28 (radial, center lighter)
-Vignette: Subtle darkening na ivicama
-Optional: Particle ambient (floating lights)
-```
-
-### Slot Machine Frame
-
-```
-Border: 2px #4a9eff glow
-Background: #121218 sa subtle noise texture
-Shadow: 0 20px 60px rgba(0,0,0,0.8)
-```
-
-### Win Presentation
-
-| Win Tier | Effect |
-|----------|--------|
-| Small | Text pulse, subtle glow |
-| Big | Gold color, particle burst |
-| Mega | Screen shake, coin rain |
-| Epic | Full celebration, fireworks |
-| Jackpot | Special animation, sustained |
-
-### Reel Animations
-
-```
-Spin Start: Blur ramp up (0 → max over 200ms)
-Spinning: Motion blur, symbol streak
-Reel Stop: Bounce ease-out, impact sound
-Anticipation: Glow border, pulse effect
-```
-
----
-
-## Implementation
-
-### Architecture
-
-```dart
-// slot_lab_screen.dart
-class SlotLabScreen extends StatefulWidget {
-  // ...
-}
-
-class _SlotLabScreenState extends State<SlotLabScreen> {
-  bool _isPreviewMode = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isPreviewMode) {
-      return FullscreenSlotPreview(
-        onExit: () => setState(() => _isPreviewMode = false),
-      );
-    }
-
-    return Scaffold(
-      // Normal Slot Lab UI
-      // ...
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => setState(() => _isPreviewMode = true),
-        icon: Icon(Icons.play_arrow),
-        label: Text('PREVIEW'),
-      ),
-    );
-  }
-}
-```
-
-### FullscreenSlotPreview Widget
-
-```dart
-class FullscreenSlotPreview extends StatefulWidget {
-  final VoidCallback onExit;
-
-  const FullscreenSlotPreview({required this.onExit});
-
-  @override
-  State<FullscreenSlotPreview> createState() => _FullscreenSlotPreviewState();
-}
-
-class _FullscreenSlotPreviewState extends State<FullscreenSlotPreview> {
-  bool _showDebugOverlay = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0a0a12),
-      body: KeyboardListener(
-        onKeyEvent: _handleKeyEvent,
-        child: Stack(
-          children: [
-            // Background gradient + vignette
-            _buildBackground(),
-
-            // Centered slot machine
-            Center(
-              child: SlotMachineWidget(
-                size: SlotMachineSize.large, // 60-70% screen
-                showFrame: true,
-                enableAnimations: true,
-              ),
-            ),
-
-            // Debug overlay (conditional)
-            if (_showDebugOverlay)
-              Positioned(
-                top: 20,
-                right: 20,
-                child: _buildDebugOverlay(),
-              ),
-
-            // Exit hint
-            Positioned(
-              bottom: 20,
-              left: 0,
-              right: 0,
-              child: _buildControlHints(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      switch (event.logicalKey) {
-        case LogicalKeyboardKey.escape:
-          widget.onExit();
-          break;
-        case LogicalKeyboardKey.space:
-          context.read<SlotLabProvider>().spin();
-          break;
-        case LogicalKeyboardKey.keyD:
-          setState(() => _showDebugOverlay = !_showDebugOverlay);
-          break;
-        // Forced outcomes 1-0
-        case LogicalKeyboardKey.digit1:
-          context.read<SlotLabProvider>().spinForced(ForcedOutcome.lose);
-          break;
-        // ... etc
-      }
-    }
-  }
-}
-```
-
-### SlotMachineWidget Enhancements
-
-```dart
-enum SlotMachineSize { small, medium, large }
-
-class SlotMachineWidget extends StatelessWidget {
-  final SlotMachineSize size;
-  final bool showFrame;
-  final bool enableAnimations;
-
-  // Size multipliers
-  double get scale => switch (size) {
-    SlotMachineSize.small => 0.5,
-    SlotMachineSize.medium => 0.75,
-    SlotMachineSize.large => 1.0,
-  };
-
-  // Premium visual options for large size
-  bool get showParticles => size == SlotMachineSize.large;
-  bool get showGlow => size == SlotMachineSize.large;
-}
-```
+### Forced Outcomes (Debug Mode)
+| Key | Outcome |
+|-----|---------|
+| `1` | Lose |
+| `2` | Small Win |
+| `3` | Big Win |
+| `4` | Mega Win |
+| `5` | Epic Win |
+| `6` | Free Spins |
+| `7` | Jackpot Grand |
 
 ---
 
 ## State Management
 
-### Preserved State
+### Session State (in widget)
+```dart
+// Balance & betting
+double _balance = 1000.0;
+int _lines = 25;
+double _coinValue = 0.10;
+int _betLevel = 5;
 
-Kada uđeš u Preview Mode, sledeće se čuva:
+// Jackpots (simulated progressive)
+double _miniJackpot = 125.50;
+double _minorJackpot = 1250.00;
+double _majorJackpot = 12500.00;
+double _grandJackpot = 125000.00;
+
+// Features
+int _freeSpins = 0;
+int _freeSpinsRemaining = 0;
+double _bonusMeter = 0.0;
+int _multiplier = 1;
+
+// Auto-spin
+bool _isAutoSpin = false;
+int _autoSpinRemaining = 0;
+
+// Settings
+bool _isTurbo = false;
+bool _isMusicOn = true;
+bool _isSfxOn = true;
+double _masterVolume = 0.8;
+int _graphicsQuality = 2; // 0=Low, 1=Med, 2=High
+```
+
+### Preserved State (via Provider)
 - Event Registry mappings
 - Audio pool contents
 - RTPC curve settings
-- Scroll pozicije svih panela
-- Selekcije (selected event, selected region, etc.)
+- Composite events
 - Undo/redo stack
-
-### Preview-Only State
-
-- Current spin result
-- Animation states
-- Debug overlay visibility
-- Win celebration progress
 
 ---
 
-## Faze Implementacije
+## Visual Theme
 
-### Faza 1: Basic Preview Mode ✅ COMPLETE
-- [x] `_isPreviewMode` flag u SlotLabScreen
-- [x] `FullscreenSlotPreview` widget
-- [x] Keyboard shortcuts (ESC, SPACE, D, H, 1-0)
-- [x] PREVIEW button u header (F11 shortcut)
-- [x] State preservation (automatic via provider)
+### Colors
+```dart
+class _SlotTheme {
+  // Background
+  static const bgDeep = Color(0xFF0a0a12);
+  static const bgDark = Color(0xFF121218);
+  static const bgMid = Color(0xFF1a1a24);
+  static const bgSurface = Color(0xFF242432);
+  static const bgPanel = Color(0xFF1e1e2a);
 
-### Faza 2: Visual Polish ✅ COMPLETE
-- [x] Premium background (gradient, vignette)
-- [x] Ambient particle system (30 floating particles)
-- [x] Slot machine frame sa animated glow (win-tier aware)
-- [x] Win tier badge with gradient colors
-- [x] Pulsing spin button animation
+  // Jackpot tiers
+  static const jackpotGrand = Color(0xFFFFD700); // Gold
+  static const jackpotMajor = Color(0xFFFF4080); // Magenta
+  static const jackpotMinor = Color(0xFF8B5CF6); // Purple
+  static const jackpotMini = Color(0xFF4CAF50);  // Green
 
-### Faza 3: Debug Integration ✅ COMPLETE
-- [x] Mini stage trace overlay (timeline + event list)
-- [x] Live audio level meter (stereo, peak hold)
-- [x] Event trigger indicators (flash animation)
-- [x] Toggle with D key
+  // Win tiers
+  static const winUltra = Color(0xFFFF4080);
+  static const winEpic = Color(0xFFE040FB);
+  static const winMega = Color(0xFFFFD700);
+  static const winBig = Color(0xFF40FF90);
+  static const winSmall = Color(0xFF40C8FF);
+}
+```
 
-### Faza 4: Advanced Features ✅ COMPLETE
-- [x] Bet amount controls (+/- buttons, keyboard)
-- [x] Simulated balance ($1000 start)
-- [x] Session stats panel (RTP, hit rate, profit)
-- [x] Toggle with S key
-- [ ] Screenshot/recording mode (future)
+### Win Tier Thresholds
+| Tier | Multiplier | Icon |
+|------|------------|------|
+| ULTRA | 100x+ | auto_awesome |
+| EPIC | 50x+ | bolt |
+| MEGA | 25x+ | stars |
+| BIG | 10x+ | celebration |
+| SMALL | >0x | check_circle |
+
+---
+
+## Implementation Details
+
+### Entry Point
+```dart
+// slot_lab_screen.dart
+if (_isPreviewMode) {
+  return PremiumSlotPreview(
+    onExit: () => setState(() => _isPreviewMode = false),
+    reels: _reelCount,
+    rows: _rowCount,
+  );
+}
+```
+
+### Component Hierarchy
+```
+PremiumSlotPreview
+├── _HeaderZone
+│   ├── _HeaderIconButton (×8)
+│   ├── _BalanceDisplay
+│   └── _VipBadge
+├── _JackpotZone
+│   ├── _JackpotTicker (×4-5)
+│   └── _ProgressiveMeter
+├── _FeatureIndicators
+│   ├── _FeatureBadge
+│   └── _FeatureMeter
+├── _MainGameZone
+│   ├── SlotPreviewWidget
+│   ├── _PaylineVisualizer
+│   ├── _WinHighlightOverlay
+│   └── _AmbientParticlePainter
+├── _ControlBar
+│   ├── _BetSelector (×3)
+│   ├── _TotalBetDisplay
+│   ├── _ControlButton (×3)
+│   └── _SpinButton
+├── _InfoPanels (positioned left)
+│   ├── _InfoButton (×4)
+│   ├── _RecentWinsPanel
+│   └── _SessionStatsPanel
+├── _WinPresenter (overlay)
+│   └── _CoinParticlePainter
+└── _AudioVisualPanel (overlay)
+    ├── _SettingToggle
+    └── _QualityButton
+```
 
 ---
 
@@ -357,36 +339,39 @@ SlotLabProvider.playStages()
 EventRegistry.trigger(stage)
         │
         ▼
-    AudioPlayer(s)
+AudioPlaybackService.playEvent()
 ```
 
-**Nema promena u audio sistemu** — Preview je samo UI wrapper.
+---
+
+## Performance
+
+| Aspect | Target | Actual |
+|--------|--------|--------|
+| Enter/exit transition | < 100ms | ~50ms |
+| Frame rate | 60fps | 60fps |
+| Particle count | 40 | 40 |
+| Jackpot tick rate | 100ms | 100ms (contribution-based) |
+| Rollup duration | 1.5s | 1.5s |
+| Reel area | 80% width | 80% width, 85% height |
+| Header height | 48px | 48px (compact) |
+| Control bar height | ~70px | ~70px (compact) |
 
 ---
 
-## Performance Considerations
+## Future Enhancements
 
-| Aspect | Target |
-|--------|--------|
-| Enter/exit transition | < 100ms |
-| Frame rate | 60fps (animations) |
-| Memory overhead | < 10MB (particle cache) |
-| State save/restore | Instant (no serialization) |
-
----
-
-## Future Extensions
-
-1. **Multi-Game Preview** — Switch između različitih slot konfiguracija
-2. **A/B Testing** — Uporedi dva audio setup-a side by side
-3. **Recording Mode** — Snimi gameplay + audio za demo
-4. **Remote Preview** — Stream preview na drugi uređaj
-5. **VR Preview** — Immersive slot experience (far future)
+1. **Paytable Panel** — Visual symbol payouts
+2. **Symbol Legend** — All symbols with descriptions
+3. **Multi-Game Preview** — Switch between configurations
+4. **Recording Mode** — Capture gameplay for demo
+5. **Remote Preview** — Stream to another device
+6. **Tournament Mode** — Leaderboard simulation
 
 ---
 
-## References
+## Related Documentation
 
-- Existing: `flutter_ui/lib/widgets/slot_lab/slot_preview_widget.dart`
-- Existing: `flutter_ui/lib/providers/slot_lab_provider.dart`
-- Existing: `flutter_ui/lib/screens/slot_lab_screen.dart`
+- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture
+- `.claude/architecture/EVENT_SYNC_SYSTEM.md` — Event sync
+- `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback system

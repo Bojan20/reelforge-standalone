@@ -1215,8 +1215,58 @@ Full ALE specification: `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 L
 
 ---
 
+## Premium Fullscreen Preview Mode (2026-01-21, v2)
+
+Premium slot preview sa svim industry-standard elementima:
+
+### Widget Files
+| File | Description |
+|------|-------------|
+| `lib/widgets/slot_lab/premium_slot_preview.dart` | Full premium slot UI (~3600 LOC) |
+| `lib/widgets/slot_lab/slot_preview_widget.dart` | Reusable slot grid |
+
+### UI Zones
+- **A. Header Zone** (48px): Menu, logo, balance (animated), VIP badge, audio toggles, settings, exit
+- **B. Jackpot Zone** (horizontal): 4-tier progressive tickers + contribution display
+  - **Realistic growth**: Jackpots grow based on bet amount (0.1%-0.5% per spin)
+  - **Jackpot wins**: Triggered on big wins with probability (1%-15% based on tier)
+- **C. Main Game Zone** (80% width, 85% height): MAXIMIZED reels with gold border, glossy overlay
+- **D. Win Presenter**: Rollup animation, tier badges, coin particles, collect/gamble
+- **E. Feature Indicators**: Free spins, bonus meter, multiplier, cascade counter
+- **F. Control Bar** (compact): Lines/Coin/Bet selectors, Max Bet, Auto-spin (shows counter), Turbo, Spin (88px)
+- **G. Info Panels**: Paytable, rules, history, session stats (left side)
+- **H. Audio/Visual**: Volume slider, music/sfx toggles, quality selector, animations toggle
+
+### Keyboard Shortcuts
+| Key | Action |
+|-----|--------|
+| `SPACE` | Spin |
+| `ESC` | Exit / Close panel |
+| `M` | Music toggle |
+| `S` | Stats panel |
+| `T` | Turbo mode |
+| `A` | Auto-spin |
+| `1-7` | Forced outcomes (debug) |
+
+### Entry Point
+```dart
+// slot_lab_screen.dart
+if (_isPreviewMode) {
+  return PremiumSlotPreview(
+    onExit: () => setState(() => _isPreviewMode = false),
+    reels: _reelCount,
+    rows: _rowCount,
+  );
+}
+```
+
+Full documentation: [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md)
+
+---
+
 ## Related Documentation
 
+- [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md) — Premium fullscreen preview UI
 - [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
 - [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections
 - [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification

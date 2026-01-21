@@ -1037,11 +1037,24 @@ Fullscreen audio sandbox za slot game audio dizajn.
 - Auto-triggers MiddlewareProvider events
 
 **UI Widgets:** `flutter_ui/lib/widgets/slot_lab/`
+- `premium_slot_preview.dart` — **NEW** Fullscreen premium UI sa svim elementima
 - `stage_trace_widget.dart` — Animated timeline kroz stage evente
 - `slot_preview_widget.dart` — Premium slot machine sa animacijama
 - `event_log_panel.dart` — Real-time log audio eventa
 - `forced_outcome_panel.dart` — Test buttons (keyboard shortcuts 1-0)
 - `audio_hover_preview.dart` — Browser sa hover preview
+
+**Premium Preview Mode (2026-01-21):**
+```
+A. Header Zone — Menu, logo, balance, VIP, audio, settings, exit
+B. Jackpot Zone — 4-tier tickers (Mini/Minor/Major/Grand) + contribution meter
+C. Main Game Zone — Reels, paylines, win overlay, anticipation, particles
+D. Win Presenter — Rollup animation, tier badges, coin particles, collect/gamble
+E. Feature Indicators — Free spins, bonus meter, multiplier, cascade
+F. Control Bar — Lines/Coin/Bet selectors, Max Bet, Auto-spin, Turbo, Spin
+G. Info Panels — Paytable, rules, history, stats (left side)
+H. Audio/Visual — Volume slider, music/sfx toggles, quality, animations
+```
 
 **Forced Outcomes:**
 ```

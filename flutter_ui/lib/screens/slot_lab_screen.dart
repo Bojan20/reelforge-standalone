@@ -72,7 +72,7 @@ import '../widgets/slot_lab/resources_panel.dart';
 import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/stage_trace_widget.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
-import '../widgets/slot_lab/fullscreen_slot_preview.dart';
+import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/forced_outcome_panel.dart';
@@ -1590,7 +1590,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Fullscreen preview mode - immersive slot testing
     if (_isPreviewMode) {
-      return FullscreenSlotPreview(
+      return PremiumSlotPreview(
         onExit: () => setState(() => _isPreviewMode = false),
         reels: _reelCount,
         rows: _rowCount,
