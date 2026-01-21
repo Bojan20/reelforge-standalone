@@ -1195,6 +1195,56 @@ REEL_STOP   → Fallback za sve (ako nema specifičnog)
 - Audio pool, composite events, tracks, event→region mapping
 - Čuva se u Provider, preživljava switch između sekcija
 
+### Bidirectional Event Sync (2026-01-21) ✅
+
+Real-time sinhronizacija composite eventa između SlotLab, Middleware i DAW sekcija.
+
+**Single Source of Truth:** `MiddlewareProvider.compositeEvents`
+
+**Sync Flow:**
+```
+MiddlewareProvider.addLayerToEvent()
+    ↓
+notifyListeners()
+    ↓
+┌─────────────────────────────────────┐
+│ PARALLEL UPDATES:                   │
+│ • SlotLab: _onMiddlewareChanged()   │
+│ • Middleware: Consumer rebuilds     │
+│ • DAW: context.watch triggers       │
+└─────────────────────────────────────┘
+```
+
+**Key Fix:** Sync calls moved to `_onMiddlewareChanged` listener (executes AFTER provider updates, not before).
+
+**Dokumentacija:** `.claude/architecture/EVENT_SYNC_SYSTEM.md`
+
+### Engine-Level Source Filtering (2026-01-21) ✅
+
+One-shot voices filtered by active section at Rust engine level.
+
+**PlaybackSource Enum (Rust):**
+```rust
+pub enum PlaybackSource {
+    Daw = 0,       // DAW timeline (uses track mute, not filtered)
+    SlotLab = 1,   // Filtered when inactive
+    Middleware = 2, // Filtered when inactive
+    Browser = 3,   // Always plays (isolated preview)
+}
+```
+
+**Filtering Logic:**
+- DAW voices: Always play (use their own track mute)
+- Browser voices: Always play (isolated preview engine)
+- SlotLab/Middleware voices: Only play when their section is active
+
+**Key Files:**
+- `crates/rf-engine/src/playback.rs` — PlaybackSource enum, filtering in process_one_shot_voices
+- `flutter_ui/lib/services/unified_playback_controller.dart` — _setActiveSection()
+- `flutter_ui/lib/services/audio_playback_service.dart` — _sourceToEngineId()
+
+**Dokumentacija:** `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md`
+
 ### Service Integration (2026-01-20) ✅
 
 Svi middleware servisi su sada pravilno inicijalizovani i međusobno povezani.

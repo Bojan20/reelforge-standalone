@@ -12,9 +12,41 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLAYBACK SOURCE — For section-based voice filtering
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Source of audio playback for section-based filtering.
+/// One-shot voices tagged with a source will only play when that section is active.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaybackSource {
+    /// DAW timeline playback (default - always plays when transport is active)
+    #[default]
+    Daw = 0,
+    /// Slot Lab event playback
+    SlotLab = 1,
+    /// Middleware event preview
+    Middleware = 2,
+    /// Browser preview (uses PreviewEngine, not filtered)
+    Browser = 3,
+}
+
+impl From<u8> for PlaybackSource {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => PlaybackSource::Daw,
+            1 => PlaybackSource::SlotLab,
+            2 => PlaybackSource::Middleware,
+            3 => PlaybackSource::Browser,
+            _ => PlaybackSource::Daw,
+        }
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THREAD-LOCAL SCRATCH BUFFERS (Audio thread only - zero contention)
@@ -571,6 +603,8 @@ pub struct OneShotVoice {
     pan: f32,
     /// Target bus for routing
     bus: OutputBus,
+    /// Source section (for section-based filtering)
+    source: PlaybackSource,
     /// Is voice active
     active: bool,
     /// Fade state (for smooth stop)
@@ -602,6 +636,7 @@ impl OneShotVoice {
             volume: 1.0,
             pan: 0.0,
             bus: OutputBus::Sfx,
+            source: PlaybackSource::Daw,
             active: false,
             fade_samples_remaining: 0,
             fade_increment: 0.0,
@@ -610,13 +645,14 @@ impl OneShotVoice {
         }
     }
 
-    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus) {
+    fn activate(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus, source: PlaybackSource) {
         self.id = id;
         self.audio = audio;
         self.position = 0;
         self.volume = volume;
         self.pan = pan.clamp(-1.0, 1.0);
         self.bus = bus;
+        self.source = source;
         self.active = true;
         self.fade_samples_remaining = 0;
         self.fade_increment = 0.0;
@@ -625,8 +661,8 @@ impl OneShotVoice {
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
-    fn activate_looping(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus) {
-        self.activate(id, audio, volume, pan, bus);
+    fn activate_looping(&mut self, id: u64, audio: Arc<ImportedAudio>, volume: f32, pan: f32, bus: OutputBus, source: PlaybackSource) {
+        self.activate(id, audio, volume, pan, bus, source);
         self.looping = true;
     }
 
@@ -736,13 +772,14 @@ impl OneShotVoice {
 /// One-shot voice command for lock-free communication
 #[derive(Debug)]
 pub enum OneShotCommand {
-    /// Play a new one-shot voice with spatial pan
+    /// Play a new one-shot voice with spatial pan and source tracking
     Play {
         id: u64,
         audio: Arc<ImportedAudio>,
         volume: f32,
         pan: f32,
         bus: OutputBus,
+        source: PlaybackSource,
     },
     /// P0.2: Play a looping voice (seamless loop for REEL_SPIN etc.)
     PlayLooping {
@@ -751,11 +788,14 @@ pub enum OneShotCommand {
         volume: f32,
         pan: f32,
         bus: OutputBus,
+        source: PlaybackSource,
     },
     /// Stop specific voice
     Stop { id: u64 },
     /// Stop all voices
     StopAll,
+    /// Stop all voices from a specific source
+    StopSource { source: PlaybackSource },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1084,6 +1124,11 @@ pub struct PlaybackEngine {
     one_shot_cmd_rx: parking_lot::Mutex<rtrb::Consumer<OneShotCommand>>,
     /// Next voice ID counter
     next_one_shot_id: AtomicU64,
+
+    // === SECTION-BASED PLAYBACK FILTERING ===
+    /// Currently active playback section (0=DAW, 1=SlotLab, 2=Middleware, 3=Browser)
+    /// One-shot voices from inactive sections are silenced.
+    active_section: AtomicU8,
 }
 
 impl PlaybackEngine {
@@ -1158,7 +1203,32 @@ impl PlaybackEngine {
             one_shot_cmd_tx: parking_lot::Mutex::new(one_shot_tx),
             one_shot_cmd_rx: parking_lot::Mutex::new(one_shot_rx),
             next_one_shot_id: AtomicU64::new(1),
+            // Section-based filtering: DAW is default active section
+            active_section: AtomicU8::new(PlaybackSource::Daw as u8),
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SECTION-BASED PLAYBACK CONTROL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Set active playback section.
+    /// One-shot voices from other sections will be silenced.
+    /// DAW timeline tracks are NOT affected (they use track mute).
+    pub fn set_active_section(&self, section: PlaybackSource) {
+        let old = self.active_section.swap(section as u8, Ordering::SeqCst);
+        if old != section as u8 {
+            log::debug!(
+                "[PlaybackEngine] Active section changed: {:?} -> {:?}",
+                PlaybackSource::from(old),
+                section
+            );
+        }
+    }
+
+    /// Get current active section
+    pub fn get_active_section(&self) -> PlaybackSource {
+        PlaybackSource::from(self.active_section.load(Ordering::Relaxed))
     }
 
     /// Get control room reference
@@ -2244,7 +2314,8 @@ impl PlaybackEngine {
     /// - 5 = Aux
     ///
     /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+    /// source: PlaybackSource for section-based filtering
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: PlaybackSource) -> u64 {
         // Load audio from cache (may block if not cached)
         let audio = match self.cache.load(path) {
             Some(a) => a,
@@ -2276,8 +2347,9 @@ impl PlaybackEngine {
                 volume,
                 pan: pan.clamp(-1.0, 1.0),
                 bus,
+                source,
             });
-            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, pan={:.2}, bus={:?})", path, id, pan, bus);
+            log::debug!("[PlaybackEngine] One-shot play: {} (id={}, pan={:.2}, bus={:?}, source={:?})", path, id, pan, bus, source);
             id
         } else {
             log::warn!("[PlaybackEngine] One-shot command queue busy");
@@ -2288,7 +2360,7 @@ impl PlaybackEngine {
     /// P0.2: Play looping audio through a specific bus (Middleware/SlotLab REEL_SPIN etc.)
     /// Loops seamlessly until explicitly stopped with stop_one_shot()
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: PlaybackSource) -> u64 {
         // Load audio from cache (may block if not cached)
         let audio = match self.cache.load(path) {
             Some(a) => a,
@@ -2320,8 +2392,9 @@ impl PlaybackEngine {
                 volume,
                 pan: pan.clamp(-1.0, 1.0),
                 bus,
+                source,
             });
-            log::debug!("[PlaybackEngine] Looping play: {} (id={}, pan={:.2}, bus={:?})", path, id, pan, bus);
+            log::debug!("[PlaybackEngine] Looping play: {} (id={}, pan={:.2}, bus={:?}, source={:?})", path, id, pan, bus, source);
             id
         } else {
             log::warn!("[PlaybackEngine] One-shot command queue busy");
@@ -2343,6 +2416,13 @@ impl PlaybackEngine {
         }
     }
 
+    /// Stop all one-shot voices from a specific source
+    pub fn stop_source_one_shots(&self, source: PlaybackSource) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::StopSource { source });
+        }
+    }
+
     /// Process one-shot voice commands (call at start of audio block)
     fn process_one_shot_commands(&self) {
         let mut rx = match self.one_shot_cmd_rx.try_lock() {
@@ -2357,18 +2437,18 @@ impl PlaybackEngine {
 
         while let Ok(cmd) = rx.pop() {
             match cmd {
-                OneShotCommand::Play { id, audio, volume, pan, bus } => {
+                OneShotCommand::Play { id, audio, volume, pan, bus, source } => {
                     // Find first inactive slot
                     // Note: If no slot available, command is silently dropped (audio thread cannot log)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
-                        voice.activate(id, audio, volume, pan, bus);
+                        voice.activate(id, audio, volume, pan, bus, source);
                     }
                     // Voice stealing would go here in future (oldest voice eviction)
                 }
-                OneShotCommand::PlayLooping { id, audio, volume, pan, bus } => {
+                OneShotCommand::PlayLooping { id, audio, volume, pan, bus, source } => {
                     // Seamless looping voice (REEL_SPIN etc.)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
-                        voice.activate_looping(id, audio, volume, pan, bus);
+                        voice.activate_looping(id, audio, volume, pan, bus, source);
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }
@@ -2385,16 +2465,27 @@ impl PlaybackEngine {
                         }
                     }
                 }
+                OneShotCommand::StopSource { source } => {
+                    for voice in voices.iter_mut() {
+                        if voice.active && voice.source == source {
+                            voice.start_fade_out(240);
+                        }
+                    }
+                }
             }
         }
     }
 
     /// Process all one-shot voices and mix to bus buffers
+    /// Applies section-based filtering: only voices from active section play.
     fn process_one_shot_voices(&self, bus_buffers: &mut BusBuffers, frames: usize) {
         let mut voices = match self.one_shot_voices.try_write() {
             Some(v) => v,
             None => return,
         };
+
+        // Get active section for filtering (atomic read - no lock)
+        let active_section = PlaybackSource::from(self.active_section.load(Ordering::Relaxed));
 
         // Pre-allocated temp buffers per bus for mixing
         // Use thread-local scratch buffers to avoid allocation
@@ -2410,6 +2501,22 @@ impl PlaybackEngine {
 
                 for voice in voices.iter_mut() {
                     if !voice.active {
+                        continue;
+                    }
+
+                    // SECTION-BASED FILTERING:
+                    // - DAW voices always play (they use track mute separately)
+                    // - Browser voices always play (isolated preview engine)
+                    // - SlotLab/Middleware voices only play when their section is active
+                    let should_play = match voice.source {
+                        PlaybackSource::Daw => true,  // DAW tracks use their own mute
+                        PlaybackSource::Browser => true,  // Browser is always isolated
+                        _ => voice.source == active_section,
+                    };
+
+                    if !should_play {
+                        // Voice is from inactive section - keep it alive but silent
+                        // This allows resume when switching back to the section
                         continue;
                     }
 

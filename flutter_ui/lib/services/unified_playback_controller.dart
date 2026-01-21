@@ -7,6 +7,12 @@
 /// - Browser preview uses PREVIEW_ENGINE (isolated)
 /// - Only ONE section can control PLAYBACK_ENGINE at a time
 /// - Section acquisition is explicit and logged
+/// - Section-based MUTING: inactive sections' tracks are muted
+///
+/// Track ID Ranges:
+/// - DAW tracks: 0-999
+/// - SlotLab tracks: 100000+
+/// - Middleware tracks: 200000+ (reserved)
 ///
 /// Usage:
 /// ```dart
@@ -210,6 +216,10 @@ class UnifiedPlaybackController extends ChangeNotifier {
 
     // Acquire new section
     _activeSection = section;
+
+    // Notify engine of active section for one-shot voice filtering
+    _setActiveSection(section);
+
     debugPrint('[UnifiedPlayback] Acquired: ${section.name}');
     notifyListeners();
     return true;
@@ -267,6 +277,24 @@ class UnifiedPlaybackController extends ChangeNotifier {
     _ffi.play();
     debugPrint('[UnifiedPlayback] Play (section: ${_activeSection!.name}, stream: $streamStarted)');
     notifyListeners();
+  }
+
+  /// Start audio stream WITHOUT starting transport.
+  ///
+  /// Use this for SlotLab/Middleware which use one-shot voices (playFileToBus)
+  /// instead of timeline clips. This prevents DAW clips from playing when
+  /// SlotLab triggers events.
+  ///
+  /// Returns true if stream started successfully.
+  bool ensureStreamRunning() {
+    if (_activeSection == null) {
+      debugPrint('[UnifiedPlayback] ensureStreamRunning() ignored — no active section');
+      return false;
+    }
+
+    final streamStarted = _ffi.startPlayback();
+    debugPrint('[UnifiedPlayback] EnsureStream (section: ${_activeSection!.name}, started: $streamStarted)');
+    return streamStarted;
   }
 
   /// Pause playback.
@@ -357,6 +385,25 @@ class UnifiedPlaybackController extends ChangeNotifier {
     _isRecording = recording;
     debugPrint('[UnifiedPlayback] Recording: $recording');
     notifyListeners();
+  }
+
+  // ===========================================================================
+  // SECTION-BASED PLAYBACK FILTERING (ENGINE-LEVEL)
+  // ===========================================================================
+
+  /// Notify engine of active section for one-shot voice filtering.
+  /// This is handled in Rust engine - one-shot voices from inactive sections
+  /// are silenced automatically. DAW timeline tracks are not affected.
+  void _setActiveSection(PlaybackSection section) {
+    // Map PlaybackSection to engine source ID
+    final sourceId = switch (section) {
+      PlaybackSection.daw => 0,
+      PlaybackSection.slotLab => 1,
+      PlaybackSection.middleware => 2,
+      PlaybackSection.browser => 3,
+    };
+    _ffi.setActiveSection(sourceId);
+    debugPrint('[UnifiedPlayback] Engine active section set to: ${section.name} ($sourceId)');
   }
 
   // ===========================================================================

@@ -19774,9 +19774,12 @@ pub extern "C" fn engine_preview_set_volume(volume: f64) {
 // Uses PlaybackEngine with bus routing - audio goes through DAW buses for mixing
 // ═══════════════════════════════════════════════════════════════════════════
 
+use crate::playback::PlaybackSource;
+
 /// Play one-shot audio through a specific bus with spatial pan (Middleware/SlotLab events)
 /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
 /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
+/// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 /// Returns allocated string with voice_id on success, or error message
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_playback_play_to_bus(
@@ -19784,6 +19787,7 @@ pub extern "C" fn engine_playback_play_to_bus(
     volume: f64,
     pan: f64,
     bus_id: u32,
+    source: u8,
 ) -> *mut c_char {
     // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
 
@@ -19796,7 +19800,8 @@ pub extern "C" fn engine_playback_play_to_bus(
         Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
     };
 
-    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, pan as f32, bus_id);
+    let source = PlaybackSource::from(source);
+    let voice_id = PLAYBACK_ENGINE.play_one_shot_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
     if voice_id > 0 {
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
@@ -19808,6 +19813,7 @@ pub extern "C" fn engine_playback_play_to_bus(
 /// Loops seamlessly until explicitly stopped with engine_playback_stop_one_shot()
 /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
 /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+/// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
 /// Returns allocated string with voice_id on success, or error message
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_playback_play_looping_to_bus(
@@ -19815,6 +19821,7 @@ pub extern "C" fn engine_playback_play_looping_to_bus(
     volume: f64,
     pan: f64,
     bus_id: u32,
+    source: u8,
 ) -> *mut c_char {
     if path.is_null() {
         return string_to_cstr(r#"{"error":"null path"}"#);
@@ -19825,7 +19832,8 @@ pub extern "C" fn engine_playback_play_looping_to_bus(
         Err(_) => return string_to_cstr(r#"{"error":"invalid UTF-8 path"}"#),
     };
 
-    let voice_id = PLAYBACK_ENGINE.play_looping_to_bus(path_str, volume as f32, pan as f32, bus_id);
+    let source = PlaybackSource::from(source);
+    let voice_id = PLAYBACK_ENGINE.play_looping_to_bus(path_str, volume as f32, pan as f32, bus_id, source);
     if voice_id > 0 {
         string_to_cstr(&format!(r#"{{"voice_id":{}}}"#, voice_id))
     } else {
@@ -19845,6 +19853,21 @@ pub extern "C" fn engine_playback_stop_one_shot(voice_id: u64) {
 pub extern "C" fn engine_playback_stop_all_one_shots() {
     // PLAYBACK_ENGINE is defined in this module (ffi.rs) via lazy_static
     PLAYBACK_ENGINE.stop_all_one_shots();
+}
+
+/// Set active playback section (for section-based voice filtering)
+/// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_active_section(section: u8) {
+    let source = PlaybackSource::from(section);
+    PLAYBACK_ENGINE.set_active_section(source);
+}
+
+/// Get active playback section
+/// Returns: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_active_section() -> u8 {
+    PLAYBACK_ENGINE.get_active_section() as u8
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

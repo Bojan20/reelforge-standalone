@@ -66,6 +66,18 @@ class AudioPlaybackService extends ChangeNotifier {
 
   bool _isPlaying = false;
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Map PlaybackSource to engine source ID (matches Rust PlaybackSource enum)
+  int _sourceToEngineId(PlaybackSource source) {
+    return switch (source) {
+      PlaybackSource.daw => 0,
+      PlaybackSource.slotlab => 1,
+      PlaybackSource.middleware => 2,
+      PlaybackSource.browser => 3,
+    };
+  }
+
   // ─── Getters ───────────────────────────────────────────────────────────────
   PlaybackSource? get activeSource => _activeSource;
   bool get isPlaying => _isPlaying;
@@ -187,7 +199,9 @@ class AudioPlaybackService extends ChangeNotifier {
     _acquirePlayback(source);
 
     try {
-      final voiceId = _ffi.playbackPlayToBus(path, volume: volume, pan: pan, busId: busId);
+      // Map PlaybackSource to engine source ID
+      final sourceId = _sourceToEngineId(source);
+      final voiceId = _ffi.playbackPlayToBus(path, volume: volume, pan: pan, busId: busId, source: sourceId);
       if (voiceId >= 0) {
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
@@ -202,7 +216,7 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId)');
+        debugPrint('[AudioPlayback] PlayToBus: $path -> bus $busId (voice $voiceId, source: $source)');
       }
       return voiceId;
     } catch (e) {
@@ -230,7 +244,9 @@ class AudioPlaybackService extends ChangeNotifier {
     _acquirePlayback(source);
 
     try {
-      final voiceId = _ffi.playbackPlayLoopingToBus(path, volume: volume, pan: pan, busId: busId);
+      // Map PlaybackSource to engine source ID
+      final sourceId = _sourceToEngineId(source);
+      final voiceId = _ffi.playbackPlayLoopingToBus(path, volume: volume, pan: pan, busId: busId, source: sourceId);
       if (voiceId >= 0) {
         _activeVoices.add(VoiceInfo(
           voiceId: voiceId,
@@ -245,7 +261,7 @@ class AudioPlaybackService extends ChangeNotifier {
           _eventVoices.putIfAbsent(eventId, () => []).add(voiceId);
         }
 
-        debugPrint('[AudioPlayback] P0.2 PlayLoopingToBus: $path -> bus $busId (voice $voiceId)');
+        debugPrint('[AudioPlayback] PlayLoopingToBus: $path -> bus $busId (voice $voiceId, source: $source)');
       }
       return voiceId;
     } catch (e) {
@@ -300,11 +316,13 @@ class AudioPlaybackService extends ChangeNotifier {
       } else {
         // Use layer's busId, override, or default to Sfx (0)
         final busId = busIdOverride ?? layer.busId ?? 0;
+        final sourceId = _sourceToEngineId(source);
         voiceId = _ffi.playbackPlayToBus(
           layer.audioPath,
           volume: layer.volume,
           pan: layer.pan,
           busId: busId,
+          source: sourceId,
         );
       }
 
@@ -380,11 +398,13 @@ class AudioPlaybackService extends ChangeNotifier {
         } else {
           // Use layer's busId, event default, or fallback to Sfx (0)
           final busId = layer.busId ?? defaultBusId ?? 0;
+          final sourceId = _sourceToEngineId(source);
           voiceId = _ffi.playbackPlayToBus(
             layer.audioPath,
             volume: volume.clamp(0.0, 1.0),
             pan: layer.pan,
             busId: busId,
+            source: sourceId,
           );
         }
 

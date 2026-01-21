@@ -208,12 +208,30 @@ class AudioAssetManager extends ChangeNotifier {
     return _instance!;
   }
 
-  AudioAssetManager._();
+  AudioAssetManager._() {
+    // Default: all folders expanded
+    _ensureDefaultFoldersExpanded();
+  }
 
   /// Reset singleton (for testing)
   static void resetInstance() {
     _instance?.dispose();
     _instance = null;
+  }
+
+  /// Ensure all default folders are expanded on startup
+  void _ensureDefaultFoldersExpanded() {
+    // DAW mode folders
+    _expandedFolderIds.add('audio-pool');
+    _expandedFolderIds.add('tracks');
+    _expandedFolderIds.add('mixconsole');
+    _expandedFolderIds.add('markers');
+    // Middleware mode folders
+    _expandedFolderIds.add('events');
+    _expandedFolderIds.add('buses');
+    _expandedFolderIds.add('states');
+    _expandedFolderIds.add('switches');
+    _expandedFolderIds.add('audio-files');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

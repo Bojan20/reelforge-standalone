@@ -390,6 +390,140 @@ engine_playback_stop_all_one_shots()
 | **playFileToBus API** | ✅ Complete | FFI + Dart bindings |
 | **OneShotVoice in PlaybackEngine** | ✅ Complete | Lock-free voice system |
 | **Waveform cache invalidation** | ✅ Complete | EditorModeProvider.waveformGeneration |
+| **Engine-level source filtering** | ✅ Complete | One-shot voices filtered by active section |
+| **PlaybackSource in Rust** | ✅ Complete | Daw/SlotLab/Middleware/Browser enum |
+
+---
+
+## Engine-Level Source Filtering (2026-01-21)
+
+### Problem
+
+When switching between DAW and SlotLab sections, one-shot voices from the inactive section should be silenced. The previous track-based muting approach had issues:
+- Mixed with user-controlled mute state
+- DAW timeline tracks don't use one-shot system
+- Complex track ID management across sections
+
+### Solution: PlaybackSource Enum in Rust
+
+Each one-shot voice is tagged with its source section. The engine filters voices based on the active section.
+
+```rust
+// crates/rf-engine/src/playback.rs
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaybackSource {
+    #[default]
+    Daw = 0,
+    SlotLab = 1,
+    Middleware = 2,
+    Browser = 3,
+}
+```
+
+### OneShotVoice Structure
+
+```rust
+pub struct OneShotVoice {
+    pub id: u64,
+    pub audio: Arc<ImportedAudio>,
+    pub position: usize,
+    pub volume: f32,
+    pub pan: f32,
+    pub bus: OutputBus,
+    pub source: PlaybackSource,  // NEW: tracks which section triggered this voice
+    pub looping: bool,
+    pub finished: bool,
+}
+```
+
+### Filtering Logic
+
+```rust
+fn process_one_shot_voices(&self, output: &mut [f32], channels: usize) {
+    let active_section = PlaybackSource::from(self.active_section.load(Ordering::Relaxed));
+
+    for voice in &mut self.voices {
+        // Determine if voice should play based on active section
+        let should_play = match voice.source {
+            PlaybackSource::Daw => true,      // DAW tracks use their own mute
+            PlaybackSource::Browser => true,  // Browser is always isolated
+            _ => voice.source == active_section,  // SlotLab/Middleware filtered
+        };
+
+        if !should_play {
+            continue; // Skip voices from inactive sections
+        }
+
+        // ... process audio ...
+    }
+}
+```
+
+### FFI Functions
+
+```rust
+// Set active section (called from Flutter when section changes)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_active_section(section: u8);
+
+// Get active section
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_active_section() -> u8;
+
+// Play with source parameter
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_play_to_bus(
+    path: *const c_char,
+    volume: f64,
+    pan: f64,
+    bus_id: u32,
+    source: u8  // NEW: PlaybackSource as u8
+) -> *const c_char;
+```
+
+### Flutter Integration
+
+```dart
+// UnifiedPlaybackController._setActiveSection()
+void _setActiveSection(PlaybackSection section) {
+  final sourceId = switch (section) {
+    PlaybackSection.daw => 0,
+    PlaybackSection.slotLab => 1,
+    PlaybackSection.middleware => 2,
+    PlaybackSection.browser => 3,
+  };
+  _ffi.setActiveSection(sourceId);
+}
+
+// AudioPlaybackService passes source to FFI
+int playFileToBus(String path, {
+  PlaybackSource source = PlaybackSource.middleware,
+  ...
+}) {
+  final sourceId = _sourceToEngineId(source);
+  return _ffi.playbackPlayToBus(path, ..., source: sourceId);
+}
+```
+
+### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `crates/rf-engine/src/playback.rs` | Added PlaybackSource enum, source field, filtering |
+| `crates/rf-engine/src/ffi.rs` | Added engine_set_active_section FFI |
+| `crates/rf-bridge/src/playback.rs` | Pass source parameter |
+| `crates/rf-bridge/src/api.rs` | API with source parameter |
+| `flutter_ui/lib/src/rust/native_ffi.dart` | FFI bindings for source |
+| `flutter_ui/lib/services/unified_playback_controller.dart` | _setActiveSection() |
+| `flutter_ui/lib/services/audio_playback_service.dart` | _sourceToEngineId() helper |
+
+### Benefits
+
+1. **Clean separation**: Each section's one-shot voices are isolated at engine level
+2. **No track collision**: No need for track ID offsets or registration
+3. **DAW unaffected**: DAW timeline clips use their own track mute system
+4. **Lock-free**: Uses atomic for active_section, no locks in audio thread
 
 ---
 

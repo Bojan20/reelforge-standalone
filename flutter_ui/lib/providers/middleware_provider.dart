@@ -2443,8 +2443,9 @@ class MiddlewareProvider extends ChangeNotifier {
       return 0;
     }
 
-    // Ensure audio stream is running
-    controller.play();
+    // Ensure audio stream is running WITHOUT starting transport
+    // Middleware uses one-shot voices (playFileToBus), not timeline clips
+    controller.ensureStreamRunning();
 
     // Apply context to RTPCs if provided
     if (context != null) {

@@ -606,9 +606,10 @@ class SlotLabProvider extends ChangeNotifier {
       return;
     }
 
-    // CRITICAL: Start the audio stream for playback to work
-    // play() ensures cpal audio stream is running before triggering events
-    controller.play();
+    // CRITICAL: Start the audio stream WITHOUT starting transport
+    // SlotLab uses one-shot voices (playFileToBus), not timeline clips
+    // Using ensureStreamRunning() instead of play() prevents DAW clips from playing
+    controller.ensureStreamRunning();
 
     // Cancel any existing playback and increment generation to invalidate old timers
     _stagePlaybackTimer?.cancel();
@@ -1105,6 +1106,9 @@ class SlotLabProvider extends ChangeNotifier {
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
     notifyListeners();
   }
+
+  /// Alias for stopStagePlayback - used by mode switch isolation
+  void stopAllPlayback() => stopStagePlayback();
 
   /// Manually trigger a specific stage event
   void triggerStageManually(int stageIndex) {

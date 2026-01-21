@@ -1548,10 +1548,11 @@ impl PlaybackEngine {
     /// Play one-shot audio through a specific bus (Middleware/SlotLab events)
     /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
     /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
+    /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+    pub fn play_one_shot_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: u8) -> u64 {
         if let Some(ref engine) = *self.engine_playback.read() {
-            engine.play_one_shot_to_bus(path, volume, pan, bus_id)
+            engine.play_one_shot_to_bus(path, volume, pan, bus_id, rf_engine::playback::PlaybackSource::from(source))
         } else {
             log::warn!("play_one_shot_to_bus: engine not connected");
             0
@@ -1562,13 +1563,32 @@ impl PlaybackEngine {
     /// Loops seamlessly until explicitly stopped with stop_one_shot()
     /// bus_id: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
     /// pan: -1.0 (full left) to +1.0 (full right), 0.0 = center
+    /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
     /// Returns voice ID (0 = failed to queue)
-    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32) -> u64 {
+    pub fn play_looping_to_bus(&self, path: &str, volume: f32, pan: f32, bus_id: u32, source: u8) -> u64 {
         if let Some(ref engine) = *self.engine_playback.read() {
-            engine.play_looping_to_bus(path, volume, pan, bus_id)
+            engine.play_looping_to_bus(path, volume, pan, bus_id, rf_engine::playback::PlaybackSource::from(source))
         } else {
             log::warn!("play_looping_to_bus: engine not connected");
             0
+        }
+    }
+
+    /// Set active playback section (for section-based voice filtering)
+    /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+    pub fn set_active_section(&self, section: u8) {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.set_active_section(rf_engine::playback::PlaybackSource::from(section));
+        }
+    }
+
+    /// Get active playback section
+    /// Returns: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+    pub fn get_active_section(&self) -> u8 {
+        if let Some(ref engine) = *self.engine_playback.read() {
+            engine.get_active_section() as u8
+        } else {
+            0 // Default to DAW
         }
     }
 

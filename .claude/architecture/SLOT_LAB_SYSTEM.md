@@ -1217,6 +1217,8 @@ Full ALE specification: `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 L
 
 ## Related Documentation
 
+- [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
+- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync between sections
 - [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification
 - [STAGE_INGEST_SYSTEM.md](.claude/architecture/STAGE_INGEST_SYSTEM.md) — Universal stage language
 - [ENGINE_INTEGRATION_SYSTEM.md](.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md) — Game engine integration

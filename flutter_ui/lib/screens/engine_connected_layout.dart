@@ -143,6 +143,8 @@ import '../providers/undo_manager.dart';
 import '../widgets/middleware/events_folder_panel.dart';
 import '../widgets/middleware/event_editor_panel.dart';
 import '../widgets/ale/ale_panel.dart';
+import '../services/unified_playback_controller.dart';
+import '../providers/timeline_playback_provider.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -373,19 +375,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             .toList(),
       ));
 
-      // MixConsole (Buses) - always 5 buses
+      // MixConsole (Buses) - starts empty, user creates buses
+      // No placeholder buses - only show buses user creates in DAW
       tree.add(const ProjectTreeNode(
         id: 'mixconsole',
         type: TreeItemType.folder,
         label: 'MixConsole',
-        count: 5,
-        children: [
-          ProjectTreeNode(id: 'bus-master', type: TreeItemType.bus, label: 'Master'),
-          ProjectTreeNode(id: 'bus-sfx', type: TreeItemType.bus, label: 'SFX'),
-          ProjectTreeNode(id: 'bus-music', type: TreeItemType.bus, label: 'Music'),
-          ProjectTreeNode(id: 'bus-voice', type: TreeItemType.bus, label: 'Voice'),
-          ProjectTreeNode(id: 'bus-ui', type: TreeItemType.bus, label: 'UI'),
-        ],
+        count: 0,
+        children: [],
       ));
 
       // Markers - starts empty
@@ -1798,6 +1795,36 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
 
     // Import the audio file
     await _handleImportAudio(filePath, trackId, startTime);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODE SWITCH PLAYBACK ISOLATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Stop all playback from ALL sections when switching modes
+  /// This prevents audio bleeding between DAW/Middleware/SlotLab
+  void _stopAllPlaybackOnModeSwitch() {
+    // 1. Stop DAW timeline playback
+    final playbackProvider = context.read<TimelinePlaybackProvider>();
+    if (playbackProvider.isPlaying) {
+      playbackProvider.stop();
+    }
+
+    // 2. Stop SlotLab stage playback
+    final slotLabProvider = context.read<SlotLabProvider>();
+    slotLabProvider.stopAllPlayback();
+
+    // 3. Stop Middleware events
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    middlewareProvider.stopAllEvents(fadeMs: 50);
+
+    // 4. Release any active section in UnifiedPlaybackController
+    final controller = UnifiedPlaybackController.instance;
+    if (controller.activeSection != null) {
+      controller.stop(releaseAfterStop: true);
+    }
+
+    debugPrint('[ModeSwitch] Stopped all playback');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3713,11 +3740,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             // This isolates control bar rebuilds from the rest of the layout
             customControlBar: EngineConnectedControlBar(
               editorMode: _editorMode,
-              onEditorModeChange: (mode) => setState(() {
-                _editorMode = mode;
-                _activeLowerTab = getDefaultTabForMode(mode);
-                _activeLeftTab = LeftZoneTab.project;
-              }),
+              onEditorModeChange: (mode) {
+                // CRITICAL: Stop all playback from ALL sections when switching modes
+                // This prevents audio bleeding between DAW/Middleware/SlotLab
+                _stopAllPlaybackOnModeSwitch();
+
+                setState(() {
+                  _editorMode = mode;
+                  _activeLowerTab = getDefaultTabForMode(mode);
+                  _activeLeftTab = LeftZoneTab.project;
+                });
+              },
               timeDisplayMode: _timeDisplayMode,
               onTimeDisplayModeChange: () => setState(() {
                 switch (_timeDisplayMode) {

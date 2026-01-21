@@ -883,6 +883,17 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check if waveform generation changed (mode switch from SlotLab back to DAW)
+    // This triggers reload even if widget props didn't change
+    final currentGeneration = context.read<EditorModeProvider>().waveformGeneration;
+    if (_cachedWaveformGeneration != currentGeneration && _cachedWaveformGeneration != -1) {
+      _loadCacheOnce();
+    }
+  }
+
+  @override
   void didUpdateWidget(_UltimateClipWaveform oldWidget) {
     super.didUpdateWidget(oldWidget);
     // ONLY reload if CLIP CONTENT changed - NEVER on zoom!
@@ -953,6 +964,19 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch EditorModeProvider.waveformGeneration to trigger rebuild on mode switch
+    // This ensures waveforms refresh when returning to DAW from SlotLab
+    final currentGeneration = context.watch<EditorModeProvider>().waveformGeneration;
+    if (_cachedWaveformGeneration != currentGeneration && _cachedWaveformGeneration != -1) {
+      // Schedule reload after build completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadCacheOnce();
+          setState(() {}); // Force repaint with new data
+        }
+      });
+    }
+
     if (widget.waveform.isEmpty && _cachedStereoData == null) {
       return const SizedBox.shrink();
     }

@@ -90,6 +90,25 @@ import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
 
 // =============================================================================
+// SLOT LAB TRACK ID ISOLATION
+// =============================================================================
+// CRITICAL: SlotLab uses track IDs starting at 100000 to avoid collision with
+// DAW tracks (0, 1, 2...). This prevents SlotLab audio imports from corrupting
+// DAW waveform data in the Rust engine.
+
+/// Base offset for SlotLab track IDs (DAW uses 0-999, SlotLab uses 100000+)
+const int kSlotLabTrackIdOffset = 100000;
+
+/// Convert local SlotLab track index to FFI track ID
+int slotLabTrackIdToFfi(int localTrackIndex) => kSlotLabTrackIdOffset + localTrackIndex;
+
+/// Convert FFI track ID back to local SlotLab track index
+int ffiToSlotLabTrackId(int ffiTrackId) => ffiTrackId - kSlotLabTrackIdOffset;
+
+/// Check if an FFI track ID belongs to SlotLab
+bool isSlotLabTrackId(int ffiTrackId) => ffiTrackId >= kSlotLabTrackIdOffset;
+
+// =============================================================================
 // RTPC IDS FOR SLOT AUDIO
 // =============================================================================
 
@@ -470,15 +489,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _middlewareEvents.indexWhere((e) => e.name == name);
 
   /// Add layer to event via MiddlewareProvider
+  /// Note: _onMiddlewareChanged listener handles _syncEventToRegistry after provider updates
   void _addLayerToMiddlewareEvent(String eventId, String audioPath, String name) {
     _middleware.addLayerToEvent(eventId, audioPath: audioPath, name: name);
-    _syncEventToRegistry(_findEventById(eventId));
+    // Don't call _syncEventToRegistry here - _onMiddlewareChanged will sync with fresh data
   }
 
   /// Remove layer from event via MiddlewareProvider
+  /// Note: _onMiddlewareChanged listener handles _syncEventToRegistry after provider updates
   void _removeLayerFromMiddlewareEvent(String eventId, String layerId) {
     _middleware.removeLayerFromEvent(eventId, layerId);
-    _syncEventToRegistry(_findEventById(eventId));
+    // Don't call _syncEventToRegistry here - _onMiddlewareChanged will sync with fresh data
   }
 
   /// Create new composite event via MiddlewareProvider
@@ -969,10 +990,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         if (_ffi.isLoaded && audioPath.isNotEmpty) {
           try {
             // Import audio to get real clipId
-            // CRITICAL: Use SlotLab preview track (99999) if no FFI track assigned
-            // to avoid conflicting with DAW tracks (0, 1, 2...)
-            const slotLabPreviewTrack = 99999;
-            clipId = _ffi.importAudio(audioPath, ffiTrackId > 0 ? ffiTrackId : slotLabPreviewTrack, action.delay);
+            // CRITICAL: Use SlotLab track ID offset (100000+) to avoid conflicting with DAW tracks
+            final slotLabTrackId = ffiTrackId > 0 ? slotLabTrackIdToFfi(ffiTrackId) : kSlotLabTrackIdOffset;
+
+            clipId = _ffi.importAudio(audioPath, slotLabTrackId, action.delay);
             if (clipId > 0) {
               _clipIdCache[audioPath] = clipId;
               debugPrint('[SlotLab] FFI imported: clipId=$clipId');
@@ -4659,10 +4680,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Asynchronously load waveform for a path
+  ///
+  /// CRITICAL: Uses generateWaveformFromFile instead of importAudio to avoid
+  /// corrupting DAW waveforms. importAudio modifies Rust engine clip state,
+  /// which can overwrite waveform data for clips already loaded in DAW.
   void _loadWaveformAsync(String audioPath) async {
-    if (_clipIdCache.containsKey(audioPath) || !_ffi.isLoaded) return;
+    if (_waveformCache.containsKey(audioPath) || !_ffi.isLoaded) return;
 
-    // First check disk cache before doing expensive FFI import
+    // First check disk cache before doing expensive FFI generation
     try {
       final diskWaveform = await WaveformCacheService.instance.get(audioPath);
       if (diskWaveform != null && diskWaveform.isNotEmpty) {
@@ -4672,29 +4697,54 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return;
       }
     } catch (_) {
-      // Disk cache miss, continue with FFI load
+      // Disk cache miss, continue with FFI generation
     }
 
     try {
-      // Import audio to get clip ID
-      // CRITICAL: Use dedicated SlotLab preview track (ID 99999) to avoid
-      // conflicting with DAW tracks (0, 1, 2...). This prevents waveform
-      // corruption when switching between DAW and SlotLab.
-      const slotLabPreviewTrack = 99999;
-      final clipId = _ffi.importAudio(audioPath, slotLabPreviewTrack, 0.0);
-      if (clipId > 0) {
-        _clipIdCache[audioPath] = clipId;
-        final waveform = _loadWaveformForClip(clipId);
+      // Generate waveform directly from file WITHOUT importing to engine
+      // This prevents corruption of DAW clips that use the same audio file
+      final cacheKey = 'slotlab_${audioPath.hashCode}';
+      final waveformJson = _ffi.generateWaveformFromFile(audioPath, cacheKey);
+
+      if (waveformJson != null && waveformJson.isNotEmpty) {
+        // Parse JSON to extract min/max peaks
+        final waveform = _parseWaveformJson(waveformJson);
         if (waveform != null && waveform.isNotEmpty) {
           // Cache in memory and disk
           _cacheWaveform(audioPath, waveform);
           // Trigger rebuild to show waveform
           if (mounted) setState(() {});
-          debugPrint('[SlotLab] Loaded waveform via FFI: $audioPath (${waveform.length} peaks)');
+          debugPrint('[SlotLab] Generated waveform via FFI: $audioPath (${waveform.length} peaks)');
         }
       }
     } catch (e) {
-      debugPrint('[SlotLab] Async waveform load error: $e');
+      debugPrint('[SlotLab] Async waveform generation error: $e');
+    }
+  }
+
+  /// Parse waveform JSON from generateWaveformFromFile into List of double peaks
+  List<double>? _parseWaveformJson(String json) {
+    try {
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      final lodLevels = data['lod_levels'] as List<dynamic>?;
+      if (lodLevels == null || lodLevels.isEmpty) return null;
+
+      // Use first LOD level (highest detail)
+      final lod0 = lodLevels[0] as Map<String, dynamic>;
+      final leftChannel = lod0['left'] as List<dynamic>?;
+      if (leftChannel == null || leftChannel.isEmpty) return null;
+
+      // Extract min/max pairs
+      final result = <double>[];
+      for (final bucket in leftChannel) {
+        final bucketMap = bucket as Map<String, dynamic>;
+        result.add((bucketMap['min'] as num).toDouble());
+        result.add((bucketMap['max'] as num).toDouble());
+      }
+      return result;
+    } catch (e) {
+      debugPrint('[SlotLab] Waveform JSON parse error: $e');
+      return null;
     }
   }
 
@@ -4725,19 +4775,22 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     final name = audioInfo['name'] as String;
 
     // Import audio to FFI engine for real playback
+    // CRITICAL: Use SlotLab track ID offset (100000+) to avoid collision with DAW tracks
     int ffiClipId = 0;
     final track = _tracks[trackIndex];
     if (track.id.startsWith('ffi_') && audioPath.isNotEmpty) {
       try {
-        final trackId = int.parse(track.id.substring(4));
+        final localTrackId = int.parse(track.id.substring(4));
+        final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
+
         // Use importAudio to actually load the audio file into the engine
         // Start at 0 (beginning of timeline)
         ffiClipId = _ffi.importAudio(
           audioPath,
-          trackId,
+          slotLabTrackId,
           0.0, // Always start at beginning
         );
-        debugPrint('[SlotLab] Imported audio clip: $ffiClipId to track $trackId');
+        debugPrint('[SlotLab] Imported audio clip: $ffiClipId to track $slotLabTrackId (local: $localTrackId)');
       } catch (e) {
         debugPrint('[SlotLab] FFI importAudio error: $e');
       }
@@ -4870,14 +4923,17 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       int ffiClipId = 0;
       if (ffiTrackId > 0 && layer.audioPath.isNotEmpty) {
         try {
+          // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+          final slotLabTrackId = slotLabTrackIdToFfi(ffiTrackId);
+
           // Use importAudio to actually load the audio file into the engine
           // Region always starts at 0 (beginning of timeline)
           ffiClipId = _ffi.importAudio(
             layer.audioPath,
-            ffiTrackId,
+            slotLabTrackId,
             layer.offsetMs, // startTime = delay offset from start
           );
-          debugPrint('[SlotLab] Imported layer audio: $ffiClipId (${layer.name})');
+          debugPrint('[SlotLab] Imported layer audio: $ffiClipId (${layer.name}) to track $slotLabTrackId');
 
           // Use first layer's clip for waveform
           if (primaryClipId == 0) {
@@ -5769,8 +5825,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       int ffiClipId = 0;
       if (track.id.startsWith('ffi_')) {
         try {
-          final tid = int.parse(track.id.substring(4));
-          ffiClipId = _ffi.importAudio(el.audioPath, tid, 0.0);
+          final localTid = int.parse(track.id.substring(4));
+          // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+          final slotLabTrackId = slotLabTrackIdToFfi(localTid);
+          ffiClipId = _ffi.importAudio(el.audioPath, slotLabTrackId, 0.0);
         } catch (_) {}
       }
 
@@ -5816,8 +5874,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         int ffiClipId = 0;
         if (track.id.startsWith('ffi_')) {
           try {
-            final trackId = int.parse(track.id.substring(4));
-            ffiClipId = _ffi.importAudio(eventLayer.audioPath, trackId, 0.0);
+            final localTrackId = int.parse(track.id.substring(4));
+            // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+            final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
+            ffiClipId = _ffi.importAudio(eventLayer.audioPath, slotLabTrackId, 0.0);
           } catch (e) {
             debugPrint('[SlotLab] FFI import error: $e');
           }
@@ -5862,8 +5922,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       int ffiClipId = 0;
       if (track.id.startsWith('ffi_')) {
         try {
-          final trackId = int.parse(track.id.substring(4));
-          ffiClipId = _ffi.importAudio(eventLayer.audioPath, trackId, 0.0);
+          final localTrackId = int.parse(track.id.substring(4));
+          // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+          final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
+          ffiClipId = _ffi.importAudio(eventLayer.audioPath, slotLabTrackId, 0.0);
         } catch (e) {
           debugPrint('[SlotLab] FFI import error: $e');
         }
@@ -5909,8 +5971,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     int ffiClipId = 0;
     if (track.id.startsWith('ffi_')) {
       try {
-        final trackId = int.parse(track.id.substring(4));
-        ffiClipId = _ffi.importAudio(audioPath, trackId, 0.0);
+        final localTrackId = int.parse(track.id.substring(4));
+        // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+        final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
+        ffiClipId = _ffi.importAudio(audioPath, slotLabTrackId, 0.0);
         debugPrint('[SlotLab] Created new region - imported audio: $ffiClipId');
       } catch (e) {
         debugPrint('[SlotLab] FFI importAudio error: $e');
@@ -5974,10 +6038,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         int ffiClipId = 0;
         if (track.id.startsWith('ffi_') && audioInfo['path'] != null) {
           try {
-            final trackId = int.parse(track.id.substring(4));
+            final localTrackId = int.parse(track.id.substring(4));
+            // CRITICAL: Use SlotLab track ID offset to avoid DAW collision
+            final slotLabTrackId = slotLabTrackIdToFfi(localTrackId);
             ffiClipId = _ffi.importAudio(
               audioInfo['path'] as String,
-              trackId,
+              slotLabTrackId,
               0.0, // Start at beginning
             );
             debugPrint('[SlotLab] Auto-imported layer audio: $ffiClipId');
@@ -6213,17 +6279,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
   void _deleteLayerFromEvent(SlotCompositeEvent event, SlotEventLayer layer) {
     // Remove layer via MiddlewareProvider (single source of truth)
+    // _onMiddlewareChanged listener handles region rebuild and EventRegistry sync
     _removeLayerFromMiddlewareEvent(event.id, layer.id);
-
-    // Rebuild region from updated event
-    setState(() {
-      final updatedEvent = _findEventById(event.id);
-      if (updatedEvent != null) {
-        _rebuildRegionForEvent(updatedEvent);
-      }
-    });
-
-    _syncEventToRegistry(_findEventById(event.id));
     _persistState();
   }
 
@@ -6330,8 +6387,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       _selectedEventId = newEvent.id;
     });
 
-    // Registruj u centralni Event Registry
-    _syncEventToRegistry(_findEventById(newEvent.id));
+    // Registruj u centralni Event Registry (use newEvent directly, not _findEventById)
+    _syncEventToRegistry(newEvent);
 
     // Persist state (including audio pool) after creating event
     _persistState();

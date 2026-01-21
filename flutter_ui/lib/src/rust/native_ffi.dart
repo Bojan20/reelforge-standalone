@@ -438,18 +438,27 @@ typedef EnginePreviewIsPlayingDart = int Function();
 
 // One-Shot Bus Playback (for Middleware/SlotLab event preview through buses)
 // pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
-typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId);
-typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId);
+// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+typedef EnginePlaybackPlayToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId, Uint8 source);
+typedef EnginePlaybackPlayToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId, int source);
 
 // P0.2: Looping Bus Playback (for REEL_SPIN, ambience loops, etc.)
-typedef EnginePlaybackPlayLoopingToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId);
-typedef EnginePlaybackPlayLoopingToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId);
+// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+typedef EnginePlaybackPlayLoopingToBusNative = Pointer<Utf8> Function(Pointer<Utf8> path, Double volume, Double pan, Uint32 busId, Uint8 source);
+typedef EnginePlaybackPlayLoopingToBusDart = Pointer<Utf8> Function(Pointer<Utf8> path, double volume, double pan, int busId, int source);
 
 typedef EnginePlaybackStopOneShotNative = Void Function(Uint64 voiceId);
 typedef EnginePlaybackStopOneShotDart = void Function(int voiceId);
 
 typedef EnginePlaybackStopAllOneShotsNative = Void Function();
 typedef EnginePlaybackStopAllOneShotsDart = void Function();
+
+// Section-based playback filtering
+typedef EngineSetActiveSectionNative = Void Function(Uint8 section);
+typedef EngineSetActiveSectionDart = void Function(int section);
+
+typedef EngineGetActiveSectionNative = Uint8 Function();
+typedef EngineGetActiveSectionDart = int Function();
 
 // Undo/Redo
 typedef EngineUndoNative = Int32 Function();
@@ -1965,6 +1974,10 @@ class NativeFFI {
   late final EnginePlaybackStopOneShotDart _playbackStopOneShot;
   late final EnginePlaybackStopAllOneShotsDart _playbackStopAllOneShots;
 
+  // Section-based playback filtering
+  late final EngineSetActiveSectionDart _setActiveSection;
+  late final EngineGetActiveSectionDart _getActiveSection;
+
   // Undo/Redo
   late final EngineUndoDart _undo;
   late final EngineRedoDart _redo;
@@ -2574,6 +2587,10 @@ class NativeFFI {
     _playbackPlayLoopingToBus = _lib.lookupFunction<EnginePlaybackPlayLoopingToBusNative, EnginePlaybackPlayLoopingToBusDart>('engine_playback_play_looping_to_bus');
     _playbackStopOneShot = _lib.lookupFunction<EnginePlaybackStopOneShotNative, EnginePlaybackStopOneShotDart>('engine_playback_stop_one_shot');
     _playbackStopAllOneShots = _lib.lookupFunction<EnginePlaybackStopAllOneShotsNative, EnginePlaybackStopAllOneShotsDart>('engine_playback_stop_all_one_shots');
+
+    // Section-based playback filtering
+    _setActiveSection = _lib.lookupFunction<EngineSetActiveSectionNative, EngineSetActiveSectionDart>('engine_set_active_section');
+    _getActiveSection = _lib.lookupFunction<EngineGetActiveSectionNative, EngineGetActiveSectionDart>('engine_get_active_section');
 
     // Undo/Redo
     _undo = _lib.lookupFunction<EngineUndoNative, EngineUndoDart>('engine_undo');
@@ -3988,15 +4005,16 @@ class NativeFFI {
   /// Play one-shot audio through a specific bus with spatial pan (Middleware/SlotLab events)
   /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
   /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right (for AutoSpatialEngine)
+  /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
   /// Returns voice_id on success (positive number), -1 on error
-  int playbackPlayToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0}) {
+  int playbackPlayToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0, int source = 1}) {
     if (!_loaded) {
       lastPlaybackToBusError = 'FFI not loaded';
       return -1;
     }
     final pathPtr = path.toNativeUtf8();
     try {
-      final resultPtr = _playbackPlayToBus(pathPtr, volume, pan, busId);
+      final resultPtr = _playbackPlayToBus(pathPtr, volume, pan, busId, source);
       if (resultPtr == nullptr) {
         lastPlaybackToBusError = 'null result pointer';
         return -1;
@@ -4027,15 +4045,16 @@ class NativeFFI {
   /// Loops seamlessly until explicitly stopped with playbackStopOneShot()
   /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
   /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
+  /// source: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
   /// Returns voice_id on success (positive number), -1 on error
-  int playbackPlayLoopingToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0}) {
+  int playbackPlayLoopingToBus(String path, {double volume = 1.0, double pan = 0.0, int busId = 0, int source = 1}) {
     if (!_loaded) {
       lastPlaybackToBusError = 'FFI not loaded';
       return -1;
     }
     final pathPtr = path.toNativeUtf8();
     try {
-      final resultPtr = _playbackPlayLoopingToBus(pathPtr, volume, pan, busId);
+      final resultPtr = _playbackPlayLoopingToBus(pathPtr, volume, pan, busId, source);
       if (resultPtr == nullptr) {
         lastPlaybackToBusError = 'null result pointer';
         return -1;
@@ -4059,6 +4078,24 @@ class NativeFFI {
     } finally {
       calloc.free(pathPtr);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECTION-BASED PLAYBACK FILTERING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set active playback section (for section-based voice filtering)
+  /// section: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+  void setActiveSection(int section) {
+    if (!_loaded) return;
+    _setActiveSection(section);
+  }
+
+  /// Get active playback section
+  /// Returns: 0=DAW, 1=SlotLab, 2=Middleware, 3=Browser
+  int getActiveSection() {
+    if (!_loaded) return 0;
+    return _getActiveSection();
   }
 
   /// Stop specific one-shot voice
