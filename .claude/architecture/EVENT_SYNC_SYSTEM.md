@@ -393,6 +393,63 @@ Compact single-line format per trigger:
 
 ---
 
+## CRITICAL FIX: Deleted Layers Still Playing on Playback (2026-01-21)
+
+### Problem
+
+When deleting a layer or entire event in SlotLab, the audio continued playing during timeline playback (but not during Spin).
+
+### Root Cause
+
+SlotLab uses TWO audio systems:
+1. **Spin** → `EventRegistry.triggerStage()` → was syncing correctly
+2. **Playback** → `SlotLabTrackBridge` + FFI TRACK_MANAGER → **was NOT syncing**
+
+`_syncLayersToTrackManager()` only **added** clips but never **removed** orphaned clips that no longer existed in `_tracks`.
+
+### Solution
+
+1. **Added orphan detection in `_syncLayersToTrackManager()`:**
+   ```dart
+   // Step 1: Collect all current layer IDs from _tracks
+   final currentLayerIds = <String>{};
+   for (final track in _tracks) {
+     for (final region in track.regions) {
+       for (final layer in region.layers) {
+         currentLayerIds.add(layer.id);
+       }
+     }
+   }
+
+   // Step 2: Find and remove orphaned clips
+   final registeredIds = _trackBridge.registeredLayerIds;
+   final orphanedIds = registeredIds.difference(currentLayerIds);
+   for (final orphanId in orphanedIds) {
+     _trackBridge.removeLayerClip(orphanId);
+   }
+   ```
+
+2. **Added `registeredLayerIds` getter to `SlotLabTrackBridge`:**
+   ```dart
+   Set<String> get registeredLayerIds => _layerToClipId.keys.toSet();
+   ```
+
+3. **Added sync call in `_onMiddlewareChanged()`:**
+   - Now calls `_syncLayersToTrackManager()` after rebuilding regions
+
+4. **Added immediate sync in `_deleteCompositeEvent()`:**
+   - Calls `_syncLayersToTrackManager()` right after deleting region
+
+### Files Changed
+
+- `flutter_ui/lib/services/slotlab_track_bridge.dart` — Added `registeredLayerIds` getter
+- `flutter_ui/lib/screens/slot_lab_screen.dart`:
+  - `_syncLayersToTrackManager()` — Added orphan detection/removal
+  - `_onMiddlewareChanged()` — Added TrackManager sync
+  - `_deleteCompositeEvent()` — Added immediate sync
+
+---
+
 ## Related Documentation
 
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management

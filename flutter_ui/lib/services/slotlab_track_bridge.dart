@@ -32,6 +32,9 @@ class SlotLabTrackBridge {
   /// Whether bridge is initialized
   bool get isInitialized => _slotLabTrackId != null;
 
+  /// Get all registered layer IDs (for sync diffing)
+  Set<String> get registeredLayerIds => _layerToClipId.keys.toSet();
+
   /// Get SlotLab track ID (creates if needed)
   int get slotLabTrackId {
     _slotLabTrackId ??= _createSlotLabTrack();

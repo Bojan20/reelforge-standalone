@@ -177,29 +177,53 @@ class _EventLogPanelState extends State<EventLogPanel> {
       final success = eventRegistry.lastTriggerSuccess;
       final error = eventRegistry.lastTriggerError;
 
-      // COMPACT FORMAT: "Event Name → STAGE [files]"
-      // Example: "Spin Sound → SPIN_START [spin.wav, whoosh.wav]"
-      final layerList = layers.isNotEmpty ? ' [${layers.join(", ")}]' : '';
-      final displayName = '$eventName → $stageName$layerList';
+      // Determine event type:
+      // - AUDIO: has layers and triggered successfully
+      // - STAGE: no audio event configured (just stage marker)
+      // - ERROR: actual playback error
+      final EventLogType logType;
+      final bool isError;
+
+      if (success && layers.isNotEmpty) {
+        logType = EventLogType.audio;
+        isError = false;
+      } else if (eventName == '(no audio)' || layers.isEmpty) {
+        // Stage without audio event — show as STAGE, not ERROR
+        logType = EventLogType.stage;
+        isError = false;
+      } else {
+        // Actual error (playback failed)
+        logType = EventLogType.error;
+        isError = true;
+      }
+
+      // Format display name based on type
+      String displayName;
+      if (logType == EventLogType.stage) {
+        // Just show stage name for stages without audio
+        displayName = stageName;
+      } else {
+        // COMPACT FORMAT: "Event Name → STAGE [files]"
+        final layerList = layers.isNotEmpty ? ' [${layers.join(", ")}]' : '';
+        displayName = '$eventName → $stageName$layerList';
+      }
 
       // Details only show error info or voice/bus debug
       String? details;
-      if (!success && error.isNotEmpty) {
+      if (isError && error.isNotEmpty) {
         details = error;
-      } else if (!success && layers.isEmpty) {
-        details = 'No audio layers configured';
-      } else if (error.isNotEmpty) {
+      } else if (success && error.isNotEmpty) {
         // Success but has debug info (voice=X, bus=Y, section=Z)
         details = error;
       }
 
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),
-        type: success ? EventLogType.audio : EventLogType.error,
+        type: logType,
         eventName: displayName,
         details: details,
         data: {'triggerCount': currentTriggerCount, 'stage': stageName, 'event': eventName, 'layers': layers, 'success': success, 'error': error},
-        isError: !success,
+        isError: isError,
       ));
     }
 
@@ -208,41 +232,11 @@ class _EventLogPanelState extends State<EventLogPanel> {
   }
 
   void _onSlotLabUpdate() {
-    if (_isPaused) return;
-
-    final stages = widget.slotLabProvider.lastStages;
-    final currentIndex = widget.slotLabProvider.currentStageIndex;
-    final spinCount = widget.slotLabProvider.spinCount;
-
-    // Reset tracking on new spin
-    if (spinCount != _lastLoggedSpinCount) {
-      _lastLoggedSpinCount = spinCount;
-      _lastLoggedStageIndex = -1;
-    }
-
-    // Only log if this is a new stage (avoid duplicates from multiple notifyListeners calls)
-    if (currentIndex >= 0 && currentIndex < stages.length && currentIndex != _lastLoggedStageIndex) {
-      _lastLoggedStageIndex = currentIndex;
-      final stage = stages[currentIndex];
-      final stageType = stage.stageType.toUpperCase();
-
-      // Check if this stage has a registered audio event
-      // If yes, skip the STAGE log — AUDIO log will show the combined info
-      final hasAudioEvent = eventRegistry.hasEventForStage(stageType);
-      if (hasAudioEvent) {
-        // Skip — _onEventRegistryUpdate will log "Event → STAGE [files]"
-        return;
-      }
-
-      // No audio event registered — log as STAGE (helps user see what's missing)
-      _addEntry(EventLogEntry(
-        timestamp: DateTime.now(),
-        type: EventLogType.stage,
-        eventName: '⚠️ $stageType (no audio)',
-        details: 'Create event for this stage to hear audio',
-        data: stage.payload,
-      ));
-    }
+    // STAGE events are now logged exclusively by _onEventRegistryUpdate
+    // EventRegistry.triggerStage() increments counter for BOTH:
+    // - Stages with audio (logged as AUDIO type with layer info)
+    // - Stages without audio (logged as STAGE type, "(no audio)")
+    // This prevents any duplicate entries
   }
 
   void _onMiddlewareUpdate() {

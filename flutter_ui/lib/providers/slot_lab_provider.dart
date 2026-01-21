@@ -812,6 +812,7 @@ class SlotLabProvider extends ChangeNotifier {
     // Debug: Show all registered stages
     final registeredStages = eventRegistry.allEvents.map((e) => e.stage).toList();
 
+    // ALWAYS call triggerStage() - EventRegistry will notify Event Log even for stages without audio
     if (eventRegistry.hasEventForStage(effectiveStage)) {
       debugPrint('[SlotLabProvider] ✅ Triggering audio: $effectiveStage');
       eventRegistry.triggerStage(effectiveStage, context: context);
@@ -819,7 +820,9 @@ class SlotLabProvider extends ChangeNotifier {
       debugPrint('[SlotLabProvider] ✅ Triggering audio (fallback): $stageType');
       eventRegistry.triggerStage(stageType, context: context);
     } else {
-      debugPrint('[SlotLabProvider] ❌ No audio event for: $effectiveStage (registered: $registeredStages)');
+      // STILL trigger so Event Log shows the stage (even without audio)
+      debugPrint('[SlotLabProvider] ⚠️ No audio event for: $effectiveStage (will show in Event Log)');
+      eventRegistry.triggerStage(stageType, context: context);
     }
   }
 
@@ -949,6 +952,7 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Probaj specifičan stage prvo, pa fallback na generički
     // P1.2: Koristi `context` umesto `stage.payload` da volumeMultiplier prođe
+    // ALWAYS call triggerStage() - EventRegistry will notify Event Log even for stages without audio
     if (eventRegistry.hasEventForStage(effectiveStage)) {
       eventRegistry.triggerStage(effectiveStage, context: context);
       debugPrint('[SlotLabProvider] Registry trigger: $effectiveStage');
@@ -960,7 +964,9 @@ class SlotLabProvider extends ChangeNotifier {
       eventRegistry.triggerStage(stageType, context: context);
       debugPrint('[SlotLabProvider] Registry trigger: $stageType');
     } else {
-      debugPrint('[SlotLabProvider] No registry event for: $effectiveStage');
+      // STILL trigger so Event Log shows the stage (even without audio)
+      eventRegistry.triggerStage(stageType, context: context);
+      debugPrint('[SlotLabProvider] Registry trigger (no audio): $stageType');
     }
 
     // Za SPIN_START, trigeruj i REEL_SPIN (loop audio dok se vrti)

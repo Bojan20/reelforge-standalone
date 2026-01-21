@@ -946,6 +946,15 @@ class EventRegistry extends ChangeNotifier {
       final suffix = _stageToEvent.length > 10 ? '...(+${_stageToEvent.length - 10} more)' : '';
       debugPrint('[EventRegistry] ❌ No event for stage: "$stage" (normalized: "$normalizedStage")');
       debugPrint('[EventRegistry] 📋 Registered stages (${_stageToEvent.length}): $registeredStages$suffix');
+
+      // STILL increment counter and notify listeners so Event Log can show the stage
+      _triggerCount++;
+      _lastTriggeredEventName = '(no audio)';
+      _lastTriggeredStage = normalizedStage;
+      _lastTriggeredLayers = [];
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'No audio event configured';
+      notifyListeners();
       return;
     }
     await triggerEvent(event.id, context: context);

@@ -683,8 +683,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         // CRITICAL: Also sync to EventRegistry so stages trigger audio
         _syncEventToRegistry(event);
       }
+
+      // CRITICAL FIX: Sync to TRACK_MANAGER for playback (removes orphaned clips)
+      // Without this, deleted layers continue playing on timeline playback
+      _syncLayersToTrackManager();
+
       setState(() {});
-      debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry)');
+      debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry + TrackManager)');
     }
   }
 
@@ -1079,7 +1084,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           waveformData: region.waveformData, // Waveform loaded via _getWaveformForPath per-layer
           isSelected: region.isSelected,
           isMuted: region.isMuted,
-          isExpanded: mergedLayers.length > 1, // Auto-expand when multiple layers
+          isExpanded: mergedLayers.isNotEmpty, // Auto-expand when any layers (allows single layer drag)
           layers: mergedLayers,
         );
       });
@@ -2423,7 +2428,29 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   /// Sync all SlotLab layers to TRACK_MANAGER clips for unified playback
+  /// CRITICAL: This now removes orphaned clips that no longer exist in _tracks
   void _syncLayersToTrackManager() {
+    // Step 1: Collect all current layer IDs from _tracks
+    final currentLayerIds = <String>{};
+    for (final track in _tracks) {
+      for (final region in track.regions) {
+        for (final layer in region.layers) {
+          if (layer.audioPath.isNotEmpty) {
+            currentLayerIds.add(layer.id);
+          }
+        }
+      }
+    }
+
+    // Step 2: Find and remove orphaned clips (exist in bridge but not in _tracks)
+    final registeredIds = _trackBridge.registeredLayerIds;
+    final orphanedIds = registeredIds.difference(currentLayerIds);
+    for (final orphanId in orphanedIds) {
+      _trackBridge.removeLayerClip(orphanId);
+      debugPrint('[SlotLab] Removed orphaned clip: $orphanId');
+    }
+
+    // Step 3: Add/update clips for current layers (skip muted)
     for (final track in _tracks) {
       if (track.isMuted) continue;
 
@@ -2447,7 +2474,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         }
       }
     }
-    debugPrint('[SlotLab] Synced ${_tracks.length} tracks to TRACK_MANAGER');
+    debugPrint('[SlotLab] Synced ${currentLayerIds.length} layers to TRACK_MANAGER (removed ${orphanedIds.length} orphaned)');
   }
 
   void _stopPlayback() {
@@ -3822,7 +3849,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   /// When expanded: layers handle their own drag (region drag disabled)
   Widget _buildDraggableRegion(_AudioRegion region, _SlotAudioTrack track, int trackIndex, double regionWidth, double trackHeight, double totalWidth) {
     final duration = region.duration;
-    final isExpanded = region.isExpanded && region.layers.length > 1;
+    // CRITICAL: Get layer count from EVENT (source of truth), NOT from region.layers
+    // region.layers may be stale or not synced yet
+    final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
+    final hasLayers = event != null && event.layers.isNotEmpty;
+    // FIXED: Allow single layer to be expanded/draggable too (1+ layers)
+    final isExpanded = region.isExpanded && hasLayers;
 
     // When expanded, don't handle region drag - let individual layers handle it
     if (isExpanded) {
@@ -3887,7 +3919,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         _clearRegionDragWithUndo();
       },
       onTap: () => _handleRegionTap(region, trackIndex),
-      onDoubleTap: region.layers.length > 1
+      // FIXED: Allow expand for ANY region with layers (1+), not just 2+
+      // This enables individual layer drag even for single-layer events
+      onDoubleTap: hasLayers
           ? () => setState(() => region.isExpanded = !region.isExpanded)
           : null,
       onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
@@ -4154,12 +4188,22 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // ═══════════════════════════════════════════════════════════════════════════
     // SYNC REGION START FROM PROVIDER (source of truth)
     // Region start = minimum offsetMs of all layers (converted to seconds)
+    // CRITICAL: Don't update region bounds if ANY layer is being dragged
+    // Otherwise, moving one layer causes region.start to shift, which resets
+    // the layer's relative offset calculation and causes "snapping" behavior
     // ═══════════════════════════════════════════════════════════════════════════
     if (event != null && event.layers.isNotEmpty) {
-      final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
-      final regionStartFromProvider = minOffsetMs / 1000.0;
-      // Only update if not currently dragging this region
-      if (_draggingRegion != region) {
+      // Check if any layer in this event is currently being dragged
+      final anyLayerDragging = event.layers.any((l) =>
+          _dragController?.isDraggingLayer(l.id) ?? false);
+
+      debugPrint('[BOUNDS-DEBUG] _buildAudioRegionVisual: anyLayerDragging=$anyLayerDragging, _draggingRegion=${_draggingRegion == region}');
+
+      // Only update region bounds if not dragging region AND no layer is being dragged
+      if (_draggingRegion != region && !anyLayerDragging) {
+        final minOffsetMs = event.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
+        final regionStartFromProvider = minOffsetMs / 1000.0;
+        debugPrint('[BOUNDS-DEBUG] Updating region.start: ${region.start.toStringAsFixed(4)}s → ${regionStartFromProvider.toStringAsFixed(4)}s');
         region.start = regionStartFromProvider;
         // Recalculate end based on max layer end
         double maxEnd = region.start + 0.5; // Minimum 0.5s
@@ -4169,7 +4213,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           final layerEnd = layerStart + layerDur;
           if (layerEnd > maxEnd) maxEnd = layerEnd;
         }
+        debugPrint('[BOUNDS-DEBUG] Updating region.end: ${region.end.toStringAsFixed(4)}s → ${maxEnd.toStringAsFixed(4)}s');
         region.end = maxEnd;
+      } else {
+        debugPrint('[BOUNDS-DEBUG] SKIPPING region bounds update (drag active)');
       }
     }
 
@@ -4182,6 +4229,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       final relativeOffset = providerOffsetSec - region.start;
 
       // Try to find existing region layer by eventLayerId (unique, supports duplicates)
+      // Use provider's durationSeconds if available (more reliable than FFI call)
+      final layerDuration = el.durationSeconds ?? _getAudioDuration(el.audioPath);
+
       final existingLayer = region.layers.firstWhere(
         (rl) => rl.eventLayerId == el.id, // ✅ Use unique eventLayerId, not audioPath
         orElse: () => _RegionLayer(
@@ -4189,9 +4239,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           eventLayerId: el.id, // ✅ Store eventLayerId for future matching
           audioPath: el.audioPath,
           name: el.name,
-          duration: _getAudioDuration(el.audioPath),
+          duration: layerDuration,
         ),
       );
+
+      // Update duration ONLY if current is the default fallback (1.0) and we have a better value
+      // This prevents waveform size changes during drag/rebuild
+      // Once we get a real duration (> 1.0 or from provider), we keep it
+      if (existingLayer.duration <= 1.01 && layerDuration > 1.01) {
+        existingLayer.duration = layerDuration;
+      }
 
       // Ensure eventLayerId is set (for layers created before this fix)
       if (existingLayer.eventLayerId == null) {
@@ -4210,10 +4267,13 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     final hasLayers = liveLayers.isNotEmpty;
     final layerCount = liveLayers.length;
-    final isExpanded = region.isExpanded && layerCount > 1;
+    // FIXED: Always expand if has layers - enables drag for all regions
+    // This ensures layers are always draggable without requiring manual double-tap
+    final isExpanded = hasLayers;
 
     if (isExpanded) {
-      // EXPANDED: No border, layers are shown as free-floating tracks
+      // EXPANDED: No border, layers are shown as free-floating draggable tracks
+      // Works for 1+ layers - all can be individually positioned
       return SizedBox(
         width: width,
         height: trackHeight,
@@ -4288,117 +4348,205 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     );
   }
 
-  /// Build a draggable layer row - can be moved freely across entire timeline
-  /// Uses layer.duration for REAL audio file width, not region width
+  /// Build a draggable layer row - DAW-style with proper width and ghost preview
+  /// Uses layer.duration for REAL audio file width (not clamped to region)
   /// NOW USES TimelineDragController for centralized drag state management
+  ///
+  /// ARCHITECTURE (matches DAW ClipWidget):
+  /// - Layer is a SELF-CONTAINED widget with its own position and width
+  /// - GestureDetector is directly on the layer, not on the entire region
+  /// - Positioned wrapper places layer at correct offset within parent Stack
+  /// - No transparent hit-area containers - direct interaction
   Widget _buildDraggableLayerRow(_RegionLayer layer, _AudioRegion region, int layerIndex, Color color, bool muted, double regionWidth) {
     // Use controller for drag state (survives widget rebuilds)
-    final isDragging = _dragController?.isDraggingLayer(layer.eventLayerId ?? '') ?? false;
-    final pixelsPerSecond = regionWidth / region.duration;
+    final layerId = layer.eventLayerId ?? '';
+    final isDragging = _dragController?.isDraggingLayer(layerId) ?? false;
 
-    // During drag, use controller's delta; otherwise use layer.offset from provider
-    double currentOffset = layer.offset;
-    if (isDragging) {
-      currentOffset = dragController.getLayerCurrentPosition();
-    }
-
-    final offsetPixels = currentOffset * pixelsPerSecond;
-    // Use REAL layer duration for width, not region width
-    final layerWidth = layer.duration * pixelsPerSecond;
-
-    // Find parent event ID for controller
+    // Get REAL duration - use provider's durationSeconds if available, else fallback
     final parentEvent = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
     final parentEventId = parentEvent?.id ?? '';
+    final eventLayer = parentEvent?.layers.where((l) => l.id == layerId).firstOrNull;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragStart: (details) {
-        if (layer.eventLayerId == null) return;
-        // Start drag via controller (no setState needed - controller notifies)
-        dragController.startLayerDrag(
-          layerEventId: layer.eventLayerId!,
-          parentEventId: parentEventId,
-          regionId: region.id,
-          startOffsetSeconds: layer.offset,
-          regionStartSeconds: region.start,
-        );
-      },
-      onHorizontalDragUpdate: (details) {
-        // Check via controller (survives rebuilds)
-        if (!dragController.isDraggingLayer(layer.eventLayerId ?? '')) return;
-        final timeDelta = details.delta.dx / pixelsPerSecond;
-        // Update via controller (no setState needed)
-        dragController.updateLayerDrag(timeDelta);
-      },
-      onHorizontalDragEnd: (details) {
-        // End drag and sync to provider via controller
-        dragController.endLayerDrag();
-      },
-      child: MouseRegion(
-        cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Layer content positioned with offset - width based on REAL duration
-            Positioned(
-              left: offsetPixels,
-              top: 1,
-              bottom: 1,
-              width: layerWidth.clamp(20.0, regionWidth), // Real duration width, min 20px
-              child: Opacity(
-                opacity: isDragging ? 0.7 : 1.0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: isDragging ? Colors.white : color.withOpacity(0.6),
-                      width: 1,
-                    ),
-                  ),
-                  clipBehavior: Clip.hardEdge,
-                  child: _buildLayerRowContent(layer, color, muted),
-                ),
-              ),
-            ),
-            // Offset indicator when layer is offset
-            if (layer.offset.abs() > 0.001)
-              Positioned(
-                left: offsetPixels + 4,
-                top: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    '${layer.offset >= 0 ? '+' : ''}${(layer.offset * 1000).toStringAsFixed(0)}ms',
-                    style: const TextStyle(color: Colors.white70, fontSize: 7),
-                  ),
-                ),
-              ),
-            // Delete button for layer - positioned at right edge of layer, moves with it
-            Positioned(
-              left: offsetPixels + layerWidth.clamp(20.0, regionWidth) - 16,
-              top: 2,
+    // Priority: eventLayer.durationSeconds > layer.duration > fallback 1.0
+    final realDuration = eventLayer?.durationSeconds ?? layer.duration;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Use CAPTURED values during drag to prevent visual changes
+    // When dragging, use the values captured at drag start
+    // When not dragging, use current values from model
+    // ═══════════════════════════════════════════════════════════════════════════
+    final effectiveRegionDuration = isDragging
+        ? dragController.regionDurationAtStart
+        : region.duration;
+    final effectiveLayerDuration = isDragging
+        ? dragController.layerDurationAtStart
+        : realDuration;
+    final pixelsPerSecond = regionWidth / effectiveRegionDuration;
+    final layerWidth = (effectiveLayerDuration * pixelsPerSecond).clamp(30.0, double.infinity);
+
+    // Calculate position - during drag use controller, otherwise use layer.offset
+    final currentOffset = isDragging
+        ? dragController.getLayerCurrentPosition()
+        : layer.offset;
+    final offsetPixels = (currentOffset * pixelsPerSecond).clamp(0.0, double.infinity);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DAW-STYLE ARCHITECTURE:
+    // Parent (Expanded in Column) provides height constraint
+    // ConstrainedBox ensures we fill the available width from parent
+    // Stack with Clip.none allows layer to overflow region bounds
+    // Positioned places the actual draggable layer at correct offset
+    // GestureDetector is ON THE LAYER ITSELF (not transparent hit area)
+    // ═══════════════════════════════════════════════════════════════════════════
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: regionWidth,
+        maxWidth: regionWidth,
+      ),
+      child: Stack(
+        fit: StackFit.expand, // Fill the available space from Expanded parent
+        clipBehavior: Clip.none, // Allow layer to overflow during drag
+        children: [
+          // The actual draggable layer - positioned at offset, has its own width
+          Positioned(
+            left: offsetPixels,
+            top: 2, // Small padding from top
+            bottom: 2, // Small padding from bottom
+            width: layerWidth, // EXPLICIT width like DAW ClipWidget
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque, // Catch all events on this widget
+              onHorizontalDragStart: (details) {
+                // Get FRESH values from provider at drag start (source of truth)
+                final freshEvent = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
+                final freshLayer = freshEvent?.layers.where((l) => l.id == layerId).firstOrNull;
+                final freshOffsetMs = freshLayer?.offsetMs ?? 0.0;
+
+                // Calculate fresh region start from provider
+                double freshRegionStart = region.start;
+                if (freshEvent != null && freshEvent.layers.isNotEmpty) {
+                  final minOffsetMs = freshEvent.layers.map((l) => l.offsetMs).reduce((a, b) => a < b ? a : b);
+                  freshRegionStart = minOffsetMs / 1000.0;
+                }
+
+                // Calculate fresh relative offset
+                final freshRelativeOffset = (freshOffsetMs / 1000.0) - freshRegionStart;
+
+                debugPrint('[DRAG-START] ═══════════════════════════════════════════════════');
+                debugPrint('[DRAG-START] layerId: "$layerId"');
+                debugPrint('[DRAG-START] parentEventId: "$parentEventId"');
+                debugPrint('[DRAG-START] region.id: "${region.id}"');
+                debugPrint('[DRAG-START] OLD layer.offset: ${layer.offset}');
+                debugPrint('[DRAG-START] OLD region.start: ${region.start}');
+                debugPrint('[DRAG-START] FRESH freshOffsetMs: $freshOffsetMs');
+                debugPrint('[DRAG-START] FRESH freshRegionStart: $freshRegionStart');
+                debugPrint('[DRAG-START] FRESH freshRelativeOffset: $freshRelativeOffset');
+                debugPrint('[DRAG-START] region.duration: ${region.duration}');
+                debugPrint('[DRAG-START] realDuration: $realDuration');
+                if (layerId.isEmpty) {
+                  debugPrint('[DRAG-START] ABORT: layerId is empty!');
+                  return;
+                }
+                if (parentEventId.isEmpty) {
+                  debugPrint('[DRAG-START] WARNING: parentEventId is empty!');
+                }
+                // CRITICAL: Use FRESH values from provider, not potentially stale widget state
+                // This fixes the "second drag jumps to start" bug
+                dragController.startLayerDrag(
+                  layerEventId: layerId,
+                  parentEventId: parentEventId,
+                  regionId: region.id,
+                  startOffsetSeconds: freshRelativeOffset, // USE FRESH calculated offset
+                  regionStartSeconds: freshRegionStart,    // USE FRESH region start
+                  regionDuration: region.duration, // CAPTURE for stable visual
+                  layerDuration: realDuration, // CAPTURE for stable width
+                );
+                debugPrint('[DRAG-START] ✅ Drag started via controller with FRESH values');
+                // DON'T call setState here - controller.notifyListeners() handles rebuild
+              },
+              onHorizontalDragUpdate: (details) {
+                if (!dragController.isDraggingLayer(layerId)) return;
+                // Use the CAPTURED pixelsPerSecond (via effectiveRegionDuration)
+                // This value is stable because we use captured values during drag
+                final timeDelta = details.delta.dx / pixelsPerSecond;
+                dragController.updateLayerDrag(timeDelta);
+                // DON'T call setState here - controller.notifyListeners() handles rebuild
+              },
+              onHorizontalDragEnd: (details) {
+                dragController.endLayerDrag();
+                // Controller handles notifyListeners() and setState via _onDragControllerChanged
+              },
               child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => _deleteLayerFromTimeline(region, layer),
+                cursor: isDragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+                child: Opacity(
+                  opacity: isDragging ? 0.85 : 1.0,
                   child: Container(
-                    width: 14,
-                    height: 14,
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.8),
                       borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: isDragging ? Colors.white : color.withOpacity(0.6),
+                        width: isDragging ? 2 : 1,
+                      ),
+                      boxShadow: isDragging ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 8,
+                          offset: const Offset(2, 2),
+                        ),
+                      ] : null,
                     ),
-                    child: const Icon(Icons.close, size: 10, color: Colors.white),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      children: [
+                        // Layer content (waveform + name)
+                        Positioned.fill(
+                          child: _buildLayerRowContent(layer, color, muted),
+                        ),
+                        // Offset indicator when layer is offset
+                        if (!isDragging && layer.offset.abs() > 0.001)
+                          Positioned(
+                            left: 4,
+                            top: 2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                '${layer.offset >= 0 ? '+' : ''}${(layer.offset * 1000).toStringAsFixed(0)}ms',
+                                style: const TextStyle(color: Colors.white70, fontSize: 7),
+                              ),
+                            ),
+                          ),
+                        // Delete button at right edge
+                        if (!isDragging)
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                onTap: () => _deleteLayerFromTimeline(region, layer),
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: const Icon(Icons.close, size: 10, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -5882,20 +6030,56 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       end: maxEnd,
       color: track.color,
       layers: regionLayers,
-      isExpanded: regionLayers.length > 1,
+      isExpanded: false, // Start collapsed - user can double-tap to expand for individual layer drag
     );
 
     track.regions.add(newRegion);
     _eventToRegionMap[event.id] = newRegion.id;
   }
 
-  /// Sync region layers to exactly match event layers (remove old, add missing)
+  /// Sync region layers to exactly match event layers (remove old, add missing, update offsets)
   void _syncRegionLayersToEvent(_AudioRegion region, SlotCompositeEvent event, _SlotAudioTrack track) {
+    debugPrint('[SYNC-DEBUG] ═══════════════════════════════════════════════════');
+    debugPrint('[SYNC-DEBUG] _syncRegionLayersToEvent called');
+    debugPrint('[SYNC-DEBUG] region.name: ${region.name}, region.start: ${region.start.toStringAsFixed(4)}s');
+    debugPrint('[SYNC-DEBUG] event.name: ${event.name}, layers: ${event.layers.length}');
+
     // Get event layer IDs for comparison (use ID, not audioPath - allows duplicates)
     final eventLayerIds = event.layers.map((l) => l.id).toSet();
 
     // Remove region layers whose eventLayerId no longer exists in event
     region.layers.removeWhere((rl) => rl.eventLayerId != null && !eventLayerIds.contains(rl.eventLayerId));
+
+    // CRITICAL FIX: Update offsets for EXISTING layers (for drag sync)
+    // Region offset is relative to region.start, so we need to convert from absolute offsetMs
+    // BUT: Skip layers that are currently being dragged (via TimelineDragController)
+    for (final regionLayer in region.layers) {
+      if (regionLayer.eventLayerId != null) {
+        // CRITICAL: Don't overwrite offset for layer being dragged or just finished dragging
+        final isDraggingThisLayer = _dragController?.isDraggingLayer(regionLayer.eventLayerId!) ?? false;
+        debugPrint('[SYNC-DEBUG] Layer ${regionLayer.eventLayerId}: isDragging=$isDraggingThisLayer');
+
+        if (isDraggingThisLayer) {
+          debugPrint('[SYNC-DEBUG]   → SKIPPING (drag active)');
+          continue; // Skip - drag controller manages this layer's position
+        }
+
+        final eventLayer = event.layers.where((el) => el.id == regionLayer.eventLayerId).firstOrNull;
+        if (eventLayer != null) {
+          // Convert absolute offsetMs to relative offset from region.start
+          final absoluteOffsetSec = eventLayer.offsetMs / 1000.0;
+          debugPrint('[SYNC-DEBUG]   eventLayer.offsetMs: ${eventLayer.offsetMs.toStringAsFixed(2)}ms');
+          debugPrint('[SYNC-DEBUG]   absoluteOffsetSec: ${absoluteOffsetSec.toStringAsFixed(4)}s');
+          debugPrint('[SYNC-DEBUG]   region.start: ${region.start.toStringAsFixed(4)}s');
+          final relativeOffset = absoluteOffsetSec - region.start;
+          debugPrint('[SYNC-DEBUG]   relativeOffset: ${relativeOffset.toStringAsFixed(4)}s');
+          debugPrint('[SYNC-DEBUG]   regionLayer.offset BEFORE: ${regionLayer.offset.toStringAsFixed(4)}s');
+          regionLayer.offset = relativeOffset;
+          debugPrint('[SYNC-DEBUG]   regionLayer.offset AFTER: ${regionLayer.offset.toStringAsFixed(4)}s');
+        }
+      }
+    }
+    debugPrint('[SYNC-DEBUG] ═══════════════════════════════════════════════════');
 
     // Add missing layers from event (by eventLayerId, not audioPath)
     for (final eventLayer in event.layers) {
@@ -5915,6 +6099,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           }
         }
 
+        // Convert absolute offsetMs to relative offset from region.start
+        final absoluteOffsetSec = eventLayer.offsetMs / 1000.0;
+        final relativeOffset = absoluteOffsetSec - region.start;
+
         region.layers.add(_RegionLayer(
           id: ffiClipId > 0 ? 'ffi_$ffiClipId' : 'layer_${DateTime.now().millisecondsSinceEpoch}_${region.layers.length}',
           eventLayerId: eventLayer.id, // Track which event layer this maps to
@@ -5922,22 +6110,27 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           name: eventLayer.name,
           ffiClipId: ffiClipId > 0 ? ffiClipId : null,
           duration: layerDuration,
-          offset: eventLayer.offsetMs / 1000.0, // Sync offset from event
+          offset: relativeOffset, // FIXED: Relative offset from region start
         ));
       }
     }
 
-    // Update region duration
-    double maxDuration = 1.0;
-    for (final l in region.layers) {
-      if (l.duration > maxDuration) maxDuration = l.duration;
-    }
-    region.end = region.start + maxDuration;
+    // Update region duration based on layer durations and offsets
+    // But only if no layer drag is active (prevents region bounds from changing mid-drag)
+    final anyLayerDragging = event.layers.any((l) =>
+        _dragController?.isDraggingLayer(l.id) ?? false);
 
-    // Auto-expand if multiple layers
-    if (region.layers.length > 1) {
-      region.isExpanded = true;
+    if (!anyLayerDragging) {
+      double maxEnd = 1.0; // Minimum 1 second
+      for (final l in region.layers) {
+        final layerEnd = l.offset + l.duration;
+        if (layerEnd > maxEnd) maxEnd = layerEnd;
+      }
+      region.end = region.start + maxEnd;
     }
+
+    // NOTE: Don't auto-expand here - user controls expand state via double-tap
+    // Auto-expand was causing unwanted behavior on every sync
   }
 
   /// Create region from ALL event layers (not just one)
@@ -5980,7 +6173,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       end: maxDuration,
       color: track.color,
       layers: regionLayers,
-      isExpanded: regionLayers.length > 1,
+      isExpanded: regionLayers.isNotEmpty, // FIXED: Expand if any layers (allows single layer drag)
     );
 
     track.regions.add(newRegion);
@@ -6105,8 +6298,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           region.waveformData = _loadWaveformForClip(ffiClipId);
         }
 
-        // Auto-expand to show the new layer
-        if (region.layers.length > 1) {
+        // Auto-expand to allow layer drag (even single layer)
+        if (region.layers.isNotEmpty) {
           region.isExpanded = true;
         }
 
@@ -6214,6 +6407,11 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
 
     // Delete from Middleware (single source of truth) and EventRegistry
     _deleteMiddlewareEvent(eventId);
+
+    // CRITICAL: Sync TrackBridge to remove orphaned clips immediately
+    // _onMiddlewareChanged will also call this, but we need immediate sync
+    // because _tracks is already updated above
+    _syncLayersToTrackManager();
 
     _persistState();
     debugPrint('[SlotLab] Deleted event, region and track: $eventName');

@@ -23,6 +23,7 @@
 ///   Widget queries controller.isDraggingLayer(id) for visual state
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import '../../providers/middleware_provider.dart';
 
 /// Controller for timeline drag operations
@@ -32,6 +33,14 @@ class TimelineDragController extends ChangeNotifier {
 
   TimelineDragController({required MiddlewareProvider middleware})
       : _middleware = middleware;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // JUST-ENDED DRAG TRACKING (prevents race condition with provider sync)
+  // When drag ends, we update provider which triggers rebuild. But we need
+  // to keep reporting isDragging=true until AFTER that rebuild completes.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  String? _justEndedLayerId; // Layer that just finished dragging (cleared next frame)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REGION DRAG STATE (whole region movement)
@@ -122,21 +131,39 @@ class TimelineDragController extends ChangeNotifier {
   double _layerDragStartOffset = 0; // Start offset in seconds (relative to region)
   double _layerDragDelta = 0; // Accumulated drag delta in seconds
   double _regionStartSeconds = 0; // Region start position for absolute calculation
+  double _regionDurationAtStart = 0; // CAPTURED at drag start - for stable visual
+  double _layerDurationAtStart = 0; // CAPTURED at drag start - for stable width
 
   /// Start dragging a layer
+  /// CRITICAL: Captures region duration and layer duration at start
+  /// These values are used for visual calculations during drag to prevent
+  /// size/position changes when region bounds get recalculated
   void startLayerDrag({
     required String layerEventId,
     required String parentEventId,
     required String regionId,
     required double startOffsetSeconds,
     required double regionStartSeconds,
+    required double regionDuration, // CAPTURE for stable visual
+    required double layerDuration, // CAPTURE for stable width
   }) {
+    debugPrint('[DRAG-CTRL] ▶▶▶ START LAYER DRAG ▶▶▶');
+    debugPrint('[DRAG-CTRL] layerEventId: $layerEventId');
+    debugPrint('[DRAG-CTRL] parentEventId: $parentEventId');
+    debugPrint('[DRAG-CTRL] regionId: $regionId');
+    debugPrint('[DRAG-CTRL] startOffsetSeconds: ${startOffsetSeconds.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL] regionStartSeconds: ${regionStartSeconds.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL] regionDuration: ${regionDuration.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL] layerDuration: ${layerDuration.toStringAsFixed(4)}s');
+
     _draggingLayerEventId = layerEventId;
     _draggingLayerParentEventId = parentEventId;
     _draggingLayerRegionId = regionId;
     _layerDragStartOffset = startOffsetSeconds;
     _layerDragDelta = 0;
     _regionStartSeconds = regionStartSeconds;
+    _regionDurationAtStart = regionDuration;
+    _layerDurationAtStart = layerDuration;
     notifyListeners();
   }
 
@@ -145,6 +172,10 @@ class TimelineDragController extends ChangeNotifier {
   void updateLayerDrag(double deltaSeconds) {
     if (_draggingLayerEventId == null) return;
     _layerDragDelta += deltaSeconds;
+    // Only log occasionally to avoid spam
+    if (_layerDragDelta.abs() > 0.1) {
+      debugPrint('[DRAG-CTRL] updateLayerDrag: delta=${_layerDragDelta.toStringAsFixed(4)}s, currentPos=${getLayerCurrentPosition().toStringAsFixed(4)}s');
+    }
     notifyListeners();
   }
 
@@ -156,7 +187,12 @@ class TimelineDragController extends ChangeNotifier {
 
   /// End layer drag and sync to provider
   void endLayerDrag() {
+    debugPrint('[DRAG-CTRL] ◼◼◼ END LAYER DRAG ◼◼◼');
+    debugPrint('[DRAG-CTRL] _draggingLayerEventId: $_draggingLayerEventId');
+    debugPrint('[DRAG-CTRL] _draggingLayerParentEventId: $_draggingLayerParentEventId');
+
     if (_draggingLayerEventId == null || _draggingLayerParentEventId == null) {
+      debugPrint('[DRAG-CTRL] ABORT: missing IDs');
       _clearLayerDrag();
       return;
     }
@@ -167,6 +203,15 @@ class TimelineDragController extends ChangeNotifier {
     final newAbsoluteOffsetMs = (_regionStartSeconds + newRelativeOffset) * 1000;
     final clampedOffsetMs = newAbsoluteOffsetMs.clamp(0.0, double.infinity);
 
+    debugPrint('[DRAG-CTRL] Calculation:');
+    debugPrint('[DRAG-CTRL]   _layerDragStartOffset: ${_layerDragStartOffset.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL]   _layerDragDelta: ${_layerDragDelta.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL]   newRelativeOffset: ${newRelativeOffset.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL]   _regionStartSeconds: ${_regionStartSeconds.toStringAsFixed(4)}s');
+    debugPrint('[DRAG-CTRL]   newAbsoluteOffsetMs: ${newAbsoluteOffsetMs.toStringAsFixed(2)}ms');
+    debugPrint('[DRAG-CTRL]   clampedOffsetMs: ${clampedOffsetMs.toStringAsFixed(2)}ms');
+    debugPrint('[DRAG-CTRL] Calling setLayerOffset(${_draggingLayerParentEventId!}, ${_draggingLayerEventId!}, $clampedOffsetMs)');
+
     // Sync to provider
     _middleware.setLayerOffset(
       _draggingLayerParentEventId!,
@@ -174,9 +219,18 @@ class TimelineDragController extends ChangeNotifier {
       clampedOffsetMs,
     );
 
-    debugPrint('[TimelineDragController] Layer drag ended: offset=${clampedOffsetMs.toStringAsFixed(0)}ms');
+    // CRITICAL: Keep reporting isDragging=true until AFTER the rebuild triggered by setLayerOffset
+    // This prevents the sync logic from overwriting the position we just set
+    _justEndedLayerId = _draggingLayerEventId;
+    debugPrint('[DRAG-CTRL] Set _justEndedLayerId=$_justEndedLayerId (will clear next frame)');
 
     _clearLayerDrag();
+
+    // Clear the just-ended flag after the next frame (when rebuild is complete)
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[DRAG-CTRL] PostFrameCallback: clearing _justEndedLayerId');
+      _justEndedLayerId = null;
+    });
   }
 
   /// Cancel layer drag without syncing (keeps original position)
@@ -209,6 +263,8 @@ class TimelineDragController extends ChangeNotifier {
     _layerDragStartOffset = 0;
     _layerDragDelta = 0;
     _regionStartSeconds = 0;
+    _regionDurationAtStart = 0;
+    _layerDurationAtStart = 0;
     notifyListeners();
   }
 
@@ -220,7 +276,9 @@ class TimelineDragController extends ChangeNotifier {
   bool isDraggingRegion(String regionId) => _draggingRegionId == regionId;
 
   /// Check if a layer is being dragged (by eventLayerId)
-  bool isDraggingLayer(String layerEventId) => _draggingLayerEventId == layerEventId;
+  /// Also returns true for layers that JUST finished dragging (prevents sync race condition)
+  bool isDraggingLayer(String layerEventId) =>
+      _draggingLayerEventId == layerEventId || _justEndedLayerId == layerEventId;
 
   /// Check if any drag is in progress
   bool get isDragging => _draggingRegionId != null || _draggingLayerEventId != null;
@@ -245,6 +303,12 @@ class TimelineDragController extends ChangeNotifier {
 
   /// Get layer drag delta in seconds
   double get layerDragDelta => _layerDragDelta;
+
+  /// Get captured region duration at drag start (for stable visual during drag)
+  double get regionDurationAtStart => _regionDurationAtStart;
+
+  /// Get captured layer duration at drag start (for stable width during drag)
+  double get layerDurationAtStart => _layerDurationAtStart;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // COMPUTED POSITIONS (for visual feedback during drag)
