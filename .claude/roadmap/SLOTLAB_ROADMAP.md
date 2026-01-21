@@ -120,57 +120,57 @@ Listener(
 
 ---
 
-### 1.3 Waveform Preview tokom Drag-a
+### 1.3 Waveform Preview tokom Drag-a ✅ COMPLETE
 
 **Cilj:** Vizualni feedback pozicije waveform-a dok se layer vuče.
 
 **Specifikacija:**
 
-| Feature | Opis |
-|---------|------|
-| Ghost waveform | Semi-transparent waveform na novoj poziciji |
-| Original position | Outline gde je layer bio |
-| Time tooltip | Tooltip sa trenutnom pozicijom u ms |
+| Feature | Opis | Status |
+|---------|------|--------|
+| Ghost outline | Outline na originalnoj poziciji | ✅ |
+| Semi-transparent waveform | Opacity 0.85 na trenutnoj poziciji | ✅ |
+| Time tooltip | Tooltip sa pozicijom u ms iznad layera | ✅ |
 
 **Implementacija:**
 
 ```dart
-// Tokom drag-a renderuj:
-// 1. Ghost outline na originalnoj poziciji (dashed border)
-// 2. Semi-transparent waveform na trenutnoj drag poziciji
-// 3. Time tooltip iznad layer-a
-
-Widget _buildDraggingLayer(...) {
-  return Stack(
-    clipBehavior: Clip.none,
-    children: [
-      // Original position ghost
-      if (isDragging)
-        Positioned(
-          left: originalOffsetPixels,
-          child: _buildGhostOutline(layerWidth),
-        ),
-      // Dragging layer with waveform
-      Positioned(
-        left: currentOffsetPixels,
-        child: Opacity(
-          opacity: 0.85,
-          child: _buildLayerWithWaveform(layer),
-        ),
+// U _buildDraggableLayerRow:
+// 1. Ghost outline na originalnoj poziciji
+if (isDragging && (offsetPixels - originalOffsetPixels).abs() > 2)
+  Positioned(
+    left: originalOffsetPixels.clamp(0.0, double.infinity),
+    child: Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withAlpha(100), width: 1),
       ),
-      // Time tooltip
-      if (isDragging)
-        Positioned(
-          left: currentOffsetPixels,
-          top: -24,
-          child: _buildTimeTooltip(currentOffsetSeconds),
-        ),
-    ],
-  );
+    ),
+  ),
+
+// 2. Time tooltip iznad layera
+if (isDragging)
+  Positioned(
+    left: offsetPixels,
+    top: -20,
+    child: Container(
+      // Blue styled tooltip sa _formatTimeMs(currentAbsoluteMs)
+    ),
+  ),
+```
+
+**Helper funkcija:**
+```dart
+String _formatTimeMs(int ms) {
+  if (ms < 1000) return '${ms}ms';
+  else if (ms < 60000) return '${(ms/1000).toStringAsFixed(2)}s';
+  else return '${ms~/60000}m ${((ms%60000)/1000).toStringAsFixed(1)}s';
 }
 ```
 
-**Status:** ⏳ Not Started
+**Fajlovi izmenjeni:**
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — _buildDraggableLayerRow + _formatTimeMs
+
+**Status:** ✅ COMPLETE (2026-01-21)
 
 ---
 
@@ -527,13 +527,14 @@ class LayerClipboard {
 | 2026-01-21 | Absolute positioning drag | `97d8723f` |
 | 2026-01-21 | Documentation update | `832554c6` |
 | 2026-01-21 | **P2.1 Snap-to-Grid** | `abf3df17` |
-| 2026-01-21 | **P2.2 Timeline Zoom** | pending |
+| 2026-01-21 | **P2.2 Timeline Zoom** | `3783b0c1` |
+| 2026-01-21 | **P2.3 Drag Waveform Preview** | pending |
 
 ### In Progress
 
 | Item | Started | Notes |
 |------|---------|-------|
-| P2.3 Waveform Preview | 2026-01-21 | Next up |
+| Phase 2: Audio Preview | 2026-01-21 | P2.4 Hover Preview next |
 
 ### Blocked
 

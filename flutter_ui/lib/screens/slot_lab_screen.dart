@@ -2284,6 +2284,20 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}:${frames.toString().padLeft(2, '0')}';
   }
 
+  /// Format milliseconds for drag tooltip display
+  String _formatTimeMs(int ms) {
+    if (ms < 1000) {
+      return '${ms}ms';
+    } else if (ms < 60000) {
+      final secs = ms / 1000;
+      return '${secs.toStringAsFixed(2)}s';
+    } else {
+      final mins = ms ~/ 60000;
+      final secs = (ms % 60000) / 1000;
+      return '${mins}m ${secs.toStringAsFixed(1)}s';
+    }
+  }
+
   /// Set loop region from selected region or event
   void _setLoopRegion(double start, double end) {
     setState(() {
@@ -4444,6 +4458,16 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     // Positioned places the actual draggable layer at correct offset
     // GestureDetector is ON THE LAYER ITSELF (not transparent hit area)
     // ═══════════════════════════════════════════════════════════════════════════
+    // Calculate original position for ghost outline during drag
+    final originalOffsetPixels = isDragging
+        ? ((eventLayer?.offsetMs ?? 0.0) / 1000.0 - region.start) * pixelsPerSecond
+        : offsetPixels;
+
+    // Calculate absolute position in ms for time tooltip
+    final currentAbsoluteMs = isDragging
+        ? (dragController.getSnappedAbsolutePosition() * 1000).round()
+        : ((eventLayer?.offsetMs ?? 0.0)).round();
+
     return ConstrainedBox(
       constraints: BoxConstraints(
         minWidth: regionWidth,
@@ -4453,6 +4477,54 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         fit: StackFit.expand, // Fill the available space from Expanded parent
         clipBehavior: Clip.none, // Allow layer to overflow during drag
         children: [
+          // Ghost outline at original position during drag
+          if (isDragging && (offsetPixels - originalOffsetPixels).abs() > 2)
+            Positioned(
+              left: originalOffsetPixels.clamp(0.0, double.infinity),
+              top: 2,
+              bottom: 2,
+              width: layerWidth,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: color.withAlpha(100),
+                    width: 1,
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  ),
+                ),
+              ),
+            ),
+
+          // Time tooltip above layer during drag
+          if (isDragging)
+            Positioned(
+              left: offsetPixels.clamp(0.0, double.infinity),
+              top: -20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF242430),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFF4a9eff), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(150),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  _formatTimeMs(currentAbsoluteMs),
+                  style: const TextStyle(
+                    color: Color(0xFF4a9eff),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
           // The actual draggable layer - positioned at offset, has its own width
           Positioned(
             left: offsetPixels,

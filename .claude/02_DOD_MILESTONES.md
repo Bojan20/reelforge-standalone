@@ -323,24 +323,29 @@ Note: Cursor-centered zoom deferred - current implementation zooms around left e
 
 ---
 
-## P2 — SlotLab Timeline UX Polish
-
-### P2.3 — Drag Waveform Preview
+## ✅ COMPLETE — P2.3 Drag Waveform Preview (2026-01-21)
 
 Exit Criteria:
 
-- Ghost outline at original position during drag
-- Semi-transparent waveform at current position
-- Time tooltip showing position in ms
+- ✅ Ghost outline at original position during drag
+- ✅ Semi-transparent waveform at current position (via opacity)
+- ✅ Time tooltip showing position in ms
 
-Implementation:
+Key Changes:
 
-- Stack with ghost + dragging layer
-- Positioned tooltip above layer
+| Component | Change |
+|-----------|--------|
+| _buildDraggableLayerRow | Added ghost outline Positioned widget |
+| _buildDraggableLayerRow | Added time tooltip above layer during drag |
+| _formatTimeMs | New helper for tooltip display (ms, s, m:s formats) |
 
-Files:
+Files Changed:
 
-- `flutter_ui/lib/screens/slot_lab_screen.dart` (_buildDraggableLayerRow)
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Ghost outline, tooltip, helper
+
+---
+
+## P2 — SlotLab Timeline UX Polish
 
 ---
 
