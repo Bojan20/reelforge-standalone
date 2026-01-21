@@ -84,6 +84,8 @@ import '../services/audio_pool.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
+import '../widgets/slot_lab/timeline_toolbar.dart';
+import '../widgets/slot_lab/timeline_grid_overlay.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
@@ -1931,6 +1933,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       return KeyEventResult.handled;
     }
 
+    // S = Toggle snap-to-grid
+    if (key == LogicalKeyboardKey.keyS && !HardwareKeyboard.instance.isMetaPressed) {
+      _dragController?.toggleSnap();
+      return KeyEventResult.handled;
+    }
+
     // ESC = Cancel active drag (revert to original position)
     if (key == LogicalKeyboardKey.escape) {
       if (_dragController?.cancelActiveDrag() == true) {
@@ -3104,6 +3112,9 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           // Timeline header with stage markers
           _buildTimelineHeader(),
 
+          // Timeline toolbar (snap, zoom, etc.)
+          TimelineToolbar(dragController: dragController),
+
           // Stage markers ruler
           _buildStageMarkersRuler(),
 
@@ -3675,6 +3686,14 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                         zoom: _timelineZoom,
                         duration: _timelineDuration,
                       ),
+                    ),
+
+                    // Snap-to-grid overlay (shows when snap is enabled)
+                    TimelineGridOverlay(
+                      pixelsPerSecond: zoomedWidth / _timelineDuration,
+                      durationSeconds: _timelineDuration,
+                      dragController: dragController,
+                      height: constraints.maxHeight,
                     ),
 
                     // Click to set playhead - BEFORE tracks so tracks can intercept drag

@@ -26,6 +26,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import '../../providers/middleware_provider.dart';
 
+/// Available grid intervals for snap-to-grid (in milliseconds)
+enum GridInterval {
+  ms10(10, '10ms'),
+  ms25(25, '25ms'),
+  ms50(50, '50ms'),
+  ms100(100, '100ms'),
+  ms250(250, '250ms'),
+  ms500(500, '500ms'),
+  s1(1000, '1s');
+
+  final int ms;
+  final String label;
+  const GridInterval(this.ms, this.label);
+
+  double get seconds => ms / 1000.0;
+}
+
 /// Controller for timeline drag operations
 /// Survives widget rebuilds, manages all drag state by ID
 class TimelineDragController extends ChangeNotifier {
@@ -33,6 +50,49 @@ class TimelineDragController extends ChangeNotifier {
 
   TimelineDragController({required MiddlewareProvider middleware})
       : _middleware = middleware;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SNAP-TO-GRID STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _snapEnabled = false;
+  GridInterval _gridInterval = GridInterval.ms100;
+
+  /// Whether snap-to-grid is enabled
+  bool get snapEnabled => _snapEnabled;
+
+  /// Current grid interval
+  GridInterval get gridInterval => _gridInterval;
+
+  /// Toggle snap-to-grid on/off
+  void toggleSnap() {
+    _snapEnabled = !_snapEnabled;
+    notifyListeners();
+  }
+
+  /// Set snap enabled state
+  void setSnapEnabled(bool enabled) {
+    if (_snapEnabled != enabled) {
+      _snapEnabled = enabled;
+      notifyListeners();
+    }
+  }
+
+  /// Set grid interval
+  void setGridInterval(GridInterval interval) {
+    if (_gridInterval != interval) {
+      _gridInterval = interval;
+      notifyListeners();
+    }
+  }
+
+  /// Snap a position to the nearest grid point
+  /// Returns the original position if snap is disabled
+  double snapToGrid(double positionSeconds) {
+    if (!_snapEnabled) return positionSeconds;
+    final intervalSeconds = _gridInterval.seconds;
+    return (positionSeconds / intervalSeconds).round() * intervalSeconds;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // JUST-ENDED DRAG TRACKING (prevents race condition with provider sync)
@@ -73,15 +133,17 @@ class TimelineDragController extends ChangeNotifier {
   }
 
   /// End region drag and sync to provider
+  /// Applies snap-to-grid if enabled
   void endRegionDrag() {
     if (_draggingRegionId == null || _draggingRegionEventId == null) {
       _clearRegionDrag();
       return;
     }
 
-    // Calculate new position
-    final newStartSeconds = _regionDragStartSeconds + _regionDragDelta;
-    final newStartMs = (newStartSeconds * 1000).clamp(0.0, double.infinity);
+    // Calculate new position with snap applied
+    final rawPosition = _regionDragStartSeconds + _regionDragDelta;
+    final snappedPosition = snapToGrid(rawPosition);
+    final newStartMs = (snappedPosition * 1000).clamp(0.0, double.infinity);
 
     // Sync all layers in the event to new base offset
     final event = _middleware.compositeEvents
@@ -89,8 +151,8 @@ class TimelineDragController extends ChangeNotifier {
         .firstOrNull;
 
     if (event != null) {
-      // Calculate the delta in milliseconds
-      final deltaMs = _regionDragDelta * 1000;
+      // Calculate the delta in milliseconds (using snapped position)
+      final deltaMs = (snappedPosition - _regionDragStartSeconds) * 1000;
 
       // Update each layer's offset by the delta
       for (final layer in event.layers) {
@@ -163,8 +225,15 @@ class TimelineDragController extends ChangeNotifier {
   }
 
   /// Get current ABSOLUTE position during drag (in seconds)
+  /// Does NOT apply snap - use getSnappedAbsolutePosition() for snapped value
   double getAbsolutePosition() {
     return (_absoluteStartSeconds + _layerDragDelta).clamp(0.0, double.infinity);
+  }
+
+  /// Get current ABSOLUTE position with snap applied (for visual feedback during drag)
+  double getSnappedAbsolutePosition() {
+    final raw = getAbsolutePosition();
+    return snapToGrid(raw);
   }
 
   /// Get current layer offset during drag (for visual feedback)
@@ -179,14 +248,16 @@ class TimelineDragController extends ChangeNotifier {
   }
 
   /// End layer drag and sync to provider
+  /// Applies snap-to-grid if enabled
   void endLayerDrag() {
     if (_draggingLayerEventId == null || _draggingLayerParentEventId == null) {
       _clearLayerDrag();
       return;
     }
 
-    // Calculate new absolute offset in milliseconds - SIMPLE now
-    final newAbsoluteOffsetMs = getAbsolutePosition() * 1000;
+    // Calculate new absolute offset - apply snap if enabled
+    final snappedPosition = getSnappedAbsolutePosition();
+    final newAbsoluteOffsetMs = snappedPosition * 1000;
 
     // Sync to provider
     _middleware.setLayerOffset(

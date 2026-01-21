@@ -267,30 +267,37 @@ Failure Conditions:
 
 ---
 
-## P2 — SlotLab Timeline UX Polish
-
-### P2.1 — Snap-to-Grid
+## ✅ COMPLETE — P2.1 Snap-to-Grid (2026-01-21)
 
 Exit Criteria:
 
-- Grid intervals: 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
-- Toggle via keyboard (G) or toolbar button
-- Visual grid lines when snap enabled
-- Layer snaps to nearest grid point on release
+- ✅ Grid intervals: 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
+- ✅ Toggle via keyboard (S) or toolbar button
+- ✅ Visual grid lines when snap enabled
+- ✅ Layer snaps to nearest grid point on release
+- ✅ Region snaps to nearest grid point on release
 
-Implementation:
+Key Changes:
 
-- `TimelineDragController._snapToGrid(position, interval)`
-- Grid interval dropdown in toolbar
-- Grid lines overlay widget
+| Component | Change |
+|-----------|--------|
+| TimelineDragController | Added `GridInterval` enum, `snapToGrid()`, `toggleSnap()`, `setGridInterval()` |
+| endLayerDrag() | Now uses `getSnappedAbsolutePosition()` |
+| endRegionDrag() | Now uses `snapToGrid()` for snapped position |
+| TimelineToolbar | Snap toggle button + interval dropdown |
+| TimelineGridOverlay | Visual grid lines at snap intervals |
+| Keyboard | S key toggles snap on/off |
 
-Files:
+Files Changed:
 
-- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart`
-- `flutter_ui/lib/screens/slot_lab_screen.dart`
-- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` (new)
+- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart` — Snap logic
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` — New toolbar widget
+- `flutter_ui/lib/widgets/slot_lab/timeline_grid_overlay.dart` — New grid overlay widget
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Integration + S keyboard shortcut
 
 ---
+
+## P2 — SlotLab Timeline UX Polish
 
 ### P2.2 — Timeline Zoom
 

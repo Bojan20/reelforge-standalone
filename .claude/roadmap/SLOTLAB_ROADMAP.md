@@ -19,44 +19,51 @@
 
 ## Phase 1: Timeline UX Polish
 
-### 1.1 Snap-to-Grid za Layer Positioning
+### 1.1 Snap-to-Grid za Layer Positioning ✅ COMPLETE
 
 **Cilj:** Precizno pozicioniranje layera na definisane grid intervale.
 
 **Specifikacija:**
 
-| Feature | Opis |
-|---------|------|
-| Grid intervals | 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s |
-| Toggle | Keyboard shortcut (G) ili toolbar button |
-| Visual | Grid linije na timeline-u kad je snap aktivan |
-| Behavior | Layer snap-uje na najbliži grid point pri drag release |
+| Feature | Opis | Status |
+|---------|------|--------|
+| Grid intervals | 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s | ✅ |
+| Toggle | Keyboard shortcut (S) ili toolbar button | ✅ |
+| Visual | Grid linije na timeline-u kad je snap aktivan | ✅ |
+| Behavior | Layer snap-uje na najbliži grid point pri drag release | ✅ |
+| Behavior | Region snap-uje na najbliži grid point pri drag release | ✅ |
 
 **Implementacija:**
 
 ```dart
+// GridInterval enum
+enum GridInterval {
+  ms10(10, '10ms'),
+  ms25(25, '25ms'),
+  // ...
+}
+
 // timeline_drag_controller.dart
-double _snapToGrid(double positionSeconds, double gridIntervalSeconds) {
+double snapToGrid(double positionSeconds) {
   if (!_snapEnabled) return positionSeconds;
-  return (positionSeconds / gridIntervalSeconds).round() * gridIntervalSeconds;
+  final intervalSeconds = _gridInterval.seconds;
+  return (positionSeconds / intervalSeconds).round() * intervalSeconds;
 }
 
 // Pri endLayerDrag():
-final snappedPosition = _snapToGrid(getAbsolutePosition(), _gridInterval);
+final snappedPosition = getSnappedAbsolutePosition();
 final newAbsoluteOffsetMs = snappedPosition * 1000;
 ```
 
-**UI komponente:**
-- Grid interval dropdown u toolbar-u
-- Snap toggle button (magnet ikona)
-- Grid linije overlay na timeline
+**Kreirani fajlovi:**
+- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` — Snap toggle + interval dropdown
+- `flutter_ui/lib/widgets/slot_lab/timeline_grid_overlay.dart` — Visual grid overlay
 
-**Fajlovi za izmenu:**
-- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart`
-- `flutter_ui/lib/screens/slot_lab_screen.dart`
-- `flutter_ui/lib/widgets/slot_lab/timeline_toolbar.dart` (novi)
+**Izmenjeni fajlovi:**
+- `flutter_ui/lib/controllers/slot_lab/timeline_drag_controller.dart` — GridInterval enum, snap logic
+- `flutter_ui/lib/screens/slot_lab_screen.dart` — Integration, S keyboard shortcut
 
-**Status:** ⏳ Not Started
+**Status:** ✅ COMPLETE (2026-01-21)
 
 ---
 
@@ -509,12 +516,13 @@ class LayerClipboard {
 | 2026-01-21 | Event log deduplication | `e1820b0c` |
 | 2026-01-21 | Absolute positioning drag | `97d8723f` |
 | 2026-01-21 | Documentation update | `832554c6` |
+| 2026-01-21 | **P2.1 Snap-to-Grid** | pending |
 
 ### In Progress
 
 | Item | Started | Notes |
 |------|---------|-------|
-| - | - | - |
+| P2.2 Timeline Zoom | 2026-01-21 | Next up |
 
 ### Blocked
 
