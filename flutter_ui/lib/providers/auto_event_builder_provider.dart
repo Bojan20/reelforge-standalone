@@ -107,6 +107,18 @@ class EventDraft {
 // =============================================================================
 
 /// Committed event in the manifest
+/// Spatial mode for auto-panning
+enum SpatialMode {
+  /// No spatial processing
+  none,
+  /// Fixed pan value
+  fixed,
+  /// Auto-pan based on target (D.8: per-reel spatial)
+  autoPerReel,
+  /// Follow UI element position
+  followTarget,
+}
+
 class CommittedEvent {
   final String eventId;
   final String intent;
@@ -121,6 +133,24 @@ class CommittedEvent {
   final DateTime createdAt;
   final DateTime? modifiedAt;
 
+  /// Spatial panning (-1.0 = left, 0.0 = center, 1.0 = right)
+  final double pan;
+
+  /// Spatial mode (how pan is determined)
+  final SpatialMode spatialMode;
+
+  /// Event dependencies (D.1)
+  final List<EventDependency> dependencies;
+
+  /// Conditional trigger (D.2)
+  final ConditionalTrigger? conditionalTrigger;
+
+  /// RTPC bindings (D.3)
+  final List<RtpcBinding> rtpcBindings;
+
+  /// Music crossfade config (D.7) - for music events
+  final MusicCrossfadeConfig? crossfadeConfig;
+
   const CommittedEvent({
     required this.eventId,
     required this.intent,
@@ -134,6 +164,12 @@ class CommittedEvent {
     this.preloadPolicy = PreloadPolicy.onStageEnter,
     required this.createdAt,
     this.modifiedAt,
+    this.pan = 0.0,
+    this.spatialMode = SpatialMode.none,
+    this.dependencies = const [],
+    this.conditionalTrigger,
+    this.rtpcBindings = const [],
+    this.crossfadeConfig,
   });
 
   CommittedEvent copyWith({
@@ -149,6 +185,12 @@ class CommittedEvent {
     PreloadPolicy? preloadPolicy,
     DateTime? createdAt,
     DateTime? modifiedAt,
+    double? pan,
+    SpatialMode? spatialMode,
+    List<EventDependency>? dependencies,
+    ConditionalTrigger? conditionalTrigger,
+    List<RtpcBinding>? rtpcBindings,
+    MusicCrossfadeConfig? crossfadeConfig,
   }) {
     return CommittedEvent(
       eventId: eventId ?? this.eventId,
@@ -163,6 +205,12 @@ class CommittedEvent {
       preloadPolicy: preloadPolicy ?? this.preloadPolicy,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
+      pan: pan ?? this.pan,
+      spatialMode: spatialMode ?? this.spatialMode,
+      dependencies: dependencies ?? this.dependencies,
+      conditionalTrigger: conditionalTrigger ?? this.conditionalTrigger,
+      rtpcBindings: rtpcBindings ?? this.rtpcBindings,
+      crossfadeConfig: crossfadeConfig ?? this.crossfadeConfig,
     );
   }
 
@@ -179,6 +227,12 @@ class CommittedEvent {
     'preloadPolicy': preloadPolicy.name,
     'createdAt': createdAt.toIso8601String(),
     if (modifiedAt != null) 'modifiedAt': modifiedAt!.toIso8601String(),
+    'pan': pan,
+    'spatialMode': spatialMode.name,
+    if (dependencies.isNotEmpty) 'dependencies': dependencies.map((d) => d.toJson()).toList(),
+    if (conditionalTrigger != null) 'conditionalTrigger': conditionalTrigger!.toJson(),
+    if (rtpcBindings.isNotEmpty) 'rtpcBindings': rtpcBindings.map((r) => r.toJson()).toList(),
+    if (crossfadeConfig != null) 'crossfadeConfig': crossfadeConfig!.toJson(),
   };
 
   factory CommittedEvent.fromJson(Map<String, dynamic> json) => CommittedEvent(
@@ -194,7 +248,30 @@ class CommittedEvent {
     preloadPolicy: PreloadPolicyExtension.fromString(json['preloadPolicy'] as String? ?? 'on_stage_enter'),
     createdAt: DateTime.parse(json['createdAt'] as String),
     modifiedAt: json['modifiedAt'] != null ? DateTime.parse(json['modifiedAt'] as String) : null,
+    pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
+    spatialMode: _spatialModeFromString(json['spatialMode'] as String?),
+    dependencies: (json['dependencies'] as List<dynamic>?)
+        ?.map((d) => EventDependency.fromJson(d as Map<String, dynamic>))
+        .toList() ?? [],
+    conditionalTrigger: json['conditionalTrigger'] != null
+        ? ConditionalTrigger.fromJson(json['conditionalTrigger'] as Map<String, dynamic>)
+        : null,
+    rtpcBindings: (json['rtpcBindings'] as List<dynamic>?)
+        ?.map((r) => RtpcBinding.fromJson(r as Map<String, dynamic>))
+        .toList() ?? [],
+    crossfadeConfig: json['crossfadeConfig'] != null
+        ? MusicCrossfadeConfig.fromJson(json['crossfadeConfig'] as Map<String, dynamic>)
+        : null,
   );
+
+  static SpatialMode _spatialModeFromString(String? s) {
+    switch (s) {
+      case 'fixed': return SpatialMode.fixed;
+      case 'autoPerReel': return SpatialMode.autoPerReel;
+      case 'followTarget': return SpatialMode.followTarget;
+      default: return SpatialMode.none;
+    }
+  }
 }
 
 // =============================================================================
@@ -534,12 +611,34 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   int _eventCounter = 0;
   int _bindingCounter = 0;
 
+  // Audio assets library (imported audio files available for drag-drop)
+  final List<AudioAsset> _audioAssets = [];
+
+  // Multi-select state (C.7)
+  final Set<String> _selectedAssetIds = {};
+
+  // Recent assets (C.8)
+  final List<String> _recentAssetIds = [];
+  static const int maxRecentAssets = 20;
+
   // ==========================================================================
   // GETTERS
   // ==========================================================================
 
   /// Current draft being edited
   EventDraft? get currentDraft => _currentDraft;
+
+  /// All imported audio assets available for drag-drop
+  List<AudioAsset> get audioAssets => List.unmodifiable(_audioAssets);
+
+  /// All unique tags from audio assets
+  List<String> get allAssetTags {
+    final tags = <String>{};
+    for (final asset in _audioAssets) {
+      tags.addAll(asset.tags);
+    }
+    return tags.toList()..sort();
+  }
 
   /// Whether there's an active draft
   bool get hasDraft => _currentDraft != null;
@@ -623,6 +722,9 @@ class AutoEventBuilderProvider extends ChangeNotifier {
       orElse: () => StandardPresets.uiClickSecondary,
     );
 
+    // Calculate spatial params (D.8: per-reel spatial auto)
+    final (pan, spatialMode) = _calculateSpatialParams(draft.target);
+
     // Create committed event
     final event = CommittedEvent(
       eventId: draft.eventId,
@@ -636,6 +738,8 @@ class AutoEventBuilderProvider extends ChangeNotifier {
       parameters: {...draft.paramOverrides},
       preloadPolicy: preset.preloadPolicy,
       createdAt: DateTime.now(),
+      pan: pan,
+      spatialMode: spatialMode,
     );
 
     // Create binding
@@ -659,6 +763,9 @@ class AutoEventBuilderProvider extends ChangeNotifier {
       binding: binding,
     ));
     _redoStack.clear();
+
+    // Mark asset as recently used (C.8)
+    markAssetUsed(draft.asset.assetId);
 
     // Clear draft
     _currentDraft = null;
@@ -814,8 +921,1172 @@ class AutoEventBuilderProvider extends ChangeNotifier {
   }
 
   // ==========================================================================
+  // AUDIO ASSET MANAGEMENT
+  // ==========================================================================
+
+  /// Add an audio asset to the library
+  void addAudioAsset(AudioAsset asset) {
+    // Avoid duplicates by path
+    if (_audioAssets.any((a) => a.path == asset.path)) return;
+    _audioAssets.add(asset);
+    notifyListeners();
+  }
+
+  /// Add multiple audio assets
+  void addAudioAssets(List<AudioAsset> assets) {
+    for (final asset in assets) {
+      if (!_audioAssets.any((a) => a.path == asset.path)) {
+        _audioAssets.add(asset);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Remove an audio asset from the library
+  void removeAudioAsset(String assetId) {
+    _audioAssets.removeWhere((a) => a.assetId == assetId);
+    notifyListeners();
+  }
+
+  /// Clear all audio assets
+  void clearAudioAssets() {
+    _audioAssets.clear();
+    notifyListeners();
+  }
+
+  /// Get audio asset by ID
+  AudioAsset? getAudioAsset(String assetId) {
+    try {
+      return _audioAssets.firstWhere((a) => a.assetId == assetId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get audio assets by type
+  List<AudioAsset> getAssetsByType(AssetType type) {
+    return _audioAssets.where((a) => a.assetType == type).toList();
+  }
+
+  /// Get audio assets by tag
+  List<AudioAsset> getAssetsByTag(String tag) {
+    return _audioAssets.where((a) => a.tags.contains(tag)).toList();
+  }
+
+  // ==========================================================================
+  // MULTI-SELECT (C.7)
+  // ==========================================================================
+
+  /// IDs of currently selected assets
+  Set<String> get selectedAssetIds => Set.unmodifiable(_selectedAssetIds);
+
+  /// Whether any assets are selected
+  bool get hasSelection => _selectedAssetIds.isNotEmpty;
+
+  /// Number of selected assets
+  int get selectionCount => _selectedAssetIds.length;
+
+  /// Get selected assets as list
+  List<AudioAsset> get selectedAssets {
+    return _audioAssets
+        .where((a) => _selectedAssetIds.contains(a.assetId))
+        .toList();
+  }
+
+  /// Check if asset is selected
+  bool isAssetSelected(String assetId) => _selectedAssetIds.contains(assetId);
+
+  /// Toggle asset selection
+  void toggleAssetSelection(String assetId) {
+    if (_selectedAssetIds.contains(assetId)) {
+      _selectedAssetIds.remove(assetId);
+    } else {
+      _selectedAssetIds.add(assetId);
+    }
+    notifyListeners();
+  }
+
+  /// Select asset (add to selection)
+  void selectAsset(String assetId) {
+    if (_selectedAssetIds.add(assetId)) {
+      notifyListeners();
+    }
+  }
+
+  /// Deselect asset
+  void deselectAsset(String assetId) {
+    if (_selectedAssetIds.remove(assetId)) {
+      notifyListeners();
+    }
+  }
+
+  /// Select multiple assets
+  void selectAssets(Iterable<String> assetIds) {
+    final before = _selectedAssetIds.length;
+    _selectedAssetIds.addAll(assetIds);
+    if (_selectedAssetIds.length != before) {
+      notifyListeners();
+    }
+  }
+
+  /// Clear selection
+  void clearSelection() {
+    if (_selectedAssetIds.isNotEmpty) {
+      _selectedAssetIds.clear();
+      notifyListeners();
+    }
+  }
+
+  /// Select all assets
+  void selectAllAssets() {
+    _selectedAssetIds.clear();
+    for (final asset in _audioAssets) {
+      _selectedAssetIds.add(asset.assetId);
+    }
+    notifyListeners();
+  }
+
+  /// Select assets by type
+  void selectAssetsByType(AssetType type) {
+    for (final asset in _audioAssets) {
+      if (asset.assetType == type) {
+        _selectedAssetIds.add(asset.assetId);
+      }
+    }
+    notifyListeners();
+  }
+
+  // ==========================================================================
+  // RECENT ASSETS (C.8)
+  // ==========================================================================
+
+  /// Recently used asset IDs (most recent first)
+  List<String> get recentAssetIds => List.unmodifiable(_recentAssetIds);
+
+  /// Get recent assets as AudioAsset list
+  List<AudioAsset> get recentAssets {
+    return _recentAssetIds
+        .map((id) => _audioAssets.firstWhere(
+              (a) => a.assetId == id,
+              orElse: () => const AudioAsset(
+                assetId: '_invalid_',
+                path: '',
+                assetType: AssetType.sfx,
+                tags: [],
+                durationMs: 0,
+              ),
+            ))
+        .where((a) => a.path.isNotEmpty)
+        .toList();
+  }
+
+  /// Mark asset as recently used (called on drop/commit)
+  void markAssetUsed(String assetId) {
+    _recentAssetIds.remove(assetId);
+    _recentAssetIds.insert(0, assetId);
+    if (_recentAssetIds.length > maxRecentAssets) {
+      _recentAssetIds.removeLast();
+    }
+    notifyListeners();
+  }
+
+  /// Clear recent assets
+  void clearRecentAssets() {
+    _recentAssetIds.clear();
+    notifyListeners();
+  }
+
+  // ==========================================================================
+  // EVENT DEPENDENCIES (D.1)
+  // ==========================================================================
+
+  /// Add a dependency to an event
+  void addEventDependency(String eventId, EventDependency dependency) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final newDeps = [...event.dependencies, dependency];
+    final updated = event.copyWith(
+      dependencies: newDeps,
+      modifiedAt: DateTime.now(),
+    );
+
+    // Save for undo
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Remove a dependency from an event
+  void removeEventDependency(String eventId, String targetEventId) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final newDeps = event.dependencies
+        .where((d) => d.targetEventId != targetEventId)
+        .toList();
+
+    if (newDeps.length == event.dependencies.length) return;
+
+    final updated = event.copyWith(
+      dependencies: newDeps,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Update a dependency
+  void updateEventDependency(
+    String eventId,
+    String targetEventId,
+    EventDependency newDependency,
+  ) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final depIndex = event.dependencies
+        .indexWhere((d) => d.targetEventId == targetEventId);
+    if (depIndex < 0) return;
+
+    final newDeps = [...event.dependencies];
+    newDeps[depIndex] = newDependency;
+
+    final updated = event.copyWith(
+      dependencies: newDeps,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Get events that depend on a given event
+  List<CommittedEvent> getDependentEvents(String eventId) {
+    return _events.where((e) =>
+      e.dependencies.any((d) => d.targetEventId == eventId)
+    ).toList();
+  }
+
+  /// Get events that a given event depends on
+  List<CommittedEvent> getEventDependencies(String eventId) {
+    final event = _events.firstWhere(
+      (e) => e.eventId == eventId,
+      orElse: () => throw ArgumentError('Event not found: $eventId'),
+    );
+    return event.dependencies
+        .map((d) => _events.firstWhere(
+              (e) => e.eventId == d.targetEventId,
+              orElse: () => throw ArgumentError('Dependency not found: ${d.targetEventId}'),
+            ))
+        .toList();
+  }
+
+  /// Check for circular dependencies
+  bool hasCircularDependency(String eventId, String targetEventId) {
+    final visited = <String>{};
+    bool dfs(String current) {
+      if (current == eventId) return true;
+      if (visited.contains(current)) return false;
+      visited.add(current);
+
+      final event = _events.firstWhere(
+        (e) => e.eventId == current,
+        orElse: () => throw ArgumentError('Event not found'),
+      );
+      return event.dependencies.any((d) => dfs(d.targetEventId));
+    }
+    return dfs(targetEventId);
+  }
+
+  // ==========================================================================
+  // CONDITIONAL TRIGGERS (D.2)
+  // ==========================================================================
+
+  /// Set conditional trigger for an event
+  void setConditionalTrigger(String eventId, ConditionalTrigger? trigger) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final updated = event.copyWith(
+      conditionalTrigger: trigger,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Add condition to event's conditional trigger
+  void addTriggerCondition(String eventId, TriggerCondition condition) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final existingTrigger = event.conditionalTrigger ?? ConditionalTrigger(
+      triggerId: '${eventId}_cond',
+      name: 'Condition for $eventId',
+    );
+
+    final newConditions = [...existingTrigger.conditions, condition];
+    final updated = event.copyWith(
+      conditionalTrigger: existingTrigger.copyWith(conditions: newConditions),
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Remove condition from event's conditional trigger
+  void removeTriggerCondition(String eventId, int conditionIndex) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    if (event.conditionalTrigger == null) return;
+
+    final newConditions = [...event.conditionalTrigger!.conditions];
+    if (conditionIndex >= newConditions.length) return;
+    newConditions.removeAt(conditionIndex);
+
+    final updated = event.copyWith(
+      conditionalTrigger: event.conditionalTrigger!.copyWith(conditions: newConditions),
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Evaluate if event should trigger based on conditions
+  bool evaluateEventConditions(String eventId, Map<String, dynamic> params) {
+    final event = _events.firstWhere(
+      (e) => e.eventId == eventId,
+      orElse: () => throw ArgumentError('Event not found: $eventId'),
+    );
+    if (event.conditionalTrigger == null) return true;
+    return event.conditionalTrigger!.evaluate(params);
+  }
+
+  // ==========================================================================
+  // RTPC BINDINGS (D.3)
+  // ==========================================================================
+
+  /// Add RTPC binding to an event
+  void addRtpcBinding(String eventId, RtpcBinding binding) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+
+    // Check for duplicate binding (same RTPC → same param)
+    if (event.rtpcBindings.any((b) =>
+        b.rtpcName == binding.rtpcName && b.eventParam == binding.eventParam)) {
+      return;
+    }
+
+    final newBindings = [...event.rtpcBindings, binding];
+    final updated = event.copyWith(
+      rtpcBindings: newBindings,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Remove RTPC binding from an event
+  void removeRtpcBinding(String eventId, String rtpcName, String eventParam) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final newBindings = event.rtpcBindings
+        .where((b) => !(b.rtpcName == rtpcName && b.eventParam == eventParam))
+        .toList();
+
+    if (newBindings.length == event.rtpcBindings.length) return;
+
+    final updated = event.copyWith(
+      rtpcBindings: newBindings,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Update RTPC binding
+  void updateRtpcBinding(
+    String eventId,
+    String rtpcName,
+    String eventParam,
+    RtpcBinding newBinding,
+  ) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final bindingIndex = event.rtpcBindings.indexWhere(
+      (b) => b.rtpcName == rtpcName && b.eventParam == eventParam,
+    );
+    if (bindingIndex < 0) return;
+
+    final newBindings = [...event.rtpcBindings];
+    newBindings[bindingIndex] = newBinding;
+
+    final updated = event.copyWith(
+      rtpcBindings: newBindings,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Get modulated event parameters based on RTPC values
+  Map<String, double> getModulatedParams(
+    String eventId,
+    Map<String, double> rtpcValues,
+  ) {
+    final event = _events.firstWhere(
+      (e) => e.eventId == eventId,
+      orElse: () => throw ArgumentError('Event not found: $eventId'),
+    );
+
+    final result = <String, double>{};
+    for (final binding in event.rtpcBindings) {
+      final rtpcValue = rtpcValues[binding.rtpcName];
+      if (rtpcValue != null) {
+        result[binding.eventParam] = binding.map(rtpcValue);
+      }
+    }
+    return result;
+  }
+
+  // ==========================================================================
+  // MUSIC CROSSFADE (D.7)
+  // ==========================================================================
+
+  /// Set crossfade config for a music event
+  void setMusicCrossfadeConfig(String eventId, MusicCrossfadeConfig? config) {
+    final index = _events.indexWhere((e) => e.eventId == eventId);
+    if (index < 0) return;
+
+    final event = _events[index];
+    final updated = event.copyWith(
+      crossfadeConfig: config,
+      modifiedAt: DateTime.now(),
+    );
+
+    _undoStack.add(_UndoAction(
+      type: _UndoActionType.update,
+      event: updated,
+      previousEvent: event,
+    ));
+    _redoStack.clear();
+
+    _events[index] = updated;
+    notifyListeners();
+  }
+
+  /// Get music events with crossfade configs
+  List<CommittedEvent> getMusicEventsWithCrossfade() {
+    return _events.where((e) => e.crossfadeConfig != null).toList();
+  }
+
+  // ==========================================================================
+  // TEMPLATE INHERITANCE (D.4)
+  // ==========================================================================
+
+  /// Preset inheritance resolver
+  final PresetInheritanceResolver _inheritanceResolver = PresetInheritanceResolver();
+
+  /// Get inheritance resolver
+  PresetInheritanceResolver get inheritanceResolver => _inheritanceResolver;
+
+  /// Register an inheritable preset
+  void registerInheritablePreset(InheritablePreset preset) {
+    // Validate before registering
+    if (preset.extendsPresetId != null) {
+      if (_inheritanceResolver.hasCircularInheritance(preset.presetId, proposedParentId: preset.extendsPresetId)) {
+        throw ArgumentError('Circular inheritance detected for ${preset.presetId}');
+      }
+      final parent = _inheritanceResolver.getPreset(preset.extendsPresetId!);
+      if (parent == null) {
+        throw ArgumentError('Parent preset not found: ${preset.extendsPresetId}');
+      }
+      if (parent.isSealed) {
+        throw ArgumentError('Cannot extend sealed preset: ${preset.extendsPresetId}');
+      }
+    }
+
+    _inheritanceResolver.register(preset);
+
+    // Also add as legacy EventPreset for backward compatibility
+    final eventPreset = preset.toEventPreset();
+    if (!_presets.any((p) => p.presetId == eventPreset.presetId)) {
+      _presets.add(eventPreset);
+    }
+
+    notifyListeners();
+  }
+
+  /// Unregister an inheritable preset
+  void unregisterInheritablePreset(String presetId) {
+    // Check for children first
+    final children = _inheritanceResolver.getDirectChildren(presetId);
+    if (children.isNotEmpty) {
+      throw ArgumentError(
+        'Cannot remove preset with children. '
+        'Children: ${children.map((c) => c.presetId).join(", ")}'
+      );
+    }
+
+    _inheritanceResolver.unregister(presetId);
+    _presets.removeWhere((p) => p.presetId == presetId);
+    notifyListeners();
+  }
+
+  /// Create inheritable preset from legacy preset
+  InheritablePreset createInheritablePreset(EventPreset preset, {String? parentId}) {
+    final inheritable = InheritablePreset.fromEventPreset(preset).copyWith(
+      extendsPresetId: parentId,
+    );
+    registerInheritablePreset(inheritable);
+    return inheritable;
+  }
+
+  /// Update inheritable preset
+  void updateInheritablePreset(InheritablePreset preset) {
+    // Remove old and add new
+    _inheritanceResolver.unregister(preset.presetId);
+    registerInheritablePreset(preset.copyWith(modifiedAt: DateTime.now()));
+  }
+
+  /// Get resolved parameters for preset (with inheritance)
+  Map<String, dynamic> getResolvedPresetParameters(String presetId) {
+    return _inheritanceResolver.resolveParameters(presetId);
+  }
+
+  /// Get inheritance chain for preset
+  List<String> getPresetInheritanceChain(String presetId) {
+    return _inheritanceResolver.resolveInheritanceChain(presetId);
+  }
+
+  /// Get preset children
+  List<InheritablePreset> getPresetChildren(String presetId) {
+    return _inheritanceResolver.getDirectChildren(presetId);
+  }
+
+  /// Get all preset descendants
+  List<InheritablePreset> getPresetDescendants(String presetId) {
+    return _inheritanceResolver.getAllDescendants(presetId);
+  }
+
+  /// Validate preset inheritance
+  List<String> validatePresetInheritance(String presetId) {
+    return _inheritanceResolver.validateInheritance(presetId);
+  }
+
+  /// Get presets by category
+  List<InheritablePreset> getPresetsByCategory(String category) {
+    return _inheritanceResolver.getPresetsByCategory(category);
+  }
+
+  /// Get all preset categories
+  List<String> getAllPresetCategories() {
+    return _inheritanceResolver.getAllCategories();
+  }
+
+  /// Get inheritance tree for UI display
+  List<({InheritablePreset preset, int depth, bool hasChildren})> getPresetTree() {
+    return _inheritanceResolver.toFlatTree();
+  }
+
+  /// Check if preset can be used directly (not abstract)
+  bool canUsePresetDirectly(String presetId) {
+    final preset = _inheritanceResolver.getPreset(presetId);
+    return preset != null && !preset.isAbstract;
+  }
+
+  // ==========================================================================
+  // BATCH DROP (D.5)
+  // ==========================================================================
+
+  /// Execute batch drop of asset to multiple targets
+  BatchDropResult executeBatchDrop(
+    AudioAsset asset,
+    BatchDropConfig config, {
+    int reelCount = 5,
+  }) {
+    final targetIds = config.getTargetIds(reelCount: reelCount);
+    final events = <CommittedEvent>[];
+    final newBindings = <EventBinding>[];
+    final errors = <String>[];
+
+    String? previousEventId;
+
+    for (var i = 0; i < targetIds.length; i++) {
+      final targetId = targetIds[i];
+
+      try {
+        // Calculate spatial pan
+        final pan = config.spatialMode == SpatialDistributionMode.custom
+            ? config.getPanForTarget(targetId) ?? 0.0
+            : config.getPanForIndex(i, targetIds.length);
+
+        // Create target
+        final target = _createTargetFromId(targetId);
+
+        // Find matching rule
+        final rule = _findMatchingRule(asset, target);
+
+        // Generate event ID
+        var eventId = '${config.eventIdPrefix}_$i';
+        eventId = _ensureUniqueEventId(eventId);
+
+        // Get preset
+        final presetId = config.presetId ?? rule.defaultPresetId;
+        final preset = _presets.firstWhere(
+          (p) => p.presetId == presetId,
+          orElse: () => StandardPresets.uiClickSecondary,
+        );
+
+        // Calculate varied parameters
+        final parameters = <String, dynamic>{};
+        for (final range in config.variationRanges) {
+          final baseValue = _getPresetParamValue(preset, range.paramName);
+          if (baseValue != null) {
+            parameters[range.paramName] = range.calculateVariation(
+              baseValue,
+              i,
+              targetIds.length,
+              config.variationMode,
+            );
+          }
+        }
+
+        // Add stagger delay
+        final delay = config.staggerMs * i;
+        if (delay > 0) {
+          parameters['delayMs'] = (parameters['delayMs'] as int? ?? 0) + delay;
+        }
+
+        // Create dependencies
+        final dependencies = <EventDependency>[];
+        if (config.createDependencies && previousEventId != null) {
+          dependencies.add(EventDependency(
+            targetEventId: previousEventId,
+            type: config.dependencyType,
+            delayMs: config.staggerMs,
+          ));
+        }
+
+        // Create event
+        final event = CommittedEvent(
+          eventId: eventId,
+          intent: '${target.targetId}.${rule.defaultTrigger}',
+          assetPath: asset.path,
+          bus: rule.defaultBus,
+          presetId: presetId,
+          voiceLimitGroup: config.voiceLimitGroup,
+          variationPolicy: VariationPolicy.random,
+          tags: [config.eventIdPrefix, 'batch'],
+          parameters: parameters,
+          preloadPolicy: preset.preloadPolicy,
+          createdAt: DateTime.now(),
+          pan: pan,
+          spatialMode: SpatialMode.fixed,
+          dependencies: dependencies,
+        );
+
+        // Create binding
+        final binding = EventBinding(
+          bindingId: 'bind_${++_bindingCounter}',
+          eventId: eventId,
+          targetId: targetId,
+          stageId: StageContext.global.name,
+          trigger: rule.defaultTrigger,
+        );
+
+        events.add(event);
+        newBindings.add(binding);
+        previousEventId = eventId;
+      } catch (e) {
+        errors.add('Failed to create event for $targetId: $e');
+      }
+    }
+
+    // Add all events and bindings
+    _events.addAll(events);
+    _bindings.addAll(newBindings);
+
+    // Add to undo stack as single action
+    if (events.isNotEmpty) {
+      _undoStack.add(_UndoAction(
+        type: _UndoActionType.commit,
+        event: events.first,
+        binding: newBindings.first,
+        bindings: newBindings,
+      ));
+      _redoStack.clear();
+    }
+
+    // Mark asset as used
+    markAssetUsed(asset.assetId);
+
+    notifyListeners();
+
+    return BatchDropResult(
+      eventIds: events.map((e) => e.eventId).toList(),
+      bindingIds: newBindings.map((b) => b.bindingId).toList(),
+      errors: errors,
+    );
+  }
+
+  /// Create target from ID
+  DropTarget _createTargetFromId(String targetId) {
+    final type = _inferTargetType(targetId);
+    return DropTarget(
+      targetId: targetId,
+      targetType: type,
+      stageContext: StageContext.global,
+    );
+  }
+
+  /// Infer target type from ID
+  TargetType _inferTargetType(String targetId) {
+    if (targetId.startsWith('reel.')) {
+      return targetId.contains('stop')
+          ? TargetType.reelStopZone
+          : TargetType.reelSurface;
+    }
+    if (targetId.startsWith('ui.')) return TargetType.uiButton;
+    if (targetId.startsWith('symbol.')) return TargetType.symbolZone;
+    if (targetId.startsWith('overlay.')) return TargetType.overlay;
+    if (targetId.startsWith('feature.')) return TargetType.featureContainer;
+    if (targetId.startsWith('hud.')) return TargetType.hudCounter;
+    return TargetType.screenZone;
+  }
+
+  /// Get preset parameter value
+  double? _getPresetParamValue(EventPreset preset, String paramName) {
+    switch (paramName) {
+      case 'volume': return preset.volume;
+      case 'pitch': return preset.pitch;
+      case 'pan': return preset.pan;
+      case 'lpf': return preset.lpf;
+      case 'hpf': return preset.hpf;
+      case 'delayMs': return preset.delayMs.toDouble();
+      case 'fadeInMs': return preset.fadeInMs.toDouble();
+      case 'fadeOutMs': return preset.fadeOutMs.toDouble();
+      case 'cooldownMs': return preset.cooldownMs.toDouble();
+      case 'polyphony': return preset.polyphony.toDouble();
+      case 'priority': return preset.priority.toDouble();
+      default: return null;
+    }
+  }
+
+  /// Delete batch by prefix
+  void deleteBatchByPrefix(String prefix) {
+    final batchEvents = _events.where((e) => e.eventId.startsWith(prefix)).toList();
+    final batchEventIds = batchEvents.map((e) => e.eventId).toSet();
+    final batchBindings = _bindings.where((b) => batchEventIds.contains(b.eventId)).toList();
+
+    _events.removeWhere((e) => batchEventIds.contains(e.eventId));
+    _bindings.removeWhere((b) => batchEventIds.contains(b.eventId));
+
+    // Undo support for batch delete
+    if (batchEvents.isNotEmpty) {
+      _undoStack.add(_UndoAction(
+        type: _UndoActionType.delete,
+        event: batchEvents.first,
+        bindings: batchBindings,
+      ));
+      _redoStack.clear();
+    }
+
+    notifyListeners();
+  }
+
+  // ==========================================================================
+  // BINDING GRAPH (D.6)
+  // ==========================================================================
+
+  /// Build binding graph from current state
+  BindingGraph buildBindingGraph({bool includePresetInheritance = true}) {
+    final builder = BindingGraphBuilder();
+
+    // Convert events to maps for graph builder
+    final eventMaps = _events.map((e) => {
+      'eventId': e.eventId,
+      'intent': e.intent,
+      'bus': e.bus,
+      'presetId': e.presetId,
+      'dependencies': e.dependencies.map((d) => {
+        'targetEventId': d.targetEventId,
+        'type': d.type.name,
+        'delayMs': d.delayMs,
+        'required': d.required,
+      }).toList(),
+      'rtpcBindings': e.rtpcBindings.map((r) => {
+        'rtpcName': r.rtpcName,
+        'eventParam': r.eventParam,
+      }).toList(),
+      if (e.conditionalTrigger != null) 'conditionalTrigger': {
+        'name': e.conditionalTrigger!.name,
+        'conditions': e.conditionalTrigger!.conditions.map((c) => c.toJson()).toList(),
+        'logic': e.conditionalTrigger!.logic.name,
+      },
+    }).toList();
+
+    // Convert bindings to maps for graph builder
+    final bindingMaps = _bindings.map((b) => {
+      'bindingId': b.bindingId,
+      'eventId': b.eventId,
+      'targetId': b.targetId,
+      'stageId': b.stageId,
+      'trigger': b.trigger,
+      'enabled': b.enabled,
+    }).toList();
+
+    // Add events and bindings
+    builder.addEventsFromMaps(eventMaps, bindingMaps);
+
+    // Add preset inheritance
+    if (includePresetInheritance) {
+      builder.addPresetInheritance(_inheritanceResolver);
+    }
+
+    return builder.build();
+  }
+
+  /// Get filtered binding graph (by node types or search)
+  BindingGraph getFilteredBindingGraph({
+    Set<GraphNodeType>? includeNodeTypes,
+    Set<GraphEdgeType>? includeEdgeTypes,
+    String? searchQuery,
+  }) {
+    final fullGraph = buildBindingGraph();
+
+    var filteredNodes = fullGraph.nodes.toList();
+    var filteredEdges = fullGraph.edges.toList();
+
+    // Filter by node types
+    if (includeNodeTypes != null) {
+      filteredNodes = filteredNodes
+          .where((n) => includeNodeTypes.contains(n.nodeType))
+          .toList();
+
+      // Keep only edges between included nodes
+      final nodeIds = filteredNodes.map((n) => n.nodeId).toSet();
+      filteredEdges = filteredEdges
+          .where((e) => nodeIds.contains(e.sourceId) && nodeIds.contains(e.targetId))
+          .toList();
+    }
+
+    // Filter by edge types
+    if (includeEdgeTypes != null) {
+      filteredEdges = filteredEdges
+          .where((e) => includeEdgeTypes.contains(e.edgeType))
+          .toList();
+    }
+
+    // Apply search
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      final matchingNodes = fullGraph.searchNodes(searchQuery);
+      final matchingIds = matchingNodes.map((n) => n.nodeId).toSet();
+
+      // Highlight matching nodes
+      for (final node in filteredNodes) {
+        node.isHighlighted = matchingIds.contains(node.nodeId);
+      }
+    }
+
+    return BindingGraph(
+      nodes: filteredNodes,
+      edges: filteredEdges,
+      metadata: {
+        'filtered': true,
+        'originalNodeCount': fullGraph.nodes.length,
+        'originalEdgeCount': fullGraph.edges.length,
+      },
+    );
+  }
+
+  /// Get subgraph centered on a specific event
+  BindingGraph getEventSubgraph(String eventId, {int depth = 2}) {
+    final fullGraph = buildBindingGraph();
+    final targetNodeId = 'event_$eventId';
+
+    // BFS to find all connected nodes within depth
+    final visited = <String>{targetNodeId};
+    var frontier = <String>[targetNodeId];
+
+    for (var d = 0; d < depth && frontier.isNotEmpty; d++) {
+      final nextFrontier = <String>[];
+      for (final nodeId in frontier) {
+        // Get connected nodes
+        for (final edge in fullGraph.edges) {
+          if (edge.sourceId == nodeId && !visited.contains(edge.targetId)) {
+            visited.add(edge.targetId);
+            nextFrontier.add(edge.targetId);
+          }
+          if (edge.targetId == nodeId && !visited.contains(edge.sourceId)) {
+            visited.add(edge.sourceId);
+            nextFrontier.add(edge.sourceId);
+          }
+        }
+      }
+      frontier = nextFrontier;
+    }
+
+    // Filter nodes and edges
+    final nodes = fullGraph.nodes.where((n) => visited.contains(n.nodeId)).toList();
+    final edges = fullGraph.edges.where((e) =>
+      visited.contains(e.sourceId) && visited.contains(e.targetId)
+    ).toList();
+
+    // Highlight center node
+    for (final node in nodes) {
+      node.isSelected = node.nodeId == targetNodeId;
+    }
+
+    return BindingGraph(
+      nodes: nodes,
+      edges: edges,
+      metadata: {
+        'subgraph': true,
+        'centeredOn': eventId,
+        'depth': depth,
+      },
+    );
+  }
+
+  /// Get dependency graph (events and their dependencies only)
+  BindingGraph getDependencyGraph() {
+    return getFilteredBindingGraph(
+      includeNodeTypes: {GraphNodeType.event},
+      includeEdgeTypes: {GraphEdgeType.dependency},
+    );
+  }
+
+  /// Get routing graph (events to buses)
+  BindingGraph getRoutingGraph() {
+    return getFilteredBindingGraph(
+      includeNodeTypes: {GraphNodeType.event, GraphNodeType.bus},
+      includeEdgeTypes: {GraphEdgeType.routesToBus},
+    );
+  }
+
+  /// Apply layout to graph
+  void applyGraphLayout(
+    BindingGraph graph, {
+    GraphLayoutAlgorithm algorithm = GraphLayoutAlgorithm.hierarchical,
+  }) {
+    switch (algorithm) {
+      case GraphLayoutAlgorithm.hierarchical:
+        GraphLayoutCalculator.applyHierarchicalLayout(
+          graph,
+          const GraphLayoutOptions(),
+        );
+        break;
+      case GraphLayoutAlgorithm.circular:
+        GraphLayoutCalculator.applyCircularLayout(graph);
+        break;
+      case GraphLayoutAlgorithm.grid:
+        GraphLayoutCalculator.applyGridLayout(graph);
+        break;
+      case GraphLayoutAlgorithm.forceDirected:
+        // Use hierarchical as fallback (force directed needs iterative computation)
+        GraphLayoutCalculator.applyHierarchicalLayout(
+          graph,
+          const GraphLayoutOptions(),
+        );
+        break;
+    }
+  }
+
+  /// Export graph to DOT format (for Graphviz)
+  String exportGraphToDot(BindingGraph graph) {
+    final buffer = StringBuffer();
+    buffer.writeln('digraph BindingGraph {');
+    buffer.writeln('  rankdir=TB;');
+    buffer.writeln('  node [shape=box, style=rounded];');
+    buffer.writeln();
+
+    // Node styles by type
+    final nodeStyles = {
+      GraphNodeType.event: 'fillcolor="#4A9EFF", style="rounded,filled"',
+      GraphNodeType.target: 'fillcolor="#40FF90", style="rounded,filled"',
+      GraphNodeType.preset: 'fillcolor="#FF9040", style="rounded,filled"',
+      GraphNodeType.bus: 'fillcolor="#40C8FF", style="rounded,filled"',
+      GraphNodeType.rtpc: 'fillcolor="#FFD700", style="rounded,filled"',
+      GraphNodeType.condition: 'fillcolor="#FF4060", style="rounded,filled"',
+    };
+
+    // Add nodes
+    for (final node in graph.nodes) {
+      final style = nodeStyles[node.nodeType] ?? '';
+      final label = node.subtitle != null
+          ? '${node.label}\\n${node.subtitle}'
+          : node.label;
+      buffer.writeln('  "${node.nodeId}" [label="$label", $style];');
+    }
+
+    buffer.writeln();
+
+    // Edge styles by type
+    final edgeStyles = {
+      GraphEdgeType.binding: 'color="#4A9EFF"',
+      GraphEdgeType.dependency: 'color="#FF9040", style=dashed',
+      GraphEdgeType.usesPreset: 'color="#888888", style=dotted',
+      GraphEdgeType.routesToBus: 'color="#40C8FF"',
+      GraphEdgeType.rtpcBinding: 'color="#FFD700", style=dashed',
+      GraphEdgeType.conditionalTrigger: 'color="#FF4060", style=dotted',
+      GraphEdgeType.inherits: 'color="#9333EA"',
+    };
+
+    // Add edges
+    for (final edge in graph.edges) {
+      final style = edgeStyles[edge.edgeType] ?? '';
+      final label = edge.label != null ? ', label="${edge.label}"' : '';
+      buffer.writeln('  "${edge.sourceId}" -> "${edge.targetId}" [$style$label];');
+    }
+
+    buffer.writeln('}');
+    return buffer.toString();
+  }
+
+  /// Export graph to JSON
+  String exportGraphToJson(BindingGraph graph) {
+    return _jsonEncode(graph.toJson());
+  }
+
+  String _jsonEncode(Object? object) {
+    // Simple JSON encoding (production would use dart:convert)
+    if (object == null) return 'null';
+    if (object is String) return '"${object.replaceAll('"', '\\"')}"';
+    if (object is num || object is bool) return object.toString();
+    if (object is List) {
+      return '[${object.map(_jsonEncode).join(',')}]';
+    }
+    if (object is Map) {
+      final entries = object.entries
+          .map((e) => '${_jsonEncode(e.key)}:${_jsonEncode(e.value)}')
+          .join(',');
+      return '{$entries}';
+    }
+    return '"$object"';
+  }
+
+  // ==========================================================================
   // PRIVATE HELPERS
   // ==========================================================================
+
+  /// Calculate spatial pan and mode based on target (D.8: per-reel spatial auto)
+  (double, SpatialMode) _calculateSpatialParams(DropTarget target) {
+    // Check if this is a reel target
+    if (target.targetType == TargetType.reelStopZone) {
+      // Parse reel index from target ID (e.g., "reel.0", "reel.1", etc.)
+      final reelIndex = _parseReelIndex(target.targetId);
+      if (reelIndex != null) {
+        // Map reel 0-4 to pan -0.8 to +0.8 (5 reels standard)
+        // Reel 0 → -0.8 (left)
+        // Reel 1 → -0.4
+        // Reel 2 → 0.0 (center)
+        // Reel 3 → +0.4
+        // Reel 4 → +0.8 (right)
+        final pan = (reelIndex - 2) * 0.4; // Center at reel 2
+        return (pan.clamp(-1.0, 1.0), SpatialMode.autoPerReel);
+      }
+    }
+
+    // Check for symbol zones with reel context
+    if (target.targetType == TargetType.symbolZone) {
+      // Symbol zones don't have inherent position, use center
+      return (0.0, SpatialMode.none);
+    }
+
+    // UI elements default to center
+    return (0.0, SpatialMode.none);
+  }
+
+  /// Parse reel index from target ID (e.g., "reel.2" → 2)
+  int? _parseReelIndex(String targetId) {
+    if (!targetId.startsWith('reel.')) return null;
+    final suffix = targetId.substring(5); // Remove "reel."
+    return int.tryParse(suffix);
+  }
 
   /// Find the best matching rule for asset/target
   DropRule _findMatchingRule(AudioAsset asset, DropTarget target) {

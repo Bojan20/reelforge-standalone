@@ -94,6 +94,7 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       case TargetType.reelStopZone:
         return FluxForgeTheme.accentOrange;
       case TargetType.symbol:
+      case TargetType.symbolZone:
         return FluxForgeTheme.accentGreen;
       case TargetType.overlay:
       case TargetType.featureContainer:
@@ -103,6 +104,8 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
         return const Color(0xFFFFD700); // Gold
       case TargetType.screenZone:
         return FluxForgeTheme.textSecondary;
+      case TargetType.musicZone:
+        return const Color(0xFF9333EA); // Purple for music
     }
   }
 
