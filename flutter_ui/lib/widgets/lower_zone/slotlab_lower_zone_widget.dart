@@ -22,6 +22,9 @@ import '../slot_lab/event_log_panel.dart';
 import '../slot_lab/bus_hierarchy_panel.dart';
 import '../slot_lab/profiler_panel.dart';
 import '../slot_lab/aux_sends_panel.dart';
+import '../fabfilter/fabfilter.dart';
+import 'realtime_bus_meters.dart';
+import 'export_panels.dart';
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -359,26 +362,40 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _buildPanPanel() => _buildCompactPanPanel();
-  Widget _buildMeterPanel() => _buildCompactMeterPanel();
+
+  /// P1.4: Real-time bus meters with FFI integration
+  Widget _buildMeterPanel() => const RealTimeBusMeters();
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DSP CONTENT
+  // DSP CONTENT — FabFilter Integration
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildDspContent() {
     final subTab = widget.controller.state.dspSubTab;
     return switch (subTab) {
       SlotLabDspSubTab.chain => _buildChainPanel(),
-      SlotLabDspSubTab.eq => _buildEqPanel(),
-      SlotLabDspSubTab.comp => _buildCompPanel(),
-      SlotLabDspSubTab.reverb => _buildReverbPanel(),
+      SlotLabDspSubTab.eq => _buildFabFilterEqPanel(),
+      SlotLabDspSubTab.comp => _buildFabFilterCompressorPanel(),
+      SlotLabDspSubTab.reverb => _buildFabFilterReverbPanel(),
     };
   }
 
   Widget _buildChainPanel() => _buildCompactDspChain();
-  Widget _buildEqPanel() => _buildCompactEqPanel();
-  Widget _buildCompPanel() => _buildCompactCompressorPanel();
-  Widget _buildReverbPanel() => _buildCompactReverbPanel();
+
+  /// FabFilter Pro-Q style EQ Panel
+  Widget _buildFabFilterEqPanel() {
+    return const FabFilterEqPanel(trackId: 0);
+  }
+
+  /// FabFilter Pro-C style Compressor Panel
+  Widget _buildFabFilterCompressorPanel() {
+    return const FabFilterCompressorPanel(trackId: 0);
+  }
+
+  /// FabFilter Pro-R style Reverb Panel
+  Widget _buildFabFilterReverbPanel() {
+    return const FabFilterReverbPanel(trackId: 0);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BAKE CONTENT
@@ -394,7 +411,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     };
   }
 
-  Widget _buildExportPanel() => _buildCompactExportPanel();
+  /// P2.1: Functional batch export panel for SlotLab events
+  Widget _buildExportPanel() => const SlotLabBatchExportPanel();
+
   Widget _buildStemsPanel() => _buildCompactStemsPanel();
   Widget _buildVariationsPanel() => _buildCompactVariationsPanel();
   Widget _buildPackagePanel() => _buildCompactPackagePanel();
@@ -938,80 +957,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact Meter Panel
-  Widget _buildCompactMeterPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('BUS METERS', Icons.bar_chart),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStereoMeter('SFX', 0.6, 0.5),
-                _buildStereoMeter('Music', 0.4, 0.45),
-                _buildStereoMeter('Voice', 0.3, 0.25),
-                _buildStereoMeter('Ambient', 0.2, 0.2),
-                _buildStereoMeter('Master', 0.7, 0.65),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStereoMeter(String name, double left, double right) {
-    return Column(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              _buildMeterBar(left),
-              const SizedBox(width: 2),
-              _buildMeterBar(right),
-            ],
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(name, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-      ],
-    );
-  }
-
-  Widget _buildMeterBar(double level) {
-    return Container(
-      width: 8,
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          FractionallySizedBox(
-            heightFactor: level,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    level > 0.9 ? LowerZoneColors.error : (level > 0.7 ? LowerZoneColors.warning : LowerZoneColors.slotLabAccent),
-                    LowerZoneColors.slotLabAccent.withValues(alpha: 0.5),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Note: Compact Meter Panel replaced by RealTimeBusMeters widget (P1.4)
 
   /// Compact DSP Chain
   Widget _buildCompactDspChain() {
@@ -1077,184 +1023,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// Compact EQ Panel
-  Widget _buildCompactEqPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('PRO-Q EQ', Icons.equalizer),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: LowerZoneColors.bgDeepest,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: LowerZoneColors.border),
-              ),
-              child: CustomPaint(
-                painter: _EqCurvePainter(color: LowerZoneColors.slotLabAccent),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Note: Compact EQ, Compressor, and Reverb panels replaced by FabFilter widgets
 
-  /// Compact Compressor Panel
-  Widget _buildCompactCompressorPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('PRO-C COMPRESSOR', Icons.compress),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                _buildCompressorKnob('Thresh', '-12 dB'),
-                _buildCompressorKnob('Ratio', '4:1'),
-                _buildCompressorKnob('Attack', '10 ms'),
-                _buildCompressorKnob('Release', '100 ms'),
-                // Meter
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.bottomCenter,
-                      children: [
-                        FractionallySizedBox(
-                          heightFactor: 0.4,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Note: _buildCompactExportPanel removed — replaced by SlotLabBatchExportPanel (P2.1)
 
-  Widget _buildCompressorKnob(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: LowerZoneColors.bgMid,
-              border: Border.all(color: LowerZoneColors.slotLabAccent),
-            ),
-            child: Center(
-              child: Container(
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: LowerZoneColors.slotLabAccent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-          Text(value, style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
-        ],
-      ),
-    );
-  }
-
-  /// Compact Reverb Panel
-  Widget _buildCompactReverbPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('PRO-R REVERB', Icons.waves),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                _buildCompressorKnob('Decay', '1.5 s'),
-                _buildCompressorKnob('Pre-D', '20 ms'),
-                _buildCompressorKnob('Bright', '60%'),
-                _buildCompressorKnob('Mix', '30%'),
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
-                      color: LowerZoneColors.bgDeepest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: LowerZoneColors.border),
-                    ),
-                    child: CustomPaint(
-                      painter: _ReverbDecayPainter(color: LowerZoneColors.slotLabAccent),
-                      size: Size.infinite,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Compact Export Panel
-  Widget _buildCompactExportPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPanelHeader('EXPORT SETTINGS', Icons.upload),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildExportOption('Format', 'WAV 48kHz/24bit'),
-                      _buildExportOption('Channels', 'Stereo'),
-                      _buildExportOption('Normalize', 'Peak -1dB'),
-                      _buildExportOption('Dither', 'None'),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildExportButton(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// Helper method for Package panel option rows
   Widget _buildExportOption(String label, String value) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1269,32 +1042,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
           const Spacer(),
           Text(value, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExportButton() {
-    return Container(
-      width: 100,
-      decoration: BoxDecoration(
-        color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.slotLabAccent),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.upload, size: 32, color: LowerZoneColors.slotLabAccent),
-          const SizedBox(height: 8),
-          Text(
-            'EXPORT',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: LowerZoneColors.slotLabAccent,
-            ),
-          ),
         ],
       ),
     );
@@ -1633,118 +1380,4 @@ class _TimelinePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _EqCurvePainter extends CustomPainter {
-  final Color color;
-  _EqCurvePainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = LowerZoneColors.border.withValues(alpha: 0.3)
-      ..strokeWidth = 1;
-
-    // Draw horizontal center line
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      gridPaint,
-    );
-
-    // Draw EQ curve
-    final curvePaint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    path.moveTo(0, size.height * 0.55);
-
-    // Low shelf boost
-    path.quadraticBezierTo(
-      size.width * 0.1, size.height * 0.4,
-      size.width * 0.2, size.height * 0.45,
-    );
-
-    // Dip at 200Hz
-    path.quadraticBezierTo(
-      size.width * 0.3, size.height * 0.6,
-      size.width * 0.4, size.height * 0.5,
-    );
-
-    // Boost at 3kHz
-    path.quadraticBezierTo(
-      size.width * 0.5, size.height * 0.35,
-      size.width * 0.6, size.height * 0.38,
-    );
-
-    // High shelf
-    path.quadraticBezierTo(
-      size.width * 0.8, size.height * 0.45,
-      size.width, size.height * 0.48,
-    );
-
-    canvas.drawPath(path, curvePaint);
-
-    // Draw band points
-    final pointPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final points = [
-      Offset(size.width * 0.1, size.height * 0.4),
-      Offset(size.width * 0.3, size.height * 0.58),
-      Offset(size.width * 0.5, size.height * 0.35),
-      Offset(size.width * 0.8, size.height * 0.45),
-    ];
-
-    for (final point in points) {
-      canvas.drawCircle(point, 5, pointPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ReverbDecayPainter extends CustomPainter {
-  final Color color;
-  _ReverbDecayPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final fillPaint = Paint()
-      ..color = color.withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final fillPath = Path();
-
-    path.moveTo(0, size.height * 0.1);
-    fillPath.moveTo(0, size.height);
-    fillPath.lineTo(0, size.height * 0.1);
-
-    // Exponential decay curve
-    const steps = 50;
-    for (int i = 1; i <= steps; i++) {
-      final t = i / steps;
-      final x = t * size.width;
-      final y = size.height * (0.1 + 0.85 * (1 - (1 / (1 + 2 * t * t))));
-      path.lineTo(x, y);
-      fillPath.lineTo(x, y);
-    }
-
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
+// Note: _EqCurvePainter and _ReverbDecayPainter removed — replaced by FabFilter widgets

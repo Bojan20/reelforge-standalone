@@ -75,8 +75,8 @@ class LowerZoneActionStrip extends StatelessWidget {
           if (statusText != null)
             Text(
               statusText!,
-              style: const TextStyle(
-                fontSize: 10,
+              style: TextStyle(
+                fontSize: LowerZoneTypography.sizeBadge,
                 color: LowerZoneColors.textTertiary,
               ),
             ),
@@ -123,7 +123,7 @@ class LowerZoneActionStrip extends StatelessWidget {
             Text(
               action.label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: LowerZoneTypography.sizeLabel,
                 fontWeight: action.isPrimary ? FontWeight.w600 : FontWeight.normal,
                 color: isEnabled ? buttonColor : LowerZoneColors.textMuted,
               ),

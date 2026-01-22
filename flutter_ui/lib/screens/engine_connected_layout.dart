@@ -57,6 +57,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
+import '../services/service_locator.dart';
+import '../services/unified_search_service.dart';
 
 import '../providers/engine_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
@@ -541,6 +543,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
       meters.registerMeter('music');
       meters.registerMeter('voice');
 
+      // Register EventSearchProvider (P1.1)
+      _registerEventSearchProvider();
+
+      // Initialize P2 search providers with data callbacks
+      _initializeP2SearchProviders();
+
       // Wire up all keyboard shortcuts
       final shortcuts = context.read<GlobalShortcutsProvider>();
       final engine = context.read<EngineProvider>();
@@ -832,6 +840,145 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     _loopRegion = const timeline.LoopRegion(start: 0.0, end: 8.0);
     _eventFilters = [];
     _currentEventId = null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEARCH PROVIDER REGISTRATION (P1.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register EventSearchProvider with callback to access MiddlewareProvider
+  void _registerEventSearchProvider() {
+    final search = sl<UnifiedSearchService>();
+    final middleware = context.read<MiddlewareProvider>();
+
+    // Create and initialize EventSearchProvider
+    final eventProvider = EventSearchProvider();
+    eventProvider.init(
+      getEvents: () {
+        // Convert SlotCompositeEvents to searchable format
+        return middleware.compositeEvents.map((event) {
+          return {
+            'id': event.id,
+            'name': event.name,
+            'stages': event.triggerStages,
+            'layers': event.layers.map((l) => {
+              'audioPath': l.audioPath,
+              'busId': l.busId,
+            }).toList(),
+            'containerType': event.containerType.name,
+          };
+        }).toList();
+      },
+      onEventSelect: () {
+        // Navigation handled by search result onSelect
+      },
+    );
+
+    search.registerProvider(eventProvider);
+    debugPrint('[EngineConnectedLayout] Registered EventSearchProvider');
+  }
+
+  /// Initialize P2 search providers with data callbacks (P2.1, P2.2, P2.3)
+  void _initializeP2SearchProviders() {
+    final search = sl<UnifiedSearchService>();
+    final middleware = context.read<MiddlewareProvider>();
+    final assetManager = sl<AudioAssetManager>();
+
+    // P2.1: Initialize FileSearchProvider
+    final fileProvider = search.getProvider<FileSearchProvider>();
+    if (fileProvider != null) {
+      fileProvider.init(
+        getAssets: () {
+          return assetManager.assets.map((asset) => {
+            'path': asset.path,
+            'name': asset.name,
+            'folder': asset.folder,
+            'duration': (asset.duration * 1000).round(), // seconds → ms
+            'sampleRate': asset.sampleRate,
+            'channels': asset.channels,
+          }).toList();
+        },
+        onFileSelect: (path) {
+          debugPrint('[FileSearch] Selected: $path');
+          // Could navigate to asset browser or import
+        },
+      );
+      debugPrint('[EngineConnectedLayout] Initialized FileSearchProvider');
+    }
+
+    // P2.2: Initialize TrackSearchProvider
+    final trackProvider = search.getProvider<TrackSearchProvider>();
+    if (trackProvider != null) {
+      trackProvider.init(
+        getTracks: () {
+          // Return DAW tracks from timeline
+          return _tracks.map((track) => {
+            'id': track.id,
+            'name': track.name,
+            'type': track.trackType.name,
+            'isMuted': track.muted,
+            'isSolo': track.soloed,
+            'isArmed': track.armed,
+          }).toList();
+        },
+        onTrackSelect: (trackId) {
+          debugPrint('[TrackSearch] Selected: $trackId');
+          setState(() {
+            _selectedTrackId = trackId;
+          });
+        },
+      );
+      debugPrint('[EngineConnectedLayout] Initialized TrackSearchProvider');
+    }
+
+    // P2.3: Initialize PresetSearchProvider
+    final presetProvider = search.getProvider<PresetSearchProvider>();
+    if (presetProvider != null) {
+      presetProvider.init(
+        getPresets: () {
+          // Return DSP presets from middleware
+          // For now, return blend/random/sequence containers as "presets"
+          final presets = <Map<String, dynamic>>[];
+
+          // Add blend containers
+          for (final blend in middleware.blendContainers) {
+            presets.add({
+              'id': 'blend_${blend.id}',
+              'name': blend.name,
+              'plugin': 'Blend Container',
+              'category': 'Containers',
+            });
+          }
+
+          // Add random containers
+          for (final random in middleware.randomContainers) {
+            presets.add({
+              'id': 'random_${random.id}',
+              'name': random.name,
+              'plugin': 'Random Container',
+              'category': 'Containers',
+            });
+          }
+
+          // Add sequence containers
+          for (final seq in middleware.sequenceContainers) {
+            presets.add({
+              'id': 'seq_${seq.id}',
+              'name': seq.name,
+              'plugin': 'Sequence Container',
+              'category': 'Containers',
+            });
+          }
+
+          return presets;
+        },
+        onPresetSelect: (presetId) {
+          debugPrint('[PresetSearch] Selected: $presetId');
+          // Could open preset editor
+        },
+      );
+      debugPrint('[EngineConnectedLayout] Initialized PresetSearchProvider');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

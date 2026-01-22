@@ -464,8 +464,8 @@ class KeyboardFocusProvider extends ChangeNotifier {
   KeyEventResult _handleCommandsModeKey(KeyEvent event) {
     final key = event.logicalKey;
 
-    // Check for mapped command
-    final command = kCommandsFocusMapping[key];
+    // Check for mapped command (uses custom mappings if set)
+    final command = effectiveMapping[key];
     if (command != null) {
       // Escape exits commands mode
       if (command == KeyboardCommand.escape) {
@@ -558,10 +558,152 @@ class KeyboardFocusProvider extends ChangeNotifier {
     return label.length == 1 ? label.toUpperCase() : label;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3.1: KEYBOARD SHORTCUTS CUSTOMIZATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Custom key mappings (overrides defaults)
+  final Map<LogicalKeyboardKey, KeyboardCommand> _customMappings = {};
+
+  /// Whether custom mappings are active
+  bool get hasCustomMappings => _customMappings.isNotEmpty;
+
+  /// Get current effective mapping (custom or default)
+  Map<LogicalKeyboardKey, KeyboardCommand> get effectiveMapping {
+    if (_customMappings.isEmpty) return kCommandsFocusMapping;
+    final merged = Map<LogicalKeyboardKey, KeyboardCommand>.from(kCommandsFocusMapping);
+    merged.addAll(_customMappings);
+    return merged;
+  }
+
+  /// Get the key currently assigned to a command
+  LogicalKeyboardKey? getKeyForCommand(KeyboardCommand command) {
+    final mapping = effectiveMapping;
+    for (final entry in mapping.entries) {
+      if (entry.value == command) return entry.key;
+    }
+    return null;
+  }
+
+  /// Get the command currently assigned to a key
+  KeyboardCommand? getCommandForKey(LogicalKeyboardKey key) {
+    return effectiveMapping[key];
+  }
+
+  /// Remap a command to a new key
+  /// Returns the previously assigned command (if any) for conflict detection
+  KeyboardCommand? remapCommand(KeyboardCommand command, LogicalKeyboardKey newKey) {
+    // Check what was previously at this key
+    final previousCommand = effectiveMapping[newKey];
+
+    // Remove command from its old key in custom mappings
+    _customMappings.removeWhere((k, v) => v == command);
+
+    // Assign new key
+    _customMappings[newKey] = command;
+
+    notifyListeners();
+    return previousCommand;
+  }
+
+  /// Swap two commands' keys
+  void swapCommands(KeyboardCommand cmd1, KeyboardCommand cmd2) {
+    final key1 = getKeyForCommand(cmd1);
+    final key2 = getKeyForCommand(cmd2);
+
+    if (key1 != null && key2 != null) {
+      _customMappings[key1] = cmd2;
+      _customMappings[key2] = cmd1;
+      notifyListeners();
+    }
+  }
+
+  /// Remove custom mapping for a command (revert to default)
+  void resetCommandMapping(KeyboardCommand command) {
+    _customMappings.removeWhere((k, v) => v == command);
+    notifyListeners();
+  }
+
+  /// Reset all custom mappings to defaults
+  void resetAllMappings() {
+    _customMappings.clear();
+    notifyListeners();
+  }
+
+  /// Export custom mappings as JSON for persistence
+  Map<String, dynamic> exportMappings() {
+    if (_customMappings.isEmpty) return {};
+    final json = <String, dynamic>{};
+    for (final entry in _customMappings.entries) {
+      json[entry.key.keyId.toString()] = entry.value.name;
+    }
+    return json;
+  }
+
+  /// Import custom mappings from JSON
+  void importMappings(Map<String, dynamic> json) {
+    _customMappings.clear();
+    for (final entry in json.entries) {
+      final keyId = int.tryParse(entry.key);
+      if (keyId == null) continue;
+
+      // Find matching LogicalKeyboardKey
+      LogicalKeyboardKey? key;
+      for (final defaultKey in kCommandsFocusMapping.keys) {
+        if (defaultKey.keyId == keyId) {
+          key = defaultKey;
+          break;
+        }
+      }
+      if (key == null) continue;
+
+      // Find matching command
+      final commandName = entry.value as String?;
+      if (commandName == null) continue;
+
+      KeyboardCommand? command;
+      for (final cmd in KeyboardCommand.values) {
+        if (cmd.name == commandName) {
+          command = cmd;
+          break;
+        }
+      }
+      if (command == null) continue;
+
+      _customMappings[key] = command;
+    }
+    notifyListeners();
+  }
+
+  /// Get list of all commands with their current key assignments
+  List<({KeyboardCommand command, LogicalKeyboardKey? key, bool isCustom})> getCustomizableCommands() {
+    final result = <({KeyboardCommand command, LogicalKeyboardKey? key, bool isCustom})>[];
+
+    for (final command in KeyboardCommand.values) {
+      // Skip non-customizable commands
+      if (command == KeyboardCommand.escape) continue;
+      if (command == KeyboardCommand.play) continue; // Space is fixed
+      if (command == KeyboardCommand.stop) continue; // Enter is fixed
+
+      final currentKey = getKeyForCommand(command);
+      final defaultKey = kCommandsFocusMapping.entries
+          .where((e) => e.value == command)
+          .map((e) => e.key)
+          .firstOrNull;
+
+      final isCustom = currentKey != defaultKey;
+
+      result.add((command: command, key: currentKey, isCustom: isCustom));
+    }
+
+    return result;
+  }
+
   @override
   void dispose() {
     _focusNode.dispose();
     _commandHandlers.clear();
+    _customMappings.clear();
     super.dispose();
   }
 }

@@ -144,7 +144,7 @@ class LowerZoneContextBar extends StatelessWidget {
             Text(
               superTabLabels[index],
               style: TextStyle(
-                fontSize: 10,
+                fontSize: LowerZoneTypography.sizeLabel,
                 fontWeight: FontWeight.bold,
                 color: isSelected ? accentColor : LowerZoneColors.textTertiary,
               ),
@@ -153,7 +153,7 @@ class LowerZoneContextBar extends StatelessWidget {
             Text(
               '${index + 1}',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: LowerZoneTypography.sizeTiny,
                 color: isSelected ? accentColor.withValues(alpha: 0.6) : LowerZoneColors.textMuted,
               ),
             ),
@@ -180,7 +180,7 @@ class LowerZoneContextBar extends StatelessWidget {
           Text(
             'Search...',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: LowerZoneTypography.sizeBadge,
               color: LowerZoneColors.textMuted,
             ),
           ),
@@ -236,7 +236,7 @@ class LowerZoneContextBar extends StatelessWidget {
             Text(
               subTabLabels[index],
               style: TextStyle(
-                fontSize: 10,
+                fontSize: LowerZoneTypography.sizeLabel,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected ? accentColor : LowerZoneColors.textSecondary,
               ),
@@ -245,7 +245,7 @@ class LowerZoneContextBar extends StatelessWidget {
             Text(
               shortcuts[index],
               style: TextStyle(
-                fontSize: 8,
+                fontSize: LowerZoneTypography.sizeTiny,
                 color: isSelected ? accentColor.withValues(alpha: 0.5) : LowerZoneColors.textMuted,
               ),
             ),

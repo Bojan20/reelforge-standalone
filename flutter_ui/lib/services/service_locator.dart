@@ -46,6 +46,8 @@ import 'shared_meter_reader.dart';
 import 'slotlab_track_bridge.dart';
 import 'session_persistence_service.dart';
 import 'live_engine_service.dart';
+import 'unified_search_service.dart';
+import 'recent_favorites_service.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -137,6 +139,19 @@ class ServiceLocator {
     // NOTE: EventRegistry is a ChangeNotifier created per-screen via Provider,
     // not registered here.
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6: UX Services (search, recent/favorites)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<UnifiedSearchService>(
+      () => UnifiedSearchService.instance,
+    );
+    sl.registerLazySingleton<RecentFavoritesService>(
+      () => RecentFavoritesService.instance,
+    );
+
+    // Initialize search providers
+    _initializeSearchProviders();
+
     _initialized = true;
   }
 
@@ -148,6 +163,22 @@ class ServiceLocator {
 
   /// Check if initialized
   static bool get isInitialized => _initialized;
+
+  /// Initialize search providers (P0.1 fix)
+  static void _initializeSearchProviders() {
+    final search = sl<UnifiedSearchService>();
+
+    // Register built-in providers (no init required)
+    search.registerProvider(HelpSearchProvider());
+    search.registerProvider(RecentSearchProvider());
+
+    // P2: Register data-driven providers (init() called later in EngineConnectedLayout)
+    // These need callbacks to access Provider data, so we register empty instances here
+    // and call init() in engine_connected_layout.dart when context is available.
+    search.registerProvider(FileSearchProvider());
+    search.registerProvider(TrackSearchProvider());
+    search.registerProvider(PresetSearchProvider());
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

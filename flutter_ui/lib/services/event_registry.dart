@@ -26,6 +26,7 @@ import 'audio_playback_service.dart';
 import 'audio_pool.dart';
 import 'container_service.dart';
 import 'ducking_service.dart';
+import 'recent_favorites_service.dart';
 import 'rtpc_modulation_service.dart';
 import 'unified_playback_controller.dart';
 
@@ -1140,7 +1141,21 @@ class EventRegistry extends ChangeNotifier {
       );
     }
 
+    // P1.3: Add to recent items for quick access
+    _addToRecent(event);
+
     notifyListeners();
+  }
+
+  /// Add triggered event to RecentFavoritesService for quick access
+  void _addToRecent(AudioEvent event) {
+    RecentFavoritesService.instance.addRecent(
+      RecentItem.event(
+        eventId: event.id,
+        name: event.name,
+        stageName: event.stage.isNotEmpty ? event.stage : null,
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

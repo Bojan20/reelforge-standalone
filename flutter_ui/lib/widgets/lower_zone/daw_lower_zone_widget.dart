@@ -24,6 +24,8 @@ import '../mixer/knob.dart';
 import '../editors/crossfade_editor.dart';
 import '../../providers/mixer_provider.dart';
 import '../../providers/undo_manager.dart';
+import 'export_panels.dart';
+import 'daw_files_browser.dart';
 // Gate and Reverb are accessible via FX Chain panel
 
 class DawLowerZoneWidget extends StatefulWidget {
@@ -164,7 +166,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     };
   }
 
-  Widget _buildFilesPanel() => _buildCompactFilesBrowser();
+  /// P3.1: Files browser with hover preview
+  Widget _buildFilesPanel() => const DawFilesBrowserPanel();
   Widget _buildPresetsPanel() => _buildCompactPresetsBrowser();
   Widget _buildPluginsPanel() => _buildCompactPluginsScanner();
   Widget _buildHistoryPanel() => _buildCompactHistoryPanel();
@@ -1801,188 +1804,20 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     };
   }
 
-  Widget _buildExportPanel() => _buildCompactExportSettings();
-  Widget _buildStemsPanel() => _buildCompactStemExport();
-  Widget _buildBouncePanel() => _buildCompactBounce();
+  /// P2.1: Functional export panel with FFI integration
+  Widget _buildExportPanel() => const DawExportPanel();
+
+  /// P2.1: Functional stems panel with track/bus selection
+  Widget _buildStemsPanel() => const DawStemsPanel();
+
+  /// P2.1: Functional realtime bounce with progress
+  Widget _buildBouncePanel() => const DawBouncePanel();
+
+  /// Archive panel (project packaging)
   Widget _buildArchivePanel() => _buildCompactArchive();
 
-  /// Compact Export Settings
-  Widget _buildCompactExportSettings() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader('EXPORT SETTINGS', Icons.upload),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildExportOption('Format', 'WAV 48kHz/24bit'),
-                        _buildExportOption('Channels', 'Stereo'),
-                        _buildExportOption('Normalize', 'Peak -1dB'),
-                        _buildExportOption('Dither', 'None'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildExportButton('EXPORT', Icons.upload, LowerZoneColors.dawAccent),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExportOption(String label, String value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExportButton(String label, IconData icon, Color color) {
-    return Container(
-      width: 80,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 24, color: color),
-          const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-        ],
-      ),
-    );
-  }
-
-  /// Compact Stem Export
-  Widget _buildCompactStemExport() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader('STEM EXPORT', Icons.account_tree),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _buildStemItem('Master Mix', true),
-                      _buildStemItem('Track 1', true),
-                      _buildStemItem('Track 2', true),
-                      _buildStemItem('Track 3', false),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildExportButton('STEMS', Icons.account_tree, LowerZoneColors.dawAccent),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStemItem(String name, bool selected) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: selected ? LowerZoneColors.dawAccent.withValues(alpha: 0.1) : LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: selected ? LowerZoneColors.dawAccent : LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            selected ? Icons.check_box : Icons.check_box_outline_blank,
-            size: 14,
-            color: selected ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
-          ),
-          const SizedBox(width: 6),
-          Text(name, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
-        ],
-      ),
-    );
-  }
-
-  /// Compact Bounce
-  Widget _buildCompactBounce() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader('REALTIME BOUNCE', Icons.speed),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildBounceOption('Source', 'Master Output'),
-                      _buildBounceOption('Length', '3:24.567'),
-                      _buildBounceOption('Tail', '2 sec'),
-                      const Spacer(),
-                      _buildBounceProgress(0.0),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildExportButton('BOUNCE', Icons.play_circle, LowerZoneColors.success),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBounceOption(String label, String value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgDeepest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
-        ],
-      ),
-    );
-  }
+  // Note: _buildCompactExportSettings, _buildCompactStemExport, _buildCompactBounce
+  // removed — replaced by DawExportPanel, DawStemsPanel, DawBouncePanel (P2.1)
 
   Widget _buildBounceProgress(double progress) {
     return Container(
@@ -2062,6 +1897,25 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           ),
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExportButton(String label, IconData icon, Color color) {
+    return Container(
+      width: 80,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 24, color: color),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
