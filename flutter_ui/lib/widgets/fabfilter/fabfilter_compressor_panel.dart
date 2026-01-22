@@ -275,7 +275,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
+  // BUILD — Compact horizontal layout, NO scrolling
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -284,409 +284,83 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          buildHeader(),
+          // Compact header
+          _buildCompactHeader(),
+          // Main content — horizontal layout, no scroll
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Display section
-                  if (!_compactView) ...[
-                    _buildDisplaySection(),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Main controls
-                  _buildMainControls(),
-                  const SizedBox(height: 16),
-
-                  // Style & options
-                  _buildStyleSection(),
-                  const SizedBox(height: 16),
-
-                  // Sidechain
-                  _buildSidechainSection(),
-
-                  // Character (expert mode)
-                  if (showExpertMode) ...[
-                    const SizedBox(height: 16),
-                    _buildCharacterSection(),
-                  ],
+                  // LEFT: Transfer curve + GR meter
+                  _buildCompactDisplay(),
+                  const SizedBox(width: 12),
+                  // CENTER: Main knobs
+                  Expanded(
+                    flex: 3,
+                    child: _buildCompactControls(),
+                  ),
+                  const SizedBox(width: 12),
+                  // RIGHT: Style + options
+                  _buildCompactOptions(),
                 ],
               ),
             ),
           ),
-          buildBottomBar(),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DISPLAY SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildDisplaySection() {
-    return Row(
-      children: [
-        // Level display (scrolling waveform)
-        Expanded(
-          flex: 3,
-          child: Container(
-            height: 140,
-            decoration: FabFilterDecorations.display(),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CustomPaint(
-                painter: _LevelDisplayPainter(
-                  history: _levelHistory,
-                  threshold: _threshold,
-                ),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 16),
-
-        // Knee/transfer curve display
-        Expanded(
-          flex: 2,
-          child: Container(
-            height: 140,
-            decoration: FabFilterDecorations.display(),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CustomPaint(
-                painter: _KneeCurvePainter(
-                  threshold: _threshold,
-                  ratio: _ratio,
-                  knee: _knee,
-                  currentInput: _currentInputLevel,
-                ),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 16),
-
-        // Gain reduction meter
-        SizedBox(
-          width: 40,
-          height: 140,
-          child: _buildGainReductionMeter(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGainReductionMeter() {
+  Widget _buildCompactHeader() {
     return Container(
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(4),
-      child: Column(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: FabFilterColors.borderSubtle),
+        ),
+      ),
+      child: Row(
         children: [
-          Text(
-            'GR',
-            style: FabFilterTextStyles.label,
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // GR goes from 0 to -40 dB
-                final grNormalized =
-                    (_currentGainReduction.abs() / 40).clamp(0.0, 1.0);
-                final peakNormalized =
-                    (_peakGainReduction.abs() / 40).clamp(0.0, 1.0);
-
-                return Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    // Background
-                    Container(
-                      width: 20,
-                      decoration: BoxDecoration(
-                        color: FabFilterColors.bgVoid,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-
-                    // GR bar
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 50),
-                      width: 20,
-                      height: constraints.maxHeight * grNormalized,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            FabFilterColors.red,
-                            FabFilterColors.orange,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-
-                    // Peak indicator
-                    Positioned(
-                      bottom: constraints.maxHeight * peakNormalized - 2,
-                      child: Container(
-                        width: 24,
-                        height: 3,
-                        color: FabFilterColors.yellow,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_currentGainReduction.toStringAsFixed(1)}',
-            style: FabFilterTextStyles.value.copyWith(fontSize: 10),
-          ),
+          Icon(widget.icon, color: widget.accentColor, size: 14),
+          const SizedBox(width: 6),
+          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
+          const SizedBox(width: 12),
+          // Style dropdown (compact)
+          _buildCompactStyleDropdown(),
+          const Spacer(),
+          // A/B
+          _buildCompactAB(),
+          const SizedBox(width: 8),
+          // Bypass
+          _buildCompactBypass(),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MAIN CONTROLS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildMainControls() {
-    return buildSection(
-      'DYNAMICS',
-      Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          // Threshold
-          FabFilterKnob(
-            value: (_threshold + 60) / 60, // Normalize -60 to 0
-            label: 'THRESHOLD',
-            display: '${_threshold.toStringAsFixed(1)} dB',
-            color: FabFilterColors.orange,
-            modulation: _autoThreshold ? 0.2 : null,
-            onChanged: (v) {
-              setState(() => _threshold = v * 60 - 60);
-              _ffi.compressorSetThreshold(widget.trackId, _threshold);
-            },
-          ),
-
-          // Ratio
-          FabFilterKnob(
-            value: (_ratio - 1) / 19, // Normalize 1:1 to 20:1
-            label: 'RATIO',
-            display: '${_ratio.toStringAsFixed(1)}:1',
-            color: FabFilterColors.orange,
-            onChanged: (v) {
-              setState(() => _ratio = v * 19 + 1);
-              _ffi.compressorSetRatio(widget.trackId, _ratio);
-            },
-          ),
-
-          // Knee
-          FabFilterKnob(
-            value: _knee / 24, // Normalize 0 to 24 dB
-            label: 'KNEE',
-            display: '${_knee.toStringAsFixed(1)} dB',
-            color: FabFilterColors.blue,
-            onChanged: (v) {
-              setState(() => _knee = v * 24);
-              _ffi.compressorSetKnee(widget.trackId, _knee);
-            },
-          ),
-
-          // Attack
-          FabFilterKnob(
-            value: math.log(_attack / 0.01) / math.log(500 / 0.01),
-            label: 'ATTACK',
-            display: _attack < 1
-                ? '${(_attack * 1000).toStringAsFixed(0)} µs'
-                : '${_attack.toStringAsFixed(1)} ms',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _attack = 0.01 * math.pow(500 / 0.01, v).toDouble());
-              _ffi.compressorSetAttack(widget.trackId, _attack);
-            },
-          ),
-
-          // Release
-          FabFilterKnob(
-            value: math.log(_release / 5) / math.log(5000 / 5),
-            label: 'RELEASE',
-            display: _release >= 1000
-                ? '${(_release / 1000).toStringAsFixed(2)} s'
-                : '${_release.toStringAsFixed(0)} ms',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _release = 5 * math.pow(5000 / 5, v).toDouble());
-              _ffi.compressorSetRelease(widget.trackId, _release);
-            },
-          ),
-
-          // Range
-          if (showExpertMode)
-            FabFilterKnob(
-              value: (_range + 60) / 60,
-              label: 'RANGE',
-              display: '${_range.toStringAsFixed(0)} dB',
-              color: FabFilterColors.purple,
-              onChanged: (v) => setState(() => _range = v * 60 - 60),
-            ),
-
-          // Mix
-          FabFilterKnob(
-            value: _mix / 100,
-            label: 'MIX',
-            display: '${_mix.toStringAsFixed(0)}%',
-            color: FabFilterColors.blue,
-            onChanged: (v) {
-              setState(() => _mix = v * 100);
-              _ffi.compressorSetMix(widget.trackId, _mix / 100.0);
-            },
-          ),
-
-          // Output
-          FabFilterKnob(
-            value: (_output + 24) / 48, // Normalize -24 to +24
-            label: 'OUTPUT',
-            display: '${_output >= 0 ? '+' : ''}${_output.toStringAsFixed(1)} dB',
-            color: FabFilterColors.green,
-            onChanged: (v) {
-              setState(() => _output = v * 48 - 24);
-              _ffi.compressorSetMakeup(widget.trackId, _output);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // STYLE SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildStyleSection() {
-    return buildSection(
-      'STYLE',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Style dropdown
-          Row(
-            children: [
-              Expanded(
-                child: _buildStyleDropdown(),
-              ),
-              const SizedBox(width: 16),
-              // Compact view toggle
-              buildToggle(
-                'Compact',
-                _compactView,
-                (v) => setState(() => _compactView = v),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Style description
-          Text(
-            _style.description,
-            style: FabFilterTextStyles.label.copyWith(
-              color: FabFilterColors.textMuted,
-            ),
-          ),
-
-          if (showExpertMode) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                buildToggle(
-                  'Auto Threshold',
-                  _autoThreshold,
-                  (v) => setState(() => _autoThreshold = v),
-                ),
-                const SizedBox(width: 24),
-                buildToggle(
-                  'Host Sync',
-                  _hostSync,
-                  (v) => setState(() => _hostSync = v),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStyleDropdown() {
+  Widget _buildCompactStyleDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: FabFilterColors.bgMid,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: FabFilterColors.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<CompressionStyle>(
           value: _style,
-          isExpanded: true,
           dropdownColor: FabFilterColors.bgDeep,
-          style: FabFilterTextStyles.value,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: FabFilterColors.textMuted,
-          ),
-          items: CompressionStyle.values.map((style) {
-            final isNew = style.label.contains('NEW') ||
-                [
-                  CompressionStyle.versatile,
-                  CompressionStyle.smooth,
-                  CompressionStyle.upward,
-                  CompressionStyle.ttm,
-                  CompressionStyle.variMu,
-                  CompressionStyle.elOp,
-                ].contains(style);
-
-            return DropdownMenuItem(
-              value: style,
-              child: Row(
-                children: [
-                  Text(style.label),
-                  if (isNew) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: FabFilterColors.orange.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        'NEW',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: FabFilterColors.orange,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }).toList(),
+          style: FabFilterText.paramLabel.copyWith(fontSize: 10),
+          icon: Icon(Icons.arrow_drop_down, size: 14, color: FabFilterColors.textMuted),
+          isDense: true,
+          items: CompressionStyle.values.map((s) => DropdownMenuItem(
+            value: s,
+            child: Text(s.label, style: const TextStyle(fontSize: 10)),
+          )).toList(),
           onChanged: (v) {
             if (v != null) {
               setState(() => _style = v);
@@ -698,216 +372,359 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // SIDECHAIN SECTION
-  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildCompactAB() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
+        const SizedBox(width: 2),
+        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
+      ],
+    );
+  }
 
-  Widget _buildSidechainSection() {
-    return buildSection(
-      'SIDECHAIN',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: active ? widget.accentColor : FabFilterColors.border,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? widget.accentColor : FabFilterColors.textTertiary,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactBypass() {
+    return GestureDetector(
+      onTap: toggleBypass,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: bypassed ? FabFilterColors.orange : FabFilterColors.border,
+          ),
+        ),
+        child: Text(
+          'BYP',
+          style: TextStyle(
+            color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactDisplay() {
+    return SizedBox(
+      width: 140,
+      child: Column(
         children: [
-          Row(
-            children: [
-              buildToggle(
-                'Enable',
-                _sidechainEnabled,
-                (v) => setState(() => _sidechainEnabled = v),
-              ),
-              const SizedBox(width: 24),
-
-              // HPF
-              Expanded(
-                child: _buildSimpleSlider(
-                  'HP',
-                  math.log(_sidechainHpf / 20) / math.log(500 / 20),
-                  '${_sidechainHpf.toStringAsFixed(0)} Hz',
-                  FabFilterColors.cyan,
-                  _sidechainEnabled
-                      ? (v) => setState(
-                          () => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())
-                      : null,
+          // Transfer curve (knee display)
+          Expanded(
+            child: Container(
+              decoration: FabFilterDecorations.display(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: CustomPaint(
+                  painter: _KneeCurvePainter(
+                    threshold: _threshold,
+                    ratio: _ratio,
+                    knee: _knee,
+                    currentInput: _currentInputLevel,
+                  ),
+                  size: Size.infinite,
                 ),
               ),
-              const SizedBox(width: 16),
-
-              // LPF
-              Expanded(
-                child: _buildSimpleSlider(
-                  'LP',
-                  math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
-                  _sidechainLpf >= 1000
-                      ? '${(_sidechainLpf / 1000).toStringAsFixed(1)}k'
-                      : '${_sidechainLpf.toStringAsFixed(0)} Hz',
-                  FabFilterColors.cyan,
-                  _sidechainEnabled
-                      ? (v) => setState(() =>
-                          _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())
-                      : null,
-                ),
-              ),
-            ],
+            ),
           ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              // EQ button
-              _buildTextButton(
-                'EQ...',
-                _sidechainEqVisible,
-                () => setState(() => _sidechainEqVisible = !_sidechainEqVisible),
-              ),
-              const SizedBox(width: 16),
-
-              // Audition
-              buildToggle(
-                'Audition',
-                _sidechainAudition,
-                (v) => setState(() => _sidechainAudition = v),
-              ),
-            ],
-          ),
-
-          // Sidechain EQ (expandable)
-          if (_sidechainEqVisible && _sidechainEnabled) ...[
-            const SizedBox(height: 12),
-            _buildSidechainEq(),
-          ],
+          const SizedBox(height: 6),
+          // GR meter (horizontal bar)
+          _buildHorizontalGRMeter(),
         ],
       ),
     );
   }
 
-  Widget _buildTextButton(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active
-              ? FabFilterColors.blue.withValues(alpha: 0.3)
-              : FabFilterColors.bgMid,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: active ? FabFilterColors.blue : FabFilterColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: FabFilterTextStyles.label.copyWith(
-            color: active ? FabFilterColors.blue : FabFilterColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidechainEq() {
+  Widget _buildHorizontalGRMeter() {
+    final grNorm = (_currentGainReduction.abs() / 40).clamp(0.0, 1.0);
     return Container(
-      height: 120,
+      height: 18,
       decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(8),
-      child: CustomPaint(
-        painter: _SidechainEqPainter(
-          bands: _sidechainBands,
-          hpf: _sidechainHpf,
-          lpf: _sidechainLpf,
-        ),
-        size: Size.infinite,
-      ),
-    );
-  }
-
-  /// Simple slider helper (normalized 0-1 value)
-  Widget _buildSimpleSlider(
-    String label,
-    double value,
-    String display,
-    Color color,
-    ValueChanged<double>? onChanged,
-  ) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 30,
-          child: Text(label, style: FabFilterTextStyles.label),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: fabFilterSliderTheme(color),
-            child: Slider(
-              value: value.clamp(0.0, 1.0),
-              onChanged: onChanged,
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: [
+          Text('GR', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Stack(
+              children: [
+                Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.bgVoid,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: grNorm,
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [FabFilterColors.orange, FabFilterColors.red],
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        SizedBox(
-          width: 60,
-          child: Text(
-            display,
-            style: FabFilterTextStyles.value.copyWith(color: color),
-            textAlign: TextAlign.right,
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 32,
+            child: Text(
+              '${_currentGainReduction.toStringAsFixed(1)}',
+              style: FabFilterText.paramValue(FabFilterColors.orange).copyWith(fontSize: 9),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactControls() {
+    return Column(
+      children: [
+        // Row 1: Main compression knobs (smaller)
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildSmallKnob(
+                value: (_threshold + 60) / 60,
+                label: 'THRESH',
+                display: '${_threshold.toStringAsFixed(0)} dB',
+                color: FabFilterColors.orange,
+                onChanged: (v) {
+                  setState(() => _threshold = v * 60 - 60);
+                  _ffi.compressorSetThreshold(widget.trackId, _threshold);
+                },
+              ),
+              _buildSmallKnob(
+                value: (_ratio - 1) / 19,
+                label: 'RATIO',
+                display: '${_ratio.toStringAsFixed(1)}:1',
+                color: FabFilterColors.orange,
+                onChanged: (v) {
+                  setState(() => _ratio = v * 19 + 1);
+                  _ffi.compressorSetRatio(widget.trackId, _ratio);
+                },
+              ),
+              _buildSmallKnob(
+                value: _knee / 24,
+                label: 'KNEE',
+                display: '${_knee.toStringAsFixed(0)} dB',
+                color: FabFilterColors.blue,
+                onChanged: (v) {
+                  setState(() => _knee = v * 24);
+                  _ffi.compressorSetKnee(widget.trackId, _knee);
+                },
+              ),
+              _buildSmallKnob(
+                value: math.log(_attack / 0.01) / math.log(500 / 0.01),
+                label: 'ATT',
+                display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
+                color: FabFilterColors.cyan,
+                onChanged: (v) {
+                  setState(() => _attack = 0.01 * math.pow(500 / 0.01, v).toDouble());
+                  _ffi.compressorSetAttack(widget.trackId, _attack);
+                },
+              ),
+              _buildSmallKnob(
+                value: math.log(_release / 5) / math.log(5000 / 5),
+                label: 'REL',
+                display: _release >= 1000 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
+                color: FabFilterColors.cyan,
+                onChanged: (v) {
+                  setState(() => _release = 5 * math.pow(5000 / 5, v).toDouble());
+                  _ffi.compressorSetRelease(widget.trackId, _release);
+                },
+              ),
+              _buildSmallKnob(
+                value: _mix / 100,
+                label: 'MIX',
+                display: '${_mix.toStringAsFixed(0)}%',
+                color: FabFilterColors.blue,
+                onChanged: (v) {
+                  setState(() => _mix = v * 100);
+                  _ffi.compressorSetMix(widget.trackId, _mix / 100.0);
+                },
+              ),
+              _buildSmallKnob(
+                value: (_output + 24) / 48,
+                label: 'OUT',
+                display: '${_output >= 0 ? '+' : ''}${_output.toStringAsFixed(0)}dB',
+                color: FabFilterColors.green,
+                onChanged: (v) {
+                  setState(() => _output = v * 48 - 24);
+                  _ffi.compressorSetMakeup(widget.trackId, _output);
+                },
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // CHARACTER SECTION (Expert Mode)
-  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildSmallKnob({
+    required double value,
+    required String label,
+    required String display,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    return FabFilterKnob(
+      value: value.clamp(0.0, 1.0),
+      label: label,
+      display: display,
+      color: color,
+      size: 48,
+      onChanged: onChanged,
+    );
+  }
 
-  Widget _buildCharacterSection() {
-    return buildSection(
-      'CHARACTER',
-      Row(
+  Widget _buildCompactOptions() {
+    return SizedBox(
+      width: 100,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Character mode buttons
-          ...CharacterMode.values.map((mode) {
-            final isSelected = _character == mode;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => setState(() => _character = mode),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: isSelected
-                      ? FabFilterDecorations.toggleActive(mode.color)
-                      : FabFilterDecorations.toggle(),
-                  child: Text(
-                    mode.label,
-                    style: FabFilterTextStyles.label.copyWith(
-                      color:
-                          isSelected ? mode.color : FabFilterColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-
+          // Sidechain toggle
+          _buildOptionRow('SC', _sidechainEnabled, (v) => setState(() => _sidechainEnabled = v)),
+          const SizedBox(height: 4),
+          // Sidechain HP
+          if (_sidechainEnabled) ...[
+            _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20),
+              '${_sidechainHpf.toStringAsFixed(0)}', (v) => setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())),
+            const SizedBox(height: 2),
+            _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
+              '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) => setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())),
+          ],
           const Spacer(),
-
-          // Drive (only if character != off)
-          if (_character != CharacterMode.off)
-            SizedBox(
-              width: 200,
-              child: _buildSimpleSlider(
-                'Drive',
-                (_drive + 6) / 18, // -6 to +12
-                '${_drive >= 0 ? '+' : ''}${_drive.toStringAsFixed(1)} dB',
-                _character.color,
-                (v) => setState(() => _drive = v * 18 - 6),
-              ),
+          // Character
+          if (showExpertMode) ...[
+            Text('CHARACTER', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 2,
+              runSpacing: 2,
+              children: CharacterMode.values.map((m) => _buildTinyButton(
+                m.label.substring(0, m == CharacterMode.off ? 3 : 1),
+                _character == m,
+                m.color,
+                () => setState(() => _character = m),
+              )).toList(),
             ),
+          ],
         ],
       ),
     );
   }
+
+  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: value ? widget.accentColor.withValues(alpha: 0.15) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: value ? widget.accentColor.withValues(alpha: 0.5) : FabFilterColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 9)),
+            const Spacer(),
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14,
+              color: value ? widget.accentColor : FabFilterColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
+    return SizedBox(
+      height: 18,
+      child: Row(
+        children: [
+          SizedBox(width: 18, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: SliderComponentShape.noOverlay,
+                activeTrackColor: FabFilterColors.cyan,
+                inactiveTrackColor: FabFilterColors.bgVoid,
+                thumbColor: FabFilterColors.cyan,
+              ),
+              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+            ),
+          ),
+          SizedBox(width: 24, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTinyButton(String label, bool active, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 22,
+        height: 18,
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: active ? color : FabFilterColors.border),
+        ),
+        child: Center(
+          child: Text(label, style: TextStyle(color: active ? color : FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -7,6 +7,7 @@ library;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'middleware_models.dart';
+import '../services/event_registry.dart' show ContainerType, ContainerTypeExtension;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLOT AUDIO EVENT IDS
@@ -1581,6 +1582,12 @@ class SlotCompositeEvent {
   /// Track index on the SlotLab timeline (0-based)
   final int trackIndex;
 
+  /// Container integration: type of container to use instead of direct layers
+  final ContainerType containerType;
+
+  /// Container integration: ID of the container (if using container)
+  final int? containerId;
+
   const SlotCompositeEvent({
     required this.id,
     required this.name,
@@ -1597,6 +1604,8 @@ class SlotCompositeEvent {
     this.triggerConditions = const {},
     this.timelinePositionMs = 0.0,
     this.trackIndex = 0,
+    this.containerType = ContainerType.none,
+    this.containerId,
   });
 
   SlotCompositeEvent copyWith({
@@ -1615,6 +1624,8 @@ class SlotCompositeEvent {
     Map<String, String>? triggerConditions,
     double? timelinePositionMs,
     int? trackIndex,
+    ContainerType? containerType,
+    int? containerId,
   }) {
     return SlotCompositeEvent(
       id: id ?? this.id,
@@ -1632,8 +1643,13 @@ class SlotCompositeEvent {
       triggerConditions: triggerConditions ?? this.triggerConditions,
       timelinePositionMs: timelinePositionMs ?? this.timelinePositionMs,
       trackIndex: trackIndex ?? this.trackIndex,
+      containerType: containerType ?? this.containerType,
+      containerId: containerId ?? this.containerId,
     );
   }
+
+  /// Returns true if this event uses a container instead of direct layers
+  bool get usesContainer => containerType != ContainerType.none && containerId != null;
 
   /// Timeline position in seconds (convenience getter)
   double get timelinePositionSeconds => timelinePositionMs / 1000.0;
@@ -1677,6 +1693,8 @@ class SlotCompositeEvent {
     'triggerConditions': triggerConditions,
     'timelinePositionMs': timelinePositionMs,
     'trackIndex': trackIndex,
+    'containerType': containerType.index,
+    'containerId': containerId,
   };
 
   /// Create from JSON
@@ -1706,6 +1724,8 @@ class SlotCompositeEvent {
           ?.map((k, v) => MapEntry(k, v as String)) ?? {},
       timelinePositionMs: (json['timelinePositionMs'] as num?)?.toDouble() ?? 0.0,
       trackIndex: json['trackIndex'] as int? ?? 0,
+      containerType: ContainerTypeExtension.fromValue(json['containerType'] as int? ?? 0),
+      containerId: json['containerId'] as int?,
     );
   }
 }

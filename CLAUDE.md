@@ -929,7 +929,7 @@ flutter run --profile          # UI performance
 - ✅ Spatial (Panner, Width, M/S)
 - ✅ Analysis (FFT, LUFS, True Peak)
 
-### FabFilter-Style Premium DSP Panels (2026-01-20) ✅
+### FabFilter-Style Premium DSP Panels (2026-01-22) ✅
 
 Professional DSP panel suite inspired by FabFilter's design language.
 
@@ -937,11 +937,10 @@ Professional DSP panel suite inspired by FabFilter's design language.
 
 | Panel | Inspiration | Features | FFI |
 |-------|-------------|----------|-----|
-| `fabfilter_eq_panel.dart` | Pro-Q 3 | 64-band, spectrum, phase modes, dynamic EQ | ✅ |
-| `fabfilter_compressor_panel.dart` | Pro-C 2 | Knee display, 14 styles, sidechain EQ | ✅ |
-| `fabfilter_limiter_panel.dart` | Pro-L 2 | LUFS metering, 8 styles, true peak | ✅ |
-| `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, brightness | ✅ |
-| `fabfilter_gate_panel.dart` | Pro-G | Threshold viz, sidechain filter, range | ✅ |
+| `fabfilter_compressor_panel.dart` | Pro-C 2 | Transfer curve, knee display, 14 styles, sidechain EQ | ✅ |
+| `fabfilter_limiter_panel.dart` | Pro-L 2 | LUFS metering, 8 styles, true peak, GR history | ✅ |
+| `fabfilter_gate_panel.dart` | Pro-G | State indicator, threshold viz, sidechain filter | ✅ |
+| `fabfilter_reverb_panel.dart` | Pro-R | Decay display, pre-delay, 8 space types, EQ | ✅ |
 
 **Shared Components:**
 - `fabfilter_theme.dart` — Colors, gradients, text styles
@@ -949,10 +948,58 @@ Professional DSP panel suite inspired by FabFilter's design language.
 - `fabfilter_panel_base.dart` — A/B comparison, undo/redo, bypass
 - `fabfilter_preset_browser.dart` — Categories, search, favorites
 
-**Total:** ~6,400 LOC
+**Total:** ~5,450 LOC
 
-**Lower Zone Integration:**
-All panels accessible via Process group: `fabfilter-eq`, `fabfilter-comp`, `fabfilter-limiter`, `fabfilter-reverb`, `fabfilter-gate`
+**SlotLab Lower Zone Integration (2026-01-22):**
+
+| Key | Tab | Panel |
+|-----|-----|-------|
+| `5` | Compressor | FabFilterCompressorPanel (Pro-C style) |
+| `6` | Limiter | FabFilterLimiterPanel (Pro-L style) |
+| `7` | Gate | FabFilterGatePanel (Pro-G style) |
+| `8` | Reverb | FabFilterReverbPanel (Pro-R style) |
+
+**Files:**
+- `lower_zone_controller.dart` — Tab enums + keyboard shortcuts
+- `lower_zone.dart` — Panel instances in IndexedStack
+
+### UltimateMixer Integration (2026-01-22) ✅
+
+**UltimateMixer je sada jedini mixer** — ProDawMixer je uklonjen.
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Volume Fader | ✅ | All channel types (audio, bus, aux, VCA, master) |
+| Pan (Mono) | ✅ | Standard pan knob |
+| Pan L/R (Stereo) | ✅ | Pro Tools-style dual pan |
+| Mute/Solo/Arm | ✅ | All channel types |
+| Peak/RMS Metering | ✅ | Real-time levels |
+| Send Level/Mute | ✅ | Per-channel aux sends |
+| Send Pre/Post Fader | ✅ | Toggle pre/post fader mode |
+| Send Destination | ✅ | Change send routing |
+| Output Routing | ✅ | Channel → Bus routing |
+| Phase Toggle | ✅ | Input phase invert |
+| Input Gain | ✅ | -20dB to +20dB trim |
+| VCA Faders | ✅ | Group volume control |
+| Add Bus | ✅ | Dynamic bus creation |
+| Glass/Classic Mode | ✅ | Auto-detected via ThemeModeProvider |
+
+**Key Files:**
+- `ultimate_mixer.dart` — Main mixer widget (~2167 LOC)
+- `daw_lower_zone_widget.dart` — Full MixerProvider integration
+- `glass_mixer.dart` — Thin wrapper (ThemeAwareMixer)
+- `mixer_provider.dart` — Added `toggleAuxSendPreFader()`, `setAuxSendDestination()`, `setInputGain()`
+
+**Deleted Files:**
+- `pro_daw_mixer.dart` — Removed (~1000 LOC duplicate)
+
+**Import Pattern (namespace conflict fix):**
+```dart
+import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
+// Use: ultimate.UltimateMixer, ultimate.ChannelType.audio, etc.
+```
+
+**Dokumentacija:** `.claude/architecture/ULTIMATE_MIXER_INTEGRATION.md`
 
 ### Timeline
 - ✅ Multi-track arrangement
@@ -1075,6 +1122,122 @@ Svi advanced sistemi su potpuno integrisani u MiddlewareProvider (linije 3017-34
 **Model fajlovi:**
 - `middleware_models.dart` — Core: State, Switch, RTPC, Ducking, Containers
 - `advanced_middleware_models.dart` — Advanced: VoicePool, BusHierarchy, AuxSend, Spatial, Memory, HDR
+
+### Container System Integration (2026-01-22) ✅
+
+Full event→container playback delegation za dinamički audio.
+
+**Arhitektura:**
+```
+AudioEvent.usesContainer = true
+         ↓
+EventRegistry.triggerEvent()
+         ↓
+_triggerViaContainer() → ContainerService
+         ↓
+┌────────────────┬────────────────┬────────────────┐
+│ BlendContainer │ RandomContainer│ SequenceContainer│
+│ (RTPC volumes) │ (weighted pick)│ (timed steps)   │
+└────────────────┴────────────────┴────────────────┘
+         ↓
+AudioPlaybackService.playFileToBus()
+```
+
+**P0 Backend (COMPLETED):**
+- `ContainerType` enum: `none`, `blend`, `random`, `sequence`
+- `AudioEvent.containerType` + `containerId` fields
+- `ContainerService.triggerBlendContainer/RandomContainer/SequenceContainer()`
+- `audioPath` field dodato u BlendChild, RandomChild, SequenceStep
+
+**P1 UI (COMPLETED):**
+- Audio file picker u container panel child editors
+- Container selector (mode toggle + dropdowns) u SlotLab event expanded view
+- Container badge u Event Log (purple=Blend, amber=Random, teal=Sequence)
+
+**Ključni fajlovi:**
+| Fajl | Promene |
+|------|---------|
+| `event_registry.dart` | ContainerType enum, container delegation, tracking |
+| `container_service.dart` | triggerXxxContainer(), getXxxContainer() |
+| `middleware_models.dart` | audioPath na child klasama |
+| `slot_audio_events.dart` | containerType/containerId na SlotCompositeEvent |
+| `slot_lab_screen.dart` | Container selector UI |
+| `event_log_panel.dart` | Container badge widget |
+| `*_container_panel.dart` | Audio picker UI |
+
+**Dokumentacija:** `.claude/tasks/CONTAINER_P0_INTEGRATION.md`, `.claude/tasks/CONTAINER_P1_UI_INTEGRATION.md`
+
+**P2 Rust FFI (COMPLETED 2026-01-22):**
+
+Sub-millisecond container evaluation via Rust FFI.
+
+| Metric | Dart-only (P1) | Rust FFI (P2) |
+|--------|----------------|---------------|
+| Blend trigger | ~5-10ms | < 0.5ms |
+| Random select | ~3-5ms | < 0.2ms |
+| Sequence tick | ~2-4ms | < 0.1ms |
+
+**Rust Implementation:**
+- `crates/rf-engine/src/containers/` — BlendContainer, RandomContainer, SequenceContainer
+- `crates/rf-bridge/src/container_ffi.rs` — C FFI functions (~760 LOC)
+- ContainerStorage: DashMap-based lock-free storage
+- SmallVec for stack-allocated children (8-32 elements)
+- 19 Rust tests passing
+
+**Dart FFI Bindings:**
+- `native_ffi.dart` — `ContainerFFI` extension
+- `containerCreateBlend/Random/Sequence()` — JSON config → Rust ID
+- `containerEvaluateBlend()` → `List<BlendEvalResult>`
+- `containerSelectRandom()` → `RandomSelectResult?`
+- `containerTickSequence()` → `SequenceTickResult`
+
+**ContainerService Integration:**
+- FFI init with Dart fallback (`isRustAvailable`)
+- `syncBlendToRust()`, `syncRandomToRust()`, `syncSequenceToRust()`
+- Provider hooks: auto-sync on create/update/remove
+
+**Benchmark Utility:**
+- `flutter_ui/lib/utils/container_benchmark.dart`
+- Measures Rust FFI vs Dart latency (1000 iterations)
+- Returns avg/min/max/P50/P99 statistics with speedup factors
+
+**Dokumentacija:** `.claude/tasks/CONTAINER_P2_RUST_FFI.md`
+
+**P3 Advanced (COMPLETED 2026-01-22):**
+
+All P3 optimizations implemented:
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| 3A: Rust-Side Sequence Timing | ✅ DONE | Rust tick-based timing via `ContainerService._tickRustSequence()` |
+| 3B: Audio Path Caching | ✅ DONE | Paths stored in Rust models, FFI `get_*_audio_path()` functions |
+| 3D: Parameter Smoothing | ✅ DONE | Critically damped spring RTPC interpolation (0-1000ms) |
+| 3E: Container Presets | ✅ DONE | Export/import `.ffxcontainer` JSON files with schema versioning |
+| 3C: Container Groups | ✅ DONE | Hierarchical nesting (Random→Blend, Sequence→Random, etc.) |
+
+**P3A: Rust-Side Sequence Timing**
+- `container_service.dart`: `_activeRustSequences`, `_tickRustSequence()`, `_playSequenceStep()`
+- Dart Timer replaced with periodic tick calls to Rust `container_tick_sequence()`
+- Microsecond-accurate step triggering
+
+**P3D: Parameter Smoothing (RTPC)**
+- `crates/rf-engine/src/containers/blend.rs`: `smoothing_ms`, `tick_smoothing()`, `smoothed_rtpc()`
+- Critically damped spring interpolation (no overshoot)
+- FFI: `container_set_blend_rtpc_target()`, `container_tick_blend_smoothing()`
+
+**P3E: Container Presets**
+- `flutter_ui/lib/services/container_preset_service.dart` (~380 LOC)
+- Schema versioned JSON (v1), `.ffxcontainer` extension
+- Export/import for Blend, Random, Sequence containers
+- Note: `audioPath` NOT exported (project-specific)
+
+**P3C: Container Groups**
+- `crates/rf-engine/src/containers/group.rs` (~220 LOC)
+- `ContainerGroup`, `GroupChild`, `GroupEvaluationMode` (All/FirstMatch/Priority/Random)
+- FFI: `container_create_group()`, `container_evaluate_group()`, `container_group_add_child()`
+- Enables complex sound design: Random→Blend (pick variant, crossfade by RTPC)
+
+**Dokumentacija:** `.claude/tasks/CONTAINER_P3_ADVANCED.md`
 
 ### Slot Lab — Synthetic Slot Engine (IMPLEMENTED)
 

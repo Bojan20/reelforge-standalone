@@ -790,7 +790,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _slotLabProvider.setLowerZoneHeight(_lowerZoneController.height);
   }
 
-  /// Map LowerZoneTab (4 values) to _BottomPanelTab (13 values)
+  /// Map LowerZoneTab to _BottomPanelTab
   /// Returns null for tabs that don't have a direct mapping
   _BottomPanelTab? _lowerZoneTabToBottomTab(LowerZoneTab tab) {
     switch (tab) {
@@ -802,6 +802,12 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _BottomPanelTab.eventList;
       case LowerZoneTab.meters:
         return _BottomPanelTab.meters;
+      // DSP panels don't map to _BottomPanelTab
+      case LowerZoneTab.dspCompressor:
+      case LowerZoneTab.dspLimiter:
+      case LowerZoneTab.dspGate:
+      case LowerZoneTab.dspReverb:
+        return null;
     }
   }
 
@@ -6678,21 +6684,326 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               color: Colors.black.withOpacity(0.2),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(5)),
             ),
-            child: event.layers.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        'Drop audio files here',
-                        style: TextStyle(color: Colors.white38, fontSize: 10),
-                      ),
-                    ),
-                  )
-                : Column(
-                    children: event.layers.map((layer) => _buildLayerItem(event, layer)).toList(),
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Container selector row
+                _buildContainerSelector(event),
+                const SizedBox(height: 8),
+                // Layers (if not using container)
+                if (!event.usesContainer)
+                  event.layers.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text(
+                              'Drop audio files here',
+                              style: TextStyle(color: Colors.white38, fontSize: 10),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: event.layers.map((layer) => _buildLayerItem(event, layer)).toList(),
+                        )
+                else
+                  // Show container info when using container
+                  _buildContainerInfo(event),
+              ],
+            ),
           ),
       ],
+    );
+  }
+
+  /// Container selector for event - allows choosing container type and ID
+  Widget _buildContainerSelector(SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A22),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 12, color: Colors.purple.shade300),
+              const SizedBox(width: 6),
+              const Text(
+                'Playback Mode',
+                style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Mode toggle: Direct Layers vs Container
+          Row(
+            children: [
+              _buildModeRadio(event, middleware, false, 'Direct Layers', Icons.layers),
+              const SizedBox(width: 12),
+              _buildModeRadio(event, middleware, true, 'Use Container', Icons.account_tree),
+            ],
+          ),
+          // Container type and ID selectors (only if using container)
+          if (event.containerType != ContainerType.none) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                // Container Type
+                Expanded(
+                  child: _buildContainerTypeDropdown(event, middleware),
+                ),
+                const SizedBox(width: 8),
+                // Container ID
+                Expanded(
+                  child: _buildContainerIdDropdown(event, middleware),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeRadio(SlotCompositeEvent event, MiddlewareProvider middleware, bool useContainer, String label, IconData icon) {
+    final isSelected = useContainer ? event.usesContainer : !event.usesContainer;
+    return InkWell(
+      onTap: () {
+        if (useContainer) {
+          // Switch to container mode - default to blend
+          middleware.updateCompositeEvent(event.copyWith(
+            containerType: ContainerType.blend,
+          ));
+        } else {
+          // Switch to direct layers mode
+          middleware.updateCompositeEvent(event.copyWith(
+            containerType: ContainerType.none,
+            containerId: null,
+          ));
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.purple.withOpacity(0.3) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? Colors.purple : Colors.white.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              size: 12,
+              color: isSelected ? Colors.purple.shade300 : Colors.white38,
+            ),
+            const SizedBox(width: 4),
+            Icon(icon, size: 12, color: isSelected ? Colors.purple.shade300 : Colors.white38),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.purple.shade300 : Colors.white38,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContainerTypeDropdown(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E14),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: DropdownButton<ContainerType>(
+        value: event.containerType == ContainerType.none ? ContainerType.blend : event.containerType,
+        isExpanded: true,
+        underline: const SizedBox.shrink(),
+        dropdownColor: const Color(0xFF1A1A22),
+        style: const TextStyle(color: Colors.white, fontSize: 10),
+        items: [
+          ContainerType.blend,
+          ContainerType.random,
+          ContainerType.sequence,
+        ].map((type) {
+          return DropdownMenuItem(
+            value: type,
+            child: Text(type.displayName, style: const TextStyle(fontSize: 10)),
+          );
+        }).toList(),
+        onChanged: (type) {
+          if (type != null) {
+            middleware.updateCompositeEvent(event.copyWith(
+              containerType: type,
+              containerId: null, // Reset container ID when type changes
+            ));
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildContainerIdDropdown(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    // Get containers based on selected type
+    List<({int id, String name})> containers = [];
+    switch (event.containerType) {
+      case ContainerType.blend:
+        containers = middleware.blendContainers.map((c) => (id: c.id, name: c.name)).toList();
+        break;
+      case ContainerType.random:
+        containers = middleware.randomContainers.map((c) => (id: c.id, name: c.name)).toList();
+        break;
+      case ContainerType.sequence:
+        containers = middleware.sequenceContainers.map((c) => (id: c.id, name: c.name)).toList();
+        break;
+      case ContainerType.none:
+        break;
+    }
+
+    if (containers.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0E0E14),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: const Text(
+          'No containers',
+          style: TextStyle(color: Colors.orange, fontSize: 10),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E14),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: DropdownButton<int>(
+        value: containers.any((c) => c.id == event.containerId) ? event.containerId : null,
+        hint: const Text('Select...', style: TextStyle(color: Colors.white38, fontSize: 10)),
+        isExpanded: true,
+        underline: const SizedBox.shrink(),
+        dropdownColor: const Color(0xFF1A1A22),
+        style: const TextStyle(color: Colors.white, fontSize: 10),
+        items: containers.map((c) {
+          return DropdownMenuItem(
+            value: c.id,
+            child: Text(c.name, style: const TextStyle(fontSize: 10)),
+          );
+        }).toList(),
+        onChanged: (id) {
+          if (id != null) {
+            middleware.updateCompositeEvent(event.copyWith(containerId: id));
+          }
+        },
+      ),
+    );
+  }
+
+  /// Show container info when event uses container instead of direct layers
+  Widget _buildContainerInfo(SlotCompositeEvent event) {
+    final middleware = context.read<MiddlewareProvider>();
+    String containerName = 'Unknown';
+    int childCount = 0;
+
+    switch (event.containerType) {
+      case ContainerType.blend:
+        final container = middleware.blendContainers.where((c) => c.id == event.containerId).firstOrNull;
+        if (container != null) {
+          containerName = container.name;
+          childCount = container.children.length;
+        }
+        break;
+      case ContainerType.random:
+        final container = middleware.randomContainers.where((c) => c.id == event.containerId).firstOrNull;
+        if (container != null) {
+          containerName = container.name;
+          childCount = container.children.length;
+        }
+        break;
+      case ContainerType.sequence:
+        final container = middleware.sequenceContainers.where((c) => c.id == event.containerId).firstOrNull;
+        if (container != null) {
+          containerName = container.name;
+          childCount = container.steps.length;
+        }
+        break;
+      case ContainerType.none:
+        break;
+    }
+
+    final typeColor = switch (event.containerType) {
+      ContainerType.blend => Colors.purple,
+      ContainerType.random => Colors.amber,
+      ContainerType.sequence => Colors.teal,
+      ContainerType.none => Colors.grey,
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: typeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: typeColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_tree, size: 14, color: typeColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  containerName,
+                  style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${event.containerType.displayName} • $childCount ${event.containerType == ContainerType.sequence ? 'steps' : 'children'}',
+                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+          // Open container editor button
+          InkWell(
+            onTap: () {
+              // TODO: Navigate to container editor panel
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Edit container in Middleware > ${event.containerType.displayName}s panel'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: typeColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(Icons.open_in_new, size: 12, color: typeColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

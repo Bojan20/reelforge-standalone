@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FluxForge Lower Zone — Ultimate Design</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Backgrounds */
+      --bg-void: #050508;
+      --bg-deepest: #0a0a0c;
+      --bg-deep: #121216;
+      --bg-mid: #1a1a20;
+      --bg-surface: #242430;
+      --bg-elevated: #2a2a38;
+
+      /* Borders */
+      --border: #2a2a35;
+      --border-subtle: #1e1e28;
+      --border-focus: #4a9eff;
+
+      /* Text */
+      --text-primary: #ffffff;
+      --text-secondary: #b0b0c0;
+      --text-muted: #707088;
+      --text-tertiary: #505068;
+
+      /* Accents */
+      --blue: #4a9eff;
+      --orange: #ff9040;
+      --green: #40ff90;
+      --red: #ff4060;
+      --cyan: #40c8ff;
+      --purple: #a040ff;
+      --yellow: #ffcc40;
+      --pink: #ff40a0;
+
+      /* Tab colors */
+      --tab-browse: #4a9eff;
+      --tab-edit: #ff9040;
+      --tab-mix: #40ff90;
+      --tab-process: #a040ff;
+      --tab-deliver: #ffcc40;
+    }
+
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 300;
+      margin-bottom: 20px;
+      color: var(--text-secondary);
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin: 30px 0 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .mockup-section {
+      margin-bottom: 40px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LOWER ZONE CONTAINER
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .lower-zone {
+      background: var(--bg-deepest);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 320px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       CONTEXT BAR (Top)
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .context-bar {
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* Super Tabs Row */
+    .super-tabs {
+      display: flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 12px;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .super-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid transparent;
+    }
+
+    .super-tab:hover {
+      background: var(--bg-mid);
+      color: var(--text-secondary);
+    }
+
+    .super-tab.active {
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+
+    .super-tab.active[data-tab="browse"] { background: rgba(74, 158, 255, 0.15); border-color: var(--tab-browse); }
+    .super-tab.active[data-tab="edit"] { background: rgba(255, 144, 64, 0.15); border-color: var(--tab-edit); }
+    .super-tab.active[data-tab="mix"] { background: rgba(64, 255, 144, 0.15); border-color: var(--tab-mix); }
+    .super-tab.active[data-tab="process"] { background: rgba(160, 64, 255, 0.15); border-color: var(--tab-process); }
+    .super-tab.active[data-tab="deliver"] { background: rgba(255, 204, 64, 0.15); border-color: var(--tab-deliver); }
+
+    .super-tab .shortcut {
+      font-size: 9px;
+      padding: 2px 4px;
+      background: var(--bg-mid);
+      border-radius: 2px;
+      color: var(--text-tertiary);
+    }
+
+    .super-tab.active .shortcut {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+    }
+
+    /* Sub Tabs Row */
+    .sub-tabs-row {
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 12px;
+      gap: 2px;
+    }
+
+    .sub-tab {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+
+    .sub-tab:hover {
+      background: var(--bg-mid);
+      color: var(--text-secondary);
+    }
+
+    .sub-tab.active {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .sub-tab .key {
+      font-size: 8px;
+      color: var(--text-tertiary);
+      margin-left: 4px;
+    }
+
+    .sub-tabs-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+
+    /* Slot Context Bar */
+    .slot-context {
+      display: flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 12px;
+      background: var(--bg-mid);
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+
+    .context-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+    }
+
+    .context-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .context-dropdown {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .context-dropdown:hover {
+      border-color: var(--border-focus);
+    }
+
+    .context-dropdown .arrow {
+      font-size: 8px;
+      color: var(--text-muted);
+    }
+
+    .context-dropdown.stage { border-left: 2px solid var(--orange); }
+    .context-dropdown.feature { border-left: 2px solid var(--purple); }
+    .context-dropdown.state { border-left: 2px solid var(--cyan); }
+    .context-dropdown.target { border-left: 2px solid var(--green); }
+    .context-dropdown.trigger { border-left: 2px solid var(--pink); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       CONTENT PANEL (Middle)
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .content-panel {
+      flex: 1;
+      overflow: hidden;
+      background: var(--bg-deepest);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ACTION STRIP (Bottom)
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .action-strip {
+      display: flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 12px;
+      background: var(--bg-deep);
+      border-top: 1px solid var(--border);
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+      background: var(--bg-surface);
+      border-color: var(--border-focus);
+      color: var(--text-primary);
+    }
+
+    .action-btn.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: #5aa8ff;
+    }
+
+    .action-btn.success {
+      background: rgba(64, 255, 144, 0.15);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .action-btn.warning {
+      background: rgba(255, 144, 64, 0.15);
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .action-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    .action-spacer {
+      flex: 1;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PLUGIN RACK CONTENT
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .plugin-rack {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 12px;
+    }
+
+    .rack-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+
+    .rack-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .rack-info {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .rack-info span {
+      color: var(--cyan);
+    }
+
+    .signal-flow {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .flow-node {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .flow-node.input { border-color: var(--green); color: var(--green); }
+    .flow-node.output { border-color: var(--blue); color: var(--blue); }
+
+    .flow-arrow {
+      color: var(--text-tertiary);
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .plugin-slot {
+      width: 120px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .plugin-slot:hover {
+      border-color: var(--border-focus);
+    }
+
+    .plugin-slot.bypassed {
+      opacity: 0.5;
+    }
+
+    .plugin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .plugin-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .plugin-controls {
+      display: flex;
+      gap: 3px;
+    }
+
+    .plugin-btn {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 8px;
+      font-weight: bold;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .plugin-btn:hover {
+      border-color: var(--text-muted);
+    }
+
+    .plugin-btn.active {
+      background: rgba(255, 144, 64, 0.2);
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .plugin-visual {
+      height: 45px;
+      background: var(--bg-void);
+      border-radius: 4px;
+      margin-bottom: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .plugin-visual.eq {
+      background: linear-gradient(180deg, var(--bg-void) 0%, rgba(74, 158, 255, 0.1) 100%);
+    }
+
+    .plugin-visual.comp {
+      background: linear-gradient(180deg, var(--bg-void) 0%, rgba(255, 144, 64, 0.1) 100%);
+    }
+
+    .plugin-visual.reverb {
+      background: linear-gradient(180deg, var(--bg-void) 0%, rgba(160, 64, 255, 0.1) 100%);
+    }
+
+    .plugin-visual.limiter {
+      background: linear-gradient(180deg, var(--bg-void) 0%, rgba(255, 64, 96, 0.1) 100%);
+    }
+
+    .plugin-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: var(--text-muted);
+    }
+
+    .plugin-latency {
+      color: var(--cyan);
+    }
+
+    .plugin-cpu {
+      color: var(--green);
+    }
+
+    .plugin-slot.empty {
+      border-style: dashed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .plugin-slot.empty .add-icon {
+      font-size: 24px;
+      color: var(--text-tertiary);
+    }
+
+    /* Stage Variants */
+    .stage-variants {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg-mid);
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+
+    .stage-variants-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stage-chip {
+      padding: 4px 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 9px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .stage-chip:hover {
+      border-color: var(--text-muted);
+    }
+
+    .stage-chip.active {
+      background: rgba(255, 144, 64, 0.15);
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .stage-chip.active::after {
+      content: "●";
+      margin-left: 4px;
+      font-size: 6px;
+    }
+
+    .stage-diff {
+      flex: 1;
+      font-size: 9px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .stage-diff span {
+      color: var(--cyan);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       MIXER CONTENT
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .mixer-panel {
+      display: flex;
+      height: 100%;
+      padding: 12px;
+      gap: 8px;
+    }
+
+    .channel-strip {
+      width: 70px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .channel-strip.master {
+      width: 90px;
+      border-color: var(--blue);
+      background: rgba(74, 158, 255, 0.05);
+    }
+
+    .channel-name {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      text-align: center;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .channel-meter {
+      width: 100%;
+      height: 80px;
+      background: var(--bg-void);
+      border-radius: 3px;
+      margin-bottom: 6px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      gap: 2px;
+      padding: 2px;
+    }
+
+    .meter-bar {
+      width: 12px;
+      background: linear-gradient(to top,
+        var(--green) 0%,
+        var(--green) 60%,
+        var(--yellow) 75%,
+        var(--orange) 85%,
+        var(--red) 95%);
+      border-radius: 2px;
+      position: relative;
+    }
+
+    .meter-bar::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-void);
+      height: var(--meter-mask, 70%);
+      border-radius: 2px;
+    }
+
+    .channel-pan {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-surface);
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      margin-bottom: 6px;
+      position: relative;
+    }
+
+    .channel-pan::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 10px;
+      background: var(--text-primary);
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(var(--pan-angle, 0deg));
+      border-radius: 1px;
+    }
+
+    .channel-buttons {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 6px;
+    }
+
+    .channel-btn {
+      width: 22px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 8px;
+      font-weight: bold;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .channel-btn.mute.active {
+      background: rgba(255, 64, 96, 0.2);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .channel-btn.solo.active {
+      background: rgba(255, 204, 64, 0.2);
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .channel-fader {
+      width: 8px;
+      height: 50px;
+      background: var(--bg-void);
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .fader-thumb {
+      position: absolute;
+      left: -4px;
+      width: 16px;
+      height: 24px;
+      background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      bottom: var(--fader-pos, 70%);
+      cursor: grab;
+    }
+
+    .channel-db {
+      font-size: 9px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ANALYZE CONTENT
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .analyze-panel {
+      display: flex;
+      height: 100%;
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .meter-section {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .meter-section.lufs {
+      width: 200px;
+    }
+
+    .meter-section.peak {
+      width: 120px;
+    }
+
+    .meter-section.stereo {
+      width: 180px;
+    }
+
+    .meter-section.history {
+      flex: 1;
+    }
+
+    .meter-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .lufs-display {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .lufs-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lufs-label {
+      width: 40px;
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .lufs-value {
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .lufs-value.integrated { color: var(--blue); }
+    .lufs-value.short { color: var(--cyan); }
+    .lufs-value.momentary { color: var(--green); }
+    .lufs-value.range { color: var(--purple); }
+
+    .lufs-unit {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .peak-meters {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .peak-channel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .peak-bar-container {
+      width: 24px;
+      height: 100px;
+      background: var(--bg-void);
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .peak-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top,
+        var(--green) 0%,
+        var(--green) 70%,
+        var(--yellow) 85%,
+        var(--red) 100%);
+      height: var(--peak-level, 75%);
+      border-radius: 3px;
+    }
+
+    .peak-label {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .peak-value {
+      font-size: 10px;
+      font-family: 'SF Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .stereo-display {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .stereo-meter {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stereo-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+    }
+
+    .stereo-label .name { color: var(--text-muted); }
+    .stereo-label .value { color: var(--cyan); font-family: 'SF Mono', monospace; }
+
+    .stereo-bar {
+      height: 8px;
+      background: var(--bg-void);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stereo-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--cyan);
+      border-radius: 4px;
+    }
+
+    .stereo-fill.width {
+      left: 0;
+      width: var(--width-value, 65%);
+    }
+
+    .stereo-fill.correlation {
+      left: 50%;
+      width: var(--corr-value, 45%);
+      transform: translateX(-50%);
+      background: var(--green);
+    }
+
+    .history-graph {
+      flex: 1;
+      background: var(--bg-void);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .history-line {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60%;
+      background: linear-gradient(180deg, transparent 0%, rgba(74, 158, 255, 0.3) 100%);
+      clip-path: polygon(0% 100%, 5% 80%, 15% 85%, 25% 70%, 35% 75%, 45% 60%, 55% 65%, 65% 50%, 75% 55%, 85% 40%, 95% 45%, 100% 30%, 100% 100%);
+    }
+
+    .history-target {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--orange);
+      top: 35%;
+    }
+
+    .history-target::after {
+      content: "-14 LUFS";
+      position: absolute;
+      right: 4px;
+      top: -8px;
+      font-size: 8px;
+      color: var(--orange);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       BROWSER CONTENT
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .browser-panel {
+      display: flex;
+      height: 100%;
+    }
+
+    .browser-sidebar {
+      width: 180px;
+      background: var(--bg-mid);
+      border-right: 1px solid var(--border);
+      padding: 8px;
+      overflow-y: auto;
+    }
+
+    .browser-category {
+      margin-bottom: 12px;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .category-header:hover {
+      color: var(--text-primary);
+    }
+
+    .category-icon {
+      font-size: 12px;
+    }
+
+    .category-items {
+      padding-left: 20px;
+    }
+
+    .category-item {
+      padding: 4px 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .category-item:hover {
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+    }
+
+    .category-item.active {
+      background: rgba(74, 158, 255, 0.15);
+      color: var(--blue);
+    }
+
+    .browser-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .browser-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .browser-search {
+      flex: 1;
+      height: 26px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 10px;
+      color: var(--text-primary);
+      font-size: 11px;
+    }
+
+    .browser-search::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .browser-view-toggle {
+      display: flex;
+      gap: 2px;
+    }
+
+    .view-btn {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .view-btn.active {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .browser-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 8px;
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    .browser-item {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .browser-item:hover {
+      border-color: var(--border-focus);
+      background: var(--bg-surface);
+    }
+
+    .browser-item-icon {
+      width: 100%;
+      height: 50px;
+      background: var(--bg-void);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+
+    .browser-item-name {
+      font-size: 10px;
+      color: var(--text-primary);
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .browser-item-meta {
+      font-size: 8px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>FluxForge Lower Zone — Ultimate Design</h1>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MOCKUP 1: PROCESS TAB — PLUGIN RACK
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <div class="mockup-section">
+    <h2>1. Process Tab → Plugin Rack (Slot-Aware DSP Chain)</h2>
+    <div class="lower-zone">
+      <!-- Context Bar -->
+      <div class="context-bar">
+        <!-- Super Tabs -->
+        <div class="super-tabs">
+          <div class="super-tab" data-tab="browse">📁 Browse <span class="shortcut">1</span></div>
+          <div class="super-tab" data-tab="edit">✏️ Edit <span class="shortcut">2</span></div>
+          <div class="super-tab" data-tab="mix">🎚 Mix <span class="shortcut">3</span></div>
+          <div class="super-tab active" data-tab="process">⚡ Process <span class="shortcut">4</span></div>
+          <div class="super-tab" data-tab="deliver">📦 Deliver <span class="shortcut">5</span></div>
+        </div>
+        <!-- Sub Tabs -->
+        <div class="sub-tabs-row">
+          <div class="sub-tab active">Plugin Rack <span class="key">Q</span></div>
+          <div class="sub-tab">DSP Chain <span class="key">W</span></div>
+          <div class="sub-tab">Macros <span class="key">E</span></div>
+          <div class="sub-tab">Presets <span class="key">R</span></div>
+          <div class="sub-tab">Modulation <span class="key">T</span></div>
+          <div class="sub-tab">Sidechain <span class="key">Y</span></div>
+        </div>
+        <!-- Slot Context -->
+        <div class="slot-context">
+          <div class="context-item">
+            <span class="context-label">Stage:</span>
+            <div class="context-dropdown stage">Free Spins <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Feature:</span>
+            <div class="context-dropdown feature">Big Win <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">State:</span>
+            <div class="context-dropdown state">LVL 3 <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Target:</span>
+            <div class="context-dropdown target">Music Bus <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Trigger:</span>
+            <div class="context-dropdown trigger">onSpinStop <span class="arrow">▼</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Panel -->
+      <div class="content-panel">
+        <div class="plugin-rack">
+          <div class="rack-header">
+            <span class="rack-title">Signal Flow</span>
+            <span class="rack-info">Chain Latency: <span>24.4ms</span> │ PDC: Auto │ Oversampling: 4×</span>
+          </div>
+          <div class="signal-flow">
+            <div class="flow-node input">IN</div>
+            <span class="flow-arrow">→</span>
+
+            <div class="plugin-slot">
+              <div class="plugin-header">
+                <span class="plugin-name">Pro-Q 3</span>
+                <div class="plugin-controls">
+                  <div class="plugin-btn">B</div>
+                  <div class="plugin-btn">⚙</div>
+                </div>
+              </div>
+              <div class="plugin-visual eq"></div>
+              <div class="plugin-meta">
+                <span class="plugin-latency">0.2ms</span>
+                <span class="plugin-cpu">1.2%</span>
+              </div>
+            </div>
+            <span class="flow-arrow">→</span>
+
+            <div class="plugin-slot">
+              <div class="plugin-header">
+                <span class="plugin-name">Pro-C 2</span>
+                <div class="plugin-controls">
+                  <div class="plugin-btn">B</div>
+                  <div class="plugin-btn">⚙</div>
+                </div>
+              </div>
+              <div class="plugin-visual comp"></div>
+              <div class="plugin-meta">
+                <span class="plugin-latency">1.1ms</span>
+                <span class="plugin-cpu">2.4%</span>
+              </div>
+            </div>
+            <span class="flow-arrow">→</span>
+
+            <div class="plugin-slot">
+              <div class="plugin-header">
+                <span class="plugin-name">Pro-R</span>
+                <div class="plugin-controls">
+                  <div class="plugin-btn active">B</div>
+                  <div class="plugin-btn">⚙</div>
+                </div>
+              </div>
+              <div class="plugin-visual reverb"></div>
+              <div class="plugin-meta">
+                <span class="plugin-latency">23ms</span>
+                <span class="plugin-cpu">3.8%</span>
+              </div>
+            </div>
+            <span class="flow-arrow">→</span>
+
+            <div class="plugin-slot">
+              <div class="plugin-header">
+                <span class="plugin-name">Pro-L 2</span>
+                <div class="plugin-controls">
+                  <div class="plugin-btn">B</div>
+                  <div class="plugin-btn">⚙</div>
+                </div>
+              </div>
+              <div class="plugin-visual limiter"></div>
+              <div class="plugin-meta">
+                <span class="plugin-latency">0.1ms</span>
+                <span class="plugin-cpu">1.1%</span>
+              </div>
+            </div>
+            <span class="flow-arrow">→</span>
+
+            <div class="plugin-slot empty">
+              <span class="add-icon">+</span>
+            </div>
+            <span class="flow-arrow">→</span>
+
+            <div class="flow-node output">OUT</div>
+          </div>
+
+          <div class="stage-variants">
+            <span class="stage-variants-label">Stage Variants:</span>
+            <div class="stage-chip">Base Game</div>
+            <div class="stage-chip active">Free Spins</div>
+            <div class="stage-chip">Big Win</div>
+            <div class="stage-chip">Bonus</div>
+            <span class="stage-diff">FS: <span>+3dB comp, +reverb wet, limiter -0.5dB</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Strip -->
+      <div class="action-strip">
+        <button class="action-btn primary">+ Add</button>
+        <button class="action-btn">⧉ Duplicate</button>
+        <button class="action-btn">🔗 Bind</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">▶ Preview</button>
+        <button class="action-btn warning">🔥 Bake</button>
+        <div class="action-spacer"></div>
+        <button class="action-btn">↩ Undo</button>
+        <button class="action-btn">↪ Redo</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">A/B</button>
+        <button class="action-btn">❄ Freeze</button>
+        <button class="action-btn success">✓ Commit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MOCKUP 2: MIX TAB — MINI MIXER
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <div class="mockup-section">
+    <h2>2. Mix Tab → Mixer (Per-Stage Routing)</h2>
+    <div class="lower-zone">
+      <!-- Context Bar -->
+      <div class="context-bar">
+        <div class="super-tabs">
+          <div class="super-tab" data-tab="browse">📁 Browse <span class="shortcut">1</span></div>
+          <div class="super-tab" data-tab="edit">✏️ Edit <span class="shortcut">2</span></div>
+          <div class="super-tab active" data-tab="mix">🎚 Mix <span class="shortcut">3</span></div>
+          <div class="super-tab" data-tab="process">⚡ Process <span class="shortcut">4</span></div>
+          <div class="super-tab" data-tab="deliver">📦 Deliver <span class="shortcut">5</span></div>
+        </div>
+        <div class="sub-tabs-row">
+          <div class="sub-tab active">Mixer <span class="key">Q</span></div>
+          <div class="sub-tab">Routing <span class="key">W</span></div>
+          <div class="sub-tab">Channel Strip <span class="key">E</span></div>
+          <div class="sub-tab">Sends <span class="key">R</span></div>
+          <div class="sub-tab">Groups <span class="key">T</span></div>
+          <div class="sub-tab">Snapshots <span class="key">Y</span></div>
+        </div>
+        <div class="slot-context">
+          <div class="context-item">
+            <span class="context-label">Stage:</span>
+            <div class="context-dropdown stage">Base Game <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Feature:</span>
+            <div class="context-dropdown feature">None <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Target:</span>
+            <div class="context-dropdown target">All Buses <span class="arrow">▼</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Panel -->
+      <div class="content-panel">
+        <div class="mixer-panel">
+          <div class="channel-strip">
+            <div class="channel-name">SFX</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 25%"></div>
+              <div class="meter-bar" style="--meter-mask: 30%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: -15deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 75%"></div>
+            </div>
+            <div class="channel-db">0.0</div>
+          </div>
+
+          <div class="channel-strip">
+            <div class="channel-name">Music</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 35%"></div>
+              <div class="meter-bar" style="--meter-mask: 40%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 65%"></div>
+            </div>
+            <div class="channel-db">-3.2</div>
+          </div>
+
+          <div class="channel-strip">
+            <div class="channel-name">Voice</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 70%"></div>
+              <div class="meter-bar" style="--meter-mask: 75%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo active">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 80%"></div>
+            </div>
+            <div class="channel-db">+1.5</div>
+          </div>
+
+          <div class="channel-strip">
+            <div class="channel-name">Ambience</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 55%"></div>
+              <div class="meter-bar" style="--meter-mask: 50%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute active">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 50%"></div>
+            </div>
+            <div class="channel-db">-6.0</div>
+          </div>
+
+          <div class="channel-strip">
+            <div class="channel-name">UI</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 60%"></div>
+              <div class="meter-bar" style="--meter-mask: 65%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 60%"></div>
+            </div>
+            <div class="channel-db">-4.5</div>
+          </div>
+
+          <div class="channel-strip">
+            <div class="channel-name">Aux</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 80%"></div>
+              <div class="meter-bar" style="--meter-mask: 85%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 40%"></div>
+            </div>
+            <div class="channel-db">-12.0</div>
+          </div>
+
+          <div class="channel-strip master">
+            <div class="channel-name">MASTER</div>
+            <div class="channel-meter">
+              <div class="meter-bar" style="--meter-mask: 20%"></div>
+              <div class="meter-bar" style="--meter-mask: 22%"></div>
+            </div>
+            <div class="channel-pan" style="--pan-angle: 0deg"></div>
+            <div class="channel-buttons">
+              <div class="channel-btn mute">M</div>
+              <div class="channel-btn solo">S</div>
+            </div>
+            <div class="channel-fader">
+              <div class="fader-thumb" style="--fader-pos: 70%"></div>
+            </div>
+            <div class="channel-db">0.0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Strip -->
+      <div class="action-strip">
+        <button class="action-btn primary">+ Add Bus</button>
+        <button class="action-btn">⧉ Duplicate</button>
+        <button class="action-btn">🔗 Link</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">▶ Solo Safe</button>
+        <button class="action-btn">🔇 Mute All</button>
+        <div class="action-spacer"></div>
+        <button class="action-btn">↩ Undo</button>
+        <button class="action-btn">↪ Redo</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">📷 Snapshot</button>
+        <button class="action-btn success">✓ Commit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MOCKUP 3: DELIVER TAB — ANALYZE
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <div class="mockup-section">
+    <h2>3. Deliver Tab → Analyze (Pro Metering)</h2>
+    <div class="lower-zone">
+      <!-- Context Bar -->
+      <div class="context-bar">
+        <div class="super-tabs">
+          <div class="super-tab" data-tab="browse">📁 Browse <span class="shortcut">1</span></div>
+          <div class="super-tab" data-tab="edit">✏️ Edit <span class="shortcut">2</span></div>
+          <div class="super-tab" data-tab="mix">🎚 Mix <span class="shortcut">3</span></div>
+          <div class="super-tab" data-tab="process">⚡ Process <span class="shortcut">4</span></div>
+          <div class="super-tab active" data-tab="deliver">📦 Deliver <span class="shortcut">5</span></div>
+        </div>
+        <div class="sub-tabs-row">
+          <div class="sub-tab active">Analyze <span class="key">Q</span></div>
+          <div class="sub-tab">Loudness <span class="key">W</span></div>
+          <div class="sub-tab">Render <span class="key">E</span></div>
+          <div class="sub-tab">Bake <span class="key">R</span></div>
+          <div class="sub-tab">Export <span class="key">T</span></div>
+          <div class="sub-tab">QA <span class="key">Y</span></div>
+        </div>
+        <div class="slot-context">
+          <div class="context-item">
+            <span class="context-label">Target:</span>
+            <div class="context-dropdown target">Master Bus <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Standard:</span>
+            <div class="context-dropdown feature">Streaming (-14 LUFS) <span class="arrow">▼</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Panel -->
+      <div class="content-panel">
+        <div class="analyze-panel">
+          <div class="meter-section lufs">
+            <div class="meter-title">LUFS Metering</div>
+            <div class="lufs-display">
+              <div class="lufs-row">
+                <span class="lufs-label">Int</span>
+                <span class="lufs-value integrated">-14.2</span>
+                <span class="lufs-unit">LUFS</span>
+              </div>
+              <div class="lufs-row">
+                <span class="lufs-label">Short</span>
+                <span class="lufs-value short">-12.8</span>
+                <span class="lufs-unit">LUFS</span>
+              </div>
+              <div class="lufs-row">
+                <span class="lufs-label">Mom</span>
+                <span class="lufs-value momentary">-11.4</span>
+                <span class="lufs-unit">LUFS</span>
+              </div>
+              <div class="lufs-row">
+                <span class="lufs-label">Range</span>
+                <span class="lufs-value range">8.2</span>
+                <span class="lufs-unit">LU</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="meter-section peak">
+            <div class="meter-title">True Peak</div>
+            <div class="peak-meters">
+              <div class="peak-channel">
+                <div class="peak-bar-container">
+                  <div class="peak-bar" style="--peak-level: 78%"></div>
+                </div>
+                <span class="peak-label">L</span>
+                <span class="peak-value">-1.2</span>
+              </div>
+              <div class="peak-channel">
+                <div class="peak-bar-container">
+                  <div class="peak-bar" style="--peak-level: 75%"></div>
+                </div>
+                <span class="peak-label">R</span>
+                <span class="peak-value">-1.5</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="meter-section stereo">
+            <div class="meter-title">Stereo Analysis</div>
+            <div class="stereo-display">
+              <div class="stereo-meter">
+                <div class="stereo-label">
+                  <span class="name">Width</span>
+                  <span class="value">65%</span>
+                </div>
+                <div class="stereo-bar">
+                  <div class="stereo-fill width" style="--width-value: 65%"></div>
+                </div>
+              </div>
+              <div class="stereo-meter">
+                <div class="stereo-label">
+                  <span class="name">Correlation</span>
+                  <span class="value">+0.82</span>
+                </div>
+                <div class="stereo-bar">
+                  <div class="stereo-fill correlation" style="--corr-value: 82%"></div>
+                </div>
+              </div>
+              <div class="stereo-meter">
+                <div class="stereo-label">
+                  <span class="name">Balance</span>
+                  <span class="value">-0.3 dB</span>
+                </div>
+                <div class="stereo-bar">
+                  <div class="stereo-fill" style="left: 48%; width: 4%; background: var(--green);"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="meter-section history">
+            <div class="meter-title">Loudness History</div>
+            <div class="history-graph">
+              <div class="history-line"></div>
+              <div class="history-target"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Strip -->
+      <div class="action-strip">
+        <button class="action-btn">⏺ Start</button>
+        <button class="action-btn">⏹ Reset</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">📊 Spectrum</button>
+        <button class="action-btn">📈 Phase</button>
+        <button class="action-btn">🔊 Loudness</button>
+        <div class="action-spacer"></div>
+        <button class="action-btn">📋 Copy Stats</button>
+        <button class="action-btn success">📤 Export Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MOCKUP 4: BROWSE TAB — BROWSER
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <div class="mockup-section">
+    <h2>4. Browse Tab → Browser (Sound Library)</h2>
+    <div class="lower-zone">
+      <!-- Context Bar -->
+      <div class="context-bar">
+        <div class="super-tabs">
+          <div class="super-tab active" data-tab="browse">📁 Browse <span class="shortcut">1</span></div>
+          <div class="super-tab" data-tab="edit">✏️ Edit <span class="shortcut">2</span></div>
+          <div class="super-tab" data-tab="mix">🎚 Mix <span class="shortcut">3</span></div>
+          <div class="super-tab" data-tab="process">⚡ Process <span class="shortcut">4</span></div>
+          <div class="super-tab" data-tab="deliver">📦 Deliver <span class="shortcut">5</span></div>
+        </div>
+        <div class="sub-tabs-row">
+          <div class="sub-tab active">Browser <span class="key">Q</span></div>
+          <div class="sub-tab">Search <span class="key">W</span></div>
+          <div class="sub-tab">Collections <span class="key">E</span></div>
+          <div class="sub-tab">Templates <span class="key">R</span></div>
+          <div class="sub-tab">History <span class="key">T</span></div>
+          <div class="sub-tab">Favorites <span class="key">Y</span></div>
+        </div>
+        <div class="slot-context">
+          <div class="context-item">
+            <span class="context-label">Stage:</span>
+            <div class="context-dropdown stage">All Stages <span class="arrow">▼</span></div>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Filter:</span>
+            <div class="context-dropdown feature">Reel Sounds <span class="arrow">▼</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Panel -->
+      <div class="content-panel">
+        <div class="browser-panel">
+          <div class="browser-sidebar">
+            <div class="browser-category">
+              <div class="category-header">
+                <span class="category-icon">🎰</span> Slot Sounds
+              </div>
+              <div class="category-items">
+                <div class="category-item active">Reel Spins</div>
+                <div class="category-item">Reel Stops</div>
+                <div class="category-item">Wins</div>
+                <div class="category-item">Features</div>
+                <div class="category-item">UI</div>
+              </div>
+            </div>
+            <div class="browser-category">
+              <div class="category-header">
+                <span class="category-icon">🎵</span> Music
+              </div>
+              <div class="category-items">
+                <div class="category-item">Base Game</div>
+                <div class="category-item">Free Spins</div>
+                <div class="category-item">Big Win</div>
+              </div>
+            </div>
+            <div class="browser-category">
+              <div class="category-header">
+                <span class="category-icon">🔊</span> Ambience
+              </div>
+            </div>
+          </div>
+
+          <div class="browser-main">
+            <div class="browser-toolbar">
+              <input type="text" class="browser-search" placeholder="Search sounds...">
+              <div class="browser-view-toggle">
+                <div class="view-btn active">▦</div>
+                <div class="view-btn">☰</div>
+              </div>
+            </div>
+            <div class="browser-grid">
+              <div class="browser-item">
+                <div class="browser-item-icon">🎡</div>
+                <div class="browser-item-name">Reel_Spin_01</div>
+                <div class="browser-item-meta">0:02 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">🎡</div>
+                <div class="browser-item-name">Reel_Spin_02</div>
+                <div class="browser-item-meta">0:02 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">🛑</div>
+                <div class="browser-item-name">Reel_Stop_Soft</div>
+                <div class="browser-item-meta">0:01 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">🛑</div>
+                <div class="browser-item-name">Reel_Stop_Hard</div>
+                <div class="browser-item-meta">0:01 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">⚡</div>
+                <div class="browser-item-name">Anticipation_01</div>
+                <div class="browser-item-meta">0:03 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">⚡</div>
+                <div class="browser-item-name">Anticipation_02</div>
+                <div class="browser-item-meta">0:04 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">✨</div>
+                <div class="browser-item-name">Wild_Land</div>
+                <div class="browser-item-meta">0:01 • 48kHz</div>
+              </div>
+              <div class="browser-item">
+                <div class="browser-item-icon">💎</div>
+                <div class="browser-item-name">Scatter_Hit</div>
+                <div class="browser-item-meta">0:02 • 48kHz</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Strip -->
+      <div class="action-strip">
+        <button class="action-btn primary">+ Import</button>
+        <button class="action-btn">📁 New Folder</button>
+        <div class="action-divider"></div>
+        <button class="action-btn">▶ Preview</button>
+        <button class="action-btn">🔗 Assign to Event</button>
+        <div class="action-spacer"></div>
+        <button class="action-btn">⭐ Favorite</button>
+        <button class="action-btn success">✓ Use Selected</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

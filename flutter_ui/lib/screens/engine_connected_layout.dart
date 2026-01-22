@@ -145,6 +145,12 @@ import '../widgets/middleware/event_editor_panel.dart';
 import '../widgets/ale/ale_panel.dart';
 import '../services/unified_playback_controller.dart';
 import '../providers/timeline_playback_provider.dart';
+// Section-specific Lower Zone imports (DAW and Middleware)
+// SlotLab uses its own fullscreen layout with dedicated bottom panel
+import '../widgets/lower_zone/daw_lower_zone_widget.dart';
+import '../widgets/lower_zone/daw_lower_zone_controller.dart';
+import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
+import '../widgets/lower_zone/middleware_lower_zone_controller.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -213,6 +219,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
   bool _lowerVisible = true;
   late String _activeLowerTab;
   LeftZoneTab _activeLeftTab = LeftZoneTab.project;
+
+  // Section-specific Lower Zone controllers (DAW and Middleware)
+  // SlotLab uses its own fullscreen layout with dedicated bottom panel
+  late final DawLowerZoneController _dawLowerZoneController;
+  late final MiddlewareLowerZoneController _middlewareLowerZoneController;
 
   // Local UI state
   late EditorMode _editorMode;
@@ -505,6 +516,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Set default tab based on initial mode
     _activeLowerTab = getDefaultTabForMode(_editorMode);
 
+    // Initialize Section-specific Lower Zone controllers (DAW and Middleware)
+    _dawLowerZoneController = DawLowerZoneController();
+    _middlewareLowerZoneController = MiddlewareLowerZoneController();
+
+    // Load Lower Zone states from persistent storage
+    _dawLowerZoneController.loadFromStorage();
+    _middlewareLowerZoneController.loadFromStorage();
+
     // Initialize empty timeline (no demo data)
     _initEmptyTimeline();
 
@@ -774,6 +793,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Dispose Lower Zone controllers
+    _dawLowerZoneController.dispose();
+    _middlewareLowerZoneController.dispose();
     super.dispose();
   }
 
@@ -3945,7 +3967,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
             onClipChanged: _handleClipInspectorChange,
             onOpenClipFxEditor: _handleOpenClipFxEditor,
 
-            // Lower zone - uses Selector for metering
+            // Lower zone - uses Section-specific Lower Zone widgets
+            customLowerZone: _buildCustomLowerZone(),
+            // Fallback tabs (used if customLowerZone returns null)
             lowerTabs: _buildLowerTabsOptimized(),
             lowerTabGroups: _buildTabGroups(),
             activeLowerTabId: _activeLowerTab,
@@ -4061,6 +4085,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout> {
     // Build tabs without metering dependency for static tabs
     // Metering tabs will use their own Selector internally
     return _buildLowerTabsStatic();
+  }
+
+  /// Build section-specific custom Lower Zone widget based on current editor mode
+  Widget? _buildCustomLowerZone() {
+    switch (_editorMode) {
+      case EditorMode.daw:
+        // Get selected track ID for DSP panels
+        final selectedTrackId = _selectedTrackId != null
+            ? int.tryParse(_selectedTrackId!)
+            : null;
+        return DawLowerZoneWidget(
+          controller: _dawLowerZoneController,
+          selectedTrackId: selectedTrackId,
+          onDspAction: (action, params) {
+            // Handle DSP actions from Lower Zone
+            debugPrint('[LowerZone] DSP action: $action, params: $params');
+          },
+        );
+      case EditorMode.middleware:
+        return MiddlewareLowerZoneWidget(
+          controller: _middlewareLowerZoneController,
+        );
+      case EditorMode.slot:
+        // Slot mode uses fullscreen SlotLabScreen, not MainLayout
+        // Return null to use default tabs (shouldn't reach here)
+        return null;
+    }
   }
 
   /// Static lower tabs that don't depend on metering

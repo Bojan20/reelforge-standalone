@@ -19,6 +19,11 @@ enum LowerZoneTab {
   commandBuilder, // Auto Event Builder command panel
   eventList,      // Event list browser
   meters,         // Audio bus meters
+  // DSP Panels (FabFilter-style)
+  dspCompressor,  // Pro-C style compressor
+  dspLimiter,     // Pro-L style limiter
+  dspGate,        // Pro-G style gate
+  dspReverb,      // Pro-R style reverb
 }
 
 /// Configuration for each lower zone tab
@@ -68,6 +73,35 @@ const Map<LowerZoneTab, LowerZoneTabConfig> kLowerZoneTabConfigs = {
     icon: '📊',
     shortcutKey: '4',
     description: 'Audio bus meters',
+  ),
+  // DSP Panels (FabFilter-style)
+  LowerZoneTab.dspCompressor: LowerZoneTabConfig(
+    tab: LowerZoneTab.dspCompressor,
+    label: 'Compressor',
+    icon: '🎚',
+    shortcutKey: '5',
+    description: 'Pro-C style compressor',
+  ),
+  LowerZoneTab.dspLimiter: LowerZoneTabConfig(
+    tab: LowerZoneTab.dspLimiter,
+    label: 'Limiter',
+    icon: '🔊',
+    shortcutKey: '6',
+    description: 'Pro-L style limiter',
+  ),
+  LowerZoneTab.dspGate: LowerZoneTabConfig(
+    tab: LowerZoneTab.dspGate,
+    label: 'Gate',
+    icon: '🚪',
+    shortcutKey: '7',
+    description: 'Pro-G style gate',
+  ),
+  LowerZoneTab.dspReverb: LowerZoneTabConfig(
+    tab: LowerZoneTab.dspReverb,
+    label: 'Reverb',
+    icon: '🌊',
+    shortcutKey: '8',
+    description: 'Pro-R style reverb',
   ),
 };
 
@@ -244,6 +278,30 @@ class LowerZoneController extends ChangeNotifier {
     // 4 = Meters
     if (event.logicalKey == LogicalKeyboardKey.digit4) {
       switchTo(LowerZoneTab.meters);
+      return KeyEventResult.handled;
+    }
+
+    // 5 = Compressor
+    if (event.logicalKey == LogicalKeyboardKey.digit5) {
+      switchTo(LowerZoneTab.dspCompressor);
+      return KeyEventResult.handled;
+    }
+
+    // 6 = Limiter
+    if (event.logicalKey == LogicalKeyboardKey.digit6) {
+      switchTo(LowerZoneTab.dspLimiter);
+      return KeyEventResult.handled;
+    }
+
+    // 7 = Gate
+    if (event.logicalKey == LogicalKeyboardKey.digit7) {
+      switchTo(LowerZoneTab.dspGate);
+      return KeyEventResult.handled;
+    }
+
+    // 8 = Reverb
+    if (event.logicalKey == LogicalKeyboardKey.digit8) {
+      switchTo(LowerZoneTab.dspReverb);
       return KeyEventResult.handled;
     }
 

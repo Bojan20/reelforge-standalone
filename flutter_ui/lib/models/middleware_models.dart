@@ -1139,6 +1139,7 @@ extension CrossfadeCurveExtension on CrossfadeCurve {
 class BlendChild {
   final int id;
   final String name;
+  final String? audioPath;  // Path to audio file for playback
   final double rtpcStart;
   final double rtpcEnd;
   final double crossfadeWidth;
@@ -1146,6 +1147,7 @@ class BlendChild {
   const BlendChild({
     required this.id,
     required this.name,
+    this.audioPath,
     required this.rtpcStart,
     required this.rtpcEnd,
     this.crossfadeWidth = 0.1,
@@ -1154,6 +1156,7 @@ class BlendChild {
   BlendChild copyWith({
     int? id,
     String? name,
+    String? audioPath,
     double? rtpcStart,
     double? rtpcEnd,
     double? crossfadeWidth,
@@ -1161,6 +1164,7 @@ class BlendChild {
     return BlendChild(
       id: id ?? this.id,
       name: name ?? this.name,
+      audioPath: audioPath ?? this.audioPath,
       rtpcStart: rtpcStart ?? this.rtpcStart,
       rtpcEnd: rtpcEnd ?? this.rtpcEnd,
       crossfadeWidth: crossfadeWidth ?? this.crossfadeWidth,
@@ -1170,6 +1174,7 @@ class BlendChild {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'audioPath': audioPath,
     'rtpcStart': rtpcStart,
     'rtpcEnd': rtpcEnd,
     'crossfadeWidth': crossfadeWidth,
@@ -1179,6 +1184,7 @@ class BlendChild {
     return BlendChild(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
+      audioPath: json['audioPath'] as String?,
       rtpcStart: (json['rtpcStart'] as num?)?.toDouble() ?? 0.0,
       rtpcEnd: (json['rtpcEnd'] as num?)?.toDouble() ?? 1.0,
       crossfadeWidth: (json['crossfadeWidth'] as num?)?.toDouble() ?? 0.1,
@@ -1279,6 +1285,7 @@ extension RandomModeExtension on RandomMode {
 class RandomChild {
   final int id;
   final String name;
+  final String? audioPath;  // Path to audio file for playback
   final double weight;
   final double pitchMin;
   final double pitchMax;
@@ -1288,6 +1295,7 @@ class RandomChild {
   const RandomChild({
     required this.id,
     required this.name,
+    this.audioPath,
     this.weight = 1.0,
     this.pitchMin = 0.0,
     this.pitchMax = 0.0,
@@ -1298,6 +1306,7 @@ class RandomChild {
   RandomChild copyWith({
     int? id,
     String? name,
+    String? audioPath,
     double? weight,
     double? pitchMin,
     double? pitchMax,
@@ -1307,6 +1316,7 @@ class RandomChild {
     return RandomChild(
       id: id ?? this.id,
       name: name ?? this.name,
+      audioPath: audioPath ?? this.audioPath,
       weight: weight ?? this.weight,
       pitchMin: pitchMin ?? this.pitchMin,
       pitchMax: pitchMax ?? this.pitchMax,
@@ -1318,6 +1328,7 @@ class RandomChild {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'audioPath': audioPath,
     'weight': weight,
     'pitchMin': pitchMin,
     'pitchMax': pitchMax,
@@ -1329,6 +1340,7 @@ class RandomChild {
     return RandomChild(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
+      audioPath: json['audioPath'] as String?,
       weight: (json['weight'] as num?)?.toDouble() ?? 1.0,
       pitchMin: (json['pitchMin'] as num?)?.toDouble() ?? 0.0,
       pitchMax: (json['pitchMax'] as num?)?.toDouble() ?? 0.0,
@@ -1456,42 +1468,50 @@ class SequenceStep {
   final int index;
   final int childId;
   final String childName;
+  final String? audioPath;  // Path to audio file for playback
   final double delayMs;
   final double durationMs;
   final double fadeInMs;
   final double fadeOutMs;
   final int loopCount;
+  final double volume;  // Volume for this step (0.0-1.0)
 
   const SequenceStep({
     required this.index,
     required this.childId,
     required this.childName,
+    this.audioPath,
     this.delayMs = 0.0,
     this.durationMs = 0.0,
     this.fadeInMs = 0.0,
     this.fadeOutMs = 0.0,
     this.loopCount = 1,
+    this.volume = 1.0,
   });
 
   SequenceStep copyWith({
     int? index,
     int? childId,
     String? childName,
+    String? audioPath,
     double? delayMs,
     double? durationMs,
     double? fadeInMs,
     double? fadeOutMs,
     int? loopCount,
+    double? volume,
   }) {
     return SequenceStep(
       index: index ?? this.index,
       childId: childId ?? this.childId,
       childName: childName ?? this.childName,
+      audioPath: audioPath ?? this.audioPath,
       delayMs: delayMs ?? this.delayMs,
       durationMs: durationMs ?? this.durationMs,
       fadeInMs: fadeInMs ?? this.fadeInMs,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
       loopCount: loopCount ?? this.loopCount,
+      volume: volume ?? this.volume,
     );
   }
 
@@ -1499,11 +1519,13 @@ class SequenceStep {
     'index': index,
     'childId': childId,
     'childName': childName,
+    'audioPath': audioPath,
     'delayMs': delayMs,
     'durationMs': durationMs,
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
     'loopCount': loopCount,
+    'volume': volume,
   };
 
   factory SequenceStep.fromJson(Map<String, dynamic> json) {
@@ -1511,11 +1533,13 @@ class SequenceStep {
       index: json['index'] as int? ?? 0,
       childId: json['childId'] as int? ?? 0,
       childName: json['childName'] as String? ?? '',
+      audioPath: json['audioPath'] as String?,
       delayMs: (json['delayMs'] as num?)?.toDouble() ?? 0.0,
       durationMs: (json['durationMs'] as num?)?.toDouble() ?? 0.0,
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
       loopCount: json['loopCount'] as int? ?? 1,
+      volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
     );
   }
 }

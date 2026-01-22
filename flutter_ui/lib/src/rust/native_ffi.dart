@@ -16236,3 +16236,425 @@ class NativeSpatialStats {
     this.droppedEvents = 0,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTAINER FFI - P2 RUST OPTIMIZATION
+// Blend, Random, Sequence containers evaluated in Rust for sub-ms latency
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Container FFI extension for NativeFFI
+/// Provides low-latency container evaluation via Rust backend
+extension ContainerFFI on NativeFFI {
+  // ─────────────────────────────────────────────────────────────────────────
+  // INITIALIZATION & UTILITIES
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _containerInit = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('container_init');
+
+  static final _containerShutdown = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('container_shutdown');
+
+  static final _containerGetLastError = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('container_get_last_error');
+
+  static final _containerGetTotalCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('container_get_total_count');
+
+  static final _containerGetCountByType = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Uint8),
+      int Function(int)>('container_get_count_by_type');
+
+  static final _containerExists = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint8, Uint32),
+      int Function(int, int)>('container_exists');
+
+  static final _containerClearAll = _loadNativeLibrary().lookupFunction<
+      Void Function(),
+      void Function()>('container_clear_all');
+
+  /// Initialize container storage
+  void containerInit() => _containerInit();
+
+  /// Shutdown container storage
+  void containerShutdown() => _containerShutdown();
+
+  /// Get last error message (if any)
+  String? containerGetLastError() {
+    final ptr = _containerGetLastError();
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+
+  /// Get total container count (all types)
+  int containerGetTotalCount() => _containerGetTotalCount();
+
+  /// Get container count by type (1=Blend, 2=Random, 3=Sequence)
+  int containerGetCountByType(int containerType) => _containerGetCountByType(containerType);
+
+  /// Check if container exists
+  bool containerExists(int containerType, int containerId) =>
+      _containerExists(containerType, containerId) == 1;
+
+  /// Clear all containers
+  void containerClearAll() => _containerClearAll();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLEND CONTAINER FFI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _containerCreateBlend = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_create_blend');
+
+  static final _containerUpdateBlend = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_update_blend');
+
+  static final _containerRemoveBlend = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_remove_blend');
+
+  static final _containerSetBlendRtpc = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('container_set_blend_rtpc');
+
+  static final _containerEvaluateBlend = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double, Pointer<Uint32>, Pointer<Double>, Uint32),
+      int Function(int, double, Pointer<Uint32>, Pointer<Double>, int)>('container_evaluate_blend');
+
+  static final _containerGetBlendChildAudioPath = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32, Uint32),
+      Pointer<Utf8> Function(int, int)>('container_get_blend_child_audio_path');
+
+  /// Create blend container from JSON
+  /// Returns container ID (0 = error)
+  int containerCreateBlend(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerCreateBlend(jsonPtr);
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Update blend container from JSON
+  bool containerUpdateBlend(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerUpdateBlend(jsonPtr) == 1;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Remove blend container
+  bool containerRemoveBlend(int containerId) =>
+      _containerRemoveBlend(containerId) == 1;
+
+  /// Set RTPC value for blend container
+  bool containerSetBlendRtpc(int containerId, double rtpcValue) =>
+      _containerSetBlendRtpc(containerId, rtpcValue) == 1;
+
+  /// Evaluate blend container at RTPC value
+  /// Returns list of (childId, volume) tuples
+  List<BlendEvalResult> containerEvaluateBlend(int containerId, double rtpcValue, {int maxResults = 16}) {
+    final outChildIds = calloc<Uint32>(maxResults);
+    final outVolumes = calloc<Double>(maxResults);
+    try {
+      final count = _containerEvaluateBlend(containerId, rtpcValue, outChildIds, outVolumes, maxResults);
+      if (count <= 0) return [];
+
+      return List.generate(count, (i) => BlendEvalResult(
+        childId: outChildIds[i],
+        volume: outVolumes[i],
+      ));
+    } finally {
+      calloc.free(outChildIds);
+      calloc.free(outVolumes);
+    }
+  }
+
+  /// Get audio path for blend child
+  String? containerGetBlendChildAudioPath(int containerId, int childId) {
+    final ptr = _containerGetBlendChildAudioPath(containerId, childId);
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RANDOM CONTAINER FFI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _containerCreateRandom = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_create_random');
+
+  static final _containerUpdateRandom = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_update_random');
+
+  static final _containerRemoveRandom = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_remove_random');
+
+  static final _containerSelectRandom = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Uint32>, Pointer<Double>, Pointer<Double>),
+      int Function(int, Pointer<Uint32>, Pointer<Double>, Pointer<Double>)>('container_select_random');
+
+  static final _containerSeedRandom = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint64),
+      int Function(int, int)>('container_seed_random');
+
+  static final _containerResetRandom = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_reset_random');
+
+  static final _containerGetRandomChildAudioPath = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32, Uint32),
+      Pointer<Utf8> Function(int, int)>('container_get_random_child_audio_path');
+
+  /// Create random container from JSON
+  /// Returns container ID (0 = error)
+  int containerCreateRandom(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerCreateRandom(jsonPtr);
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Update random container from JSON
+  bool containerUpdateRandom(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerUpdateRandom(jsonPtr) == 1;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Remove random container
+  bool containerRemoveRandom(int containerId) =>
+      _containerRemoveRandom(containerId) == 1;
+
+  /// Select from random container
+  /// Returns selection result or null if disabled/empty
+  RandomSelectResult? containerSelectRandom(int containerId) {
+    final outChildId = calloc<Uint32>();
+    final outPitchOffset = calloc<Double>();
+    final outVolumeOffset = calloc<Double>();
+    try {
+      final success = _containerSelectRandom(containerId, outChildId, outPitchOffset, outVolumeOffset);
+      if (success != 1) return null;
+
+      return RandomSelectResult(
+        childId: outChildId.value,
+        pitchOffset: outPitchOffset.value,
+        volumeOffset: outVolumeOffset.value,
+      );
+    } finally {
+      calloc.free(outChildId);
+      calloc.free(outPitchOffset);
+      calloc.free(outVolumeOffset);
+    }
+  }
+
+  /// Seed random container RNG
+  bool containerSeedRandom(int containerId, int seed) =>
+      _containerSeedRandom(containerId, seed) == 1;
+
+  /// Reset random container state (shuffle deck, round-robin index)
+  bool containerResetRandom(int containerId) =>
+      _containerResetRandom(containerId) == 1;
+
+  /// Get audio path for random child
+  String? containerGetRandomChildAudioPath(int containerId, int childId) {
+    final ptr = _containerGetRandomChildAudioPath(containerId, childId);
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEQUENCE CONTAINER FFI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static final _containerCreateSequence = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_create_sequence');
+
+  static final _containerUpdateSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>),
+      int Function(Pointer<Utf8>)>('container_update_sequence');
+
+  static final _containerRemoveSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_remove_sequence');
+
+  static final _containerPlaySequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_play_sequence');
+
+  static final _containerStopSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_stop_sequence');
+
+  static final _containerPauseSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_pause_sequence');
+
+  static final _containerResumeSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_resume_sequence');
+
+  static final _containerTickSequence = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double, Pointer<Uint32>, Uint32, Pointer<Int32>, Pointer<Int32>),
+      int Function(int, double, Pointer<Uint32>, int, Pointer<Int32>, Pointer<Int32>)>('container_tick_sequence');
+
+  static final _containerIsSequencePlaying = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32),
+      int Function(int)>('container_is_sequence_playing');
+
+  static final _containerGetSequenceStepAudioPath = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32, Uint32),
+      Pointer<Utf8> Function(int, int)>('container_get_sequence_step_audio_path');
+
+  /// Create sequence container from JSON
+  /// Returns container ID (0 = error)
+  int containerCreateSequence(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerCreateSequence(jsonPtr);
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Update sequence container from JSON
+  bool containerUpdateSequence(Map<String, dynamic> config) {
+    final jsonStr = jsonEncode(config);
+    final jsonPtr = jsonStr.toNativeUtf8();
+    try {
+      return _containerUpdateSequence(jsonPtr) == 1;
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Remove sequence container
+  bool containerRemoveSequence(int containerId) =>
+      _containerRemoveSequence(containerId) == 1;
+
+  /// Start sequence playback
+  bool containerPlaySequence(int containerId) =>
+      _containerPlaySequence(containerId) == 1;
+
+  /// Stop sequence playback
+  bool containerStopSequence(int containerId) =>
+      _containerStopSequence(containerId) == 1;
+
+  /// Pause sequence playback
+  bool containerPauseSequence(int containerId) =>
+      _containerPauseSequence(containerId) == 1;
+
+  /// Resume sequence playback
+  bool containerResumeSequence(int containerId) =>
+      _containerResumeSequence(containerId) == 1;
+
+  /// Tick sequence by delta milliseconds
+  /// Returns list of triggered step indices, plus ended/looped flags
+  SequenceTickResult containerTickSequence(int containerId, double deltaMs, {int maxSteps = 32}) {
+    final outStepIndices = calloc<Uint32>(maxSteps);
+    final outEnded = calloc<Int32>();
+    final outLooped = calloc<Int32>();
+    try {
+      final count = _containerTickSequence(containerId, deltaMs, outStepIndices, maxSteps, outEnded, outLooped);
+      if (count < 0) {
+        return const SequenceTickResult(triggeredSteps: [], ended: false, looped: false);
+      }
+
+      return SequenceTickResult(
+        triggeredSteps: List.generate(count, (i) => outStepIndices[i]),
+        ended: outEnded.value == 1,
+        looped: outLooped.value == 1,
+      );
+    } finally {
+      calloc.free(outStepIndices);
+      calloc.free(outEnded);
+      calloc.free(outLooped);
+    }
+  }
+
+  /// Check if sequence is playing
+  bool containerIsSequencePlaying(int containerId) =>
+      _containerIsSequencePlaying(containerId) == 1;
+
+  /// Get audio path for sequence step
+  String? containerGetSequenceStepAudioPath(int containerId, int stepIndex) {
+    final ptr = _containerGetSequenceStepAudioPath(containerId, stepIndex);
+    if (ptr == nullptr) return null;
+    return ptr.toDartString();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTAINER FFI RESULT TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Result of blend container evaluation
+class BlendEvalResult {
+  final int childId;
+  final double volume;
+
+  const BlendEvalResult({
+    required this.childId,
+    required this.volume,
+  });
+
+  @override
+  String toString() => 'BlendEvalResult(childId: $childId, volume: ${volume.toStringAsFixed(3)})';
+}
+
+/// Result of random container selection
+class RandomSelectResult {
+  final int childId;
+  final double pitchOffset;
+  final double volumeOffset;
+
+  const RandomSelectResult({
+    required this.childId,
+    required this.pitchOffset,
+    required this.volumeOffset,
+  });
+
+  @override
+  String toString() => 'RandomSelectResult(childId: $childId, pitch: ${pitchOffset.toStringAsFixed(2)}, vol: ${volumeOffset.toStringAsFixed(2)})';
+}
+
+/// Result of sequence container tick
+class SequenceTickResult {
+  final List<int> triggeredSteps;
+  final bool ended;
+  final bool looped;
+
+  const SequenceTickResult({
+    required this.triggeredSteps,
+    required this.ended,
+    required this.looped,
+  });
+
+  bool get hasTriggeredSteps => triggeredSteps.isNotEmpty;
+
+  @override
+  String toString() => 'SequenceTickResult(steps: $triggeredSteps, ended: $ended, looped: $looped)';
+}

@@ -24,6 +24,11 @@ import '../../../providers/slot_lab_provider.dart';
 import 'command_builder_panel.dart';
 import 'event_list_panel.dart';
 import 'bus_meters_panel.dart';
+// FabFilter DSP Panels
+import '../../fabfilter/fabfilter_compressor_panel.dart';
+import '../../fabfilter/fabfilter_limiter_panel.dart';
+import '../../fabfilter/fabfilter_gate_panel.dart';
+import '../../fabfilter/fabfilter_reverb_panel.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOWER ZONE WIDGET
@@ -349,6 +354,19 @@ class _LowerZoneContent extends StatelessWidget {
 
           // Meters - Live audio bus meters
           const BusMetersPanel(),
+
+          // DSP Panels (FabFilter-style)
+          // Compressor - Pro-C style
+          const FabFilterCompressorPanel(trackId: 0),
+
+          // Limiter - Pro-L style
+          const FabFilterLimiterPanel(trackId: 0),
+
+          // Gate - Pro-G style
+          const FabFilterGatePanel(trackId: 0),
+
+          // Reverb - Pro-R style
+          const FabFilterReverbPanel(trackId: 0),
         ],
       ),
     );

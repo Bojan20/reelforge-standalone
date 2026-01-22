@@ -197,7 +197,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
+  // BUILD — Compact horizontal layout, NO scrolling
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -206,387 +206,275 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          buildHeader(),
+          // Compact header
+          _buildCompactHeader(),
+          // Main content — horizontal layout, no scroll
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Display section
-                  if (!_compactView) ...[
-                    _buildDisplaySection(),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Main controls
-                  _buildMainControls(),
-                  const SizedBox(height: 16),
-
-                  // Space selection
-                  _buildSpaceSection(),
-                  const SizedBox(height: 16),
-
-                  // Character controls
-                  _buildCharacterSection(),
-
-                  // Expert: EQ & Damping
-                  if (showExpertMode) ...[
-                    const SizedBox(height: 16),
-                    _buildDampingSection(),
-                    if (_eqVisible) ...[
-                      const SizedBox(height: 16),
-                      _buildEqSection(),
-                    ],
-                  ],
+                  // LEFT: Decay visualization (compact)
+                  _buildCompactDisplay(),
+                  const SizedBox(width: 12),
+                  // CENTER: Main knobs
+                  Expanded(flex: 3, child: _buildCompactControls()),
+                  const SizedBox(width: 12),
+                  // RIGHT: Space + options
+                  _buildCompactOptions(),
                 ],
               ),
             ),
           ),
-          buildBottomBar(),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DISPLAY SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildDisplaySection() {
+  Widget _buildCompactHeader() {
     return Container(
-      height: 140,
-      decoration: FabFilterDecorations.display(),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: CustomPaint(
-          painter: _ReverbDisplayPainter(
-            decay: _decay,
-            predelay: _predelay,
-            size: _size,
-            dampingHigh: _dampingHigh,
-            animatedDecay: _animatedDecay,
-            brightness: _brightness,
-          ),
-          size: Size.infinite,
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: FabFilterColors.borderSubtle))),
+      child: Row(
+        children: [
+          Icon(widget.icon, color: widget.accentColor, size: 14),
+          const SizedBox(width: 6),
+          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
+          const SizedBox(width: 12),
+          // Space selector dropdown
+          _buildCompactSpaceDropdown(),
+          const Spacer(),
+          _buildCompactAB(),
+          const SizedBox(width: 8),
+          _buildCompactBypass(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactSpaceDropdown() {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ReverbSpace>(
+          value: _space,
+          dropdownColor: FabFilterColors.bgDeep,
+          style: FabFilterText.paramLabel.copyWith(fontSize: 10),
+          icon: Icon(Icons.arrow_drop_down, size: 14, color: FabFilterColors.textMuted),
+          isDense: true,
+          items: ReverbSpace.values.map((s) => DropdownMenuItem(
+            value: s,
+            child: Text(s.label, style: const TextStyle(fontSize: 10)),
+          )).toList(),
+          onChanged: (v) {
+            if (v != null) {
+              setState(() => _space = v);
+              _ffi.algorithmicReverbSetType(widget.trackId, _spaceToReverbType(v));
+            }
+          },
         ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MAIN CONTROLS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildMainControls() {
-    return buildSection(
-      'REVERB',
-      Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          // Size
-          FabFilterKnob(
-            value: _size,
-            label: 'SIZE',
-            display: '${(_size * 100).toStringAsFixed(0)}%',
-            color: FabFilterColors.purple,
-            onChanged: (v) {
-              setState(() => _size = v);
-              _ffi.algorithmicReverbSetRoomSize(widget.trackId, v);
-            },
-          ),
-
-          // Decay
-          FabFilterKnob(
-            value: math.log(_decay / 0.1) / math.log(20 / 0.1),
-            label: 'DECAY',
-            display: _decay >= 1
-                ? '${_decay.toStringAsFixed(1)}s'
-                : '${(_decay * 1000).toStringAsFixed(0)}ms',
-            color: FabFilterColors.purple,
-            onChanged: (v) {
-              setState(() => _decay = 0.1 * math.pow(20 / 0.1, v).toDouble());
-              // Decay mapped via damping in FFI
-            },
-          ),
-
-          // Brightness
-          FabFilterKnob(
-            value: _brightness,
-            label: 'BRIGHTNESS',
-            display: '${(_brightness * 100).toStringAsFixed(0)}%',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _brightness = v);
-              // Brightness affects high damping
-              _ffi.algorithmicReverbSetDamping(widget.trackId, 1 - v);
-            },
-          ),
-
-          // Pre-delay
-          FabFilterKnob(
-            value: math.log(_predelay / 1) / math.log(200 / 1),
-            label: 'PRE-DELAY',
-            display: '${_predelay.toStringAsFixed(0)} ms',
-            color: FabFilterColors.blue,
-            onChanged: (v) {
-              setState(() => _predelay = 1 * math.pow(200 / 1, v).toDouble());
-              _ffi.algorithmicReverbSetPredelay(widget.trackId, _predelay);
-            },
-          ),
-
-          // Mix
-          FabFilterKnob(
-            value: _mix / 100,
-            label: 'MIX',
-            display: '${_mix.toStringAsFixed(0)}%',
-            color: FabFilterColors.green,
-            onChanged: (v) {
-              setState(() => _mix = v * 100);
-              _ffi.algorithmicReverbSetDryWet(widget.trackId, v);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SPACE SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildSpaceSection() {
-    return buildSection(
-      'SPACE',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Space buttons
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: ReverbSpace.values.map((space) {
-              final isSelected = _space == space;
-              return GestureDetector(
-                onTap: () {
-                  setState(() => _space = space);
-                  _ffi.algorithmicReverbSetType(widget.trackId, _spaceToReverbType(space));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: isSelected
-                      ? FabFilterDecorations.toggleActive(FabFilterColors.purple)
-                      : FabFilterDecorations.toggleInactive(),
-                  child: Text(
-                    space.label,
-                    style: TextStyle(
-                      color: isSelected
-                          ? FabFilterColors.purple
-                          : FabFilterColors.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Description
-          Text(
-            _space.description,
-            style: FabFilterTextStyles.label.copyWith(
-              color: FabFilterColors.textMuted,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Options
-          Row(
-            children: [
-              buildToggle(
-                'Compact',
-                _compactView,
-                (v) => setState(() => _compactView = v),
-              ),
-              if (showExpertMode) ...[
-                const SizedBox(width: 16),
-                buildToggle(
-                  'EQ',
-                  _eqVisible,
-                  (v) => setState(() => _eqVisible = v),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CHARACTER SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildCharacterSection() {
-    return buildSection(
-      'CHARACTER',
-      Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          // Distance
-          FabFilterKnob(
-            value: _distance / 100,
-            label: 'DISTANCE',
-            display: '${_distance.toStringAsFixed(0)}%',
-            color: FabFilterColors.blue,
-            onChanged: (v) => setState(() => _distance = v * 100),
-          ),
-
-          // Width
-          FabFilterKnob(
-            value: _width / 200, // 0-200%
-            label: 'WIDTH',
-            display: '${_width.toStringAsFixed(0)}%',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _width = v * 200);
-              _ffi.algorithmicReverbSetWidth(widget.trackId, v * 2);
-            },
-          ),
-
-          // Diffusion
-          FabFilterKnob(
-            value: _diffusion / 100,
-            label: 'DIFFUSION',
-            display: '${_diffusion.toStringAsFixed(0)}%',
-            color: FabFilterColors.purple,
-            onChanged: (v) => setState(() => _diffusion = v * 100),
-          ),
-
-          // Modulation
-          if (showExpertMode)
-            FabFilterKnob(
-              value: _modulation / 100,
-              label: 'MODULATION',
-              display: '${_modulation.toStringAsFixed(0)}%',
-              color: FabFilterColors.orange,
-              onChanged: (v) => setState(() => _modulation = v * 100),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DAMPING SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildDampingSection() {
-    return buildSection(
-      'DAMPING',
-      Row(
-        children: [
-          Expanded(
-            child: _buildSimpleSlider(
-              'Low',
-              _dampingLow,
-              '${(_dampingLow * 100).toStringAsFixed(0)}%',
-              FabFilterColors.orange,
-              (v) => setState(() => _dampingLow = v),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildSimpleSlider(
-              'High',
-              _dampingHigh,
-              '${(_dampingHigh * 100).toStringAsFixed(0)}%',
-              FabFilterColors.cyan,
-              (v) {
-                setState(() => _dampingHigh = v);
-                _ffi.algorithmicReverbSetDamping(widget.trackId, v);
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: 120,
-            child: _buildSimpleSlider(
-              'Freq',
-              math.log(_dampingFreq / 500) / math.log(16000 / 500),
-              _dampingFreq >= 1000
-                  ? '${(_dampingFreq / 1000).toStringAsFixed(1)}k'
-                  : '${_dampingFreq.toStringAsFixed(0)} Hz',
-              FabFilterColors.purple,
-              (v) => setState(
-                  () => _dampingFreq = 500 * math.pow(16000 / 500, v).toDouble()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleSlider(
-    String label,
-    double value,
-    String display,
-    Color color,
-    ValueChanged<double>? onChanged,
-  ) {
+  Widget _buildCompactAB() {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 35,
-          child: Text(label, style: FabFilterTextStyles.label),
+        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
+        const SizedBox(width: 2),
+        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
+      ],
+    );
+  }
+
+  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 20, height: 20,
+        decoration: BoxDecoration(
+          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
         ),
-        Expanded(
-          child: SliderTheme(
-            data: fabFilterSliderTheme(color),
-            child: Slider(
-              value: value.clamp(0.0, 1.0),
-              onChanged: onChanged,
+        child: Center(child: Text(label, style: TextStyle(color: active ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold))),
+      ),
+    );
+  }
+
+  Widget _buildCompactBypass() {
+    return GestureDetector(
+      onTap: toggleBypass,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: bypassed ? FabFilterColors.orange : FabFilterColors.border),
+        ),
+        child: Text('BYP', style: TextStyle(color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildCompactDisplay() {
+    return SizedBox(
+      width: 120,
+      child: Container(
+        decoration: FabFilterDecorations.display(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: CustomPaint(
+            painter: _ReverbDisplayPainter(
+              decay: _decay,
+              predelay: _predelay,
+              size: _size,
+              dampingHigh: _dampingHigh,
+              animatedDecay: _animatedDecay,
+              brightness: _brightness,
             ),
+            size: Size.infinite,
           ),
         ),
-        SizedBox(
-          width: 50,
-          child: Text(
-            display,
-            style: FabFilterTextStyles.value.copyWith(color: color),
-            textAlign: TextAlign.right,
-          ),
+      ),
+    );
+  }
+
+  Widget _buildCompactControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildSmallKnob(
+          value: _size,
+          label: 'SIZE',
+          display: '${(_size * 100).toStringAsFixed(0)}%',
+          color: FabFilterColors.purple,
+          onChanged: (v) {
+            setState(() => _size = v);
+            _ffi.algorithmicReverbSetRoomSize(widget.trackId, v);
+          },
+        ),
+        _buildSmallKnob(
+          value: math.log(_decay / 0.1) / math.log(20 / 0.1),
+          label: 'DECAY',
+          display: _decay >= 1 ? '${_decay.toStringAsFixed(1)}s' : '${(_decay * 1000).toStringAsFixed(0)}ms',
+          color: FabFilterColors.purple,
+          onChanged: (v) => setState(() => _decay = 0.1 * math.pow(20 / 0.1, v).toDouble()),
+        ),
+        _buildSmallKnob(
+          value: _brightness,
+          label: 'BRIGHT',
+          display: '${(_brightness * 100).toStringAsFixed(0)}%',
+          color: FabFilterColors.cyan,
+          onChanged: (v) {
+            setState(() => _brightness = v);
+            _ffi.algorithmicReverbSetDamping(widget.trackId, 1 - v);
+          },
+        ),
+        _buildSmallKnob(
+          value: math.log(_predelay / 1) / math.log(200 / 1),
+          label: 'PRE',
+          display: '${_predelay.toStringAsFixed(0)}ms',
+          color: FabFilterColors.blue,
+          onChanged: (v) {
+            setState(() => _predelay = 1 * math.pow(200 / 1, v).toDouble());
+            _ffi.algorithmicReverbSetPredelay(widget.trackId, _predelay);
+          },
+        ),
+        _buildSmallKnob(
+          value: _mix / 100,
+          label: 'MIX',
+          display: '${_mix.toStringAsFixed(0)}%',
+          color: FabFilterColors.green,
+          onChanged: (v) {
+            setState(() => _mix = v * 100);
+            _ffi.algorithmicReverbSetDryWet(widget.trackId, v);
+          },
+        ),
+        _buildSmallKnob(
+          value: _width / 200,
+          label: 'WIDTH',
+          display: '${_width.toStringAsFixed(0)}%',
+          color: FabFilterColors.cyan,
+          onChanged: (v) {
+            setState(() => _width = v * 200);
+            _ffi.algorithmicReverbSetWidth(widget.trackId, v * 2);
+          },
         ),
       ],
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // EQ SECTION
-  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildSmallKnob({
+    required double value,
+    required String label,
+    required String display,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    return FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 48, onChanged: onChanged);
+  }
 
-  Widget _buildEqSection() {
-    return buildSection(
-      'REVERB EQ',
-      Container(
-        height: 100,
-        decoration: FabFilterDecorations.display(),
-        padding: const EdgeInsets.all(8),
-        child: CustomPaint(
-          painter: _ReverbEqPainter(bands: _eqBands),
-          size: Size.infinite,
-        ),
+  Widget _buildCompactOptions() {
+    return SizedBox(
+      width: 100,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Character controls compact
+          _buildMiniSlider('Dist', _distance / 100, '${_distance.toStringAsFixed(0)}%', (v) => setState(() => _distance = v * 100)),
+          const SizedBox(height: 4),
+          _buildMiniSlider('Diff', _diffusion / 100, '${_diffusion.toStringAsFixed(0)}%', (v) => setState(() => _diffusion = v * 100)),
+          const Spacer(),
+          // Damping (expert)
+          if (showExpertMode) ...[
+            Text('DAMPING', style: FabFilterText.paramLabel.copyWith(fontSize: 8)),
+            const SizedBox(height: 2),
+            _buildMiniSlider('Lo', _dampingLow, '${(_dampingLow * 100).toStringAsFixed(0)}%', (v) => setState(() => _dampingLow = v)),
+            _buildMiniSlider('Hi', _dampingHigh, '${(_dampingHigh * 100).toStringAsFixed(0)}%', (v) {
+              setState(() => _dampingHigh = v);
+              _ffi.algorithmicReverbSetDamping(widget.trackId, v);
+            }),
+          ],
+        ],
       ),
     );
   }
+
+  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
+    return SizedBox(
+      height: 18,
+      child: Row(
+        children: [
+          SizedBox(width: 22, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: SliderComponentShape.noOverlay,
+                activeTrackColor: FabFilterColors.purple,
+                inactiveTrackColor: FabFilterColors.bgVoid,
+                thumbColor: FabFilterColors.purple,
+              ),
+              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+            ),
+          ),
+          SizedBox(width: 28, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

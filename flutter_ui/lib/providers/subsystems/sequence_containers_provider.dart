@@ -7,10 +7,13 @@
 /// - Step-based timeline
 /// - Loop/HoldLast/Ping-pong end behaviors
 /// - Speed control for tempo adjustment
+///
+/// P2 Optimization: Syncs to Rust FFI for sub-millisecond tick processing.
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../models/middleware_models.dart';
+import '../../services/container_service.dart';
 import '../../src/rust/native_ffi.dart';
 
 /// Callback type for step playback
@@ -78,6 +81,9 @@ class SequenceContainersProvider extends ChangeNotifier {
     _containers[id] = container;
     _ffi.middlewareCreateSequenceContainer(container);
 
+    // P2: Sync to Rust Container FFI for sub-ms tick
+    ContainerService.instance.syncSequenceToRust(container);
+
     notifyListeners();
     return container;
   }
@@ -91,8 +97,11 @@ class SequenceContainersProvider extends ChangeNotifier {
       _nextContainerId = container.id + 1;
     }
 
-    // Register with Rust
+    // Register with Rust middleware
     _ffi.middlewareCreateSequenceContainer(container);
+
+    // P2: Sync to Container FFI
+    ContainerService.instance.syncSequenceToRust(container);
 
     notifyListeners();
   }
@@ -108,9 +117,13 @@ class SequenceContainersProvider extends ChangeNotifier {
 
     _containers[container.id] = container;
 
-    // Re-register with Rust
+    // Re-register with Rust middleware
     _ffi.middlewareRemoveSequenceContainer(container.id);
     _ffi.middlewareCreateSequenceContainer(container);
+
+    // P2: Re-sync to Container FFI
+    ContainerService.instance.unsyncSequenceFromRust(container.id);
+    ContainerService.instance.syncSequenceToRust(container);
 
     notifyListeners();
   }
@@ -126,6 +139,10 @@ class SequenceContainersProvider extends ChangeNotifier {
     _playbackStates.remove(containerId);
 
     _ffi.middlewareRemoveSequenceContainer(containerId);
+
+    // P2: Remove from Container FFI
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+
     notifyListeners();
   }
 
@@ -232,6 +249,7 @@ class SequenceContainersProvider extends ChangeNotifier {
     required int containerId,
     required int childId,
     required String childName,
+    String? audioPath,
     double delayMs = 0.0,
     double durationMs = 1000.0,
     double fadeInMs = 0.0,
@@ -245,12 +263,35 @@ class SequenceContainersProvider extends ChangeNotifier {
       index: nextIndex,
       childId: childId,
       childName: childName,
+      audioPath: audioPath,
       delayMs: delayMs,
       durationMs: durationMs,
       fadeInMs: fadeInMs,
       fadeOutMs: fadeOutMs,
       loopCount: loopCount,
     );
+  }
+
+  /// Update audio path for a specific step
+  void updateStepAudioPath(int containerId, int stepIndex, String? audioPath) {
+    final container = _containers[containerId];
+    if (container == null) return;
+    if (stepIndex < 0 || stepIndex >= container.steps.length) return;
+
+    final updatedSteps = container.steps.map((s) {
+      if (s.index == stepIndex) {
+        return s.copyWith(audioPath: audioPath);
+      }
+      return s;
+    }).toList();
+
+    _containers[containerId] = container.copyWith(steps: updatedSteps);
+
+    // Re-register with Rust
+    _ffi.middlewareRemoveSequenceContainer(containerId);
+    _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

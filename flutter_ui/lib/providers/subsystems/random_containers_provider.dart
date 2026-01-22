@@ -8,10 +8,13 @@
 /// - Avoid repeat (don't play same sound twice in a row)
 /// - Global pitch/volume randomization
 /// - Multiple modes: Random, Shuffle, ShuffleWithHistory, Round Robin
+///
+/// P2 Optimization: Syncs to Rust FFI for sub-millisecond selection.
 
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../models/middleware_models.dart';
+import '../../services/container_service.dart';
 import '../../src/rust/native_ffi.dart';
 
 /// Result of random child selection
@@ -98,6 +101,9 @@ class RandomContainersProvider extends ChangeNotifier {
     _containers[id] = container;
     _ffi.middlewareCreateRandomContainer(container);
 
+    // P2: Sync to Rust Container FFI for sub-ms selection
+    ContainerService.instance.syncRandomToRust(container);
+
     notifyListeners();
     return container;
   }
@@ -111,8 +117,11 @@ class RandomContainersProvider extends ChangeNotifier {
       _nextContainerId = container.id + 1;
     }
 
-    // Register with Rust
+    // Register with Rust middleware
     _ffi.middlewareCreateRandomContainer(container);
+
+    // P2: Sync to Container FFI
+    ContainerService.instance.syncRandomToRust(container);
 
     notifyListeners();
   }
@@ -123,9 +132,13 @@ class RandomContainersProvider extends ChangeNotifier {
 
     _containers[container.id] = container;
 
-    // Re-register with Rust
+    // Re-register with Rust middleware
     _ffi.middlewareRemoveRandomContainer(container.id);
     _ffi.middlewareCreateRandomContainer(container);
+
+    // P2: Re-sync to Container FFI
+    ContainerService.instance.unsyncRandomFromRust(container.id);
+    ContainerService.instance.syncRandomToRust(container);
 
     // Reset playback state when mode changes
     _playHistory.remove(container.id);
@@ -145,6 +158,10 @@ class RandomContainersProvider extends ChangeNotifier {
     _roundRobinIndex.remove(containerId);
 
     _ffi.middlewareRemoveRandomContainer(containerId);
+
+    // P2: Remove from Container FFI
+    ContainerService.instance.unsyncRandomFromRust(containerId);
+
     notifyListeners();
   }
 
@@ -240,6 +257,7 @@ class RandomContainersProvider extends ChangeNotifier {
   RandomChild createChild({
     required int containerId,
     required String name,
+    String? audioPath,
     double weight = 1.0,
     double pitchMin = 0.0,
     double pitchMax = 0.0,
@@ -252,12 +270,34 @@ class RandomContainersProvider extends ChangeNotifier {
     return RandomChild(
       id: nextId,
       name: name,
+      audioPath: audioPath,
       weight: weight,
       pitchMin: pitchMin,
       pitchMax: pitchMax,
       volumeMin: volumeMin,
       volumeMax: volumeMax,
     );
+  }
+
+  /// Update audio path for a specific child
+  void updateChildAudioPath(int containerId, int childId, String? audioPath) {
+    final container = _containers[containerId];
+    if (container == null) return;
+
+    final updatedChildren = container.children.map((c) {
+      if (c.id == childId) {
+        return c.copyWith(audioPath: audioPath);
+      }
+      return c;
+    }).toList();
+
+    _containers[containerId] = container.copyWith(children: updatedChildren);
+
+    // Re-register with Rust
+    _ffi.middlewareRemoveRandomContainer(containerId);
+    _ffi.middlewareCreateRandomContainer(_containers[containerId]!);
+
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

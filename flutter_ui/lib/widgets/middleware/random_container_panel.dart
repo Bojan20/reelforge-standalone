@@ -5,8 +5,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
+import '../../providers/subsystems/random_containers_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Random Container Panel Widget
@@ -827,8 +829,95 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // Audio Path
+          _buildAudioPathRow(context, container.id, child),
         ],
       ),
+    );
+  }
+
+  Widget _buildAudioPathRow(BuildContext context, int containerId, RandomChild child) {
+    final randomProvider = context.read<RandomContainersProvider>();
+    final hasAudio = child.audioPath != null && child.audioPath!.isNotEmpty;
+    final fileName = hasAudio ? child.audioPath!.split('/').last : 'No audio file';
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            'Audio File',
+            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.backgroundDeep,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: hasAudio ? Colors.green.withValues(alpha: 0.5) : FluxForgeTheme.surface,
+              ),
+            ),
+            child: Text(
+              fileName,
+              style: TextStyle(
+                color: hasAudio ? Colors.green : FluxForgeTheme.textSecondary,
+                fontSize: 10,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () async {
+            final result = await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: ['wav', 'mp3', 'ogg', 'flac', 'aiff'],
+            );
+            if (result != null && result.files.single.path != null) {
+              randomProvider.updateChildAudioPath(containerId, child.id, result.files.single.path);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.folder_open, size: 12, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  'Browse',
+                  style: TextStyle(color: Colors.amber, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (hasAudio) ...[
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              randomProvider.updateChildAudioPath(containerId, child.id, null);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(Icons.close, size: 12, color: Colors.red),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

@@ -211,7 +211,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
+  // BUILD — Compact horizontal layout, NO scrolling
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -220,101 +220,121 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       decoration: FabFilterDecorations.panel(),
       child: Column(
         children: [
-          buildHeader(),
+          // Compact header
+          _buildCompactHeader(),
+          // Main content — horizontal layout, no scroll
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Display section
-                  if (!_compactView) ...[
-                    _buildDisplaySection(),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Main controls
-                  _buildMainControls(),
-                  const SizedBox(height: 16),
-
-                  // Mode selection
-                  _buildModeSection(),
-                  const SizedBox(height: 16),
-
-                  // Sidechain
-                  _buildSidechainSection(),
-
-                  // Expert controls
-                  if (showExpertMode) ...[
-                    const SizedBox(height: 16),
-                    _buildExpertSection(),
-                  ],
+                  // LEFT: Gate state indicator
+                  _buildCompactGateState(),
+                  const SizedBox(width: 12),
+                  // CENTER: Main knobs
+                  Expanded(flex: 3, child: _buildCompactControls()),
+                  const SizedBox(width: 12),
+                  // RIGHT: Sidechain + options
+                  _buildCompactOptions(),
                 ],
               ),
             ),
           ),
-          buildBottomBar(),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DISPLAY SECTION
-  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildCompactHeader() {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: FabFilterColors.borderSubtle))),
+      child: Row(
+        children: [
+          Icon(widget.icon, color: widget.accentColor, size: 14),
+          const SizedBox(width: 6),
+          Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
+          const SizedBox(width: 12),
+          // Mode selector
+          ...GateMode.values.map((m) => Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: _buildModeChip(m),
+          )),
+          const Spacer(),
+          _buildCompactAB(),
+          const SizedBox(width: 8),
+          _buildCompactBypass(),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildDisplaySection() {
+  Widget _buildModeChip(GateMode mode) {
+    final isSelected = _mode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _mode = mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: isSelected ? widget.accentColor : FabFilterColors.border),
+        ),
+        child: Text(mode.label, style: TextStyle(color: isSelected ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildCompactAB() {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Level display
-        Expanded(
-          flex: 3,
-          child: Container(
-            height: 140,
-            decoration: FabFilterDecorations.display(),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: CustomPaint(
-                painter: _GateDisplayPainter(
-                  history: _levelHistory,
-                  threshold: _threshold,
-                  hysteresis: _hysteresis,
-                ),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        // Gate state indicator
-        SizedBox(
-          width: 80,
-          height: 140,
-          child: _buildGateStateIndicator(),
-        ),
-
-        const SizedBox(width: 12),
-
-        // Level meters
-        SizedBox(
-          width: 60,
-          height: 140,
-          child: _buildLevelMeters(),
-        ),
+        _buildMiniButton('A', !isStateB, () { if (isStateB) toggleAB(); }),
+        const SizedBox(width: 2),
+        _buildMiniButton('B', isStateB, () { if (!isStateB) toggleAB(); }),
       ],
     );
   }
 
-  Widget _buildGateStateIndicator() {
+  Widget _buildMiniButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 20, height: 20,
+        decoration: BoxDecoration(
+          color: active ? widget.accentColor.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: active ? widget.accentColor : FabFilterColors.border),
+        ),
+        child: Center(child: Text(label, style: TextStyle(color: active ? widget.accentColor : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold))),
+      ),
+    );
+  }
+
+  Widget _buildCompactBypass() {
+    return GestureDetector(
+      onTap: toggleBypass,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: bypassed ? FabFilterColors.orange.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: bypassed ? FabFilterColors.orange : FabFilterColors.border),
+        ),
+        child: Text('BYP', style: TextStyle(color: bypassed ? FabFilterColors.orange : FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildCompactGateState() {
     final stateColor = switch (_currentState) {
       GateState.open => FabFilterColors.green,
       GateState.opening => FabFilterColors.yellow,
       GateState.closing => FabFilterColors.orange,
       GateState.closed => FabFilterColors.red,
     };
-
     final stateLabel = switch (_currentState) {
       GateState.open => 'OPEN',
       GateState.opening => 'OPENING',
@@ -322,408 +342,185 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
       GateState.closed => 'CLOSED',
     };
 
-    return Container(
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Large gate indicator
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: stateColor.withValues(alpha: 0.2),
-              border: Border.all(color: stateColor, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: stateColor.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Container(
-                width: 30 * _gateOpen,
-                height: 30 * _gateOpen,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: stateColor,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Text(
-            stateLabel,
-            style: TextStyle(
-              color: stateColor,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Gate open percentage
-          Text(
-            '${(_gateOpen * 100).toStringAsFixed(0)}%',
-            style: FabFilterTextStyles.value.copyWith(
-              color: FabFilterColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLevelMeters() {
-    return Container(
-      decoration: FabFilterDecorations.display(),
-      padding: const EdgeInsets.all(4),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text('IN', style: FabFilterTextStyles.label),
-              Text('OUT', style: FabFilterTextStyles.label),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(child: _buildVerticalMeter(_currentInputLevel, FabFilterColors.textMuted)),
-                const SizedBox(width: 2),
-                Expanded(child: _buildVerticalMeter(_currentOutputLevel, FabFilterColors.green)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVerticalMeter(double levelDb, Color color) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final normalized = ((levelDb + 60) / 60).clamp(0.0, 1.0);
-
-        return Stack(
-          alignment: Alignment.bottomCenter,
+    return SizedBox(
+      width: 70,
+      child: Container(
+        decoration: FabFilterDecorations.display(),
+        padding: const EdgeInsets.all(6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Gate indicator
             Container(
-              width: double.infinity,
+              width: 40, height: 40,
               decoration: BoxDecoration(
-                color: FabFilterColors.bgVoid,
-                borderRadius: BorderRadius.circular(2),
+                shape: BoxShape.circle,
+                color: stateColor.withValues(alpha: 0.2),
+                border: Border.all(color: stateColor, width: 2),
+              ),
+              child: Center(
+                child: Container(
+                  width: 24 * _gateOpen,
+                  height: 24 * _gateOpen,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: stateColor),
+                ),
               ),
             ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 50),
-              width: double.infinity,
-              height: constraints.maxHeight * normalized,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const SizedBox(height: 6),
+            Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
+            Text('${(_gateOpen * 100).toStringAsFixed(0)}%', style: FabFilterText.paramValue(FabFilterColors.textSecondary).copyWith(fontSize: 10)),
           ],
-        );
-      },
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // MAIN CONTROLS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildMainControls() {
-    return buildSection(
-      'GATE',
-      Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          // Threshold
-          FabFilterKnob(
-            value: (_threshold + 80) / 80,
-            label: 'THRESHOLD',
-            display: '${_threshold.toStringAsFixed(1)} dB',
-            color: FabFilterColors.green,
-            onChanged: (v) {
-              setState(() => _threshold = v * 80 - 80);
-              _ffi.gateSetThreshold(widget.trackId, _threshold);
-            },
-          ),
-
-          // Range
-          FabFilterKnob(
-            value: (_range + 80) / 80,
-            label: 'RANGE',
-            display: '${_range.toStringAsFixed(0)} dB',
-            color: FabFilterColors.orange,
-            onChanged: (v) {
-              setState(() => _range = v * 80 - 80);
-              _ffi.gateSetRange(widget.trackId, _range);
-            },
-          ),
-
-          // Attack
-          FabFilterKnob(
-            value: math.log(_attack / 0.01) / math.log(100 / 0.01),
-            label: 'ATTACK',
-            display: _attack < 1
-                ? '${(_attack * 1000).toStringAsFixed(0)} µs'
-                : '${_attack.toStringAsFixed(1)} ms',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _attack = 0.01 * math.pow(100 / 0.01, v).toDouble());
-              _ffi.gateSetAttack(widget.trackId, _attack);
-            },
-          ),
-
-          // Hold
-          FabFilterKnob(
-            value: _hold / 500,
-            label: 'HOLD',
-            display: '${_hold.toStringAsFixed(0)} ms',
-            color: FabFilterColors.blue,
-            onChanged: (v) {
-              setState(() => _hold = v * 500);
-              _ffi.gateSetHold(widget.trackId, _hold);
-            },
-          ),
-
-          // Release
-          FabFilterKnob(
-            value: math.log(_release / 1) / math.log(1000 / 1),
-            label: 'RELEASE',
-            display: _release >= 100
-                ? '${(_release / 1000).toStringAsFixed(2)} s'
-                : '${_release.toStringAsFixed(0)} ms',
-            color: FabFilterColors.cyan,
-            onChanged: (v) {
-              setState(() => _release = 1 * math.pow(1000 / 1, v).toDouble());
-              _ffi.gateSetRelease(widget.trackId, _release);
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MODE SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildModeSection() {
-    return buildSection(
-      'MODE',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Mode buttons
-          Row(
-            children: GateMode.values.map((mode) {
-              final isSelected = _mode == mode;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => setState(() => _mode = mode),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: isSelected
-                        ? FabFilterDecorations.toggleActive(FabFilterColors.green)
-                        : FabFilterDecorations.toggleInactive(),
-                    child: Text(
-                      mode.label,
-                      style: TextStyle(
-                        color: isSelected
-                            ? FabFilterColors.green
-                            : FabFilterColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            _mode.description,
-            style: FabFilterTextStyles.label.copyWith(
-              color: FabFilterColors.textMuted,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              buildToggle(
-                'Compact',
-                _compactView,
-                (v) => setState(() => _compactView = v),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SIDECHAIN SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-
-  Widget _buildSidechainSection() {
-    return buildSection(
-      'SIDECHAIN',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              buildToggle(
-                'Enable',
-                _sidechainEnabled,
-                (v) => setState(() => _sidechainEnabled = v),
-              ),
-              const SizedBox(width: 24),
-
-              // HPF
-              Expanded(
-                child: _buildSimpleSlider(
-                  'HP',
-                  math.log(_sidechainHpf / 20) / math.log(500 / 20),
-                  '${_sidechainHpf.toStringAsFixed(0)} Hz',
-                  FabFilterColors.cyan,
-                  _sidechainEnabled
-                      ? (v) => setState(
-                          () => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // LPF
-              Expanded(
-                child: _buildSimpleSlider(
-                  'LP',
-                  math.log(_sidechainLpf / 1000) / math.log(20000 / 1000),
-                  _sidechainLpf >= 1000
-                      ? '${(_sidechainLpf / 1000).toStringAsFixed(1)}k'
-                      : '${_sidechainLpf.toStringAsFixed(0)} Hz',
-                  FabFilterColors.cyan,
-                  _sidechainEnabled
-                      ? (v) => setState(() =>
-                          _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())
-                      : null,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          if (_sidechainEnabled)
-            buildToggle(
-              'Audition Sidechain',
-              _sidechainAudition,
-              (v) => setState(() => _sidechainAudition = v),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleSlider(
-    String label,
-    double value,
-    String display,
-    Color color,
-    ValueChanged<double>? onChanged,
-  ) {
+  Widget _buildCompactControls() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        SizedBox(
-          width: 25,
-          child: Text(label, style: FabFilterTextStyles.label),
+        _buildSmallKnob(
+          value: (_threshold + 80) / 80,
+          label: 'THRESH',
+          display: '${_threshold.toStringAsFixed(0)}dB',
+          color: FabFilterColors.green,
+          onChanged: (v) {
+            setState(() => _threshold = v * 80 - 80);
+            _ffi.gateSetThreshold(widget.trackId, _threshold);
+          },
         ),
-        Expanded(
-          child: SliderTheme(
-            data: fabFilterSliderTheme(color),
-            child: Slider(
-              value: value.clamp(0.0, 1.0),
-              onChanged: onChanged,
-            ),
+        _buildSmallKnob(
+          value: (_range + 80) / 80,
+          label: 'RANGE',
+          display: '${_range.toStringAsFixed(0)}dB',
+          color: FabFilterColors.orange,
+          onChanged: (v) {
+            setState(() => _range = v * 80 - 80);
+            _ffi.gateSetRange(widget.trackId, _range);
+          },
+        ),
+        _buildSmallKnob(
+          value: math.log(_attack / 0.01) / math.log(100 / 0.01),
+          label: 'ATT',
+          display: _attack < 1 ? '${(_attack * 1000).toStringAsFixed(0)}µ' : '${_attack.toStringAsFixed(0)}ms',
+          color: FabFilterColors.cyan,
+          onChanged: (v) {
+            setState(() => _attack = 0.01 * math.pow(100 / 0.01, v).toDouble());
+            _ffi.gateSetAttack(widget.trackId, _attack);
+          },
+        ),
+        _buildSmallKnob(
+          value: _hold / 500,
+          label: 'HOLD',
+          display: '${_hold.toStringAsFixed(0)}ms',
+          color: FabFilterColors.blue,
+          onChanged: (v) {
+            setState(() => _hold = v * 500);
+            _ffi.gateSetHold(widget.trackId, _hold);
+          },
+        ),
+        _buildSmallKnob(
+          value: math.log(_release / 1) / math.log(1000 / 1),
+          label: 'REL',
+          display: _release >= 100 ? '${(_release / 1000).toStringAsFixed(1)}s' : '${_release.toStringAsFixed(0)}ms',
+          color: FabFilterColors.cyan,
+          onChanged: (v) {
+            setState(() => _release = 1 * math.pow(1000 / 1, v).toDouble());
+            _ffi.gateSetRelease(widget.trackId, _release);
+          },
+        ),
+        if (showExpertMode)
+          _buildSmallKnob(
+            value: _hysteresis / 12,
+            label: 'HYST',
+            display: '${_hysteresis.toStringAsFixed(0)}dB',
+            color: FabFilterColors.purple,
+            onChanged: (v) => setState(() => _hysteresis = v * 12),
           ),
-        ),
-        SizedBox(
-          width: 60,
-          child: Text(
-            display,
-            style: FabFilterTextStyles.value.copyWith(color: color),
-            textAlign: TextAlign.right,
-          ),
-        ),
       ],
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // EXPERT SECTION
-  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildSmallKnob({
+    required double value,
+    required String label,
+    required String display,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    return FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 48, onChanged: onChanged);
+  }
 
-  Widget _buildExpertSection() {
-    return buildSection(
-      'ADVANCED',
-      Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
+  Widget _buildCompactOptions() {
+    return SizedBox(
+      width: 100,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Hysteresis
-          FabFilterKnob(
-            value: _hysteresis / 12,
-            label: 'HYSTERESIS',
-            display: '${_hysteresis.toStringAsFixed(1)} dB',
-            color: FabFilterColors.purple,
-            onChanged: (v) => setState(() => _hysteresis = v * 12),
-          ),
-
-          // Lookahead
-          FabFilterKnob(
-            value: _lookahead / 10,
-            label: 'LOOKAHEAD',
-            display: '${_lookahead.toStringAsFixed(1)} ms',
-            color: FabFilterColors.blue,
-            onChanged: (v) => setState(() => _lookahead = v * 10),
-          ),
-
-          // Ratio (for expander mode)
-          if (_mode == GateMode.expand)
-            FabFilterKnob(
-              value: _ratio / 100,
-              label: 'RATIO',
-              display: '${_ratio.toStringAsFixed(0)}%',
-              color: FabFilterColors.orange,
-              onChanged: (v) => setState(() => _ratio = v * 100),
-            ),
+          _buildOptionRow('SC', _sidechainEnabled, (v) => setState(() => _sidechainEnabled = v)),
+          const SizedBox(height: 4),
+          if (_sidechainEnabled) ...[
+            _buildMiniSlider('HP', math.log(_sidechainHpf / 20) / math.log(500 / 20), '${_sidechainHpf.toStringAsFixed(0)}', (v) => setState(() => _sidechainHpf = 20 * math.pow(500 / 20, v).toDouble())),
+            const SizedBox(height: 2),
+            _buildMiniSlider('LP', math.log(_sidechainLpf / 1000) / math.log(20000 / 1000), '${(_sidechainLpf / 1000).toStringAsFixed(0)}k', (v) => setState(() => _sidechainLpf = 1000 * math.pow(20000 / 1000, v).toDouble())),
+            const SizedBox(height: 4),
+            _buildOptionRow('Aud', _sidechainAudition, (v) => setState(() => _sidechainAudition = v)),
+          ],
+          const Spacer(),
+          if (showExpertMode)
+            _buildMiniSlider('Look', _lookahead / 10, '${_lookahead.toStringAsFixed(0)}ms', (v) => setState(() => _lookahead = v * 10)),
         ],
       ),
     );
   }
+
+  Widget _buildOptionRow(String label, bool value, ValueChanged<bool> onChanged) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: value ? widget.accentColor.withValues(alpha: 0.15) : FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: value ? widget.accentColor.withValues(alpha: 0.5) : FabFilterColors.border),
+        ),
+        child: Row(
+          children: [
+            Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 9)),
+            const Spacer(),
+            Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 14, color: value ? widget.accentColor : FabFilterColors.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniSlider(String label, double value, String display, ValueChanged<double> onChanged) {
+    return SizedBox(
+      height: 18,
+      child: Row(
+        children: [
+          SizedBox(width: 24, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: SliderComponentShape.noOverlay,
+                activeTrackColor: FabFilterColors.cyan,
+                inactiveTrackColor: FabFilterColors.bgVoid,
+                thumbColor: FabFilterColors.cyan,
+              ),
+              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+            ),
+          ),
+          SizedBox(width: 24, child: Text(display, style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

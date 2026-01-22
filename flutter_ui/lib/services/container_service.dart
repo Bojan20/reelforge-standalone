@@ -5,16 +5,22 @@
 /// - RandomContainer: Weighted random/shuffle selection
 /// - SequenceContainer: Timed sound sequences
 ///
+/// P2 Optimization: Uses Rust FFI for sub-millisecond container evaluation
+/// when available, with fallback to Dart implementation.
+///
 /// Usage:
 /// 1. Register container with EventRegistry
 /// 2. When triggered, container determines which sound(s) to play
 /// 3. Supports per-play variation (random, RTPC-based selection)
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../models/middleware_models.dart';
 import '../providers/middleware_provider.dart';
+import '../src/rust/native_ffi.dart';
+import 'audio_playback_service.dart';
 
 /// Service for container-based audio playback
 class ContainerService {
@@ -26,7 +32,13 @@ class ContainerService {
   // Reference to middleware provider
   MiddlewareProvider? _middleware;
 
-  // Random number generator
+  // FFI instance (lazy loaded)
+  NativeFFI? _ffi;
+
+  // Whether Rust FFI is available
+  bool _ffiAvailable = false;
+
+  // Random number generator (fallback for Dart-only mode)
   final _random = math.Random();
 
   // Round-robin state per container (containerId → currentIndex)
@@ -35,11 +47,49 @@ class ContainerService {
   // Shuffle history per container (containerId → played indices)
   final Map<int, List<int>> _shuffleHistory = {};
 
+  // Rust container ID mapping (Dart containerId → Rust containerId)
+  final Map<int, int> _blendRustIds = {};
+  final Map<int, int> _randomRustIds = {};
+  final Map<int, int> _sequenceRustIds = {};
+
+  // P3A: Active Rust tick-based sequences (instanceId → _SequenceInstanceRust)
+  final Map<int, _SequenceInstanceRust> _activeRustSequences = {};
+
   /// Initialize with middleware provider
   void init(MiddlewareProvider middleware) {
     _middleware = middleware;
-    debugPrint('[ContainerService] Initialized');
+
+    // Try to initialize FFI
+    try {
+      _ffi = NativeFFI.instance;
+      if (_ffi!.isLoaded) {
+        _ffi!.containerInit();
+        _ffiAvailable = true;
+        debugPrint('[ContainerService] ✅ Initialized with Rust FFI');
+      } else {
+        _ffiAvailable = false;
+        debugPrint('[ContainerService] ⚠️ FFI not loaded, using Dart fallback');
+      }
+    } catch (e) {
+      _ffiAvailable = false;
+      debugPrint('[ContainerService] ⚠️ FFI init error: $e, using Dart fallback');
+    }
   }
+
+  /// Check if Rust FFI is available
+  bool get isRustAvailable => _ffiAvailable;
+
+  /// Get Rust container count (for debugging)
+  int get rustContainerCount => _ffiAvailable ? _ffi!.containerGetTotalCount() : 0;
+
+  /// Get a blend container by ID (for logging/info)
+  BlendContainer? getBlendContainer(int id) => _middleware?.getBlendContainer(id);
+
+  /// Get a random container by ID (for logging/info)
+  RandomContainer? getRandomContainer(int id) => _middleware?.getRandomContainer(id);
+
+  /// Get a sequence container by ID (for logging/info)
+  SequenceContainer? getSequenceContainer(int id) => _middleware?.getSequenceContainer(id);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BLEND CONTAINER
@@ -224,6 +274,645 @@ class ContainerService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CONTAINER PLAYBACK — Trigger Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Active sequence instances (instanceId → _SequenceInstance)
+  final Map<int, _SequenceInstance> _activeSequences = {};
+  int _nextSequenceId = 1;
+
+  /// Trigger a blend container — plays active children with RTPC-based volumes
+  /// Returns list of voice IDs for each played child
+  Future<List<int>> triggerBlendContainer(
+    int containerId, {
+    required int busId,
+    Map<String, dynamic>? context,
+  }) async {
+    if (_middleware == null) {
+      debugPrint('[ContainerService] triggerBlendContainer: No middleware');
+      return [];
+    }
+
+    final container = _middleware!.getBlendContainer(containerId);
+    if (container == null) {
+      debugPrint('[ContainerService] triggerBlendContainer: Container $containerId not found');
+      return [];
+    }
+
+    // Get RTPC value for evaluation
+    final rtpcDef = _middleware!.getRtpc(container.rtpcId);
+    final rtpcValue = rtpcDef?.normalizedValue ?? 0.5;
+
+    Map<int, double> volumes;
+
+    // Try Rust FFI first for sub-ms evaluation
+    if (_ffiAvailable && _blendRustIds.containsKey(containerId)) {
+      final rustId = _blendRustIds[containerId]!;
+      final results = _ffi!.containerEvaluateBlend(rustId, rtpcValue);
+
+      if (results.isNotEmpty) {
+        volumes = {for (final r in results) r.childId: r.volume};
+        debugPrint('[ContainerService] ⚡ Blend eval via Rust: ${results.length} children');
+      } else {
+        // Fallback to Dart
+        volumes = evaluateBlendContainer(container);
+      }
+    } else {
+      // Dart fallback
+      volumes = evaluateBlendContainer(container);
+    }
+
+    if (volumes.isEmpty) {
+      debugPrint('[ContainerService] triggerBlendContainer: No active children for RTPC');
+      return [];
+    }
+
+    final voiceIds = <int>[];
+    final playbackService = AudioPlaybackService.instance;
+
+    for (final entry in volumes.entries) {
+      final childId = entry.key;
+      final volume = entry.value;
+
+      // Get audio path - try Rust first, then Dart model
+      String? audioPath;
+      if (_ffiAvailable && _blendRustIds.containsKey(containerId)) {
+        audioPath = _ffi!.containerGetBlendChildAudioPath(_blendRustIds[containerId]!, childId);
+      }
+      if (audioPath == null || audioPath.isEmpty) {
+        // Fallback to Dart model
+        final child = container.children.firstWhere(
+          (c) => c.id == childId,
+          orElse: () => container.children.first,
+        );
+        audioPath = child.audioPath;
+      }
+
+      if (audioPath == null || audioPath.isEmpty) {
+        debugPrint('[ContainerService] BlendChild $childId has no audioPath');
+        continue;
+      }
+
+      // Play the child with calculated volume
+      final contextPan = (context?['pan'] as num?)?.toDouble() ?? 0.0;
+      final voiceId = playbackService.playFileToBus(
+        audioPath,
+        busId: busId,
+        volume: volume,
+        pan: contextPan,
+      );
+
+      if (voiceId > 0) {
+        voiceIds.add(voiceId);
+        debugPrint('[ContainerService] ✅ Blend child $childId → voice $voiceId, vol=${volume.toStringAsFixed(2)}');
+      }
+    }
+
+    return voiceIds;
+  }
+
+  /// Trigger a random container — selects and plays one child
+  /// Returns the voice ID of the played sound, or -1 on failure
+  Future<int> triggerRandomContainer(
+    int containerId, {
+    required int busId,
+    Map<String, dynamic>? context,
+  }) async {
+    if (_middleware == null) {
+      debugPrint('[ContainerService] triggerRandomContainer: No middleware');
+      return -1;
+    }
+
+    final container = _middleware!.getRandomContainer(containerId);
+    if (container == null) {
+      debugPrint('[ContainerService] triggerRandomContainer: Container $containerId not found');
+      return -1;
+    }
+
+    int selectedChildId;
+    double pitchOffset = 0.0;
+    double volumeOffset = 0.0;
+    String? audioPath;
+
+    // Try Rust FFI first for sub-ms selection
+    if (_ffiAvailable && _randomRustIds.containsKey(containerId)) {
+      final rustId = _randomRustIds[containerId]!;
+      final result = _ffi!.containerSelectRandom(rustId);
+
+      if (result != null) {
+        selectedChildId = result.childId;
+        pitchOffset = result.pitchOffset;
+        volumeOffset = result.volumeOffset;
+        audioPath = _ffi!.containerGetRandomChildAudioPath(rustId, selectedChildId);
+        debugPrint('[ContainerService] ⚡ Random select via Rust: child=$selectedChildId, pitch=${pitchOffset.toStringAsFixed(2)}, vol=${volumeOffset.toStringAsFixed(2)}');
+      } else {
+        // Rust returned null (disabled/empty), try Dart fallback
+        final selectedIndex = selectRandomChild(container);
+        if (selectedIndex < 0 || selectedIndex >= container.children.length) {
+          debugPrint('[ContainerService] triggerRandomContainer: No valid selection');
+          return -1;
+        }
+        final child = container.children[selectedIndex];
+        selectedChildId = child.id;
+        final variation = applyRandomVariation(child);
+        pitchOffset = variation['pitch']!;
+        volumeOffset = variation['volume']!;
+        audioPath = child.audioPath;
+      }
+    } else {
+      // Dart fallback
+      final selectedIndex = selectRandomChild(container);
+      if (selectedIndex < 0 || selectedIndex >= container.children.length) {
+        debugPrint('[ContainerService] triggerRandomContainer: No valid selection');
+        return -1;
+      }
+      final child = container.children[selectedIndex];
+      selectedChildId = child.id;
+      final variation = applyRandomVariation(child);
+      pitchOffset = variation['pitch']!;
+      volumeOffset = variation['volume']!;
+      audioPath = child.audioPath;
+    }
+
+    if (audioPath == null || audioPath.isEmpty) {
+      debugPrint('[ContainerService] RandomChild $selectedChildId has no audioPath');
+      return -1;
+    }
+
+    // Calculate final volume
+    final baseVolume = (context?['volume'] as num?)?.toDouble() ?? 1.0;
+    final contextPan = (context?['pan'] as num?)?.toDouble() ?? 0.0;
+    final finalVolume = (baseVolume + volumeOffset).clamp(0.0, 1.0);
+
+    final playbackService = AudioPlaybackService.instance;
+    final voiceId = playbackService.playFileToBus(
+      audioPath,
+      busId: busId,
+      volume: finalVolume,
+      pan: contextPan,
+      // Note: pitch variation would need engine support
+    );
+
+    if (voiceId > 0) {
+      debugPrint('[ContainerService] ✅ Random child $selectedChildId → voice $voiceId, vol=${finalVolume.toStringAsFixed(2)}');
+    }
+
+    return voiceId;
+  }
+
+  /// Trigger a sequence container — schedules steps with timing
+  /// Returns the sequence instance ID for tracking/stopping
+  ///
+  /// P3A: Uses Rust FFI tick-based timing when available for sub-ms precision.
+  /// Falls back to Dart Timer scheduling if FFI unavailable.
+  Future<int> triggerSequenceContainer(
+    int containerId, {
+    required int busId,
+    Map<String, dynamic>? context,
+  }) async {
+    if (_middleware == null) {
+      debugPrint('[ContainerService] triggerSequenceContainer: No middleware');
+      return -1;
+    }
+
+    final container = _middleware!.getSequenceContainer(containerId);
+    if (container == null) {
+      debugPrint('[ContainerService] triggerSequenceContainer: Container $containerId not found');
+      return -1;
+    }
+
+    if (container.steps.isEmpty) {
+      debugPrint('[ContainerService] triggerSequenceContainer: No steps');
+      return -1;
+    }
+
+    // P3A: Use Rust tick-based timing if FFI available
+    if (_ffiAvailable && _sequenceRustIds.containsKey(containerId)) {
+      return _triggerSequenceViaRustTick(containerId, container, busId, context);
+    }
+
+    // Fallback: Dart Timer scheduling
+    return _triggerSequenceViaDartTimer(containerId, container, busId, context);
+  }
+
+  /// P3A: Rust tick-based sequence playback
+  /// Uses Rust internal clock for precise step timing
+  int _triggerSequenceViaRustTick(
+    int containerId,
+    SequenceContainer container,
+    int busId,
+    Map<String, dynamic>? context,
+  ) {
+    final rustId = _sequenceRustIds[containerId]!;
+    final instanceId = _nextSequenceId++;
+
+    // Start playback in Rust
+    _ffi!.containerPlaySequence(rustId);
+
+    // Create instance with tick timer
+    final instance = _SequenceInstanceRust(
+      instanceId: instanceId,
+      containerId: containerId,
+      rustId: rustId,
+      container: container,
+      voiceIds: [],
+      busId: busId,
+      context: context,
+      lastTickTime: DateTime.now(),
+    );
+
+    _activeRustSequences[instanceId] = instance;
+
+    // Start tick loop (~60fps = 16.67ms)
+    instance.tickTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+      _tickRustSequence(instanceId);
+    });
+
+    debugPrint('[ContainerService] ⚡ Sequence started via Rust: ${container.name}, instance=$instanceId');
+    return instanceId;
+  }
+
+  /// Tick a Rust-based sequence, triggering any due steps
+  void _tickRustSequence(int instanceId) {
+    final instance = _activeRustSequences[instanceId];
+    if (instance == null) return;
+
+    final now = DateTime.now();
+    final deltaMs = now.difference(instance.lastTickTime).inMicroseconds / 1000.0;
+    instance.lastTickTime = now;
+
+    // Tick Rust and get triggered steps
+    final result = _ffi!.containerTickSequence(instance.rustId, deltaMs);
+
+    // Play triggered steps
+    for (final stepIdx in result.triggeredSteps) {
+      _playSequenceStep(instance, stepIdx);
+    }
+
+    // Handle sequence end
+    if (result.ended) {
+      _stopRustSequence(instanceId, 'ended');
+    } else if (result.looped) {
+      debugPrint('[ContainerService] Sequence $instanceId looped (Rust)');
+    }
+  }
+
+  /// Play a single sequence step
+  void _playSequenceStep(_SequenceInstanceRust instance, int stepIdx) {
+    // Get audio path from Rust
+    String? audioPath = _ffi!.containerGetSequenceStepAudioPath(instance.rustId, stepIdx);
+
+    // Fallback to Dart model if Rust path empty
+    if (audioPath == null || audioPath.isEmpty) {
+      if (stepIdx < instance.container.steps.length) {
+        audioPath = instance.container.steps[stepIdx].audioPath;
+      }
+    }
+
+    if (audioPath == null || audioPath.isEmpty) {
+      debugPrint('[ContainerService] SequenceStep $stepIdx has no audioPath');
+      return;
+    }
+
+    final contextPan = (instance.context?['pan'] as num?)?.toDouble() ?? 0.0;
+    final step = stepIdx < instance.container.steps.length
+        ? instance.container.steps[stepIdx]
+        : null;
+    final volume = step?.volume ?? 1.0;
+
+    final voiceId = AudioPlaybackService.instance.playFileToBus(
+      audioPath,
+      busId: instance.busId,
+      volume: volume,
+      pan: contextPan,
+    );
+
+    if (voiceId > 0) {
+      instance.voiceIds.add(voiceId);
+      final stepName = step?.childName ?? 'step_$stepIdx';
+      debugPrint('[ContainerService] ⚡ Sequence step "$stepName" → voice $voiceId (Rust tick)');
+    }
+  }
+
+  /// Stop a Rust-based sequence
+  void _stopRustSequence(int instanceId, String reason) {
+    final instance = _activeRustSequences.remove(instanceId);
+    if (instance == null) return;
+
+    instance.tickTimer?.cancel();
+    _ffi!.containerStopSequence(instance.rustId);
+
+    // Stop all playing voices
+    for (final voiceId in instance.voiceIds) {
+      AudioPlaybackService.instance.stopOneShotVoice(voiceId);
+    }
+
+    debugPrint('[ContainerService] Sequence $instanceId stopped ($reason, Rust)');
+  }
+
+  /// Dart Timer fallback for sequence playback
+  int _triggerSequenceViaDartTimer(
+    int containerId,
+    SequenceContainer container,
+    int busId,
+    Map<String, dynamic>? context,
+  ) {
+    final instanceId = _nextSequenceId++;
+    final voiceIds = <int>[];
+    final timers = <Timer>[];
+
+    // Schedule each step
+    for (final step in container.steps) {
+      if (step.audioPath == null || step.audioPath!.isEmpty) {
+        debugPrint('[ContainerService] SequenceStep ${step.childName} has no audioPath');
+        continue;
+      }
+
+      // Apply speed modifier to delay
+      final adjustedDelay = (step.delayMs / container.speed).round();
+
+      final timer = Timer(Duration(milliseconds: adjustedDelay), () async {
+        final playbackService = AudioPlaybackService.instance;
+        final contextPan = (context?['pan'] as num?)?.toDouble() ?? 0.0;
+
+        final voiceId = playbackService.playFileToBus(
+          step.audioPath!,
+          busId: busId,
+          volume: step.volume,
+          pan: contextPan,
+        );
+
+        if (voiceId > 0) {
+          voiceIds.add(voiceId);
+          debugPrint('[ContainerService] ✅ Sequence step "${step.childName}" → voice $voiceId @ ${adjustedDelay}ms');
+        }
+      });
+
+      timers.add(timer);
+    }
+
+    // Store instance for tracking
+    final totalDuration = getSequenceDuration(container) / container.speed;
+    _activeSequences[instanceId] = _SequenceInstance(
+      containerId: containerId,
+      voiceIds: voiceIds,
+      timers: timers,
+      startTime: DateTime.now(),
+      endBehavior: container.endBehavior,
+      durationMs: totalDuration,
+      busId: busId,
+      context: context,
+    );
+
+    // Schedule end behavior handling
+    Timer(Duration(milliseconds: totalDuration.round()), () {
+      _handleSequenceEnd(instanceId);
+    });
+
+    debugPrint('[ContainerService] ✅ Sequence started (Dart Timer): ${container.name}, instance=$instanceId, steps=${container.steps.length}');
+    return instanceId;
+  }
+
+  /// Stop a running sequence (handles both Dart Timer and Rust tick modes)
+  void stopSequence(int instanceId) {
+    // P3A: Check if this is a Rust tick-based sequence
+    if (_activeRustSequences.containsKey(instanceId)) {
+      _stopRustSequence(instanceId, 'manual stop');
+      return;
+    }
+
+    // Dart Timer-based sequence
+    final instance = _activeSequences[instanceId];
+    if (instance == null) return;
+
+    // Cancel all pending timers
+    for (final timer in instance.timers) {
+      timer.cancel();
+    }
+
+    // Stop all playing voices
+    for (final voiceId in instance.voiceIds) {
+      AudioPlaybackService.instance.stopOneShotVoice(voiceId);
+    }
+
+    _activeSequences.remove(instanceId);
+    debugPrint('[ContainerService] Sequence $instanceId stopped (Dart Timer)');
+  }
+
+  /// Handle sequence end behavior (loop, hold, ping-pong)
+  void _handleSequenceEnd(int instanceId) {
+    final instance = _activeSequences[instanceId];
+    if (instance == null) return;
+
+    switch (instance.endBehavior) {
+      case SequenceEndBehavior.stop:
+        // Just clean up
+        _activeSequences.remove(instanceId);
+        debugPrint('[ContainerService] Sequence $instanceId ended (stop)');
+        break;
+
+      case SequenceEndBehavior.loop:
+        // Restart the sequence
+        _activeSequences.remove(instanceId);
+        triggerSequenceContainer(
+          instance.containerId,
+          busId: instance.busId,
+          context: instance.context,
+        );
+        debugPrint('[ContainerService] Sequence $instanceId looping');
+        break;
+
+      case SequenceEndBehavior.holdLast:
+        // Keep the last sound playing (handled by voice)
+        debugPrint('[ContainerService] Sequence $instanceId holding last');
+        break;
+
+      case SequenceEndBehavior.pingPong:
+        // TODO: Implement ping-pong (reverse step order)
+        _activeSequences.remove(instanceId);
+        debugPrint('[ContainerService] Sequence $instanceId ping-pong (not yet implemented)');
+        break;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUST SYNC — Sync containers to Rust for FFI evaluation
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sync a blend container to Rust
+  /// Call this when container is created or updated
+  bool syncBlendToRust(BlendContainer container) {
+    if (!_ffiAvailable) return false;
+
+    try {
+      final config = {
+        'id': container.id,
+        'name': container.name,
+        'enabled': container.enabled,
+        'curve': container.crossfadeCurve.index,
+        'rtpc_name': 'rtpc_${container.rtpcId}',
+        'children': container.children.map((c) => {
+          'id': c.id,
+          'name': c.name,
+          'audio_path': c.audioPath ?? '',
+          'rtpc_start': c.rtpcStart,
+          'rtpc_end': c.rtpcEnd,
+          'crossfade_width': c.crossfadeWidth,
+          'volume': 1.0,
+        }).toList(),
+      };
+
+      final rustId = _ffi!.containerCreateBlend(config);
+      if (rustId > 0) {
+        _blendRustIds[container.id] = rustId;
+        debugPrint('[ContainerService] ✅ Synced BlendContainer ${container.id} → Rust $rustId');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ContainerService] ❌ Failed to sync BlendContainer: $e');
+      return false;
+    }
+  }
+
+  /// Sync a random container to Rust
+  bool syncRandomToRust(RandomContainer container) {
+    if (!_ffiAvailable) return false;
+
+    try {
+      final config = {
+        'id': container.id,
+        'name': container.name,
+        'enabled': container.enabled,
+        'mode': container.mode.index,
+        'avoid_repeat': true,
+        'avoid_repeat_count': 1,
+        'global_pitch_min': container.globalPitchMin,
+        'global_pitch_max': container.globalPitchMax,
+        'global_volume_min': container.globalVolumeMin,
+        'global_volume_max': container.globalVolumeMax,
+        'children': container.children.map((c) => {
+          'id': c.id,
+          'name': c.name,
+          'audio_path': c.audioPath ?? '',
+          'weight': c.weight,
+          'pitch_min': c.pitchMin,
+          'pitch_max': c.pitchMax,
+          'volume_min': c.volumeMin,
+          'volume_max': c.volumeMax,
+        }).toList(),
+      };
+
+      final rustId = _ffi!.containerCreateRandom(config);
+      if (rustId > 0) {
+        _randomRustIds[container.id] = rustId;
+        debugPrint('[ContainerService] ✅ Synced RandomContainer ${container.id} → Rust $rustId');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ContainerService] ❌ Failed to sync RandomContainer: $e');
+      return false;
+    }
+  }
+
+  /// Sync a sequence container to Rust
+  bool syncSequenceToRust(SequenceContainer container) {
+    if (!_ffiAvailable) return false;
+
+    try {
+      final config = {
+        'id': container.id,
+        'name': container.name,
+        'enabled': container.enabled,
+        'end_behavior': container.endBehavior.index,
+        'speed': container.speed,
+        'steps': container.steps.asMap().entries.map((e) => {
+          'index': e.key,
+          'child_id': e.value.childId,
+          'child_name': e.value.childName,
+          'audio_path': e.value.audioPath ?? '',
+          'delay_ms': e.value.delayMs,
+          'duration_ms': e.value.durationMs,
+          'fade_in_ms': e.value.fadeInMs,
+          'fade_out_ms': e.value.fadeOutMs,
+          'loop_count': e.value.loopCount,
+          'volume': 1.0,
+        }).toList(),
+      };
+
+      final rustId = _ffi!.containerCreateSequence(config);
+      if (rustId > 0) {
+        _sequenceRustIds[container.id] = rustId;
+        debugPrint('[ContainerService] ✅ Synced SequenceContainer ${container.id} → Rust $rustId');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[ContainerService] ❌ Failed to sync SequenceContainer: $e');
+      return false;
+    }
+  }
+
+  /// Remove blend container from Rust
+  void unsyncBlendFromRust(int containerId) {
+    if (!_ffiAvailable) return;
+    final rustId = _blendRustIds.remove(containerId);
+    if (rustId != null) {
+      _ffi!.containerRemoveBlend(rustId);
+      debugPrint('[ContainerService] Removed BlendContainer $containerId from Rust');
+    }
+  }
+
+  /// Remove random container from Rust
+  void unsyncRandomFromRust(int containerId) {
+    if (!_ffiAvailable) return;
+    final rustId = _randomRustIds.remove(containerId);
+    if (rustId != null) {
+      _ffi!.containerRemoveRandom(rustId);
+      debugPrint('[ContainerService] Removed RandomContainer $containerId from Rust');
+    }
+  }
+
+  /// Remove sequence container from Rust
+  void unsyncSequenceFromRust(int containerId) {
+    if (!_ffiAvailable) return;
+    final rustId = _sequenceRustIds.remove(containerId);
+    if (rustId != null) {
+      _ffi!.containerRemoveSequence(rustId);
+      debugPrint('[ContainerService] Removed SequenceContainer $containerId from Rust');
+    }
+  }
+
+  /// Sync all containers from middleware to Rust
+  void syncAllToRust() {
+    if (!_ffiAvailable || _middleware == null) return;
+
+    // Clear existing Rust containers
+    _ffi!.containerClearAll();
+    _blendRustIds.clear();
+    _randomRustIds.clear();
+    _sequenceRustIds.clear();
+
+    // Sync all blend containers
+    for (final container in _middleware!.blendContainers) {
+      syncBlendToRust(container);
+    }
+
+    // Sync all random containers
+    for (final container in _middleware!.randomContainers) {
+      syncRandomToRust(container);
+    }
+
+    // Sync all sequence containers
+    for (final container in _middleware!.sequenceContainers) {
+      syncSequenceToRust(container);
+    }
+
+    debugPrint('[ContainerService] ✅ Synced all containers to Rust: ${_ffi!.containerGetTotalCount()} total');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // CLEANUP
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -231,11 +920,89 @@ class ContainerService {
   void resetState() {
     _roundRobinState.clear();
     _shuffleHistory.clear();
+
+    // Stop all active Dart Timer sequences
+    for (final instanceId in _activeSequences.keys.toList()) {
+      stopSequence(instanceId);
+    }
+
+    // P3A: Stop all active Rust tick-based sequences
+    for (final instanceId in _activeRustSequences.keys.toList()) {
+      _stopRustSequence(instanceId, 'reset');
+    }
   }
 
   /// Clear all data
   void clear() {
     resetState();
+
+    // Clear Rust containers
+    if (_ffiAvailable) {
+      _ffi!.containerClearAll();
+      _ffi!.containerShutdown();
+    }
+
+    _blendRustIds.clear();
+    _randomRustIds.clear();
+    _sequenceRustIds.clear();
     _middleware = null;
   }
+}
+
+// =============================================================================
+// SEQUENCE INSTANCE — Tracking active sequence playback
+// =============================================================================
+
+class _SequenceInstance {
+  final int containerId;
+  final List<int> voiceIds;
+  final List<Timer> timers;
+  final DateTime startTime;
+  final SequenceEndBehavior endBehavior;
+  final double durationMs;
+  final int busId;
+  final Map<String, dynamic>? context;
+
+  _SequenceInstance({
+    required this.containerId,
+    required this.voiceIds,
+    required this.timers,
+    required this.startTime,
+    required this.endBehavior,
+    required this.durationMs,
+    required this.busId,
+    this.context,
+  });
+}
+
+// =============================================================================
+// P3A: RUST TICK-BASED SEQUENCE INSTANCE
+// =============================================================================
+
+/// Instance for Rust tick-based sequence playback (P3A optimization)
+class _SequenceInstanceRust {
+  final int instanceId;
+  final int containerId;
+  final int rustId;
+  final SequenceContainer container;
+  final List<int> voiceIds;
+  final int busId;
+  final Map<String, dynamic>? context;
+
+  /// Timer for periodic tick calls (~60fps)
+  Timer? tickTimer;
+
+  /// Last tick timestamp for delta calculation
+  DateTime lastTickTime;
+
+  _SequenceInstanceRust({
+    required this.instanceId,
+    required this.containerId,
+    required this.rustId,
+    required this.container,
+    required this.voiceIds,
+    required this.busId,
+    required this.lastTickTime,
+    this.context,
+  });
 }

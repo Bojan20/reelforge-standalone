@@ -58,6 +58,7 @@ class MixerChannel {
   bool armed;         // Record arm
   bool monitorInput;  // Input monitoring
   bool phaseInverted; // Phase/polarity invert (Ø)
+  double inputGain;   // Input gain/trim in dB (-20 to +20)
 
   // Routing
   String? outputBus;  // Target bus ID (null = master)
@@ -93,6 +94,7 @@ class MixerChannel {
     this.armed = false,
     this.monitorInput = false,
     this.phaseInverted = false,
+    this.inputGain = 0.0,
     this.outputBus,
     this.inputSource,
     this.sends = const [],
@@ -133,6 +135,7 @@ class MixerChannel {
     bool? armed,
     bool? monitorInput,
     bool? phaseInverted,
+    double? inputGain,
     String? outputBus,
     String? inputSource,
     List<AuxSend>? sends,
@@ -160,6 +163,7 @@ class MixerChannel {
       armed: armed ?? this.armed,
       monitorInput: monitorInput ?? this.monitorInput,
       phaseInverted: phaseInverted ?? this.phaseInverted,
+      inputGain: inputGain ?? this.inputGain,
       outputBus: outputBus ?? this.outputBus,
       inputSource: inputSource ?? this.inputSource,
       sends: sends ?? this.sends,
@@ -1376,6 +1380,75 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[channelId] = channel.copyWith(sends: sends);
     notifyListeners();
+  }
+
+  /// Toggle aux send enabled state
+  void toggleAuxSendEnabled(String channelId, String auxId) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final sends = List<AuxSend>.from(channel.sends);
+    final existingIndex = sends.indexWhere((s) => s.auxId == auxId);
+
+    if (existingIndex >= 0) {
+      final current = sends[existingIndex];
+      sends[existingIndex] = current.copyWith(enabled: !current.enabled);
+      _channels[channelId] = channel.copyWith(sends: sends);
+      notifyListeners();
+    }
+  }
+
+  /// Toggle aux send pre/post fader
+  void toggleAuxSendPreFader(String channelId, String auxId) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final sends = List<AuxSend>.from(channel.sends);
+    final existingIndex = sends.indexWhere((s) => s.auxId == auxId);
+
+    if (existingIndex >= 0) {
+      final current = sends[existingIndex];
+      sends[existingIndex] = current.copyWith(preFader: !current.preFader);
+      _channels[channelId] = channel.copyWith(sends: sends);
+      notifyListeners();
+    }
+  }
+
+  /// Set aux send destination (change which aux bus it routes to)
+  void setAuxSendDestination(String channelId, int sendIndex, String newAuxId) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (sendIndex < 0 || sendIndex >= channel.sends.length) return;
+
+    final sends = List<AuxSend>.from(channel.sends);
+    final current = sends[sendIndex];
+    sends[sendIndex] = AuxSend(
+      auxId: newAuxId,
+      level: current.level,
+      preFader: current.preFader,
+      enabled: current.enabled,
+    );
+    _channels[channelId] = channel.copyWith(sends: sends);
+    notifyListeners();
+  }
+
+  /// Set input gain (trim) for a channel
+  void setInputGain(String channelId, double gain) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    // Clamp gain to reasonable range (-20dB to +20dB mapped as 0.1 to 10.0)
+    final clampedGain = gain.clamp(-20.0, 20.0);
+
+    // Convert dB to linear for FFI if needed
+    // final linearGain = pow(10.0, clampedGain / 20.0);
+
+    _channels[channelId] = channel.copyWith(inputGain: clampedGain);
+    notifyListeners();
+
+    // TODO: Send to FFI when input gain is implemented in engine
+    // final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+    // NativeFFI.instance.setTrackInputGain(trackId, linearGain);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

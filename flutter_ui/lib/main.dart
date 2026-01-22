@@ -57,6 +57,7 @@ import 'providers/slot_lab_provider.dart';
 import 'providers/ale_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/service_locator.dart';
+import 'services/lower_zone_persistence_service.dart';
 import 'src/rust/native_ffi.dart';
 
 void main() async {
@@ -64,6 +65,9 @@ void main() async {
 
   // Initialize dependency injection (GetIt)
   await ServiceLocator.init();
+
+  // Initialize Lower Zone persistence (SharedPreferences)
+  await LowerZonePersistenceService.instance.init();
 
   runApp(const FluxForgeApp());
 }

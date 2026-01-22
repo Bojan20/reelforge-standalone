@@ -84,6 +84,9 @@ pub mod stage_audio;
 // Phase 16: Middleware Integration
 pub mod middleware_integration;
 
+// Phase 17: Container System (Wwise/FMOD-style)
+pub mod containers;
+
 // Audio Preview Engine (dedicated one-shot playback for Slot Lab, audio browser, etc.)
 pub mod preview;
 
@@ -233,6 +236,22 @@ pub use stage_audio::{StageAudioEngine, StageCue};
 // Re-exports: Phase 16 - Middleware Integration
 pub use middleware_integration::{
     ActionExecutor, AssetRegistry, AudioAsset, MiddlewareAudioEngine,
+};
+
+// Re-exports: Phase 17 - Container System
+pub use containers::{
+    // Types
+    ContainerType, ContainerId, ChildId, Container,
+    // Blend
+    BlendContainer, BlendChild, BlendCurve, BlendResult,
+    // Random
+    RandomContainer, RandomChild, RandomMode, RandomResult, RandomVariation,
+    // Sequence
+    SequenceContainer, SequenceStep, SequenceEndBehavior, SequenceResult, SequenceState,
+    // Group (P3C)
+    ContainerGroup, GroupChild, GroupChildRef, GroupEvaluationMode, GroupResult,
+    // Storage
+    ContainerStorage,
 };
 
 // Re-exports: Freeze additions

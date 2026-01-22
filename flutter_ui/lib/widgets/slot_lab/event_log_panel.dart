@@ -37,6 +37,13 @@ class EventLogEntry {
   final Map<String, dynamic>? data;
   final bool isError;
 
+  /// Container integration - type of container used (if any)
+  final ContainerType? containerType;
+  /// Container integration - name of container used
+  final String? containerName;
+  /// Container integration - number of children/steps in container
+  final int? containerChildCount;
+
   EventLogEntry({
     required this.timestamp,
     required this.type,
@@ -44,7 +51,13 @@ class EventLogEntry {
     this.details,
     this.data,
     this.isError = false,
+    this.containerType,
+    this.containerName,
+    this.containerChildCount,
   });
+
+  /// Returns true if this entry used a container for playback
+  bool get usesContainer => containerType != null && containerType != ContainerType.none;
 
   String get formattedTime {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
@@ -217,6 +230,11 @@ class _EventLogPanelState extends State<EventLogPanel> {
         details = error;
       }
 
+      // Get container info if event used container
+      final containerType = eventRegistry.lastContainerType;
+      final containerName = eventRegistry.lastContainerName;
+      final containerChildCount = eventRegistry.lastContainerChildCount;
+
       _addEntry(EventLogEntry(
         timestamp: DateTime.now(),
         type: logType,
@@ -224,6 +242,9 @@ class _EventLogPanelState extends State<EventLogPanel> {
         details: details,
         data: {'triggerCount': currentTriggerCount, 'stage': stageName, 'event': eventName, 'layers': layers, 'success': success, 'error': error},
         isError: isError,
+        containerType: containerType != ContainerType.none ? containerType : null,
+        containerName: containerName,
+        containerChildCount: containerChildCount,
       ));
     }
 
@@ -764,6 +785,12 @@ class _EventLogPanelState extends State<EventLogPanel> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                // Container info — if event uses container
+                if (entry.usesContainer)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: _buildContainerBadge(entry),
+                  ),
               ],
             ),
           ),
@@ -781,6 +808,78 @@ class _EventLogPanelState extends State<EventLogPanel> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Build container type badge for log entry
+  Widget _buildContainerBadge(EventLogEntry entry) {
+    final containerType = entry.containerType;
+    if (containerType == null || containerType == ContainerType.none) {
+      return const SizedBox.shrink();
+    }
+
+    // Color based on container type
+    final Color badgeColor;
+    final IconData badgeIcon;
+    final String typeName;
+
+    switch (containerType) {
+      case ContainerType.blend:
+        badgeColor = Colors.purple;
+        badgeIcon = Icons.tune;
+        typeName = 'BLEND';
+        break;
+      case ContainerType.random:
+        badgeColor = Colors.amber;
+        badgeIcon = Icons.shuffle;
+        typeName = 'RANDOM';
+        break;
+      case ContainerType.sequence:
+        badgeColor = Colors.teal;
+        badgeIcon = Icons.list;
+        typeName = 'SEQ';
+        break;
+      case ContainerType.none:
+        return const SizedBox.shrink();
+    }
+
+    final childLabel = containerType == ContainerType.sequence ? 'steps' : 'children';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: badgeColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: badgeColor.withOpacity(0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(badgeIcon, size: 10, color: badgeColor),
+              const SizedBox(width: 3),
+              Text(
+                typeName,
+                style: TextStyle(
+                  color: badgeColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '${entry.containerName ?? "?"} (${entry.containerChildCount ?? 0} $childLabel)',
+          style: TextStyle(
+            color: badgeColor.withOpacity(0.7),
+            fontSize: 8,
+          ),
+        ),
+      ],
     );
   }
 

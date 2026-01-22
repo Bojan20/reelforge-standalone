@@ -5,10 +5,13 @@
 ///
 /// Blend containers automatically crossfade between child sounds based on
 /// an RTPC value. Example: Engine sounds crossfade based on RPM.
+///
+/// P2 Optimization: Syncs to Rust FFI for sub-millisecond evaluation.
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../../models/middleware_models.dart';
+import '../../services/container_service.dart';
 import '../../src/rust/native_ffi.dart';
 
 /// Provider for managing blend containers
@@ -61,6 +64,9 @@ class BlendContainersProvider extends ChangeNotifier {
     _containers[id] = container;
     _ffi.middlewareCreateBlendContainer(container);
 
+    // P2: Sync to Rust Container FFI for sub-ms evaluation
+    ContainerService.instance.syncBlendToRust(container);
+
     notifyListeners();
     return container;
   }
@@ -74,8 +80,11 @@ class BlendContainersProvider extends ChangeNotifier {
       _nextContainerId = container.id + 1;
     }
 
-    // Register with Rust
+    // Register with Rust middleware
     _ffi.middlewareCreateBlendContainer(container);
+
+    // P2: Sync to Container FFI
+    ContainerService.instance.syncBlendToRust(container);
 
     notifyListeners();
   }
@@ -86,9 +95,13 @@ class BlendContainersProvider extends ChangeNotifier {
 
     _containers[container.id] = container;
 
-    // Re-register with Rust
+    // Re-register with Rust middleware
     _ffi.middlewareRemoveBlendContainer(container.id);
     _ffi.middlewareCreateBlendContainer(container);
+
+    // P2: Re-sync to Container FFI
+    ContainerService.instance.unsyncBlendFromRust(container.id);
+    ContainerService.instance.syncBlendToRust(container);
 
     notifyListeners();
   }
@@ -97,6 +110,10 @@ class BlendContainersProvider extends ChangeNotifier {
   void removeContainer(int containerId) {
     _containers.remove(containerId);
     _ffi.middlewareRemoveBlendContainer(containerId);
+
+    // P2: Remove from Container FFI
+    ContainerService.instance.unsyncBlendFromRust(containerId);
+
     notifyListeners();
   }
 
@@ -159,6 +176,7 @@ class BlendContainersProvider extends ChangeNotifier {
     required double rtpcStart,
     required double rtpcEnd,
     double crossfadeWidth = 0.1,
+    String? audioPath,
   }) {
     final container = _containers[containerId];
     final nextId = (container?.children.length ?? 0) + 1;
@@ -166,10 +184,32 @@ class BlendContainersProvider extends ChangeNotifier {
     return BlendChild(
       id: nextId,
       name: name,
+      audioPath: audioPath,
       rtpcStart: rtpcStart,
       rtpcEnd: rtpcEnd,
       crossfadeWidth: crossfadeWidth,
     );
+  }
+
+  /// Update audio path for a specific child
+  void updateChildAudioPath(int containerId, int childId, String? audioPath) {
+    final container = _containers[containerId];
+    if (container == null) return;
+
+    final updatedChildren = container.children.map((c) {
+      if (c.id == childId) {
+        return c.copyWith(audioPath: audioPath);
+      }
+      return c;
+    }).toList();
+
+    _containers[containerId] = container.copyWith(children: updatedChildren);
+
+    // Re-register with Rust
+    _ffi.middlewareRemoveBlendContainer(containerId);
+    _ffi.middlewareCreateBlendContainer(_containers[containerId]!);
+
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

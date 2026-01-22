@@ -20,7 +20,8 @@ import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
 import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
 import '../widgets/layout/lower_zone_glass.dart' show LowerZoneGlass;
-import '../widgets/mixer/pro_daw_mixer.dart';
+import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
+import '../providers/mixer_provider.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/glass/glass_app_shell.dart';
 import '../widgets/glass/glass_control_bar.dart';
@@ -118,6 +119,11 @@ class MainLayout extends StatefulWidget {
   final String? activeLowerTabId;
   final ValueChanged<String>? onLowerTabChange;
 
+  /// Custom Lower Zone widget (replaces default LowerZone tabs system)
+  /// When provided, this widget is used instead of the generic tab-based LowerZone
+  /// Use this for section-specific Lower Zones (DAW, Middleware, SlotLab)
+  final Widget? customLowerZone;
+
   // Zone visibility (optional - uses internal state if not provided)
   final bool? leftZoneVisible;
   final bool? rightZoneVisible;
@@ -205,6 +211,7 @@ class MainLayout extends StatefulWidget {
     this.lowerTabGroups,
     this.activeLowerTabId,
     this.onLowerTabChange,
+    this.customLowerZone,
     // Zone visibility
     this.leftZoneVisible,
     this.rightZoneVisible,
@@ -596,19 +603,23 @@ class _MainLayoutState extends State<MainLayout>
                     ),
 
                     // Lower Zone
-                    LowerZone(
-                      collapsed: !_lowerVisible,
-                      tabs: widget.lowerTabs,
-                      tabGroups: widget.lowerTabGroups,
-                      activeTabId: widget.activeLowerTabId,
-                      onTabChange: widget.onLowerTabChange,
-                      onToggleCollapse: _toggleLower,
-                      height: _lowerZoneHeight,
-                      onHeightChange: (h) =>
-                          setState(() => _lowerZoneHeight = h),
-                      minHeight: 300,
-                      maxHeight: 500,
-                    ),
+                    // Use custom Lower Zone widget if provided, otherwise fall back to generic tabs
+                    if (_lowerVisible && widget.customLowerZone != null)
+                      widget.customLowerZone!
+                    else
+                      LowerZone(
+                        collapsed: !_lowerVisible,
+                        tabs: widget.lowerTabs,
+                        tabGroups: widget.lowerTabGroups,
+                        activeTabId: widget.activeLowerTabId,
+                        onTabChange: widget.onLowerTabChange,
+                        onToggleCollapse: _toggleLower,
+                        height: _lowerZoneHeight,
+                        onHeightChange: (h) =>
+                            setState(() => _lowerZoneHeight = h),
+                        minHeight: 300,
+                        maxHeight: 500,
+                      ),
                   ],
                 ),
               ),
@@ -882,8 +893,86 @@ class _DemoMainLayoutState extends State<DemoMainLayout> {
     );
   }
 
-  /// Build mixer content - uses ProDawMixer with MixerProvider
+  /// Build mixer content - uses UltimateMixer with MixerProvider
   Widget _buildMixerContent() {
-    return const ProDawMixer();
+    return Consumer<MixerProvider>(
+      builder: (context, mixerProvider, _) {
+        final channels = mixerProvider.channels.map((ch) {
+          return ultimate.UltimateMixerChannel(
+            id: ch.id,
+            name: ch.name,
+            type: ultimate.ChannelType.audio,
+            color: ch.color,
+            volume: ch.volume,
+            pan: ch.pan,
+            panRight: ch.panRight,
+            isStereo: ch.isStereo,
+            muted: ch.muted,
+            soloed: ch.soloed,
+            armed: ch.armed,
+            peakL: ch.peakL,
+            peakR: ch.peakR,
+            rmsL: ch.rmsL,
+            rmsR: ch.rmsR,
+          );
+        }).toList();
+
+        final buses = mixerProvider.buses.map((bus) {
+          return ultimate.UltimateMixerChannel(
+            id: bus.id,
+            name: bus.name,
+            type: ultimate.ChannelType.bus,
+            color: bus.color,
+            volume: bus.volume,
+            pan: bus.pan,
+            muted: bus.muted,
+            soloed: bus.soloed,
+            peakL: bus.peakL,
+            peakR: bus.peakR,
+          );
+        }).toList();
+
+        final auxes = mixerProvider.auxes.map((aux) {
+          return ultimate.UltimateMixerChannel(
+            id: aux.id,
+            name: aux.name,
+            type: ultimate.ChannelType.aux,
+            color: aux.color,
+            volume: aux.volume,
+            pan: aux.pan,
+            muted: aux.muted,
+            soloed: aux.soloed,
+            peakL: aux.peakL,
+            peakR: aux.peakR,
+          );
+        }).toList();
+
+        final master = ultimate.UltimateMixerChannel(
+          id: mixerProvider.master.id,
+          name: 'Master',
+          type: ultimate.ChannelType.master,
+          color: const Color(0xFFFF9040),
+          volume: mixerProvider.master.volume,
+          peakL: mixerProvider.master.peakL,
+          peakR: mixerProvider.master.peakR,
+        );
+
+        return ultimate.UltimateMixer(
+          channels: channels,
+          buses: buses,
+          auxes: auxes,
+          vcas: const [],
+          master: master,
+          showInserts: true,
+          showSends: true,
+          onVolumeChange: (id, volume) => mixerProvider.setChannelVolume(id, volume),
+          onPanChange: (id, pan) => mixerProvider.setChannelPan(id, pan),
+          onPanRightChange: (id, pan) => mixerProvider.setChannelPanRight(id, pan),
+          onMuteToggle: (id) => mixerProvider.toggleChannelMute(id),
+          onSoloToggle: (id) => mixerProvider.toggleChannelSolo(id),
+          onArmToggle: (id) => mixerProvider.toggleChannelArm(id),
+        );
+      },
+    );
   }
 }

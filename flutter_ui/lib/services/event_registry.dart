@@ -24,6 +24,7 @@ import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
 import 'audio_playback_service.dart';
 import 'audio_pool.dart';
+import 'container_service.dart';
 import 'ducking_service.dart';
 import 'rtpc_modulation_service.dart';
 import 'unified_playback_controller.dart';
@@ -77,6 +78,36 @@ class AudioLayer {
 }
 
 // =============================================================================
+// CONTAINER TYPE — Enum za tip kontejnera
+// =============================================================================
+
+/// Container type for AudioEvent delegation
+enum ContainerType {
+  none,      // Direct layer playback (default)
+  blend,     // BlendContainer — RTPC-based crossfade
+  random,    // RandomContainer — Weighted random selection
+  sequence,  // SequenceContainer — Timed sound sequence
+}
+
+extension ContainerTypeExtension on ContainerType {
+  String get displayName {
+    switch (this) {
+      case ContainerType.none: return 'None (Direct)';
+      case ContainerType.blend: return 'Blend Container';
+      case ContainerType.random: return 'Random Container';
+      case ContainerType.sequence: return 'Sequence Container';
+    }
+  }
+
+  int get value => index;
+
+  static ContainerType fromValue(int v) {
+    if (v < 0 || v >= ContainerType.values.length) return ContainerType.none;
+    return ContainerType.values[v];
+  }
+}
+
+// =============================================================================
 // AUDIO EVENT — Kompletna definicija zvučnog eventa
 // =============================================================================
 
@@ -89,6 +120,10 @@ class AudioEvent {
   final bool loop;
   final int priority; // Viši priority prekida niži
 
+  // Container integration fields
+  final ContainerType containerType;  // Type of container to use
+  final int? containerId;             // ID of the container (if using container)
+
   const AudioEvent({
     required this.id,
     required this.name,
@@ -97,7 +132,12 @@ class AudioEvent {
     this.duration = 0.0,
     this.loop = false,
     this.priority = 0,
+    this.containerType = ContainerType.none,
+    this.containerId,
   });
+
+  /// Returns true if this event uses a container instead of direct layers
+  bool get usesContainer => containerType != ContainerType.none && containerId != null;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -107,6 +147,8 @@ class AudioEvent {
     'duration': duration,
     'loop': loop,
     'priority': priority,
+    'containerType': containerType.value,
+    'containerId': containerId,
   };
 
   factory AudioEvent.fromJson(Map<String, dynamic> json) => AudioEvent(
@@ -119,7 +161,34 @@ class AudioEvent {
     duration: (json['duration'] as num?)?.toDouble() ?? 0.0,
     loop: json['loop'] as bool? ?? false,
     priority: json['priority'] as int? ?? 0,
+    containerType: ContainerTypeExtension.fromValue(json['containerType'] as int? ?? 0),
+    containerId: json['containerId'] as int?,
   );
+
+  /// Create a copy with modified fields
+  AudioEvent copyWith({
+    String? id,
+    String? name,
+    String? stage,
+    List<AudioLayer>? layers,
+    double? duration,
+    bool? loop,
+    int? priority,
+    ContainerType? containerType,
+    int? containerId,
+  }) {
+    return AudioEvent(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      stage: stage ?? this.stage,
+      layers: layers ?? this.layers,
+      duration: duration ?? this.duration,
+      loop: loop ?? this.loop,
+      priority: priority ?? this.priority,
+      containerType: containerType ?? this.containerType,
+      containerId: containerId ?? this.containerId,
+    );
+  }
 }
 
 // =============================================================================
@@ -257,11 +326,19 @@ class EventRegistry extends ChangeNotifier {
   List<String> _lastTriggeredLayers = [];
   bool _lastTriggerSuccess = false;
   String _lastTriggerError = '';
+  // Container info for last triggered event
+  ContainerType _lastContainerType = ContainerType.none;
+  String? _lastContainerName;
+  int _lastContainerChildCount = 0;
+
   String get lastTriggeredEventName => _lastTriggeredEventName;
   String get lastTriggeredStage => _lastTriggeredStage;
   List<String> get lastTriggeredLayers => _lastTriggeredLayers;
   bool get lastTriggerSuccess => _lastTriggerSuccess;
   String get lastTriggerError => _lastTriggerError;
+  ContainerType get lastContainerType => _lastContainerType;
+  String? get lastContainerName => _lastContainerName;
+  int get lastContainerChildCount => _lastContainerChildCount;
 
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
@@ -999,6 +1076,15 @@ class EventRegistry extends ChangeNotifier {
 
     _triggerCount++;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTAINER DELEGATION — Route to container playback if configured
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (event.usesContainer) {
+      await _triggerViaContainer(event, context);
+      notifyListeners();
+      return;
+    }
+
     // Store last triggered event info for Event Log display
     _lastTriggeredEventName = event.name;
     _lastTriggeredStage = event.stage;
@@ -1006,6 +1092,10 @@ class EventRegistry extends ChangeNotifier {
         .where((l) => l.audioPath.isNotEmpty)
         .map((l) => l.audioPath.split('/').last) // Just filename
         .toList();
+    // Reset container info (not using container for this event)
+    _lastContainerType = ContainerType.none;
+    _lastContainerName = null;
+    _lastContainerChildCount = 0;
 
     // Check if event has playable layers
     if (_lastTriggeredLayers.isEmpty) {
@@ -1051,6 +1141,96 @@ class EventRegistry extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONTAINER DELEGATION — Play via Blend/Random/Sequence containers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Route playback through container instead of direct layers
+  Future<void> _triggerViaContainer(AudioEvent event, Map<String, dynamic>? context) async {
+    final containerId = event.containerId;
+    if (containerId == null) {
+      debugPrint('[EventRegistry] ⚠️ Container event "${event.name}" has no containerId');
+      return;
+    }
+
+    // Determine bus from stage (use default bus 0 for container playback)
+    final busId = _stageToBus(event.stage, 0).index;
+    final containerService = ContainerService.instance;
+
+    // Update tracking for Event Log
+    _lastTriggeredEventName = event.name;
+    _lastTriggeredStage = event.stage;
+    _lastTriggerSuccess = true;
+    _lastTriggerError = '';
+    _lastContainerType = event.containerType;
+
+    switch (event.containerType) {
+      case ContainerType.blend:
+        // Get container info for logging
+        final blendContainer = containerService.getBlendContainer(containerId);
+        _lastContainerName = blendContainer?.name ?? 'Unknown';
+        _lastContainerChildCount = blendContainer?.children.length ?? 0;
+
+        final voiceIds = await containerService.triggerBlendContainer(
+          containerId,
+          busId: busId,
+          context: context,
+        );
+        _lastTriggeredLayers = ['blend:${voiceIds.length} children'];
+        if (voiceIds.isEmpty) {
+          _lastTriggerSuccess = false;
+          _lastTriggerError = 'No active blend children';
+        }
+        debugPrint('[EventRegistry] ✅ Blend container triggered: ${voiceIds.length} voices');
+        break;
+
+      case ContainerType.random:
+        // Get container info for logging
+        final randomContainer = containerService.getRandomContainer(containerId);
+        _lastContainerName = randomContainer?.name ?? 'Unknown';
+        _lastContainerChildCount = randomContainer?.children.length ?? 0;
+
+        final voiceId = await containerService.triggerRandomContainer(
+          containerId,
+          busId: busId,
+          context: context,
+        );
+        _lastTriggeredLayers = voiceId > 0 ? ['random:selected'] : [];
+        if (voiceId < 0) {
+          _lastTriggerSuccess = false;
+          _lastTriggerError = 'Random selection failed';
+        }
+        debugPrint('[EventRegistry] ✅ Random container triggered: voice $voiceId');
+        break;
+
+      case ContainerType.sequence:
+        // Get container info for logging
+        final seqContainer = containerService.getSequenceContainer(containerId);
+        _lastContainerName = seqContainer?.name ?? 'Unknown';
+        _lastContainerChildCount = seqContainer?.steps.length ?? 0;
+
+        final instanceId = await containerService.triggerSequenceContainer(
+          containerId,
+          busId: busId,
+          context: context,
+        );
+        _lastTriggeredLayers = instanceId > 0 ? ['sequence:instance $instanceId'] : [];
+        if (instanceId < 0) {
+          _lastTriggerSuccess = false;
+          _lastTriggerError = 'Sequence start failed';
+        }
+        debugPrint('[EventRegistry] ✅ Sequence container triggered: instance $instanceId');
+        break;
+
+      case ContainerType.none:
+        // Should not happen (usesContainer was true)
+        _lastContainerName = null;
+        _lastContainerChildCount = 0;
+        debugPrint('[EventRegistry] ⚠️ ContainerType.none but usesContainer was true');
+        break;
+    }
   }
 
   Future<void> _playLayer(

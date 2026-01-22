@@ -299,4 +299,24 @@ class UiUndoManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Get all undo actions (for history display, reversed - newest first)
+  List<UndoableAction> get undoHistory => _undoStack.reversed.toList();
+
+  /// Get all redo actions (for history display)
+  List<UndoableAction> get redoHistory => _redoStack.toList();
+
+  /// Current undo stack size
+  int get undoStackSize => _undoStack.length;
+
+  /// Current redo stack size
+  int get redoStackSize => _redoStack.length;
+
+  /// Undo to a specific point (undo multiple actions)
+  void undoTo(int index) {
+    // Index is in reversed order (0 = most recent)
+    final countToUndo = index + 1;
+    for (int i = 0; i < countToUndo && canUndo; i++) {
+      undo();
+    }
+  }
 }
