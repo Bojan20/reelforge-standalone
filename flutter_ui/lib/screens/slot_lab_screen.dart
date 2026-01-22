@@ -97,6 +97,7 @@ import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
 import '../providers/auto_event_builder_provider.dart';
 import '../models/auto_event_builder_models.dart' show AssetType, AudioAsset;
+import '../widgets/spatial/auto_spatial_panel.dart';
 import '../widgets/slot_lab/auto_event_builder/audio_browser_panel.dart' as aeb;
 import '../widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart';
 import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
@@ -270,6 +271,7 @@ enum _BottomPanelTab {
   commandBuilder,
   eventList,
   meters,
+  autoSpatial,
 }
 
 // =============================================================================
@@ -8022,6 +8024,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
                     _BottomPanelTab.commandBuilder => 'Command Builder',
                     _BottomPanelTab.eventList => 'Events',
                     _BottomPanelTab.meters => 'Meters',
+                    _BottomPanelTab.autoSpatial => 'AutoSpatial',
                   };
 
                   return InkWell(
@@ -8098,6 +8101,8 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         return _buildEventListContent();
       case _BottomPanelTab.meters:
         return _buildMetersContent();
+      case _BottomPanelTab.autoSpatial:
+        return const AutoSpatialPanel();
     }
   }
 

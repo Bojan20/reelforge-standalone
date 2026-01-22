@@ -49,6 +49,7 @@ pub mod middleware_ffi;
 mod playback;
 pub mod slot_lab_ffi;
 pub mod ale_ffi;
+pub mod auto_spatial_ffi;
 mod project;
 pub mod timestretch;
 mod transport;
@@ -318,3 +319,6 @@ pub use slot_lab_ffi::*;
 
 // Re-export ALE FFI
 pub use ale_ffi::*;
+
+// Re-export AutoSpatial FFI
+pub use auto_spatial_ffi::*;

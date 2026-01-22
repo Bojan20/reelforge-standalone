@@ -1570,6 +1570,51 @@ ale_set_tempo() / ale_set_time_signature()
 
 **Dokumentacija:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
 
+### AutoSpatial UI Panel (IMPLEMENTED) ✅ 2026-01-22
+
+UI-driven spatial audio positioning system sa kompletnim konfiguracijom panelom.
+
+**Filozofija:** UI Position + Intent + Motion → Intelligent Panning
+
+**Implementacija:**
+
+| Komponenta | Lokacija | LOC | Status |
+|------------|----------|-----|--------|
+| **Engine** | `flutter_ui/lib/spatial/auto_spatial.dart` | ~2296 | ✅ Done |
+| **Provider** | `flutter_ui/lib/providers/auto_spatial_provider.dart` | ~350 | ✅ Done |
+| **UI Widgets** | `flutter_ui/lib/widgets/spatial/` | ~3360 | ✅ Done |
+
+**Core Concepts:**
+
+| Koncept | Opis |
+|---------|------|
+| **IntentRule** | 30+ pravila za mapiranje intenta na spatial ponašanje |
+| **BusPolicy** | Per-bus spatial modifikatori (UI, reels, sfx, vo, music, ambience) |
+| **AnchorRegistry** | UI element position tracking u normalized screen space |
+| **FusionEngine** | Confidence-weighted kombinacija anchor/motion/intent signala |
+| **Kalman Filter** | Predictive smoothing za glatke tranzicije |
+
+**UI Panel Tabs:**
+
+| Tab | Widget | Opis |
+|-----|--------|------|
+| **Intent Rules** | `intent_rule_editor.dart` | CRUD za 30+ intent pravila, JSON export |
+| **Bus Policies** | `bus_policy_editor.dart` | 6 buseva, slider kontrole, visual preview |
+| **Anchors** | `anchor_monitor.dart` | Real-time anchor vizualizacija, test anchors |
+| **Stats & Config** | `spatial_stats_panel.dart` | Engine stats, toggles, listener position |
+| **Visualizer** | `spatial_event_visualizer.dart` | 2D radar, color-coded events, test buttons |
+
+**Shared Widgets:** `spatial_widgets.dart`
+- SpatialSlider, SpatialDropdown, SpatialToggle
+- SpatialMeter, SpatialPanMeter
+- SpatialSectionHeader, SpatialBadge
+
+**SlotLab Integration:**
+- Tab "AutoSpatial" u lower zone
+- Povezan sa EventRegistry preko `_stageToIntent()` (300+ mapiranja)
+
+**Dokumentacija:** `.claude/architecture/AUTO_SPATIAL_SYSTEM.md`
+
 ---
 
 ### Universal Stage Ingest System (PLANNED)

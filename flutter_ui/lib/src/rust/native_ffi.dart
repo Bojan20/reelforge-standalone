@@ -15917,4 +15917,322 @@ extension SlotLabFFI on NativeFFI {
       return false;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO SPATIAL ENGINE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize AutoSpatial engine
+  bool autoSpatialInit() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'auto_spatial_init',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[AutoSpatial] init error: $e');
+      return false;
+    }
+  }
+
+  /// Shutdown AutoSpatial engine
+  void autoSpatialShutdown() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'auto_spatial_shutdown',
+      );
+      fn();
+    } catch (e) {
+      print('[AutoSpatial] shutdown error: $e');
+    }
+  }
+
+  /// Check if AutoSpatial is initialized
+  bool autoSpatialIsInitialized() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'auto_spatial_is_initialized',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Start tracking a new spatial event
+  /// Returns event ID (>0) on success, 0 on failure
+  int autoSpatialStartEvent(String intent, double x, double y, double z, int busId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Pointer<Utf8>, Double, Double, Double, Uint8),
+          int Function(Pointer<Utf8>, double, double, double, int)
+      >('auto_spatial_start_event');
+
+      final intentPtr = intent.toNativeUtf8();
+      final result = fn(intentPtr, x, y, z, busId);
+      calloc.free(intentPtr);
+
+      return result;
+    } catch (e) {
+      print('[AutoSpatial] startEvent error: $e');
+      return 0;
+    }
+  }
+
+  /// Update event position
+  bool autoSpatialUpdateEvent(int eventId, double x, double y, double z) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint64, Double, Double, Double),
+          int Function(int, double, double, double)
+      >('auto_spatial_update_event');
+
+      return fn(eventId, x, y, z) == 1;
+    } catch (e) {
+      print('[AutoSpatial] updateEvent error: $e');
+      return false;
+    }
+  }
+
+  /// Stop tracking an event
+  bool autoSpatialStopEvent(int eventId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint64),
+          int Function(int)
+      >('auto_spatial_stop_event');
+
+      return fn(eventId) == 1;
+    } catch (e) {
+      print('[AutoSpatial] stopEvent error: $e');
+      return false;
+    }
+  }
+
+  /// Get spatial output for an event
+  /// Returns null if event not found
+  SpatialOutputData? autoSpatialGetOutput(int eventId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint64, Pointer<Double>),
+          int Function(int, Pointer<Double>)
+      >('auto_spatial_get_output');
+
+      // Allocate space for 8 doubles
+      final outPtr = calloc<Double>(8);
+      final result = fn(eventId, outPtr);
+
+      if (result != 1) {
+        calloc.free(outPtr);
+        return null;
+      }
+
+      final data = SpatialOutputData(
+        pan: outPtr[0],
+        width: outPtr[1],
+        distance: outPtr[2],
+        doppler: outPtr[3],
+        reverbSend: outPtr[4],
+        lpfCutoff: outPtr[5],
+        hrtfAzimuth: outPtr[6],
+        hrtfElevation: outPtr[7],
+      );
+
+      calloc.free(outPtr);
+      return data;
+    } catch (e) {
+      print('[AutoSpatial] getOutput error: $e');
+      return null;
+    }
+  }
+
+  /// Set listener position and rotation
+  void autoSpatialSetListener(double x, double y, double z, double rotation) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Double, Double, Double, Double),
+          void Function(double, double, double, double)
+      >('auto_spatial_set_listener');
+
+      fn(x, y, z, rotation);
+    } catch (e) {
+      print('[AutoSpatial] setListener error: $e');
+    }
+  }
+
+  /// Set global pan scale
+  void autoSpatialSetPanScale(double scale) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Double),
+          void Function(double)
+      >('auto_spatial_set_pan_scale');
+      fn(scale);
+    } catch (e) {
+      print('[AutoSpatial] setPanScale error: $e');
+    }
+  }
+
+  /// Set global width scale
+  void autoSpatialSetWidthScale(double scale) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Double),
+          void Function(double)
+      >('auto_spatial_set_width_scale');
+      fn(scale);
+    } catch (e) {
+      print('[AutoSpatial] setWidthScale error: $e');
+    }
+  }
+
+  /// Enable/disable Doppler effect
+  void autoSpatialSetDopplerEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int32),
+          void Function(int)
+      >('auto_spatial_set_doppler_enabled');
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[AutoSpatial] setDopplerEnabled error: $e');
+    }
+  }
+
+  /// Enable/disable HRTF
+  void autoSpatialSetHrtfEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int32),
+          void Function(int)
+      >('auto_spatial_set_hrtf_enabled');
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[AutoSpatial] setHrtfEnabled error: $e');
+    }
+  }
+
+  /// Enable/disable distance attenuation
+  void autoSpatialSetDistanceAttenEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int32),
+          void Function(int)
+      >('auto_spatial_set_distance_atten_enabled');
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[AutoSpatial] setDistanceAttenEnabled error: $e');
+    }
+  }
+
+  /// Enable/disable reverb
+  void autoSpatialSetReverbEnabled(bool enabled) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int32),
+          void Function(int)
+      >('auto_spatial_set_reverb_enabled');
+      fn(enabled ? 1 : 0);
+    } catch (e) {
+      print('[AutoSpatial] setReverbEnabled error: $e');
+    }
+  }
+
+  /// Update current time (call each frame)
+  void autoSpatialSetTime(int timeMs) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint64),
+          void Function(int)
+      >('auto_spatial_set_time');
+      fn(timeMs);
+    } catch (e) {
+      print('[AutoSpatial] setTime error: $e');
+    }
+  }
+
+  /// Tick the engine (predict all active trackers)
+  void autoSpatialTick(int dtMs) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint32),
+          void Function(int)
+      >('auto_spatial_tick');
+      fn(dtMs);
+    } catch (e) {
+      print('[AutoSpatial] tick error: $e');
+    }
+  }
+
+  /// Get statistics
+  NativeSpatialStats autoSpatialGetStats() {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Pointer<Uint32>, Pointer<Float>, Pointer<Uint64>, Pointer<Uint64>),
+          void Function(Pointer<Uint32>, Pointer<Float>, Pointer<Uint64>, Pointer<Uint64>)
+      >('auto_spatial_get_stats');
+
+      final activePtr = calloc<Uint32>();
+      final poolPtr = calloc<Float>();
+      final timePtr = calloc<Uint64>();
+      final droppedPtr = calloc<Uint64>();
+
+      fn(activePtr, poolPtr, timePtr, droppedPtr);
+
+      final stats = NativeSpatialStats(
+        activeEvents: activePtr.value,
+        poolUtilization: poolPtr.value,
+        processingTimeUs: timePtr.value,
+        droppedEvents: droppedPtr.value,
+      );
+
+      calloc.free(activePtr);
+      calloc.free(poolPtr);
+      calloc.free(timePtr);
+      calloc.free(droppedPtr);
+
+      return stats;
+    } catch (e) {
+      print('[AutoSpatial] getStats error: $e');
+      return const NativeSpatialStats();
+    }
+  }
+}
+
+/// Spatial output data from AutoSpatial engine
+class SpatialOutputData {
+  final double pan;
+  final double width;
+  final double distance;
+  final double doppler;
+  final double reverbSend;
+  final double lpfCutoff;
+  final double hrtfAzimuth;
+  final double hrtfElevation;
+
+  const SpatialOutputData({
+    this.pan = 0.0,
+    this.width = 1.0,
+    this.distance = 0.0,
+    this.doppler = 1.0,
+    this.reverbSend = 0.0,
+    this.lpfCutoff = 20000.0,
+    this.hrtfAzimuth = 0.0,
+    this.hrtfElevation = 0.0,
+  });
+}
+
+/// AutoSpatial engine statistics
+class NativeSpatialStats {
+  final int activeEvents;
+  final double poolUtilization;
+  final int processingTimeUs;
+  final int droppedEvents;
+
+  const NativeSpatialStats({
+    this.activeEvents = 0,
+    this.poolUtilization = 0.0,
+    this.processingTimeUs = 0,
+    this.droppedEvents = 0,
+  });
 }
