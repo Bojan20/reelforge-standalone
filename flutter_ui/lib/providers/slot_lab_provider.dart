@@ -107,6 +107,34 @@ class SlotLabProvider extends ChangeNotifier {
   List<Map<String, dynamic>> persistedTracks = [];
   Map<String, String> persistedEventToRegionMap = {};
 
+  // ─── Lower Zone Tab State (survives screen switches) ──────────────────────
+  /// Currently selected lower zone tab index (0=Timeline, 1=Command, 2=Events, 3=Meters)
+  int _persistedLowerZoneTabIndex = 1; // Default to Command Builder
+  /// Lower zone expanded state
+  bool _persistedLowerZoneExpanded = true;
+  /// Lower zone height
+  double _persistedLowerZoneHeight = 250.0;
+
+  int get persistedLowerZoneTabIndex => _persistedLowerZoneTabIndex;
+  bool get persistedLowerZoneExpanded => _persistedLowerZoneExpanded;
+  double get persistedLowerZoneHeight => _persistedLowerZoneHeight;
+
+  void setLowerZoneTabIndex(int index) {
+    debugPrint('[SlotLabProvider] setLowerZoneTabIndex: $index (was $_persistedLowerZoneTabIndex)');
+    if (_persistedLowerZoneTabIndex != index) {
+      _persistedLowerZoneTabIndex = index;
+      // Don't notify - this is just persistence, UI handles its own updates
+    }
+  }
+
+  void setLowerZoneExpanded(bool expanded) {
+    _persistedLowerZoneExpanded = expanded;
+  }
+
+  void setLowerZoneHeight(double height) {
+    _persistedLowerZoneHeight = height;
+  }
+
   // ─── Waveform Cache (survives screen switches) ────────────────────────────
   /// Cache of waveform data by audio path - persists across navigation
   final Map<String, List<double>> waveformCache = {};

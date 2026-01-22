@@ -96,6 +96,11 @@ import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
 import '../providers/auto_event_builder_provider.dart';
+import '../models/auto_event_builder_models.dart' show AssetType, AudioAsset;
+import '../widgets/slot_lab/auto_event_builder/audio_browser_panel.dart' as aeb;
+import '../widgets/slot_lab/auto_event_builder/droppable_slot_preview.dart';
+import '../widgets/slot_lab/auto_event_builder/drop_target_wrapper.dart';
+import '../models/auto_event_builder_models.dart';
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -593,6 +598,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   String _browserSearchQuery = '';
   String _selectedBrowserFolder = 'All';
 
+  // Auto Event Builder mode
+  bool _eventBuilderMode = false;
+  int _rightPanelTab = 0; // 0 = Events, 1 = Audio Browser (Auto Event Builder)
+
   // Preview panel
   bool _showPreviewPanel = true;
   String? _previewingAudioPath;
@@ -678,16 +687,21 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   // LIFECYCLE
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // Flag to prevent persist until restore is complete
+  bool _lowerZoneRestoreComplete = false;
+
   @override
   void initState() {
     super.initState();
 
     // Initialize Lower Zone Controller for unified bottom panel
+    // NOTE: Listener is added AFTER restore completes to prevent overwriting persisted state
     _lowerZoneController = LowerZoneController();
     _autoEventBuilderProvider = AutoEventBuilderProvider();
 
     _initializeTracks();
     _loadAudioPool();
+    _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider for AudioBrowserPanel
     _initializeSlotEngine();
     _restorePersistedState();
     _initWaveformCache();
@@ -758,17 +772,86 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider (+ EventRegistry + TrackManager)');
   }
 
+  /// Callback when LowerZoneController changes (persist tab state)
+  void _onLowerZoneChanged() {
+    debugPrint('[SlotLab] _onLowerZoneChanged: mounted=$mounted, hasProvider=$_hasSlotLabProvider, restoreComplete=$_lowerZoneRestoreComplete');
+    debugPrint('[SlotLab] _onLowerZoneChanged: activeTab=${_lowerZoneController.activeTab}');
+    // CRITICAL: Don't persist until restore is complete, otherwise we overwrite saved state
+    if (!mounted || !_hasSlotLabProvider || !_lowerZoneRestoreComplete) {
+      debugPrint('[SlotLab] _onLowerZoneChanged: SKIPPING persist (conditions not met)');
+      return;
+    }
+    // Persist lower zone state to provider (survives screen switches)
+    debugPrint('[SlotLab] _onLowerZoneChanged: PERSISTING tab=${_lowerZoneController.activeTab.index}');
+    _slotLabProvider.setLowerZoneTabIndex(_lowerZoneController.activeTab.index);
+    _slotLabProvider.setLowerZoneExpanded(_lowerZoneController.isExpanded);
+    _slotLabProvider.setLowerZoneHeight(_lowerZoneController.height);
+  }
+
+  /// Map LowerZoneTab (4 values) to _BottomPanelTab (13 values)
+  /// Returns null for tabs that don't have a direct mapping
+  _BottomPanelTab? _lowerZoneTabToBottomTab(LowerZoneTab tab) {
+    switch (tab) {
+      case LowerZoneTab.timeline:
+        return _BottomPanelTab.timeline;
+      case LowerZoneTab.commandBuilder:
+        return _BottomPanelTab.commandBuilder;
+      case LowerZoneTab.eventList:
+        return _BottomPanelTab.eventList;
+      case LowerZoneTab.meters:
+        return _BottomPanelTab.meters;
+    }
+  }
+
+  /// Map _BottomPanelTab to LowerZoneTab (only for the 4 persisted tabs)
+  /// Returns null for tabs that don't need persistence
+  LowerZoneTab? _bottomTabToLowerZoneTab(_BottomPanelTab tab) {
+    switch (tab) {
+      case _BottomPanelTab.timeline:
+        return LowerZoneTab.timeline;
+      case _BottomPanelTab.commandBuilder:
+        return LowerZoneTab.commandBuilder;
+      case _BottomPanelTab.eventList:
+        return LowerZoneTab.eventList;
+      case _BottomPanelTab.meters:
+        return LowerZoneTab.meters;
+      default:
+        return null; // Other tabs not persisted via LowerZoneController
+    }
+  }
+
+  /// Set bottom tab with persistence and LowerZoneController sync
+  void _setBottomTab(_BottomPanelTab tab) {
+    _selectedBottomTab = tab;
+    _bottomPanelCollapsed = false;
+
+    // Persist ALL tabs directly to provider (not just LowerZoneController's 4 tabs)
+    if (_hasSlotLabProvider && _lowerZoneRestoreComplete) {
+      debugPrint('[SlotLab] _setBottomTab: PERSISTING tab=${tab.index} (${tab.name})');
+      _slotLabProvider.setLowerZoneTabIndex(tab.index);
+      _slotLabProvider.setLowerZoneExpanded(true);
+    }
+
+    // Also sync to LowerZoneController for keyboard shortcuts (if applicable)
+    final lowerZoneTab = _bottomTabToLowerZoneTab(tab);
+    if (lowerZoneTab != null) {
+      _lowerZoneController.setTab(lowerZoneTab);
+    }
+  }
+
   /// Restore state from provider (survives screen switches)
   void _restorePersistedState() {
-    // Delay to ensure provider is initialized
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Poll until SlotLabProvider is available (set by _initializeSlotEngine)
+    void tryRestore() {
       if (!mounted) return;
-      // Wait a frame for _initializeSlotEngine to complete
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!mounted || !_hasSlotLabProvider) return;
+      if (_hasSlotLabProvider) {
         _doRestorePersistedState();
-      });
-    });
+      } else {
+        // Provider not ready yet, try again next frame
+        Future.delayed(const Duration(milliseconds: 16), tryRestore);
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => tryRestore());
   }
 
   /// Initialize waveform disk cache and restore any cached waveforms
@@ -809,8 +892,41 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
   }
 
   void _doRestorePersistedState() {
+    debugPrint('[SlotLab] ═══ _doRestorePersistedState CALLED ═══');
     try {
       final provider = _slotLabProvider;
+
+      // Restore lower zone tab state (survives screen switches)
+      // NOTE: We persist ALL 13 _BottomPanelTab values, not just the 4 LowerZoneTab values
+      final tabIndex = provider.persistedLowerZoneTabIndex;
+      debugPrint('[SlotLab] Provider persistedLowerZoneTabIndex=$tabIndex');
+      debugPrint('[SlotLab] Current _selectedBottomTab BEFORE restore: $_selectedBottomTab');
+
+      if (tabIndex >= 0 && tabIndex < _BottomPanelTab.values.length) {
+        // Directly restore _selectedBottomTab from persisted index
+        _selectedBottomTab = _BottomPanelTab.values[tabIndex];
+        _bottomPanelCollapsed = !provider.persistedLowerZoneExpanded;
+        _bottomPanelHeight = provider.persistedLowerZoneHeight;
+
+        debugPrint('[SlotLab] ✅ Restored _selectedBottomTab to $_selectedBottomTab (index=$tabIndex)');
+
+        // Also sync LowerZoneController for the 4 tabs it manages (for keyboard shortcuts)
+        final lowerZoneTab = _bottomTabToLowerZoneTab(_selectedBottomTab);
+        if (lowerZoneTab != null) {
+          _lowerZoneController.fromJson({
+            'activeTab': lowerZoneTab.index,
+            'isExpanded': provider.persistedLowerZoneExpanded,
+            'height': provider.persistedLowerZoneHeight,
+          });
+        }
+      } else {
+        debugPrint('[SlotLab] ⚠️ tabIndex $tabIndex out of range (max=${_BottomPanelTab.values.length - 1}), skipping restore');
+      }
+
+      // NOW add listener and set flag - after restore is complete
+      _lowerZoneRestoreComplete = true;
+      _lowerZoneController.addListener(_onLowerZoneChanged);
+      debugPrint('[SlotLab] ✅ Listener added, _lowerZoneRestoreComplete=true');
 
       // Restore audio pool
       if (provider.persistedAudioPool.isNotEmpty) {
@@ -1493,6 +1609,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             _audioPool.addAll(newEntries);
           });
           _persistState();
+          _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider
           debugPrint('[SlotLab] Batch added ${newEntries.length} files');
         }
       }
@@ -1549,6 +1666,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
             _audioPool.addAll(newEntries);
           });
           _persistState();
+          _syncAudioPoolToProvider(); // Sync to AutoEventBuilderProvider
         }
         debugPrint('[SlotLab] Added ${newEntries.length} files from folder');
       }
@@ -1595,6 +1713,44 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     });
 
     debugPrint('[SlotLab] Added to pool: $name - ${entry['folder']}');
+    _syncAudioPoolToProvider();
+  }
+
+  /// Convert folder name to AssetType
+  AssetType _folderToAssetType(String folder) {
+    switch (folder) {
+      case 'Music':
+        return AssetType.music;
+      case 'Voice':
+        return AssetType.vo;
+      case 'Ambience':
+        return AssetType.amb;
+      default:
+        return AssetType.sfx;
+    }
+  }
+
+  /// Sync _audioPool to AutoEventBuilderProvider so AudioBrowserPanel can display them
+  void _syncAudioPoolToProvider() {
+    final assets = _audioPool.map((entry) {
+      final path = entry['path'] as String? ?? '';
+      final name = entry['name'] as String? ?? path.split('/').last;
+      final folder = entry['folder'] as String? ?? 'SFX';
+      final duration = ((entry['duration'] as num?)?.toDouble() ?? 2.0) * 1000; // seconds to ms
+
+      return AudioAsset(
+        assetId: 'asset_${path.hashCode}',
+        path: path,
+        assetType: _folderToAssetType(folder),
+        durationMs: duration.toInt(),
+        tags: [folder.toLowerCase()],
+      );
+    }).toList();
+
+    // Replace all assets in provider
+    _autoEventBuilderProvider.clearAudioAssets();
+    _autoEventBuilderProvider.addAudioAssets(assets);
+    debugPrint('[SlotLab] Synced ${assets.length} assets to AutoEventBuilderProvider');
   }
 
   @override
@@ -1624,6 +1780,10 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     _dragCurrentOffsetNotifier.dispose();  // Dispose drag notifier
     _draggingLayerIdNotifier.dispose();    // Dispose drag ID notifier
     _disposeLayerPlayers(); // Dispose audio players
+    // Only remove listener if it was added (after restore)
+    if (_lowerZoneRestoreComplete) {
+      _lowerZoneController.removeListener(_onLowerZoneChanged);
+    }
     _lowerZoneController.dispose();  // Dispose lower zone controller
     _autoEventBuilderProvider.dispose();  // Dispose auto event builder provider
     super.dispose();
@@ -1705,7 +1865,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<LowerZoneController>.value(value: _lowerZoneController),
-        ChangeNotifierProvider<AutoEventBuilderProvider>(create: (_) => AutoEventBuilderProvider()),
+        ChangeNotifierProvider<AutoEventBuilderProvider>.value(value: _autoEventBuilderProvider),
       ],
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -2115,46 +2275,31 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
     if (isCtrlShift) {
       // Ctrl+Shift+C = Command Builder tab
       if (key == LogicalKeyboardKey.keyC) {
-        setState(() {
-          _selectedBottomTab = _BottomPanelTab.commandBuilder;
-          _bottomPanelCollapsed = false;
-        });
+        setState(() => _setBottomTab(_BottomPanelTab.commandBuilder));
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+E = Events tab
       if (key == LogicalKeyboardKey.keyE) {
-        setState(() {
-          _selectedBottomTab = _BottomPanelTab.eventList;
-          _bottomPanelCollapsed = false;
-        });
+        setState(() => _setBottomTab(_BottomPanelTab.eventList));
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+M = Meters tab
       if (key == LogicalKeyboardKey.keyM) {
-        setState(() {
-          _selectedBottomTab = _BottomPanelTab.meters;
-          _bottomPanelCollapsed = false;
-        });
+        setState(() => _setBottomTab(_BottomPanelTab.meters));
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+T = Timeline tab
       if (key == LogicalKeyboardKey.keyT) {
-        setState(() {
-          _selectedBottomTab = _BottomPanelTab.timeline;
-          _bottomPanelCollapsed = false;
-        });
+        setState(() => _setBottomTab(_BottomPanelTab.timeline));
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+L = Event Log tab
       if (key == LogicalKeyboardKey.keyL) {
-        setState(() {
-          _selectedBottomTab = _BottomPanelTab.eventLog;
-          _bottomPanelCollapsed = false;
-        });
+        setState(() => _setBottomTab(_BottomPanelTab.eventLog));
         return KeyEventResult.handled;
       }
     }
@@ -5395,24 +5540,30 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       child: Row(
         children: [
           // Premium Slot Preview Widget - fills available space
+          // Wrap with droppable when in event builder mode
           Expanded(
-            child: GlassSlotPreviewWrapper(
-              isSpinning: _isSpinning,
-              hasWin: _slotLabProvider.lastResult?.isWin ?? false,
-              child: SlotPreviewWidget(
-                provider: _slotLabProvider,
-                reels: _reelCount,
-                rows: _rowCount,
-              ),
-            ),
+            child: _eventBuilderMode
+                ? _buildDroppableSlotPreview()
+                : GlassSlotPreviewWrapper(
+                    isSpinning: _isSpinning,
+                    hasWin: _slotLabProvider.lastResult?.isWin ?? false,
+                    child: SlotPreviewWidget(
+                      provider: _slotLabProvider,
+                      reels: _reelCount,
+                      rows: _rowCount,
+                    ),
+                  ),
           ),
-          // Compact Controls
+          // Compact Controls + Event Builder Toggle
           Container(
             width: 90,
             padding: const EdgeInsets.all(4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Event Builder Mode Toggle
+                _buildModeToggle(),
+                const SizedBox(height: 8),
                 _buildSlotButton('SPIN', const Color(0xFF40FF90), _handleSpin),
                 const SizedBox(height: 4),
                 if (_engineInitialized) ...[
@@ -5434,6 +5585,193 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
         ],
       ),
     );
+  }
+
+  /// Toggle button for Event Builder mode
+  Widget _buildModeToggle() {
+    return GestureDetector(
+      onTap: () => setState(() => _eventBuilderMode = !_eventBuilderMode),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _eventBuilderMode
+                ? [const Color(0xFF9333EA), const Color(0xFF7C3AED)]
+                : [const Color(0xFF2A2A35), const Color(0xFF1A1A22)],
+          ),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: _eventBuilderMode
+                ? const Color(0xFFAB7EF6)
+                : Colors.white.withOpacity(0.2),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _eventBuilderMode ? Icons.edit : Icons.edit_off,
+              size: 12,
+              color: _eventBuilderMode ? Colors.white : Colors.white54,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'DROP',
+              style: TextStyle(
+                color: _eventBuilderMode ? Colors.white : Colors.white54,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Droppable Slot Preview - Active in Event Builder mode
+  Widget _buildDroppableSlotPreview() {
+    return GlassSlotPreviewWrapper(
+      isSpinning: _isSpinning,
+      hasWin: _slotLabProvider.lastResult?.isWin ?? false,
+      child: Stack(
+        children: [
+          // Base slot preview with reel drop zones
+          DroppableReelFrame(
+            reelCount: _reelCount,
+            onSurfaceEventCreated: (event) => _onEventBuilderEventCreated(event, 'reel.surface'),
+            onReelEventCreated: (reelIndex, event) => _onEventBuilderEventCreated(event, 'reel.$reelIndex'),
+            child: SlotPreviewWidget(
+              provider: _slotLabProvider,
+              reels: _reelCount,
+              rows: _rowCount,
+            ),
+          ),
+
+          // Overlay drop zones (positioned at corners/edges)
+          Positioned(
+            top: 4,
+            left: 4,
+            right: 4,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Jackpot drop zones
+                _buildMiniDropZone('MINI', 'overlay.jackpot.mini', const Color(0xFF4CAF50)),
+                _buildMiniDropZone('MINOR', 'overlay.jackpot.minor', const Color(0xFF8B5CF6)),
+                _buildMiniDropZone('MAJOR', 'overlay.jackpot.major', const Color(0xFFFF4080)),
+                _buildMiniDropZone('GRAND', 'overlay.jackpot.grand', const Color(0xFFFFD700)),
+              ],
+            ),
+          ),
+
+          // Win overlay drop zones (bottom)
+          Positioned(
+            bottom: 4,
+            left: 4,
+            right: 4,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildMiniDropZone('WIN', 'overlay.win.small', const Color(0xFF40C8FF)),
+                _buildMiniDropZone('BIG', 'overlay.win.big', const Color(0xFF40FF90)),
+                _buildMiniDropZone('MEGA', 'overlay.win.mega', const Color(0xFFFFD700)),
+                _buildMiniDropZone('EPIC', 'overlay.win.epic', const Color(0xFFE040FB)),
+              ],
+            ),
+          ),
+
+          // Event count summary (top right)
+          const Positioned(
+            top: 30,
+            right: 4,
+            child: SlotDropZoneSummary(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Mini drop zone badge for compact overlay zones
+  Widget _buildMiniDropZone(String label, String targetId, Color color) {
+    return Consumer<AutoEventBuilderProvider>(
+      builder: (context, provider, _) {
+        final count = provider.getEventCountForTarget(targetId);
+        final target = DropTarget(
+          targetId: targetId,
+          targetType: targetId.contains('jackpot') ? TargetType.overlay : TargetType.overlay,
+          stageContext: StageContext.global,
+        );
+
+        return DropTargetWrapper(
+          target: target,
+          showBadge: false,
+          glowColor: color,
+          onEventCreated: (event) => _onEventBuilderEventCreated(event, targetId),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: count > 0
+                  ? color.withOpacity(0.3)
+                  : Colors.black.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: count > 0 ? color : color.withOpacity(0.4),
+                width: count > 0 ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: count > 0 ? Colors.white : color,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Callback when event is created via drag-drop in Event Builder mode
+  void _onEventBuilderEventCreated(CommittedEvent event, String targetId) {
+    debugPrint('[SlotLab] Event Builder: Created event ${event.eventId} for $targetId');
+
+    // Show feedback
+    setState(() {
+      _lastDragStatus = '✅ Event created: ${event.eventId}';
+      _lastDragStatusTime = DateTime.now();
+    });
+
+    // The AutoEventBuilderProvider already handles the event creation
+    // EventRegistry sync can be added later if needed
   }
 
   Widget _buildReel(int reelIndex) {
@@ -5836,24 +6174,283 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       ),
       child: Column(
         children: [
-          // Composite Events
+          // Tab Header for Event Builder mode
+          if (_eventBuilderMode) _buildRightPanelTabs(),
+
+          // Content based on mode/tab
           Expanded(
-            flex: 2,
-            child: _buildCompositeEventsPanel(),
+            child: _eventBuilderMode
+                ? _buildEventBuilderRightContent()
+                : Column(
+                    children: [
+                      // Composite Events
+                      Expanded(
+                        flex: 2,
+                        child: _buildCompositeEventsPanel(),
+                      ),
+                      const Divider(color: Color(0xFF2A2A35), height: 1),
+                      // Audio Browser
+                      if (_showAudioBrowser)
+                        Expanded(
+                          flex: 3,
+                          child: _buildAudioBrowser(),
+                        ),
+                    ],
+                  ),
           ),
-
-          const Divider(color: Color(0xFF2A2A35), height: 1),
-
-          // Audio Browser
-          if (_showAudioBrowser)
-            Expanded(
-              flex: 3,
-              child: _buildAudioBrowser(),
-            ),
         ],
       ),
     );
   }
+
+  /// Tab selector for Event Builder mode
+  Widget _buildRightPanelTabs() {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A22),
+        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Row(
+        children: [
+          _buildTabButton('Events', 0, Icons.event_note),
+          _buildTabButton('Assets', 1, Icons.folder_open),
+          _buildTabButton('Symbols', 2, Icons.apps),
+          _buildTabButton('Music', 3, Icons.music_note),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, int index, IconData icon) {
+    final isSelected = _rightPanelTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _rightPanelTab = index),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF9333EA).withOpacity(0.2) : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? const Color(0xFF9333EA) : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? const Color(0xFFAB7EF6) : Colors.white38,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? const Color(0xFFAB7EF6) : Colors.white38,
+                  fontSize: 9,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Content for Event Builder mode right panel
+  Widget _buildEventBuilderRightContent() {
+    switch (_rightPanelTab) {
+      case 0:
+        // Events tab - shows committed events from AutoEventBuilderProvider
+        return _buildAutoEventsList();
+      case 1:
+        // Assets tab - AudioBrowserPanel for drag-drop
+        return aeb.AudioBrowserPanel(
+          isExpanded: true,
+        );
+      case 2:
+        // Symbols tab - Symbol drop zones
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            children: [
+              _buildPanelHeader('SYMBOL AUDIO', Icons.apps),
+              const SizedBox(height: 8),
+              SymbolZonePanel(
+                onSymbolEventCreated: (symbolType, event) {
+                  _onEventBuilderEventCreated(event, 'symbol.$symbolType');
+                },
+              ),
+            ],
+          ),
+        );
+      case 3:
+        // Music tab - Music zone drop zones
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            children: [
+              _buildPanelHeader('BACKGROUND MUSIC', Icons.music_note),
+              const SizedBox(height: 8),
+              MusicZonePanel(
+                onMusicEventCreated: (musicContext, event) {
+                  _onEventBuilderEventCreated(event, 'music.$musicContext');
+                },
+              ),
+            ],
+          ),
+        );
+      default:
+        return _buildAutoEventsList();
+    }
+  }
+
+  /// List of committed events from AutoEventBuilderProvider
+  Widget _buildAutoEventsList() {
+    return Consumer<AutoEventBuilderProvider>(
+      builder: (context, provider, _) {
+        final events = provider.events;
+        return Column(
+          children: [
+            _buildPanelHeader('AUTO EVENTS', Icons.event_note),
+            Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A22),
+                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${events.length} events',
+                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  ),
+                  const Spacer(),
+                  if (events.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        // Export to EventRegistry (global instance from event_registry.dart)
+                        for (final event in events) {
+                          // TODO: Convert CommittedEvent to AudioEvent for registry
+                          debugPrint('[SlotLab] Would export: ${event.eventId}');
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF40FF90).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: const Text(
+                          'Export',
+                          style: TextStyle(color: Color(0xFF40FF90), fontSize: 9),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: events.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.touch_app, size: 32, color: Colors.white.withOpacity(0.2)),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No events yet',
+                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Drag assets to drop zones',
+                            style: TextStyle(color: Colors.white24, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: events.length,
+                      itemBuilder: (context, index) => _buildAutoEventItem(events[index]),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Single auto event item display
+  Widget _buildAutoEventItem(CommittedEvent event) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A22),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _getIntentColor(event.intent),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.eventId,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  event.intent,
+                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 14, color: Colors.white24),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            onPressed: () {
+              context.read<AutoEventBuilderProvider>().deleteEvent(event.eventId);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getIntentColor(String intent) {
+    if (intent.contains('reel')) return FluxForgeTheme.accentOrange;
+    if (intent.contains('ui')) return FluxForgeTheme.accentBlue;
+    if (intent.contains('win') || intent.contains('jackpot')) return const Color(0xFFFFD700);
+    if (intent.contains('symbol')) return FluxForgeTheme.accentGreen;
+    if (intent.contains('music')) return const Color(0xFF9333EA);
+    return FluxForgeTheme.accentCyan;
+  }
+
 
   Widget _buildCompositeEventsPanel() {
     // Use Consumer to ensure we always get fresh data from MiddlewareProvider
@@ -7404,54 +8001,57 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
               ),
             ),
           ),
-          // Tabs
-          ..._BottomPanelTab.values.map((tab) {
-            final isSelected = _selectedBottomTab == tab;
-            final label = switch (tab) {
-              _BottomPanelTab.timeline => 'Timeline',
-              _BottomPanelTab.busHierarchy => 'Bus Hierarchy',
-              _BottomPanelTab.profiler => 'Profiler',
-              _BottomPanelTab.rtpc => 'RTPC',
-              _BottomPanelTab.resources => 'Resources',
-              _BottomPanelTab.auxSends => 'Aux Sends',
-              _BottomPanelTab.eventLog => 'Event Log',
-              _BottomPanelTab.gameModel => 'Game Model',
-              _BottomPanelTab.scenarios => 'Scenarios',
-              _BottomPanelTab.gddImport => 'GDD Import',
-              _BottomPanelTab.commandBuilder => 'Command Builder',
-              _BottomPanelTab.eventList => 'Events',
-              _BottomPanelTab.meters => 'Meters',
-            };
+          // Tabs with horizontal scroll
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _BottomPanelTab.values.map((tab) {
+                  final isSelected = _selectedBottomTab == tab;
+                  final label = switch (tab) {
+                    _BottomPanelTab.timeline => 'Timeline',
+                    _BottomPanelTab.busHierarchy => 'Bus Hierarchy',
+                    _BottomPanelTab.profiler => 'Profiler',
+                    _BottomPanelTab.rtpc => 'RTPC',
+                    _BottomPanelTab.resources => 'Resources',
+                    _BottomPanelTab.auxSends => 'Aux Sends',
+                    _BottomPanelTab.eventLog => 'Event Log',
+                    _BottomPanelTab.gameModel => 'Game Model',
+                    _BottomPanelTab.scenarios => 'Scenarios',
+                    _BottomPanelTab.gddImport => 'GDD Import',
+                    _BottomPanelTab.commandBuilder => 'Command Builder',
+                    _BottomPanelTab.eventList => 'Events',
+                    _BottomPanelTab.meters => 'Meters',
+                  };
 
-            return InkWell(
-              onTap: () => setState(() {
-                _selectedBottomTab = tab;
-                _bottomPanelCollapsed = false;
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isSelected ? FluxForgeTheme.accentBlue : Colors.transparent,
-                      width: 2,
+                  return InkWell(
+                    onTap: () => setState(() => _setBottomTab(tab)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: isSelected ? FluxForgeTheme.accentBlue : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white54,
+                            fontSize: 10,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white54,
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                ),
+                  );
+                }).toList(),
               ),
-            );
-          }),
-          const Spacer(),
+            ),
+          ),
         ],
       ),
     );
@@ -7578,7 +8178,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       onModelChanged: (model) {
         _slotLabProvider.updateGameModel(model);
       },
-      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
     );
   }
 
@@ -7590,7 +8190,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
       onScenarioChanged: (scenario) {
         _slotLabProvider.registerScenarioFromDemoScenario(scenario);
       },
-      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
     );
   }
 
@@ -7605,7 +8205,7 @@ class _SlotLabScreenState extends State<SlotLabScreen> with TickerProviderStateM
           ),
         );
       },
-      onClose: () => setState(() => _selectedBottomTab = _BottomPanelTab.timeline),
+      onClose: () => setState(() => _setBottomTab(_BottomPanelTab.timeline)),
     );
   }
 

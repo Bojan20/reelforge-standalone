@@ -149,6 +149,17 @@ class LowerZoneController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set tab directly without toggle logic (for restore/sync purposes)
+  ///
+  /// Unlike [switchTo], this does NOT toggle collapse when clicking the active tab.
+  /// Use this when syncing from external state.
+  void setTab(LowerZoneTab tab) {
+    if (_activeTab != tab) {
+      _activeTab = tab;
+      notifyListeners();
+    }
+  }
+
   /// Toggle expand/collapse state
   void toggle() {
     _isExpanded = !_isExpanded;

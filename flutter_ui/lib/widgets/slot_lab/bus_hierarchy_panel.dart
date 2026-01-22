@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/slot_audio_events.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// Bus node in the hierarchy
 class _BusNode {
@@ -112,6 +113,8 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel> with SingleTicker
     ),
   ];
 
+  final _ffi = NativeFFI.instance;
+
   @override
   void initState() {
     super.initState();
@@ -120,7 +123,7 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel> with SingleTicker
       duration: const Duration(milliseconds: 50),
     )..repeat();
 
-    // Simulate meter activity
+    // Update meters from real engine data
     _meterController.addListener(_updateMeters);
   }
 
@@ -132,16 +135,39 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel> with SingleTicker
   }
 
   void _updateMeters() {
+    if (!_ffi.isLoaded) {
+      // FFI not loaded - show zeros (no fake data)
+      setState(() {
+        for (final bus in _buses) {
+          bus.meterLevel = 0.0;
+          bus.meterPeak = (bus.meterPeak - 0.02).clamp(0.0, 1.0); // Decay peak
+        }
+      });
+      return;
+    }
+
     setState(() {
+      // Get real peak meters from engine (master bus)
+      final (peakL, peakR) = _ffi.getPeakMeters();
+      final masterLevel = ((peakL.abs() + peakR.abs()) / 2.0).clamp(0.0, 1.0);
+
       for (final bus in _buses) {
-        // Simulate meter movement
-        bus.meterLevel = (bus.meterLevel + (0.5 - bus.meterLevel) * 0.1 +
-            (DateTime.now().millisecondsSinceEpoch % 100) / 1000 * 0.2)
-            .clamp(0.0, 1.0);
+        // Master bus gets actual level, others get proportional based on their volume
+        if (bus.id == SlotBusIds.master) {
+          bus.meterLevel = masterLevel;
+        } else {
+          // Sub-buses show proportional level (real per-bus metering would need dedicated FFI)
+          // When no audio, show 0; when audio playing, show scaled level
+          bus.meterLevel = masterLevel > 0.001
+              ? (masterLevel * bus.volume * 0.8).clamp(0.0, 1.0)
+              : 0.0;
+        }
+
+        // Update peak hold
         if (bus.meterLevel > bus.meterPeak) {
           bus.meterPeak = bus.meterLevel;
         } else {
-          bus.meterPeak = (bus.meterPeak - 0.01).clamp(0.0, 1.0);
+          bus.meterPeak = (bus.meterPeak - 0.01).clamp(0.0, 1.0); // Natural decay
         }
       }
     });
